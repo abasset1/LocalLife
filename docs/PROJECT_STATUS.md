@@ -3,7 +3,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.1.0
-**Dernière mise à jour :** 2026-08-03
+**Dernière mise à jour :** 2026-08-04
 
 ---
 
@@ -34,7 +34,7 @@ Le développement n'a pas encore commencé.
 | Modèle de données          | ✅ Terminé    |
 | API MVP                    | ✅ Terminé    |
 | Repository                 | ✅ Initialisé |
-| Développement Backend      | ⏳ À faire    |
+| Développement Backend      | 🟡 En cours   |
 | Développement Frontend     | ⏳ À faire    |
 | Collecteurs                | ⏳ À faire    |
 | Infrastructure             | ⏳ À faire    |
@@ -93,11 +93,16 @@ Ordre recommandé :
 
 # Sprint en cours
 
-Aucun.
-
-Le prochain sprint est :
-
 ## Sprint 0
+
+Statut : 🟡 En cours.
+
+Tickets terminés :
+
+* LL-0001 — Initialiser le projet Spring Boot ✅
+* LL-0002 — Créer l'arborescence backend ✅
+
+Prochain ticket : LL-0003 — Configurer les profils Spring.
 
 Objectif :
 
@@ -148,4 +153,4 @@ Une tâche est considérée comme terminée lorsque :
 
 # Prochaine action
 
-Créer le Sprint 0 et démarrer le développement du backend.
+Traiter LL-0003 — Configurer les profils Spring (local, dev, test, prod).
