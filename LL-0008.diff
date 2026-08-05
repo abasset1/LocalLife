@@ -1,0 +1,17 @@
+diff --git a/backend/pom.xml b/backend/pom.xml
+index 6f72e72..acf116c 100644
+--- a/backend/pom.xml
++++ b/backend/pom.xml
+@@ -53,6 +53,12 @@
+             <artifactId>spring-boot-starter-actuator</artifactId>
+         </dependency>
+ 
++        <dependency>
++            <groupId>org.springdoc</groupId>
++            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
++            <version>3.1.0</version>
++        </dependency>
++
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-starter-test</artifactId>

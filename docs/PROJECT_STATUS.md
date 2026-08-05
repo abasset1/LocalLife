@@ -106,8 +106,9 @@ Tickets terminés :
 * LL-0005 — Configuration PostgreSQL (datasource, profil local) ✅
 * LL-0006 — Installer Flyway (première migration vide) ✅ (exécution automatique à valider par toi)
 * LL-0007 — Actuator (health, info) ✅
+* LL-0008 — OpenAPI (Swagger) ✅ (accessibilité à valider par toi)
 
-Prochain ticket : LL-0008 — OpenAPI.
+Prochain ticket : LL-0009 — Qualité de code (Spotless, Checkstyle).
 
 Objectif :
 
@@ -158,4 +159,4 @@ Une tâche est considérée comme terminée lorsque :
 
 # Prochaine action
 
-Traiter LL-0008 — OpenAPI (Swagger).
+Traiter LL-0009 — Qualité de code (Spotless, Checkstyle).
