@@ -4,19 +4,18 @@ Le cadrage fonctionnel et technique est terminé.
 
 Sprint 0 démarré.
 
-Tickets terminés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée), LL-0003 (profils Spring configurés : local, dev, test, prod — démarrage à valider), LL-0004 (Docker Compose PostgreSQL/PostGIS créé — lancement à valider), LL-0005 (datasource PostgreSQL configurée sur le profil local), LL-0006 (Flyway installé, première migration vide — exécution automatique à valider).
+Tickets terminés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée), LL-0003 (profils Spring configurés : local, dev, test, prod — démarrage à valider), LL-0004 (Docker Compose PostgreSQL/PostGIS créé — lancement à valider), LL-0005 (datasource PostgreSQL configurée sur le profil local), LL-0006 (Flyway installé, première migration vide — exécution automatique à valider), LL-0007 (Actuator health/info exposés).
 
 Aucun développement métier n'a encore commencé.
 
 Prochaine tâche
 
-Traiter LL-0007 — Actuator.
+Traiter LL-0008 — OpenAPI.
 
 Objectifs :
 
-Ajouter Health
-Ajouter Info
-Configurer correctement
+Installer Swagger
+Vérifier que la documentation est accessible
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.
 Conserver une architecture monolithique modulaire.
