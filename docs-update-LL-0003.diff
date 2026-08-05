@@ -1,0 +1,49 @@
+diff --git a/docs/NEXT_TASK.md b/docs/NEXT_TASK.md
+index d3e1945..939763e 100644
+--- a/docs/NEXT_TASK.md
++++ b/docs/NEXT_TASK.md
+@@ -4,18 +4,19 @@ Le cadrage fonctionnel et technique est terminé.
+ 
+ Sprint 0 démarré.
+ 
+-Tickets terminés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée).
++Tickets terminés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée), LL-0003 (profils Spring configurés : local, dev, test, prod).
+ 
+ Aucun développement métier n'a encore commencé.
+ 
+ Prochaine tâche
+ 
+-Traiter LL-0003 — Configurer les profils Spring.
++Traiter LL-0004 — Docker Compose.
+ 
+ Objectifs :
+ 
+-Créer les profils local, dev, test, prod
+-Lancement possible avec chaque profil
++Créer PostgreSQL
++Créer PostGIS
++Lancement en une commande
+ Règles importantes
+ Ne pas ajouter de fonctionnalités hors MVP.
+ Conserver une architecture monolithique modulaire.
+diff --git a/docs/PROJECT_STATUS.md b/docs/PROJECT_STATUS.md
+index 757c9b2..7b9ece6 100644
+--- a/docs/PROJECT_STATUS.md
++++ b/docs/PROJECT_STATUS.md
+@@ -101,8 +101,9 @@ Tickets terminés :
+ 
+ * LL-0001 — Initialiser le projet Spring Boot ✅
+ * LL-0002 — Créer l'arborescence backend ✅
++* LL-0003 — Configurer les profils Spring ✅
+ 
+-Prochain ticket : LL-0003 — Configurer les profils Spring.
++Prochain ticket : LL-0004 — Docker Compose.
+ 
+ Objectif :
+ 
+@@ -153,4 +154,4 @@ Une tâche est considérée comme terminée lorsque :
+ 
+ # Prochaine action
+ 
+-Traiter LL-0003 — Configurer les profils Spring (local, dev, test, prod).
++Traiter LL-0004 — Docker Compose (PostgreSQL, PostGIS).

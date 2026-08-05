@@ -101,8 +101,9 @@ Tickets terminés :
 
 * LL-0001 — Initialiser le projet Spring Boot ✅
 * LL-0002 — Créer l'arborescence backend ✅
+* LL-0003 — Configurer les profils Spring ✅
 
-Prochain ticket : LL-0003 — Configurer les profils Spring.
+Prochain ticket : LL-0004 — Docker Compose.
 
 Objectif :
 
@@ -153,4 +154,4 @@ Une tâche est considérée comme terminée lorsque :
 
 # Prochaine action
 
-Traiter LL-0003 — Configurer les profils Spring (local, dev, test, prod).
+Traiter LL-0004 — Docker Compose (PostgreSQL, PostGIS).
