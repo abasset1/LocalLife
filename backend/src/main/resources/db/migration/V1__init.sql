@@ -1,0 +1,2 @@
+-- Migration initiale (vide).
+-- Sert à valider que Flyway s'exécute automatiquement au démarrage.
