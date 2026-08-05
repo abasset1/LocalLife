@@ -4,19 +4,19 @@ Le cadrage fonctionnel et technique est terminé.
 
 Sprint 0 démarré.
 
-Tickets terminés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée), LL-0003 (profils Spring configurés : local, dev, test, prod — démarrage à valider), LL-0004 (Docker Compose PostgreSQL/PostGIS créé — lancement à valider), LL-0005 (datasource PostgreSQL configurée sur le profil local), LL-0006 (Flyway installé, première migration vide — exécution automatique à valider), LL-0007 (Actuator health/info exposés), LL-0008 (OpenAPI/Swagger installé — accessibilité à valider).
+Tickets terminés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée), LL-0003 (profils Spring configurés : local, dev, test, prod — démarrage à valider), LL-0004 (Docker Compose PostgreSQL/PostGIS créé — lancement à valider), LL-0005 (datasource PostgreSQL configurée sur le profil local), LL-0006 (Flyway installé, première migration vide — exécution automatique à valider), LL-0007 (Actuator health/info exposés), LL-0008 (OpenAPI/Swagger installé — accessibilité à valider), LL-0009 (Spotless + Checkstyle configurés — build échoue en cas de non-conformité, à valider avec `mvn verify`).
 
 Aucun développement métier n'a encore commencé.
 
 Prochaine tâche
 
-Traiter LL-0009 — Qualité de code.
+Traiter LL-0010 — Logging.
 
 Objectifs :
 
-Configurer Spotless
-Configurer Checkstyle
-Le build doit échouer en cas de non-conformité
+Configurer Logback
+Définir les niveaux de logs
+Format uniforme
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.
 Conserver une architecture monolithique modulaire.

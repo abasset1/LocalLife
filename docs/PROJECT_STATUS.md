@@ -107,8 +107,9 @@ Tickets terminés :
 * LL-0006 — Installer Flyway (première migration vide) ✅ (exécution automatique à valider par toi)
 * LL-0007 — Actuator (health, info) ✅
 * LL-0008 — OpenAPI (Swagger) ✅ (accessibilité à valider par toi)
+* LL-0009 — Qualité de code (Spotless, Checkstyle) ✅ (à valider avec `mvn verify`)
 
-Prochain ticket : LL-0009 — Qualité de code (Spotless, Checkstyle).
+Prochain ticket : LL-0010 — Logging (Logback, niveaux, format uniforme).
 
 Objectif :
 
@@ -159,4 +160,4 @@ Une tâche est considérée comme terminée lorsque :
 
 # Prochaine action
 
-Traiter LL-0009 — Qualité de code (Spotless, Checkstyle).
+Traiter LL-0010 — Logging (Logback, niveaux de logs, format uniforme).
