@@ -102,9 +102,10 @@ Tickets terminés :
 * LL-0001 — Initialiser le projet Spring Boot ✅
 * LL-0002 — Créer l'arborescence backend ✅
 * LL-0003 — Configurer les profils Spring ✅ (démarrage à valider par toi)
-* LL-0004 — Docker Compose (PostgreSQL/PostGIS) ✅
+* LL-0004 — Docker Compose (PostgreSQL/PostGIS) ✅ (lancement à valider par toi)
+* LL-0005 — Configuration PostgreSQL (datasource, profil local) ✅
 
-Prochain ticket : LL-0005 — Configuration PostgreSQL.
+Prochain ticket : LL-0006 — Installer Flyway.
 
 Objectif :
 
@@ -155,4 +156,4 @@ Une tâche est considérée comme terminée lorsque :
 
 # Prochaine action
 
-Traiter LL-0005 — Configuration PostgreSQL (datasource, connexion, paramètres Spring).
+Traiter LL-0006 — Installer Flyway (première migration vide).

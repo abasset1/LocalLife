@@ -4,19 +4,18 @@ Le cadrage fonctionnel et technique est terminé.
 
 Sprint 0 démarré.
 
-Tickets terminés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée), LL-0003 (profils Spring configurés : local, dev, test, prod — démarrage à valider), LL-0004 (Docker Compose PostgreSQL/PostGIS créé).
+Tickets terminés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée), LL-0003 (profils Spring configurés : local, dev, test, prod — démarrage à valider), LL-0004 (Docker Compose PostgreSQL/PostGIS créé — lancement à valider), LL-0005 (datasource PostgreSQL configurée sur le profil local).
 
 Aucun développement métier n'a encore commencé.
 
 Prochaine tâche
 
-Traiter LL-0005 — Configuration PostgreSQL.
+Traiter LL-0006 — Installer Flyway.
 
 Objectifs :
 
-Configurer le datasource
-Configurer la connexion
-Configurer les paramètres Spring
+Créer une première migration vide
+Valider l'exécution automatique de la migration au démarrage
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.
 Conserver une architecture monolithique modulaire.
