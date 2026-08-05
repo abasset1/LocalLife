@@ -1,0 +1,51 @@
+diff --git a/docs/NEXT_TASK.md b/docs/NEXT_TASK.md
+index 292e66d..5aece2a 100644
+--- a/docs/NEXT_TASK.md
++++ b/docs/NEXT_TASK.md
+@@ -4,19 +4,18 @@ Le cadrage fonctionnel et technique est terminé.
+ 
+ Sprint 0 démarré.
+ 
+-Tickets terminés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée), LL-0003 (profils Spring configurés : local, dev, test, prod — démarrage à valider), LL-0004 (Docker Compose PostgreSQL/PostGIS créé).
++Tickets terminés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée), LL-0003 (profils Spring configurés : local, dev, test, prod — démarrage à valider), LL-0004 (Docker Compose PostgreSQL/PostGIS créé — lancement à valider), LL-0005 (datasource PostgreSQL configurée sur le profil local).
+ 
+ Aucun développement métier n'a encore commencé.
+ 
+ Prochaine tâche
+ 
+-Traiter LL-0005 — Configuration PostgreSQL.
++Traiter LL-0006 — Installer Flyway.
+ 
+ Objectifs :
+ 
+-Configurer le datasource
+-Configurer la connexion
+-Configurer les paramètres Spring
++Créer une première migration vide
++Valider l'exécution automatique de la migration au démarrage
+ Règles importantes
+ Ne pas ajouter de fonctionnalités hors MVP.
+ Conserver une architecture monolithique modulaire.
+diff --git a/docs/PROJECT_STATUS.md b/docs/PROJECT_STATUS.md
+index 780b32b..1b28c94 100644
+--- a/docs/PROJECT_STATUS.md
++++ b/docs/PROJECT_STATUS.md
+@@ -102,9 +102,10 @@ Tickets terminés :
+ * LL-0001 — Initialiser le projet Spring Boot ✅
+ * LL-0002 — Créer l'arborescence backend ✅
+ * LL-0003 — Configurer les profils Spring ✅ (démarrage à valider par toi)
+-* LL-0004 — Docker Compose (PostgreSQL/PostGIS) ✅
++* LL-0004 — Docker Compose (PostgreSQL/PostGIS) ✅ (lancement à valider par toi)
++* LL-0005 — Configuration PostgreSQL (datasource, profil local) ✅
+ 
+-Prochain ticket : LL-0005 — Configuration PostgreSQL.
++Prochain ticket : LL-0006 — Installer Flyway.
+ 
+ Objectif :
+ 
+@@ -155,4 +156,4 @@ Une tâche est considérée comme terminée lorsque :
+ 
+ # Prochaine action
+ 
+-Traiter LL-0005 — Configuration PostgreSQL (datasource, connexion, paramètres Spring).
++Traiter LL-0006 — Installer Flyway (première migration vide).
