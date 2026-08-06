@@ -108,12 +108,15 @@ Tickets terminés :
 * LL-0007 — Actuator (health, info) ✅ (health UP, info OK, validé)
 * LL-0008 — OpenAPI (Swagger) ✅ (Swagger UI accessible, validé)
 * LL-0009 — Qualité de code (Spotless, Checkstyle) ✅ (`mvn verify` passe, validé)
+* LL-0010 — Logging (Logback, niveaux par profil, format uniforme) ✅
 
-Deux correctifs appliqués suite aux tests (hors numérotation de ticket, corrections de config) :
+Deux correctifs de config appliqués suite aux tests LL-0004→LL-0009 (hors numérotation de ticket) :
 * `spring.profiles.active=local` ajouté en profil par défaut (le contexte Spring nécessite une datasource pour démarrer).
-* `flyway-core` remplacé par `spring-boot-starter-flyway` (Spring Boot 4 a modularisé l'auto-configuration : `flyway-core` seul ne suffit plus à activer Flyway).
+* `flyway-core` remplacé par `spring-boot-starter-flyway` (Spring Boot 4 a modularisé l'auto-configuration).
 
-Prochain ticket : LL-0010 — Logging (Logback, niveaux, format uniforme).
+Décision : les profils `dev`/`test`/`prod` restent sans datasource pour l'instant (LL-0003 ne demandait que leur création). Ils échouent volontairement au démarrage tant qu'aucun environnement réel n'existe — évite une config factice inutile (cf. DEVELOPMENT_PHILOSOPHY : MVP prime sur perfection).
+
+Prochain ticket : LL-0011 — Gestion des erreurs (exception globale, réponse JSON standardisée).
 
 Objectif :
 
@@ -164,4 +167,4 @@ Une tâche est considérée comme terminée lorsque :
 
 # Prochaine action
 
-Traiter LL-0010 — Logging (Logback, niveaux de logs, format uniforme). En parallèle, tester les profils `dev`, `test`, `prod` (LL-0003).
+Traiter LL-0011 — Gestion des erreurs (exception globale, réponse JSON standardisée).
