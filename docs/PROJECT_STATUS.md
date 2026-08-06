@@ -191,11 +191,12 @@ Tickets terminés :
 * LL-1002 — Créer l'entité Activity ✅
 * LL-1003 — Migration Flyway (table activity) ✅ (migration V2 validée)
 * LL-1004 — Repository Activity (Spring Data JDBC, lecture seule) ✅
+* LL-1005 — Service Activity (findAll, findById) ✅
 
-Prochain ticket : LL-1005 — Service Activity (findAll, findById).
+Prochain ticket : LL-1006 — Données de démonstration (5 activités minimum).
 
 ---
 
 # Prochaine action
 
-Traiter LL-1005 — Service Activity (findAll, findById).
+Traiter LL-1006 — Données de démonstration (au moins 5 activités : concert, marché, food truck, exposition, cinéma).
