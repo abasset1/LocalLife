@@ -110,6 +110,7 @@ Tickets terminés :
 * LL-0009 — Qualité de code (Spotless, Checkstyle) ✅ (`mvn verify` passe, validé)
 * LL-0010 — Logging (Logback, niveaux par profil, format uniforme) ✅
 * LL-0011 — Gestion des erreurs (exception globale, réponse JSON standardisée) ✅
+* LL-0012 — Docker Backend (Dockerfile) ✅ (construction de l'image à valider par toi)
 
 Deux correctifs de config appliqués suite aux tests LL-0004→LL-0009 (hors numérotation de ticket) :
 * `spring.profiles.active=local` ajouté en profil par défaut (le contexte Spring nécessite une datasource pour démarrer).
@@ -117,9 +118,7 @@ Deux correctifs de config appliqués suite aux tests LL-0004→LL-0009 (hors num
 
 Décision : les profils `dev`/`test`/`prod` restent sans datasource pour l'instant (LL-0003 ne demandait que leur création). Ils échouent volontairement au démarrage tant qu'aucun environnement réel n'existe — évite une config factice inutile (cf. DEVELOPMENT_PHILOSOPHY : MVP prime sur perfection).
 
-Prochain ticket : LL-0012 — Docker Backend (Dockerfile, build de l'image).
-
-Prochain ticket : LL-0011 — Gestion des erreurs (exception globale, réponse JSON standardisée).
+Prochain ticket : LL-0013 — README Backend.
 
 Objectif :
 
@@ -170,4 +169,4 @@ Une tâche est considérée comme terminée lorsque :
 
 # Prochaine action
 
-Traiter LL-0012 — Docker Backend (Dockerfile, valider la construction de l'image).
+Traiter LL-0013 — README Backend (démarrage, profils, Docker, commandes Maven).
