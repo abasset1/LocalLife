@@ -189,12 +189,13 @@ Tickets terminés :
 
 * LL-1001 — Créer le module Activity (structure domain/application/infrastructure) ✅
 * LL-1002 — Créer l'entité Activity ✅
-* LL-1003 — Migration Flyway (table activity) ✅ (exécution automatique à valider par toi)
+* LL-1003 — Migration Flyway (table activity) ✅ (migration V2 validée)
+* LL-1004 — Repository Activity (Spring Data JDBC, lecture seule) ✅
 
-Prochain ticket : LL-1004 — Repository Activity (Spring Data, lecture seule).
+Prochain ticket : LL-1005 — Service Activity (findAll, findById).
 
 ---
 
 # Prochaine action
 
-Traiter LL-1004 — Repository Activity (Spring Data, opérations de lecture uniquement).
+Traiter LL-1005 — Service Activity (findAll, findById).
