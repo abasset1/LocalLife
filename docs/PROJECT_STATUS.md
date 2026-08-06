@@ -15,7 +15,7 @@
 
 Le cadrage fonctionnel et technique est terminé.
 
-Le développement n'a pas encore commencé.
+Sprint 0 (socle technique backend) terminé. Le développement métier n'a pas encore commencé.
 
 ---
 
@@ -95,13 +95,13 @@ Ordre recommandé :
 
 ## Sprint 0
 
-Statut : 🟡 En cours.
+Statut : ✅ Terminé.
 
 Tickets terminés :
 
 * LL-0001 — Initialiser le projet Spring Boot ✅
 * LL-0002 — Créer l'arborescence backend ✅
-* LL-0003 — Configurer les profils Spring ✅ (démarrage validé pour `local` ; `dev`/`test`/`prod` restent à tester)
+* LL-0003 — Configurer les profils Spring ✅ (démarrage validé pour `local` ; `dev`/`test`/`prod` créés mais volontairement sans datasource pour l'instant)
 * LL-0004 — Docker Compose (PostgreSQL/PostGIS) ✅ (lancement validé)
 * LL-0005 — Configuration PostgreSQL (datasource, profil local) ✅ (connexion validée via HikariCP)
 * LL-0006 — Installer Flyway (première migration vide) ✅ (migration V1 appliquée avec succès, validé)
@@ -112,7 +112,8 @@ Tickets terminés :
 * LL-0011 — Gestion des erreurs (exception globale, réponse JSON standardisée) ✅
 * LL-0012 — Docker Backend (Dockerfile) ✅ (build et run validés — nécessite `--network` + `SPRING_DATASOURCE_URL` pointant vers le conteneur Postgres, `localhost` ne fonctionne pas entre deux conteneurs)
 * LL-0013 — README Backend (démarrage, profils, Docker, commandes Maven) ✅
-* LL-0014 — Pipeline GitHub Actions (build, tests) ✅ (exécution CI à valider par toi après push)
+* LL-0014 — Pipeline GitHub Actions (build, tests) ✅ (CI validé après push)
+* LL-0015 — Vérification finale ✅ (voir contrôle ci-dessous)
 
 Deux correctifs de config appliqués suite aux tests LL-0004→LL-0009 (hors numérotation de ticket) :
 * `spring.profiles.active=local` ajouté en profil par défaut (le contexte Spring nécessite une datasource pour démarrer).
@@ -120,7 +121,18 @@ Deux correctifs de config appliqués suite aux tests LL-0004→LL-0009 (hors num
 
 Décision : les profils `dev`/`test`/`prod` restent sans datasource pour l'instant (LL-0003 ne demandait que leur création). Ils échouent volontairement au démarrage tant qu'aucun environnement réel n'existe — évite une config factice inutile (cf. DEVELOPMENT_PHILOSOPHY : MVP prime sur perfection).
 
-Prochain ticket : LL-0015 — Vérification finale (dernier ticket du Sprint 0).
+### LL-0015 — Contrôle final
+
+| Point à contrôler | Résultat |
+| --- | --- |
+| Build | ✅ `mvn verify` passe (compilation, tests, Spotless, Checkstyle) |
+| Docker | ✅ `docker build` réussit, `docker run` se connecte à Postgres via le réseau Compose |
+| PostgreSQL | ✅ HikariPool se connecte au conteneur `locallife-postgres` (profil `local`) |
+| Flyway | ✅ Migration `V1__init` appliquée avec succès (`flyway_schema_history` créée) |
+| Swagger | ✅ `swagger-ui.html` accessible et fonctionnel |
+| Actuator | ✅ `/actuator/health` → `UP`, `/actuator/info` → métadonnées de build |
+
+**Sprint 0 terminé.** Le socle technique (Spring Boot, PostgreSQL/PostGIS, Docker, Flyway, Actuator, OpenAPI, qualité de code, logging, gestion d'erreurs, CI) est en place et validé de bout en bout. Le développement métier peut démarrer.
 
 Objectif :
 
@@ -171,4 +183,4 @@ Une tâche est considérée comme terminée lorsque :
 
 # Prochaine action
 
-Traiter LL-0015 — Vérification finale du Sprint 0 (build, Docker, PostgreSQL, Flyway, Swagger, Actuator).
+Sprint 0 terminé. D'après `docs/04_Project/ROADMAP.md`, le Sprint 1 couvre les modules Activity/Place/Category et une API REST minimale — en attente d'un fichier `SPRINT_1.md` détaillant les tickets avant de démarrer (je ne modifie pas la roadmap moi-même, cf. `AI_RULES.md`).
