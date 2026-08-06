@@ -4,7 +4,9 @@ Le cadrage fonctionnel et technique est terminé.
 
 Sprint 0 démarré.
 
-Tickets terminés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée), LL-0003 (profils Spring configurés : local, dev, test, prod — démarrage à valider), LL-0004 (Docker Compose PostgreSQL/PostGIS créé — lancement à valider), LL-0005 (datasource PostgreSQL configurée sur le profil local), LL-0006 (Flyway installé, première migration vide — exécution automatique à valider), LL-0007 (Actuator health/info exposés), LL-0008 (OpenAPI/Swagger installé — accessibilité à valider), LL-0009 (Spotless + Checkstyle configurés — build échoue en cas de non-conformité, à valider avec `mvn verify`).
+Tickets terminés et validés : LL-0001 (projet Spring Boot initialisé), LL-0002 (arborescence backend créée), LL-0003 (profils Spring configurés — `local` validé, `dev`/`test`/`prod` restent à tester), LL-0004 (Docker Compose PostgreSQL/PostGIS — lancement validé), LL-0005 (datasource PostgreSQL — connexion validée), LL-0006 (Flyway — migration V1 appliquée avec succès), LL-0007 (Actuator — health/info validés), LL-0008 (OpenAPI/Swagger — accessible), LL-0009 (Spotless + Checkstyle — `mvn verify` passe).
+
+Deux correctifs de config appliqués suite aux tests : profil `local` actif par défaut, et `flyway-core` remplacé par `spring-boot-starter-flyway` (modularisation Spring Boot 4).
 
 Aucun développement métier n'a encore commencé.
 

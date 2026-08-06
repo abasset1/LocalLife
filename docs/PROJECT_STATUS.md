@@ -3,7 +3,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.1.0
-**Dernière mise à jour :** 2026-08-04
+**Dernière mise à jour :** 2026-08-06
 
 ---
 
@@ -101,13 +101,17 @@ Tickets terminés :
 
 * LL-0001 — Initialiser le projet Spring Boot ✅
 * LL-0002 — Créer l'arborescence backend ✅
-* LL-0003 — Configurer les profils Spring ✅ (démarrage à valider par toi)
-* LL-0004 — Docker Compose (PostgreSQL/PostGIS) ✅ (lancement à valider par toi)
-* LL-0005 — Configuration PostgreSQL (datasource, profil local) ✅
-* LL-0006 — Installer Flyway (première migration vide) ✅ (exécution automatique à valider par toi)
-* LL-0007 — Actuator (health, info) ✅
-* LL-0008 — OpenAPI (Swagger) ✅ (accessibilité à valider par toi)
-* LL-0009 — Qualité de code (Spotless, Checkstyle) ✅ (à valider avec `mvn verify`)
+* LL-0003 — Configurer les profils Spring ✅ (démarrage validé pour `local` ; `dev`/`test`/`prod` restent à tester)
+* LL-0004 — Docker Compose (PostgreSQL/PostGIS) ✅ (lancement validé)
+* LL-0005 — Configuration PostgreSQL (datasource, profil local) ✅ (connexion validée via HikariCP)
+* LL-0006 — Installer Flyway (première migration vide) ✅ (migration V1 appliquée avec succès, validé)
+* LL-0007 — Actuator (health, info) ✅ (health UP, info OK, validé)
+* LL-0008 — OpenAPI (Swagger) ✅ (Swagger UI accessible, validé)
+* LL-0009 — Qualité de code (Spotless, Checkstyle) ✅ (`mvn verify` passe, validé)
+
+Deux correctifs appliqués suite aux tests (hors numérotation de ticket, corrections de config) :
+* `spring.profiles.active=local` ajouté en profil par défaut (le contexte Spring nécessite une datasource pour démarrer).
+* `flyway-core` remplacé par `spring-boot-starter-flyway` (Spring Boot 4 a modularisé l'auto-configuration : `flyway-core` seul ne suffit plus à activer Flyway).
 
 Prochain ticket : LL-0010 — Logging (Logback, niveaux, format uniforme).
 
@@ -160,4 +164,4 @@ Une tâche est considérée comme terminée lorsque :
 
 # Prochaine action
 
-Traiter LL-0010 — Logging (Logback, niveaux de logs, format uniforme).
+Traiter LL-0010 — Logging (Logback, niveaux de logs, format uniforme). En parallèle, tester les profils `dev`, `test`, `prod` (LL-0003).
