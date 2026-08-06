@@ -15,7 +15,7 @@
 
 Le cadrage fonctionnel et technique est terminé.
 
-Sprint 0 (socle technique backend) terminé. Le développement métier n'a pas encore commencé.
+Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) démarré.
 
 ---
 
@@ -181,6 +181,18 @@ Une tâche est considérée comme terminée lorsque :
 
 ---
 
+# Sprint 1
+
+Statut : 🟡 En cours.
+
+Tickets terminés :
+
+* LL-1001 — Créer le module Activity (structure domain/application/infrastructure) ✅
+
+Prochain ticket : LL-1002 — Créer l'entité Activity.
+
+---
+
 # Prochaine action
 
-Sprint 0 terminé. D'après `docs/04_Project/ROADMAP.md`, le Sprint 1 couvre les modules Activity/Place/Category et une API REST minimale — en attente d'un fichier `SPRINT_1.md` détaillant les tickets avant de démarrer (je ne modifie pas la roadmap moi-même, cf. `AI_RULES.md`).
+Traiter LL-1002 — Créer l'entité Activity (id, title, description, category, latitude, longitude, startDate, endDate, status).
