@@ -188,11 +188,12 @@ Statut : 🟡 En cours.
 Tickets terminés :
 
 * LL-1001 — Créer le module Activity (structure domain/application/infrastructure) ✅
+* LL-1002 — Créer l'entité Activity ✅
 
-Prochain ticket : LL-1002 — Créer l'entité Activity.
+Prochain ticket : LL-1003 — Migration Flyway (table Activity).
 
 ---
 
 # Prochaine action
 
-Traiter LL-1002 — Créer l'entité Activity (id, title, description, category, latitude, longitude, startDate, endDate, status).
+Traiter LL-1003 — Migration Flyway (créer la table Activity).
