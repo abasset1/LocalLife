@@ -192,11 +192,12 @@ Tickets terminés :
 * LL-1003 — Migration Flyway (table activity) ✅ (migration V2 validée)
 * LL-1004 — Repository Activity (Spring Data JDBC, lecture seule) ✅
 * LL-1005 — Service Activity (findAll, findById) ✅
+* LL-1006 — Données de démonstration (5 activités) ✅ (exécution de la migration à valider par toi)
 
-Prochain ticket : LL-1006 — Données de démonstration (5 activités minimum).
+Prochain ticket : LL-1007 — API REST (GET /api/v1/activities, GET /api/v1/activities/{id}).
 
 ---
 
 # Prochaine action
 
-Traiter LL-1006 — Données de démonstration (au moins 5 activités : concert, marché, food truck, exposition, cinéma).
+Traiter LL-1007 — API REST (GET /api/v1/activities, GET /api/v1/activities/{id}, consultation uniquement).

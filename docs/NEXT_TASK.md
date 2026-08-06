@@ -8,15 +8,17 @@ Sprint 1 démarré (première fonctionnalité visible — module Activity, API d
 
 Tickets terminés et validés (Sprint 0) : LL-0001 à LL-0015 — voir PROJECT_STATUS.md pour le détail.
 
-Tickets terminés (Sprint 1) : LL-1001 (structure du module Activity), LL-1002 (entité Activity), LL-1003 (migration Flyway V2 — table `activity`, validée), LL-1004 (repository Activity — Spring Data JDBC, lecture seule), LL-1005 (service Activity — findAll/findById, simple délégation).
+Tickets terminés (Sprint 1) : LL-1001 (structure du module Activity), LL-1002 (entité Activity), LL-1003 (migration Flyway V2 — table `activity`, validée), LL-1004 (repository Activity — Spring Data JDBC, lecture seule), LL-1005 (service Activity — findAll/findById), LL-1006 (migration Flyway V3 — 5 activités de démonstration, coordonnées Marseille, statut `PUBLISHED` pour toutes — à valider après démarrage).
 
 Prochaine tâche
 
-Traiter LL-1006 — Données de démonstration.
+Traiter LL-1007 — API REST.
 
 Objectifs :
 
-Au moins cinq activités (concert, marché, food truck, exposition, cinéma)
+GET /api/v1/activities
+GET /api/v1/activities/{id}
+Uniquement des endpoints de consultation
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.
