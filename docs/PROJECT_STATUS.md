@@ -15,7 +15,7 @@
 
 Le cadrage fonctionnel et technique est terminé.
 
-Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) démarré.
+Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé.
 
 ---
 
@@ -183,7 +183,7 @@ Une tâche est considérée comme terminée lorsque :
 
 # Sprint 1
 
-Statut : 🟡 En cours.
+Statut : ✅ Terminé.
 
 Tickets terminés :
 
@@ -197,11 +197,12 @@ Tickets terminés :
 * LL-1008 — Première carte React + Leaflet (affichage, zoom, déplacement) ✅
 * LL-1009 — Affichage des activités sous forme de marqueurs ✅
 * LL-1010 — Popup activité ✅ (clic sur un marqueur → titre, catégorie, date ; `npx tsc --noEmit` et `npx vite build` validés)
+* LL-1011 — Documentation ✅ (README, CHANGELOG, PROJECT_STATUS mis à jour)
 
-Prochain ticket : LL-1011 — Documentation (README, CHANGELOG, PROJECT_STATUS).
+**Sprint 1 terminé.** La première fonctionnalité visible de LocalLife (carte interactive, activités de démonstration, consultation via popup) est en place et validée de bout en bout. Le prochain sprint reste à cadrer.
 
 ---
 
 # Prochaine action
 
-Traiter LL-1011 — Mettre à jour README, CHANGELOG et PROJECT_STATUS pour clôturer le Sprint 1.
+Sprint 1 clôturé. Prochaine étape : cadrage du Sprint 2 (voir BACKLOG.md et ROADMAP.md).

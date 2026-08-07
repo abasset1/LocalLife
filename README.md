@@ -2,6 +2,12 @@
 
 Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
 
+## Fonctionnalités (Sprint 1)
+
+* Carte interactive (affichage, zoom, déplacement) centrée sur Marseille.
+* Affichage des activités de démonstration sous forme de marqueurs.
+* Popup au clic sur un marqueur : titre, catégorie et date de l'activité.
+
 ## Démarrage
 
 La base de données doit être démarrée avant le backend :

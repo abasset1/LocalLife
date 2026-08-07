@@ -9,3 +9,5 @@
 * Frontend React + TypeScript avec une carte Leaflet centrée sur Marseille,
   zoomable et déplaçable.
 * Affichage des activités de l'API sous forme de marqueurs sur la carte.
+* Popup au clic sur un marqueur, affichant le titre, la catégorie et la date
+  de l'activité.
