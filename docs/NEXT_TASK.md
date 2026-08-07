@@ -8,16 +8,15 @@ Sprint 1 démarré (première fonctionnalité visible — module Activity, API d
 
 Tickets terminés et validés (Sprint 0) : LL-0001 à LL-0015 — voir PROJECT_STATUS.md pour le détail.
 
-Tickets terminés (Sprint 1) : LL-1001 (structure du module Activity), LL-1002 (entité Activity), LL-1003 (migration Flyway V2 — table `activity`, validée), LL-1004 (repository Activity — Spring Data JDBC, lecture seule), LL-1005 (service Activity — findAll/findById), LL-1006 (migration Flyway V3 — 5 activités de démonstration, coordonnées Marseille, statut `PUBLISHED` pour toutes — à valider après démarrage), LL-1007 (API REST de consultation) et LL-1008 (carte React + Leaflet).
+Tickets terminés (Sprint 1) : LL-1001 (structure du module Activity), LL-1002 (entité Activity), LL-1003 (migration Flyway V2 — table `activity`, validée), LL-1004 (repository Activity — Spring Data JDBC, lecture seule), LL-1005 (service Activity — findAll/findById), LL-1006 (migration Flyway V3 — 5 activités de démonstration, coordonnées Marseille, statut `PUBLISHED` pour toutes — à valider après démarrage), LL-1007 (API REST de consultation), LL-1008 (carte React + Leaflet) et LL-1009 (marqueurs d'activités).
 
 Prochaine tâche
 
-Traiter LL-1009 — Affichage des activités.
+Traiter LL-1010 — Popup activité.
 
 Objectifs :
 
-Afficher les activités retournées par l'API.
-Chaque activité apparaît sous forme de marqueur sur la carte.
+Au clic sur un marqueur, afficher le titre, la catégorie et la date.
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.

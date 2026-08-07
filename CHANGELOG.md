@@ -8,3 +8,4 @@
   `GET /api/v1/activities/{id}`).
 * Frontend React + TypeScript avec une carte Leaflet centrée sur Marseille,
   zoomable et déplaçable.
+* Affichage des activités de l'API sous forme de marqueurs sur la carte.

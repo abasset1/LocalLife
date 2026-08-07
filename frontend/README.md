@@ -1,7 +1,8 @@
 # Frontend LocalLife
 
 Application React + TypeScript construite avec Vite. Elle affiche une carte
-Leaflet centrée sur Marseille.
+Leaflet centrée sur Marseille. Les activités retournées par l'API y sont
+affichées sous forme de marqueurs.
 
 ## Démarrage
 

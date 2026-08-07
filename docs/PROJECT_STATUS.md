@@ -195,11 +195,12 @@ Tickets terminés :
 * LL-1006 — Données de démonstration (5 activités) ✅ (exécution de la migration à valider par toi)
 * LL-1007 — API REST de consultation des activités ✅
 * LL-1008 — Première carte React + Leaflet (affichage, zoom, déplacement) ✅
+* LL-1009 — Affichage des activités sous forme de marqueurs ✅
 
-Prochain ticket : LL-1009 — Affichage des activités sous forme de marqueurs.
+Prochain ticket : LL-1010 — Popup activité.
 
 ---
 
 # Prochaine action
 
-Traiter LL-1009 — Afficher les activités retournées par l'API sous forme de marqueurs sur la carte.
+Traiter LL-1010 — Afficher le titre, la catégorie et la date au clic sur un marqueur.
