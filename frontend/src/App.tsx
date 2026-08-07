@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import type { LatLngExpression } from "leaflet";
-import { MapContainer, Marker, TileLayer } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 
 interface Activity {
     id: number;
+    title: string;
+    category: string;
     latitude: number;
     longitude: number;
+    startDate: string;
 }
 
 const MARSEILLE_COORDINATES: LatLngExpression = [43.2965, 5.3698];
@@ -50,7 +53,15 @@ function App() {
                     <Marker
                         key={activity.id}
                         position={[activity.latitude, activity.longitude]}
-                    />
+                    >
+                        <Popup>
+                            <strong>{activity.title}</strong>
+                            <br />
+                            {activity.category}
+                            <br />
+                            {new Date(activity.startDate).toLocaleDateString("fr-FR")}
+                        </Popup>
+                    </Marker>
                 ))}
             </MapContainer>
         </main>

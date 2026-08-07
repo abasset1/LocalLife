@@ -196,11 +196,12 @@ Tickets terminés :
 * LL-1007 — API REST de consultation des activités ✅
 * LL-1008 — Première carte React + Leaflet (affichage, zoom, déplacement) ✅
 * LL-1009 — Affichage des activités sous forme de marqueurs ✅
+* LL-1010 — Popup activité ✅ (clic sur un marqueur → titre, catégorie, date ; `npx tsc --noEmit` et `npx vite build` validés)
 
-Prochain ticket : LL-1010 — Popup activité.
+Prochain ticket : LL-1011 — Documentation (README, CHANGELOG, PROJECT_STATUS).
 
 ---
 
 # Prochaine action
 
-Traiter LL-1010 — Afficher le titre, la catégorie et la date au clic sur un marqueur.
+Traiter LL-1011 — Mettre à jour README, CHANGELOG et PROJECT_STATUS pour clôturer le Sprint 1.
