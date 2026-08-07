@@ -1,0 +1,40 @@
+:root {
+    color: #1e293b;
+    font-family: Arial, sans-serif;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+}
+
+#root {
+    height: 100vh;
+}
+
+.application-shell {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100%;
+}
+
+.application-header {
+    padding: 1rem 1.5rem;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.application-header h1 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.map {
+    min-height: 0;
+    height: 100%;
+}
