@@ -3,7 +3,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.1.0
-**Dernière mise à jour :** 2026-08-06
+**Dernière mise à jour :** 2026-08-07
 
 ---
 
@@ -35,7 +35,7 @@ Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité
 | API MVP                    | ✅ Terminé    |
 | Repository                 | ✅ Initialisé |
 | Développement Backend      | 🟡 En cours   |
-| Développement Frontend     | ⏳ À faire    |
+| Développement Frontend     | 🟡 En cours   |
 | Collecteurs                | ⏳ À faire    |
 | Infrastructure             | ⏳ À faire    |
 
@@ -193,11 +193,13 @@ Tickets terminés :
 * LL-1004 — Repository Activity (Spring Data JDBC, lecture seule) ✅
 * LL-1005 — Service Activity (findAll, findById) ✅
 * LL-1006 — Données de démonstration (5 activités) ✅ (exécution de la migration à valider par toi)
+* LL-1007 — API REST de consultation des activités ✅
+* LL-1008 — Première carte React + Leaflet (affichage, zoom, déplacement) ✅
 
-Prochain ticket : LL-1007 — API REST (GET /api/v1/activities, GET /api/v1/activities/{id}).
+Prochain ticket : LL-1009 — Affichage des activités sous forme de marqueurs.
 
 ---
 
 # Prochaine action
 
-Traiter LL-1007 — API REST (GET /api/v1/activities, GET /api/v1/activities/{id}, consultation uniquement).
+Traiter LL-1009 — Afficher les activités retournées par l'API sous forme de marqueurs sur la carte.
