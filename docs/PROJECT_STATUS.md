@@ -216,9 +216,10 @@ Tickets terminés :
 * LL-2003 — Migration Flyway pour User ✅ — `V4__create_users_table.sql`, table **`users`** (et non `user`, mot réservé PostgreSQL). Entité mise à jour avec `@Table("users")` pour faire correspondre le mapping. ⚠️ Migration non exécutée en sandbox (Docker/PostgreSQL indisponibles ici) — à valider par toi au démarrage.
 * LL-2004 — Repository User ✅ — `save()`, `findById()`, `findByEmail()` (même philosophie minimaliste que `ActivityRepository` : interface étend `Repository`, pas `CrudRepository`). Tests d'intégration écrits (`UserRepositoryIntegrationTest`, même style que `ActivityControllerIntegrationTest`, `@Transactional` pour rollback auto). ⚠️ Non exécutés en sandbox (nécessitent la vraie base) — à valider par toi.
 * LL-2005 — Service User ✅ — `createUser(username, email)` et `getUserById(id)`, simple délégation vers le repository (même convention qu'`ActivityService`). Tests unitaires écrits avec Mockito (`UserServiceTest`, repository mocké — ne nécessitent pas de base de données, exécutables directement).
+* LL-2006 — Créer le module Category ✅ — structure (domain/application/infrastructure) et entité `Category(id, name, description)` créées en une fois, comme demandé par le ticket. Aucun mot réservé PostgreSQL à gérer ici (contrairement à `user`) : nommage de table par défaut (`category`) conservé.
 
 ---
 
 # Prochaine action
 
-Traiter LL-2006 — Créer le module Category (structure + entité `id`, `name`, `description`).
+Traiter LL-2007 — Migration Flyway pour Category (table `category`).
