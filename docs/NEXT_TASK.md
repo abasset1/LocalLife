@@ -12,15 +12,15 @@ Tickets terminés et validés (Sprint 0) : LL-0001 à LL-0015 — voir PROJECT_S
 
 Tickets terminés (Sprint 1) : LL-1001 (structure du module Activity), LL-1002 (entité Activity), LL-1003 (migration Flyway V2 — table `activity`, validée), LL-1004 (repository Activity — Spring Data JDBC, lecture seule), LL-1005 (service Activity — findAll/findById), LL-1006 (migration Flyway V3 — 5 activités de démonstration, coordonnées Marseille, statut `PUBLISHED` pour toutes — à valider après démarrage), LL-1007 (API REST de consultation), LL-1008 (carte React + Leaflet), LL-1009 (marqueurs d'activités), LL-1010 (popup activité — titre, catégorie, date au clic sur un marqueur ; compilation TypeScript et build Vite validés) et LL-1011 (documentation — README, CHANGELOG, PROJECT_STATUS mis à jour).
 
-Tickets terminés (Sprint 2) : LL-2001 (structure du module User — domain/application/infrastructure, aucun code métier à ce stade), LL-2002 (entité User — `id`, `username`, `email`, `createdAt`, validée par le lead dev), LL-2003 (migration Flyway V4 — table `users`, renommée depuis `user` pour éviter le mot réservé PostgreSQL ; entité mise à jour avec `@Table("users")` ; à valider au démarrage réel), LL-2004 (repository User — save/findById/findByEmail, interface minimaliste comme ActivityRepository ; tests d'intégration écrits, à exécuter avec la vraie base).
+Tickets terminés (Sprint 2) : LL-2001 (structure du module User — domain/application/infrastructure, aucun code métier à ce stade), LL-2002 (entité User — `id`, `username`, `email`, `createdAt`, validée par le lead dev), LL-2003 (migration Flyway V4 — table `users`, renommée depuis `user` pour éviter le mot réservé PostgreSQL ; entité mise à jour avec `@Table("users")` ; à valider au démarrage réel), LL-2004 (repository User — save/findById/findByEmail, interface minimaliste comme ActivityRepository ; tests d'intégration écrits, à exécuter avec la vraie base), LL-2005 (service User — createUser/getUserById ; tests unitaires Mockito écrits, exécutables sans base de données).
 
 Prochaine tâche
 
-Traiter LL-2005 — Service User.
+Traiter LL-2006 — Créer le module Category.
 
 Objectifs :
 
-Fonctions : `createUser()`, `getUserById()`. Critères : service testé.
+Structure du module. Entité Category avec champs : `id`, `name`, `description`.
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.
