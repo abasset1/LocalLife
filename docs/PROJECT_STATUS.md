@@ -214,9 +214,10 @@ Tickets terminés :
 * LL-2001 — Créer le module User (structure domain/application/infrastructure) ✅ — pas de logique métier, aucun code Java ajouté à ce stade, rien à compiler.
 * LL-2002 — Créer l'entité User ✅ — record `User(id, username, email, createdAt)`, même convention que `Activity` (Spring Data `@Id`). Validée par le lead dev (sera complétée plus tard).
 * LL-2003 — Migration Flyway pour User ✅ — `V4__create_users_table.sql`, table **`users`** (et non `user`, mot réservé PostgreSQL). Entité mise à jour avec `@Table("users")` pour faire correspondre le mapping. ⚠️ Migration non exécutée en sandbox (Docker/PostgreSQL indisponibles ici) — à valider par toi au démarrage.
+* LL-2004 — Repository User ✅ — `save()`, `findById()`, `findByEmail()` (même philosophie minimaliste que `ActivityRepository` : interface étend `Repository`, pas `CrudRepository`). Tests d'intégration écrits (`UserRepositoryIntegrationTest`, même style que `ActivityControllerIntegrationTest`, `@Transactional` pour rollback auto). ⚠️ Non exécutés en sandbox (nécessitent la vraie base) — à valider par toi.
 
 ---
 
 # Prochaine action
 
-Traiter LL-2004 — Repository User (`save()`, `findById()`, `findByEmail()`).
+Traiter LL-2005 — Service User (`createUser()`, `getUserById()`).
