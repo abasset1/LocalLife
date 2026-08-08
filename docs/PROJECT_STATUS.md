@@ -15,7 +15,7 @@
 
 Le cadrage fonctionnel et technique est terminé.
 
-Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé.
+Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) démarré.
 
 ---
 
@@ -203,6 +203,18 @@ Tickets terminés :
 
 ---
 
+# Sprint 2
+
+Statut : 🟡 En cours.
+
+Objectif : gestion des utilisateurs et des catégories (création de compte simple, consultation des catégories, contribution basique — sans authentification, rôles, modération ni notifications).
+
+Tickets terminés :
+
+* LL-2001 — Créer le module User (structure domain/application/infrastructure) ✅ — pas de logique métier, aucun code Java ajouté à ce stade, rien à compiler.
+
+---
+
 # Prochaine action
 
-Sprint 1 clôturé. Prochaine étape : cadrage du Sprint 2 (voir BACKLOG.md et ROADMAP.md).
+Traiter LL-2002 — Créer l'entité User (`id`, `username`, `email`, `createdAt`).
