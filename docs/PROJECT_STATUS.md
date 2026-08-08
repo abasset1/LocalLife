@@ -212,10 +212,11 @@ Objectif : gestion des utilisateurs et des catégories (création de compte simp
 Tickets terminés :
 
 * LL-2001 — Créer le module User (structure domain/application/infrastructure) ✅ — pas de logique métier, aucun code Java ajouté à ce stade, rien à compiler.
-* LL-2002 — Créer l'entité User ✅ — record `User(id, username, email, createdAt)`, même convention que `Activity` (Spring Data `@Id`). ⚠️ À valider par toi (lead dev) avant LL-2003.
+* LL-2002 — Créer l'entité User ✅ — record `User(id, username, email, createdAt)`, même convention que `Activity` (Spring Data `@Id`). Validée par le lead dev (sera complétée plus tard).
+* LL-2003 — Migration Flyway pour User ✅ — `V4__create_users_table.sql`, table **`users`** (et non `user`, mot réservé PostgreSQL). Entité mise à jour avec `@Table("users")` pour faire correspondre le mapping. ⚠️ Migration non exécutée en sandbox (Docker/PostgreSQL indisponibles ici) — à valider par toi au démarrage.
 
 ---
 
 # Prochaine action
 
-Traiter LL-2003 — Migration Flyway pour la table `user`. ⚠️ Point d'attention : `user` est un mot réservé en PostgreSQL, la migration devra probablement quoter le nom de table (`"user"`) ou en choisir un autre (`app_user`) — à trancher avec toi avant de l'écrire.
+Traiter LL-2004 — Repository User (`save()`, `findById()`, `findByEmail()`).
