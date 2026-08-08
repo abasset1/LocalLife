@@ -218,9 +218,10 @@ Tickets terminés :
 * LL-2005 — Service User ✅ — `createUser(username, email)` et `getUserById(id)`, simple délégation vers le repository (même convention qu'`ActivityService`). Tests unitaires écrits avec Mockito (`UserServiceTest`, repository mocké — ne nécessitent pas de base de données, exécutables directement).
 * LL-2006 — Créer le module Category ✅ — structure (domain/application/infrastructure) et entité `Category(id, name, description)` créées en une fois, comme demandé par le ticket. Aucun mot réservé PostgreSQL à gérer ici (contrairement à `user`) : nommage de table par défaut (`category`) conservé.
 * LL-2007 — Migration Flyway pour Category ✅ — `V5__create_category_table.sql`, table `category` (colonnes `id`, `name`, `description`). ⚠️ Non exécutée en sandbox (Docker/PostgreSQL indisponibles ici) — à valider par toi au démarrage.
+* LL-2008 — Repository Category ✅ — `findAll()`, `findById()` uniquement (même philosophie en lecture seule qu'`ActivityRepository`). Pas de test dédié à ce stade, comme pour `ActivityRepository` (testé indirectement via l'API en LL-1007).
 
 ---
 
 # Prochaine action
 
-Traiter LL-2008 — Repository Category (`findAll()`, `findById()`).
+Traiter LL-2009 — Service Category (`getAllCategories()`, `getCategoryById()`).
