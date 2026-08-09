@@ -16,13 +16,15 @@ Tickets terminés (Sprint 2) : LL-2001 (structure du module User), LL-2002 (enti
 
 Hors périmètre initial, ajouté à la demande d'Alex : `POST /api/v1/activities` (repository, service, controller) pour débloquer LL-2012 — voir PROJECT_STATUS.md pour le détail et les décisions à valider (statut par défaut `PENDING`, pas de date dans le formulaire).
 
+LL-2012 (formulaire de contribution frontend) fait — voir PROJECT_STATUS.md.
+
 Prochaine tâche
 
-Traiter LL-2012 — Formulaire de contribution (frontend).
+Traiter LL-2013 — Mise à jour de la documentation.
 
 Objectifs :
 
-Formulaire pour soumettre une activité (titre, description, catégorie, localisation), envoyé vers `POST /api/v1/activities`. Critères : formulaire fonctionnel, données envoyées au backend.
+Mettre à jour README.md, CHANGELOG.md, PROJECT_STATUS.md pour clôturer le Sprint 2.
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.

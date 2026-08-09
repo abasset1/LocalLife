@@ -226,9 +226,10 @@ Tickets terminés :
   - Statut par défaut : `PENDING` (pas de système de modération existant à ce stade — LL-2012 l'exclut explicitement, donc ce choix reste provisoire).
   - `startDate` = date de soumission (aucune date n'est demandée dans le formulaire de contribution) ; `endDate` = `null`.
   - Tests unitaires ajoutés dans `ActivityControllerTest` existant, sans toucher aux tests déjà en place.
+* LL-2012 — Formulaire de contribution ✅ — formulaire ajouté dans `App.tsx` (titre, description, catégorie, latitude, longitude — champs texte/nombre simples), `POST /api/v1/activities` appelé à la soumission, activité créée ajoutée directement à la carte sans recharger. `npx tsc --noEmit` et `npx vite build` validés.
 
 ---
 
 # Prochaine action
 
-Traiter LL-2012 — Formulaire de contribution (frontend, maintenant débloqué par l'endpoint `POST /api/v1/activities` ci-dessus).
+Traiter LL-2013 — Mise à jour de la documentation (README, CHANGELOG, PROJECT_STATUS) pour clôturer le Sprint 2.
