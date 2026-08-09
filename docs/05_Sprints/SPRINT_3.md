@@ -85,33 +85,115 @@ Permettre aux utilisateurs de :
   - Vérification du mot de passe possible (méthode `matches`).
 
 ---
-### LL-3004 — Service d’authentification
-**Statut :** À faire
-**Dépendances :** LL-3003
+ ## LL-3004 — Implémenter le login
+  **Statut :** À faire
+ **Dépendances :** LL-3003
+ 
+ ### Objectif
+ 
+ Implémenter la connexion utilisateur.
+ 
+ ### À réaliser
+ 
+ - vérifier email + mot de passe ;
+ - utiliser BCrypt ;
+-- retourner un JWT.
++- générer et retourner un vrai JWT.
++
++### JWT
++
++Le JWT doit être généré dès ce ticket.
++
++Ajouter la librairie JJWT et créer le composant/service minimal nécessaire
++à la génération du token.
++
++Le payload doit contenir :
++
++- `userId`
++- `email`
++- `role`
++
++Le ticket ne doit cependant pas implémenter :
++
++- la validation du JWT ;
++- le filtre d'authentification ;
++- la protection des endpoints ;
++- le refresh token ;
++- la gestion avancée des sessions.
++
++Ces responsabilités seront traitées par les tickets suivants.
++
++### Secret de signature
++
++Le secret JWT ne doit jamais être hardcodé dans le code source.
++
++La configuration doit utiliser une variable d'environnement :
++
++```properties
++jwt.secret=${JWT_SECRET}
++```
++
++Pour le développement local, `JWT_SECRET` peut être défini dans un fichier
++`.env` non versionné ou directement dans l'environnement d'exécution.
++
++Le vrai secret de production doit être fourni par le gestionnaire de secrets
++de l'environnement de déploiement.
++
++Ne jamais committer un secret réel.
+ 
+ ### Critères d'acceptation
+ 
+ - un utilisateur valide peut se connecter ;
+ - un mauvais mot de passe est refusé ;
+-- un JWT est retourné.
++- un JWT réel est retourné ;
++- le JWT contient `userId`, `email` et `role` ;
++- le secret de signature provient de la configuration/environnement ;
++- aucun secret réel n'est présent dans Git.
+ 
+ ---
+ 
+ ## LL-3005 — Génération de JWT
+ **Statut :** À faire
+ **Dépendances :** LL-3004
 
-- Créer un service `AuthService` avec :
-  - `register(username, email, password)` → crée un utilisateur + hache le mot de passe.
-  - `login(email, password)` → retourne un JWT si valide.
-- **Critères** :
-  - Tests unitaires pour les cas :
-    - Mot de passe incorrect.
-    - Email inexistant.
-    - Succès.
-
----
-### LL-3005 — Génération de JWT
-**Statut :** À faire
-**Dépendances :** LL-3004
-
-- Utiliser une librairie JWT (ex : `jjwt` pour Java).
-- **Contenu du token** :
-  - `userId`
-  - `email`
-  - `role`
-  - Date d’expiration (ex : 24h).
-- **Critères** :
-  - Token valide et vérifiable.
-  - Clé secrète stockée dans les `application.properties`.
+ ### Objectif
+ 
+-Créer le service de génération JWT.
++Finaliser et isoler la responsabilité de génération JWT.
+ 
+ ### À réaliser
+ 
+-- ajouter jjwt ;
+-- créer le service JWT ;
+-- définir les claims ;
+-- configurer le secret.
++- reprendre le composant de génération créé dans LL-3004 ;
++- isoler clairement la responsabilité de génération du JWT ;
++- ajouter les tests unitaires dédiés à la génération ;
++- vérifier les claims ;
++- vérifier la signature ;
++- vérifier la configuration du secret.
++
++### Important
++
++LL-3005 ne doit pas créer une deuxième implémentation JWT.
++
++La génération fonctionnelle du JWT a déjà été introduite dans LL-3004
++afin que le critère d'acceptation du login soit immédiatement satisfait.
++
++LL-3005 sert à finaliser, tester et isoler cette responsabilité.
+ 
+ ### Critères d'acceptation
+ 
+-- JWT signé ;
+-- claims : userId, email, role ;
+-- secret configurable.
++- JWT signé correctement ;
++- claims `userId`, `email` et `role` présents ;
++- secret configurable ;
++- tests unitaires couvrant la génération ;
++- aucune duplication de logique avec `AuthService`.
 
 ---
 ### LL-3006 — Middleware de vérification JWT
