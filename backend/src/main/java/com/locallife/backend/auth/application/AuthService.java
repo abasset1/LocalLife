@@ -19,7 +19,10 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordHashingService passwordHashingService;
 
-    public AuthService(UserRepository userRepository, JwtService jwtService, PasswordHashingService passwordHashingService) {
+    public AuthService(
+            UserRepository userRepository,
+            JwtService jwtService,
+            PasswordHashingService passwordHashingService) {
         this.userRepository = userRepository;
         this.jwtService = jwtService;
         this.passwordHashingService = passwordHashingService;
@@ -41,7 +44,8 @@ public class AuthService {
 
         User user = userOptional.get();
 
-        if (user.passwordHash() == null || !passwordHashingService.matches(request.password(), user.passwordHash())) {
+        if (user.passwordHash() == null
+                || !passwordHashingService.matches(request.password(), user.passwordHash())) {
             throw new IllegalArgumentException("Email ou mot de passe incorrect");
         }
 
