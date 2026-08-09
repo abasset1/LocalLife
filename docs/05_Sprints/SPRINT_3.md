@@ -1,4 +1,4 @@
-# Sprint 3 — Authentification et gestion des utilisateurs
+# Sprint 3 — Authentification, géocodage et gestion des utilisateurs
 
 **Statut :** À faire
 
@@ -9,6 +9,7 @@ Permettre aux utilisateurs de :
 - **Se connecter/déconnecter** via JWT.
 - **Accéder à des fonctionnalités protégées** (ex : soumettre une activité authentifié).
 - **Gérer leur profil** (mettre à jour email/username).
+- **Contribuer avec une adresse** (géocodage automatique en `latitude`/`longitude`).
 
 **Exclusions :**
 - Pas de récupération de mot de passe.
@@ -16,7 +17,6 @@ Permettre aux utilisateurs de :
 - Pas de 2FA (double authentification).
 
 ---
-
 ## 📦 **Périmètre**
 
 ### Inclus :
@@ -28,6 +28,9 @@ Permettre aux utilisateurs de :
   - Hachage des mots de passe (BCrypt).
   - Validation des inputs (ex : email valide, mot de passe fort).
   - Middleware pour vérifier le JWT sur les endpoints protégés.
+- **Géocodage** :
+  - Intégration d'une API de géocodage (ex : Nominatim) pour convertir l'adresse en `latitude`/`longitude`.
+  - Mise à jour du formulaire de contribution pour accepter une **adresse** au lieu de coordonnées manuelles.
 - **Enrichissement de l’entité `User`** :
   - Ajout des champs : `passwordHash`, `role` (par défaut `USER`).
   - Migration Flyway pour ces nouveaux champs.
@@ -37,6 +40,7 @@ Permettre aux utilisateurs de :
   - Page de login/register.
   - Affichage du nom d’utilisateur connecté.
   - Bouton de déconnexion.
+  - Formulaire de contribution avec **champ adresse** (géocodage automatique).
 
 ### Exclus :
 - Récupération de mot de passe.
@@ -45,7 +49,6 @@ Permettre aux utilisateurs de :
 - Gestion avancée des rôles (ex : ACL).
 
 ---
-
 ## 📋 **Tickets**
 
 ---
@@ -76,7 +79,7 @@ Permettre aux utilisateurs de :
 **Statut :** À faire
 **Dépendances :** LL-3001
 
-- Intégrer **BCrypt** (ou Argon2) pour hacher les mots de passe.
+- Intégrer **BCrypt** pour hacher les mots de passe.
 - **Critères** :
   - Ne jamais stocker le mot de passe en clair.
   - Vérification du mot de passe possible (méthode `matches`).
@@ -108,7 +111,7 @@ Permettre aux utilisateurs de :
   - Date d’expiration (ex : 24h).
 - **Critères** :
   - Token valide et vérifiable.
-  - Clé secrète stockée dans les `application.properties` (ou variables d’environnement).
+  - Clé secrète stockée dans les `application.properties`.
 
 ---
 ### LL-3006 — Middleware de vérification JWT
@@ -186,58 +189,53 @@ Permettre aux utilisateurs de :
   - Tous les appels aux endpoints protégés incluent le JWT.
 
 ---
-### LL-3012 — Tests d’intégration
+### LL-3012 — Backend : Intégration du géocodage
 **Statut :** À faire
-**Dépendances :** LL-3007, LL-3008
+**Dépendances :** LL-2012 (formulaire de contribution du Sprint 2)
+
+- Intégrer une API de géocodage (ex : [Nominatim](https://nominatim.openstreetmap.org/)) pour convertir l'adresse en `latitude`/`longitude`.
+- **Fonctionnalité** :
+  - Le backend reçoit une **adresse** depuis le frontend.
+  - Le backend appelle l'API de géocodage pour obtenir les coordonnées.
+  - Sauvegarde en base : `latitude`, `longitude` (pas l'adresse).
+- **Critères** :
+  - Gestion des erreurs (ex : adresse non trouvée).
+  - Ne pas sauvegarder l'adresse en base (seulement les coordonnées).
+
+---
+### LL-3013 — Frontend : Mise à jour du formulaire de contribution
+**Statut :** À faire
+**Dépendances :** LL-3012
+
+- Modifier le formulaire pour :
+  - Remplacer les champs `latitude`/`longitude` par un champ **`adresse`** (texte).
+  - Afficher un message si le géocodage échoue.
+- **Critères** :
+  - L'utilisateur ne saisi **que l'adresse**.
+  - Le frontend envoie **uniquement l'adresse** au backend.
+
+---
+### LL-3014 — Tests d’intégration
+**Statut :** À faire
+**Dépendances :** LL-3007, LL-3008, LL-3012
 
 - Tester :
   - Inscription → connexion → accès à un endpoint protégé.
+  - Soumission d'une activité avec une **adresse** → vérification que `latitude`/`longitude` sont sauvegardées.
   - JWT expiré → accès refusé.
 - **Critères** :
   - Couverture des cas principaux (succès + échecs).
 
 ---
-### LL-3013 — Mise à jour de la documentation
+### LL-3015 — Mise à jour de la documentation
 **Statut :** À faire
 **Dépendances :** Tous les tickets ci-dessus
 
 - Mettre à jour :
-  - `README.md` (ajouter section "Authentification").
+  - `README.md` (ajouter sections "Authentification" et "Géocodage").
   - `CHANGELOG.md` (nouveautés du Sprint 3).
   - `PROJECT_STATUS.md` (statut des sprints).
 
 ---
 ---
 ## 🔗 **Dépendances**
-
-
-
-LL-3001 → LL-3002 → LL-3003 → LL-3004 → LL-3005 → LL-3006 → LL-3007 LL-3008 (dépend de LL-3006) LL-3009 → LL-3010 → LL-3011 LL-3012 (dépend de LL-3007, LL-3008) LL-3013 (dépend de tous les billets)
-texte
-Photocopieuse
-
----
-## ✅ **Definition of Done**
-Le sprint est terminé lorsque :
-- Un utilisateur peut **s’inscrire** et **se connecter**.
-- Les endpoints protégés sont **accessibles uniquement avec un JWT valide**.
-- Le frontend **affiche l’utilisateur connecté** et permet de se déconnecter.
-- La documentation est à jour.
-
----
-## 🚫 **Hors périmètre**
-- Récupération de mot de passe.
-- OAuth (Google, Facebook, etc.).
-- 2FA (double authentification).
-- Gestion fine des rôles (ex : ACL).
-- Audit des logs de sécurité.
-
----
-## 🔐 **Recommandations de sécurité**
-- Utiliser **HTTPS** en production.
-- Ne jamais stocker le JWT dans les cookies non sécurisés.
-- Limiter la durée de validité du JWT (ex : 24h).
-- Utiliser des **clés secrètes fortes** pour signer le JWT.
-
-
-
