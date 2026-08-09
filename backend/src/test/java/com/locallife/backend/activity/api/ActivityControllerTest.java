@@ -81,4 +81,20 @@ class ActivityControllerTest {
         // Then
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
+
+    @Test
+    void createActivity_ShouldReturnCreated_WithActivity() {
+        // Given
+        Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37, LocalDateTime.now(), null, "PENDING");
+        when(activityService.createActivity("Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37)).thenReturn(created);
+
+        // When
+        ResponseEntity<Activity> response = activityController.createActivity(
+                new ActivityController.CreateActivityRequest("Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37));
+
+        // Then
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals("Pique-nique", response.getBody().title());
+        assertEquals("PENDING", response.getBody().status());
+    }
 }

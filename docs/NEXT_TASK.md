@@ -14,13 +14,15 @@ Tickets terminés (Sprint 1) : LL-1001 (structure du module Activity), LL-1002 (
 
 Tickets terminés (Sprint 2) : LL-2001 (structure du module User), LL-2002 (entité User), LL-2003 (migration Flyway, table `users`), LL-2004 (repository User), LL-2005 (service User, tests unitaires Mockito écrits), LL-2006 (module Category : structure + entité), LL-2007 (migration Flyway, table `category`), LL-2008 (repository Category), LL-2009 (service Category), LL-2010 (API REST User — POST /api/v1/users et GET /api/v1/users/{id}, tests unitaires Mockito écrits), LL-2011 (API REST Category — GET /api/v1/categories, tests unitaires Mockito écrits).
 
+Hors périmètre initial, ajouté à la demande d'Alex : `POST /api/v1/activities` (repository, service, controller) pour débloquer LL-2012 — voir PROJECT_STATUS.md pour le détail et les décisions à valider (statut par défaut `PENDING`, pas de date dans le formulaire).
+
 Prochaine tâche
 
 Traiter LL-2012 — Formulaire de contribution (frontend).
 
 Objectifs :
 
-Formulaire pour soumettre une activité (titre, description, catégorie, localisation). Critères : formulaire fonctionnel, données envoyées au backend. ⚠️ Ce ticket dépend de LL-2010 et LL-2011, tous deux terminés — mais aucun endpoint `POST /api/v1/activities` n'existe encore côté backend (le module Activity est en lecture seule, cf. Sprint 1). À clarifier avec toi avant de démarrer : faut-il d'abord ajouter un endpoint de création d'activité côté backend (hors périmètre initialement défini pour ce sprint), ou le formulaire doit-il simplement exister côté frontend sans intégration fonctionnelle complète pour l'instant ?
+Formulaire pour soumettre une activité (titre, description, catégorie, localisation), envoyé vers `POST /api/v1/activities`. Critères : formulaire fonctionnel, données envoyées au backend.
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.

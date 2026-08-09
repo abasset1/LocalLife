@@ -222,9 +222,13 @@ Tickets terminés :
 * LL-2009 — Service Category ✅ — `getAllCategories()` et `getCategoryById(id)`, simple délégation vers le repository (même convention qu'`ActivityService`). Pas de test dédié à ce stade, comme pour `ActivityService` (testé indirectement via l'API en LL-1007).
 * LL-2010 — API REST pour User ✅ — `POST /api/v1/users` (201 Created, corps `CreateUserRequest(username, email)`) et `GET /api/v1/users/{id}` (200 ou 404), même style qu'`ActivityController`. Tests unitaires écrits avec Mockito (`UserControllerTest`, service mocké — exécutables sans base de données).
 * LL-2011 — API REST pour Category ✅ — `GET /api/v1/categories` (liste), même style qu'`ActivityController`. Tests unitaires écrits avec Mockito (`CategoryControllerTest`, service mocké — exécutables sans base de données).
+* **Hors périmètre initial du Sprint 2, décidé par Alex** — Endpoint de création d'activité : `POST /api/v1/activities` ajouté pour débloquer LL-2012, qui nécessitait un moyen d'envoyer une contribution au backend (le module Activity était strictement en lecture seule depuis le Sprint 1). Corps de requête : `title`, `description`, `category`, `latitude`, `longitude` — exactement les champs listés dans LL-2012. ⚠️ Décisions prises unilatéralement, à valider avec toi :
+  - Statut par défaut : `PENDING` (pas de système de modération existant à ce stade — LL-2012 l'exclut explicitement, donc ce choix reste provisoire).
+  - `startDate` = date de soumission (aucune date n'est demandée dans le formulaire de contribution) ; `endDate` = `null`.
+  - Tests unitaires ajoutés dans `ActivityControllerTest` existant, sans toucher aux tests déjà en place.
 
 ---
 
 # Prochaine action
 
-Traiter LL-2012 — Formulaire de contribution (frontend : formulaire d'activité — titre, description, catégorie, localisation — envoyé au backend).
+Traiter LL-2012 — Formulaire de contribution (frontend, maintenant débloqué par l'endpoint `POST /api/v1/activities` ci-dessus).
