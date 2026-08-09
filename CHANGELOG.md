@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0 - 2026-08-08
+
+### Added
+
+* Module User : entité, migration Flyway (table `users`), repository,
+  service, API REST (`POST /api/v1/users`, `GET /api/v1/users/{id}`).
+* Module Category : entité, migration Flyway (table `category`),
+  repository, service, API REST (`GET /api/v1/categories`).
+* Endpoint de création d'activité (`POST /api/v1/activities`), ajouté
+  hors périmètre initial du Sprint 2 pour débloquer le formulaire de
+  contribution.
+* Formulaire de contribution côté frontend : proposer une activité
+  (titre, description, catégorie, localisation) directement depuis la
+  carte.
+
 ## 0.1.0 - 2026-08-07
 
 ### Added

@@ -15,7 +15,7 @@
 
 Le cadrage fonctionnel et technique est terminé.
 
-Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) démarré.
+Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) terminé.
 
 ---
 
@@ -205,7 +205,7 @@ Tickets terminés :
 
 # Sprint 2
 
-Statut : 🟡 En cours.
+Statut : ✅ Terminé.
 
 Objectif : gestion des utilisateurs et des catégories (création de compte simple, consultation des catégories, contribution basique — sans authentification, rôles, modération ni notifications).
 
@@ -213,11 +213,11 @@ Tickets terminés :
 
 * LL-2001 — Créer le module User (structure domain/application/infrastructure) ✅ — pas de logique métier, aucun code Java ajouté à ce stade, rien à compiler.
 * LL-2002 — Créer l'entité User ✅ — record `User(id, username, email, createdAt)`, même convention que `Activity` (Spring Data `@Id`). Validée par le lead dev (sera complétée plus tard).
-* LL-2003 — Migration Flyway pour User ✅ — `V4__create_users_table.sql`, table **`users`** (et non `user`, mot réservé PostgreSQL). Entité mise à jour avec `@Table("users")` pour faire correspondre le mapping. ⚠️ Migration non exécutée en sandbox (Docker/PostgreSQL indisponibles ici) — à valider par toi au démarrage.
-* LL-2004 — Repository User ✅ — `save()`, `findById()`, `findByEmail()` (même philosophie minimaliste que `ActivityRepository` : interface étend `Repository`, pas `CrudRepository`). Tests d'intégration écrits (`UserRepositoryIntegrationTest`, même style que `ActivityControllerIntegrationTest`, `@Transactional` pour rollback auto). ⚠️ Non exécutés en sandbox (nécessitent la vraie base) — à valider par toi.
+* LL-2003 — Migration Flyway pour User ✅ — `V4__create_users_table.sql`, table **`users`** (et non `user`, mot réservé PostgreSQL). Entité mise à jour avec `@Table("users")` pour faire correspondre le mapping.
+* LL-2004 — Repository User ✅ — `save()`, `findById()`, `findByEmail()` (même philosophie minimaliste que `ActivityRepository` : interface étend `Repository`, pas `CrudRepository`). Tests d'intégration écrits (`UserRepositoryIntegrationTest`, même style que `ActivityControllerIntegrationTest`, `@Transactional` pour rollback auto).
 * LL-2005 — Service User ✅ — `createUser(username, email)` et `getUserById(id)`, simple délégation vers le repository (même convention qu'`ActivityService`). Tests unitaires écrits avec Mockito (`UserServiceTest`, repository mocké — ne nécessitent pas de base de données, exécutables directement).
 * LL-2006 — Créer le module Category ✅ — structure (domain/application/infrastructure) et entité `Category(id, name, description)` créées en une fois, comme demandé par le ticket. Aucun mot réservé PostgreSQL à gérer ici (contrairement à `user`) : nommage de table par défaut (`category`) conservé.
-* LL-2007 — Migration Flyway pour Category ✅ — `V5__create_category_table.sql`, table `category` (colonnes `id`, `name`, `description`). ⚠️ Non exécutée en sandbox (Docker/PostgreSQL indisponibles ici) — à valider par toi au démarrage.
+* LL-2007 — Migration Flyway pour Category ✅ — `V5__create_category_table.sql`, table `category` (colonnes `id`, `name`, `description`).
 * LL-2008 — Repository Category ✅ — `findAll()`, `findById()` uniquement (même philosophie en lecture seule qu'`ActivityRepository`). Pas de test dédié à ce stade, comme pour `ActivityRepository` (testé indirectement via l'API en LL-1007).
 * LL-2009 — Service Category ✅ — `getAllCategories()` et `getCategoryById(id)`, simple délégation vers le repository (même convention qu'`ActivityService`). Pas de test dédié à ce stade, comme pour `ActivityService` (testé indirectement via l'API en LL-1007).
 * LL-2010 — API REST pour User ✅ — `POST /api/v1/users` (201 Created, corps `CreateUserRequest(username, email)`) et `GET /api/v1/users/{id}` (200 ou 404), même style qu'`ActivityController`. Tests unitaires écrits avec Mockito (`UserControllerTest`, service mocké — exécutables sans base de données).
@@ -227,9 +227,16 @@ Tickets terminés :
   - `startDate` = date de soumission (aucune date n'est demandée dans le formulaire de contribution) ; `endDate` = `null`.
   - Tests unitaires ajoutés dans `ActivityControllerTest` existant, sans toucher aux tests déjà en place.
 * LL-2012 — Formulaire de contribution ✅ — formulaire ajouté dans `App.tsx` (titre, description, catégorie, latitude, longitude — champs texte/nombre simples), `POST /api/v1/activities` appelé à la soumission, activité créée ajoutée directement à la carte sans recharger. `npx tsc --noEmit` et `npx vite build` validés.
+* LL-2013 — Documentation ✅ — README, CHANGELOG et PROJECT_STATUS mis à jour pour refléter le Sprint 2 terminé.
+
+**Sprint 2 terminé.** Gestion des utilisateurs (création, consultation) et des catégories (consultation) en place, ainsi qu'un formulaire de contribution d'activité fonctionnel de bout en bout (frontend + endpoint backend ajouté hors périmètre initial, décisions à valider avec toi — voir ci-dessus).
+
+⚠️ **Points restant à valider par toi avant de considérer le Sprint 2 pleinement clos en conditions réelles :**
+- Aucune migration ni aucun test nécessitant la vraie base de données (`users`, `category`, tests d'intégration User) n'a pu être exécuté en sandbox (Docker/PostgreSQL indisponibles ici).
+- Les décisions provisoires sur `POST /api/v1/activities` (statut `PENDING`, gestion des dates) à confirmer ou ajuster.
 
 ---
 
 # Prochaine action
 
-Traiter LL-2013 — Mise à jour de la documentation (README, CHANGELOG, PROJECT_STATUS) pour clôturer le Sprint 2.
+Sprint 2 clôturé. Prochaine étape : cadrage du Sprint 3 (aucun ticket disponible pour l'instant — à fournir par toi, comme pour SPRINT_2.md).
