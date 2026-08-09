@@ -15,7 +15,7 @@
 
 Le cadrage fonctionnel et technique est terminé.
 
-Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) terminé.
+Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) terminé. Sprint 3 (authentification, géocodage) démarré.
 
 ---
 
@@ -237,6 +237,18 @@ Tickets terminés :
 
 ---
 
+# Sprint 3
+
+Statut : 🟡 En cours.
+
+Objectif : authentification (inscription, connexion JWT), endpoints protégés, gestion du profil, géocodage d'adresse pour le formulaire de contribution.
+
+Tickets terminés :
+
+* LL-3001 — Étendre l'entité User ✅ — ajout de `passwordHash` (String) et `role` (nouvel enum `Role { USER, ADMIN }`, package `user.domain`). ⚠️ Point de granularité : les critères du ticket mentionnent aussi "Migration Flyway" alors qu'un ticket séparé LL-3002 y est dédié — j'ai traité LL-3001 comme une extension de l'entité uniquement, la migration étant réservée à LL-3002 (cohérent avec la dépendance `LL-3002 → LL-3001`). Tous les appels au constructeur `User` (service + 3 fichiers de test) ont été mis à jour pour compiler : `passwordHash` vaut `"hash"` dans les tests (placeholder) et `null` dans `UserService.createUser` (flux hérité du Sprint 2, sans mot de passe — sera probablement remplacé par `AuthService.register` en LL-3004) ; `role` vaut `Role.USER` par défaut partout.
+
+---
+
 # Prochaine action
 
-Sprint 2 clôturé. Prochaine étape : cadrage du Sprint 3 (aucun ticket disponible pour l'instant — à fournir par toi, comme pour SPRINT_2.md).
+Traiter LL-3002 — Migration Flyway pour les nouveaux champs (`passwordHash`, `role` sur la table `users`).

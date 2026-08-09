@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
 import com.locallife.backend.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
@@ -29,7 +30,7 @@ class UserServiceTest {
     @Test
     void createUser_ShouldSaveAndReturnUser() {
         // Given
-        User saved = new User(1L, "alice", "alice@example.com", LocalDateTime.now());
+        User saved = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now());
         when(userRepository.save(any(User.class))).thenReturn(saved);
 
         // When
@@ -45,7 +46,7 @@ class UserServiceTest {
     @Test
     void getUserById_ShouldReturnUser_WhenFound() {
         // Given
-        User user = new User(1L, "bob", "bob@example.com", LocalDateTime.now());
+        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         // When

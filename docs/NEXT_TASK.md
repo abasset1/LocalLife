@@ -8,6 +8,8 @@ Sprint 1 terminé (première fonctionnalité visible — module Activity, API de
 
 Sprint 2 terminé (utilisateurs, catégories, formulaire de contribution).
 
+Sprint 3 démarré (authentification, géocodage, gestion des utilisateurs — voir docs/05_Sprints/SPRINT_3.md).
+
 Tickets terminés et validés (Sprint 0) : LL-0001 à LL-0015 — voir PROJECT_STATUS.md pour le détail.
 
 Tickets terminés (Sprint 1) : LL-1001 (structure du module Activity), LL-1002 (entité Activity), LL-1003 (migration Flyway V2 — table `activity`, validée), LL-1004 (repository Activity — Spring Data JDBC, lecture seule), LL-1005 (service Activity — findAll/findById), LL-1006 (migration Flyway V3 — 5 activités de démonstration, coordonnées Marseille, statut `PUBLISHED` pour toutes — à valider après démarrage), LL-1007 (API REST de consultation), LL-1008 (carte React + Leaflet), LL-1009 (marqueurs d'activités), LL-1010 (popup activité — titre, catégorie, date au clic sur un marqueur ; compilation TypeScript et build Vite validés) et LL-1011 (documentation — README, CHANGELOG, PROJECT_STATUS mis à jour).
@@ -16,9 +18,15 @@ Tickets terminés (Sprint 2) : LL-2001 (structure du module User), LL-2002 (enti
 
 Hors périmètre initial, ajouté à la demande d'Alex : `POST /api/v1/activities` (repository, service, controller) pour débloquer LL-2012 — voir PROJECT_STATUS.md pour le détail et les décisions à valider (statut par défaut `PENDING`, pas de date dans le formulaire).
 
+Tickets terminés (Sprint 3) : LL-3001 (extension de l'entité User — `passwordHash`, `role` ; voir PROJECT_STATUS.md pour le point de granularité avec LL-3002).
+
 Prochaine tâche
 
-Sprint 2 clôturé. Le cadrage du Sprint 3 reste à faire (aucun ticket disponible pour l'instant) — aucun ticket à traiter tant que ce cadrage n'est pas fourni.
+Traiter LL-3002 — Migration Flyway pour les nouveaux champs.
+
+Objectifs :
+
+Ajouter `passwordHash` et `role` à la table `users`. Critères : migration appliquée automatiquement au démarrage, données existantes non perdues (valeur par défaut `USER` pour `role`).
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.

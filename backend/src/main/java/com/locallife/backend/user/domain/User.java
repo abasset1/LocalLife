@@ -16,5 +16,7 @@ public record User(
         @Id Long id,
         String username,
         String email,
+        String passwordHash,
+        Role role,
         LocalDateTime createdAt) {
 }

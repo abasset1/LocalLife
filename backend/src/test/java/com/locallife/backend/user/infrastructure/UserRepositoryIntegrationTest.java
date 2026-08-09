@@ -2,6 +2,7 @@ package com.locallife.backend.user.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -26,7 +27,7 @@ class UserRepositoryIntegrationTest {
 
     @Test
     void save_ShouldPersistUser_AndFindById_ShouldReturnIt() {
-        User saved = userRepository.save(new User(null, "alice", "alice@example.com", LocalDateTime.now()));
+        User saved = userRepository.save(new User(null, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now()));
 
         assertThat(saved.id()).isNotNull();
 
@@ -46,7 +47,7 @@ class UserRepositoryIntegrationTest {
 
     @Test
     void findByEmail_ShouldReturnUser_WhenExists() {
-        userRepository.save(new User(null, "bob", "bob@example.com", LocalDateTime.now()));
+        userRepository.save(new User(null, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now()));
 
         Optional<User> found = userRepository.findByEmail("bob@example.com");
 

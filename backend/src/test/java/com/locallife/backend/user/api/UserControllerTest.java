@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 
 import com.locallife.backend.user.api.UserController.CreateUserRequest;
 import com.locallife.backend.user.application.UserService;
+import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -28,7 +29,7 @@ class UserControllerTest {
     @Test
     void createUser_ShouldReturnCreated_WithUser() {
         // Given
-        User created = new User(1L, "alice", "alice@example.com", LocalDateTime.now());
+        User created = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now());
         when(userService.createUser("alice", "alice@example.com")).thenReturn(created);
 
         // When
@@ -43,7 +44,7 @@ class UserControllerTest {
     @Test
     void getUserById_ShouldReturnUser_WhenFound() {
         // Given
-        User user = new User(1L, "bob", "bob@example.com", LocalDateTime.now());
+        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now());
         when(userService.getUserById(1L)).thenReturn(Optional.of(user));
 
         // When
