@@ -246,9 +246,13 @@ Objectif : authentification (inscription, connexion JWT), endpoints protégés, 
 Tickets terminés :
 
 * LL-3001 — Étendre l'entité User ✅ — ajout de `passwordHash` (String) et `role` (nouvel enum `Role { USER, ADMIN }`, package `user.domain`). ⚠️ Point de granularité : les critères du ticket mentionnent aussi "Migration Flyway" alors qu'un ticket séparé LL-3002 y est dédié — j'ai traité LL-3001 comme une extension de l'entité uniquement, la migration étant réservée à LL-3002 (cohérent avec la dépendance `LL-3002 → LL-3001`). Tous les appels au constructeur `User` (service + 3 fichiers de test) ont été mis à jour pour compiler : `passwordHash` vaut `"hash"` dans les tests (placeholder) et `null` dans `UserService.createUser` (flux hérité du Sprint 2, sans mot de passe — sera probablement remplacé par `AuthService.register` en LL-3004) ; `role` vaut `Role.USER` par défaut partout.
+* LL-3002 — Migration Flyway pour les nouveaux champs ✅ — `V6__add_password_hash_and_role_to_users.sql`. ⚠️ Deux points à noter :
+  - Le ticket mentionne la table `user` (sans "s") — la vraie table s'appelle **`users`** (décision LL-2003, mot réservé PostgreSQL). J'ai utilisé le vrai nom.
+  - `password_hash` reçoit un défaut `''` (chaîne vide) pour ne pas casser les lignes existantes, comme demandé pour `role` (`'USER'`). Ça laisse les comptes créés avant l'authentification (via l'ancien `POST /api/v1/users` du Sprint 2) avec un mot de passe vide/invalide — à traiter dans un futur ticket (réinitialisation ou migration de données), pas dans le périmètre de LL-3002.
+  - ⚠️ Non exécutée en sandbox (Docker/PostgreSQL indisponibles ici) — à valider par toi au démarrage.
 
 ---
 
 # Prochaine action
 
-Traiter LL-3002 — Migration Flyway pour les nouveaux champs (`passwordHash`, `role` sur la table `users`).
+Traiter LL-3003 — Service de hachage des mots de passe (BCrypt : ne jamais stocker en clair, vérification via `matches`).
