@@ -250,9 +250,10 @@ Tickets terminés :
   - Le ticket mentionne la table `user` (sans "s") — la vraie table s'appelle **`users`** (décision LL-2003, mot réservé PostgreSQL). J'ai utilisé le vrai nom.
   - `password_hash` reçoit un défaut `''` (chaîne vide) pour ne pas casser les lignes existantes, comme demandé pour `role` (`'USER'`). Ça laisse les comptes créés avant l'authentification (via l'ancien `POST /api/v1/users` du Sprint 2) avec un mot de passe vide/invalide — à traiter dans un futur ticket (réinitialisation ou migration de données), pas dans le périmètre de LL-3002.
   - ⚠️ Non exécutée en sandbox (Docker/PostgreSQL indisponibles ici) — à valider par toi au démarrage.
+* LL-3003 — Service de hachage des mots de passe ✅ — `PasswordHashingService` (package `user.application`), méthodes `hash()` et `matches()` s'appuyant sur `BCryptPasswordEncoder`. ⚠️ Nouvelle dépendance ajoutée au `pom.xml` : `spring-security-crypto` (pas la stack complète `spring-boot-starter-security`, pour rester minimal — pas de filtres web ni de config de sécurité, juste BCrypt). Tests unitaires écrits (`PasswordHashingServiceTest`, 3 cas : hash ≠ clair, `matches` vrai, `matches` faux) — aucune dépendance externe, exécutables directement sans mock ni base de données.
 
 ---
 
 # Prochaine action
 
-Traiter LL-3003 — Service de hachage des mots de passe (BCrypt : ne jamais stocker en clair, vérification via `matches`).
+Traiter LL-3004 — Service d'authentification (`AuthService.register(username, email, password)`, `AuthService.login(email, password)` → JWT si valide).

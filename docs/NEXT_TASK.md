@@ -18,15 +18,15 @@ Tickets terminés (Sprint 2) : LL-2001 (structure du module User), LL-2002 (enti
 
 Hors périmètre initial, ajouté à la demande d'Alex : `POST /api/v1/activities` (repository, service, controller) pour débloquer LL-2012 — voir PROJECT_STATUS.md pour le détail et les décisions à valider (statut par défaut `PENDING`, pas de date dans le formulaire).
 
-Tickets terminés (Sprint 3) : LL-3001 (extension de l'entité User — `passwordHash`, `role` ; voir PROJECT_STATUS.md pour le point de granularité avec LL-3002), LL-3002 (migration Flyway V6 — table `users` réellement utilisée, malgré le libellé "user" du ticket ; `password_hash` défaut `''`, `role` défaut `'USER'` ; à valider au démarrage réel).
+Tickets terminés (Sprint 3) : LL-3001 (extension de l'entité User — `passwordHash`, `role` ; voir PROJECT_STATUS.md pour le point de granularité avec LL-3002), LL-3002 (migration Flyway V6 — table `users` réellement utilisée, malgré le libellé "user" du ticket ; `password_hash` défaut `''`, `role` défaut `'USER'` ; à valider au démarrage réel), LL-3003 (service de hachage BCrypt — `PasswordHashingService.hash()`/`matches()` ; dépendance `spring-security-crypto` ajoutée au pom.xml ; tests unitaires écrits, sans mock ni base de données).
 
 Prochaine tâche
 
-Traiter LL-3003 — Service de hachage des mots de passe.
+Traiter LL-3004 — Service d'authentification.
 
 Objectifs :
 
-Intégrer BCrypt. Critères : ne jamais stocker le mot de passe en clair, vérification possible via une méthode `matches`.
+Créer `AuthService` avec `register(username, email, password)` (crée un utilisateur + hache le mot de passe) et `login(email, password)` (retourne un JWT si valide). Critères : tests unitaires pour mot de passe incorrect, email inexistant, succès.
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.
