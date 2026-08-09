@@ -34,8 +34,10 @@ public class ActivityService {
      * formulaire de contribution ; la date de soumission est utilisée
      * comme {@code startDate} en attendant un futur ticket sur ce point.
      */
-    public Activity createActivity(String title, String description, String category, double latitude, double longitude) {
-        Activity activity = new Activity(null, title, description, category, latitude, longitude, LocalDateTime.now(), null, "PENDING");
+    public Activity createActivity(
+            String title, String description, String category, double latitude, double longitude) {
+        Activity activity = new Activity(
+                null, title, description, category, latitude, longitude, LocalDateTime.now(), null, "PENDING");
         return activityRepository.save(activity);
     }
 

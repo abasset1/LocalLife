@@ -29,8 +29,10 @@ class ActivityControllerTest {
     void getAllActivities_ShouldReturnListOfActivities() {
         // Given
         List<Activity> activities = List.of(
-                new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0, LocalDateTime.now(), LocalDateTime.now(), "ACTIVE"),
-                new Activity(2L, "Another Activity", "Another Description", "Another Category", 1.0, 1.0, LocalDateTime.now(), LocalDateTime.now(), "ACTIVE")
+                new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
+                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE"),
+                new Activity(2L, "Another Activity", "Another Description", "Another Category", 1.0, 1.0,
+                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE")
         );
         when(activityService.findAll()).thenReturn(activities);
 
@@ -58,7 +60,8 @@ class ActivityControllerTest {
     @Test
     void getActivityById_ShouldReturnActivity_WhenFound() {
         // Given
-        Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0, LocalDateTime.now(), LocalDateTime.now(), "ACTIVE");
+        Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
+                LocalDateTime.now(), LocalDateTime.now(), "ACTIVE");
         when(activityService.findById(1L)).thenReturn(Optional.of(activity));
 
         // When
@@ -85,12 +88,15 @@ class ActivityControllerTest {
     @Test
     void createActivity_ShouldReturnCreated_WithActivity() {
         // Given
-        Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37, LocalDateTime.now(), null, "PENDING");
-        when(activityService.createActivity("Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37)).thenReturn(created);
+        Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
+                LocalDateTime.now(), null, "PENDING");
+        when(activityService.createActivity("Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37))
+                .thenReturn(created);
 
         // When
         ResponseEntity<Activity> response = activityController.createActivity(
-                new ActivityController.CreateActivityRequest("Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37));
+                new ActivityController.CreateActivityRequest(
+                        "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37));
 
         // Then
         assertEquals(HttpStatus.CREATED, response.getStatusCode());

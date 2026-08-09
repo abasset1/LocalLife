@@ -53,7 +53,8 @@ public class ActivityController {
      * titre, description, catégorie, localisation — exactement les champs
      * demandés par le ticket. id, dates et statut sont gérés côté serveur.
      */
-    public record CreateActivityRequest(String title, String description, String category, double latitude, double longitude) {
+    public record CreateActivityRequest(
+            String title, String description, String category, double latitude, double longitude) {
     }
 
 }

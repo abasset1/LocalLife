@@ -27,7 +27,8 @@ class UserRepositoryIntegrationTest {
 
     @Test
     void save_ShouldPersistUser_AndFindById_ShouldReturnIt() {
-        User saved = userRepository.save(new User(null, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now()));
+        User saved = userRepository.save(
+                new User(null, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now()));
 
         assertThat(saved.id()).isNotNull();
 
