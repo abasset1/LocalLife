@@ -13,6 +13,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * Configuration de Spring Security pour activer le filtre JWT.
  * Désactive CSRF et les sessions pour une API REST stateless.
+ * Pour l'instant, tous les endpoints sont accessibles sans JWT (sauf /api/v1/auth/**).
+ * La protection des endpoints sera implémentée dans LL-3008.
  */
 @Configuration
 @EnableWebSecurity
@@ -28,8 +30,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(new JwtFilter(jwtSecret), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**").permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 );
 
         return http.build();
