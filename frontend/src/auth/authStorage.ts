@@ -1,5 +1,12 @@
 const TOKEN_KEY = "locallife.jwt";
 
+interface JwtPayload {
+    userId: number;
+    email: string;
+    role: string;
+    exp?: number;
+}
+
 /**
  * Stocke le JWT après une connexion réussie.
  * localStorage est utilisé plutôt que sessionStorage pour que la session
@@ -20,4 +27,26 @@ export function clearToken(): void {
 
 export function isAuthenticated(): boolean {
     return getToken() !== null;
+}
+
+/**
+ * Décode le payload du JWT stocké, pour affichage uniquement (ex : email
+ * de l'utilisateur connecté dans l'en-tête). Ce n'est PAS une vérification
+ * de signature — la sécurité réelle reste entièrement côté backend, qui
+ * revalide chaque token à chaque requête protégée (JwtFilter).
+ */
+export function getPayload(): JwtPayload | null {
+    const token = getToken();
+
+    if (!token) {
+        return null;
+    }
+
+    try {
+        const payloadSegment = token.split(".")[1];
+        const normalized = payloadSegment.replace(/-/g, "+").replace(/_/g, "/");
+        return JSON.parse(atob(normalized)) as JwtPayload;
+    } catch {
+        return null;
+    }
 }

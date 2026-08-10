@@ -275,9 +275,16 @@ Tickets terminés :
   - `App.tsx` : ajout d'un lien discret "Se connecter" dans l'en-tête, visible uniquement si aucun JWT n'est stocké (`isAuthenticated()`) — sans ce lien les nouvelles pages n'étaient atteignables qu'en tapant l'URL. ⚠️ Léger dépassement du périmètre du ticket, qui ne le demandait pas explicitement ; l'affichage complet de l'utilisateur connecté et le bouton de déconnexion restent bien prévus pour LL-3010.
   - `npx tsc --noEmit` et `npx vite build` validés (installation de `react-router-dom` via `npm install` effectuée en sandbox).
   - ⚠️ Point important, pas dans le périmètre de LL-3009 : depuis LL-3008, `POST /api/v1/activities` exige un JWT. Le formulaire de contribution existant dans `App.tsx` n'envoie encore aucun `Authorization` header (ce sera fait en LL-3011, "Appels API avec JWT") — la contribution d'activité est donc temporairement cassée pour tout le monde tant que LL-3011 n'est pas traité. À signaler si ça bloque un test avant.
+* LL-3010 — Frontend : affichage de l'utilisateur connecté ✅ — en-tête de `App.tsx` mis à jour :
+  - Utilisateur connecté → "Bonjour, {email}" + bouton "Déconnexion" (vide le `localStorage` et repasse l'état React à `null`, sans rechargement de page).
+  - Utilisateur non connecté → lien "Se connecter" (déjà en place depuis LL-3009).
+  - `getPayload()` ajouté dans `src/auth/authStorage.ts` : décodage **non vérifié** du payload du JWT stocké, uniquement pour l'affichage — la vraie vérification de signature reste entièrement côté backend (`JwtFilter`), ce décodage ne sert qu'à lire `email`/`userId`/`role` sans appel réseau supplémentaire.
+  - ⚠️ Décision, à valider avec toi : le JWT ne contient pas de `username` (seulement `userId`, `email`, `role` — voir `JwtService.generateToken`), donc l'en-tête affiche l'**email** plutôt qu'un prénom ("Bonjour, alex@example.com" et non "Bonjour, Alex" comme dans l'exemple du ticket). Alternative possible : appeler `GET /api/v1/users/{id}` après connexion pour récupérer le `username` — non fait ici pour rester minimal, et parce que cet endpoint renvoie actuellement l'entité `User` complète **y compris `passwordHash`** (fuite pré-existante, hors périmètre de ce ticket, à signaler séparément).
+  - Mise à jour dynamique confirmée : le clic sur "Déconnexion" met à jour l'en-tête immédiatement (état React), sans navigation ni rechargement.
+  - `npx tsc --noEmit` et `npx vite build` validés.
 
 ---
 
 # Prochaine action
 
-Sprint 3 : traiter LL-3010 — Frontend : affichage de l'utilisateur connecté (nom + bouton de déconnexion), dépend de LL-3009.
+Sprint 3 : traiter LL-3011 — Frontend : appels API avec JWT (Axios/fetch avec header `Authorization: Bearer`, gestion des 401 → redirection `/login`). C'est ce ticket qui répare le formulaire de contribution cassé depuis LL-3008/3009.

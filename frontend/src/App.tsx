@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import type { LatLngExpression } from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import { Link } from "react-router-dom";
-import { isAuthenticated } from "./auth/authStorage";
+import { clearToken, getPayload } from "./auth/authStorage";
 
 interface Activity {
     id: number;
@@ -18,6 +18,7 @@ const MARSEILLE_COORDINATES: LatLngExpression = [43.2965, 5.3698];
 
 function App() {
     const [activities, setActivities] = useState<Activity[]>([]);
+    const [currentUser, setCurrentUser] = useState(() => getPayload());
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState("");
@@ -42,6 +43,11 @@ function App() {
 
         return () => abortController.abort();
     }, []);
+
+    function handleLogout() {
+        clearToken();
+        setCurrentUser(null);
+    }
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -82,7 +88,14 @@ function App() {
         <main className="application-shell">
             <header className="application-header">
                 <h1>LocalLife</h1>
-                {!isAuthenticated() && (
+                {currentUser ? (
+                    <div className="header-user">
+                        <span>Bonjour, {currentUser.email}</span>
+                        <button className="header-logout-button" onClick={handleLogout} type="button">
+                            Déconnexion
+                        </button>
+                    </div>
+                ) : (
                     <Link className="header-login-link" to="/login">
                         Se connecter
                     </Link>

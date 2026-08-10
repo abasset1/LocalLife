@@ -47,6 +47,26 @@ body {
     text-decoration: underline;
 }
 
+.header-user {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.header-logout-button {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: #1e293b;
+    cursor: pointer;
+}
+
+.header-logout-button:hover {
+    background-color: #f1f5f9;
+}
+
 .contribution-form {
     display: flex;
     flex-wrap: wrap;
