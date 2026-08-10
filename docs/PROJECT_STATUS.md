@@ -268,9 +268,16 @@ Tickets terminés :
   - Protection faite au niveau des routes (`requestMatchers`), pas d'annotations `@PreAuthorize` — cohérent avec le fait qu'aucune sécurité par méthode (`@EnableMethodSecurity`) n'existait déjà dans le projet, et évite d'ajouter une nouvelle dépendance/config.
   - Pas de nouveau test automatisé : les tests de contrôleur existants (`ActivityControllerTest`, `UserControllerTest`) sont des tests Mockito purs (pas de contexte Spring), donc non impactés par la sécurité au niveau des routes — les tests d'intégration (`ActivityControllerIntegrationTest`) ne couvrent que les `GET`, restés publics. Le ticket LL-3008 demande explicitement des **tests manuels** (accès refusé sans JWT, autorisé avec JWT valide) — voir la carte d'étapes livrée avec ce ticket pour les commandes `curl` à exécuter.
   - ⚠️ Non exécuté en sandbox (pas de Maven/Docker disponibles ici) — build et tests manuels à valider par toi.
+* LL-3009 — Frontend : pages de login/register ✅ — ajout de `react-router-dom` (seule nouvelle dépendance) et de deux pages :
+  - `LoginPage` (`/login`) — formulaire email/mot de passe, appelle `POST /api/v1/auth/login`, stocke le JWT (`localStorage`, clé `locallife.jwt`, module `src/auth/authStorage.ts`) et redirige vers `/` en cas de succès. Affiche le message d'erreur renvoyé par l'API (`ErrorResponse.message`, ex. mauvais mot de passe → 401) ou un message générique si le serveur est injoignable.
+  - `RegisterPage` (`/register`) — formulaire username/email/mot de passe, appelle `POST /api/v1/auth/register`. ⚠️ Décision, à valider avec toi : comme cet endpoint ne renvoie pas de JWT (LL-3007), la redirection après inscription réussie se fait vers `/login` (pas `/`, contrairement à la connexion) plutôt que de connecter automatiquement l'utilisateur — le ticket ne précisait la redirection vers `/` que pour la connexion.
+  - `main.tsx` : ajout d'un routeur (`BrowserRouter`/`Routes`) avec 3 routes : `/` (application existante), `/login`, `/register`.
+  - `App.tsx` : ajout d'un lien discret "Se connecter" dans l'en-tête, visible uniquement si aucun JWT n'est stocké (`isAuthenticated()`) — sans ce lien les nouvelles pages n'étaient atteignables qu'en tapant l'URL. ⚠️ Léger dépassement du périmètre du ticket, qui ne le demandait pas explicitement ; l'affichage complet de l'utilisateur connecté et le bouton de déconnexion restent bien prévus pour LL-3010.
+  - `npx tsc --noEmit` et `npx vite build` validés (installation de `react-router-dom` via `npm install` effectuée en sandbox).
+  - ⚠️ Point important, pas dans le périmètre de LL-3009 : depuis LL-3008, `POST /api/v1/activities` exige un JWT. Le formulaire de contribution existant dans `App.tsx` n'envoie encore aucun `Authorization` header (ce sera fait en LL-3011, "Appels API avec JWT") — la contribution d'activité est donc temporairement cassée pour tout le monde tant que LL-3011 n'est pas traité. À signaler si ça bloque un test avant.
 
 ---
 
 # Prochaine action
 
-Sprint 3 : traiter LL-3009 — Frontend : pages de login/register (dépend de LL-3007, déjà fait).
+Sprint 3 : traiter LL-3010 — Frontend : affichage de l'utilisateur connecté (nom + bouton de déconnexion), dépend de LL-3009.

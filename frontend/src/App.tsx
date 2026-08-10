@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { LatLngExpression } from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { Link } from "react-router-dom";
+import { isAuthenticated } from "./auth/authStorage";
 
 interface Activity {
     id: number;
@@ -80,6 +82,11 @@ function App() {
         <main className="application-shell">
             <header className="application-header">
                 <h1>LocalLife</h1>
+                {!isAuthenticated() && (
+                    <Link className="header-login-link" to="/login">
+                        Se connecter
+                    </Link>
+                )}
             </header>
             <form className="contribution-form" onSubmit={(event) => void handleSubmit(event)}>
                 <input

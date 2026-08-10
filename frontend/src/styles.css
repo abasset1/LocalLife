@@ -24,6 +24,9 @@ body {
 }
 
 .application-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 1rem 1.5rem;
     background-color: #ffffff;
     border-bottom: 1px solid #e2e8f0;
@@ -32,6 +35,16 @@ body {
 .application-header h1 {
     margin: 0;
     font-size: 1.25rem;
+}
+
+.header-login-link {
+    color: #2563eb;
+    font-size: 0.9rem;
+    text-decoration: none;
+}
+
+.header-login-link:hover {
+    text-decoration: underline;
 }
 
 .contribution-form {
@@ -70,4 +83,55 @@ body {
 .map {
     min-height: 0;
     height: 100%;
+}
+
+.auth-shell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    background-color: #f8fafc;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    width: 100%;
+    max-width: 320px;
+    padding: 2rem;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.auth-form h1 {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+}
+
+.auth-form input {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+}
+
+.auth-form button {
+    padding: 0.5rem 0.8rem;
+    border: none;
+    border-radius: 4px;
+    background-color: #2563eb;
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.auth-form button:disabled {
+    background-color: #93c5fd;
+    cursor: not-allowed;
+}
+
+.auth-switch {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #64748b;
 }
