@@ -18,15 +18,15 @@ Tickets terminés (Sprint 2) : LL-2001 (structure du module User), LL-2002 (enti
 
 Hors périmètre initial, ajouté à la demande d'Alex : `POST /api/v1/activities` (repository, service, controller) pour débloquer LL-2012 — voir PROJECT_STATUS.md pour le détail et les décisions à valider (statut par défaut `PENDING`, pas de date dans le formulaire).
 
-Tickets terminés (Sprint 3) : LL-3001 (extension de l'entité User — `passwordHash`, `role` ; voir PROJECT_STATUS.md pour le point de granularité avec LL-3002), LL-3002 (migration Flyway V6 — table `users` réellement utilisée, malgré le libellé "user" du ticket ; `password_hash` défaut `''`, `role` défaut `'USER'` ; à valider au démarrage réel), LL-3003 (service de hachage BCrypt — `PasswordHashingService.hash()`/`matches()` ; dépendance `spring-security-crypto` ajoutée au pom.xml ; tests unitaires écrits, sans mock ni base de données), LL-3004 (login avec JWT réel, fait directement sur le dépôt distant), LL-3005 (génération JWT isolée dans JwtService, fait directement sur le dépôt distant), LL-3006 (middleware JwtFilter + SecurityConfig, protection effective différée à LL-3008 comme prévu, fait directement sur le dépôt distant), LL-3007 (endpoint POST /api/v1/auth/register, correctif des codes HTTP d'erreur login/register, tests AuthServiceTest + AuthControllerTest écrits — voir PROJECT_STATUS.md pour le détail).
+Tickets terminés (Sprint 3) : LL-3001 (extension de l'entité User — `passwordHash`, `role` ; voir PROJECT_STATUS.md pour le point de granularité avec LL-3002), LL-3002 (migration Flyway V6 — table `users` réellement utilisée, malgré le libellé "user" du ticket ; `password_hash` défaut `''`, `role` défaut `'USER'` ; à valider au démarrage réel), LL-3003 (service de hachage BCrypt — `PasswordHashingService.hash()`/`matches()` ; dépendance `spring-security-crypto` ajoutée au pom.xml ; tests unitaires écrits, sans mock ni base de données), LL-3004 (login avec JWT réel, fait directement sur le dépôt distant), LL-3005 (génération JWT isolée dans JwtService, fait directement sur le dépôt distant), LL-3006 (middleware JwtFilter + SecurityConfig, protection effective différée à LL-3008 comme prévu, fait directement sur le dépôt distant), LL-3007 (endpoint POST /api/v1/auth/register, correctif des codes HTTP d'erreur login/register, tests AuthServiceTest + AuthControllerTest écrits — voir PROJECT_STATUS.md pour le détail), LL-3008 (protection de `POST /api/v1/activities` — authentifié — et `POST /api/v1/users` — rôle ADMIN — dans `SecurityConfig`, réponses JSON standardisées 401/403 ; voir PROJECT_STATUS.md pour le détail et la décision à valider).
 
 Prochaine tâche
 
-Traiter LL-3008 — Protéger les endpoints existants.
+Traiter LL-3009 — Frontend : Pages de login/register.
 
 Objectifs :
 
-Protéger `POST /api/v1/activities` (utilisateurs connectés uniquement) et `POST /api/v1/users` (désactiver ou protéger pour les `ADMIN`). Critères : tests manuels — accès refusé sans JWT, autorisé avec JWT valide.
+Créer la page `/login` (email + mot de passe) et la page `/register` (username + email + mot de passe), avec redirection vers `/` après connexion réussie. Stockage du JWT dans le `localStorage` ou `sessionStorage`. Gestion des erreurs (ex : "Email ou mot de passe incorrect").
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.

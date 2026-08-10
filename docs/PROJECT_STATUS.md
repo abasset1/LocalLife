@@ -259,9 +259,18 @@ Tickets terminés :
   - **Correctif au passage** : le `GlobalExceptionHandler` générique renvoyait 500 pour toute erreur, y compris un mauvais mot de passe au login — ce n'était pas conforme à un comportement REST correct. `AuthController` gère maintenant ses propres erreurs (`IllegalArgumentException` → 400 pour `register`, 401 pour `login`), sans toucher au `GlobalExceptionHandler` partagé (repris via `ErrorResponse` pour rester cohérent).
   - Nouveaux DTOs : `RegisterRequest`, `UserResponse` (projection sûre de `User`, sans `passwordHash`).
   - Tests écrits : `AuthServiceTest` (couvre aussi `login()`, qui n'avait jamais été testé malgré l'exigence de LL-3004 — 8 tests au total : succès/erreurs pour `register` et `login`) et `AuthControllerTest` (4 tests, contrôleur mocké).
+* LL-3008 — Protéger les endpoints existants ✅ — `SecurityConfig.authorizeHttpRequests` mis à jour :
+  - `POST /api/v1/activities` → `authenticated()` (tout utilisateur avec un JWT valide, quel que soit son rôle).
+  - `POST /api/v1/users` → `hasRole("ADMIN")`.
+  - Tout le reste (`GET` activités/catégories, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`) reste en `permitAll()`.
+  - ⚠️ Décision prise, à valider avec toi : `POST /api/v1/users` (création d'utilisateur du Sprint 2, sans mot de passe) devient réservé aux `ADMIN` plutôt que désactivé, puisque le flux public de création de compte passe désormais par `POST /api/v1/auth/register` (LL-3007). Le ticket laissait le choix ("désactiver ou protéger").
+  - Ajout d'un `AuthenticationEntryPoint` (401, JWT manquant/invalide) et d'un `AccessDeniedHandler` (403, rôle insuffisant) dans `SecurityConfig`, tous deux renvoyant le format JSON standard `ErrorResponse` (cohérent avec `GlobalExceptionHandler` et `AuthController`) plutôt que les pages par défaut de Spring Security.
+  - Protection faite au niveau des routes (`requestMatchers`), pas d'annotations `@PreAuthorize` — cohérent avec le fait qu'aucune sécurité par méthode (`@EnableMethodSecurity`) n'existait déjà dans le projet, et évite d'ajouter une nouvelle dépendance/config.
+  - Pas de nouveau test automatisé : les tests de contrôleur existants (`ActivityControllerTest`, `UserControllerTest`) sont des tests Mockito purs (pas de contexte Spring), donc non impactés par la sécurité au niveau des routes — les tests d'intégration (`ActivityControllerIntegrationTest`) ne couvrent que les `GET`, restés publics. Le ticket LL-3008 demande explicitement des **tests manuels** (accès refusé sans JWT, autorisé avec JWT valide) — voir la carte d'étapes livrée avec ce ticket pour les commandes `curl` à exécuter.
+  - ⚠️ Non exécuté en sandbox (pas de Maven/Docker disponibles ici) — build et tests manuels à valider par toi.
 
 ---
 
 # Prochaine action
 
-Traiter LL-3008 — Protéger les endpoints existants (`POST /api/v1/activities` pour les utilisateurs connectés, `POST /api/v1/users` à désactiver ou protéger pour les `ADMIN`).
+Sprint 3 : traiter LL-3009 — Frontend : pages de login/register (dépend de LL-3007, déjà fait).

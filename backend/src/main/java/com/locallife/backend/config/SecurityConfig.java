@@ -1,9 +1,18 @@
 package com.locallife.backend.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.locallife.backend.auth.api.JwtFilter;
+import com.locallife.backend.common.ErrorResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.time.Instant;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -13,8 +22,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * Configuration de Spring Security pour activer le filtre JWT.
  * Désactive CSRF et les sessions pour une API REST stateless.
- * Pour l'instant, tous les endpoints sont accessibles sans JWT (sauf /api/v1/auth/**).
- * La protection des endpoints sera implémentée dans LL-3008.
+ *
+ * Endpoints protégés (LL-3008) :
+ * - POST /api/v1/activities : utilisateur connecté (JWT valide requis).
+ * - POST /api/v1/users : réservé au rôle ADMIN (le flux public de création
+ *   de compte passe désormais par POST /api/v1/auth/register, LL-3007).
+ * Tous les autres endpoints restent accessibles sans JWT (consultation
+ * publique des activités/catégories, inscription/connexion).
  */
 @Configuration
 @EnableWebSecurity
@@ -23,6 +37,8 @@ public class SecurityConfig {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -30,9 +46,42 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(new JwtFilter(jwtSecret), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST, "/api/v1/activities").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/users").hasRole("ADMIN")
                         .anyRequest().permitAll()
+                )
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(this::handleUnauthenticated)
+                        .accessDeniedHandler(this::handleAccessDenied)
                 );
 
         return http.build();
+    }
+
+    /**
+     * Déclenché quand aucun JWT valide n'est fourni pour un endpoint protégé.
+     */
+    private void handleUnauthenticated(
+            HttpServletRequest request, HttpServletResponse response, Exception exception) throws IOException {
+        writeError(response, HttpStatus.UNAUTHORIZED, "Authentification requise (JWT manquant ou invalide)",
+                request.getRequestURI());
+    }
+
+    /**
+     * Déclenché quand un JWT valide est fourni mais que le rôle est insuffisant.
+     */
+    private void handleAccessDenied(
+            HttpServletRequest request, HttpServletResponse response, Exception exception) throws IOException {
+        writeError(response, HttpStatus.FORBIDDEN, "Accès refusé : rôle insuffisant",
+                request.getRequestURI());
+    }
+
+    private void writeError(HttpServletResponse response, HttpStatus status, String message, String path)
+            throws IOException {
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        ErrorResponse body = new ErrorResponse(
+                Instant.now(), status.value(), status.getReasonPhrase(), message, path);
+        response.getWriter().write(objectMapper.writeValueAsString(body));
     }
 }
