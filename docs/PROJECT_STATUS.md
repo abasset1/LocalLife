@@ -282,9 +282,16 @@ Tickets terminés :
   - ⚠️ Décision, à valider avec toi : le JWT ne contient pas de `username` (seulement `userId`, `email`, `role` — voir `JwtService.generateToken`), donc l'en-tête affiche l'**email** plutôt qu'un prénom ("Bonjour, alex@example.com" et non "Bonjour, Alex" comme dans l'exemple du ticket). Alternative possible : appeler `GET /api/v1/users/{id}` après connexion pour récupérer le `username` — non fait ici pour rester minimal, et parce que cet endpoint renvoie actuellement l'entité `User` complète **y compris `passwordHash`** (fuite pré-existante, hors périmètre de ce ticket, à signaler séparément).
   - Mise à jour dynamique confirmée : le clic sur "Déconnexion" met à jour l'en-tête immédiatement (état React), sans navigation ni rechargement.
   - `npx tsc --noEmit` et `npx vite build` validés.
+* LL-3011 — Frontend : appels API avec JWT ✅ — nouveau module `src/api/apiClient.ts` avec `apiFetch()` :
+  - Ajoute automatiquement l'en-tête `Authorization: Bearer <token>` si un JWT est présent dans le `localStorage`.
+  - Sur une réponse `401`, vide le storage et redirige vers `/login` (`window.location.assign`, donc rechargement complet — voir décision ci-dessous).
+  - `App.tsx` : l'appel `POST /api/v1/activities` (création d'activité) utilise maintenant `apiFetch` au lieu de `fetch` — répare la régression introduite par LL-3008/LL-3009 (le formulaire de contribution était cassé faute de JWT envoyé).
+  - ⚠️ Décision importante, à valider avec toi : `apiFetch` n'est utilisé **que** pour l'appel protégé (`POST /api/v1/activities`), pas pour le `GET /api/v1/activities` public dans le `useEffect`, qui reste en `fetch` simple. Raison : `JwtFilter` (backend) renvoie 401 dès qu'un en-tête `Authorization: Bearer` **invalide ou expiré** est présent, même sur une route publique — envoyer systématiquement le JWT casserait la lecture publique de la carte pour un utilisateur dont le token a expiré. Le ticket demande le JWT sur "tous les appels aux endpoints protégés", ce qui correspond à ce choix.
+  - ⚠️ Autre décision : la redirection vers `/login` en cas de 401 utilise `window.location.assign` (rechargement complet de page), pas `useNavigate` de React Router, car `apiFetch` est un module utilitaire en dehors de l'arbre de composants React. Contrairement à LL-3010 (déconnexion manuelle, sans rechargement), ce cas correspond à une session expirée détectée au milieu d'un appel réseau — un rechargement complet y est acceptable et plus simple à maintenir.
+  - `npx tsc --noEmit` et `npx vite build` validés.
 
 ---
 
 # Prochaine action
 
-Sprint 3 : traiter LL-3011 — Frontend : appels API avec JWT (Axios/fetch avec header `Authorization: Bearer`, gestion des 401 → redirection `/login`). C'est ce ticket qui répare le formulaire de contribution cassé depuis LL-3008/3009.
+Sprint 3 : traiter LL-3012 — Backend : intégration du géocodage (API Nominatim, dépend de LL-2012).

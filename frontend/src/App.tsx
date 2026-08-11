@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import type { LatLngExpression } from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import { Link } from "react-router-dom";
+import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
 
 interface Activity {
@@ -54,7 +55,7 @@ function App() {
         setSubmitStatus("idle");
 
         try {
-            const response = await fetch("/api/v1/activities", {
+            const response = await apiFetch("/api/v1/activities", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
