@@ -2,6 +2,10 @@ package com.locallife.backend.activity.api;
 
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.common.ErrorResponse;
+import com.locallife.backend.geocoding.application.AddressNotFoundException;
+import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +25,9 @@ class ActivityControllerTest {
 
     @Mock
     private ActivityService activityService;
+
+    @Mock
+    private HttpServletRequest httpRequest;
 
     @InjectMocks
     private ActivityController activityController;
@@ -90,17 +97,56 @@ class ActivityControllerTest {
         // Given
         Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
                 LocalDateTime.now(), null, "PENDING");
-        when(activityService.createActivity("Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37))
+        when(activityService.createActivity(
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille"))
                 .thenReturn(created);
 
         // When
-        ResponseEntity<Activity> response = activityController.createActivity(
+        ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
-                        "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37));
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille"),
+                httpRequest);
 
         // Then
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertEquals("Pique-nique", response.getBody().title());
-        assertEquals("PENDING", response.getBody().status());
+        Activity body = (Activity) response.getBody();
+        assertEquals("Pique-nique", body.title());
+        assertEquals("PENDING", body.status());
+    }
+
+    @Test
+    void createActivity_ShouldReturnBadRequest_WhenAddressNotFound() {
+        // Given
+        when(activityService.createActivity("Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue"))
+                .thenThrow(new AddressNotFoundException("adresse inconnue"));
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities");
+
+        // When
+        ResponseEntity<Object> response = activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue"),
+                httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST.value(), ((ErrorResponse) response.getBody()).status());
+    }
+
+    @Test
+    void createActivity_ShouldReturnServiceUnavailable_WhenGeocodingFails() {
+        // Given
+        when(activityService.createActivity("Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix"))
+                .thenThrow(new GeocodingUnavailableException(new RuntimeException("timeout")));
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities");
+
+        // When
+        ResponseEntity<Object> response = activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix"),
+                httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), ((ErrorResponse) response.getBody()).status());
     }
 }
