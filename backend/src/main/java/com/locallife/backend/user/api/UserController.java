@@ -1,5 +1,6 @@
 package com.locallife.backend.user.api;
 
+import com.locallife.backend.auth.api.UserResponse;
 import com.locallife.backend.user.application.UserService;
 import com.locallife.backend.user.domain.User;
 import java.util.Optional;
@@ -15,6 +16,13 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Contrôleur REST pour la gestion des utilisateurs.
  * Création et consultation par id.
+ *
+ * Correctif (fuite signalée en LL-3010) : les réponses exposaient
+ * auparavant l'entité {@code User} complète, y compris {@code
+ * passwordHash} (le hash BCrypt, jamais du texte en clair, mais qui ne
+ * doit jamais transiter dans une réponse API). Les deux endpoints
+ * utilisent désormais {@link UserResponse}, la même projection sûre déjà
+ * utilisée par {@code POST /api/v1/auth/register} (LL-3007).
  */
 @RestController
 @RequestMapping("/api/v1/users")
@@ -27,15 +35,15 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody CreateUserRequest request) {
+    public ResponseEntity<UserResponse> createUser(@RequestBody CreateUserRequest request) {
         User user = userService.createUser(request.username(), request.email());
-        return ResponseEntity.status(HttpStatus.CREATED).body(user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(user));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+    public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         Optional<User> user = userService.getUserById(id);
-        return user.map(ResponseEntity::ok)
+        return user.map(u -> ResponseEntity.ok(UserResponse.from(u)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
