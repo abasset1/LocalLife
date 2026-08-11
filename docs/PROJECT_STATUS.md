@@ -310,12 +310,15 @@ Tickets terminés :
   - Chaque test utilise un email unique (UUID) : ces appels passent par de vraies requêtes HTTP sur un serveur embarqué, donc pas de rollback transactionnel possible (contrairement à `UserRepositoryIntegrationTest`).
   - ⚠️ Non exécuté en sandbox : ni `mvn` ni l'accès réseau à Maven Central ne sont disponibles ici (même limitation que LL-3012) — écrit et relu manuellement en suivant les patterns et APIs existants (vérifiés via la documentation Spring officielle pour `RestTestClient`/`MockitoBean`), à valider par toi avec `mvn verify`.
 * LL-3015 — Mise à jour de la documentation ✅ — `README.md` (sections "Authentification" et "Géocodage" ajoutées), `CHANGELOG.md` (entrée `0.3.0`, résumé du Sprint 3), `PROJECT_STATUS.md` (ce fichier — Sprint 3 marqué terminé, tickets LL-3014/LL-3015 documentés, version bumpée à `0.3.0`).
+* LL-3010 — Fuite passwordHash : corrigé.
+UserController utilise désormais UserResponse au lieu d'exposer l'entité User.
+Tests mis à jour.
 
 **Sprint 3 terminé.** Authentification par JWT (inscription, connexion, endpoints protégés par rôle), géocodage d'adresse côté serveur (Nominatim), et tests d'intégration bout en bout sont en place. Sprint 4 reste à cadrer.
 
 ⚠️ **Points restant à valider par toi avant de considérer le Sprint 3 pleinement clos en conditions réelles :**
 - Plusieurs tickets (LL-3002, LL-3008, LL-3012, LL-3014) n'ont pas pu être compilés/exécutés en sandbox faute d'accès Docker/PostgreSQL ou réseau Maven Central — à valider avec `mvn verify` (base démarrée) avant de merger.
-- La fuite pré-existante signalée en LL-3010 (`GET /api/v1/users/{id}` renvoie `passwordHash`) reste hors périmètre du Sprint 3 et non corrigée.
+
 
 ---
 
