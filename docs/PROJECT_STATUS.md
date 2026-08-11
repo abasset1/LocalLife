@@ -296,9 +296,14 @@ Tickets terminés :
   - Tests écrits et pensés pour être exécutables sans réseau : `GeocodingServiceTest` utilise `MockRestServiceServer` (aucun appel réel à Nominatim, donc pas de dépendance à une connexion internet en CI) — 5 cas (succès, adresse introuvable, adresse vide/`null`, service indisponible). `ActivityControllerTest` mis à jour pour la nouvelle signature + 2 nouveaux cas d'erreur (400, 503).
   - ⚠️ Décision à valider avec toi : `POST /api/v1/activities` change de contrat (adresse au lieu de latitude/longitude), donc **le formulaire de contribution frontend est de nouveau cassé** jusqu'à LL-3013 (qui doit adapter `App.tsx` pour envoyer une adresse) — même logique que la cassure temporaire LL-3008→LL-3011, déjà documentée à plusieurs reprises dans ce fichier.
   - ⚠️ Non exécuté en sandbox : `mvn compile`/`mvn test` échouent ici faute d'accès à `repo.maven.apache.org` (non whitelisté dans le réseau du sandbox) — je n'ai donc pas pu compiler ni lancer les tests réellement, seulement une relecture manuelle attentive (longueur de lignes, imports, cohérence avec le style Checkstyle/Spotless existant). À valider par toi avec `mvn verify`.
+* LL-3013 — Frontend : mise à jour du formulaire de contribution ✅ — `App.tsx` :
+  - Les deux champs `latitude`/`longitude` (`type="number"`) sont remplacés par un seul champ `adresse` (`type="text"`), conforme à LL-3012.
+  - Le corps envoyé à `POST /api/v1/activities` est maintenant `{ title, description, category, address }` — répare le formulaire cassé depuis LL-3012.
+  - Message d'erreur : au lieu du texte générique "Erreur, réessaie." précédent, le message affiché est maintenant celui renvoyé par le backend (`ErrorResponse.message`) — donc directement "Adresse introuvable : ..." (400) ou "Le service de géocodage est indisponible, réessaie plus tard." (503) tels que produits par `GeocodingService` (LL-3012), sans dupliquer cette logique côté frontend.
+  - `npx tsc --noEmit` et `npx vite build` validés.
 
 ---
 
 # Prochaine action
 
-Sprint 3 : traiter LL-3013 — Frontend : formulaire d'adresse (dépend de LL-3012, remplace les champs latitude/longitude par un champ adresse dans `App.tsx`, cassés par ce ticket — voir note ci-dessus).
+Sprint 3 : traiter LL-3014 — Tests d'intégration (dernier ticket du sprint).

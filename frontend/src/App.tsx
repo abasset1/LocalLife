@@ -15,6 +15,10 @@ interface Activity {
     startDate: string;
 }
 
+interface ApiErrorBody {
+    message: string;
+}
+
 const MARSEILLE_COORDINATES: LatLngExpression = [43.2965, 5.3698];
 
 function App() {
@@ -23,9 +27,9 @@ function App() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState("");
-    const [latitude, setLatitude] = useState("");
-    const [longitude, setLongitude] = useState("");
+    const [address, setAddress] = useState("");
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     useEffect(() => {
         const abortController = new AbortController();
@@ -53,21 +57,18 @@ function App() {
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         setSubmitStatus("idle");
+        setSubmitError(null);
 
         try {
             const response = await apiFetch("/api/v1/activities", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    title,
-                    description,
-                    category,
-                    latitude: Number(latitude),
-                    longitude: Number(longitude),
-                }),
+                body: JSON.stringify({ title, description, category, address }),
             });
 
             if (!response.ok) {
+                const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+                setSubmitError(body?.message ?? "Impossible de proposer cette activité, réessaie.");
                 setSubmitStatus("error");
                 return;
             }
@@ -78,9 +79,9 @@ function App() {
             setTitle("");
             setDescription("");
             setCategory("");
-            setLatitude("");
-            setLongitude("");
+            setAddress("");
         } catch {
+            setSubmitError("Impossible de contacter le serveur, réessaie plus tard.");
             setSubmitStatus("error");
         }
     }
@@ -128,26 +129,16 @@ function App() {
                     value={category}
                 />
                 <input
-                    aria-label="Latitude"
-                    onChange={(event) => setLatitude(event.target.value)}
-                    placeholder="Latitude"
+                    aria-label="Adresse"
+                    onChange={(event) => setAddress(event.target.value)}
+                    placeholder="Adresse (ex : 10 rue de la République, Marseille)"
                     required
-                    step="any"
-                    type="number"
-                    value={latitude}
-                />
-                <input
-                    aria-label="Longitude"
-                    onChange={(event) => setLongitude(event.target.value)}
-                    placeholder="Longitude"
-                    required
-                    step="any"
-                    type="number"
-                    value={longitude}
+                    type="text"
+                    value={address}
                 />
                 <button type="submit">Proposer une activité</button>
                 {submitStatus === "success" && <span className="form-message form-message-success">Activité proposée !</span>}
-                {submitStatus === "error" && <span className="form-message form-message-error">Erreur, réessaie.</span>}
+                {submitStatus === "error" && <span className="form-message form-message-error">{submitError}</span>}
             </form>
             <MapContainer
                 center={MARSEILLE_COORDINATES}
