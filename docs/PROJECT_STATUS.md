@@ -15,7 +15,7 @@
 
 Le cadrage fonctionnel et technique est terminé.
 
-Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) terminé. Sprint 3 (authentification, géocodage) terminé.
+Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) terminé. Sprint 3 (authentification, géocodage) terminé. Sprint 4 (recherche et découverte géographique) démarré.
 
 ---
 
@@ -319,6 +319,20 @@ Tickets terminés :
 
 ---
 
+# Sprint 4
+
+Statut : 🟡 En cours.
+
+Objectif : recherche et découverte géographique (recherche par rayon PostGIS, recherche par zone cartographique, filtres catégorie/date, géolocalisation utilisateur) — voir `docs/05_Sprints/SPRINT_4.md`.
+
+Tickets terminés :
+
+* LL-4001 — Définir la recherche géographique ✅ — contrat documenté dans `docs/02_Architecture/GEO_SEARCH_CONTRACT.md` : endpoint `GET /api/v1/activities/nearby`, paramètres `latitude`/`longitude`/`radius` (rayon en **mètres**, choix non imposé par le ticket — cohérent avec l'usage PostGIS/`ST_DWithin` et avec l'exemple `radius=5000` de LL-4003), réponse au même format que `GET /api/v1/activities` (triée par distance croissante, pas de champ distance ajouté), erreurs `400` standardisées (`ErrorResponse`) pour paramètre manquant/invalide.
+  - Ticket purement contractuel, sans code (l'implémentation PostGIS est LL-4002, l'endpoint est LL-4003) — cohérent avec le principe du projet "Documentation avant implémentation".
+  - ⚠️ Points volontairement laissés ouverts pour LL-4002/LL-4003, à trancher à ce moment-là (détaillés dans le document) : valeur maximale éventuelle pour `radius`, stratégie de migration pour la colonne géographique PostGIS, filtrage ou non par statut `PUBLISHED` (l'API existante `GET /api/v1/activities` ne filtre actuellement pas par statut, à garder cohérent ou à corriger — à valider avec toi).
+
+---
+
 # Prochaine action
 
-Sprint 3 terminé. Sprint 4 reste à cadrer (voir avec Alex pour le prochain lot de fonctionnalités du backlog).
+Sprint 4 : traiter LL-4002 — Ajouter la recherche géographique PostGIS.
