@@ -18,6 +18,34 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
   `POST /api/v1/activities` (statut `PENDING` par défaut — pas de
   modération à ce stade).
 
+## Authentification
+
+* Inscription : `POST /api/v1/auth/register` (`username`, `email`,
+  `password`) → `201 Created`, retourne l'utilisateur créé (sans le mot de
+  passe). Le rôle `USER` est attribué par défaut.
+* Connexion : `POST /api/v1/auth/login` (`email`, `password`) →
+  `200 OK`, retourne un token JWT (`{ "token": "..." }`), valable 24h.
+* Le token doit être envoyé dans l'en-tête `Authorization: Bearer <token>`
+  pour accéder aux endpoints protégés :
+  * `POST /api/v1/activities` — tout utilisateur authentifié.
+  * `POST /api/v1/users` — réservé au rôle `ADMIN`.
+* Sans JWT valide, ces endpoints renvoient `401 Unauthorized` ; avec un
+  rôle insuffisant, `403 Forbidden`.
+* Frontend : pages `/login` et `/register`, en-tête affichant l'utilisateur
+  connecté (email) avec un bouton de déconnexion, et le formulaire de
+  contribution qui envoie automatiquement le JWT stocké.
+
+## Géocodage
+
+* Le formulaire de contribution (`POST /api/v1/activities`) ne demande
+  qu'une **adresse** (texte libre), plus de latitude/longitude.
+* Le backend convertit cette adresse en coordonnées via l'API publique
+  [Nominatim](https://nominatim.openstreetmap.org) (OpenStreetMap) et ne
+  conserve que les coordonnées obtenues — l'adresse saisie n'est pas
+  stockée en base.
+* Erreurs possibles : `400 Bad Request` (adresse vide ou introuvable),
+  `503 Service Unavailable` (service de géocodage injoignable).
+
 ## Démarrage
 
 La base de données doit être démarrée avant le backend :

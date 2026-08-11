@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.3.0 - 2026-08-11
+
+### Added
+
+* Authentification par JWT :
+  * Inscription (`POST /api/v1/auth/register`) et connexion
+    (`POST /api/v1/auth/login`, retourne un token JWT valable 24h).
+  * Mots de passe hachés avec BCrypt (`PasswordHashingService`), jamais
+    stockés ni renvoyés en clair.
+  * Filtre JWT (`JwtFilter`) et configuration Spring Security
+    (`SecurityConfig`) : `POST /api/v1/activities` requiert désormais un
+    utilisateur authentifié, `POST /api/v1/users` est réservé au rôle
+    `ADMIN`. Réponses JSON standardisées en cas de `401`/`403`.
+  * Frontend : pages `/login` et `/register`, en-tête affichant
+    l'utilisateur connecté avec déconnexion, et envoi automatique du JWT
+    sur les appels protégés.
+* Géocodage d'adresse (`GeocodingService`, API Nominatim) : le formulaire
+  de contribution envoie désormais une adresse texte au lieu de
+  latitude/longitude ; le backend géocode côté serveur et ne conserve que
+  les coordonnées obtenues.
+* Tests d'intégration bout en bout couvrant inscription → connexion →
+  accès à un endpoint protégé, création d'activité géocodée, et refus
+  d'accès sur JWT expiré ou absent.
+
 ## 0.2.0 - 2026-08-08
 
 ### Added

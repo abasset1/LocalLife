@@ -2,8 +2,8 @@
 
 # LocalLife - Project Status
 
-**Version :** 0.1.0
-**Dernière mise à jour :** 2026-08-07
+**Version :** 0.3.0
+**Dernière mise à jour :** 2026-08-11
 
 ---
 
@@ -15,7 +15,7 @@
 
 Le cadrage fonctionnel et technique est terminé.
 
-Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) terminé. Sprint 3 (authentification, géocodage) démarré.
+Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) terminé. Sprint 3 (authentification, géocodage) terminé.
 
 ---
 
@@ -239,7 +239,7 @@ Tickets terminés :
 
 # Sprint 3
 
-Statut : 🟡 En cours.
+Statut : ✅ Terminé.
 
 Objectif : authentification (inscription, connexion JWT), endpoints protégés, gestion du profil, géocodage d'adresse pour le formulaire de contribution.
 
@@ -301,9 +301,24 @@ Tickets terminés :
   - Le corps envoyé à `POST /api/v1/activities` est maintenant `{ title, description, category, address }` — répare le formulaire cassé depuis LL-3012.
   - Message d'erreur : au lieu du texte générique "Erreur, réessaie." précédent, le message affiché est maintenant celui renvoyé par le backend (`ErrorResponse.message`) — donc directement "Adresse introuvable : ..." (400) ou "Le service de géocodage est indisponible, réessaie plus tard." (503) tels que produits par `GeocodingService` (LL-3012), sans dupliquer cette logique côté frontend.
   - `npx tsc --noEmit` et `npx vite build` validés.
+* LL-3014 — Tests d'intégration ✅ — nouveau package `integration`, `AuthenticationFlowIntegrationTest` (7 tests) couvrant les trois scénarios du ticket :
+  - Inscription → connexion → accès à un endpoint protégé (`POST /api/v1/activities` avec JWT valide).
+  - Soumission d'une activité avec une adresse → vérification que `latitude`/`longitude` sont bien sauvegardées.
+  - JWT expiré → accès refusé (token fabriqué manuellement avec `jjwt`, signé avec le même `jwt.secret` que l'application, expiration forcée dans le passé).
+  - Cas d'échec supplémentaires couverts : email déjà utilisé (register), mot de passe incorrect (login), requête sans JWT sur un endpoint protégé.
+  - ⚠️ Décision, à valider avec toi : même approche que `ActivityControllerIntegrationTest` (`@SpringBootTest` + serveur embarqué + vraie base Postgres), mais le `GeocodingService` est remplacé par un mock (`@MockitoBean`) plutôt que d'appeler le vrai Nominatim, pour rester déterministe et respecter sa politique de taux (1 req/s) — cohérent avec le choix déjà fait dans `GeocodingServiceTest` (LL-3012).
+  - Chaque test utilise un email unique (UUID) : ces appels passent par de vraies requêtes HTTP sur un serveur embarqué, donc pas de rollback transactionnel possible (contrairement à `UserRepositoryIntegrationTest`).
+  - ⚠️ Non exécuté en sandbox : ni `mvn` ni l'accès réseau à Maven Central ne sont disponibles ici (même limitation que LL-3012) — écrit et relu manuellement en suivant les patterns et APIs existants (vérifiés via la documentation Spring officielle pour `RestTestClient`/`MockitoBean`), à valider par toi avec `mvn verify`.
+* LL-3015 — Mise à jour de la documentation ✅ — `README.md` (sections "Authentification" et "Géocodage" ajoutées), `CHANGELOG.md` (entrée `0.3.0`, résumé du Sprint 3), `PROJECT_STATUS.md` (ce fichier — Sprint 3 marqué terminé, tickets LL-3014/LL-3015 documentés, version bumpée à `0.3.0`).
+
+**Sprint 3 terminé.** Authentification par JWT (inscription, connexion, endpoints protégés par rôle), géocodage d'adresse côté serveur (Nominatim), et tests d'intégration bout en bout sont en place. Sprint 4 reste à cadrer.
+
+⚠️ **Points restant à valider par toi avant de considérer le Sprint 3 pleinement clos en conditions réelles :**
+- Plusieurs tickets (LL-3002, LL-3008, LL-3012, LL-3014) n'ont pas pu être compilés/exécutés en sandbox faute d'accès Docker/PostgreSQL ou réseau Maven Central — à valider avec `mvn verify` (base démarrée) avant de merger.
+- La fuite pré-existante signalée en LL-3010 (`GET /api/v1/users/{id}` renvoie `passwordHash`) reste hors périmètre du Sprint 3 et non corrigée.
 
 ---
 
 # Prochaine action
 
-Sprint 3 : traiter LL-3014 — Tests d'intégration (dernier ticket du sprint).
+Sprint 3 terminé. Sprint 4 reste à cadrer (voir avec Alex pour le prochain lot de fonctionnalités du backlog).
