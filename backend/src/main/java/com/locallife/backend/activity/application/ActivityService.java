@@ -4,7 +4,9 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -81,14 +83,29 @@ public class ActivityService {
      * (champ libre à la création), une catégorie qui ne correspond à
      * aucune activité renvoie simplement une liste vide, pas d'erreur 400.
      *
+     * {@code date} (LL-4005) : date unique au format ISO-8601
+     * ({@code yyyy-MM-dd}), ou {@code null} pour ne pas filtrer. Une
+     * activité est retenue quand cette date tombe dans sa période
+     * {@code [startDate, endDate]} (bornes incluses, comparaison au jour
+     * près — l'heure de {@code startDate}/{@code endDate} n'entre pas en
+     * jeu). Couvre à la fois les activités d'une seule journée et celles
+     * s'étalant sur plusieurs jours. {@code endDate} peut être absent en
+     * base (activités créées via le formulaire de contribution, voir
+     * {@code createActivity} ci-dessous, qui ne renseigne pas de date de
+     * fin) : dans ce cas l'activité est traitée comme ne durant que la
+     * journée de {@code startDate}, voir
+     * {@link ActivityRepository#findWithinRadius} pour le détail SQL.
+     *
      * @throws IllegalArgumentException si un paramètre obligatoire est
      *         manquant/non numérique, hors des contraintes du contrat
      *         LL-4001 (latitude/longitude hors plage, rayon ≤ 0 ou
-     *         &gt; 50 km), ou si {@code status} ne correspond à aucune
-     *         valeur connue.
+     *         &gt; 50 km), si {@code status} ne correspond à aucune
+     *         valeur connue, ou si {@code date} n'est pas au format
+     *         ISO-8601 ({@code yyyy-MM-dd}).
      */
     public List<Activity> findNearby(
-            String latitudeRaw, String longitudeRaw, String radiusRaw, String status, String category) {
+            String latitudeRaw, String longitudeRaw, String radiusRaw, String status, String category,
+            String dateRaw) {
         double latitude = parseRequiredDouble("latitude", latitudeRaw);
         double longitude = parseRequiredDouble("longitude", longitudeRaw);
         double radiusKm = parseRequiredDouble("radius", radiusRaw);
@@ -107,10 +124,23 @@ public class ActivityService {
         if (status != null && !KNOWN_STATUSES.contains(status)) {
             throw new IllegalArgumentException("Le paramètre 'status' ne correspond à aucune valeur connue.");
         }
+        LocalDate date = parseOptionalDate(dateRaw);
 
         double radiusMeters = radiusKm * 1000;
         String categoriesCsv = normalizeCategories(category);
-        return activityRepository.findWithinRadius(latitude, longitude, radiusMeters, status, categoriesCsv);
+        return activityRepository.findWithinRadius(latitude, longitude, radiusMeters, status, categoriesCsv, date);
+    }
+
+    private LocalDate parseOptionalDate(String dateRaw) {
+        if (dateRaw == null || dateRaw.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(dateRaw);
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException(
+                    "Le paramètre 'date' doit être au format ISO-8601 (yyyy-MM-dd).");
+        }
     }
 
     private String normalizeCategories(String categoryRaw) {

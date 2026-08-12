@@ -47,10 +47,10 @@ public class ActivityController {
     }
 
     /**
-     * Recherche géographique (LL-4001/LL-4002/LL-4003/LL-4004) : activités
-     * situées dans un rayon donné autour d'un point, triées par distance
-     * croissante, avec filtres optionnels par statut et par catégorie. Voir
-     * le contrat détaillé dans
+     * Recherche géographique (LL-4001/LL-4002/LL-4003/LL-4004/LL-4005) :
+     * activités situées dans un rayon donné autour d'un point, triées par
+     * distance croissante, avec filtres optionnels par statut, par
+     * catégorie et par date. Voir le contrat détaillé dans
      * {@code docs/02_Architecture/GEO_SEARCH_CONTRACT.md}.
      *
      * Les paramètres sont reçus en {@code String} (et non {@code double}
@@ -75,7 +75,7 @@ public class ActivityController {
         @ApiResponse(responseCode = "200", description = "Recherche effectuée avec succès."),
         @ApiResponse(responseCode = "400",
                 description = "Paramètre manquant, non numérique, hors plage (latitude/longitude/radius), "
-                        + "ou statut inconnu.",
+                        + "statut inconnu, ou date au mauvais format.",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping("/nearby")
@@ -92,9 +92,13 @@ public class ActivityController {
             @Parameter(description = "Filtre optionnel sur la/les catégorie(s), séparées par des virgules "
                     + "(ex. concert,marché). Catégorie inconnue → résultat vide, pas d'erreur.")
             @RequestParam(required = false) String category,
+            @Parameter(description = "Filtre optionnel sur une date (format ISO-8601 yyyy-MM-dd). Une activité "
+                    + "est retenue quand cette date tombe dans sa période [startDate, endDate].")
+            @RequestParam(required = false) String date,
             HttpServletRequest httpRequest) {
         try {
-            List<Activity> activities = activityService.findNearby(latitude, longitude, radius, status, category);
+            List<Activity> activities =
+                    activityService.findNearby(latitude, longitude, radius, status, category, date);
             return ResponseEntity.ok(activities);
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);

@@ -73,4 +73,20 @@ class ActivityControllerIntegrationTest {
                 .exchange()
                 .expectStatus().isOk();
     }
+
+    @Test
+    void getNearbyActivities_ShouldReturnOk_WhenDateProvided() {
+        restTestClient().get()
+                .uri("/api/v1/activities/nearby?latitude=43.2951&longitude=5.3739&radius=50&date=2026-09-05")
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    void getNearbyActivities_ShouldReturnBadRequest_WhenDateFormatInvalid() {
+        restTestClient().get()
+                .uri("/api/v1/activities/nearby?latitude=43.2951&longitude=5.3739&radius=50&date=05-09-2026")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
 }

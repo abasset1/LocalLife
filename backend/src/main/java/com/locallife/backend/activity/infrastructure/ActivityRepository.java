@@ -1,6 +1,7 @@
 package com.locallife.backend.activity.infrastructure;
 
 import com.locallife.backend.activity.domain.Activity;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jdbc.repository.query.Query;
@@ -46,6 +47,17 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      * de cette décision). Utilise {@code string_to_array}/{@code ANY} côté
      * SQL plutôt qu'un binding de collection Java, pour rester sur le même
      * pattern « paramètre nullable unique » que {@code status} ci-dessus.
+     *
+     * Filtre optionnel par date ajouté en LL-4005 : {@code date} peut être
+     * {@code null} (aucun filtrage), sinon une activité est retenue quand
+     * {@code date} tombe dans sa période {@code [start_date, end_date]}
+     * (bornes incluses, comparaison au jour près via {@code ::date}, donc
+     * l'heure de {@code start_date}/{@code end_date} n'entre pas en jeu).
+     * {@code end_date} peut être {@code NULL} en base (activités créées via
+     * le formulaire de contribution, voir {@code ActivityService#createActivity})
+     * : dans ce cas {@code COALESCE(end_date, start_date)} traite
+     * l'activité comme ne durant qu'une seule journée, celle de
+     * {@code start_date}.
      */
     @Query("""
             SELECT * FROM activity
@@ -53,6 +65,7 @@ public interface ActivityRepository extends Repository<Activity, Long> {
               AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
               AND (:status IS NULL OR status = :status)
               AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
+              AND (:date IS NULL OR :date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
             ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography)
             """)
     List<Activity> findWithinRadius(
@@ -60,6 +73,7 @@ public interface ActivityRepository extends Repository<Activity, Long> {
             @Param("longitude") double longitude,
             @Param("radiusMeters") double radiusMeters,
             @Param("status") String status,
-            @Param("categoriesCsv") String categoriesCsv);
+            @Param("categoriesCsv") String categoriesCsv,
+            @Param("date") LocalDate date);
 
 }

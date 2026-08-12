@@ -24,14 +24,12 @@ conventions de nommage, même format de réponse, mêmes codes d'erreur.
 | `radius`    | double | oui          | strictement positif, **en kilomètres**, max `50` | Rayon de recherche autour du point.       |
 | `status`    | string | non          | doit correspondre à une valeur existante (ex. `PUBLISHED`, `PENDING`) | Filtre les résultats sur ce statut. Absent → aucun filtrage par statut (même comportement que `GET /api/v1/activities`, qui ne filtre pas non plus). |
 | `category`  | string | non          | une ou plusieurs valeurs séparées par des virgules (ex. `concert,marché`) | Filtre les résultats sur la/les catégorie(s) données (correspondance exacte, `OU` entre les valeurs). Absent → aucun filtrage. Catégorie ne correspondant à aucune activité → liste vide, **pas** une erreur 400 (voir décision ci-dessous). |
-
-Le filtre par date reste hors périmètre de LL-4001, traité séparément en
-LL-4005 : il s'ajoutera en query param optionnel sans modifier ce contrat.
+| `date`      | string | non          | format ISO-8601 `yyyy-MM-dd` | Filtre les résultats sur une date donnée : une activité est retenue quand cette date tombe dans sa période `[startDate, endDate]` (bornes incluses, comparaison au jour près). Absent → aucun filtrage. Voir décision LL-4005 ci-dessous. |
 
 Exemple :
 
 ```text
-GET /api/v1/activities/nearby?latitude=43.2965&longitude=5.3698&radius=5&status=PUBLISHED&category=concert,marché
+GET /api/v1/activities/nearby?latitude=43.2965&longitude=5.3698&radius=5&status=PUBLISHED&category=concert,marché&date=2026-09-05
 ```
 
 ## Réponse
@@ -53,6 +51,7 @@ Même format standardisé que le reste de l'API (`ErrorResponse` — voir
 | Paramètre hors contraintes (latitude/longitude hors plage, rayon ≤ 0 ou > 50 km) | `400 Bad Request` |
 | Paramètre non numérique                            | `400 Bad Request` |
 | `status` fourni mais ne correspondant à aucune valeur connue | `400 Bad Request` |
+| `date` fournie mais pas au format ISO-8601 (`yyyy-MM-dd`)     | `400 Bad Request` |
 
 ## Implémentation attendue
 
@@ -98,6 +97,19 @@ correspond à aucune activité renvoie une liste vide (`200 OK`), pas une
 erreur — contrairement à `status`, il n'existe pas de liste fermée de
 catégories valides (champ libre à la création), donc rien à valider
 au sens strict.
+
+## Décision LL-4005 : gestion de `end_date` absente
+
+Une activité est considérée comme active pour une date donnée lorsque sa
+période `[startDate, endDate]` couvre cette date (critère d'acceptation du
+ticket). Cependant, `endDate` peut être absente en base : les activités
+créées via le formulaire de contribution (voir `ActivityService.createActivity`,
+LL-2012/LL-3012) n'ont pas de date de fin renseignée par le formulaire.
+Décision : dans ce cas, l'activité est traitée comme ne durant qu'une seule
+journée, celle de `startDate` (équivalent à `COALESCE(endDate, startDate)`
+côté SQL). Alternative écartée : exclure ces activités de tout filtre par
+date, ce qui les rendrait invisibles dès qu'un utilisateur filtre par date —
+contraire à l'objectif du Sprint 4 (carte réellement exploitable).
 
 ## Points laissés ouverts pour LL-4002/LL-4003 (à valider à ce moment-là)
 

@@ -217,8 +217,17 @@ Tickets terminés :
   - `ActivityService.findNearby` normalise le paramètre brut (`trim`, valeurs vides retirées) avant de le transmettre.
   - Tests : `ActivityServiceTest` (normalisation CSV, valeurs avec espaces, uniquement des valeurs vides → `null`) ; `ActivityRepositoryIntegrationTest` (catégorie unique, plusieurs catégories combinées avec le rayon, catégorie inexistante → vide) ; `ActivityControllerTest`/`ActivityControllerIntegrationTest` complétés.
   - ⚠️ Non exécuté en sandbox (même limitation qu'aux tickets précédents) — à valider avec `mvn verify`.
+* LL-4005 — Filtre par date ✅ — nouveau paramètre `date` (query string, format ISO-8601 `yyyy-MM-dd`) sur `GET /api/v1/activities/nearby`.
+  - Une activité est retenue quand la date fournie tombe dans sa période `[startDate, endDate]` (bornes incluses, comparaison au jour près — l'heure de `startDate`/`endDate` n'entre pas en jeu). Couvre les activités d'une seule journée et celles sur plusieurs jours (critères d'acceptation du ticket).
+  - ⚠️ Décision à valider avec toi : `endDate` peut être `NULL` en base (activités créées via le formulaire de contribution, qui ne renseigne pas de date de fin). Traitée comme ne durant que la journée de `startDate` (`COALESCE(endDate, startDate)` côté SQL) plutôt que d'exclure ces activités de tout filtre par date — détaillé dans `docs/02_Architecture/GEO_SEARCH_CONTRACT.md`.
+  - `date` fournie mais pas au format ISO-8601 → `400 Bad Request` (même pattern de validation locale que les autres paramètres de `findNearby`).
+  - `ActivityRepository.findWithinRadius` complété avec un paramètre `date` (`LocalDate`) nullable, filtré côté SQL via `BETWEEN ... start_date::date AND COALESCE(end_date, start_date)::date`.
+  - Tests : `ActivityServiceTest` (parsing ISO-8601, date invalide, date inexistante type 30 février) ; `ActivityRepositoryIntegrationTest` (activité d'une journée incluse/exclue, activité sur plusieurs jours à chaque date de sa période et au jour suivant, `endDate` absente traitée comme même jour que `startDate`) ; `ActivityControllerTest`/`ActivityControllerIntegrationTest` complétés.
+  - ⚠️ Non exécuté en sandbox (même limitation qu'aux tickets précédents) — à valider avec `mvn verify`.
+* LL-4006 — Définir la recherche par zone cartographique ✅ — contrat documenté dans `docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md` (nouvel endpoint `GET /api/v1/activities/within-bounds`, paramètres `swLatitude`/`swLongitude`/`neLatitude`/`neLongitude`, filtres `status`/`category`/`date` réutilisés à l'identique du contrat `/nearby`). Pas de code à ce stade (ticket sans section détaillée dans `SPRINT_4.md`, traité par analogie avec LL-4001 : contrat d'abord, implémentation PostGIS + endpoint en LL-4007 qui en dépend explicitement).
+  - ⚠️ Décisions à valider avec toi : nom de l'endpoint (`/within-bounds`, plutôt que d'étendre `/nearby` — évite de mélanger deux contrats de validation différents) ; pas de support de la traversée de l'antiméridien (`swLongitude < neLongitude` strict, `400` sinon) ; tri par `id` croissant en l'absence de point de référence pour une distance. Détail complet dans le contrat.
 
 ---
 # Prochaine action
 
-Sprint 4 : traiter LL-4005 — Filtre par date (dépend de LL-4003).
+Sprint 4 : traiter LL-4007 — Bounding Box (dépend de LL-4006), implémentation PostGIS et endpoint `GET /api/v1/activities/within-bounds` conformément au contrat.

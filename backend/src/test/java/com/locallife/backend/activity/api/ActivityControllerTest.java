@@ -155,12 +155,12 @@ class ActivityControllerTest {
         // Given
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED");
-        when(activityService.findNearby("43.2951", "5.3739", "5", "PUBLISHED", "concert"))
+        when(activityService.findNearby("43.2951", "5.3739", "5", "PUBLISHED", "concert", "2026-09-05"))
                 .thenReturn(List.of(nearby));
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "PUBLISHED", "concert", httpRequest);
+                "43.2951", "5.3739", "5", "PUBLISHED", "concert", "2026-09-05", httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -170,13 +170,30 @@ class ActivityControllerTest {
     @Test
     void getNearbyActivities_ShouldReturnBadRequest_WhenParamsInvalid() {
         // Given
-        when(activityService.findNearby(null, "5.3739", "5", null, null))
+        when(activityService.findNearby(null, "5.3739", "5", null, null, null))
                 .thenThrow(new IllegalArgumentException("Le paramètre 'latitude' est obligatoire."));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/nearby");
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                null, "5.3739", "5", null, null, httpRequest);
+                null, "5.3739", "5", null, null, null, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST.value(), ((ErrorResponse) response.getBody()).status());
+    }
+
+    @Test
+    void getNearbyActivities_ShouldReturnBadRequest_WhenDateFormatInvalid() {
+        // Given
+        when(activityService.findNearby("43.2951", "5.3739", "5", null, null, "05/09/2026"))
+                .thenThrow(new IllegalArgumentException(
+                        "Le paramètre 'date' doit être au format ISO-8601 (yyyy-MM-dd)."));
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/nearby");
+
+        // When
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                "43.2951", "5.3739", "5", null, null, "05/09/2026", httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
