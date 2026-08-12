@@ -17,21 +17,21 @@ conventions de nommage, même format de réponse, mêmes codes d'erreur.
 
 ## Paramètres (query string)
 
-| Paramètre   | Type   | Obligatoire | Contraintes                          | Description                              |
-| ----------- | ------ | ------------ | ------------------------------------- | ----------------------------------------- |
-| `latitude`  | double | oui          | entre -90 et 90                       | Latitude du point de recherche.           |
-| `longitude` | double | oui          | entre -180 et 180                     | Longitude du point de recherche.          |
-| `radius`    | double | oui          | strictement positif, en **mètres**    | Rayon de recherche autour du point.       |
+| Paramètre   | Type   | Obligatoire | Contraintes                                    | Description                              |
+| ----------- | ------ | ------------ | ------------------------------------------------ | ----------------------------------------- |
+| `latitude`  | double | oui          | entre -90 et 90                                  | Latitude du point de recherche.           |
+| `longitude` | double | oui          | entre -180 et 180                                | Longitude du point de recherche.          |
+| `radius`    | double | oui          | strictement positif, **en kilomètres**, max `50` | Rayon de recherche autour du point.       |
+| `status`    | string | non          | doit correspondre à une valeur existante (ex. `PUBLISHED`, `PENDING`) | Filtre les résultats sur ce statut. Absent → aucun filtrage par statut (même comportement que `GET /api/v1/activities`, qui ne filtre pas non plus). |
 
-Aucun paramètre optionnel à ce stade (le filtre par catégorie et le filtre
-par date sont hors périmètre de LL-4001, traités séparément en LL-4004 et
-LL-4005 : ils s'ajouteront en query params optionnels sans modifier ce
-contrat).
+Le filtre par catégorie et le filtre par date restent hors périmètre de
+LL-4001, traités séparément en LL-4004 et LL-4005 : ils s'ajouteront en
+query params optionnels sans modifier ce contrat.
 
 Exemple :
 
 ```text
-GET /api/v1/activities/nearby?latitude=43.2965&longitude=5.3698&radius=5000
+GET /api/v1/activities/nearby?latitude=43.2965&longitude=5.3698&radius=5&status=PUBLISHED
 ```
 
 ## Réponse
@@ -50,8 +50,9 @@ Même format standardisé que le reste de l'API (`ErrorResponse` — voir
 | Cas                                              | Code | 
 | ------------------------------------------------- | ---- |
 | Paramètre manquant (`latitude`, `longitude` ou `radius`) | `400 Bad Request` |
-| Paramètre hors contraintes (latitude/longitude hors plage, rayon ≤ 0) | `400 Bad Request` |
+| Paramètre hors contraintes (latitude/longitude hors plage, rayon ≤ 0 ou > 50 km) | `400 Bad Request` |
 | Paramètre non numérique                            | `400 Bad Request` |
+| `status` fourni mais ne correspondant à aucune valeur connue | `400 Bad Request` |
 
 ## Implémentation attendue
 
@@ -60,7 +61,9 @@ Même format standardisé que le reste de l'API (`ErrorResponse` — voir
   application — cohérent avec la stack déjà choisie
   (`docs/04_Project/... décisions validées : PostgreSQL + PostGIS`) et
   avec le critère d'acceptation de LL-4001 ("compatible avec
-  PostgreSQL/PostGIS").
+  PostgreSQL/PostGIS"). Note d'implémentation pour LL-4002 : `ST_DWithin`
+  sur le type `geography` attend une distance en **mètres** — convertir
+  `radius` (km, tel que reçu du client) en mètres avant l'appel SQL.
 * Aucun nouveau moteur de recherche (Elasticsearch, etc.) — explicitement
   exclu du périmètre du Sprint 4 (voir `SPRINT_4.md`).
 * La table `activity` n'a aujourd'hui que des colonnes `latitude`/
@@ -68,15 +71,16 @@ Même format standardisé que le reste de l'API (`ErrorResponse` — voir
   l'ajout de cette colonne (et de sa migration Flyway) fait partie du
   périmètre de LL-4002, pas de LL-4001.
 
+## Décisions validées (par toi)
+
+* `radius` exprimé en **kilomètres** (et non mètres) et plafonné à **50 km**
+  — au-delà, `400 Bad Request`.
+* Filtrage par statut activé via le paramètre optionnel `status` (voir
+  ci-dessus) plutôt qu'un comportement figé côté serveur — reste cohérent
+  avec `GET /api/v1/activities`, qui ne filtre pas non plus par défaut.
+
 ## Points laissés ouverts pour LL-4002/LL-4003 (à valider à ce moment-là)
 
 * Nom exact de la colonne géographique ajoutée à `activity` et stratégie
   de migration (colonne dérivée de `latitude`/`longitude` existants vs.
   double stockage).
-* Faut-il restreindre `radius` à une valeur maximale (éviter une requête
-  couvrant toute la planète) ? Pas de valeur imposée par LL-4001.
-* Faut-il exclure les activités dont le statut n'est pas `PUBLISHED` du
-  résultat (comme c'est déjà implicitement le cas pour la consultation
-  publique) ? Le contrat ci-dessus ne le précise pas explicitement — à
-  trancher en LL-4003, par cohérence avec `GET /api/v1/activities`
-  (qui, lui, ne filtre actuellement pas par statut).

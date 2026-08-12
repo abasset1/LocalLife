@@ -330,9 +330,10 @@ Objectif : recherche et découverte géographique (recherche par rayon PostGIS, 
 
 Tickets terminés :
 
-* LL-4001 — Définir la recherche géographique ✅ — contrat documenté dans `docs/02_Architecture/GEO_SEARCH_CONTRACT.md` : endpoint `GET /api/v1/activities/nearby`, paramètres `latitude`/`longitude`/`radius` (rayon en **mètres**, choix non imposé par le ticket — cohérent avec l'usage PostGIS/`ST_DWithin` et avec l'exemple `radius=5000` de LL-4003), réponse au même format que `GET /api/v1/activities` (triée par distance croissante, pas de champ distance ajouté), erreurs `400` standardisées (`ErrorResponse`) pour paramètre manquant/invalide.
+* LL-4001 — Définir la recherche géographique ✅ — contrat documenté dans `docs/02_Architecture/GEO_SEARCH_CONTRACT.md` : endpoint `GET /api/v1/activities/nearby`, paramètres `latitude`/`longitude`/`radius` (rayon en **kilomètres**, plafonné à **50 km** — décision validée par toi) et `status` (filtre optionnel par statut — décision validée par toi), réponse au même format que `GET /api/v1/activities` (triée par distance croissante, pas de champ distance ajouté), erreurs `400` standardisées (`ErrorResponse`) pour paramètre manquant/invalide/hors plage.
   - Ticket purement contractuel, sans code (l'implémentation PostGIS est LL-4002, l'endpoint est LL-4003) — cohérent avec le principe du projet "Documentation avant implémentation".
-  - ⚠️ Points volontairement laissés ouverts pour LL-4002/LL-4003, à trancher à ce moment-là (détaillés dans le document) : valeur maximale éventuelle pour `radius`, stratégie de migration pour la colonne géographique PostGIS, filtrage ou non par statut `PUBLISHED` (l'API existante `GET /api/v1/activities` ne filtre actuellement pas par statut, à garder cohérent ou à corriger — à valider avec toi).
+  - Note d'implémentation laissée pour LL-4002 : `ST_DWithin` (PostGIS, type `geography`) attend une distance en mètres — conversion `radius` (km reçus du client) → mètres à faire côté backend avant l'appel SQL.
+  - ⚠️ Point encore ouvert pour LL-4002 : nom exact de la colonne géographique ajoutée à `activity` et stratégie de migration (dérivée de `latitude`/`longitude` existants vs. double stockage) — à trancher à ce moment-là.
 
 ---
 
