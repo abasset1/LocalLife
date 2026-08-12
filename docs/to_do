@@ -1,0 +1,34 @@
+P3 — Tester réellement PostGIS
+
+Ajouter les tests d'intégration géographiques.
+
+C'est particulièrement important parce que V7 modifie le schéma et ajoute :
+
+GEOGRAPHY(Point,4326)
+trigger
+index spatial.
+🟠 P4 — Structurer le frontend avant la suite du Sprint 4
+
+Ne pas laisser :
+
+App.tsx
+
+absorber :
+
+recherche
+filtres
+géolocalisation
+chargement dynamique
+états
+carte.
+🟠 P5 — Ne pas oublier le MVP réel
+
+Une fois la recherche terminée, il faudra revenir aux éléments encore absents :
+
+Collecteurs
+Sources
+Import
+Doublons
+Validation
+Administration
+Food trucks
