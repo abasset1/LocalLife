@@ -23,15 +23,15 @@ conventions de nommage, même format de réponse, mêmes codes d'erreur.
 | `longitude` | double | oui          | entre -180 et 180                                | Longitude du point de recherche.          |
 | `radius`    | double | oui          | strictement positif, **en kilomètres**, max `50` | Rayon de recherche autour du point.       |
 | `status`    | string | non          | doit correspondre à une valeur existante (ex. `PUBLISHED`, `PENDING`) | Filtre les résultats sur ce statut. Absent → aucun filtrage par statut (même comportement que `GET /api/v1/activities`, qui ne filtre pas non plus). |
+| `category`  | string | non          | une ou plusieurs valeurs séparées par des virgules (ex. `concert,marché`) | Filtre les résultats sur la/les catégorie(s) données (correspondance exacte, `OU` entre les valeurs). Absent → aucun filtrage. Catégorie ne correspondant à aucune activité → liste vide, **pas** une erreur 400 (voir décision ci-dessous). |
 
-Le filtre par catégorie et le filtre par date restent hors périmètre de
-LL-4001, traités séparément en LL-4004 et LL-4005 : ils s'ajouteront en
-query params optionnels sans modifier ce contrat.
+Le filtre par date reste hors périmètre de LL-4001, traité séparément en
+LL-4005 : il s'ajoutera en query param optionnel sans modifier ce contrat.
 
 Exemple :
 
 ```text
-GET /api/v1/activities/nearby?latitude=43.2965&longitude=5.3698&radius=5&status=PUBLISHED
+GET /api/v1/activities/nearby?latitude=43.2965&longitude=5.3698&radius=5&status=PUBLISHED&category=concert,marché
 ```
 
 ## Réponse
@@ -78,6 +78,26 @@ Même format standardisé que le reste de l'API (`ErrorResponse` — voir
 * Filtrage par statut activé via le paramètre optionnel `status` (voir
   ci-dessus) plutôt qu'un comportement figé côté serveur — reste cohérent
   avec `GET /api/v1/activities`, qui ne filtre pas non plus par défaut.
+
+## Décision LL-4004 à valider : `category` (chaîne) et non `categoryId`
+
+Le ticket LL-4004 (`SPRINT_4.md`) donne l'exemple `&categoryId=1`. Ce
+paramètre n'a pas été implémenté tel quel, pour une raison de modèle de
+données : la colonne `activity.category` est une **chaîne libre** saisie
+par le contributeur (voir `ActivityService.createActivity`, LL-2012), sans
+aucune relation avec la table `category` (qui n'a ni clé étrangère depuis
+`activity`, ni données). Utiliser `categoryId` aurait nécessité soit
+d'ajouter une vraie relation `Activity` → `Category` (modification du
+modèle métier explicitement interdite par les règles du Sprint 4 sans
+ticket dédié), soit d'accepter un paramètre qui ne correspondrait à aucune
+donnée réelle.
+
+Le paramètre s'appelle donc `category` (chaîne, voir tableau ci-dessus),
+comparé directement à la colonne `activity.category`. Une catégorie qui ne
+correspond à aucune activité renvoie une liste vide (`200 OK`), pas une
+erreur — contrairement à `status`, il n'existe pas de liste fermée de
+catégories valides (champ libre à la création), donc rien à valider
+au sens strict.
 
 ## Points laissés ouverts pour LL-4002/LL-4003 (à valider à ce moment-là)
 

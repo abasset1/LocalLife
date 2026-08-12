@@ -21,9 +21,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Couvre la validation des paramètres de recherche géographique (LL-4003),
- * conformément au contrat LL-4001 : rayon en km (converti en mètres pour le
- * repository), plafonné à 50 km, filtre optionnel par statut.
+ * Couvre la validation des paramètres de recherche géographique
+ * (LL-4003/LL-4004), conformément au contrat LL-4001 : rayon en km
+ * (converti en mètres pour le repository), plafonné à 50 km, filtres
+ * optionnels par statut et par catégorie.
  */
 @ExtendWith(MockitoExtension.class)
 class ActivityServiceTest {
@@ -43,26 +44,26 @@ class ActivityServiceTest {
         // Given
         Activity expected = new Activity(
                 1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED");
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, null)).thenReturn(List.of(expected));
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, null, null)).thenReturn(List.of(expected));
 
         // When : radius exprimé en km ("5") doit être converti en mètres (5000) pour le repository.
-        List<Activity> result = activityService().findNearby("43.2951", "5.3739", "5", null);
+        List<Activity> result = activityService().findNearby("43.2951", "5.3739", "5", null, null);
 
         // Then
-        verify(activityRepository).findWithinRadius(eq(43.2951), eq(5.3739), eq(5_000.0), isNull());
+        verify(activityRepository).findWithinRadius(eq(43.2951), eq(5.3739), eq(5_000.0), isNull(), isNull());
         assertThat(result).containsExactly(expected);
     }
 
     @Test
     void findNearby_ShouldPassStatusThrough_WhenProvidedAndKnown() {
         // Given
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED")).thenReturn(List.of());
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null)).thenReturn(List.of());
 
         // When
-        activityService().findNearby("43.2951", "5.3739", "5", "PUBLISHED");
+        activityService().findNearby("43.2951", "5.3739", "5", "PUBLISHED", null);
 
         // Then
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED");
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null);
     }
 
     @ParameterizedTest
@@ -72,7 +73,7 @@ class ActivityServiceTest {
         String longitude = missingParam.equals("longitude") ? null : "5.3739";
         String radius = missingParam.equals("radius") ? null : "5";
 
-        assertThatThrownBy(() -> activityService().findNearby(latitude, longitude, radius, null))
+        assertThatThrownBy(() -> activityService().findNearby(latitude, longitude, radius, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(missingParam);
 
@@ -81,7 +82,7 @@ class ActivityServiceTest {
 
     @Test
     void findNearby_ShouldThrow_WhenParamIsNotNumeric() {
-        assertThatThrownBy(() -> activityService().findNearby("abc", "5.3739", "5", null))
+        assertThatThrownBy(() -> activityService().findNearby("abc", "5.3739", "5", null, null))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verifyNoInteractions(activityRepository);
@@ -89,46 +90,83 @@ class ActivityServiceTest {
 
     @Test
     void findNearby_ShouldThrow_WhenLatitudeOutOfRange() {
-        assertThatThrownBy(() -> activityService().findNearby("120", "5.3739", "5", null))
+        assertThatThrownBy(() -> activityService().findNearby("120", "5.3739", "5", null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void findNearby_ShouldThrow_WhenLongitudeOutOfRange() {
-        assertThatThrownBy(() -> activityService().findNearby("43.2951", "220", "5", null))
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "220", "5", null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void findNearby_ShouldThrow_WhenRadiusIsZeroOrNegative() {
-        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "0", null))
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "0", null, null))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "-1", null))
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "-1", null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void findNearby_ShouldThrow_WhenRadiusExceedsFiftyKilometers() {
-        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "50.01", null))
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "50.01", null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("50");
     }
 
     @Test
     void findNearby_ShouldAccept_WhenRadiusIsExactlyFiftyKilometers() {
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 50_000, null)).thenReturn(List.of());
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 50_000, null, null)).thenReturn(List.of());
 
-        activityService().findNearby("43.2951", "5.3739", "50", null);
+        activityService().findNearby("43.2951", "5.3739", "50", null, null);
 
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 50_000, null);
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 50_000, null, null);
     }
 
     @Test
     void findNearby_ShouldThrow_WhenStatusIsUnknown() {
-        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "5", "NOT_A_STATUS"))
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "5", "NOT_A_STATUS", null))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findNearby_ShouldPassCategoryThrough_Unchanged_WhenSingleValue() {
+        // Given
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, null, "concert")).thenReturn(List.of());
+
+        // When
+        activityService().findNearby("43.2951", "5.3739", "5", null, "concert");
+
+        // Then
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, null, "concert");
+    }
+
+    @Test
+    void findNearby_ShouldTrimAndDropEmptyValues_WhenMultipleCategoriesWithSpaces() {
+        // Given : la normalisation doit retirer les espaces et les segments vides.
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, null, "concert,marché"))
+                .thenReturn(List.of());
+
+        // When
+        activityService().findNearby("43.2951", "5.3739", "5", null, " concert , marché ,, ");
+
+        // Then
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, null, "concert,marché");
+    }
+
+    @Test
+    void findNearby_ShouldPassNullCategory_WhenOnlyBlankValuesProvided() {
+        // Given : "  , , " ne contient que des segments vides après nettoyage → équivalent à "pas de filtre".
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, null, null)).thenReturn(List.of());
+
+        // When
+        activityService().findNearby("43.2951", "5.3739", "5", null, "  , , ");
+
+        // Then
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, null, null);
     }
 
 }

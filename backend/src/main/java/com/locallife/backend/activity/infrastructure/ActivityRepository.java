@@ -38,18 +38,28 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      * Filtre optionnel par statut ajouté en LL-4003 : {@code status} peut
      * être {@code null}, auquel cas aucun filtrage n'est appliqué (même
      * comportement que {@code findAll()}, qui ne filtre pas non plus).
+     *
+     * Filtre optionnel par catégorie ajouté en LL-4004 : {@code categoriesCsv}
+     * est une liste de catégories séparées par des virgules (ou {@code null}
+     * pour ne pas filtrer), comparée à la colonne {@code category}
+     * (chaîne libre, voir {@code ActivityService#findNearby} pour le détail
+     * de cette décision). Utilise {@code string_to_array}/{@code ANY} côté
+     * SQL plutôt qu'un binding de collection Java, pour rester sur le même
+     * pattern « paramètre nullable unique » que {@code status} ci-dessus.
      */
     @Query("""
             SELECT * FROM activity
             WHERE location IS NOT NULL
               AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
               AND (:status IS NULL OR status = :status)
+              AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
             ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography)
             """)
     List<Activity> findWithinRadius(
             @Param("latitude") double latitude,
             @Param("longitude") double longitude,
             @Param("radiusMeters") double radiusMeters,
-            @Param("status") String status);
+            @Param("status") String status,
+            @Param("categoriesCsv") String categoriesCsv);
 
 }

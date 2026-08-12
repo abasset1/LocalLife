@@ -12,10 +12,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Tests d'intégration PostGIS (LL-4002) et filtre par statut (LL-4003),
- * contre la base réelle (comme {@code UserRepositoryIntegrationTest}) :
- * chaque test est englobé dans une transaction annulée à la fin. Point de
- * référence : Vieux-Port de Marseille (43.2951, 5.3739).
+ * Tests d'intégration PostGIS (LL-4002), filtre par statut (LL-4003) et
+ * filtre par catégorie (LL-4004), contre la base réelle (comme
+ * {@code UserRepositoryIntegrationTest}) : chaque test est englobé dans une
+ * transaction annulée à la fin. Point de référence : Vieux-Port de
+ * Marseille (43.2951, 5.3739).
  *
  * Assertions faites par id, jamais par vacuité/taille du résultat : les
  * données de démo (V3__insert_demo_activities.sql) sont déjà toutes situées
@@ -34,15 +35,19 @@ class ActivityRepositoryIntegrationTest {
     @Autowired
     private ActivityRepository activityRepository;
 
-    private Activity activityAt(double latitude, double longitude, String status) {
+    private Activity activityAt(double latitude, double longitude, String status, String category) {
         String uniqueTitle = "test-" + UUID.randomUUID();
         return activityRepository.save(new Activity(
-                null, uniqueTitle, "description", "sport",
+                null, uniqueTitle, "description", category,
                 latitude, longitude, LocalDateTime.now(), null, status));
     }
 
+    private Activity activityAt(double latitude, double longitude, String status) {
+        return activityAt(latitude, longitude, status, "sport");
+    }
+
     private Activity activityAt(double latitude, double longitude) {
-        return activityAt(latitude, longitude, "PUBLISHED");
+        return activityAt(latitude, longitude, "PUBLISHED", "sport");
     }
 
     @Test
@@ -53,7 +58,7 @@ class ActivityRepositoryIntegrationTest {
         Activity far = activityAt(PARIS_LAT, PARIS_LON);
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(near.id());
@@ -66,7 +71,7 @@ class ActivityRepositoryIntegrationTest {
         Activity justOutside = activityAt(MARSEILLE_LAT - 0.05, MARSEILLE_LON);
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 1_000, null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 1_000, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).doesNotContain(justOutside.id());
@@ -78,7 +83,7 @@ class ActivityRepositoryIntegrationTest {
         Activity farther = activityAt(MARSEILLE_LAT + 0.02, MARSEILLE_LON);
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(closer.id(), farther.id());
@@ -91,7 +96,7 @@ class ActivityRepositoryIntegrationTest {
         Activity pending = activityAt(MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PENDING");
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, "PUBLISHED")
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, "PUBLISHED", null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(published.id());
@@ -104,10 +109,60 @@ class ActivityRepositoryIntegrationTest {
         Activity pending = activityAt(MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PENDING");
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(published.id(), pending.id());
+    }
+
+    @Test
+    void findWithinRadius_ShouldOnlyReturnMatchingCategory_WhenSingleCategoryProvided() {
+        Activity concert = activityAt(MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED", "concert");
+        Activity sport = activityAt(MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PUBLISHED", "sport");
+
+        List<Long> resultIds = activityRepository
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, "concert")
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(concert.id());
+        assertThat(resultIds).doesNotContain(sport.id());
+    }
+
+    @Test
+    void findWithinRadius_ShouldReturnAnyMatchingCategory_WhenMultipleCategoriesProvided() {
+        Activity concert = activityAt(MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED", "concert");
+        Activity marche = activityAt(MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PUBLISHED", "marché");
+        Activity sport = activityAt(MARSEILLE_LAT + 0.003, MARSEILLE_LON, "PUBLISHED", "sport");
+
+        List<Long> resultIds = activityRepository
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, "concert,marché")
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(concert.id(), marche.id());
+        assertThat(resultIds).doesNotContain(sport.id());
+    }
+
+    @Test
+    void findWithinRadius_ShouldReturnEmpty_WhenCategoryDoesNotMatchAnyActivity() {
+        activityAt(MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED", "concert");
+
+        List<Long> resultIds = activityRepository
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, "catégorie-inexistante-xyz")
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).isEmpty();
+    }
+
+    @Test
+    void findWithinRadius_ShouldReturnAllCategories_WhenCategoryNotProvided() {
+        Activity concert = activityAt(MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED", "concert");
+        Activity sport = activityAt(MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PUBLISHED", "sport");
+
+        List<Long> resultIds = activityRepository
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(concert.id(), sport.id());
     }
 
 }

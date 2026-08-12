@@ -5,9 +5,11 @@ import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 /**
@@ -46,12 +48,13 @@ public class ActivityService {
     }
 
     /**
-     * Recherche géographique (LL-4002/LL-4003) : activités situées à moins
-     * de {@code radius} kilomètres du point donné, triées par distance
-     * croissante, avec filtre optionnel par statut. Reçoit les paramètres
-     * bruts (chaînes, tels que fournis par la query string) et fait toute
-     * la validation ici plutôt que de s'appuyer sur la coercition
-     * automatique de Spring MVC ({@code @RequestParam(required = true)}) :
+     * Recherche géographique (LL-4002/LL-4003/LL-4004) : activités situées
+     * à moins de {@code radius} kilomètres du point donné, triées par
+     * distance croissante, avec filtres optionnels par statut et par
+     * catégorie. Reçoit les paramètres bruts (chaînes, tels que fournis par
+     * la query string) et fait toute la validation ici plutôt que de
+     * s'appuyer sur la coercition automatique de Spring MVC
+     * ({@code @RequestParam(required = true)}) :
      * {@link com.locallife.backend.common.GlobalExceptionHandler} attrape
      * actuellement {@code Exception} de façon générique et renverrait 500
      * (au lieu de 400) sur un paramètre manquant/invalide si on laissait
@@ -59,13 +62,33 @@ public class ActivityService {
      * {@link GeocodingService} (LL-3012) : validation locale, exceptions
      * {@link IllegalArgumentException} attrapées par le contrôleur.
      *
+     * {@code category} (LL-4004) : liste de catégories séparées par des
+     * virgules (ex. {@code "concert,marché"}), ou {@code null} pour ne pas
+     * filtrer. Chaque valeur est nettoyée (espaces retirés, valeurs vides
+     * ignorées). Comparée telle quelle à la colonne {@code category}
+     * d'{@link Activity}, qui est une chaîne libre saisie par le
+     * contributeur (voir {@code createActivity} ci-dessous) — il n'existe
+     * aucun lien entre cette colonne et la table {@code category}
+     * (celle-ci n'a ni FK depuis {@code activity}, ni données, et
+     * l'exemple du ticket LL-4004 utilisant {@code categoryId} ne
+     * correspond donc à aucune donnée réelle actuellement). ⚠️ Décision à
+     * valider : le paramètre s'appelle ici {@code category} (chaîne), pas
+     * {@code categoryId}, pour rester honnête vis-à-vis du modèle de
+     * données actuel ; introduire une vraie relation {@code Activity} →
+     * {@code Category} serait une modification du modèle métier hors
+     * périmètre de ce ticket (interdit explicitement par les règles du
+     * Sprint 4). Aucune catégorie n'étant une valeur "invalide" en soi
+     * (champ libre à la création), une catégorie qui ne correspond à
+     * aucune activité renvoie simplement une liste vide, pas d'erreur 400.
+     *
      * @throws IllegalArgumentException si un paramètre obligatoire est
      *         manquant/non numérique, hors des contraintes du contrat
      *         LL-4001 (latitude/longitude hors plage, rayon ≤ 0 ou
      *         &gt; 50 km), ou si {@code status} ne correspond à aucune
      *         valeur connue.
      */
-    public List<Activity> findNearby(String latitudeRaw, String longitudeRaw, String radiusRaw, String status) {
+    public List<Activity> findNearby(
+            String latitudeRaw, String longitudeRaw, String radiusRaw, String status, String category) {
         double latitude = parseRequiredDouble("latitude", latitudeRaw);
         double longitude = parseRequiredDouble("longitude", longitudeRaw);
         double radiusKm = parseRequiredDouble("radius", radiusRaw);
@@ -86,7 +109,19 @@ public class ActivityService {
         }
 
         double radiusMeters = radiusKm * 1000;
-        return activityRepository.findWithinRadius(latitude, longitude, radiusMeters, status);
+        String categoriesCsv = normalizeCategories(category);
+        return activityRepository.findWithinRadius(latitude, longitude, radiusMeters, status, categoriesCsv);
+    }
+
+    private String normalizeCategories(String categoryRaw) {
+        if (categoryRaw == null) {
+            return null;
+        }
+        String cleaned = Arrays.stream(categoryRaw.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .collect(Collectors.joining(","));
+        return cleaned.isEmpty() ? null : cleaned;
     }
 
     private double parseRequiredDouble(String paramName, String rawValue) {

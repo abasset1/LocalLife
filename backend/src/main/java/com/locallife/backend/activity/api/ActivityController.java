@@ -47,10 +47,11 @@ public class ActivityController {
     }
 
     /**
-     * Recherche géographique (LL-4001/LL-4002/LL-4003) : activités situées
-     * dans un rayon donné autour d'un point, triées par distance
-     * croissante, avec filtre optionnel par statut. Voir le contrat
-     * détaillé dans {@code docs/02_Architecture/GEO_SEARCH_CONTRACT.md}.
+     * Recherche géographique (LL-4001/LL-4002/LL-4003/LL-4004) : activités
+     * situées dans un rayon donné autour d'un point, triées par distance
+     * croissante, avec filtres optionnels par statut et par catégorie. Voir
+     * le contrat détaillé dans
+     * {@code docs/02_Architecture/GEO_SEARCH_CONTRACT.md}.
      *
      * Les paramètres sont reçus en {@code String} (et non {@code double}
      * avec {@code required = true}) volontairement : toute la validation
@@ -88,9 +89,12 @@ public class ActivityController {
             @RequestParam(required = false) String radius,
             @Parameter(description = "Filtre optionnel sur le statut de l'activité (ex. PUBLISHED, PENDING).")
             @RequestParam(required = false) String status,
+            @Parameter(description = "Filtre optionnel sur la/les catégorie(s), séparées par des virgules "
+                    + "(ex. concert,marché). Catégorie inconnue → résultat vide, pas d'erreur.")
+            @RequestParam(required = false) String category,
             HttpServletRequest httpRequest) {
         try {
-            List<Activity> activities = activityService.findNearby(latitude, longitude, radius, status);
+            List<Activity> activities = activityService.findNearby(latitude, longitude, radius, status, category);
             return ResponseEntity.ok(activities);
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
