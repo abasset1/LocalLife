@@ -31,4 +31,28 @@ class ActivityControllerIntegrationTest {
     void getActivityById_ShouldReturnNotFound_WhenNotExists() {
         restTestClient().get().uri("/api/v1/activities/9999").exchange().expectStatus().isNotFound();
     }
+
+    @Test
+    void getNearbyActivities_ShouldReturnOk_WhenParamsValid() {
+        restTestClient().get()
+                .uri("/api/v1/activities/nearby?latitude=43.2951&longitude=5.3739&radius=5")
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    void getNearbyActivities_ShouldReturnBadRequest_WhenLatitudeMissing() {
+        restTestClient().get()
+                .uri("/api/v1/activities/nearby?longitude=5.3739&radius=5")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void getNearbyActivities_ShouldReturnBadRequest_WhenRadiusExceedsFiftyKilometers() {
+        restTestClient().get()
+                .uri("/api/v1/activities/nearby?latitude=43.2951&longitude=5.3739&radius=51")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
 }

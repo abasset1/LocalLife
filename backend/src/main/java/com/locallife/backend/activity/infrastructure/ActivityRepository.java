@@ -34,16 +34,22 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      * La conversion km → mètres (contrat LL-4001 : {@code radius} exprimé
      * en km côté API) est à la charge de l'appelant, voir
      * {@code ActivityService#findNearby}.
+     *
+     * Filtre optionnel par statut ajouté en LL-4003 : {@code status} peut
+     * être {@code null}, auquel cas aucun filtrage n'est appliqué (même
+     * comportement que {@code findAll()}, qui ne filtre pas non plus).
      */
     @Query("""
             SELECT * FROM activity
             WHERE location IS NOT NULL
               AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
+              AND (:status IS NULL OR status = :status)
             ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography)
             """)
     List<Activity> findWithinRadius(
             @Param("latitude") double latitude,
             @Param("longitude") double longitude,
-            @Param("radiusMeters") double radiusMeters);
+            @Param("radiusMeters") double radiusMeters,
+            @Param("status") String status);
 
 }

@@ -12,10 +12,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Tests d'intégration PostGIS (LL-4002), contre la base réelle (comme
- * {@code UserRepositoryIntegrationTest}) : chaque test est englobé dans une
- * transaction annulée à la fin. Point de référence : Vieux-Port de
- * Marseille (43.2951, 5.3739).
+ * Tests d'intégration PostGIS (LL-4002) et filtre par statut (LL-4003),
+ * contre la base réelle (comme {@code UserRepositoryIntegrationTest}) :
+ * chaque test est englobé dans une transaction annulée à la fin. Point de
+ * référence : Vieux-Port de Marseille (43.2951, 5.3739).
  *
  * Assertions faites par id, jamais par vacuité/taille du résultat : les
  * données de démo (V3__insert_demo_activities.sql) sont déjà toutes situées
@@ -34,11 +34,15 @@ class ActivityRepositoryIntegrationTest {
     @Autowired
     private ActivityRepository activityRepository;
 
-    private Activity activityAt(double latitude, double longitude) {
+    private Activity activityAt(double latitude, double longitude, String status) {
         String uniqueTitle = "test-" + UUID.randomUUID();
         return activityRepository.save(new Activity(
                 null, uniqueTitle, "description", "sport",
-                latitude, longitude, LocalDateTime.now(), null, "PUBLISHED"));
+                latitude, longitude, LocalDateTime.now(), null, status));
+    }
+
+    private Activity activityAt(double latitude, double longitude) {
+        return activityAt(latitude, longitude, "PUBLISHED");
     }
 
     @Test
@@ -49,7 +53,7 @@ class ActivityRepositoryIntegrationTest {
         Activity far = activityAt(PARIS_LAT, PARIS_LON);
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(near.id());
@@ -62,7 +66,7 @@ class ActivityRepositoryIntegrationTest {
         Activity justOutside = activityAt(MARSEILLE_LAT - 0.05, MARSEILLE_LON);
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 1_000)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 1_000, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).doesNotContain(justOutside.id());
@@ -74,11 +78,36 @@ class ActivityRepositoryIntegrationTest {
         Activity farther = activityAt(MARSEILLE_LAT + 0.02, MARSEILLE_LON);
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(closer.id(), farther.id());
         assertThat(resultIds.indexOf(closer.id())).isLessThan(resultIds.indexOf(farther.id()));
+    }
+
+    @Test
+    void findWithinRadius_ShouldOnlyReturnMatchingStatus_WhenStatusProvided() {
+        Activity published = activityAt(MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED");
+        Activity pending = activityAt(MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PENDING");
+
+        List<Long> resultIds = activityRepository
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, "PUBLISHED")
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(published.id());
+        assertThat(resultIds).doesNotContain(pending.id());
+    }
+
+    @Test
+    void findWithinRadius_ShouldReturnAllStatuses_WhenStatusNotProvided() {
+        Activity published = activityAt(MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED");
+        Activity pending = activityAt(MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PENDING");
+
+        List<Long> resultIds = activityRepository
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(published.id(), pending.id());
     }
 
 }

@@ -149,4 +149,37 @@ class ActivityControllerTest {
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), ((ErrorResponse) response.getBody()).status());
     }
+
+    @Test
+    void getNearbyActivities_ShouldReturnOk_WithActivities() {
+        // Given
+        Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
+                LocalDateTime.now(), null, "PUBLISHED");
+        when(activityService.findNearby("43.2951", "5.3739", "5", "PUBLISHED"))
+                .thenReturn(List.of(nearby));
+
+        // When
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                "43.2951", "5.3739", "5", "PUBLISHED", httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(List.of(nearby), response.getBody());
+    }
+
+    @Test
+    void getNearbyActivities_ShouldReturnBadRequest_WhenParamsInvalid() {
+        // Given
+        when(activityService.findNearby(null, "5.3739", "5", null))
+                .thenThrow(new IllegalArgumentException("Le paramètre 'latitude' est obligatoire."));
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/nearby");
+
+        // When
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                null, "5.3739", "5", null, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST.value(), ((ErrorResponse) response.getBody()).status());
+    }
 }

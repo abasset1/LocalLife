@@ -184,4 +184,34 @@ Tickets terminés :
 * LL-3002 — Migration Flyway pour les nouveaux champs ✅
 * LL-3003 — Service de hachage des mots de passe ✅
 * LL-3004 — Implémenter le login ✅
-*
+* LL-3005 — Génération de JWT ✅
+* LL-3006 — Middleware de vérification JWT ✅
+* LL-3007 — Endpoints d'authentification ✅
+* LL-3008 — Protéger les endpoints existants ✅
+* LL-3009 — Frontend : pages de login/register ✅
+* LL-3010 — Frontend : affichage de l'utilisateur connecté ✅
+* LL-3011 — Frontend : appels API avec JWT ✅
+* LL-3012 — Backend : intégration du géocodage ✅
+* LL-3013 — Frontend : mise à jour du formulaire de contribution ✅
+* LL-3014 — Tests d'intégration ✅
+* LL-3015 — Mise à jour de la documentation ✅
+
+Correctif hors ticket : fuite `passwordHash` signalée en LL-3010, corrigée (`UserController` renvoie désormais `UserResponse`, plus jamais l'entité `User`).
+
+---
+# Sprint 4
+
+Statut : 🟡 En cours.
+
+Objectif : recherche et découverte géographique (recherche par rayon PostGIS, recherche par zone cartographique, filtres catégorie/date, géolocalisation utilisateur).
+
+Tickets terminés :
+* LL-4001 — Définir la recherche géographique ✅ — contrat documenté dans `docs/02_Architecture/GEO_SEARCH_CONTRACT.md` (endpoint `GET /api/v1/activities/nearby`, `radius` en km plafonné à 50, filtre optionnel `status`).
+* LL-4002 — Ajouter la recherche géographique PostGIS ✅ — migration `V7` (extension PostGIS, colonne `location GEOGRAPHY`, trigger d'alimentation depuis latitude/longitude), `ActivityRepository.findWithinRadius` (`ST_DWithin`/`ST_Distance`), `ActivityService.findNearby`.
+* LL-4003 — Endpoint des activités proches ✅ — `GET /api/v1/activities/nearby` (paramètres `latitude`/`longitude`/`radius`/`status`, validation complète renvoyant `400` sur erreur — volontairement en `String`/`required=false` plutôt que `double`/`required=true`, car `GlobalExceptionHandler` attrape `Exception` de façon générique et renverrait `500` sinon sur un paramètre manquant/invalide). Documentation OpenAPI ajoutée (`@Operation`/`@Parameter`/`@ApiResponses`, première utilisation dans ce projet). Tests : `ActivityServiceTest`, `ActivityRepositoryIntegrationTest` (filtre statut), `ActivityControllerTest`, `ActivityControllerIntegrationTest`.
+  - ⚠️ Non exécuté en sandbox (pas de `mvn` ni d'accès réseau à Maven Central) — à valider avec `mvn verify`.
+
+---
+# Prochaine action
+
+Sprint 4 : traiter LL-4004 — Filtre par catégorie (dépend de LL-4003).

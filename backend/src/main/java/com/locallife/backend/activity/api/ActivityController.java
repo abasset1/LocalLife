@@ -5,6 +5,12 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.geocoding.application.AddressNotFoundException;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
@@ -16,12 +22,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Contrôleur REST pour la gestion des activités.
  * Consultation et création (contribution, LL-2012 ; adresse géocodée
- * côté serveur depuis LL-3012).
+ * côté serveur depuis LL-3012), recherche géographique (LL-4003).
  */
 @RestController
 @RequestMapping("/api/v1/activities")
@@ -37,6 +44,57 @@ public class ActivityController {
     public ResponseEntity<List<Activity>> getAllActivities() {
         List<Activity> activities = activityService.findAll();
         return ResponseEntity.ok(activities);
+    }
+
+    /**
+     * Recherche géographique (LL-4001/LL-4002/LL-4003) : activités situées
+     * dans un rayon donné autour d'un point, triées par distance
+     * croissante, avec filtre optionnel par statut. Voir le contrat
+     * détaillé dans {@code docs/02_Architecture/GEO_SEARCH_CONTRACT.md}.
+     *
+     * Les paramètres sont reçus en {@code String} (et non {@code double}
+     * avec {@code required = true}) volontairement : toute la validation
+     * est faite dans {@link ActivityService#findNearby}, qui lève
+     * {@link IllegalArgumentException} pour chaque cas d'erreur du contrat
+     * (paramètre manquant, non numérique, hors plage, statut inconnu),
+     * attrapée ci-dessous et traduite en {@code 400}. Si on laissait Spring
+     * MVC valider lui-même un {@code @RequestParam} obligatoire manquant,
+     * l'exception résultante serait interceptée par
+     * {@link com.locallife.backend.common.GlobalExceptionHandler} (qui
+     * attrape {@code Exception} de façon générique) et renverrait {@code
+     * 500} au lieu de {@code 400} — même choix de conception que {@code
+     * createActivity} ci-dessous (LL-3012).
+     */
+    @Operation(
+            summary = "Recherche des activités à proximité d'un point",
+            description = "Retourne les activités situées dans un rayon donné (en kilomètres, max 50) "
+                    + "autour d'un point, triées par distance croissante. Distance calculée côté base "
+                    + "(PostGIS ST_DWithin).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Recherche effectuée avec succès."),
+        @ApiResponse(responseCode = "400",
+                description = "Paramètre manquant, non numérique, hors plage (latitude/longitude/radius), "
+                        + "ou statut inconnu.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/nearby")
+    public ResponseEntity<Object> getNearbyActivities(
+            @Parameter(description = "Latitude du point de recherche, entre -90 et 90.", required = true)
+            @RequestParam(required = false) String latitude,
+            @Parameter(description = "Longitude du point de recherche, entre -180 et 180.", required = true)
+            @RequestParam(required = false) String longitude,
+            @Parameter(description = "Rayon de recherche en kilomètres, strictement positif, max 50.",
+                    required = true)
+            @RequestParam(required = false) String radius,
+            @Parameter(description = "Filtre optionnel sur le statut de l'activité (ex. PUBLISHED, PENDING).")
+            @RequestParam(required = false) String status,
+            HttpServletRequest httpRequest) {
+        try {
+            List<Activity> activities = activityService.findNearby(latitude, longitude, radius, status);
+            return ResponseEntity.ok(activities);
+        } catch (IllegalArgumentException exception) {
+            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        }
     }
 
     @GetMapping("/{id}")
