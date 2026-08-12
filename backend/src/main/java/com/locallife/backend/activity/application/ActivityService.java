@@ -33,6 +33,22 @@ public class ActivityService {
     }
 
     /**
+     * Recherche géographique (LL-4002) : activités situées à moins de
+     * {@code radiusKm} kilomètres du point donné, triées par distance
+     * croissante. {@code radiusKm} est exprimé en kilomètres conformément
+     * au contrat LL-4001 ; converti en mètres ici avant l'appel au
+     * repository, car {@code ST_DWithin} (PostGIS, type {@code geography})
+     * attend une distance en mètres.
+     *
+     * Pas de filtrage par statut à ce stade (hors périmètre de LL-4002,
+     * prévu en LL-4003 lors de la création de l'endpoint).
+     */
+    public List<Activity> findNearby(double latitude, double longitude, double radiusKm) {
+        double radiusMeters = radiusKm * 1000;
+        return activityRepository.findWithinRadius(latitude, longitude, radiusMeters);
+    }
+
+    /**
      * Crée une activité à partir d'une contribution (LL-2012, adresse
      * géocodée depuis LL-3012). L'adresse elle-même n'est pas conservée en
      * base, seules les coordonnées obtenues via {@link GeocodingService} le

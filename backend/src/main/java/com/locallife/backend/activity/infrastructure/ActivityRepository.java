@@ -3,7 +3,9 @@ package com.locallife.backend.activity.infrastructure;
 import com.locallife.backend.activity.domain.Activity;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Repository Activity.
@@ -21,5 +23,27 @@ public interface ActivityRepository extends Repository<Activity, Long> {
     Optional<Activity> findById(Long id);
 
     Activity save(Activity activity);
+
+    /**
+     * Recherche géographique PostGIS (LL-4002) : activités dont la colonne
+     * {@code location} (alimentée automatiquement depuis latitude/longitude
+     * par un trigger, voir {@code V7__add_postgis_location_to_activity.sql})
+     * se trouve à moins de {@code radiusMeters} mètres du point donné.
+     * Distance calculée côté base ({@code ST_DWithin} sur type {@code
+     * geography}, donc en mètres), résultats triés par distance croissante.
+     * La conversion km → mètres (contrat LL-4001 : {@code radius} exprimé
+     * en km côté API) est à la charge de l'appelant, voir
+     * {@code ActivityService#findNearby}.
+     */
+    @Query("""
+            SELECT * FROM activity
+            WHERE location IS NOT NULL
+              AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
+            ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography)
+            """)
+    List<Activity> findWithinRadius(
+            @Param("latitude") double latitude,
+            @Param("longitude") double longitude,
+            @Param("radiusMeters") double radiusMeters);
 
 }
