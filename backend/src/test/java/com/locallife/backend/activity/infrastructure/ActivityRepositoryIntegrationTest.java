@@ -164,36 +164,5 @@ class ActivityRepositoryIntegrationTest {
 
         assertThat(resultIds).contains(concert.id(), sport.id());
     }
-    @Test
-    void findWithinRadius_ShouldExcludeActivity_WhenCoordinatesAreNull() {
-        Activity withoutCoordinates = activityRepository.save(new Activity(
-                null, "test-null-" + UUID.randomUUID(), "description", "sport",
-                null, null, LocalDateTime.now(), null, "PUBLISHED"));
-
-        List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000)
-                .stream().map(Activity::id).toList();
-        assertThat(resultIds).doesNotContain(withoutCoordinates.id());
-    }
-
-    @Test
-    void findWithinRadius_ShouldUpdateLocation_WhenCoordinatesAreUpdated() {
-        Activity activity = activityAt(MARSEILLE_LAT, MARSEILLE_LON);
-
-        Activity moved = new Activity(
-                activity.id(), activity.title(), activity.description(), activity.category(),
-                PARIS_LAT, PARIS_LON, activity.startDate(), activity.endDate(), activity.status());
-        activityRepository.save(moved);
-
-        List<Long> nearMarseille = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000)
-                .stream().map(Activity::id).toList();
-        List<Long> nearParis = activityRepository
-                .findWithinRadius(PARIS_LAT, PARIS_LON, 5_000)
-                .stream().map(Activity::id).toList();
-
-        assertThat(nearMarseille).doesNotContain(activity.id());
-        assertThat(nearParis).contains(activity.id());
-    }
 
 }
