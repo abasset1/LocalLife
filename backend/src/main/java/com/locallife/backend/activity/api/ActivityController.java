@@ -28,7 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Contrôleur REST pour la gestion des activités.
  * Consultation et création (contribution, LL-2012 ; adresse géocodée
- * côté serveur depuis LL-3012), recherche géographique (LL-4003).
+ * côté serveur depuis LL-3012), recherche géographique par rayon
+ * (LL-4003) et par zone rectangulaire (LL-4007).
  */
 @RestController
 @RequestMapping("/api/v1/activities")
@@ -105,14 +106,66 @@ public class ActivityController {
         }
     }
 
+    /**
+     * Recherche par zone cartographique (LL-4006/LL-4007) : activités
+     * situées à l'intérieur du rectangle défini par les coins sud-ouest et
+     * nord-est fournis, sans tri par distance (pas de point de référence
+     * unique pour une zone rectangulaire), avec les mêmes filtres
+     * optionnels par statut, catégorie et date que {@code /nearby}. Voir
+     * le contrat détaillé dans
+     * {@code docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md}.
+     *
+     * Même choix de conception que {@link #getNearbyActivities} pour les
+     * paramètres reçus en {@code String} : toute la validation est faite
+     * dans {@link ActivityService#findWithinBounds}.
+     */
+    @Operation(
+            summary = "Recherche des activités à l'intérieur d'une zone rectangulaire",
+            description = "Retourne les activités situées à l'intérieur du rectangle défini par les coins "
+                    + "sud-ouest et nord-est fournis (typiquement la zone visible sur la carte). Résultats "
+                    + "triés par id croissant (pas de tri par distance possible pour une zone).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Recherche effectuée avec succès."),
+        @ApiResponse(responseCode = "400",
+                description = "Paramètre manquant, non numérique, hors plage (latitude/longitude), "
+                        + "swLatitude/swLongitude non strictement inférieurs à neLatitude/neLongitude, "
+                        + "statut inconnu, ou date au mauvais format.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/within-bounds")
+    public ResponseEntity<Object> getActivitiesWithinBounds(
+            @Parameter(description = "Latitude du coin sud-ouest de la zone, entre -90 et 90.", required = true)
+            @RequestParam(required = false) String swLatitude,
+            @Parameter(description = "Longitude du coin sud-ouest de la zone, entre -180 et 180.", required = true)
+            @RequestParam(required = false) String swLongitude,
+            @Parameter(description = "Latitude du coin nord-est de la zone, entre -90 et 90.", required = true)
+            @RequestParam(required = false) String neLatitude,
+            @Parameter(description = "Longitude du coin nord-est de la zone, entre -180 et 180.", required = true)
+            @RequestParam(required = false) String neLongitude,
+            @Parameter(description = "Filtre optionnel sur le statut de l'activité (ex. PUBLISHED, PENDING).")
+            @RequestParam(required = false) String status,
+            @Parameter(description = "Filtre optionnel sur la/les catégorie(s), séparées par des virgules "
+                    + "(ex. concert,marché). Catégorie inconnue → résultat vide, pas d'erreur.")
+            @RequestParam(required = false) String category,
+            @Parameter(description = "Filtre optionnel sur une date (format ISO-8601 yyyy-MM-dd). Une activité "
+                    + "est retenue quand cette date tombe dans sa période [startDate, endDate].")
+            @RequestParam(required = false) String date,
+            HttpServletRequest httpRequest) {
+        try {
+            List<Activity> activities = activityService.findWithinBounds(
+                    swLatitude, swLongitude, neLatitude, neLongitude, status, category, date);
+            return ResponseEntity.ok(activities);
+        } catch (IllegalArgumentException exception) {
+            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        }
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Activity> getActivityById(@PathVariable Long id) {
         Optional<Activity> activity = activityService.findById(id);
         return activity.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
-    }
-
-    @PostMapping
+    }    @PostMapping
     public ResponseEntity<Object> createActivity(
             @RequestBody CreateActivityRequest request, HttpServletRequest httpRequest) {
         try {

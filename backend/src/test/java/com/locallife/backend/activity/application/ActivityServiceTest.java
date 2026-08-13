@@ -23,7 +23,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Couvre la validation des paramètres de recherche géographique
- * (LL-4003/LL-4004/LL-4005), conformément au contrat LL-4001 : rayon en km
+ * (LL-4003/LL-4004/LL-4005), conformément au contrat LL-4001, et de la
+ * recherche par zone rectangulaire (LL-4006/LL-4007) : rayon en km
  * (converti en mètres pour le repository), plafonné à 50 km, filtres
  * optionnels par statut, par catégorie et par date.
  */
@@ -213,6 +214,153 @@ class ActivityServiceTest {
     void findNearby_ShouldThrow_WhenDateDoesNotExist() {
         assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "5", null, null, "2026-02-30"))
                 .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    // --- findWithinBounds (LL-4006/LL-4007) ---
+
+    @Test
+    void findWithinBounds_ShouldDelegateToRepository_WithParsedCoordinates() {
+        // Given
+        Activity expected = new Activity(
+                1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED");
+        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, null, null, null))
+                .thenReturn(List.of(expected));
+
+        // When
+        List<Activity> result = activityService()
+                .findWithinBounds("43.28", "5.35", "43.31", "5.40", null, null, null);
+
+        // Then
+        verify(activityRepository).findWithinBounds(43.28, 5.35, 43.31, 5.40, null, null, null);
+        assertThat(result).containsExactly(expected);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"swLatitude", "swLongitude", "neLatitude", "neLongitude"})
+    void findWithinBounds_ShouldThrow_WhenRequiredParamMissing(String missingParam) {
+        String swLatitude = missingParam.equals("swLatitude") ? null : "43.28";
+        String swLongitude = missingParam.equals("swLongitude") ? null : "5.35";
+        String neLatitude = missingParam.equals("neLatitude") ? null : "43.31";
+        String neLongitude = missingParam.equals("neLongitude") ? null : "5.40";
+
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds(swLatitude, swLongitude, neLatitude, neLongitude, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(missingParam);
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findWithinBounds_ShouldThrow_WhenParamIsNotNumeric() {
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds("abc", "5.35", "43.31", "5.40", null, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"swLatitude", "neLatitude"})
+    void findWithinBounds_ShouldThrow_WhenALatitudeIsOutOfRange(String paramName) {
+        String swLatitude = paramName.equals("swLatitude") ? "120" : "43.28";
+        String neLatitude = paramName.equals("neLatitude") ? "120" : "43.31";
+
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds(swLatitude, "5.35", neLatitude, "5.40", null, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"swLongitude", "neLongitude"})
+    void findWithinBounds_ShouldThrow_WhenALongitudeIsOutOfRange(String paramName) {
+        String swLongitude = paramName.equals("swLongitude") ? "220" : "5.35";
+        String neLongitude = paramName.equals("neLongitude") ? "220" : "5.40";
+
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds("43.28", swLongitude, "43.31", neLongitude, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findWithinBounds_ShouldThrow_WhenSwLatitudeIsNotStrictlyLessThanNeLatitude() {
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds("43.31", "5.35", "43.31", "5.40", null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("swLatitude");
+
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds("43.35", "5.35", "43.31", "5.40", null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("swLatitude");
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findWithinBounds_ShouldThrow_WhenSwLongitudeIsNotStrictlyLessThanNeLongitude() {
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds("43.28", "5.40", "43.31", "5.40", null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("swLongitude");
+
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds("43.28", "5.45", "43.31", "5.40", null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("swLongitude");
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findWithinBounds_ShouldThrow_WhenStatusIsUnknown() {
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds("43.28", "5.35", "43.31", "5.40", "NOT_A_STATUS", null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findWithinBounds_ShouldPassCategoryThrough_WhenProvided() {
+        // Given
+        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, null, "concert", null))
+                .thenReturn(List.of());
+
+        // When
+        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", null, "concert", null);
+
+        // Then
+        verify(activityRepository).findWithinBounds(43.28, 5.35, 43.31, 5.40, null, "concert", null);
+    }
+
+    @Test
+    void findWithinBounds_ShouldParseAndPassDateThrough_WhenValidIsoDateProvided() {
+        // Given
+        when(activityRepository
+                .findWithinBounds(43.28, 5.35, 43.31, 5.40, null, null, LocalDate.of(2026, 9, 5)))
+                .thenReturn(List.of());
+
+        // When
+        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", null, null, "2026-09-05");
+
+        // Then
+        verify(activityRepository)
+                .findWithinBounds(43.28, 5.35, 43.31, 5.40, null, null, LocalDate.of(2026, 9, 5));
+    }
+
+    @Test
+    void findWithinBounds_ShouldThrow_WhenDateIsNotIsoFormat() {
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds("43.28", "5.35", "43.31", "5.40", null, null, "05/09/2026"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("date");
 
         verifyNoInteractions(activityRepository);
     }

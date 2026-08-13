@@ -110,12 +110,8 @@ public class ActivityService {
         double longitude = parseRequiredDouble("longitude", longitudeRaw);
         double radiusKm = parseRequiredDouble("radius", radiusRaw);
 
-        if (latitude < -90 || latitude > 90) {
-            throw new IllegalArgumentException("Le paramètre 'latitude' doit être compris entre -90 et 90.");
-        }
-        if (longitude < -180 || longitude > 180) {
-            throw new IllegalArgumentException("Le paramètre 'longitude' doit être compris entre -180 et 180.");
-        }
+        validateLatitude("latitude", latitude);
+        validateLongitude("longitude", longitude);
         if (radiusKm <= 0 || radiusKm > MAX_RADIUS_KM) {
             throw new IllegalArgumentException(
                     "Le paramètre 'radius' doit être strictement positif et ne pas dépasser " + (int) MAX_RADIUS_KM
@@ -129,6 +125,79 @@ public class ActivityService {
         double radiusMeters = radiusKm * 1000;
         String categoriesCsv = normalizeCategories(category);
         return activityRepository.findWithinRadius(latitude, longitude, radiusMeters, status, categoriesCsv, date);
+    }
+
+    /**
+     * Recherche par zone cartographique (LL-4006/LL-4007) : activités
+     * situées à l'intérieur du rectangle défini par les coins sud-ouest
+     * ({@code swLatitude}/{@code swLongitude}) et nord-est
+     * ({@code neLatitude}/{@code neLongitude}), avec les mêmes filtres
+     * optionnels par statut, catégorie et date que {@link #findNearby}.
+     * Voir le contrat détaillé dans
+     * {@code docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md}. Même
+     * approche de validation locale que {@link #findNearby} (paramètres
+     * reçus en {@code String}, exceptions {@link IllegalArgumentException}
+     * attrapées par le contrôleur), pour la même raison
+     * ({@link com.locallife.backend.common.GlobalExceptionHandler}
+     * renverrait {@code 500} au lieu de {@code 400} sur un paramètre
+     * manquant/invalide sinon).
+     *
+     * Pas de tri par distance ici : il n'y a pas de point de référence
+     * unique pour une zone rectangulaire (décision du contrat LL-4006) —
+     * résultats triés par {@code id} croissant, voir
+     * {@link ActivityRepository#findWithinBounds}.
+     *
+     * @throws IllegalArgumentException si un paramètre obligatoire est
+     *         manquant/non numérique, si une latitude/longitude est hors
+     *         plage (-90/90, -180/180), si {@code swLatitude >=
+     *         neLatitude} ou {@code swLongitude >= neLongitude} (contrat
+     *         LL-4006 : la traversée de l'antiméridien n'est pas
+     *         supportée), si {@code status} ne correspond à aucune valeur
+     *         connue, ou si {@code date} n'est pas au format ISO-8601.
+     */
+    public List<Activity> findWithinBounds(
+            String swLatitudeRaw, String swLongitudeRaw, String neLatitudeRaw, String neLongitudeRaw,
+            String status, String category, String dateRaw) {
+        double swLatitude = parseRequiredDouble("swLatitude", swLatitudeRaw);
+        double swLongitude = parseRequiredDouble("swLongitude", swLongitudeRaw);
+        double neLatitude = parseRequiredDouble("neLatitude", neLatitudeRaw);
+        double neLongitude = parseRequiredDouble("neLongitude", neLongitudeRaw);
+
+        validateLatitude("swLatitude", swLatitude);
+        validateLongitude("swLongitude", swLongitude);
+        validateLatitude("neLatitude", neLatitude);
+        validateLongitude("neLongitude", neLongitude);
+
+        if (swLatitude >= neLatitude) {
+            throw new IllegalArgumentException(
+                    "Le paramètre 'swLatitude' doit être strictement inférieur à 'neLatitude'.");
+        }
+        if (swLongitude >= neLongitude) {
+            throw new IllegalArgumentException(
+                    "Le paramètre 'swLongitude' doit être strictement inférieur à 'neLongitude' "
+                            + "(la traversée de l'antiméridien n'est pas supportée).");
+        }
+        if (status != null && !KNOWN_STATUSES.contains(status)) {
+            throw new IllegalArgumentException("Le paramètre 'status' ne correspond à aucune valeur connue.");
+        }
+        LocalDate date = parseOptionalDate(dateRaw);
+
+        String categoriesCsv = normalizeCategories(category);
+        return activityRepository.findWithinBounds(
+                swLatitude, swLongitude, neLatitude, neLongitude, status, categoriesCsv, date);
+    }
+
+    private void validateLatitude(String paramName, double latitude) {
+        if (latitude < -90 || latitude > 90) {
+            throw new IllegalArgumentException("Le paramètre '" + paramName + "' doit être compris entre -90 et 90.");
+        }
+    }
+
+    private void validateLongitude(String paramName, double longitude) {
+        if (longitude < -180 || longitude > 180) {
+            throw new IllegalArgumentException(
+                    "Le paramètre '" + paramName + "' doit être compris entre -180 et 180.");
+        }
     }
 
     private LocalDate parseOptionalDate(String dateRaw) {

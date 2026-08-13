@@ -21,14 +21,15 @@ des deux ne remplace l'autre — voir décision ci-dessous.
 GET /api/v1/activities/within-bounds
 ```
 
-⚠️ Décision à valider : nom retenu par analogie avec `/nearby`, mais reste
-un choix ouvert. Alternatives envisagées et écartées : `/bounds` (moins
-explicite), réutiliser `/nearby` avec des paramètres optionnels
-alternatifs à `latitude`/`longitude`/`radius` (rejeté : mélangerait deux
-contrats de validation différents sur un seul endpoint, rendant la
-documentation OpenAPI et la validation plus confuses — un endpoint dédié
-reste plus simple à documenter et à faire évoluer indépendamment,
-notamment pour LL-4012 qui l'appellera à chaque déplacement de carte).
+⚠️ Décision à valider (implémentée telle quelle en LL-4007) : nom retenu
+par analogie avec `/nearby`. Alternatives envisagées et écartées :
+`/bounds` (moins explicite), réutiliser `/nearby` avec des paramètres
+optionnels alternatifs à `latitude`/`longitude`/`radius` (rejeté :
+mélangerait deux contrats de validation différents sur un seul endpoint,
+rendant la documentation OpenAPI et la validation plus confuses — un
+endpoint dédié reste plus simple à documenter et à faire évoluer
+indépendamment, notamment pour LL-4012 qui l'appellera à chaque
+déplacement de carte).
 
 ## Paramètres (query string)
 
@@ -54,12 +55,13 @@ Exemple :
 GET /api/v1/activities/within-bounds?swLatitude=43.28&swLongitude=5.35&neLatitude=43.31&neLongitude=5.40&status=PUBLISHED
 ```
 
-⚠️ Décision à valider : `swLongitude < neLongitude` est une contrainte
-stricte du contrat — le passage de l'antiméridien (zone traversant
-±180°) n'est **pas supporté** à ce stade (hors périmètre du MVP, non
-mentionné dans les critères du Sprint 4, et sans cas d'usage réel pour une
-application centrée sur Marseille). Une zone qui le traverserait renverrait
-`400 Bad Request`.
+⚠️ Décision à valider (implémentée telle quelle en LL-4007) :
+`swLongitude < neLongitude` est une contrainte stricte du contrat — le
+passage de l'antiméridien (zone traversant ±180°) n'est **pas
+supporté** à ce stade (hors périmètre du MVP, non mentionné dans les
+critères du Sprint 4, et sans cas d'usage réel pour une application
+centrée sur Marseille). Une zone qui le traverserait renvoie `400 Bad
+Request`.
 
 ## Réponse
 
@@ -67,11 +69,12 @@ application centrée sur Marseille). Une zone qui le traverserait renverrait
 `GET /api/v1/activities` et `GET /api/v1/activities/nearby` (id, title,
 description, category, latitude, longitude, startDate, endDate, status).
 
-⚠️ Décision à valider : contrairement à `/nearby`, il n'y a pas de point
-de référence unique pour calculer une distance, donc pas de tri par
-distance possible. Tri retenu : par `id` croissant (ordre stable et simple,
-suffisant pour l'affichage sur une carte où l'ordre des marqueurs n'a pas
-d'importance fonctionnelle).
+⚠️ Décision à valider (implémentée telle quelle en LL-4007) :
+contrairement à `/nearby`, il n'y a pas de point de référence unique
+pour calculer une distance, donc pas de tri par distance possible. Tri
+retenu : par `id` croissant (ordre stable et simple, suffisant pour
+l'affichage sur une carte où l'ordre des marqueurs n'a pas d'importance
+fonctionnelle).
 
 ## Erreurs
 
@@ -86,12 +89,15 @@ Même format standardisé que le reste de l'API (`ErrorResponse`) :
 | `status` fourni mais ne correspondant à aucune valeur connue        | `400 Bad Request` |
 | `date` fournie mais pas au format ISO-8601                          | `400 Bad Request` |
 
-## Implémentation attendue (LL-4007)
+## Implémentation (LL-4007)
 
-* Filtrage **côté base de données**, via PostGIS (`ST_MakeEnvelope` +
-  `ST_Within` ou l'opérateur `&&`), pas en mémoire côté application —
-  même choix que LL-4002 pour la recherche par rayon, et compatible avec
-  la stack déjà en place (colonne `location GEOGRAPHY`, migration V7).
+* Filtrage **côté base de données**, via PostGIS (opérateur `&&` contre
+  `ST_MakeEnvelope`), pas en mémoire côté application — même choix que
+  LL-4002 pour la recherche par rayon. ⚠️ Décision prise pendant
+  l'implémentation : `&&` (comparaison de bounding box, exploitant
+  l'index spatial) plutôt que `ST_Within`/`ST_Contains`, suffisant
+  puisque la zone de recherche est elle-même un rectangle — voir la
+  javadoc de `ActivityRepository#findWithinBounds`.
 * Réutilisation des mêmes filtres optionnels `status`/`category`/`date`
   que `findNearby` (même logique de validation et de normalisation),
   pour rester cohérent entre les deux modes de recherche et permettre la

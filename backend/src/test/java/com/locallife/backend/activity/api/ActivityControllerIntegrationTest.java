@@ -89,4 +89,48 @@ class ActivityControllerIntegrationTest {
                 .exchange()
                 .expectStatus().isBadRequest();
     }
+
+    @Test
+    void getActivitiesWithinBounds_ShouldReturnOk_WhenParamsValid() {
+        restTestClient().get()
+                .uri("/api/v1/activities/within-bounds?swLatitude=43.20&swLongitude=5.30"
+                        + "&neLatitude=43.35&neLongitude=5.45")
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    void getActivitiesWithinBounds_ShouldReturnBadRequest_WhenSwLatitudeMissing() {
+        restTestClient().get()
+                .uri("/api/v1/activities/within-bounds?swLongitude=5.30&neLatitude=43.35&neLongitude=5.45")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void getActivitiesWithinBounds_ShouldReturnBadRequest_WhenSwLatitudeNotLessThanNeLatitude() {
+        restTestClient().get()
+                .uri("/api/v1/activities/within-bounds?swLatitude=43.35&swLongitude=5.30"
+                        + "&neLatitude=43.20&neLongitude=5.45")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void getActivitiesWithinBounds_ShouldReturnBadRequest_WhenSwLongitudeNotLessThanNeLongitude() {
+        restTestClient().get()
+                .uri("/api/v1/activities/within-bounds?swLatitude=43.20&swLongitude=5.45"
+                        + "&neLatitude=43.35&neLongitude=5.30")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void getActivitiesWithinBounds_ShouldReturnOk_WhenStatusCategoryAndDateProvided() {
+        restTestClient().get()
+                .uri("/api/v1/activities/within-bounds?swLatitude=43.20&swLongitude=5.30"
+                        + "&neLatitude=43.35&neLongitude=5.45&status=PUBLISHED&category=concert&date=2026-09-05")
+                .exchange()
+                .expectStatus().isOk();
+    }
 }

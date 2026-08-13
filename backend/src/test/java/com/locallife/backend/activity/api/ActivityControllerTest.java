@@ -199,4 +199,55 @@ class ActivityControllerTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(HttpStatus.BAD_REQUEST.value(), ((ErrorResponse) response.getBody()).status());
     }
+
+    @Test
+    void getActivitiesWithinBounds_ShouldReturnOk_WithActivities() {
+        // Given
+        Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
+                LocalDateTime.now(), null, "PUBLISHED");
+        when(activityService.findWithinBounds(
+                "43.28", "5.35", "43.31", "5.40", "PUBLISHED", "concert", "2026-09-05"))
+                .thenReturn(List.of(inBounds));
+
+        // When
+        ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
+                "43.28", "5.35", "43.31", "5.40", "PUBLISHED", "concert", "2026-09-05", httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(List.of(inBounds), response.getBody());
+    }
+
+    @Test
+    void getActivitiesWithinBounds_ShouldReturnBadRequest_WhenParamsInvalid() {
+        // Given
+        when(activityService.findWithinBounds(null, "5.35", "43.31", "5.40", null, null, null))
+                .thenThrow(new IllegalArgumentException("Le paramètre 'swLatitude' est obligatoire."));
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/within-bounds");
+
+        // When
+        ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
+                null, "5.35", "43.31", "5.40", null, null, null, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST.value(), ((ErrorResponse) response.getBody()).status());
+    }
+
+    @Test
+    void getActivitiesWithinBounds_ShouldReturnBadRequest_WhenSwLatitudeNotLessThanNeLatitude() {
+        // Given
+        when(activityService.findWithinBounds("43.31", "5.35", "43.31", "5.40", null, null, null))
+                .thenThrow(new IllegalArgumentException(
+                        "Le paramètre 'swLatitude' doit être strictement inférieur à 'neLatitude'."));
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/within-bounds");
+
+        // When
+        ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
+                "43.31", "5.35", "43.31", "5.40", null, null, null, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST.value(), ((ErrorResponse) response.getBody()).status());
+    }
 }

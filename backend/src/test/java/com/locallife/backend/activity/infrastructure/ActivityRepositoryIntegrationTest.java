@@ -14,10 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Tests d'intégration PostGIS (LL-4002), filtre par statut (LL-4003),
- * filtre par catégorie (LL-4004) et filtre par date (LL-4005), contre la
- * base réelle (comme {@code UserRepositoryIntegrationTest}) : chaque test
- * est englobé dans une transaction annulée à la fin. Point de référence :
- * Vieux-Port de Marseille (43.2951, 5.3739).
+ * filtre par catégorie (LL-4004), filtre par date (LL-4005), et recherche
+ * par zone rectangulaire (LL-4006/LL-4007), contre la base réelle (comme
+ * {@code UserRepositoryIntegrationTest}) : chaque test est englobé dans
+ * une transaction annulée à la fin. Point de référence : Vieux-Port de
+ * Marseille (43.2951, 5.3739).
  *
  * Assertions faites par id, jamais par vacuité/taille du résultat : les
  * données de démo (V3__insert_demo_activities.sql) sont déjà toutes situées
@@ -255,6 +256,102 @@ class ActivityRepositoryIntegrationTest {
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(anyDate.id());
+    }
+
+    // --- findWithinBounds (LL-4006/LL-4007) ---
+    // Zone de test : rectangle autour de Marseille (43.20/5.30 → 43.35/5.45), couvrant
+    // largement MARSEILLE_LAT/MARSEILLE_LON utilisé ci-dessus.
+
+    private static final double BOUNDS_SW_LAT = 43.20;
+    private static final double BOUNDS_SW_LON = 5.30;
+    private static final double BOUNDS_NE_LAT = 43.35;
+    private static final double BOUNDS_NE_LON = 5.45;
+
+    @Test
+    void findWithinBounds_ShouldIncludeActivityInsideBounds_AndExcludeActivityOutsideBounds() {
+        Activity inside = activityAt(MARSEILLE_LAT, MARSEILLE_LON);
+        Activity outside = activityAt(PARIS_LAT, PARIS_LON);
+
+        List<Long> resultIds = activityRepository
+                .findWithinBounds(BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(inside.id());
+        assertThat(resultIds).doesNotContain(outside.id());
+    }
+
+    @Test
+    void findWithinBounds_ShouldExcludeActivity_JustOutsideBoundsToTheNorth() {
+        // Juste au-delà de la borne nord (neLatitude = 43.35).
+        Activity justOutside = activityAt(BOUNDS_NE_LAT + 0.01, MARSEILLE_LON);
+
+        List<Long> resultIds = activityRepository
+                .findWithinBounds(BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).doesNotContain(justOutside.id());
+    }
+
+    @Test
+    void findWithinBounds_ShouldOnlyReturnMatchingStatus_WhenStatusProvided() {
+        Activity published = activityAt(MARSEILLE_LAT, MARSEILLE_LON, "PUBLISHED");
+        Activity pending = activityAt(MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PENDING");
+
+        List<Long> resultIds = activityRepository
+                .findWithinBounds(
+                        BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, "PUBLISHED", null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(published.id());
+        assertThat(resultIds).doesNotContain(pending.id());
+    }
+
+    @Test
+    void findWithinBounds_ShouldOnlyReturnMatchingCategory_WhenCategoryProvided() {
+        Activity concert = activityAt(MARSEILLE_LAT, MARSEILLE_LON, "PUBLISHED", "concert");
+        Activity sport = activityAt(MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED", "sport");
+
+        List<Long> resultIds = activityRepository
+                .findWithinBounds(
+                        BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, "concert", null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(concert.id());
+        assertThat(resultIds).doesNotContain(sport.id());
+    }
+
+    @Test
+    void findWithinBounds_ShouldOnlyReturnMatchingDate_WhenDateProvided() {
+        Activity onDate = activityAt(
+                MARSEILLE_LAT, MARSEILLE_LON, "PUBLISHED", "concert",
+                LocalDateTime.of(2026, 9, 5, 20, 0), LocalDateTime.of(2026, 9, 5, 23, 0));
+        Activity otherDate = activityAt(
+                MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED", "concert",
+                LocalDateTime.of(2026, 9, 6, 20, 0), LocalDateTime.of(2026, 9, 6, 23, 0));
+
+        List<Long> resultIds = activityRepository
+                .findWithinBounds(
+                        BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON,
+                        null, null, LocalDate.of(2026, 9, 5))
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(onDate.id());
+        assertThat(resultIds).doesNotContain(otherDate.id());
+    }
+
+    @Test
+    void findWithinBounds_ShouldOrderResultsByIdAscending_NotByDistance() {
+        // farFromCenter est plus proche du bord sud-ouest de la zone, mais son id est
+        // supérieur à closeToCenter (créé après) : le tri attendu est par id, pas par distance.
+        Activity closeToCenter = activityAt(MARSEILLE_LAT, MARSEILLE_LON);
+        Activity farFromCenter = activityAt(BOUNDS_SW_LAT + 0.01, BOUNDS_SW_LON + 0.01);
+
+        List<Long> resultIds = activityRepository
+                .findWithinBounds(BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(closeToCenter.id(), farFromCenter.id());
+        assertThat(resultIds.indexOf(closeToCenter.id())).isLessThan(resultIds.indexOf(farFromCenter.id()));
     }
 
 }

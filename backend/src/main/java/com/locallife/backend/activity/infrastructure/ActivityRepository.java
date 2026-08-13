@@ -76,4 +76,43 @@ public interface ActivityRepository extends Repository<Activity, Long> {
             @Param("categoriesCsv") String categoriesCsv,
             @Param("date") LocalDate date);
 
+    /**
+     * Recherche par zone cartographique PostGIS (LL-4007), conformément au
+     * contrat défini en LL-4006
+     * ({@code docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md}) :
+     * activités dont la colonne {@code location} se trouve à l'intérieur
+     * du rectangle défini par les coins sud-ouest
+     * ({@code swLongitude}/{@code swLatitude}) et nord-est
+     * ({@code neLongitude}/{@code neLatitude}). Utilise
+     * {@code ST_MakeEnvelope} (SRID 4326) et l'opérateur {@code &&}
+     * (comparaison de bounding box, exploitant l'index spatial existant)
+     * plutôt que {@code ST_Within}/{@code ST_Contains} : suffisant ici
+     * puisque la zone de recherche est elle-même un rectangle (pas de
+     * polygone arbitraire à ce stade), et moins coûteux.
+     *
+     * Filtres optionnels {@code status}/{@code categoriesCsv}/{@code date}
+     * : mêmes sémantiques que {@link #findWithinRadius}, voir les
+     * javadocs correspondantes ci-dessus (LL-4003/LL-4004/LL-4005).
+     *
+     * Pas de point de référence unique pour une distance : résultats
+     * triés par {@code id} croissant (décision du contrat LL-4006).
+     */
+    @Query("""
+            SELECT * FROM activity
+            WHERE location IS NOT NULL
+              AND location && ST_MakeEnvelope(:swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography
+              AND (:status IS NULL OR status = :status)
+              AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
+              AND (:date IS NULL OR :date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
+            ORDER BY id
+            """)
+    List<Activity> findWithinBounds(
+            @Param("swLatitude") double swLatitude,
+            @Param("swLongitude") double swLongitude,
+            @Param("neLatitude") double neLatitude,
+            @Param("neLongitude") double neLongitude,
+            @Param("status") String status,
+            @Param("categoriesCsv") String categoriesCsv,
+            @Param("date") LocalDate date);
+
 }
