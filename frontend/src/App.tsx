@@ -19,10 +19,34 @@ interface ApiErrorBody {
     message: string;
 }
 
-const MARSEILLE_COORDINATES: LatLngExpression = [43.2965, 5.3698];
+const MARSEILLE_LATITUDE = 43.2965;
+const MARSEILLE_LONGITUDE = 5.3698;
+const MARSEILLE_COORDINATES: LatLngExpression = [MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE];
+
+/**
+ * Rayon de recherche (LL-4001 : en kilomètres, max 50) utilisé en attendant
+ * la géolocalisation utilisateur (LL-4010) et le chargement dynamique
+ * selon la zone de la carte (LL-4012). ⚠️ Décision à valider avec Alex :
+ * on utilise le rayon maximum autorisé par le contrat autour du point de
+ * référence Marseille (déjà utilisé pour centrer la carte), pour se
+ * rapprocher du comportement actuel (afficher toutes les activités,
+ * qui sont toutes situées autour de Marseille dans les données de démo)
+ * en attendant que LL-4010/LL-4012 remplacent ce point fixe par la
+ * position réelle de l'utilisateur / la zone visible sur la carte.
+ */
+const DEFAULT_SEARCH_RADIUS_KM = 50;
+
+/** Valeur du filtre catégorie représentant « pas de filtre ». */
+const ALL_CATEGORIES = "";
+
+function buildCategoryOptions(items: Activity[]): string[] {
+    return Array.from(new Set(items.map((item) => item.category))).sort((a, b) => a.localeCompare(b, "fr"));
+}
 
 function App() {
     const [activities, setActivities] = useState<Activity[]>([]);
+    const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
     const [currentUser, setCurrentUser] = useState(() => getPayload());
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -30,24 +54,42 @@ function App() {
     const [address, setAddress] = useState("");
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
         const abortController = new AbortController();
 
         async function loadActivities() {
-            const response = await fetch("/api/v1/activities", {
+            const params = new URLSearchParams({
+                latitude: String(MARSEILLE_LATITUDE),
+                longitude: String(MARSEILLE_LONGITUDE),
+                radius: String(DEFAULT_SEARCH_RADIUS_KM),
+            });
+            if (selectedCategory !== ALL_CATEGORIES) {
+                params.set("category", selectedCategory);
+            }
+
+            const response = await fetch(`/api/v1/activities/nearby?${params.toString()}`, {
                 signal: abortController.signal,
             });
 
             if (response.ok) {
-                setActivities(await response.json());
+                const data: Activity[] = await response.json();
+                setActivities(data);
+                // La liste des catégories disponibles n'est reconstruite que sur la
+                // réponse non filtrée : sinon elle se réduirait au fil des sélections
+                // (une fois qu'un filtre est actif, la réponse ne contient plus que
+                // cette catégorie) et l'utilisateur ne pourrait plus revenir en arrière.
+                if (selectedCategory === ALL_CATEGORIES) {
+                    setAvailableCategories(buildCategoryOptions(data));
+                }
             }
         }
 
         void loadActivities().catch(() => setActivities([]));
 
         return () => abortController.abort();
-    }, []);
+    }, [selectedCategory, refreshKey]);
 
     function handleLogout() {
         clearToken();
@@ -73,8 +115,12 @@ function App() {
                 return;
             }
 
-            const created: Activity = await response.json();
-            setActivities((current) => [...current, created]);
+            // Ne pas se contenter d'ajouter `created` localement (comme avant LL-4008) :
+            // la liste affichée est désormais filtrée par zone/catégorie via /nearby, et
+            // l'activité créée pourrait ne pas correspondre au filtre actif (catégorie
+            // différente, hors du rayon de recherche) — un simple refetch reste la
+            // source de vérité la plus simple et la plus sûre ici.
+            setRefreshKey((current) => current + 1);
             setSubmitStatus("success");
             setTitle("");
             setDescription("");
@@ -103,6 +149,21 @@ function App() {
                     </Link>
                 )}
             </header>
+            <div className="activity-filters">
+                <label htmlFor="category-filter">Filtrer par catégorie</label>
+                <select
+                    id="category-filter"
+                    onChange={(event) => setSelectedCategory(event.target.value)}
+                    value={selectedCategory}
+                >
+                    <option value={ALL_CATEGORIES}>Toutes les catégories</option>
+                    {availableCategories.map((availableCategory) => (
+                        <option key={availableCategory} value={availableCategory}>
+                            {availableCategory}
+                        </option>
+                    ))}
+                </select>
+            </div>
             <form className="contribution-form" onSubmit={(event) => void handleSubmit(event)}>
                 <input
                     aria-label="Titre"

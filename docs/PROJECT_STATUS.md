@@ -264,3 +264,43 @@ uniquement la requête SQL corrigée.
 # Prochaine action
 
 Sprint 4 : appliquer le correctif ci-dessus, relancer `mvn verify`, puis traiter LL-4008 — Filtre par catégorie (frontend), dépend de LL-4004.
+
+## LL-4008 — Filtre par catégorie (frontend) ✅
+
+`frontend/src/App.tsx` :
+* Le chargement des activités bascule de `GET /api/v1/activities` vers
+  `GET /api/v1/activities/nearby` (seul endpoint qui supporte le filtre
+  `category`, LL-4004). ⚠️ **Décision à valider avec toi** : en
+  attendant la géolocalisation utilisateur (LL-4010) et le chargement
+  dynamique selon la zone de carte (LL-4012), la recherche utilise le
+  point de référence Marseille déjà utilisé pour centrer la carte, avec
+  le rayon maximum autorisé par le contrat (`DEFAULT_SEARCH_RADIUS_KM =
+  50`, LL-4001). Se rapproche du comportement actuel (toutes les
+  données de démo sont autour de Marseille) mais reste un choix
+  temporaire, à remplacer par LL-4010/LL-4012.
+* Nouveau menu déroulant « Filtrer par catégorie » (`activity-filters`)
+  au-dessus du formulaire de contribution. Liste des catégories
+  construite dynamiquement à partir de la réponse **non filtrée**
+  (`selectedCategory === ALL_CATEGORIES`), pour ne pas se réduire au fil
+  des sélections (sinon impossible de revenir à une catégorie déjà
+  écartée).
+* La création d'activité (formulaire existant) déclenche désormais un
+  **refetch** (`refreshKey`) plutôt qu'un ajout local à la liste : avec
+  le filtre catégorie actif, ajouter l'activité créée localement
+  l'aurait affichée même si elle ne correspondait pas au filtre en
+  cours.
+* CSS (`styles.css`) : nouvelle rangée `.activity-filters` dans la
+  grille `.application-shell` (`grid-template-rows` passe de 3 à 4
+  lignes).
+* ⚠️ Pas de tests frontend ajoutés : aucun framework de test frontend
+  n'est configuré dans le projet à ce jour (pas de Vitest/RTL dans
+  `package.json`), donc rien à suivre comme convention existante.
+* Vérifié avec `npx tsc --noEmit` et `npm run build` (les deux passent
+  sans erreur) — contrairement au backend, ces outils sont disponibles
+  en sandbox, donc c'est une vérification réelle, pas une simple
+  relecture.
+
+---
+# Prochaine action
+
+Sprint 4 : traiter LL-4009 — Filtre par date (frontend), dépend de LL-4005.

@@ -19,7 +19,7 @@ body {
 
 .application-shell {
     display: grid;
-    grid-template-rows: auto auto 1fr;
+    grid-template-rows: auto auto auto 1fr;
     height: 100%;
 }
 
@@ -65,6 +65,22 @@ body {
 
 .header-logout-button:hover {
     background-color: #f1f5f9;
+}
+
+.activity-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.5rem;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.9rem;
+}
+
+.activity-filters select {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
 }
 
 .contribution-form {
