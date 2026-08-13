@@ -19,7 +19,7 @@ body {
 
 .application-shell {
     display: grid;
-    grid-template-rows: auto auto auto 1fr;
+    grid-template-rows: auto auto auto auto 1fr;
     height: 100%;
 }
 
@@ -65,6 +65,42 @@ body {
 
 .header-logout-button:hover {
     background-color: #f1f5f9;
+}
+
+.geolocation-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1.5rem;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.9rem;
+}
+
+.geolocation-bar button {
+    padding: 0.35rem 0.7rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: #1e293b;
+    cursor: pointer;
+}
+
+.geolocation-bar button:hover:not(:disabled) {
+    background-color: #f1f5f9;
+}
+
+.geolocation-bar button:disabled {
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+.geolocation-message-success {
+    color: #16a34a;
+}
+
+.geolocation-message-error {
+    color: #dc2626;
 }
 
 .activity-filters {

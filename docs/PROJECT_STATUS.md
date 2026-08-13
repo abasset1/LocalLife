@@ -336,3 +336,39 @@ Sprint 4 : traiter LL-4009 — Filtre par date (frontend), dépend de LL-4005.
 # Prochaine action
 
 Sprint 4 : traiter LL-4010 — Géolocalisation utilisateur.
+
+## LL-4010 — Géolocalisation utilisateur ✅
+
+`frontend/src/App.tsx` :
+* Nouveau bouton « Utiliser ma position » (barre `.geolocation-bar`,
+  entre le header et les filtres). ⚠️ Décision : déclenchement par clic
+  explicite plutôt qu'automatique au chargement de la page — correspond
+  au critère d'acceptation « demande explicite de permission » et évite
+  l'invite de permission intrusive dès l'arrivée sur la page (moins bien
+  perçue, taux d'acceptation généralement plus faible).
+* `navigator.geolocation.getCurrentPosition` avec gestion des 5 états
+  requis par les critères d'acceptation : `idle` (jamais demandé),
+  `loading` (bouton désactivé pendant la demande), `granted` (position
+  affichée, arrondie à 4 décimales), `denied` (message dédié —
+  distingué de `error` pour un message plus clair), `error` (timeout,
+  position indisponible, ou API absente du navigateur).
+* Aucune position envoyée au backend ni stockée en dehors de l'état
+  React (`userPosition`) — perdue au rechargement de la page, conforme
+  au critère « aucune position utilisateur persistée en base ».
+* ⚠️ Important : ce ticket **n'utilise pas encore** la position obtenue
+  pour la recherche — la recherche reste centrée sur
+  `MARSEILLE_LATITUDE`/`MARSEILLE_LONGITUDE` (LL-4008). C'est le
+  périmètre explicite de LL-4011 (« Recherche autour de l'utilisateur »),
+  qui dépend justement de LL-4010 pour cette raison — voir les critères
+  d'acceptation respectifs dans `SPRINT_4.md`.
+* Vérifié avec `npx tsc --noEmit` et `npm run build` (les deux passent).
+  Comme pour LL-4008/LL-4009, la partie purement JS (event handlers,
+  gestion d'état) ne peut pas être testée en conditions réelles en
+  sandbox — pas d'accès à l'API de géolocalisation navigateur hors d'un
+  vrai navigateur — à valider visuellement de ton côté (accepter/refuser
+  la permission, couper le réseau pour simuler une erreur, etc.).
+
+---
+# Prochaine action
+
+Sprint 4 : traiter LL-4011 — Recherche autour de l'utilisateur (dépend de LL-4010, LL-4003).

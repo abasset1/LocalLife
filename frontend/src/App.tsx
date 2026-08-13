@@ -19,6 +19,23 @@ interface ApiErrorBody {
     message: string;
 }
 
+/**
+ * États de la géolocalisation navigateur (LL-4010). Ne pilote pas encore
+ * la recherche `/nearby` (toujours centrée sur `MARSEILLE_LATITUDE`/
+ * `MARSEILLE_LONGITUDE`, voir plus bas) — LL-4011, qui dépend
+ * explicitement de ce ticket, s'en chargera. `idle` : géolocalisation
+ * jamais demandée. `loading` : demande de permission/position en cours.
+ * `granted` : position obtenue. `denied` : permission refusée par
+ * l'utilisateur. `error` : géolocalisation indisponible ou autre échec
+ * (timeout, position indisponible).
+ */
+type GeolocationStatus = "idle" | "loading" | "granted" | "denied" | "error";
+
+interface UserPosition {
+    latitude: number;
+    longitude: number;
+}
+
 const MARSEILLE_LATITUDE = 43.2965;
 const MARSEILLE_LONGITUDE = 5.3698;
 const MARSEILLE_COORDINATES: LatLngExpression = [MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE];
@@ -65,6 +82,9 @@ function App() {
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>("idle");
+    const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
+    const [geolocationErrorMessage, setGeolocationErrorMessage] = useState<string | null>(null);
 
     useEffect(() => {
         const abortController = new AbortController();
@@ -108,6 +128,51 @@ function App() {
     function handleLogout() {
         clearToken();
         setCurrentUser(null);
+    }
+
+    /**
+     * Déclenchée par un clic explicite sur le bouton « Utiliser ma
+     * position » (pas automatiquement au chargement de la page) : demande
+     * de permission plus prévisible pour l'utilisateur, et conforme au
+     * critère d'acceptation « demande explicite de permission » de
+     * LL-4010 (le clic est la demande explicite, avant même que le
+     * navigateur affiche sa propre invite de permission).
+     *
+     * ⚠️ Aucune position utilisateur n'est envoyée au backend ni stockée
+     * ailleurs qu'en état React local (`userPosition`) — perdue à chaque
+     * rechargement de page, conformément au critère d'acceptation
+     * « aucune position utilisateur persistée en base » de LL-4010.
+     */
+    function handleUseMyLocation() {
+        if (!("geolocation" in navigator)) {
+            setGeolocationStatus("error");
+            setGeolocationErrorMessage("La géolocalisation n'est pas disponible sur ce navigateur.");
+            return;
+        }
+
+        setGeolocationStatus("loading");
+        setGeolocationErrorMessage(null);
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setUserPosition({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                });
+                setGeolocationStatus("granted");
+            },
+            (error) => {
+                if (error.code === error.PERMISSION_DENIED) {
+                    setGeolocationStatus("denied");
+                    setGeolocationErrorMessage(
+                        "Autorisation refusée : impossible d'utiliser ta position pour le moment.");
+                } else {
+                    // POSITION_UNAVAILABLE ou TIMEOUT.
+                    setGeolocationStatus("error");
+                    setGeolocationErrorMessage("Impossible de récupérer ta position, réessaie plus tard.");
+                }
+            },
+        );
     }
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -163,6 +228,25 @@ function App() {
                     </Link>
                 )}
             </header>
+            <div className="geolocation-bar">
+                <button
+                    disabled={geolocationStatus === "loading"}
+                    onClick={handleUseMyLocation}
+                    type="button"
+                >
+                    {geolocationStatus === "loading" ? "Localisation en cours…" : "Utiliser ma position"}
+                </button>
+                {geolocationStatus === "granted" && userPosition && (
+                    <span className="geolocation-message geolocation-message-success">
+                        Position récupérée ({userPosition.latitude.toFixed(4)}, {userPosition.longitude.toFixed(4)})
+                    </span>
+                )}
+                {(geolocationStatus === "denied" || geolocationStatus === "error") && geolocationErrorMessage && (
+                    <span className="geolocation-message geolocation-message-error">
+                        {geolocationErrorMessage}
+                    </span>
+                )}
+            </div>
             <div className="activity-filters">
                 <label htmlFor="category-filter">Filtrer par catégorie</label>
                 <select
