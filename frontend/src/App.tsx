@@ -39,6 +39,15 @@ const DEFAULT_SEARCH_RADIUS_KM = 50;
 /** Valeur du filtre catégorie représentant « pas de filtre ». */
 const ALL_CATEGORIES = "";
 
+/**
+ * Valeur du filtre date représentant « pas de filtre ». Un `<input
+ * type="date">` HTML renvoie nativement une chaîne vide quand il est
+ * effacé, et sinon déjà au format ISO-8601 `yyyy-MM-dd` attendu par le
+ * contrat LL-4005 — aucune conversion nécessaire avant de la passer telle
+ * quelle en paramètre `date`.
+ */
+const NO_DATE_FILTER = "";
+
 function buildCategoryOptions(items: Activity[]): string[] {
     return Array.from(new Set(items.map((item) => item.category))).sort((a, b) => a.localeCompare(b, "fr"));
 }
@@ -47,6 +56,7 @@ function App() {
     const [activities, setActivities] = useState<Activity[]>([]);
     const [availableCategories, setAvailableCategories] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
+    const [selectedDate, setSelectedDate] = useState(NO_DATE_FILTER);
     const [currentUser, setCurrentUser] = useState(() => getPayload());
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -68,6 +78,9 @@ function App() {
             if (selectedCategory !== ALL_CATEGORIES) {
                 params.set("category", selectedCategory);
             }
+            if (selectedDate !== NO_DATE_FILTER) {
+                params.set("date", selectedDate);
+            }
 
             const response = await fetch(`/api/v1/activities/nearby?${params.toString()}`, {
                 signal: abortController.signal,
@@ -77,10 +90,11 @@ function App() {
                 const data: Activity[] = await response.json();
                 setActivities(data);
                 // La liste des catégories disponibles n'est reconstruite que sur la
-                // réponse non filtrée : sinon elle se réduirait au fil des sélections
-                // (une fois qu'un filtre est actif, la réponse ne contient plus que
-                // cette catégorie) et l'utilisateur ne pourrait plus revenir en arrière.
-                if (selectedCategory === ALL_CATEGORIES) {
+                // réponse non filtrée (ni catégorie ni date) : sinon elle se
+                // réduirait au fil des sélections (une fois qu'un filtre est actif,
+                // la réponse ne contient plus que ce qui correspond) et l'utilisateur
+                // ne pourrait plus revenir en arrière.
+                if (selectedCategory === ALL_CATEGORIES && selectedDate === NO_DATE_FILTER) {
                     setAvailableCategories(buildCategoryOptions(data));
                 }
             }
@@ -89,7 +103,7 @@ function App() {
         void loadActivities().catch(() => setActivities([]));
 
         return () => abortController.abort();
-    }, [selectedCategory, refreshKey]);
+    }, [selectedCategory, selectedDate, refreshKey]);
 
     function handleLogout() {
         clearToken();
@@ -163,6 +177,22 @@ function App() {
                         </option>
                     ))}
                 </select>
+                <label htmlFor="date-filter">Filtrer par date</label>
+                <input
+                    id="date-filter"
+                    onChange={(event) => setSelectedDate(event.target.value)}
+                    type="date"
+                    value={selectedDate}
+                />
+                {selectedDate !== NO_DATE_FILTER && (
+                    <button
+                        aria-label="Effacer le filtre par date"
+                        onClick={() => setSelectedDate(NO_DATE_FILTER)}
+                        type="button"
+                    >
+                        ✕
+                    </button>
+                )}
             </div>
             <form className="contribution-form" onSubmit={(event) => void handleSubmit(event)}>
                 <input

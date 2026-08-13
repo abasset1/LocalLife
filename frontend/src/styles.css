@@ -83,6 +83,26 @@ body {
     border-radius: 4px;
 }
 
+.activity-filters input[type="date"] {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+}
+
+.activity-filters button {
+    padding: 0.2rem 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: #64748b;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.activity-filters button:hover {
+    background-color: #f1f5f9;
+}
+
 .contribution-form {
     display: flex;
     flex-wrap: wrap;

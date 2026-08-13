@@ -304,3 +304,35 @@ Sprint 4 : appliquer le correctif ci-dessus, relancer `mvn verify`, puis traiter
 # Prochaine action
 
 Sprint 4 : traiter LL-4009 — Filtre par date (frontend), dépend de LL-4005.
+
+## LL-4009 — Filtre par date (frontend) ✅
+
+`frontend/src/App.tsx`, dans la continuité de LL-4008 :
+* Nouveau champ `<input type="date">` (« Filtrer par date ») ajouté à
+  côté du filtre catégorie existant, dans la même barre
+  `.activity-filters`. Un input HTML natif de type `date` renvoie déjà
+  une chaîne au format ISO-8601 `yyyy-MM-dd` — exactement le format
+  attendu par le paramètre `date` du contrat LL-4005 — donc aucune
+  conversion n'est nécessaire avant de l'ajouter aux query params de
+  `/nearby`.
+* Bouton « ✕ » affiché uniquement quand un filtre date est actif, pour
+  l'effacer facilement. ⚠️ Petite décision UX : les inputs `date` HTML
+  n'ont pas toujours un bouton natif pour revenir à « aucune date »
+  selon le navigateur (Firefox notamment), d'où ce bouton explicite.
+* Reconstruction de la liste des catégories disponibles (LL-4008) :
+  condition étendue pour ne se déclencher que si **ni** la catégorie
+  **ni** la date ne sont filtrées (avant LL-4009, seule la catégorie
+  était prise en compte) — sinon filtrer par date aurait aussi réduit
+  la liste des catégories proposées.
+* Les deux filtres (catégorie et date) se combinent naturellement
+  puisqu'ils passent par les mêmes query params sur le même appel
+  `/nearby`, qui accepte déjà les deux simultanément côté backend
+  (LL-4004 + LL-4005).
+* Toujours pas de tests frontend (aucun framework configuré, cf.
+  LL-4008). Vérifié avec `npx tsc --noEmit` et `npm run build` : les
+  deux passent sans erreur.
+
+---
+# Prochaine action
+
+Sprint 4 : traiter LL-4010 — Géolocalisation utilisateur.
