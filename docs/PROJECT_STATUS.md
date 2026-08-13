@@ -232,7 +232,35 @@ Tickets terminés :
   - Tests : `ActivityServiceTest` (paramètres manquants/non numériques/hors plage, `swLatitude >= neLatitude`, `swLongitude >= neLongitude`, statut inconnu, date invalide, transmission correcte des filtres) ; `ActivityRepositoryIntegrationTest` (activité dans/hors zone, bordure nord exclue, filtres status/category/date combinés à la zone, tri par id et non par distance) ; `ActivityControllerTest`/`ActivityControllerIntegrationTest` complétés avec le nouvel endpoint.
   - ⚠️ Non exécuté en sandbox (même limitation qu'aux tickets précédents) — à valider avec `mvn verify`.
 
+## Correctif post-LL-4007 — BadSqlGrammarException sur le filtre par date
+
+Signalé par Alex via `mvn verify` (première exécution réelle contre
+PostgreSQL depuis l'introduction du filtre `date` en LL-4005) :
+`ActivityControllerIntegrationTest.getNearbyActivities_ShouldReturnOk_WhenParamsValid`
+et `ActivityRepositoryIntegrationTest.findWithinRadius_ShouldExcludeActivity_WhenOutsideRequestedRadius`
+échouaient avec `BadSqlGrammarException`.
+
+**Cause** : dans `findWithinRadius` (LL-4005) et `findWithinBounds`
+(LL-4007), le filtre par date s'écrivait `:date IS NULL OR :date BETWEEN
+...`. PostgreSQL ne peut pas déterminer le type du paramètre `:date` à
+partir d'un simple `? IS NULL` isolé, sans contexte de type — erreur
+`could not determine data type of parameter`, traduite par Spring en
+`BadSqlGrammarException`. Se déclenche uniquement quand `date` vaut
+`null` (donc systématiquement dès qu'un appel n'utilise pas ce filtre),
+ce qui explique pourquoi les deux tests touchés appellent la recherche
+sans paramètre `date`. Bug introduit en LL-4005, non détectable en
+sandbox faute d'accès à une vraie base PostgreSQL (les requêtes n'y sont
+jamais exécutées, seulement relues).
+
+**Correctif** : cast explicite `:date::date` aux deux occurrences (le
+test `IS NULL` et la comparaison `BETWEEN`), dans les deux requêtes
+(`findWithinRadius` et `findWithinBounds`, qui partagent ce même
+fragment de filtre).
+
+Aucun changement de comportement fonctionnel, aucun test modifié —
+uniquement la requête SQL corrigée.
+
 ---
 # Prochaine action
 
-Sprint 4 : traiter LL-4008 — Filtre par catégorie (frontend), dépend de LL-4004.
+Sprint 4 : appliquer le correctif ci-dessus, relancer `mvn verify`, puis traiter LL-4008 — Filtre par catégorie (frontend), dépend de LL-4004.

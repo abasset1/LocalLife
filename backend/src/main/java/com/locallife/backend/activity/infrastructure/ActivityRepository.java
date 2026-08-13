@@ -58,6 +58,17 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      * : dans ce cas {@code COALESCE(end_date, start_date)} traite
      * l'activité comme ne durant qu'une seule journée, celle de
      * {@code start_date}.
+     *
+     * ⚠️ Correctif (post-LL-4007, signalé par Alex via {@code mvn verify}) :
+     * {@code :date} doit être casté explicitement (
+     * {@code :date::date}), y compris dans le test {@code IS NULL} —
+     * sinon PostgreSQL ne peut pas déterminer le type du paramètre à
+     * partir d'un simple {@code ? IS NULL} sans contexte de type, ce qui
+     * lève {@code could not determine data type of parameter}
+     * ({@code BadSqlGrammarException} côté Spring) dès qu'une requête est
+     * exécutée avec {@code date == null}. Bug introduit en LL-4005,
+     * non détecté avant faute d'accès à une vraie base PostgreSQL en
+     * sandbox de développement.
      */
     @Query("""
             SELECT * FROM activity
@@ -65,7 +76,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
               AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
               AND (:status IS NULL OR status = :status)
               AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
-              AND (:date IS NULL OR :date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
+              AND (:date::date IS NULL
+                   OR :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
             ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography)
             """)
     List<Activity> findWithinRadius(
@@ -92,7 +104,9 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      *
      * Filtres optionnels {@code status}/{@code categoriesCsv}/{@code date}
      * : mêmes sémantiques que {@link #findWithinRadius}, voir les
-     * javadocs correspondantes ci-dessus (LL-4003/LL-4004/LL-4005).
+     * javadocs correspondantes ci-dessus (LL-4003/LL-4004/LL-4005), y
+     * compris le correctif {@code :date::date} contre
+     * {@code BadSqlGrammarException} sur paramètre {@code null}.
      *
      * Pas de point de référence unique pour une distance : résultats
      * triés par {@code id} croissant (décision du contrat LL-4006).
@@ -103,7 +117,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
               AND location && ST_MakeEnvelope(:swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography
               AND (:status IS NULL OR status = :status)
               AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
-              AND (:date IS NULL OR :date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
+              AND (:date::date IS NULL
+                   OR :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
             ORDER BY id
             """)
     List<Activity> findWithinBounds(
