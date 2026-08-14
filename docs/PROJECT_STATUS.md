@@ -330,4 +330,24 @@ métier. Implémentée en LL-5002 ci-dessous.
 ---
 # Prochaine action
 
-Sprint 5 : traiter LL-5003 — Définir le contrat Collector.
+Sprint 5 : traiter LL-5004 — Définir le modèle de données importées (dépend de LL-5003, ci-dessus).
+
+## LL-5003 — Définir le contrat Collector ✅
+
+Aucune dépendance déclarée dans `SPRINT_5.md` (indépendant de LL-5001/
+LL-5002), mais LL-5004 en dépend.
+
+`docs/02_Architecture/COLLECTOR_CONTRACT.md` : interface `Collector`
+documentée (`getSourceName()`, `collect()`), pas de code — aucun ticket
+dédié à un « module Collector » n'existe dans le sprint (contrairement
+à `Source`), donc l'interface sera créée en Java au moment où un ticket
+en a réellement besoin (LL-5004 ou LL-5006 selon l'usage réel).
+
+⚠️ Décisions posées, à valider :
+* identification de la source par `getSourceName()` (String) plutôt que
+  par `Source.id`, pour ne pas coupler le collecteur à la persistance ;
+* le type de retour `CollectedActivity` est une référence anticipée au
+  modèle que LL-5004 doit créer — la signature exacte ne sera figée
+  qu'à ce moment-là ;
+* aucun type d'exception imposé pour la gestion d'erreurs : différé à
+  LL-5006 (premier collecteur réel), une fois la source retenue connue.
