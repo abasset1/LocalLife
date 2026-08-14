@@ -57,6 +57,13 @@ défini en LL-5004. Si LL-5004 aboutit à un type différent de celui
 imaginé ici, cette interface sera ajustée en conséquence — sans que ce
 soit considéré comme une régression de LL-5003.
 
+**Mise à jour LL-5004 :** `CollectedActivity` existe désormais
+(`com.locallife.backend.collector.domain.CollectedActivity`), avec les
+champs requis par `SPRINT_5.md` (titre, description, dates de
+début/fin, catégorie, latitude, longitude, URL source, identifiant
+externe, source). La signature `List<CollectedActivity> collect()`
+ci-dessus est donc confirmée et n'a pas eu besoin d'ajustement.
+
 ### Gestion des erreurs
 
 Non spécifiée par ce contrat : LL-5003 ne fixe pas de type d'exception.

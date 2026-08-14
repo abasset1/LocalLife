@@ -330,7 +330,28 @@ métier. Implémentée en LL-5002 ci-dessous.
 ---
 # Prochaine action
 
-Sprint 5 : traiter LL-5004 — Définir le modèle de données importées (dépend de LL-5003, ci-dessus).
+Sprint 5 : traiter LL-5005 — Pipeline de normalisation (dépend de LL-5004, ci-dessus).
+
+## LL-5004 — Définir le modèle de données importées ✅
+
+**Dépendance :** LL-5003.
+
+`collector/domain/CollectedActivity.java` : record avec les 10 champs
+requis (titre, description, dates début/fin, catégorie, latitude,
+longitude, URL source, identifiant externe, source — `source` en
+`String`, nom de la source, cohérent avec la décision `getSourceName()`
+de LL-5003). Simple porteur de données, comme `Activity`/`Source` :
+aucune validation, aucun test dédié (pas de logique à tester),
+conformément au reste du projet. La conversion vers `Activity` et le
+rejet des données invalides sont explicitement hors périmètre — c'est
+le pipeline de normalisation, LL-5005.
+
+`COLLECTOR_CONTRACT.md` mis à jour : la référence anticipée à
+`CollectedActivity` (LL-5003) est confirmée sans ajustement.
+
+Toujours pas de code pour l'interface `Collector` elle-même : ni
+LL-5004 ni les tickets précédents ne le demandent explicitement — voir
+`COLLECTOR_CONTRACT.md`, création différée au plus tard à LL-5006.
 
 ## LL-5003 — Définir le contrat Collector ✅
 
