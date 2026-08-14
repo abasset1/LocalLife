@@ -330,7 +330,36 @@ métier. Implémentée en LL-5002 ci-dessous.
 ---
 # Prochaine action
 
-Sprint 5 : traiter LL-5005 — Pipeline de normalisation (dépend de LL-5004, ci-dessus).
+Sprint 5 : traiter LL-5006 — Premier collecteur réel (dépend de LL-5003, LL-5004, LL-5005, ci-dessus).
+
+## LL-5005 — Pipeline de normalisation ✅
+
+**Dépendance :** LL-5004.
+
+`collector/application/NormalizationService.java` : `normalize(CollectedActivity)`
+→ `Optional<Activity>`, en mémoire uniquement (pas de persistance, hors
+périmètre — LL-5008). Rejette (`Optional.empty()`) si `title` vide/nul,
+`startDate` nul, ou latitude/longitude hors plage ; convertit sinon.
+`description`/`endDate`/`category` restent optionnels, comme sur
+`Activity`.
+
+Volontairement séparé d'`ActivityService`, non modifié (critère
+d'acceptation : « aucune logique spécifique à un collecteur dans
+ActivityService »). Les bornes de latitude/longitude sont dupliquées
+plutôt que factorisées avec celles déjà présentes dans `ActivityService`
+— un refactoring de ce service n'est pas demandé par ce ticket.
+
+⚠️ Décision à valider : statut `PUBLISHED` attribué par défaut aux
+activités normalisées, plutôt que `PENDING` (statut par défaut des
+contributions manuelles, voir `ActivityService#createActivity`). Une
+source réelle est choisie pour sa fiabilité (critères LL-5006 :
+stabilité, qualité des données) et il n'existe aucune interface de
+modération dans ce sprint — avec `PENDING`, les activités importées
+n'apparaîtraient jamais sur la carte (LL-5011).
+
+Tests : `NormalizationServiceTest` (7 cas — conversion valide, titre
+vide/nul, date de début nulle, latitude/longitude hors plage, champs
+optionnels absents), sans mock (fonction pure).
 
 ## LL-5004 — Définir le modèle de données importées ✅
 
