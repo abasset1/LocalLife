@@ -91,6 +91,17 @@ class ActivityControllerIntegrationTest {
     }
 
     @Test
+    void getNearbyActivities_ShouldReturnOk_WhenStatusCategoryAndDateProvided() {
+        // LL-4014 : combinaison des trois filtres optionnels en même temps sur /nearby
+        // (symétrique au test équivalent sur /within-bounds ci-dessous).
+        restTestClient().get()
+                .uri("/api/v1/activities/nearby?latitude=43.2951&longitude=5.3739&radius=50"
+                        + "&status=PUBLISHED&category=concert&date=2026-09-05")
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
     void getActivitiesWithinBounds_ShouldReturnOk_WhenParamsValid() {
         restTestClient().get()
                 .uri("/api/v1/activities/within-bounds?swLatitude=43.20&swLongitude=5.30"

@@ -46,6 +46,33 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
 * Erreurs possibles : `400 Bad Request` (adresse vide ou introuvable),
   `503 Service Unavailable` (service de géocodage injoignable).
 
+## Recherche géographique
+
+* Recherche par rayon : `GET /api/v1/activities/nearby?latitude=...&longitude=...&radius=...`
+  (`radius` en kilomètres, max 50), triée par distance croissante.
+* Recherche par zone rectangulaire (typiquement la zone visible sur la
+  carte) : `GET /api/v1/activities/within-bounds?swLatitude=...&swLongitude=...&neLatitude=...&neLongitude=...`,
+  triée par id croissant (pas de point de référence pour une distance).
+* Filtres optionnels, communs aux deux endpoints : `status`, `category`
+  (une ou plusieurs valeurs séparées par des virgules), `date` (format
+  ISO-8601 `yyyy-MM-dd` — une activité est retenue quand cette date
+  tombe dans sa période `startDate`/`endDate`).
+* Détail des contrats :
+  [`docs/02_Architecture/GEO_SEARCH_CONTRACT.md`](docs/02_Architecture/GEO_SEARCH_CONTRACT.md)
+  et
+  [`docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md`](docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md).
+* Frontend :
+  * Filtres catégorie et date au-dessus de la carte, combinables.
+  * Bouton « Utiliser ma position » (géolocalisation navigateur,
+    permission demandée explicitement au clic, aucune position stockée
+    côté serveur).
+  * La carte recharge automatiquement les activités après un
+    déplacement ou un changement de zoom significatif (recherche par
+    zone plutôt que par rayon fixe dès la première interaction avec la
+    carte).
+  * États affichés à l'utilisateur : chargement, résultats, aucun
+    résultat, erreur.
+
 ## Démarrage
 
 La base de données doit être démarrée avant le backend :

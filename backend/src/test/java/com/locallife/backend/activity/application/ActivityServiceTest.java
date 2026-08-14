@@ -23,10 +23,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Couvre la validation des paramètres de recherche géographique
- * (LL-4003/LL-4004/LL-4005), conformément au contrat LL-4001, et de la
- * recherche par zone rectangulaire (LL-4006/LL-4007) : rayon en km
- * (converti en mètres pour le repository), plafonné à 50 km, filtres
- * optionnels par statut, par catégorie et par date.
+ * (LL-4003/LL-4004/LL-4005), conformément au contrat LL-4001, de la
+ * recherche par zone rectangulaire (LL-4006/LL-4007), et de la
+ * transmission correcte de plusieurs filtres combinés au repository
+ * (LL-4014) : rayon en km (converti en mètres pour le repository),
+ * plafonné à 50 km, filtres optionnels par statut, par catégorie et par
+ * date.
  */
 @ExtendWith(MockitoExtension.class)
 class ActivityServiceTest {
@@ -363,6 +365,43 @@ class ActivityServiceTest {
                 .hasMessageContaining("date");
 
         verifyNoInteractions(activityRepository);
+    }
+
+    // --- Combinaison de filtres (LL-4014) ---
+    // Les tests ci-dessus vérifient chaque filtre isolément (les autres à null). Ceux qui
+    // suivent vérifient que le service transmet bien TOUS les filtres au repository quand
+    // ils sont fournis en même temps, sans en perdre en cours de route.
+
+    @Test
+    void findNearby_ShouldPassAllThreeOptionalFiltersThrough_WhenProvidedTogether() {
+        // Given
+        when(activityRepository.findWithinRadius(
+                43.2951, 5.3739, 5_000, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5)))
+                .thenReturn(List.of());
+
+        // When
+        activityService().findNearby(
+                "43.2951", "5.3739", "5", "PUBLISHED", "concert", "2026-09-05");
+
+        // Then
+        verify(activityRepository)
+                .findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5));
+    }
+
+    @Test
+    void findWithinBounds_ShouldPassAllThreeOptionalFiltersThrough_WhenProvidedTogether() {
+        // Given
+        when(activityRepository.findWithinBounds(
+                43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5)))
+                .thenReturn(List.of());
+
+        // When
+        activityService().findWithinBounds(
+                "43.28", "5.35", "43.31", "5.40", "PUBLISHED", "concert", "2026-09-05");
+
+        // Then
+        verify(activityRepository)
+                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5));
     }
 
 }

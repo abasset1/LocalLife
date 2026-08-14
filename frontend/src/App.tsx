@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { LatLngExpression } from "leaflet";
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
 import { Link } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
@@ -20,14 +20,15 @@ interface ApiErrorBody {
 }
 
 /**
- * États de la géolocalisation navigateur (LL-4010). Ne pilote pas encore
- * la recherche `/nearby` (toujours centrée sur `MARSEILLE_LATITUDE`/
- * `MARSEILLE_LONGITUDE`, voir plus bas) — LL-4011, qui dépend
- * explicitement de ce ticket, s'en chargera. `idle` : géolocalisation
- * jamais demandée. `loading` : demande de permission/position en cours.
- * `granted` : position obtenue. `denied` : permission refusée par
- * l'utilisateur. `error` : géolocalisation indisponible ou autre échec
- * (timeout, position indisponible).
+ * États de la géolocalisation navigateur (LL-4010), désormais utilisés
+ * pour piloter la recherche `/nearby` (LL-4011, voir plus bas) : tant que
+ * la position n'est pas `granted`, la recherche reste centrée sur
+ * `MARSEILLE_LATITUDE`/`MARSEILLE_LONGITUDE` (comportement par défaut
+ * introduit en LL-4008). `idle` : géolocalisation jamais demandée.
+ * `loading` : demande de permission/position en cours. `granted` :
+ * position obtenue. `denied` : permission refusée par l'utilisateur.
+ * `error` : géolocalisation indisponible ou autre échec (timeout,
+ * position indisponible).
  */
 type GeolocationStatus = "idle" | "loading" | "granted" | "denied" | "error";
 
@@ -36,20 +37,78 @@ interface UserPosition {
     longitude: number;
 }
 
+/**
+ * Zone actuellement visible sur la carte (LL-4012), au format attendu par
+ * le contrat LL-4006 (`docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md`).
+ * `null` tant que l'utilisateur n'a pas encore déplacé/zoomé la carte —
+ * dans ce cas la recherche reste pilotée par `/nearby` (LL-4008/LL-4011).
+ */
+interface MapBounds {
+    swLatitude: number;
+    swLongitude: number;
+    neLatitude: number;
+    neLongitude: number;
+}
+
+/** Délai de neutralisation (ms) entre la fin d'un geste sur la carte et le déclenchement
+ * effectif d'une nouvelle recherche — absorbe une rafale de `moveend` rapprochés (ex.
+ * glisser/relâcher/glisser à nouveau rapidement), en plus du fait que `moveend`/`zoomend`
+ * ne se déclenchent déjà qu'une fois à la fin du geste (pas en continu pendant le
+ * déplacement/zoom, contrairement à `move`/`zoom`). */
+const MAP_BOUNDS_DEBOUNCE_MS = 400;
+
+/**
+ * Composant enfant sans rendu visuel, monté à l'intérieur de
+ * `<MapContainer>` : c'est la seule façon d'écouter les événements de la
+ * carte avec react-leaflet — `useMapEvents` doit être appelé depuis un
+ * descendant de `MapContainer`, qui n'expose pas de props
+ * `onMoveEnd`/`onZoomEnd` directement.
+ */
+function MapBoundsWatcher({ onBoundsChange }: { onBoundsChange: (bounds: MapBounds) => void }) {
+    const debounceTimer = useRef<number | null>(null);
+
+    const map = useMapEvents({
+        moveend: () => scheduleBoundsUpdate(),
+        zoomend: () => scheduleBoundsUpdate(),
+    });
+
+    function scheduleBoundsUpdate() {
+        if (debounceTimer.current !== null) {
+            window.clearTimeout(debounceTimer.current);
+        }
+        debounceTimer.current = window.setTimeout(() => {
+            const bounds = map.getBounds();
+            onBoundsChange({
+                swLatitude: bounds.getSouthWest().lat,
+                swLongitude: bounds.getSouthWest().lng,
+                neLatitude: bounds.getNorthEast().lat,
+                neLongitude: bounds.getNorthEast().lng,
+            });
+        }, MAP_BOUNDS_DEBOUNCE_MS);
+    }
+
+    useEffect(() => {
+        return () => {
+            if (debounceTimer.current !== null) {
+                window.clearTimeout(debounceTimer.current);
+            }
+        };
+    }, []);
+
+    return null;
+}
+
 const MARSEILLE_LATITUDE = 43.2965;
 const MARSEILLE_LONGITUDE = 5.3698;
 const MARSEILLE_COORDINATES: LatLngExpression = [MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE];
 
 /**
- * Rayon de recherche (LL-4001 : en kilomètres, max 50) utilisé en attendant
- * la géolocalisation utilisateur (LL-4010) et le chargement dynamique
- * selon la zone de la carte (LL-4012). ⚠️ Décision à valider avec Alex :
- * on utilise le rayon maximum autorisé par le contrat autour du point de
- * référence Marseille (déjà utilisé pour centrer la carte), pour se
- * rapprocher du comportement actuel (afficher toutes les activités,
- * qui sont toutes situées autour de Marseille dans les données de démo)
- * en attendant que LL-4010/LL-4012 remplacent ce point fixe par la
- * position réelle de l'utilisateur / la zone visible sur la carte.
+ * Rayon de recherche (LL-4001 : en kilomètres, max 50), utilisé pour la
+ * recherche `/nearby` — repli par défaut tant que l'utilisateur n'a pas
+ * interagi avec la carte (`mapBounds === null`, voir `MapBounds`
+ * ci-dessus). Une fois que la carte a été déplacée/zoomée (LL-4012), ce
+ * rayon fixe n'entre plus en jeu : la recherche passe sur
+ * `/within-bounds`, pilotée par la zone réellement visible.
  */
 const DEFAULT_SEARCH_RADIUS_KM = 50;
 
@@ -82,19 +141,49 @@ function App() {
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [isLoadingActivities, setIsLoadingActivities] = useState(true);
+    const [searchError, setSearchError] = useState<string | null>(null);
     const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>("idle");
     const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
     const [geolocationErrorMessage, setGeolocationErrorMessage] = useState<string | null>(null);
+    const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
 
     useEffect(() => {
         const abortController = new AbortController();
+        setIsLoadingActivities(true);
+        setSearchError(null);
+        // Supprime immédiatement les anciens marqueurs plutôt que d'attendre la réponse :
+        // critère d'acceptation explicite de LL-4012 (« suppression des anciens marqueurs
+        // avant affichage des nouveaux résultats »), appliqué ici à toute nouvelle
+        // recherche (changement de filtre, de position, ou de zone de carte) par simplicité
+        // et cohérence, pas uniquement au cas du déplacement de carte.
+        setActivities([]);
 
         async function loadActivities() {
-            const params = new URLSearchParams({
-                latitude: String(MARSEILLE_LATITUDE),
-                longitude: String(MARSEILLE_LONGITUDE),
-                radius: String(DEFAULT_SEARCH_RADIUS_KM),
-            });
+            const params = new URLSearchParams();
+            let endpoint: string;
+
+            if (mapBounds) {
+                // LL-4012 : une fois que l'utilisateur a déplacé/zoomé la carte, la zone
+                // réellement visible devient la source de vérité pour la recherche —
+                // remplace le rayon fixe de LL-4008/LL-4011 — conformément au contrat
+                // LL-4006 (docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md).
+                endpoint = "/api/v1/activities/within-bounds";
+                params.set("swLatitude", String(mapBounds.swLatitude));
+                params.set("swLongitude", String(mapBounds.swLongitude));
+                params.set("neLatitude", String(mapBounds.neLatitude));
+                params.set("neLongitude", String(mapBounds.neLongitude));
+            } else {
+                // Avant toute interaction avec la carte : comportement LL-4008/LL-4011
+                // inchangé (rayon fixe autour de la position utilisateur ou de Marseille).
+                endpoint = "/api/v1/activities/nearby";
+                const latitude = userPosition?.latitude ?? MARSEILLE_LATITUDE;
+                const longitude = userPosition?.longitude ?? MARSEILLE_LONGITUDE;
+                params.set("latitude", String(latitude));
+                params.set("longitude", String(longitude));
+                params.set("radius", String(DEFAULT_SEARCH_RADIUS_KM));
+            }
+
             if (selectedCategory !== ALL_CATEGORIES) {
                 params.set("category", selectedCategory);
             }
@@ -102,28 +191,49 @@ function App() {
                 params.set("date", selectedDate);
             }
 
-            const response = await fetch(`/api/v1/activities/nearby?${params.toString()}`, {
-                signal: abortController.signal,
-            });
+            try {
+                const response = await fetch(`${endpoint}?${params.toString()}`, {
+                    signal: abortController.signal,
+                });
 
-            if (response.ok) {
-                const data: Activity[] = await response.json();
-                setActivities(data);
-                // La liste des catégories disponibles n'est reconstruite que sur la
-                // réponse non filtrée (ni catégorie ni date) : sinon elle se
-                // réduirait au fil des sélections (une fois qu'un filtre est actif,
-                // la réponse ne contient plus que ce qui correspond) et l'utilisateur
-                // ne pourrait plus revenir en arrière.
-                if (selectedCategory === ALL_CATEGORIES && selectedDate === NO_DATE_FILTER) {
-                    setAvailableCategories(buildCategoryOptions(data));
+                if (response.ok) {
+                    const data: Activity[] = await response.json();
+                    setActivities(data);
+                    // La liste des catégories disponibles n'est reconstruite que sur la
+                    // réponse non filtrée (ni catégorie ni date) : sinon elle se
+                    // réduirait au fil des sélections (une fois qu'un filtre est actif,
+                    // la réponse ne contient plus que ce qui correspond) et l'utilisateur
+                    // ne pourrait plus revenir en arrière.
+                    if (selectedCategory === ALL_CATEGORIES && selectedDate === NO_DATE_FILTER) {
+                        setAvailableCategories(buildCategoryOptions(data));
+                    }
+                } else {
+                    // LL-4013 : état « erreur » distinct de l'état « aucun résultat » —
+                    // un échec de la requête (ex. 400/500) ne doit pas être présenté comme
+                    // une recherche qui a simplement abouti à zéro activité.
+                    const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+                    setSearchError(body?.message ?? "Impossible de charger les activités, réessaie.");
+                    setActivities([]);
+                }
+            } catch {
+                if (!abortController.signal.aborted) {
+                    setSearchError("Impossible de contacter le serveur, réessaie plus tard.");
+                    setActivities([]);
+                }
+            } finally {
+                // Ne pas repasser `isLoadingActivities` à false pour une requête déjà
+                // annulée : la requête suivante (déclenchée par le même changement de
+                // dépendance) l'a déjà remis à true, on ne veut pas l'écraser.
+                if (!abortController.signal.aborted) {
+                    setIsLoadingActivities(false);
                 }
             }
         }
 
-        void loadActivities().catch(() => setActivities([]));
+        void loadActivities();
 
         return () => abortController.abort();
-    }, [selectedCategory, selectedDate, refreshKey]);
+    }, [selectedCategory, selectedDate, refreshKey, userPosition, mapBounds]);
 
     function handleLogout() {
         clearToken();
@@ -315,31 +425,49 @@ function App() {
                 {submitStatus === "success" && <span className="form-message form-message-success">Activité proposée !</span>}
                 {submitStatus === "error" && <span className="form-message form-message-error">{submitError}</span>}
             </form>
-            <MapContainer
-                center={MARSEILLE_COORDINATES}
-                className="map"
-                zoom={13}
-                zoomControl
-            >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                {activities.map((activity) => (
-                    <Marker
-                        key={activity.id}
-                        position={[activity.latitude, activity.longitude]}
-                    >
-                        <Popup>
-                            <strong>{activity.title}</strong>
-                            <br />
-                            {activity.category}
-                            <br />
-                            {new Date(activity.startDate).toLocaleDateString("fr-FR")}
-                        </Popup>
-                    </Marker>
-                ))}
-            </MapContainer>
+            <div className="map-area">
+                {/*
+                  LL-4013 : 4 états distincts, chacun visible et compréhensible séparément
+                  (chargement / résultats / aucun résultat / erreur) — l'état « résultats »
+                  n'a pas besoin de message dédié : les marqueurs sur la carte en tiennent
+                  lieu.
+                */}
+                {isLoadingActivities && <p className="activities-status">Chargement des activités…</p>}
+                {!isLoadingActivities && searchError && (
+                    <p className="activities-status activities-status-error" role="alert">
+                        {searchError}
+                    </p>
+                )}
+                {!isLoadingActivities && !searchError && activities.length === 0 && (
+                    <p className="activities-status">Aucune activité trouvée dans cette zone.</p>
+                )}
+                <MapContainer
+                    center={MARSEILLE_COORDINATES}
+                    className="map"
+                    zoom={13}
+                    zoomControl
+                >
+                    <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <MapBoundsWatcher onBoundsChange={setMapBounds} />
+                    {activities.map((activity) => (
+                        <Marker
+                            key={activity.id}
+                            position={[activity.latitude, activity.longitude]}
+                        >
+                            <Popup>
+                                <strong>{activity.title}</strong>
+                                <br />
+                                {activity.category}
+                                <br />
+                                {new Date(activity.startDate).toLocaleDateString("fr-FR")}
+                            </Popup>
+                        </Marker>
+                    ))}
+                </MapContainer>
+            </div>
         </main>
     );
 }

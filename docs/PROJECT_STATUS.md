@@ -372,3 +372,225 @@ Sprint 4 : traiter LL-4010 — Géolocalisation utilisateur.
 # Prochaine action
 
 Sprint 4 : traiter LL-4011 — Recherche autour de l'utilisateur (dépend de LL-4010, LL-4003).
+
+## LL-4011 — Recherche autour de l'utilisateur ✅
+
+`frontend/src/App.tsx`, dans la continuité de LL-4010, conforme aux 5
+critères d'acceptation :
+* **Utilisation des coordonnées du navigateur** : la recherche `/nearby`
+  utilise `userPosition.latitude`/`userPosition.longitude` une fois la
+  géolocalisation accordée (LL-4010), avec repli sur le point Marseille
+  par défaut tant qu'elle ne l'est pas (`userPosition?.latitude ??
+  MARSEILLE_LATITUDE`).
+* **Appel de l'API `/nearby`** : déjà en place depuis LL-4008, la
+  requête se redéclenche automatiquement dès que `userPosition` change
+  (ajouté aux dépendances du `useEffect`).
+* **Affichage des résultats** : inchangé, les marqueurs sur la carte se
+  mettent à jour avec la nouvelle réponse.
+* **Gestion du chargement** : nouvel état `isLoadingActivities`, message
+  « Chargement des activités… » affiché pendant la requête. Gestion
+  soignée de l'annulation (`AbortController`) pour éviter qu'une requête
+  obsolète (filtre changé pendant qu'une requête précédente était en
+  vol) ne réinitialise `isLoadingActivities` à `false` par erreur juste
+  après que la requête suivante l'a remis à `true`.
+* **Gestion de l'absence de résultats** : message « Aucune activité
+  trouvée dans cette zone. » affiché une fois le chargement terminé si
+  la liste est vide.
+* Refactor JSX : le message de statut et `<MapContainer>` sont regroupés
+  dans un conteneur `.map-area` (flexbox) plutôt que d'être deux enfants
+  directs de la grille `.application-shell` — un message conditionnel
+  directement dans la grille aurait ajouté une ligne implicite
+  seulement quand affiché, changeant la hauteur de la carte entre les
+  états chargé/non chargé.
+* ⚠️ Décision explicitement **hors périmètre** de LL-4011 (voir
+  commentaire dans le code) : le rayon de recherche reste fixe à 50 km
+  même une fois la position utilisateur connue, aucune prise en compte
+  du zoom de la carte. C'est le périmètre de LL-4012 (chargement
+  dynamique selon la zone de la carte).
+* La carte ne se recentre **pas** automatiquement sur la position
+  utilisateur obtenue (seuls les marqueurs affichés changent). Recentrer
+  la carte programmatiquement avec react-leaflet nécessite un composant
+  enfant dédié utilisant `useMap()`/`setView` (le prop `center` de
+  `MapContainer` n'est utilisé qu'au montage initial) — laissé de côté
+  pour rester strictement dans le périmètre des 5 critères d'acceptation
+  du ticket, mais à valider avec toi si c'est un comportement attendu
+  malgré tout.
+* Aucun test frontend (toujours pas de framework configuré). Vérifié
+  avec `npx tsc --noEmit` et `npm run build` (les deux passent). Note
+  hors-sujet : `npm audit` signale une vulnérabilité transitive
+  (`nanoid`), sans lien avec ce ticket — consignée dans
+  `docs/DETTE_TECHNIQUE.md` plutôt que corrigée dans ce diff.
+
+---
+# Prochaine action
+
+Sprint 4 : traiter LL-4012 — Chargement dynamique de la carte.
+
+## LL-4012 — Chargement dynamique de la carte ✅
+
+`frontend/src/App.tsx`, conforme aux 5 critères d'acceptation :
+* **Nouvelle recherche après déplacement/zoom significatif** : nouveau
+  composant `MapBoundsWatcher`, monté à l'intérieur de `<MapContainer>`
+  (seule façon d'écouter les événements de la carte avec react-leaflet —
+  `useMapEvents` doit être appelé depuis un descendant, `MapContainer`
+  n'expose pas de props `onMoveEnd`/`onZoomEnd` directement). Écoute
+  `moveend`/`zoomend`, qui ne se déclenchent qu'une fois à la fin du
+  geste.
+* **Pas de requête à chaque événement de mouvement** : `moveend`/
+  `zoomend` (pas `move`/`zoom`, qui eux sont continus) satisfont déjà
+  l'essentiel du critère ; ajout d'un debounce de 400 ms
+  (`MAP_BOUNDS_DEBOUNCE_MS`) en plus, pour absorber une rafale de
+  `moveend` rapprochés (glisser/relâcher/glisser à nouveau rapidement).
+* **Gestion du chargement** : réutilise `isLoadingActivities` (LL-4011),
+  déclenché aussi par les changements de `mapBounds`.
+* **Suppression des anciens marqueurs avant affichage des nouveaux
+  résultats** : `setActivities([])` appelé immédiatement au début de
+  chaque nouvelle recherche, avant l'appel réseau. ⚠️ Décision : appliqué
+  systématiquement (changement de filtre, de position, ou de carte), pas
+  seulement au cas du déplacement de carte — plus simple à maintenir
+  qu'une logique différenciée par type de déclencheur, et cohérent avec
+  l'esprit du critère.
+* **Affichage des résultats** : inchangé.
+* **Bascule de source de recherche** : tant que la carte n'a pas été
+  déplacée/zoomée (`mapBounds === null`), la recherche reste sur
+  `/nearby` (comportement LL-4008/LL-4011, rayon fixe autour de la
+  position utilisateur ou de Marseille). Dès la première interaction
+  avec la carte, elle bascule sur `/within-bounds` (contrat LL-4006,
+  endpoint LL-4007) et cette zone devient la source de vérité pour
+  toutes les recherches suivantes (y compris les changements de filtre
+  catégorie/date) — cohérent avec l'objectif du ticket : afficher ce qui
+  est réellement visible sur la carte.
+* ⚠️ Point à valider avec toi : une fois `mapBounds` défini, cliquer à
+  nouveau sur « Utiliser ma position » (LL-4010) récupère bien une
+  nouvelle position mais celle-ci **n'a plus d'effet sur la recherche**
+  tant que `mapBounds` reste actif (la zone de carte prime). Il faudrait
+  probablement réinitialiser `mapBounds` à `null` lors d'un clic sur ce
+  bouton pour que « recentrer sur ma position » redevienne prioritaire —
+  non implémenté ici pour rester strictement dans le périmètre des 5
+  critères d'acceptation de LL-4012, mais je peux l'ajouter si tu
+  confirmes que c'est le comportement voulu.
+* Aucun test frontend (toujours pas de framework configuré). Vérifié
+  avec `npx tsc --noEmit` et `npm run build` (les deux passent). Le
+  comportement des événements Leaflet réels (glisser/zoomer la carte)
+  ne peut pas être vérifié en sandbox (pas de navigateur) — à valider
+  visuellement de ton côté.
+
+---
+# Prochaine action
+
+Sprint 4 : traiter LL-4013 — États frontend.
+
+## LL-4013 — États frontend ✅
+
+`frontend/src/App.tsx` : les états « chargement » et « aucun résultat »
+existaient déjà (LL-4011/LL-4012), mais l'état « erreur » n'était pas
+distingué de « aucun résultat » — un échec réseau ou une réponse `4xx`/
+`5xx` déclenchait `setActivities([])`, affichant le même message
+« Aucune activité trouvée » qu'une recherche légitimement vide. Ce
+ticket corrige ça :
+* Nouvel état `searchError: string | null`, mis à jour séparément de
+  `activities` :
+  - réponse HTTP en échec (`!response.ok`) : tente de lire le corps
+    d'erreur JSON standard de l'API (`ApiErrorBody`, déjà utilisé pour
+    le formulaire de contribution) pour un message précis, sinon message
+    générique ;
+  - exception réseau (backend injoignable) : message dédié ;
+  - requête annulée (changement de filtre pendant le chargement) :
+    **pas** une erreur, ignorée comme avant (`abortController.signal.aborted`).
+* JSX : 4 branches désormais mutuellement exclusives — chargement,
+  erreur (`role="alert"`, nouveau style `.activities-status-error` en
+  rouge, pour se distinguer visuellement des deux autres états neutres),
+  aucun résultat, résultats (pas de message dédié : les marqueurs sur la
+  carte suffisent à rendre cet état « visible et compréhensible »,
+  seul critère d'acceptation du ticket).
+* `searchError` réinitialisé à `null` au début de chaque nouvelle
+  recherche (même endroit que `setActivities([])`), pour qu'une
+  erreur affichée disparaisse dès qu'une nouvelle tentative démarre.
+* Aucun test frontend (toujours pas de framework configuré). Vérifié
+  avec `npx tsc --noEmit` et `npm run build` (les deux passent).
+
+---
+# Prochaine action
+
+Sprint 4 : traiter LL-4014 — Tests d'intégration.
+
+## LL-4014 — Tests d'intégration ✅
+
+Ce ticket demande d'automatiser 7 scénarios : recherche par rayon,
+activité hors rayon, filtre catégorie, filtre date, bounding box,
+paramètres invalides, combinaison de filtres. Les 6 premiers étaient
+déjà couverts au fil des tickets LL-4002 à LL-4009 (`findWithinRadius`/
+`findWithinBounds` dans `ActivityRepositoryIntegrationTest`,
+`ActivityServiceTest`, `ActivityControllerTest`/
+`ActivityControllerIntegrationTest`). Seule la **combinaison de
+filtres** manquait un test dédié avec assertions réelles sur le
+contenu des résultats (les tests existants combinant plusieurs filtres,
+ex. `getActivitiesWithinBounds_ShouldReturnOk_WhenStatusCategoryAndDateProvided`,
+ne vérifiaient qu'un statut `200 OK`, pas que les filtres s'appliquent
+bien tous ensemble). Ajouts :
+* `ActivityRepositoryIntegrationTest` :
+  `findWithinRadius_ShouldCombineStatusCategoryAndDateFilters_WithAndSemantics`
+  et l'équivalent pour `findWithinBounds` — pour chacune, 3 (ou 4 pour
+  bounds) activités créées, chacune ne correspondant qu'à 2 des 3
+  critères demandés (statut/catégorie/date, plus zone pour bounds), et
+  une seule correspondant aux 3 (ou 4) à la fois. Vérifie la sémantique
+  **ET** entre filtres : une activité qui ne rate qu'un seul critère
+  doit être exclue, pas juste celle qui ne correspond à aucun.
+* `ActivityServiceTest` :
+  `findNearby_ShouldPassAllThreeOptionalFiltersThrough_WhenProvidedTogether`
+  et l'équivalent `findWithinBounds` — vérifie que le service ne perd
+  aucun des 3 filtres optionnels en route vers le repository quand ils
+  sont fournis simultanément (les tests existants ne testaient qu'un
+  filtre à la fois avec les autres à `null`).
+* `ActivityControllerIntegrationTest` :
+  `getNearbyActivities_ShouldReturnOk_WhenStatusCategoryAndDateProvided`
+  ajouté par symétrie avec l'équivalent déjà existant sur
+  `/within-bounds`.
+* ⚠️ Non exécuté en sandbox (même limitation qu'aux tickets backend
+  précédents) — à valider avec `mvn verify`.
+
+---
+# Prochaine action
+
+Sprint 4 : traiter LL-4015 — Mise à jour de la documentation.
+
+## LL-4015 — Mise à jour de la documentation ✅
+
+* **`README.md`** : nouvelle section « Recherche géographique »
+  (endpoints `/nearby`/`/within-bounds`, filtres communs, liens vers
+  les deux contrats d'architecture, résumé des ajouts frontend). Suit
+  le style thématique déjà utilisé pour Sprint 3 (« Authentification »,
+  « Géocodage ») plutôt que « Fonctionnalités (Sprint 4) », pour rester
+  cohérent avec la convention la plus récente du fichier.
+* **`CHANGELOG.md`** : nouvelle entrée `0.4.0 - 2026-08-14`, résumant
+  l'ensemble du Sprint 4 (recherche par rayon/zone, filtres combinables,
+  géolocalisation, carte dynamique, états frontend, tests
+  d'intégration) et le correctif `BadSqlGrammarException` du filtre
+  date.
+* **`PROJECT_STATUS.md`** : déjà tenu à jour au fil de chaque ticket
+  tout au long du sprint (pas de changement rétroactif nécessaire ici).
+* **Documentation OpenAPI** : déjà à jour — les annotations
+  `@Operation`/`@ApiResponses` sur `/nearby` (LL-4003) et
+  `/within-bounds` (LL-4007) ont été tenues à jour au moment de chaque
+  ticket, pas de lacune identifiée à combler rétroactivement.
+* **Documentation API** (contrats d'architecture) : `GEO_SEARCH_CONTRACT.md`
+  et `BOUNDING_BOX_SEARCH_CONTRACT.md` déjà à jour (tenus en continu
+  depuis LL-4001/LL-4006).
+* ⚠️ Note découverte en marge de cette relecture, sans lien avec ce
+  ticket : petit défaut de formatage préexistant dans
+  `ActivityController.java` (saut de ligne manquant entre deux
+  méthodes) — consigné dans `docs/DETTE_TECHNIQUE.md` plutôt que
+  corrigé ici, pour ne pas mélanger un changement de code avec un diff
+  purement documentaire.
+
+---
+# Sprint 4 — terminé
+
+Les 15 tickets (LL-4001 à LL-4015) sont traités. Voir la
+« Definition of Done » et le livrable dans `docs/05_Sprints/SPRINT_4.md`
+pour la liste des critères couverts. Prochaine étape à définir avec
+Alex : démarrage du Sprint 5.
+
+# Prochaine action
+
+À définir avec Alex (Sprint 5).

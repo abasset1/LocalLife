@@ -14,11 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Tests d'intégration PostGIS (LL-4002), filtre par statut (LL-4003),
- * filtre par catégorie (LL-4004), filtre par date (LL-4005), et recherche
- * par zone rectangulaire (LL-4006/LL-4007), contre la base réelle (comme
- * {@code UserRepositoryIntegrationTest}) : chaque test est englobé dans
- * une transaction annulée à la fin. Point de référence : Vieux-Port de
- * Marseille (43.2951, 5.3739).
+ * filtre par catégorie (LL-4004), filtre par date (LL-4005), recherche
+ * par zone rectangulaire (LL-4006/LL-4007), et combinaison de plusieurs
+ * filtres appliqués simultanément (LL-4014), contre la base réelle
+ * (comme {@code UserRepositoryIntegrationTest}) : chaque test est
+ * englobé dans une transaction annulée à la fin. Point de référence :
+ * Vieux-Port de Marseille (43.2951, 5.3739).
  *
  * Assertions faites par id, jamais par vacuité/taille du résultat : les
  * données de démo (V3__insert_demo_activities.sql) sont déjà toutes situées
@@ -352,6 +353,67 @@ class ActivityRepositoryIntegrationTest {
 
         assertThat(resultIds).contains(closeToCenter.id(), farFromCenter.id());
         assertThat(resultIds.indexOf(closeToCenter.id())).isLessThan(resultIds.indexOf(farFromCenter.id()));
+    }
+
+    // --- Combinaison de filtres (LL-4014) ---
+    // Les tests ci-dessus couvrent chaque filtre isolément (les autres à null). Ceux qui
+    // suivent vérifient la sémantique « ET » entre plusieurs filtres appliqués en même
+    // temps : seule une activité correspondant à TOUS les critères doit être retenue,
+    // pas une activité qui n'en satisferait qu'un seul.
+
+    @Test
+    void findWithinRadius_ShouldCombineStatusCategoryAndDateFilters_WithAndSemantics() {
+        LocalDateTime targetDate = LocalDateTime.of(2026, 9, 5, 20, 0);
+
+        // Correspond aux trois critères à la fois : doit être le seul résultat.
+        Activity matchesAll = activityAt(
+                MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED", "concert", targetDate, targetDate);
+        // Ne correspond pas au statut demandé (sinon identique à matchesAll).
+        Activity wrongStatus = activityAt(
+                MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PENDING", "concert", targetDate, targetDate);
+        // Ne correspond pas à la catégorie demandée (sinon identique à matchesAll).
+        Activity wrongCategory = activityAt(
+                MARSEILLE_LAT + 0.003, MARSEILLE_LON, "PUBLISHED", "sport", targetDate, targetDate);
+        // Ne correspond pas à la date demandée (sinon identique à matchesAll).
+        Activity wrongDate = activityAt(
+                MARSEILLE_LAT + 0.004, MARSEILLE_LON, "PUBLISHED", "concert",
+                targetDate.plusDays(1), targetDate.plusDays(1));
+
+        List<Long> resultIds = activityRepository
+                .findWithinRadius(
+                        MARSEILLE_LAT, MARSEILLE_LON, 5_000, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5))
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(matchesAll.id());
+        assertThat(resultIds).doesNotContain(wrongStatus.id(), wrongCategory.id(), wrongDate.id());
+    }
+
+    @Test
+    void findWithinBounds_ShouldCombineStatusCategoryAndDateFilters_WithAndSemantics() {
+        LocalDateTime targetDate = LocalDateTime.of(2026, 9, 5, 20, 0);
+
+        Activity matchesAll = activityAt(
+                MARSEILLE_LAT, MARSEILLE_LON, "PUBLISHED", "concert", targetDate, targetDate);
+        Activity wrongStatus = activityAt(
+                MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PENDING", "concert", targetDate, targetDate);
+        Activity wrongCategory = activityAt(
+                MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PUBLISHED", "sport", targetDate, targetDate);
+        Activity wrongDate = activityAt(
+                MARSEILLE_LAT + 0.003, MARSEILLE_LON, "PUBLISHED", "concert",
+                targetDate.plusDays(1), targetDate.plusDays(1));
+        // Correspond aux trois autres critères mais hors de la zone rectangulaire.
+        Activity outsideBounds = activityAt(
+                PARIS_LAT, PARIS_LON, "PUBLISHED", "concert", targetDate, targetDate);
+
+        List<Long> resultIds = activityRepository
+                .findWithinBounds(
+                        BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON,
+                        "PUBLISHED", "concert", LocalDate.of(2026, 9, 5))
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(matchesAll.id());
+        assertThat(resultIds)
+                .doesNotContain(wrongStatus.id(), wrongCategory.id(), wrongDate.id(), outsideBounds.id());
     }
 
 }
