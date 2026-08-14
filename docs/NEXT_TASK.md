@@ -25,9 +25,11 @@ Sprint 4 terminé (LL-4001 à LL-4015).
 
 Correctif hors ticket : fuite `passwordHash` signalée en LL-3010, corrigée avant reprise du Sprint 4 (`UserController` renvoie désormais `UserResponse`).
 
+Tickets terminés (Sprint 5, en cours) : LL-5001 (contrat du modèle Source — `docs/02_Architecture/SOURCE_CONTRACT.md`, pas de code à ce stade ; voir PROJECT_STATUS.md pour la décision validée sur la source réservée `MANUAL`), LL-5002 (module Source — domaine, repository (`save`/`findAll`/`findById`), service minimal, migration Flyway V8 créant la table `source` et la source réservée `MANUAL` ; pas de modification d'`Activity`, différée à LL-5008 ; non compilé en sandbox faute d'accès à `repo.maven.apache.org` — voir PROJECT_STATUS.md pour le détail).
+
 **Prochaine tâche**
 
-À définir avec Alex (Sprint 5).
+Sprint 5 : traiter LL-5003 — Définir le contrat Collector (dépend de rien, mais LL-5004 en dépendra).
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.

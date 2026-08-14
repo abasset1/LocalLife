@@ -284,8 +284,50 @@ Tickets prévus :
 * LL-5012 — Documentation
 
 ---
+
+## LL-5001 — Définir le contrat Source ✅
+
+`docs/02_Architecture/SOURCE_CONTRACT.md` : modèle `Source` (`id`,
+`name`, `type`, `url`, `status`, `lastSyncAt`), valeurs de `type`
+(`API`, `RSS`, `MANUAL`) et de `status` (`ACTIVE`, `INACTIVE`,
+`ERROR`). Pas de code à ce stade, comme `BOUNDING_BOX_SEARCH_CONTRACT.md`
+pour LL-4006.
+
+⚠️ Décision validée par Alex : compatibilité avec les activités créées
+manuellement assurée par une source réservée `MANUAL` (une seule ligne
+en base) plutôt qu'un `sourceId` nullable sur `Activity` — évite
+d'introduire un cas particulier « pas de source » dans le domaine
+métier. Implémentée en LL-5002 ci-dessous.
+
+## LL-5002 — Créer le module Source ✅
+
+**Dépendance :** LL-5001.
+
+* `source/domain/Source.java` : record aligné sur le contrat
+  (`type`/`status` en chaîne libre, comme `Activity.status`).
+* `source/infrastructure/SourceRepository.java` : `save`/`findAll`/
+  `findById` uniquement — même style que `CategoryRepository`/
+  `UserRepository` (extension de `Repository`, pas `CrudRepository`,
+  pour n'exposer que les méthodes nécessaires).
+* `source/application/SourceService.java` : délégation minimale,
+  `createSource(name, type, url)` avec statut `ACTIVE` et
+  `lastSyncAt` à `null` par défaut, conformément au contrat.
+* Migration `V8__create_source_table.sql` : table `source` + insertion
+  de la source réservée `MANUAL` (`Saisie manuelle`), décision LL-5001.
+* Tests : `SourceServiceTest` (Mockito, sans base) et
+  `SourceRepositoryIntegrationTest` (base réelle, `@Transactional`,
+  vérifie aussi la présence de la source `MANUAL` insérée par la
+  migration).
+* Pas de contrôleur REST : ni `SPRINT_5.md` ni les critères
+  d'acceptation de LL-5001/LL-5002 ne demandent d'endpoint à ce stade.
+* Pas de modification d'`Activity` : le lien `Activity` → `Source`
+  (colonne, FK) est explicitement différé à un ticket ultérieur
+  (LL-5008, persistance des imports), voir `SOURCE_CONTRACT.md`.
+* Non compilé/testé en sandbox : Maven Central (`repo.maven.apache.org`)
+  n'est pas dans les domaines réseau autorisés — même limitation que
+  LL-3012. `mvn verify` à lancer de ton côté.
+
+---
 # Prochaine action
 
-Démarrer LL-5001 — Définir le contrat Source.
-
-Le Sprint 4 étant terminé, aucune tâche du Sprint 4 ne doit être reprise sauf régression ou anomalie découverte après clôture.
+Sprint 5 : traiter LL-5003 — Définir le contrat Collector.
