@@ -330,7 +330,32 @@ métier. Implémentée en LL-5002 ci-dessous.
 ---
 # Prochaine action
 
-Sprint 5 : traiter LL-5007 — Détection simple des doublons (dépend de LL-5006, ci-dessus).
+Sprint 5 : traiter LL-5008 — Persistance des imports (dépend de LL-5006, LL-5007, ci-dessus).
+
+## LL-5007 — Détection simple des doublons ✅
+
+**Dépendance :** LL-5005.
+
+`collector/application/DeduplicationService.java` : `computeDeduplicationKey(CollectedActivity)`
+→ `String`, en mémoire uniquement, aucune requête en base (la
+comparaison avec les activités déjà persistées relève de LL-5008 — ce
+ticket ne dépend d'ailleurs que de LL-5005, pas de LL-5008).
+
+Stratégie conforme à `SPRINT_5.md` :
+* priorité à l'identifiant externe (`source` + `externalId`, préfixe
+  `external:`) — traité comme absent si vide/blanc, pas seulement nul ;
+* à défaut, combinaison déterministe `source`/`title`/`startDate`/
+  latitude/longitude, hachée en SHA-256 (préfixe `composite:`) pour une
+  clé de taille fixe.
+
+Calculé sur `CollectedActivity` (pas sur `Activity`, qui ne porte plus
+`source`/`externalId` après normalisation) — donc avant ou indépendamment
+de `NormalizationService`.
+
+Tests : `DeduplicationServiceTest` (9 cas — clé stable par identifiant
+externe, clés différentes par identifiant, repli sur la clé composite
+si identifiant vide/nul, stabilité et divergence de la clé composite
+selon titre/date/localisation).
 
 ## LL-5006 — Premier collecteur réel ✅
 
