@@ -330,7 +330,59 @@ métier. Implémentée en LL-5002 ci-dessous.
 ---
 # Prochaine action
 
-Sprint 5 : traiter LL-5006 — Premier collecteur réel (dépend de LL-5003, LL-5004, LL-5005, ci-dessus).
+Sprint 5 : traiter LL-5007 — Détection simple des doublons (dépend de LL-5006, ci-dessus).
+
+## LL-5006 — Premier collecteur réel ✅
+
+**Dépendance :** LL-5003, LL-5004, LL-5005.
+
+**Source retenue : l'API officielle OpenAgenda** (developers.openagenda.com),
+validée par Alex le 14/08/2026 après comparaison avec Open Data AMP /
+DATAtourisme (pas de clé API, mais parsing plus complexe : catégories
+multi-niveaux, dates concaténées, doublons par représentation). OpenAgenda
+retenue pour son JSON plus simple, au prix d'une clé API à gérer.
+
+* `collector/domain/Collector.java` : l'interface documentée en LL-5003
+  existe désormais en code — c'était le premier ticket à en avoir
+  réellement besoin.
+* `collector/infrastructure/OpenAgendaCollector.java` : implémente
+  `Collector` via `RestClient` (`GET /v2/agendas/{agendaUid}/events`),
+  même style que `GeocodingService` (constructeur package-privé pour
+  injecter un `RestClient.Builder` en test).
+* `collector/infrastructure/CollectorException.java` : exception non
+  vérifiée, fixée pour ce ticket (`COLLECTOR_CONTRACT.md` ne l'imposait
+  pas), levée en cas de configuration manquante ou d'échec réseau.
+* Configuration (`application.properties`, aucun secret committé) :
+  `OPENAGENDA_API_KEY`, `OPENAGENDA_AGENDA_UID`, `OPENAGENDA_SOURCE_NAME`
+  (optionnel, défaut `"OpenAgenda"`) — vides par défaut ;
+  `collect()` échoue explicitement (`CollectorException`) tant qu'elles
+  ne sont pas renseignées, plutôt que de bloquer le démarrage de
+  l'application.
+
+⚠️ **Action requise de ta part avant que ce collecteur puisse réellement
+fonctionner** : créer un compte OpenAgenda, obtenir une clé publique,
+choisir l'agenda Marseille à utiliser (ex. « Marseille Alive », ou l'agenda
+de l'Office de Tourisme de Marseille s'il en existe un accessible), relever
+son identifiant numérique (visible en pied de barre latérale sur
+openagenda.com), puis définir `OPENAGENDA_API_KEY` et `OPENAGENDA_AGENDA_UID`
+dans ton environnement. Sans ça, `collect()` lève une `CollectorException`
+explicite — comportement attendu, pas un bug.
+
+⚠️ Décisions prises pour ce premier collecteur, à valider :
+* une seule `CollectedActivity` par événement (sa prochaine occurrence,
+  `nextTiming`), pas une par créneau récurrent de `timings` ;
+* catégorie dérivée du premier mot clé français (`keywords.fr[0]`) —
+  OpenAgenda n'a pas de champ « catégorie » dédié sur les événements ;
+* les événements sans lieu physique (`location` absent) sont ignorés ;
+* URL source reconstruite (`https://openagenda.com/agendas/{agendaUid}/events/{slug}`),
+  faute d'URL canonique fournie directement par l'API.
+
+Tests : `OpenAgendaCollectorTest` (7 cas, `MockRestServiceServer`, aucun
+appel réseau réel) — conversion valide, événement sans lieu ignoré,
+liste vide, échec réseau, configuration manquante (clé/agenda).
+
+Non compilé/testé en sandbox : Maven Central inaccessible, comme pour
+LL-5002 et LL-3012.
 
 ## LL-5005 — Pipeline de normalisation ✅
 

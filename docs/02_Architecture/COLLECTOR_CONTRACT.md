@@ -76,6 +76,13 @@ avec la connaissance du comportement réel de la source retenue.
 
 ## Ce que ce contrat interdit explicitement
 
+**Mise à jour LL-5006 :** l'interface `Collector` a été créée en code
+(`com.locallife.backend.collector.domain.Collector`) à cette occasion,
+comme prévu ci-dessus. `getSourceName()` et `collect()` sont conformes
+à cette signature sans ajustement. Voir `PROJECT_STATUS.md` pour le
+détail du premier collecteur réel (`OpenAgendaCollector`) et les
+décisions prises pour l'implémenter.
+
 Conformément aux règles du sprint (`SPRINT_5.md`, section « Règles du
 sprint ») :
 
