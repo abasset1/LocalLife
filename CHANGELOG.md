@@ -1,33 +1,22 @@
 # Changelog
 
-## 0.4.0 - 2026-08-14
+## 0.4.0 - Sprint 4
 
 ### Added
 
-* Recherche géographique par rayon (`GET /api/v1/activities/nearby`,
-  PostGIS `ST_DWithin`) et par zone rectangulaire
-  (`GET /api/v1/activities/within-bounds`, PostGIS `&&`/
-  `ST_MakeEnvelope`), triées respectivement par distance et par id.
-* Filtres optionnels combinables sur les deux endpoints : statut,
-  catégorie (valeurs multiples séparées par des virgules), date
-  (ISO-8601, une activité est retenue si la date tombe dans sa période
-  `startDate`/`endDate`).
-* Frontend : filtres catégorie et date au-dessus de la carte,
-  géolocalisation navigateur (bouton dédié, permission explicite,
-  aucune position persistée), rechargement automatique des activités au
-  déplacement/zoom de la carte (bascule vers la recherche par zone),
-  états chargement/résultats/aucun résultat/erreur explicites.
-* Tests d'intégration couvrant les deux modes de recherche, chaque
-  filtre isolément, et leur combinaison (sémantique ET).
+* Recherche géographique par rayon avec PostGIS.
+* Recherche par zone cartographique (bounding box).
+* Filtres par catégorie et par date.
+* Géolocalisation utilisateur côté frontend.
+* Chargement des activités selon les critères géographiques.
+* Contrats d'API et documentation OpenAPI associés.
 
 ### Fixed
 
-* `BadSqlGrammarException` sur le filtre par date quand celui-ci n'était
-  pas fourni : PostgreSQL ne peut pas déterminer le type d'un paramètre
-  utilisé seul dans un test `IS NULL` sans contexte — cast explicite
-  `::date` ajouté.
+* Correction du filtre SQL par date nécessitant un cast explicite du paramètre PostgreSQL.
+* Correction de sécurité empêchant l'exposition de `passwordHash` dans les réponses de `UserController`.
 
-## 0.3.0 - 2026-08-11
+0.3.0 - 2026-08-11
 
 ### Added
 
