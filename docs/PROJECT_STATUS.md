@@ -330,7 +330,45 @@ métier. Implémentée en LL-5002 ci-dessous.
 ---
 # Prochaine action
 
-Sprint 5 : traiter LL-5009 — Journalisation des imports (dépend de LL-5008, ci-dessus).
+Sprint 5 : traiter LL-5010 — Tests du pipeline (dépend de LL-5009, ci-dessus).
+
+## LL-5009 — Journalisation des imports ✅
+
+**Dépendance :** LL-5008.
+
+`ImportResult` étendu avec les champs demandés par `SPRINT_5.md` :
+`sourceName`, `startedAt`, `endedAt`, `fetched`, `created`, `updated`,
+`ignored` (renommé depuis `rejected`), `errors` (nouveau). `archived`
+conservé au-delà du minimum demandé (décision LL-5008).
+
+`ImportService` :
+* chronomètre chaque import (`startedAt`/`endedAt` autour de tout le
+  traitement d'une source, y compris la résolution de la `Source` et
+  l'archivage) ;
+* journalise (SLF4J, niveau `INFO`) une ligne récapitulative par source
+  en fin d'import ;
+* **traitement par élément isolé** (`try/catch`) : une exception
+  inattendue sur un élément collecté (bug, donnée malformée au-delà de
+  ce que `NormalizationService` sait rejeter) est comptée dans
+  `errors` et journalisée (`WARN`), sans interrompre le traitement des
+  autres éléments de cette source — distinct d'`ignored` (rejet
+  « normal » et anticipé par la normalisation) ;
+* **échec total de la collecte** (`Collector#collect()` lève une
+  exception, ex. configuration OpenAgenda manquante ou panne réseau)
+  également capturé, journalisé (`ERROR`), traduit en un
+  `ImportResult` dégradé (`fetched=0`, `errors=1`) plutôt que de faire
+  échouer `importAll()` pour les autres sources.
+
+Aucun tableau de bord d'administration ajouté — explicitement exclu par
+`SPRINT_5.md` ; uniquement des logs applicatifs standard.
+
+Tests : `ImportServiceTest` complété (9 cas au total — les 6 de LL-5008
+adaptés aux nouveaux noms de champs, plus 3 nouveaux : `errors` sur
+échec inattendu d'un élément, résultat dégradé sur échec total du
+collecteur).
+
+Non compilé/testé en sandbox : Maven Central inaccessible, comme pour
+les tickets précédents.
 
 ## Correctif hors ticket — parsing des dates OpenAgenda
 

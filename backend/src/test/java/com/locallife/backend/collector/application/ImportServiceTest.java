@@ -1,7 +1,9 @@
 package com.locallife.backend.collector.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -12,6 +14,7 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import java.time.LocalDateTime;
@@ -78,15 +81,19 @@ class ImportServiceTest {
         // Then
         assertEquals(1, results.size());
         ImportResult result = results.get(0);
+        assertEquals("OpenAgenda Marseille", result.sourceName());
+        assertEquals(1, result.fetched());
         assertEquals(1, result.created());
         assertEquals(0, result.updated());
-        assertEquals(0, result.rejected());
+        assertEquals(0, result.ignored());
+        assertEquals(0, result.errors());
         assertEquals(0, result.archived());
+        assertFalse(result.startedAt().isAfter(result.endedAt()));
         verify(activityRepository).save(argThatMatchesNewActivity());
     }
 
     private Activity argThatMatchesNewActivity() {
-        return org.mockito.ArgumentMatchers.argThat(activity ->
+        return argThat(activity ->
                 activity.id() == null
                         && activity.sourceId().equals(10L)
                         && "external:OpenAgenda Marseille:ext-1".equals(activity.importKey()));
@@ -116,12 +123,11 @@ class ImportServiceTest {
         ImportResult result = results.get(0);
         assertEquals(0, result.created());
         assertEquals(1, result.updated());
-        verify(activityRepository).save(org.mockito.ArgumentMatchers.argThat(activity -> activity.id() != null
-                && activity.id().equals(42L)));
+        verify(activityRepository).save(argThat(activity -> activity.id() != null && activity.id().equals(42L)));
     }
 
     @Test
-    void importAll_ShouldCountRejected_WhenNormalizationRejectsData() {
+    void importAll_ShouldCountIgnored_WhenNormalizationRejectsData() {
         // Given
         when(collector.getSourceName()).thenReturn("OpenAgenda Marseille");
         when(sourceService.findOrCreateByName("OpenAgenda Marseille", "API", null)).thenReturn(SOURCE);
@@ -136,10 +142,53 @@ class ImportServiceTest {
 
         // Then
         ImportResult result = results.get(0);
+        assertEquals(1, result.fetched());
         assertEquals(0, result.created());
         assertEquals(0, result.updated());
-        assertEquals(1, result.rejected());
+        assertEquals(1, result.ignored());
+        assertEquals(0, result.errors());
         verify(activityRepository, never()).findBySourceIdAndImportKey(any(), any());
+    }
+
+    @Test
+    void importAll_ShouldCountError_WhenUnexpectedExceptionThrownForOneItem() {
+        // Given : la déduplication échoue de façon inattendue sur cet élément précis.
+        when(collector.getSourceName()).thenReturn("OpenAgenda Marseille");
+        when(sourceService.findOrCreateByName("OpenAgenda Marseille", "API", null)).thenReturn(SOURCE);
+        CollectedActivity item = collectedActivity("ext-1");
+        when(collector.collect()).thenReturn(List.of(item));
+        when(deduplicationService.computeDeduplicationKey(item)).thenThrow(new RuntimeException("boom"));
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+
+        // When
+        List<ImportResult> results = importService().importAll();
+
+        // Then : l'erreur sur cet élément ne fait pas planter tout l'import.
+        ImportResult result = results.get(0);
+        assertEquals(1, result.fetched());
+        assertEquals(0, result.created());
+        assertEquals(0, result.ignored());
+        assertEquals(1, result.errors());
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void importAll_ShouldReturnDegradedResult_WhenCollectorFailsEntirely() {
+        // Given
+        when(collector.getSourceName()).thenReturn("OpenAgenda Marseille");
+        when(sourceService.findOrCreateByName("OpenAgenda Marseille", "API", null)).thenReturn(SOURCE);
+        when(collector.collect()).thenThrow(new CollectorException("panne réseau", null));
+
+        // When
+        List<ImportResult> results = importService().importAll();
+
+        // Then : pas d'exception propagée, un résultat dégradé est renvoyé pour cette source.
+        assertEquals(1, results.size());
+        ImportResult result = results.get(0);
+        assertEquals(0, result.fetched());
+        assertEquals(0, result.created());
+        assertEquals(1, result.errors());
+        verify(activityRepository, never()).findBySourceId(any());
     }
 
     @Test
@@ -160,7 +209,7 @@ class ImportServiceTest {
         // Then
         ImportResult result = results.get(0);
         assertEquals(1, result.archived());
-        verify(activityRepository).save(org.mockito.ArgumentMatchers.argThat(activity ->
+        verify(activityRepository).save(argThat(activity ->
                 activity.id().equals(42L) && "ARCHIVED".equals(activity.status())));
     }
 

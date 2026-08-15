@@ -6,10 +6,13 @@ import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -70,9 +73,29 @@ import org.springframework.stereotype.Service;
  * demandent un — {@code importAll()} est appelable directement (tests,
  * LL-5010) mais rien n'invoque encore cette méthode dans l'application en
  * cours d'exécution.
+ *
+ * <b>Journalisation (LL-5009)</b> : chaque import de source produit une
+ * ligne de log (niveau {@code INFO}) résumant le résultat — voir
+ * {@code ImportResult} pour le détail des compteurs. Pas de tableau de
+ * bord d'administration (exclu explicitement par {@code SPRINT_5.md}) :
+ * uniquement des logs applicatifs standard (SLF4J), consultables comme
+ * n'importe quel autre log de l'application.
+ *
+ * ⚠️ Décision à valider : le traitement de chaque élément collecté est
+ * isolé par un {@code try/catch} — une exception inattendue sur un
+ * élément (bug, donnée totalement malformée) est comptée dans
+ * {@code errors} et journalisée ({@code WARN}), sans interrompre le
+ * traitement des autres éléments de cette source. De même, un échec total
+ * de {@code Collector#collect()} (ex. {@code CollectorException} :
+ * configuration manquante, panne réseau) est capturé, journalisé
+ * ({@code ERROR}) et traduit en un {@code ImportResult} dégradé
+ * ({@code fetched=0}, {@code errors=1}) plutôt que de faire échouer
+ * {@code importAll()} pour les autres sources.
  */
 @Service
 public class ImportService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ImportService.class);
 
     /** Type par défaut attribué à une {@code Source} nouvellement créée à l'occasion d'un import. */
     private static final String DEFAULT_SOURCE_TYPE = "API";
@@ -105,39 +128,61 @@ public class ImportService {
     }
 
     private ImportResult importFrom(Collector collector) {
+        LocalDateTime startedAt = LocalDateTime.now();
         Source source = sourceService.findOrCreateByName(collector.getSourceName(), DEFAULT_SOURCE_TYPE, null);
-        List<CollectedActivity> collected = collector.collect();
+
+        List<CollectedActivity> collected;
+        try {
+            collected = collector.collect();
+        } catch (RuntimeException exception) {
+            LocalDateTime endedAt = LocalDateTime.now();
+            LOGGER.error("Échec de la collecte pour la source '{}' : {}", source.name(), exception.getMessage(),
+                    exception);
+            return new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0);
+        }
 
         int created = 0;
         int updated = 0;
-        int rejected = 0;
+        int ignored = 0;
+        int errors = 0;
         Set<String> seenKeys = new HashSet<>();
 
         for (CollectedActivity item : collected) {
-            String key = deduplicationService.computeDeduplicationKey(item);
-            seenKeys.add(key);
+            try {
+                String key = deduplicationService.computeDeduplicationKey(item);
+                seenKeys.add(key);
 
-            Optional<Activity> normalized = normalizationService.normalize(item);
-            if (normalized.isEmpty()) {
-                rejected++;
-                continue;
-            }
+                Optional<Activity> normalized = normalizationService.normalize(item);
+                if (normalized.isEmpty()) {
+                    ignored++;
+                    continue;
+                }
 
-            Optional<Activity> existing = activityRepository.findBySourceIdAndImportKey(source.id(), key);
-            Activity toSave = withSourceAndKey(
-                    normalized.get(), existing.map(Activity::id).orElse(null), source.id(), key);
-            activityRepository.save(toSave);
+                Optional<Activity> existing = activityRepository.findBySourceIdAndImportKey(source.id(), key);
+                Activity toSave = withSourceAndKey(
+                        normalized.get(), existing.map(Activity::id).orElse(null), source.id(), key);
+                activityRepository.save(toSave);
 
-            if (existing.isPresent()) {
-                updated++;
-            } else {
-                created++;
+                if (existing.isPresent()) {
+                    updated++;
+                } else {
+                    created++;
+                }
+            } catch (RuntimeException exception) {
+                errors++;
+                LOGGER.warn("Échec du traitement d'un élément collecté pour la source '{}' : {}",
+                        source.name(), exception.getMessage(), exception);
             }
         }
 
         int archived = archiveActivitiesNoLongerInSource(source.id(), seenKeys);
+        LocalDateTime endedAt = LocalDateTime.now();
 
-        return new ImportResult(source.name(), created, updated, archived, rejected);
+        ImportResult result = new ImportResult(
+                source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors, archived);
+        LOGGER.info("Import terminé pour la source '{}' : {}", source.name(), result);
+
+        return result;
     }
 
     private int archiveActivitiesNoLongerInSource(Long sourceId, Set<String> seenImportKeys) {
