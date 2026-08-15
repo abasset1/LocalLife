@@ -332,6 +332,24 @@ métier. Implémentée en LL-5002 ci-dessous.
 
 Sprint 5 : traiter LL-5009 — Journalisation des imports (dépend de LL-5008, ci-dessus).
 
+## Correctif hors ticket — démarrage de l'application cassé depuis LL-5006
+
+`OpenAgendaCollector` a deux constructeurs (public 3 arguments pour
+Spring, package-privé 4 arguments pour les tests) mais aucun n'était
+annoté `@Autowired`. Avec plusieurs constructeurs et aucune annotation,
+Spring essaie par défaut un constructeur sans argument — inexistant ici
+— et le démarrage de l'`ApplicationContext` échouait entièrement
+(`NoSuchMethodException: OpenAgendaCollector.<init>()`), faisant
+échouer en cascade tous les tests d'intégration dépendant du contexte
+Spring (`UserRepositoryIntegrationTest`,
+`ActivityControllerIntegrationTest`, etc.) — signalé par Alex après
+LL-5008.
+
+`GeocodingService` évitait ce piège avec un constructeur public **sans
+argument** comme point d'entrée Spring ; `OpenAgendaCollector`
+reproduisait le style sans ce détail. Correctif : `@Autowired` ajouté
+sur le constructeur public 3 arguments.
+
 ## LL-5008 — Persistance des imports ✅
 
 **Dépendance :** LL-5007.

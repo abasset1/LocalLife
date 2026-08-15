@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -62,6 +63,7 @@ public class OpenAgendaCollector implements Collector {
     private final String agendaUid;
     private final String sourceName;
 
+    @Autowired
     public OpenAgendaCollector(
             @Value("${openagenda.api-key:}") String apiKey,
             @Value("${openagenda.agenda-uid:}") String agendaUid,
