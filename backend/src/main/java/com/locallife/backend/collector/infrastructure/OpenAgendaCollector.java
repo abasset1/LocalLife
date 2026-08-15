@@ -150,8 +150,19 @@ public class OpenAgendaCollector implements Collector {
         return (frenchKeywords == null || frenchKeywords.isEmpty()) ? null : frenchKeywords.get(0);
     }
 
+    /**
+     * Tolère les deux formats de décalage horaire ISO 8601 ({@code +0100}
+     * et {@code +01:00}) : {@link OffsetDateTime#parse(CharSequence)} exige
+     * un « : », or la forme exacte renvoyée par l'API OpenAgenda n'est pas
+     * garantie (non vérifiable en sandbox faute d'accès réseau à
+     * l'API réelle — voir échec signalé par Alex après LL-5006/5008).
+     */
     private LocalDateTime toLocalDateTime(String isoOffsetDateTime) {
-        return isoOffsetDateTime == null ? null : OffsetDateTime.parse(isoOffsetDateTime).toLocalDateTime();
+        if (isoOffsetDateTime == null) {
+            return null;
+        }
+        String normalized = isoOffsetDateTime.replaceFirst("([+-]\\d{2})(\\d{2})$", "$1:$2");
+        return OffsetDateTime.parse(normalized).toLocalDateTime();
     }
 
     /** Sous-ensemble de la réponse JSON OpenAgenda qui nous intéresse. */

@@ -332,6 +332,17 @@ métier. Implémentée en LL-5002 ci-dessous.
 
 Sprint 5 : traiter LL-5009 — Journalisation des imports (dépend de LL-5008, ci-dessus).
 
+## Correctif hors ticket — parsing des dates OpenAgenda
+
+`OpenAgendaCollector#toLocalDateTime` utilisait
+`OffsetDateTime.parse()`, qui exige un décalage horaire avec « : »
+(`+01:00`). Signalé par Alex : la valeur `+0100` (sans « : ») fait
+échouer le parsing (`DateTimeParseException`). La forme exacte
+renvoyée par l'API OpenAgenda n'a pas pu être vérifiée en sandbox
+(pas d'accès réseau à l'API réelle) — correctif : normalisation du
+décalage (insertion du « : » si absent) avant parsing, pour tolérer
+les deux formes. Nouveau test couvrant la forme avec « : ».
+
 ## Correctif hors ticket — démarrage de l'application cassé depuis LL-5006
 
 `OpenAgendaCollector` a deux constructeurs (public 3 arguments pour

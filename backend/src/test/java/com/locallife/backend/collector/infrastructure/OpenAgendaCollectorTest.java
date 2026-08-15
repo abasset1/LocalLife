@@ -9,6 +9,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.locallife.backend.collector.domain.CollectedActivity;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -119,6 +120,29 @@ class OpenAgendaCollectorTest {
         OpenAgendaCollector collector = newCollector("key", "");
 
         assertThrows(CollectorException.class, collector::collect);
+    }
+
+    @Test
+    void collect_ShouldParseTiming_WhenOffsetHasColon() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        String eventWithColonOffset = """
+                {
+                  "slug": "concert-colon",
+                  "title": {"fr": "Concert"},
+                  "description": {"fr": "Description"},
+                  "keywords": {"fr": ["concert"]},
+                  "location": {"latitude": 43.2965, "longitude": 5.3698},
+                  "nextTiming": {"begin": "2026-12-01T10:00:00+01:00", "end": "2026-12-01T23:00:00+01:00"}
+                }
+                """;
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + eventWithColonOffset + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.size());
+        assertEquals(LocalDateTime.of(2026, 12, 1, 10, 0), result.get(0).startDate());
     }
 
 }
