@@ -330,7 +330,39 @@ métier. Implémentée en LL-5002 ci-dessous.
 ---
 # Prochaine action
 
-Sprint 5 : traiter LL-5011 — Vérifier l'affichage sur la carte (dépend de LL-5010, ci-dessus).
+Sprint 5 : traiter LL-5012 — Documentation (dépend de tous les tickets précédents, ci-dessus).
+
+## LL-5011 — Vérifier l'affichage sur la carte ✅
+
+**Dépendance :** LL-5006, LL-5008.
+
+Ticket de vérification, pas de nouvelle fonctionnalité (« aucune
+fonctionnalité frontend spécifique aux collecteurs n'est requise » —
+explicite dans `SPRINT_5.md`). `ImportedActivityVisibilityIntegrationTest`
+(nouveau, même approche que `ImportServiceIntegrationTest` de LL-5010) :
+importe une activité via `ImportService` (pipeline réel, `Collector`
+mocké), puis vérifie via `ActivityService` — les mêmes méthodes
+qu'utilise `ActivityController` — qu'elle est retrouvée exactement
+comme le serait une activité manuelle, sans aucun traitement particulier
+côté recherche/filtres.
+
+Les 4 critères de `SPRINT_5.md` couverts :
+* recherche géographique par rayon (LL-4002/LL-4003) ;
+* recherche par zone cartographique (LL-4006/LL-4007) ;
+* filtres catégorie (LL-4004) et date (LL-4005) — cas positif et
+  négatif pour les deux ;
+* filtre statut (`PUBLISHED`, le statut attribué aux imports depuis
+  LL-5005) ;
+* consultation individuelle par id (LL-1007) — titre, description,
+  statut, et présence de `sourceId`/`importKey` (LL-5008).
+
+Aucun code de production modifié : ce ticket ne fait que prouver, par
+les tests, que l'intégration Sprint 4 ↔ Sprint 5 fonctionne déjà
+correctement — cohérent avec l'absence totale de traitement spécial
+pour les activités importées dans `ActivityService`/`ActivityRepository`.
+
+Non compilé/testé en sandbox : Maven Central inaccessible, comme pour
+les tickets précédents.
 
 ## LL-5010 — Tests du pipeline ✅
 

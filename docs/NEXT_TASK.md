@@ -25,13 +25,13 @@ Sprint 4 terminé (LL-4001 à LL-4015).
 
 Correctif hors ticket : fuite `passwordHash` signalée en LL-3010, corrigée avant reprise du Sprint 4 (`UserController` renvoie désormais `UserResponse`).
 
-Tickets terminés (Sprint 5, en cours) : LL-5001 à LL-5009 (voir PROJECT_STATUS.md pour le détail complet de chacun — contrats Source/Collector, modules Source et Collector, pipeline de normalisation/déduplication/persistance/journalisation des imports OpenAgenda), LL-5010 (tests du pipeline — `ImportServiceIntegrationTest`, contexte Spring réel + base réelle, seul `Collector` mocké (`@MockitoBean`, `@MockBean` retiré en Spring Boot 4.0) ; les 7 cas demandés par `SPRINT_5.md` couverts : donnée valide, invalide, doublon, nouvelle activité, mise à jour, erreur du collecteur, import vide — voir PROJECT_STATUS.md).
+Tickets terminés (Sprint 5, en cours) : LL-5001 à LL-5010 (voir PROJECT_STATUS.md pour le détail complet de chacun — contrats Source/Collector, modules Source et Collector, pipeline de normalisation/déduplication/persistance/journalisation des imports OpenAgenda, tests d'intégration du pipeline), LL-5011 (vérifier l'affichage sur la carte — ticket de vérification, pas de nouvelle fonctionnalité ; `ImportedActivityVisibilityIntegrationTest` confirme qu'une activité importée est retrouvée par recherche géographique/bounding box, filtrable par catégorie/date/statut, et consultable par id, exactement comme une activité manuelle — voir PROJECT_STATUS.md).
 
 Correctifs hors ticket (Sprint 5) : `@Autowired` manquant sur `OpenAgendaCollector` (deux constructeurs sans annotation → échec de démarrage du contexte Spring, cascade de 47 erreurs de test signalée par Alex après LL-5008) ; parsing des dates OpenAgenda intolérant au format de décalage horaire sans « : » (`+0100` vs `+01:00`) — voir PROJECT_STATUS.md pour le détail des deux correctifs.
 
 **Prochaine tâche**
 
-Sprint 5 : traiter LL-5011 — Vérifier l'affichage sur la carte (dépend de LL-5010, ci-dessus).
+Sprint 5 : traiter LL-5012 — Documentation (dépend de tous les tickets précédents, ci-dessus).
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.
