@@ -330,7 +330,47 @@ métier. Implémentée en LL-5002 ci-dessous.
 ---
 # Prochaine action
 
-Sprint 5 : traiter LL-5010 — Tests du pipeline (dépend de LL-5009, ci-dessus).
+Sprint 5 : traiter LL-5011 — Vérifier l'affichage sur la carte (dépend de LL-5010, ci-dessus).
+
+## LL-5010 — Tests du pipeline ✅
+
+**Dépendance :** LL-5008.
+
+`ImportServiceIntegrationTest` (nouveau, `@SpringBootTest` + `@Transactional`,
+base réelle — comme `ActivityRepositoryIntegrationTest`) : contrairement
+aux tests unitaires de LL-5008/LL-5009 (tout mocké), seul `Collector` est
+remplacé par un mock ici — `NormalizationService`, `DeduplicationService`,
+`SourceService`/`SourceRepository`, `ActivityRepository` sont les
+implémentations réelles. C'est la seule façon de vérifier que le pipeline
+fonctionne réellement de bout en bout (pas seulement que chaque maillon,
+testé isolément, appelle correctement le suivant).
+
+⚠️ Point technique à connaître : `@MockBean` est retiré en Spring Boot
+4.0 (déprécié depuis 3.4) — ce projet est en Spring Boot 4.1. Utilisé
+`@MockitoBean` (`org.springframework.test.context.bean.override.mockito`,
+fourni par `spring-test`, déjà sur le classpath de test via
+`spring-boot-starter-test`) à la place. Premier test du projet à mocker
+un bean dans un contexte Spring réel — aucun autre test existant n'en
+avait encore eu besoin.
+
+Les 7 cas demandés par `SPRINT_5.md` sont couverts, chacun avec un nom
+de source unique (`UUID`) pour éviter toute interférence entre tests
+(même précaution que `activityAt` dans
+`ActivityRepositoryIntegrationTest`) :
+* donnée valide → activité créée avec les bons champs ;
+* donnée invalide (titre vide) → `ignored`, rien en base ;
+* doublon → import exécuté deux fois avec la même donnée, une seule
+  ligne en base au final ;
+* nouvelle activité → `created` au premier import ;
+* mise à jour → import exécuté deux fois avec un titre modifié, même
+  ligne (même `id`) mise à jour plutôt qu'une nouvelle créée ;
+* erreur du collecteur → `CollectorException`, résultat dégradé, pas
+  d'exception propagée, rien en base ;
+* import vide → `collect()` retourne une liste vide, tous les
+  compteurs à zéro, pas d'erreur.
+
+Non compilé/testé en sandbox : Maven Central inaccessible, comme pour
+les tickets précédents.
 
 ## LL-5009 — Journalisation des imports ✅
 
