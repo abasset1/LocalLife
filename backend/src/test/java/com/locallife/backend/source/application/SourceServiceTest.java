@@ -84,4 +84,47 @@ class SourceServiceTest {
         assertFalse(result.isPresent());
     }
 
+    @Test
+    void findByType_ShouldDelegateToRepository() {
+        // Given
+        Source manualSource = new Source(1L, "Saisie manuelle", "MANUAL", null, "ACTIVE", null);
+        when(sourceRepository.findByType("MANUAL")).thenReturn(Optional.of(manualSource));
+
+        // When
+        Optional<Source> result = sourceService.findByType("MANUAL");
+
+        // Then
+        assertTrue(result.isPresent());
+        assertEquals("Saisie manuelle", result.get().name());
+    }
+
+    @Test
+    void findOrCreateByName_ShouldReturnExistingSource_WhenAlreadyPresent() {
+        // Given
+        Source existing = new Source(2L, "OpenAgenda Marseille", "API", null, "ACTIVE", null);
+        when(sourceRepository.findByName("OpenAgenda Marseille")).thenReturn(Optional.of(existing));
+
+        // When
+        Source result = sourceService.findOrCreateByName("OpenAgenda Marseille", "API", "https://api.openagenda.com");
+
+        // Then
+        assertEquals(2L, result.id());
+        verify(sourceRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void findOrCreateByName_ShouldCreateSource_WhenNotPresent() {
+        // Given
+        when(sourceRepository.findByName("Nouvelle Source")).thenReturn(Optional.empty());
+        Source created = new Source(3L, "Nouvelle Source", "API", null, "ACTIVE", null);
+        when(sourceRepository.save(any(Source.class))).thenReturn(created);
+
+        // When
+        Source result = sourceService.findOrCreateByName("Nouvelle Source", "API", null);
+
+        // Then
+        assertEquals(3L, result.id());
+        verify(sourceRepository).save(any(Source.class));
+    }
+
 }

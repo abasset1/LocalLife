@@ -38,4 +38,27 @@ public class SourceService {
         return sourceRepository.findById(id);
     }
 
+    /**
+     * Recherche la source réservée par type (LL-5008) — utilisée pour
+     * retrouver la source {@code MANUAL} sans dépendre de son libellé
+     * exact (voir {@code SourceRepository#findByType}).
+     */
+    public Optional<Source> findByType(String type) {
+        return sourceRepository.findByType(type);
+    }
+
+    /**
+     * Retrouve une source par nom, ou la crée si elle n'existe pas encore
+     * (LL-5008) — c'est le rapprochement « recherche par nom, création si
+     * absente » explicitement différé à ce ticket par
+     * {@code SOURCE_CONTRACT.md} et {@code COLLECTOR_CONTRACT.md}.
+     * Utilisée par le pipeline d'import pour retrouver la {@code Source}
+     * correspondant au {@code getSourceName()} d'un {@code Collector},
+     * quitte à en créer une la première fois qu'un collecteur donné est
+     * exécuté.
+     */
+    public Source findOrCreateByName(String name, String type, String url) {
+        return sourceRepository.findByName(name).orElseGet(() -> createSource(name, type, url));
+    }
+
 }

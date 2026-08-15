@@ -37,9 +37,9 @@ class ActivityControllerTest {
         // Given
         List<Activity> activities = List.of(
                 new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
-                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE"),
+                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null),
                 new Activity(2L, "Another Activity", "Another Description", "Another Category", 1.0, 1.0,
-                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE")
+                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null)
         );
         when(activityService.findAll()).thenReturn(activities);
 
@@ -68,7 +68,7 @@ class ActivityControllerTest {
     void getActivityById_ShouldReturnActivity_WhenFound() {
         // Given
         Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
-                LocalDateTime.now(), LocalDateTime.now(), "ACTIVE");
+                LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null);
         when(activityService.findById(1L)).thenReturn(Optional.of(activity));
 
         // When
@@ -96,7 +96,7 @@ class ActivityControllerTest {
     void createActivity_ShouldReturnCreated_WithActivity() {
         // Given
         Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
-                LocalDateTime.now(), null, "PENDING");
+                LocalDateTime.now(), null, "PENDING", 1L, null);
         when(activityService.createActivity(
                 "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille"))
                 .thenReturn(created);
@@ -154,7 +154,7 @@ class ActivityControllerTest {
     void getNearbyActivities_ShouldReturnOk_WithActivities() {
         // Given
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED");
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", "PUBLISHED", "concert", "2026-09-05"))
                 .thenReturn(List.of(nearby));
 
@@ -204,7 +204,7 @@ class ActivityControllerTest {
     void getActivitiesWithinBounds_ShouldReturnOk_WithActivities() {
         // Given
         Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED");
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null);
         when(activityService.findWithinBounds(
                 "43.28", "5.35", "43.31", "5.40", "PUBLISHED", "concert", "2026-09-05"))
                 .thenReturn(List.of(inBounds));

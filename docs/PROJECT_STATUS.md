@@ -330,7 +330,76 @@ métier. Implémentée en LL-5002 ci-dessous.
 ---
 # Prochaine action
 
-Sprint 5 : traiter LL-5008 — Persistance des imports (dépend de LL-5006, LL-5007, ci-dessus).
+Sprint 5 : traiter LL-5009 — Journalisation des imports (dépend de LL-5008, ci-dessus).
+
+## LL-5008 — Persistance des imports ✅
+
+**Dépendance :** LL-5007.
+
+Le lien `Activity` → `Source`, explicitement différé depuis LL-5001/
+LL-5003, est enfin créé :
+* migration `V9__link_activity_to_source.sql` : colonnes `source_id`
+  (FK vers `source`, `NOT NULL`, rétro-remplie sur la source `MANUAL`
+  pour les activités existantes) et `import_key` (nullable — `NULL`
+  pour toute activité manuelle) ; index unique partiel
+  `(source_id, import_key) WHERE import_key IS NOT NULL` ;
+* `Activity` (record) : deux champs ajoutés (`sourceId`, `importKey`) —
+  **tous les sites de construction existants ont dû être mis à jour**
+  (`ActivityService#createActivity`, `NormalizationService`,
+  `ActivityControllerTest`, `ActivityServiceTest`,
+  `ActivityRepositoryIntegrationTest`) : conséquence nécessaire, pas un
+  élargissement de périmètre — voir chaque fichier pour le détail ;
+* `ActivityService#createActivity` : résout désormais la source `MANUAL`
+  via `SourceService#findByType` avant de sauvegarder — comportement
+  observable inchangé (critère « création manuelle non affectée »),
+  seul un champ interne obligatoire est renseigné.
+
+* `SourceRepository`/`SourceService` : `findByType` (résoudre `MANUAL`
+  sans dépendre de son libellé) et `findOrCreateByName` (rapprochement
+  « recherche par nom, création si absente », différé depuis LL-5003/
+  LL-5001 — voir `SOURCE_CONTRACT.md`/`COLLECTOR_CONTRACT.md`).
+* `ActivityRepository` : `findBySourceIdAndImportKey` (détection d'une
+  activité déjà importée) et `findBySourceId` (balayage pour
+  l'archivage, scopé à une seule source).
+* `collector/application/ImportService.java` : orchestre `Collector` →
+  `DeduplicationService` → `NormalizationService` →
+  `ActivityRepository`/`SourceService`. `importAll()` boucle sur tous
+  les `Collector` enregistrés (`List<Collector>`, un seul actuellement :
+  `OpenAgendaCollector`).
+* `collector/application/ImportResult.java` : récapitulatif
+  (créées/mises à jour/archivées/rejetées) par source.
+
+⚠️ Décisions prises, à valider :
+* **suppression douce** : une activité déjà importée pour une source
+  mais absente de la dernière collecte est **archivée** (`status =
+  ARCHIVED`), jamais supprimée physiquement — plus prudent pour un MVP
+  (une panne réseau partielle du collecteur ne doit pas effacer des
+  activités réelles), et exploitable par LL-5009. ⚠️ **Point à
+  surveiller** : ni la recherche ni la carte ne filtrent `status` par
+  défaut — une activité `ARCHIVED` continuera d'apparaître tant qu'un
+  filtre explicite n'est pas ajouté (hors périmètre de ce ticket) ;
+* type par défaut `"API"` attribué à une `Source` nouvellement créée
+  lors d'un import — `Collector` n'expose pas de `getSourceType()`
+  (voir `COLLECTOR_CONTRACT.md`), ce choix serait à revoir si un futur
+  collecteur RSS est ajouté ;
+* une donnée rejetée par la normalisation (invalide) n'est pas comptée
+  comme « vue » : si elle correspond à une activité déjà importée,
+  celle-ci sera archivée à ce passage plutôt que laissée telle quelle.
+
+**Aucun déclencheur ajouté** (pas d'endpoint, pas de tâche planifiée) :
+ni `SPRINT_5.md` ni les critères de LL-5008 n'en demandent un.
+`ImportService#importAll()` est appelable directement (tests, LL-5010)
+mais rien ne l'invoque encore dans l'application en cours d'exécution —
+à surveiller si Alex attend un import réellement déclenchable avant la
+fin du sprint.
+
+Tests : `ImportServiceTest` (6 cas — création, mise à jour, rejet,
+archivage, non-réarchivage, portée par source), `SourceServiceTest`
+complété (`findByType`, `findOrCreateByName`), et les tests
+`Activity`-dépendants existants mis à jour pour compiler.
+
+Non compilé/testé en sandbox : Maven Central inaccessible, comme pour
+LL-5002/LL-5006.
 
 ## LL-5007 — Détection simple des doublons ✅
 

@@ -59,7 +59,13 @@ public class NormalizationService {
                 // modération qu'une contribution anonyme ; sans quoi les
                 // activités importées n'apparaîtraient jamais sur la carte,
                 // faute d'interface de modération dans ce sprint.
-                "PUBLISHED");
+                "PUBLISHED",
+                // sourceId/importKey laissés à null ici : ce service ne connaît
+                // pas la persistance (ni la Source résolue, ni la clé de
+                // déduplication). Remplis par ImportService (LL-5008) juste
+                // avant la sauvegarde — voir sa javadoc.
+                null,
+                null);
         return Optional.of(activity);
     }
 

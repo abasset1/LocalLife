@@ -3,6 +3,8 @@ package com.locallife.backend.activity.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.source.domain.Source;
+import com.locallife.backend.source.infrastructure.SourceRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,13 +40,29 @@ class ActivityRepositoryIntegrationTest {
     @Autowired
     private ActivityRepository activityRepository;
 
+    @Autowired
+    private SourceRepository sourceRepository;
+
+    /**
+     * Toute {@code Activity} requiert désormais un {@code sourceId}
+     * (LL-5008) : les activités créées par ces tests sont rattachées à la
+     * source réservée {@code MANUAL} (garantie présente par
+     * {@code V8__create_source_table.sql}), ce qui reflète fidèlement des
+     * activités qui n'ont rien à voir avec un import.
+     */
+    private Long manualSourceId() {
+        return sourceRepository.findByType("MANUAL")
+                .map(Source::id)
+                .orElseThrow(() -> new IllegalStateException("Source MANUAL introuvable — migration V8 manquante ?"));
+    }
+
     private Activity activityAt(
             double latitude, double longitude, String status, String category,
             LocalDateTime startDate, LocalDateTime endDate) {
         String uniqueTitle = "test-" + UUID.randomUUID();
         return activityRepository.save(new Activity(
                 null, uniqueTitle, "description", category,
-                latitude, longitude, startDate, endDate, status));
+                latitude, longitude, startDate, endDate, status, manualSourceId(), null));
     }
 
     private Activity activityAt(double latitude, double longitude, String status, String category) {

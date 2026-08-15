@@ -130,4 +130,22 @@ public interface ActivityRepository extends Repository<Activity, Long> {
             @Param("categoriesCsv") String categoriesCsv,
             @Param("date") LocalDate date);
 
+    /**
+     * Recherche par source et clé de déduplication (LL-5008) : retrouve
+     * une activité déjà importée pour décider si le pipeline doit la
+     * mettre à jour (trouvée) ou en créer une nouvelle (absente). Voir
+     * {@code DeduplicationService} (LL-5007) pour le calcul de
+     * {@code importKey} et {@code ImportService} pour l'utilisation.
+     */
+    Optional<Activity> findBySourceIdAndImportKey(Long sourceId, String importKey);
+
+    /**
+     * Toutes les activités d'une source donnée (LL-5008), y compris déjà
+     * archivées — utilisé par {@code ImportService} pour repérer celles
+     * qui n'apparaissent plus dans la dernière collecte (stratégie de
+     * suppression documentée dans sa javadoc) et pour éviter de retoucher
+     * celles déjà {@code ARCHIVED}.
+     */
+    List<Activity> findBySourceId(Long sourceId);
+
 }

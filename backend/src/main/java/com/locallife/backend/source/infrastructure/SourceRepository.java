@@ -23,4 +23,21 @@ public interface SourceRepository extends Repository<Source, Long> {
 
     Optional<Source> findById(Long id);
 
+    /**
+     * Recherche par nom (LL-5008) : sert à rapprocher un {@code Collector}
+     * (identifié par {@code getSourceName()}, voir
+     * {@code COLLECTOR_CONTRACT.md}) de la ligne {@code Source}
+     * correspondante — création si absente, voir
+     * {@code SourceService#findOrCreateByName}.
+     */
+    Optional<Source> findByName(String name);
+
+    /**
+     * Recherche par type (LL-5008) : sert à retrouver la source réservée
+     * {@code MANUAL} (une seule ligne, insérée par la migration
+     * {@code V8__create_source_table.sql}) sans dépendre de son libellé
+     * exact, utilisé par {@code ActivityService#createActivity}.
+     */
+    Optional<Source> findByType(String type);
+
 }

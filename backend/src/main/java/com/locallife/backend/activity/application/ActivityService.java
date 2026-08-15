@@ -4,6 +4,8 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
+import com.locallife.backend.source.application.SourceService;
+import com.locallife.backend.source.domain.Source;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
@@ -35,10 +37,13 @@ public class ActivityService {
 
     private final ActivityRepository activityRepository;
     private final GeocodingService geocodingService;
+    private final SourceService sourceService;
 
-    public ActivityService(ActivityRepository activityRepository, GeocodingService geocodingService) {
+    public ActivityService(
+            ActivityRepository activityRepository, GeocodingService geocodingService, SourceService sourceService) {
         this.activityRepository = activityRepository;
         this.geocodingService = geocodingService;
+        this.sourceService = sourceService;
     }
 
     public List<Activity> findAll() {
@@ -243,12 +248,25 @@ public class ActivityService {
      * début/fin n'est demandée par le formulaire de contribution ; la date
      * de soumission est utilisée comme {@code startDate} en attendant un
      * futur ticket sur ce point.
+     *
+     * Rattachée à la source réservée {@code MANUAL} (LL-5008, voir
+     * {@code SOURCE_CONTRACT.md}) : critère d'acceptation explicite de
+     * LL-5008, « création manuelle d'une activité non affectée » — le
+     * comportement observable ne change pas, seul un {@code sourceId}
+     * désormais obligatoire est renseigné en interne. {@code importKey}
+     * reste {@code null} : aucune donnée collectée à déduplicer pour une
+     * contribution manuelle.
      */
     public Activity createActivity(String title, String description, String category, String address) {
         Coordinates coordinates = geocodingService.geocode(address);
+        Long manualSourceId = sourceService.findByType("MANUAL")
+                .map(Source::id)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Source MANUAL introuvable — migration V8__create_source_table.sql manquante ?"));
         Activity activity = new Activity(
                 null, title, description, category,
-                coordinates.latitude(), coordinates.longitude(), LocalDateTime.now(), null, "PENDING");
+                coordinates.latitude(), coordinates.longitude(), LocalDateTime.now(), null, "PENDING",
+                manualSourceId, null);
         return activityRepository.save(activity);
     }
 

@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.geocoding.application.GeocodingService;
+import com.locallife.backend.source.application.SourceService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -39,15 +40,18 @@ class ActivityServiceTest {
     @Mock
     private GeocodingService geocodingService;
 
+    @Mock
+    private SourceService sourceService;
+
     private ActivityService activityService() {
-        return new ActivityService(activityRepository, geocodingService);
+        return new ActivityService(activityRepository, geocodingService, sourceService);
     }
 
     @Test
     void findNearby_ShouldConvertRadiusFromKilometersToMeters_AndDelegateToRepository() {
         // Given
         Activity expected = new Activity(
-                1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED");
+                1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED", 1L, null);
         when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, null, null, null))
                 .thenReturn(List.of(expected));
 
@@ -226,7 +230,7 @@ class ActivityServiceTest {
     void findWithinBounds_ShouldDelegateToRepository_WithParsedCoordinates() {
         // Given
         Activity expected = new Activity(
-                1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED");
+                1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null);
         when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, null, null, null))
                 .thenReturn(List.of(expected));
 
