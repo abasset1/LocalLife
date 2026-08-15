@@ -52,6 +52,54 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 
 ---
 
+## Backend — activités `ARCHIVED` visibles par défaut (recherche/carte)
+
+* **Détecté** : lors de LL-5008 (persistance des imports, Sprint 5),
+  formalisé en LL-5012.
+* **Où** : `ActivityService#findNearby`/`#findWithinBounds`
+  (`com.locallife.backend.activity.application`).
+* **Nature** : le pipeline d'import (LL-5008) archive (`status =
+  "ARCHIVED"`) une activité déjà importée mais absente d'une collecte
+  plus récente, plutôt que de la supprimer physiquement. Or ni la
+  recherche géographique ni la recherche par zone ne filtrent `status`
+  par défaut (paramètre optionnel) — une activité `ARCHIVED` continue
+  donc d'apparaître sur la carte comme n'importe quelle autre.
+* **Impact réel** : une activité qui n'existe plus réellement (source
+  supprimée) reste visible aux utilisateurs jusqu'à ce qu'un filtre
+  explicite soit ajouté.
+* **Correctif disponible** : exclure `ARCHIVED` par défaut côté
+  requête (`ActivityRepository`) quand `status` n'est pas fourni
+  explicitement, ou filtrer côté frontend.
+* **Pourquoi pas corrigé immédiatement** : modifier le comportement par
+  défaut d'un endpoint utilisé depuis le Sprint 4 est un changement de
+  comportement qui dépasse le périmètre d'un ticket d'import (LL-5008)
+  ou de documentation (LL-5012) — nécessite une décision produit/un
+  ticket dédié.
+* **Statut** : ouvert.
+
+---
+
+## Backend — aucun déclencheur pour le pipeline d'import
+
+* **Détecté** : LL-5008/LL-5009, formalisé en LL-5012.
+* **Où** : `ImportService#importAll()`
+  (`com.locallife.backend.collector.application`).
+* **Nature** : aucun ticket du Sprint 5 ne demandait explicitement de
+  déclencheur (tâche planifiée, endpoint) pour exécuter l'import. La
+  méthode existe, fonctionne (tests LL-5010/LL-5011), mais rien ne
+  l'appelle dans l'application en cours d'exécution.
+* **Impact réel** : le pipeline est fonctionnel mais inerte tant qu'un
+  déclencheur n'est pas ajouté — aucune donnée OpenAgenda ne sera
+  importée en usage réel sans intervention.
+* **Correctif disponible** : `@Scheduled` (tâche planifiée) ou endpoint
+  d'administration protégé, selon la préférence d'Alex.
+* **Pourquoi pas corrigé immédiatement** : décision produit (fréquence
+  souhaitée, méthode de déclenchement) plutôt que choix technique
+  unilatéral — à trancher avec Alex avant implémentation.
+* **Statut** : ouvert.
+
+---
+
 <!--
 Modèle pour une nouvelle entrée :
 

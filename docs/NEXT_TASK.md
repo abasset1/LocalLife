@@ -1,13 +1,14 @@
 # NEXT_TASK.md
 
 **État actuel**
-Sprint 4 terminé (recherche et découverte géographique — voir docs/05_Sprints/SPRINT_4.md). Sprint 5 pas encore démarré.
+Sprint 5 terminé (alimentation réelle — source, collecteur, pipeline d'import — voir docs/05_Sprints/SPRINT_5.md). Prochain sprint pas encore défini.
 
 Sprint 0 terminé (socle technique backend).
 Sprint 1 terminé (première fonctionnalité visible — module Activity, API de consultation, carte, popup, documentation).
 Sprint 2 terminé (utilisateurs, catégories, formulaire de contribution).
 Sprint 3 terminé (authentification, géocodage, gestion des utilisateurs).
 Sprint 4 terminé (recherche et découverte géographique).
+Sprint 5 terminé (alimentation réelle — source, collecteur, pipeline d'import).
 
 Tickets terminés (Sprint 0) : LL-0001 à LL-0015 — voir PROJECT_STATUS.md pour le détail.
 
@@ -29,9 +30,11 @@ Tickets terminés (Sprint 5, en cours) : LL-5001 à LL-5010 (voir PROJECT_STATUS
 
 Correctifs hors ticket (Sprint 5) : `@Autowired` manquant sur `OpenAgendaCollector` (deux constructeurs sans annotation → échec de démarrage du contexte Spring, cascade de 47 erreurs de test signalée par Alex après LL-5008) ; parsing des dates OpenAgenda intolérant au format de décalage horaire sans « : » (`+0100` vs `+01:00`) — voir PROJECT_STATUS.md pour le détail des deux correctifs.
 
+Sprint 5 terminé (LL-5001 à LL-5012). Documentation mise à jour en LL-5012 : `ARCHITECTURE.md` (vue d'ensemble des modules et du pipeline), nouveau `COLLECTOR_OPERATIONS.md`, `ROADMAP.md` (les deux, y compris correction d'informations obsolètes dans l'ancien), `README.md`, et deux entrées ajoutées à `DETTE_TECHNIQUE.md` (filtrage `status` absent par défaut, absence de déclencheur pour le pipeline d'import) — voir PROJECT_STATUS.md pour le détail.
+
 **Prochaine tâche**
 
-Sprint 5 : traiter LL-5012 — Documentation (dépend de tous les tickets précédents, ci-dessus).
+Prochain sprint à définir avec Alex.
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.

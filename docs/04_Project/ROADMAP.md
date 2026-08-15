@@ -14,7 +14,7 @@
 ---
 
 ## Phase 1 — Construction du socle et du MVP
-**Statut : 🟡 En cours**
+**Statut : ✅ Terminé**
 
 ### Sprint 0 — Socle technique
 **Statut : ✅ Terminé**
@@ -46,18 +46,18 @@ JWT, BCrypt, protection des endpoints, authentification frontend et géocodage.
 - Intégration des filtres dans la carte
 
 ### Sprint 5 — Alimentation réelle
-**Statut : 🟡 À démarrer**
+**Statut : ✅ Terminé**
 
-Objectif : intégrer une première source réelle et valider le pipeline de collecte.
-
-- Source
-- Collector
-- Normalisation
-- Validation
-- Déduplication simple
-- Persistance
-- Journalisation
-- Tests
+- Modèle et module `Source`, source réservée `MANUAL` pour les
+  contributions manuelles.
+- Contrat et interface `Collector` ; premier collecteur réel
+  (OpenAgenda).
+- Modèle `CollectedActivity`, pipeline de normalisation et validation.
+- Détection simple des doublons (identifiant externe, ou clé composite).
+- Persistance des imports (création/mise à jour/suppression douce),
+  journalisation.
+- Tests du pipeline (cas principaux automatisés) et vérification de
+  l'intégration avec la recherche/les filtres du Sprint 4.
 
 ---
 

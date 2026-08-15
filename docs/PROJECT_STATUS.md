@@ -263,7 +263,7 @@ uniquement la requête SQL corrigée.
 ---
 # Sprint 5
 
-Statut : 🟡 À démarrer.
+Statut : ✅ Terminé.
 
 Objectif : alimenter LocalLife avec une première source réelle et valider le pipeline collecte → normalisation → validation → persistance.
 
@@ -330,7 +330,42 @@ métier. Implémentée en LL-5002 ci-dessous.
 ---
 # Prochaine action
 
-Sprint 5 : traiter LL-5012 — Documentation (dépend de tous les tickets précédents, ci-dessus).
+Sprint 5 terminé (LL-5001 à LL-5012). Prochain sprint à définir avec Alex.
+
+Le Sprint 5 étant terminé, aucune tâche du Sprint 5 ne doit être reprise sauf régression ou anomalie découverte après clôture.
+
+## LL-5012 — Documentation ✅
+
+**Dépendance :** tous les tickets précédents.
+
+Mis à jour, conformément à `SPRINT_5.md` :
+* `PROJECT_STATUS.md` (ce fichier) : statut du sprint passé à
+  « ✅ Terminé », prochaine action mise à jour ;
+* `docs/04_Project/ROADMAP.md` et `docs/ROADMAP.md` : Sprint 5 marqué
+  terminé avec son contenu réel (le second contenait des informations
+  obsolètes attribuant à tort le pipeline d'import au Sprint 3 —
+  corrigé au passage) ;
+* `docs/02_Architecture/ARCHITECTURE.md` : passé d'un résumé de deux
+  lignes à une vue d'ensemble des modules, des couches, et du pipeline
+  d'import ;
+* `docs/02_Architecture/COLLECTOR_OPERATIONS.md` (nouveau) :
+  documentation opérationnelle du collecteur — configuration,
+  déclenchement (ou plutôt son absence), déduplication, stratégie de
+  suppression douce, et guide pour ajouter un futur collecteur, y
+  compris les deux pièges déjà rencontrés (constructeur `@Autowired`
+  manquant, format de décalage horaire) ;
+* `README.md` (racine) : section « Sprint 5 — Alimentation réelle »
+  ajoutée, même format que les sections précédentes.
+
+**Au-delà du périmètre strict du ticket** (justifié : ces fichiers
+existent précisément pour ce type d'information, et les deux points
+étaient déjà flagués comme ⚠️ dans plusieurs tickets précédents sans
+jamais avoir été consolidés) : deux entrées ajoutées à
+`docs/DETTE_TECHNIQUE.md` — le filtrage `status` absent par défaut
+(activités `ARCHIVED` toujours visibles) et l'absence de déclencheur
+pour `ImportService#importAll()`.
+
+Non compilé (documentation uniquement, aucun fichier source touché).
 
 ## LL-5011 — Vérifier l'affichage sur la carte ✅
 

@@ -73,6 +73,25 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
   * États affichés à l'utilisateur : chargement, résultats, aucun
     résultat, erreur.
 
+## Sprint 5 — Alimentation réelle
+
+* Les activités peuvent désormais provenir d'une source externe en plus
+  de la contribution manuelle, via un pipeline d'import : collecte →
+  déduplication → normalisation/validation → persistance →
+  journalisation.
+* Premier collecteur réel : [OpenAgenda](https://developers.openagenda.com/)
+  (`OPENAGENDA_API_KEY`/`OPENAGENDA_AGENDA_UID` à configurer, voir
+  [`docs/02_Architecture/COLLECTOR_OPERATIONS.md`](docs/02_Architecture/COLLECTOR_OPERATIONS.md)).
+* Toute activité est rattachée à une `Source` (source réservée `MANUAL`
+  pour les contributions manuelles, source externe pour les imports) —
+  transparent pour la recherche/les filtres/la carte, une activité
+  importée est consultable exactement comme une activité manuelle.
+* Une activité déjà importée mais absente d'une collecte plus récente
+  est archivée (`status = "ARCHIVED"`), jamais supprimée.
+* ⚠️ Aucun déclencheur automatique n'existe encore (pas de tâche
+  planifiée, pas d'endpoint) — voir
+  [`docs/02_Architecture/COLLECTOR_OPERATIONS.md`](docs/02_Architecture/COLLECTOR_OPERATIONS.md).
+
 ## Démarrage
 
 La base de données doit être démarrée avant le backend :
