@@ -27,6 +27,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * - POST /api/v1/activities : utilisateur connecté (JWT valide requis).
  * - POST /api/v1/users : réservé au rôle ADMIN (le flux public de création
  *   de compte passe désormais par POST /api/v1/auth/register, LL-3007).
+ * Endpoint protégé (LL-6005, Sprint 6) :
+ * - GET /api/v1/admin/activities : réservé au rôle ADMIN (consultation de
+ *   la file de modération par statut, voir {@code AdminActivityController}).
  * Tous les autres endpoints restent accessibles sans JWT (consultation
  * publique des activités/catégories, inscription/connexion).
  */
@@ -48,6 +51,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/activities").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin/activities").hasRole("ADMIN")
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptions -> exceptions

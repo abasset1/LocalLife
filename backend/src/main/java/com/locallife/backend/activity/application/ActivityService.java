@@ -12,6 +12,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +34,17 @@ public class ActivityService {
      * voir {@link #findNearby} et {@link #findWithinBounds}.
      */
     private static final String PUBLIC_STATUS = "PUBLISHED";
+
+    /**
+     * Statuts connus d'une activité, formalisés en LL-6003 — voir la
+     * javadoc du champ {@code status} sur {@link Activity} pour le détail
+     * des transitions. Pas d'enum dédié dans le domaine à ce stade (le
+     * champ {@code status} d'{@link Activity} reste une simple chaîne,
+     * comme partout ailleurs dans le projet) : cette liste sert à valider
+     * le paramètre {@code status} de {@link #findByStatus} (LL-6005,
+     * consultation administrative par statut).
+     */
+    private static final Set<String> KNOWN_STATUSES = Set.of("PENDING", "PUBLISHED", "REJECTED");
 
     private final ActivityRepository activityRepository;
     private final GeocodingService geocodingService;
@@ -196,6 +208,41 @@ public class ActivityService {
         String categoriesCsv = normalizeCategories(category);
         return activityRepository.findWithinBounds(
                 swLatitude, swLongitude, neLatitude, neLongitude, PUBLIC_STATUS, categoriesCsv, date);
+    }
+
+    /**
+     * Consultation administrative par statut (LL-6005) : liste les
+     * activités correspondant exactement au statut demandé, sans filtre
+     * géographique — sert à consulter la file de modération (ex.
+     * {@code status=PENDING}), à l'inverse de {@link #findNearby}/
+     * {@link #findWithinBounds} qui, depuis LL-6004, ne retournent
+     * jamais que {@code PUBLISHED}. Réservée aux administrateurs :
+     * l'accès est contrôlé au niveau de
+     * {@code SecurityConfig}/{@code AdminActivityController}
+     * (rôle {@code ADMIN}, voir {@code JwtAuthentication}), pas ici —
+     * cette méthode ne fait aucune vérification d'autorisation
+     * elle-même, cohérent avec {@code createActivity} ci-dessous
+     * (protégé de la même façon, au niveau {@code SecurityConfig}).
+     *
+     * {@code status} volontairement obligatoire (pas de valeur par
+     * défaut) : contrairement à une recherche publique, il n'existe pas
+     * de statut "par défaut" évident pour une consultation de
+     * modération — lister toutes les activités sans distinction
+     * reviendrait à réintroduire {@link #findAll}, déjà disponible.
+     *
+     * @throws IllegalArgumentException si {@code status} est manquant/
+     *         vide ou ne correspond à aucune des trois valeurs
+     *         formalisées en LL-6003 ({@code PENDING}/{@code
+     *         PUBLISHED}/{@code REJECTED}).
+     */
+    public List<Activity> findByStatus(String status) {
+        if (status == null || status.isBlank()) {
+            throw new IllegalArgumentException("Le paramètre 'status' est obligatoire.");
+        }
+        if (!KNOWN_STATUSES.contains(status)) {
+            throw new IllegalArgumentException("Le paramètre 'status' ne correspond à aucune valeur connue.");
+        }
+        return activityRepository.findByStatus(status);
     }
 
     private void validateLatitude(String paramName, double latitude) {

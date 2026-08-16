@@ -148,4 +148,20 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      */
     List<Activity> findBySourceId(Long sourceId);
 
+    /**
+     * Toutes les activités correspondant exactement à un statut donné
+     * (LL-6005) : utilisé par {@code ActivityService#findByStatus} pour
+     * la consultation administrative par statut (ex. file de modération
+     * {@code PENDING}). Requête dérivée du nom de la méthode (comme
+     * {@link #findBySourceId} ci-dessus) — pas de {@code @Query}
+     * nécessaire, {@code status} étant une simple colonne de
+     * {@code activity} depuis LL-6003 (contrainte {@code CHECK}, voir
+     * {@code V11__enforce_activity_status.sql}). Aucun tri particulier
+     * (pas de critère dans le ticket) ; aucun filtre géographique,
+     * contrairement à {@link #findWithinRadius}/{@link #findWithinBounds}
+     * — voir la javadoc de {@code ActivityService#findByStatus} pour la
+     * distinction avec ces deux méthodes.
+     */
+    List<Activity> findByStatus(String status);
+
 }

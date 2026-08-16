@@ -416,6 +416,59 @@ class ActivityServiceTest {
                 .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5));
     }
 
+    // --- findByStatus : consultation administrative (LL-6005) ---
+
+    @Test
+    void findByStatus_ShouldDelegateToRepository_WhenStatusIsKnown() {
+        // Given
+        Activity pending = new Activity(
+                1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null, null);
+        when(activityRepository.findByStatus("PENDING")).thenReturn(List.of(pending));
+
+        // When
+        List<Activity> result = activityService().findByStatus("PENDING");
+
+        // Then
+        verify(activityRepository).findByStatus("PENDING");
+        assertThat(result).containsExactly(pending);
+    }
+
+    @Test
+    void findByStatus_ShouldAcceptAllThreeKnownValues() {
+        for (String status : List.of("PENDING", "PUBLISHED", "REJECTED")) {
+            when(activityRepository.findByStatus(status)).thenReturn(List.of());
+            activityService().findByStatus(status);
+            verify(activityRepository).findByStatus(status);
+        }
+    }
+
+    @Test
+    void findByStatus_ShouldThrow_WhenStatusIsNull() {
+        assertThatThrownBy(() -> activityService().findByStatus(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("status");
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findByStatus_ShouldThrow_WhenStatusIsBlank() {
+        assertThatThrownBy(() -> activityService().findByStatus("   "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("status");
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findByStatus_ShouldThrow_WhenStatusIsUnknown() {
+        assertThatThrownBy(() -> activityService().findByStatus("NOT_A_STATUS"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("status");
+
+        verifyNoInteractions(activityRepository);
+    }
+
     // --- createActivity : validation renforcée (LL-6002, audit LL-6001) ---
 
     private Source manualSource() {

@@ -336,6 +336,49 @@ Objectif : fiabiliser les données réellement présentes dans LocalLife
 après l'intégration de la première source externe (Sprint 5) — voir
 `docs/05_Sprints/SPRINT_6.md`.
 
+## LL-6005 — Contrôle administratif minimal ✅
+
+**Dépendance :** LL-6003 (ticket indépendant de LL-6004 dans
+`SPRINT_6.md`, mais implémenté après par cohérence de workflow).
+
+* **`GET /api/v1/admin/activities?status=PENDING`** (nouveau
+  `AdminActivityController`, distinct d'`ActivityController` : chemin,
+  protection et objectif différents — voir sa javadoc) : liste les
+  activités correspondant exactement au statut demandé, sans filtre
+  géographique. `status` volontairement **obligatoire**, aucune valeur
+  par défaut (contrairement aux endpoints publics) — lister sans
+  distinction reviendrait à réintroduire `GET /api/v1/activities`,
+  déjà disponible.
+* **`ActivityService#findByStatus`** : validation (statut obligatoire,
+  doit être une des trois valeurs formalisées en LL-6003) + délégation
+  au repository. `KNOWN_STATUSES` réintroduit (retiré en LL-6004,
+  puisqu'il ne servait plus à rien côté recherche publique) — reprend
+  ici un rôle différent : valider ce paramètre administratif, pas
+  filtrer une recherche publique.
+* **`ActivityRepository#findByStatus`** : requête dérivée du nom de la
+  méthode (comme `findBySourceId`), aucun `@Query` nécessaire.
+* **`SecurityConfig`** : `GET /api/v1/admin/activities` protégé par
+  `.hasRole("ADMIN")`, même mécanisme que `POST /api/v1/users`
+  (LL-3008) — vérifié directement dans le code avant d'écrire cette
+  note (une mémoire précédente s'était révélée obsolète sur ce point
+  lors de LL-6004).
+* **Tests de sécurité** (critère d'acceptation explicite du ticket) :
+  nouveau `AdminActivityControllerIntegrationTest` (bout en bout,
+  serveur embarqué, même approche que `AuthenticationFlowIntegrationTest`
+  LL-3014) — 401 sans JWT, **403 avec un JWT valide mais de rôle
+  `USER`** (inscrit via le flux public réel), 200 avec un JWT `ADMIN`.
+  ⚠️ Aucun endpoint ne permet de créer un compte `ADMIN`
+  (l'inscription publique crée toujours un `USER`, voir
+  `AuthService#register`) : le token administrateur est construit
+  directement dans le test, comme `AuthenticationFlowIntegrationTest`
+  le fait déjà pour un token expiré (même technique, `role=ADMIN` et
+  expiration dans le futur). Tests unitaires ajoutés dans
+  `ActivityServiceTest` pour la validation du paramètre `status`.
+
+Non exécuté en sandbox : ni compilation (Maven absent, pas d'accès
+réseau à Maven Central — même limitation que tous les tickets
+précédents), ni requête sur une base réelle.
+
 ## LL-6004 — Exclure les activités non publiées de la carte publique ✅
 
 **Dépendance :** LL-6003.
