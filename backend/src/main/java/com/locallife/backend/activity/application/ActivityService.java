@@ -46,6 +46,14 @@ public class ActivityService {
      */
     private static final Set<String> KNOWN_STATUSES = Set.of("PENDING", "PUBLISHED", "REJECTED");
 
+    /**
+     * Seul statut de départ autorisé pour {@link #publish}/{@link #reject}
+     * (LL-6006) — voir la javadoc du champ {@code status} sur
+     * {@link Activity} : les seules transitions prévues en LL-6003 sont
+     * {@code PENDING → PUBLISHED} et {@code PENDING → REJECTED}.
+     */
+    private static final String PENDING_STATUS = "PENDING";
+
     private final ActivityRepository activityRepository;
     private final GeocodingService geocodingService;
     private final SourceService sourceService;
@@ -243,6 +251,90 @@ public class ActivityService {
             throw new IllegalArgumentException("Le paramètre 'status' ne correspond à aucune valeur connue.");
         }
         return activityRepository.findByStatus(status);
+    }
+
+    /**
+     * Publie une activité (LL-6006) : transition {@code PENDING →
+     * PUBLISHED}, voir {@link #transitionStatus} pour le détail commun
+     * aux deux transitions (publier/rejeter).
+     *
+     * @return {@link Optional#empty()} si aucune activité ne correspond à
+     *         {@code id} (le contrôleur traduit en {@code 404}) ; sinon
+     *         l'activité mise à jour.
+     * @throws IllegalArgumentException si l'activité existe mais n'est
+     *         pas actuellement {@code PENDING} — voir {@link #transitionStatus}.
+     */
+    public Optional<Activity> publish(Long id) {
+        return transitionStatus(id, "PUBLISHED");
+    }
+
+    /**
+     * Rejette une activité (LL-6006) : transition {@code PENDING →
+     * REJECTED}, voir {@link #transitionStatus} pour le détail commun
+     * aux deux transitions (publier/rejeter).
+     *
+     * @return {@link Optional#empty()} si aucune activité ne correspond à
+     *         {@code id} (le contrôleur traduit en {@code 404}) ; sinon
+     *         l'activité mise à jour.
+     * @throws IllegalArgumentException si l'activité existe mais n'est
+     *         pas actuellement {@code PENDING} — voir {@link #transitionStatus}.
+     */
+    public Optional<Activity> reject(Long id) {
+        return transitionStatus(id, "REJECTED");
+    }
+
+    /**
+     * Logique commune à {@link #publish}/{@link #reject} (LL-6006, critère
+     * d'acceptation « endpoints protégés / activité existante uniquement /
+     * statut correctement modifié »). Charge l'activité, vérifie qu'elle
+     * est bien {@code PENDING} (seul point de départ prévu par les
+     * transitions documentées en LL-6003 sur {@link Activity#status()}),
+     * puis sauvegarde une copie avec le nouveau statut — même pattern
+     * « charger, copier avec le champ modifié, {@code save} » que
+     * {@code ImportService#archiveMissingActivities} (LL-5009, transition
+     * vers {@code ARCHIVED}) : {@code save} avec un {@code id} déjà
+     * renseigné effectue une mise à jour, pas une insertion, comportement
+     * déjà exploité ailleurs dans le projet.
+     *
+     * Absence d'id (activité inexistante) : renvoie {@link Optional#empty()}
+     * plutôt que de lever une exception, même choix que
+     * {@link #findById}/{@code ActivityController#getActivityById} —
+     * garde la distinction 404 (ressource absente) / 400 (état invalide)
+     * nette pour le contrôleur.
+     *
+     * ⚠️ Décision à valider avec Alex (point ouvert signalé dans
+     * {@code NEXT_TASK.md}) : que faire si l'activité existe mais n'est
+     * pas {@code PENDING} (déjà {@code PUBLISHED}/{@code REJECTED}) ?
+     * Choix retenu ici : lever {@link IllegalArgumentException},
+     * traduite en {@code 400} par le contrôleur — même convention que
+     * partout ailleurs dans ce service pour une erreur de validation
+     * métier (pas un no-op silencieux, pour ne pas laisser croire à
+     * l'appelant qu'une transition a eu lieu ; pas de nouveau statut
+     * HTTP introduit). Aucune machine à états ajoutée : une seule
+     * vérification directe (statut actuel == {@code PENDING}), conforme
+     * à l'interdiction explicite de {@code SPRINT_6.md} (« pas de
+     * workflow de modération complexe »).
+     */
+    private Optional<Activity> transitionStatus(Long id, String newStatus) {
+        Optional<Activity> existing = activityRepository.findById(id);
+        if (existing.isEmpty()) {
+            return Optional.empty();
+        }
+        Activity activity = existing.get();
+        if (!PENDING_STATUS.equals(activity.status())) {
+            throw new IllegalArgumentException(
+                    "L'activité " + id + " n'est pas en attente de modération (statut actuel : "
+                            + activity.status() + "), aucune transition possible depuis ce statut.");
+        }
+        Activity updated = withStatus(activity, newStatus);
+        return Optional.of(activityRepository.save(updated));
+    }
+
+    private Activity withStatus(Activity activity, String status) {
+        return new Activity(
+                activity.id(), activity.title(), activity.description(), activity.category(),
+                activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
+                status, activity.sourceId(), activity.importKey(), activity.url());
     }
 
     private void validateLatitude(String paramName, double latitude) {

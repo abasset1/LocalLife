@@ -1,7 +1,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.3.0
-**Dernière mise à jour :** 2026-08-12
+**Dernière mise à jour :** 2026-08-16
 
 ---
 ## Phase actuelle
@@ -335,6 +335,51 @@ Statut : 🟡 En cours.
 Objectif : fiabiliser les données réellement présentes dans LocalLife
 après l'intégration de la première source externe (Sprint 5) — voir
 `docs/05_Sprints/SPRINT_6.md`.
+
+## LL-6006 — Publier ou rejeter une activité ✅
+
+**Dépendance :** LL-6005.
+
+* **`PATCH /api/v1/admin/activities/{id}/publish`** et **`PATCH
+  /api/v1/admin/activities/{id}/reject`** (`AdminActivityController`,
+  même contrôleur que LL-6005) : transitions `PENDING → PUBLISHED` et
+  `PENDING → REJECTED`, seules prévues par la javadoc du champ `status`
+  d'`Activity` depuis LL-6003. Réservés au rôle `ADMIN`, même mécanisme
+  que `GET /api/v1/admin/activities` (LL-6005).
+* **`ActivityService#publish`/`#reject`** : délèguent à une méthode
+  privée commune `transitionStatus` — charge l'activité, vérifie qu'elle
+  est bien `PENDING`, sauvegarde une copie avec le nouveau statut.
+  Réutilise le pattern « charger, copier avec le champ modifié, `save`
+  avec `id` déjà renseigné (= UPDATE, pas INSERT) » déjà exploité par
+  `ImportService#archiveMissingActivities` (LL-5009) pour la transition
+  vers `ARCHIVED` — pas de nouvelle méthode de repository nécessaire,
+  `findById`/`save` existants suffisent.
+* Activité inexistante → `Optional.empty()` côté service, `404` sans
+  corps côté contrôleur (même convention que
+  `ActivityController#getActivityById`).
+* ⚠️ **Décision prise, à valider avec Alex** (point resté ouvert dans
+  `NEXT_TASK.md` avant ce ticket) : que faire si l'activité existe mais
+  n'est pas `PENDING` (déjà `PUBLISHED`/`REJECTED`, transition non
+  prévue par LL-6003) ? Choix retenu : `IllegalArgumentException` →
+  `400`, même convention que toute autre erreur de validation métier
+  dans ce service (pas de no-op silencieux, pour ne pas laisser croire
+  à l'appelant qu'une transition a eu lieu ; pas de nouveau statut HTTP
+  introduit). Aucune machine à états ajoutée : une seule vérification
+  directe du statut courant, conforme à l'interdiction explicite de
+  `SPRINT_6.md` (« pas de workflow de modération complexe »).
+* **Tests** (critère d'acceptation explicite du ticket) : unitaires
+  ajoutés dans `ActivityServiceTest` (transition réussie, activité
+  inexistante, transition invalide pour `publish` et pour `reject`,
+  6 cas) ; intégration ajoutés dans
+  `AdminActivityControllerIntegrationTest` (200 avec statut mis à jour,
+  404 sur id inconnu, 400 sur transition invalide, 401 sans JWT, 403
+  avec un JWT de rôle `USER`, pour `publish` et `reject`, 10 cas) —
+  même structure bout en bout que LL-6005 (token `ADMIN` construit
+  directement, token `USER` obtenu via le flux public réel).
+
+Non exécuté en sandbox : ni compilation (Maven absent, pas d'accès
+réseau à Maven Central), ni requête sur une base réelle — même
+limitation que tous les tickets précédents.
 
 ## LL-6005 — Contrôle administratif minimal ✅
 

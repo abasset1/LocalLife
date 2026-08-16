@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -467,6 +468,101 @@ class ActivityServiceTest {
                 .hasMessageContaining("status");
 
         verifyNoInteractions(activityRepository);
+    }
+
+    // --- publish/reject : transitions de modération (LL-6006) ---
+
+    @Test
+    void publish_ShouldChangeStatusToPublished_WhenActivityIsPending() {
+        // Given
+        Activity pending = new Activity(
+                1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null, null);
+        when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
+        when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        Optional<Activity> result = activityService().publish(1L);
+
+        // Then
+        assertThat(result).isPresent();
+        assertThat(result.get().status()).isEqualTo("PUBLISHED");
+        // Le reste de l'activité doit rester inchangé, seul le statut change.
+        assertThat(result.get().title()).isEqualTo("Concert");
+        assertThat(result.get().id()).isEqualTo(1L);
+    }
+
+    @Test
+    void reject_ShouldChangeStatusToRejected_WhenActivityIsPending() {
+        // Given
+        Activity pending = new Activity(
+                2L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null, null);
+        when(activityRepository.findById(2L)).thenReturn(Optional.of(pending));
+        when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        Optional<Activity> result = activityService().reject(2L);
+
+        // Then
+        assertThat(result).isPresent();
+        assertThat(result.get().status()).isEqualTo("REJECTED");
+    }
+
+    @Test
+    void publish_ShouldReturnEmpty_WhenActivityDoesNotExist() {
+        // Given
+        when(activityRepository.findById(99L)).thenReturn(Optional.empty());
+
+        // When
+        Optional<Activity> result = activityService().publish(99L);
+
+        // Then
+        assertThat(result).isEmpty();
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void reject_ShouldReturnEmpty_WhenActivityDoesNotExist() {
+        // Given
+        when(activityRepository.findById(99L)).thenReturn(Optional.empty());
+
+        // When
+        Optional<Activity> result = activityService().reject(99L);
+
+        // Then
+        assertThat(result).isEmpty();
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void publish_ShouldThrow_WhenActivityIsAlreadyPublished() {
+        // Given : transition non prévue par LL-6003 (seul PENDING → PUBLISHED existe).
+        Activity published = new Activity(
+                3L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
+                null);
+        when(activityRepository.findById(3L)).thenReturn(Optional.of(published));
+
+        // When / Then
+        assertThatThrownBy(() -> activityService().publish(3L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("PUBLISHED");
+
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void reject_ShouldThrow_WhenActivityIsAlreadyRejected() {
+        // Given : transition non prévue par LL-6003 (seul PENDING → REJECTED existe).
+        Activity rejected = new Activity(
+                4L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "REJECTED", 1L, null,
+                null);
+        when(activityRepository.findById(4L)).thenReturn(Optional.of(rejected));
+
+        // When / Then
+        assertThatThrownBy(() -> activityService().reject(4L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("REJECTED");
+
+        verify(activityRepository, never()).save(any());
     }
 
     // --- createActivity : validation renforcée (LL-6002, audit LL-6001) ---
