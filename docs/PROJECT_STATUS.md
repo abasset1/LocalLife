@@ -328,9 +328,57 @@ métier. Implémentée en LL-5002 ci-dessous.
   LL-3012. `mvn verify` à lancer de ton côté.
 
 ---
+# Sprint 6
+
+Statut : 🟡 En cours.
+
+Objectif : fiabiliser les données réellement présentes dans LocalLife
+après l'intégration de la première source externe (Sprint 5) — voir
+`docs/05_Sprints/SPRINT_6.md`.
+
+## LL-6001 — Auditer la qualité des données ✅
+
+**Dépendance :** aucune (premier ticket du sprint).
+
+`docs/02_Architecture/DATA_QUALITY_AUDIT.md` : audit du code produit
+par le Sprint 5 (modèle `Activity`, migrations Flyway,
+`ActivityService`, `NormalizationService`, `OpenAgendaCollector`) —
+pas d'accès à une base réelle en sandbox, donc audit par relecture de
+code plutôt que par requête sur des données réelles (même limitation
+que tous les tickets précédents), à confirmer par Alex avec un accès
+réel. Pas de code modifié à ce stade, comme `SOURCE_CONTRACT.md` pour
+LL-5001.
+
+Neuf problèmes identifiés, classés par sévérité (voir le document pour
+le détail complet) :
+* **Haute** : `title` non validé à la contribution manuelle (vide/nul
+  accepté) ; `sourceUrl` collecté par `OpenAgendaCollector` mais perdu
+  à la normalisation — `Activity` n'a aucun champ pour porter une URL.
+* **Moyenne** : aucune cohérence `startDate`/`endDate` vérifiée ;
+  aucune détection de coordonnées non exploitables (type « Null
+  Island ») au-delà de la simple plage `-90/90`/`-180/180` ; `category`
+  non normalisée (casse/accents) ; aucune détection de doublon pour les
+  contributions manuelles (seuls les imports sont couverts par
+  `DeduplicationService`/l'index unique partiel de LL-5007/LL-5008).
+* **Basse** : pas de longueur max applicative sur `title` ; aucune date
+  aberrante détectée ; colonnes `latitude`/`longitude` nullables en
+  base malgré un type Java non nullable.
+
+Règles de validation proposées pour LL-6002 documentées dans le même
+fichier, avec un point explicitement laissé à la décision d'Alex :
+faut-il ajouter un champ `url` à `Activity` (le critère « URL valide
+lorsqu'elle est fournie » de LL-6002 suppose qu'un tel champ existe,
+ce qui n'est pas le cas actuellement) ?
+
+Non compilé (documentation uniquement, aucun fichier source touché).
+
 # Prochaine action
 
-Sprint 5 terminé (LL-5001 à LL-5012). Prochain sprint à définir avec Alex.
+Sprint 6 en cours. Prochaine tâche : LL-6002 (renforcer la validation
+`Activity`), une fois les points signalés « à valider » dans
+`DATA_QUALITY_AUDIT.md` tranchés par Alex — en particulier la question
+du champ `url`, qui conditionne le critère d'acceptation « URL valide
+lorsqu'elle est fournie » de LL-6002.
 
 Le Sprint 5 étant terminé, aucune tâche du Sprint 5 ne doit être reprise sauf régression ou anomalie découverte après clôture.
 

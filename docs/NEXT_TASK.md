@@ -1,7 +1,7 @@
 # NEXT_TASK.md
 
 **État actuel**
-Sprint 5 terminé (alimentation réelle — source, collecteur, pipeline d'import — voir docs/05_Sprints/SPRINT_5.md). Prochain sprint pas encore défini.
+Sprint 5 terminé (alimentation réelle — source, collecteur, pipeline d'import — voir docs/05_Sprints/SPRINT_5.md). Sprint 6 en cours (qualité des données et administration minimale — voir docs/05_Sprints/SPRINT_6.md).
 
 Sprint 0 terminé (socle technique backend).
 Sprint 1 terminé (première fonctionnalité visible — module Activity, API de consultation, carte, popup, documentation).
@@ -32,9 +32,11 @@ Correctifs hors ticket (Sprint 5) : `@Autowired` manquant sur `OpenAgendaCollect
 
 Sprint 5 terminé (LL-5001 à LL-5012). Documentation mise à jour en LL-5012 : `ARCHITECTURE.md` (vue d'ensemble des modules et du pipeline), nouveau `COLLECTOR_OPERATIONS.md`, `ROADMAP.md` (les deux, y compris correction d'informations obsolètes dans l'ancien), `README.md`, et deux entrées ajoutées à `DETTE_TECHNIQUE.md` (filtrage `status` absent par défaut, absence de déclencheur pour le pipeline d'import) — voir PROJECT_STATUS.md pour le détail.
 
+Tickets terminés (Sprint 6, en cours) : LL-6001 (audit de la qualité des données — `docs/02_Architecture/DATA_QUALITY_AUDIT.md`, 9 problèmes identifiés par relecture de code faute d'accès à une base réelle en sandbox, règles de validation proposées pour LL-6002 ; voir PROJECT_STATUS.md pour le détail).
+
 **Prochaine tâche**
 
-Prochain sprint à définir avec Alex.
+LL-6002 (renforcer la validation `Activity`), en attendant la décision d'Alex sur les points signalés « à valider » dans `DATA_QUALITY_AUDIT.md` — notamment l'ajout éventuel d'un champ `url` à `Activity`.
 
 Règles importantes
 Ne pas ajouter de fonctionnalités hors MVP.
