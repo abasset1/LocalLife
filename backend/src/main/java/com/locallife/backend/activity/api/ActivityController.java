@@ -50,15 +50,17 @@ public class ActivityController {
     /**
      * Recherche géographique (LL-4001/LL-4002/LL-4003/LL-4004/LL-4005) :
      * activités situées dans un rayon donné autour d'un point, triées par
-     * distance croissante, avec filtres optionnels par statut, par
-     * catégorie et par date. Voir le contrat détaillé dans
+     * distance croissante, avec filtres optionnels par catégorie et par
+     * date ; ne retourne que les activités {@code PUBLISHED} depuis
+     * LL-6004 (endpoint public, sans authentification — voir
+     * {@link ActivityService#findNearby}). Voir le contrat détaillé dans
      * {@code docs/02_Architecture/GEO_SEARCH_CONTRACT.md}.
      *
      * Les paramètres sont reçus en {@code String} (et non {@code double}
      * avec {@code required = true}) volontairement : toute la validation
      * est faite dans {@link ActivityService#findNearby}, qui lève
      * {@link IllegalArgumentException} pour chaque cas d'erreur du contrat
-     * (paramètre manquant, non numérique, hors plage, statut inconnu),
+     * (paramètre manquant, non numérique, hors plage),
      * attrapée ci-dessous et traduite en {@code 400}. Si on laissait Spring
      * MVC valider lui-même un {@code @RequestParam} obligatoire manquant,
      * l'exception résultante serait interceptée par
@@ -69,14 +71,14 @@ public class ActivityController {
      */
     @Operation(
             summary = "Recherche des activités à proximité d'un point",
-            description = "Retourne les activités situées dans un rayon donné (en kilomètres, max 50) "
+            description = "Retourne les activités PUBLISHED situées dans un rayon donné (en kilomètres, max 50) "
                     + "autour d'un point, triées par distance croissante. Distance calculée côté base "
                     + "(PostGIS ST_DWithin).")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Recherche effectuée avec succès."),
         @ApiResponse(responseCode = "400",
                 description = "Paramètre manquant, non numérique, hors plage (latitude/longitude/radius), "
-                        + "statut inconnu, ou date au mauvais format.",
+                        + "ou date au mauvais format.",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping("/nearby")
@@ -88,8 +90,6 @@ public class ActivityController {
             @Parameter(description = "Rayon de recherche en kilomètres, strictement positif, max 50.",
                     required = true)
             @RequestParam(required = false) String radius,
-            @Parameter(description = "Filtre optionnel sur le statut de l'activité (ex. PUBLISHED, PENDING).")
-            @RequestParam(required = false) String status,
             @Parameter(description = "Filtre optionnel sur la/les catégorie(s), séparées par des virgules "
                     + "(ex. concert,marché). Catégorie inconnue → résultat vide, pas d'erreur.")
             @RequestParam(required = false) String category,
@@ -98,8 +98,7 @@ public class ActivityController {
             @RequestParam(required = false) String date,
             HttpServletRequest httpRequest) {
         try {
-            List<Activity> activities =
-                    activityService.findNearby(latitude, longitude, radius, status, category, date);
+            List<Activity> activities = activityService.findNearby(latitude, longitude, radius, category, date);
             return ResponseEntity.ok(activities);
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -111,7 +110,8 @@ public class ActivityController {
      * situées à l'intérieur du rectangle défini par les coins sud-ouest et
      * nord-est fournis, sans tri par distance (pas de point de référence
      * unique pour une zone rectangulaire), avec les mêmes filtres
-     * optionnels par statut, catégorie et date que {@code /nearby}. Voir
+     * optionnels par catégorie et date que {@code /nearby} (et la même
+     * restriction au statut {@code PUBLISHED} depuis LL-6004). Voir
      * le contrat détaillé dans
      * {@code docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md}.
      *
@@ -121,15 +121,15 @@ public class ActivityController {
      */
     @Operation(
             summary = "Recherche des activités à l'intérieur d'une zone rectangulaire",
-            description = "Retourne les activités situées à l'intérieur du rectangle défini par les coins "
-                    + "sud-ouest et nord-est fournis (typiquement la zone visible sur la carte). Résultats "
+            description = "Retourne les activités PUBLISHED situées à l'intérieur du rectangle défini par les "
+                    + "coins sud-ouest et nord-est fournis (typiquement la zone visible sur la carte). Résultats "
                     + "triés par id croissant (pas de tri par distance possible pour une zone).")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Recherche effectuée avec succès."),
         @ApiResponse(responseCode = "400",
                 description = "Paramètre manquant, non numérique, hors plage (latitude/longitude), "
                         + "swLatitude/swLongitude non strictement inférieurs à neLatitude/neLongitude, "
-                        + "statut inconnu, ou date au mauvais format.",
+                        + "ou date au mauvais format.",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping("/within-bounds")
@@ -142,8 +142,6 @@ public class ActivityController {
             @RequestParam(required = false) String neLatitude,
             @Parameter(description = "Longitude du coin nord-est de la zone, entre -180 et 180.", required = true)
             @RequestParam(required = false) String neLongitude,
-            @Parameter(description = "Filtre optionnel sur le statut de l'activité (ex. PUBLISHED, PENDING).")
-            @RequestParam(required = false) String status,
             @Parameter(description = "Filtre optionnel sur la/les catégorie(s), séparées par des virgules "
                     + "(ex. concert,marché). Catégorie inconnue → résultat vide, pas d'erreur.")
             @RequestParam(required = false) String category,
@@ -153,7 +151,7 @@ public class ActivityController {
             HttpServletRequest httpRequest) {
         try {
             List<Activity> activities = activityService.findWithinBounds(
-                    swLatitude, swLongitude, neLatitude, neLongitude, status, category, date);
+                    swLatitude, swLongitude, neLatitude, neLongitude, category, date);
             return ResponseEntity.ok(activities);
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);

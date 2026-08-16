@@ -37,9 +37,9 @@ class ActivityControllerTest {
         // Given
         List<Activity> activities = List.of(
                 new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
-                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null),
+                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null),
                 new Activity(2L, "Another Activity", "Another Description", "Another Category", 1.0, 1.0,
-                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null)
+                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null)
         );
         when(activityService.findAll()).thenReturn(activities);
 
@@ -68,7 +68,7 @@ class ActivityControllerTest {
     void getActivityById_ShouldReturnActivity_WhenFound() {
         // Given
         Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
-                LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null);
+                LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null);
         when(activityService.findById(1L)).thenReturn(Optional.of(activity));
 
         // When
@@ -96,7 +96,7 @@ class ActivityControllerTest {
     void createActivity_ShouldReturnCreated_WithActivity() {
         // Given
         Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
-                LocalDateTime.now(), null, "PENDING", 1L, null);
+                LocalDateTime.now(), null, "PENDING", 1L, null, null);
         when(activityService.createActivity(
                 "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille"))
                 .thenReturn(created);
@@ -154,13 +154,13 @@ class ActivityControllerTest {
     void getNearbyActivities_ShouldReturnOk_WithActivities() {
         // Given
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED", 1L, null);
-        when(activityService.findNearby("43.2951", "5.3739", "5", "PUBLISHED", "concert", "2026-09-05"))
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
+        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
                 .thenReturn(List.of(nearby));
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "PUBLISHED", "concert", "2026-09-05", httpRequest);
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -170,13 +170,13 @@ class ActivityControllerTest {
     @Test
     void getNearbyActivities_ShouldReturnBadRequest_WhenParamsInvalid() {
         // Given
-        when(activityService.findNearby(null, "5.3739", "5", null, null, null))
+        when(activityService.findNearby(null, "5.3739", "5", null, null))
                 .thenThrow(new IllegalArgumentException("Le paramètre 'latitude' est obligatoire."));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/nearby");
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                null, "5.3739", "5", null, null, null, httpRequest);
+                null, "5.3739", "5", null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -186,14 +186,14 @@ class ActivityControllerTest {
     @Test
     void getNearbyActivities_ShouldReturnBadRequest_WhenDateFormatInvalid() {
         // Given
-        when(activityService.findNearby("43.2951", "5.3739", "5", null, null, "05/09/2026"))
+        when(activityService.findNearby("43.2951", "5.3739", "5", null, "05/09/2026"))
                 .thenThrow(new IllegalArgumentException(
                         "Le paramètre 'date' doit être au format ISO-8601 (yyyy-MM-dd)."));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/nearby");
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", null, null, "05/09/2026", httpRequest);
+                "43.2951", "5.3739", "5", null, "05/09/2026", httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -204,14 +204,14 @@ class ActivityControllerTest {
     void getActivitiesWithinBounds_ShouldReturnOk_WithActivities() {
         // Given
         Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED", 1L, null);
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
         when(activityService.findWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "PUBLISHED", "concert", "2026-09-05"))
+                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05"))
                 .thenReturn(List.of(inBounds));
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "PUBLISHED", "concert", "2026-09-05", httpRequest);
+                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -221,13 +221,13 @@ class ActivityControllerTest {
     @Test
     void getActivitiesWithinBounds_ShouldReturnBadRequest_WhenParamsInvalid() {
         // Given
-        when(activityService.findWithinBounds(null, "5.35", "43.31", "5.40", null, null, null))
+        when(activityService.findWithinBounds(null, "5.35", "43.31", "5.40", null, null))
                 .thenThrow(new IllegalArgumentException("Le paramètre 'swLatitude' est obligatoire."));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/within-bounds");
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                null, "5.35", "43.31", "5.40", null, null, null, httpRequest);
+                null, "5.35", "43.31", "5.40", null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -237,14 +237,14 @@ class ActivityControllerTest {
     @Test
     void getActivitiesWithinBounds_ShouldReturnBadRequest_WhenSwLatitudeNotLessThanNeLatitude() {
         // Given
-        when(activityService.findWithinBounds("43.31", "5.35", "43.31", "5.40", null, null, null))
+        when(activityService.findWithinBounds("43.31", "5.35", "43.31", "5.40", null, null))
                 .thenThrow(new IllegalArgumentException(
                         "Le paramètre 'swLatitude' doit être strictement inférieur à 'neLatitude'."));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/within-bounds");
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                "43.31", "5.35", "43.31", "5.40", null, null, null, httpRequest);
+                "43.31", "5.35", "43.31", "5.40", null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());

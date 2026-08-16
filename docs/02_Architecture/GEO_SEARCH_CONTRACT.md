@@ -22,14 +22,29 @@ conventions de nommage, même format de réponse, mêmes codes d'erreur.
 | `latitude`  | double | oui          | entre -90 et 90                                  | Latitude du point de recherche.           |
 | `longitude` | double | oui          | entre -180 et 180                                | Longitude du point de recherche.          |
 | `radius`    | double | oui          | strictement positif, **en kilomètres**, max `50` | Rayon de recherche autour du point.       |
-| `status`    | string | non          | doit correspondre à une valeur existante (ex. `PUBLISHED`, `PENDING`) | Filtre les résultats sur ce statut. Absent → aucun filtrage par statut (même comportement que `GET /api/v1/activities`, qui ne filtre pas non plus). |
 | `category`  | string | non          | une ou plusieurs valeurs séparées par des virgules (ex. `concert,marché`) | Filtre les résultats sur la/les catégorie(s) données (correspondance exacte, `OU` entre les valeurs). Absent → aucun filtrage. Catégorie ne correspondant à aucune activité → liste vide, **pas** une erreur 400 (voir décision ci-dessous). |
 | `date`      | string | non          | format ISO-8601 `yyyy-MM-dd` | Filtre les résultats sur une date donnée : une activité est retenue quand cette date tombe dans sa période `[startDate, endDate]` (bornes incluses, comparaison au jour près). Absent → aucun filtrage. Voir décision LL-4005 ci-dessous. |
+
+⚠️ **Mise à jour LL-6004 (Sprint 6)** : le paramètre `status`, documenté
+ci-dessous jusqu'à LL-4003/LL-4004 (« filtre les résultats sur ce statut,
+absent → aucun filtrage »), **a été retiré** de cet endpoint.
+Avec l'introduction de la modération (LL-6003 : statuts
+`PENDING`/`PUBLISHED`/`REJECTED`), un endpoint public sans filtrage par
+statut par défaut exposait les activités en attente ou rejetées à
+n'importe quel visiteur — dette technique signalée dès LL-5012/LL-5008
+(`DETTE_TECHNIQUE.md`, « activités ARCHIVED visibles par défaut »).
+Cet endpoint étant public (aucune authentification), il ne retourne
+désormais **que** les activités `PUBLISHED`, sans exception : le
+paramètre `status` n'a donc plus de raison d'exister ici plutôt que
+d'être conservé comme filtre vestigial ne pouvant jamais rien renvoyer
+d'autre. Une future consultation par statut (ex. file de modération)
+passera par un endpoint dédié, réservé aux administrateurs (LL-6005),
+pas par celui-ci.
 
 Exemple :
 
 ```text
-GET /api/v1/activities/nearby?latitude=43.2965&longitude=5.3698&radius=5&status=PUBLISHED&category=concert,marché&date=2026-09-05
+GET /api/v1/activities/nearby?latitude=43.2965&longitude=5.3698&radius=5&category=concert,marché&date=2026-09-05
 ```
 
 ## Réponse
@@ -50,7 +65,6 @@ Même format standardisé que le reste de l'API (`ErrorResponse` — voir
 | Paramètre manquant (`latitude`, `longitude` ou `radius`) | `400 Bad Request` |
 | Paramètre hors contraintes (latitude/longitude hors plage, rayon ≤ 0 ou > 50 km) | `400 Bad Request` |
 | Paramètre non numérique                            | `400 Bad Request` |
-| `status` fourni mais ne correspondant à aucune valeur connue | `400 Bad Request` |
 | `date` fournie mais pas au format ISO-8601 (`yyyy-MM-dd`)     | `400 Bad Request` |
 
 ## Implémentation attendue
@@ -74,9 +88,9 @@ Même format standardisé que le reste de l'API (`ErrorResponse` — voir
 
 * `radius` exprimé en **kilomètres** (et non mètres) et plafonné à **50 km**
   — au-delà, `400 Bad Request`.
-* Filtrage par statut activé via le paramètre optionnel `status` (voir
-  ci-dessus) plutôt qu'un comportement figé côté serveur — reste cohérent
-  avec `GET /api/v1/activities`, qui ne filtre pas non plus par défaut.
+* Filtrage par statut (paramètre `status`) proposé initialement ici,
+  **retiré en LL-6004** — voir la mise à jour en tête de ce document.
+  Cet endpoint ne retourne plus que les activités `PUBLISHED`.
 
 ## Décision LL-4004 à valider : `category` (chaîne) et non `categoryId`
 

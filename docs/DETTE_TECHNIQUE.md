@@ -61,11 +61,11 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 * **Nature** : le pipeline d'import (LL-5008) archive (`status =
   "ARCHIVED"`) une activité déjà importée mais absente d'une collecte
   plus récente, plutôt que de la supprimer physiquement. Or ni la
-  recherche géographique ni la recherche par zone ne filtrent `status`
-  par défaut (paramètre optionnel) — une activité `ARCHIVED` continue
+  recherche géographique ni la recherche par zone ne filtraient `status`
+  par défaut (paramètre optionnel) — une activité `ARCHIVED` continuait
   donc d'apparaître sur la carte comme n'importe quelle autre.
 * **Impact réel** : une activité qui n'existe plus réellement (source
-  supprimée) reste visible aux utilisateurs jusqu'à ce qu'un filtre
+  supprimée) restait visible aux utilisateurs jusqu'à ce qu'un filtre
   explicite soit ajouté.
 * **Correctif disponible** : exclure `ARCHIVED` par défaut côté
   requête (`ActivityRepository`) quand `status` n'est pas fourni
@@ -75,7 +75,17 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
   comportement qui dépasse le périmètre d'un ticket d'import (LL-5008)
   ou de documentation (LL-5012) — nécessite une décision produit/un
   ticket dédié.
-* **Statut** : ouvert.
+* **Statut** : résolu par LL-6004 (Sprint 6, 16 août 2026). Solution
+  finalement plus stricte que le correctif envisagé ci-dessus (qui ne
+  visait qu'`ARCHIVED`) : avec l'introduction de la modération en
+  LL-6003 (`PENDING`/`PUBLISHED`/`REJECTED`), le paramètre `status` a
+  été retiré des deux endpoints publics plutôt que simplement doté d'un
+  défaut — ils ne retournent désormais que les activités `PUBLISHED`,
+  sans exception possible côté appelant. Couvre `ARCHIVED` au passage
+  (jamais `PUBLISHED`), donc résout ce problème sans ticket dédié
+  supplémentaire. Voir `GEO_SEARCH_CONTRACT.md`/
+  `BOUNDING_BOX_SEARCH_CONTRACT.md` (mise à jour LL-6004) et
+  `PROJECT_STATUS.md`.
 
 ---
 

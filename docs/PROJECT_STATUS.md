@@ -336,6 +336,141 @@ Objectif : fiabiliser les données réellement présentes dans LocalLife
 après l'intégration de la première source externe (Sprint 5) — voir
 `docs/05_Sprints/SPRINT_6.md`.
 
+## LL-6004 — Exclure les activités non publiées de la carte publique ✅
+
+**Dépendance :** LL-6003.
+
+* **`ActivityService#findNearby`/`#findWithinBounds`** (les deux
+  endpoints publics de recherche, `GET /nearby` et `GET /within-bounds`,
+  sans authentification) : le paramètre `status` a été **retiré** de
+  ces deux méthodes plutôt que simplement doté d'un défaut — elles
+  demandent désormais systématiquement `PUBLISHED` au repository
+  (constante `PUBLIC_STATUS`), sans que l'appelant puisse demander
+  autre chose. Choix plus strict que le correctif envisagé dans
+  `DETTE_TECHNIQUE.md` (qui ne visait qu'`ARCHIVED` par défaut) : avec
+  la modération introduite en LL-6003, laisser `status` filtrable
+  aurait permis à n'importe quel visiteur de consulter la file de
+  modération via `?status=PENDING` sur un endpoint public.
+* **`ActivityController`** : paramètre `status` retiré des deux
+  endpoints (`@RequestParam`, javadoc, `@Parameter`/`@ApiResponses`
+  OpenAPI) — changement d'API volontaire (rétrocompatibilité non
+  demandée par le ticket), une future consultation par statut passera
+  par un endpoint dédié (LL-6005), pas par ceux-ci.
+* **Portée volontairement limitée** aux deux endpoints appelés
+  « recherche » dans le projet (`/nearby`, `/within-bounds`), seuls
+  visés par la dette technique résolue et par la formulation du
+  ticket. ⚠️ Point signalé, non traité ici : `GET /api/v1/activities`
+  (liste complète sans filtre) et `GET /api/v1/activities/{id}`
+  restent inchangés et peuvent encore exposer des activités
+  `PENDING`/`REJECTED` — pour `{id}`, c'est nécessaire (LL-6005/LL-6006
+  auront besoin de consulter une activité non publiée pour la
+  modérer) ; pour la liste complète sans filtre, aucun ticket ne le
+  couvre à ce stade. À signaler à Alex si un besoin de confidentialité
+  plus large est attendu.
+* **`DETTE_TECHNIQUE.md`** : entrée « activités ARCHIVED visibles par
+  défaut » marquée résolue (la solution retenue couvre `ARCHIVED` au
+  passage, puisqu'il n'est jamais `PUBLISHED`).
+* **Contrats mis à jour** : `GEO_SEARCH_CONTRACT.md` et
+  `BOUNDING_BOX_SEARCH_CONTRACT.md` (LL-4001/LL-4006) — paramètre
+  `status` retiré de la documentation, note explicite référençant
+  LL-6004 plutôt que suppression silencieuse.
+* Tests : réécriture complète des tests de recherche dans
+  `ActivityServiceTest`/`ActivityControllerTest` (signatures changées,
+  suppression des cas `status` obsolètes, 2 nouveaux tests vérifiant
+  que `PUBLISHED` est systématiquement demandé au repository quels que
+  soient les autres filtres) ; `ImportedActivityVisibilityIntegrationTest`
+  (LL-5011) mis à jour de la même façon, avec un test renommé
+  vérifiant qu'une activité importée apparaît en recherche publique
+  sans qu'aucun paramètre de statut ne soit nécessaire.
+
+Non exécuté en sandbox : ni compilation (Maven absent, pas d'accès
+réseau à Maven Central — même limitation que tous les tickets
+précédents), ni requête sur une base réelle.
+
+## LL-6003 — Ajouter le statut de modération ✅
+
+**Dépendance :** LL-6002.
+
+* **Migration `V11__enforce_activity_status.sql`** : `status` passe de
+  colonne libre sans contrainte à `NOT NULL DEFAULT 'PENDING'` +
+  `CHECK (status IN ('PENDING', 'PUBLISHED', 'REJECTED'))`. Un `UPDATE`
+  de secours convertit d'éventuelles lignes `NULL` en `PENDING` avant
+  d'ajouter la contrainte `NOT NULL` — ne devrait rien changer en
+  pratique (le code applicatif renseigne déjà toujours `status`
+  explicitement, jamais laissé à `NULL`), mais impossible à confirmer
+  sans accès à une base réelle en sandbox ; à vérifier par Alex avant
+  application.
+* **`Activity`** : javadoc du champ `status` étoffée — les trois
+  valeurs MVP, leur rôle, et les transitions minimales documentées :
+  `PENDING → PUBLISHED` et `PENDING → REJECTED` uniquement (aucun
+  retour en arrière, aucune transition depuis `PUBLISHED`/`REJECTED`),
+  conformément au critère d'acceptation « aucune machine à états
+  complexe ». Aucun endpoint ne permet encore de déclencher ces
+  transitions — prévu en LL-6006, hors périmètre de ce ticket.
+* **`ActivityService`** : `KNOWN_STATUSES` (validation du paramètre
+  `status` de la recherche géographique, LL-4003) étendu à `REJECTED` ;
+  aucune règle de visibilité appliquée ici — l'exclusion des activités
+  non `PUBLISHED` des recherches publiques reste le périmètre de
+  LL-6004, volontairement non anticipé.
+* Pas de nouvelle règle de validation métier (`PENDING`/`PUBLISHED`
+  restent les seules valeurs jamais produites par le code applicatif à
+  ce stade — `REJECTED` n'existera en pratique qu'à partir de LL-6006).
+* Tests unitaires ajoutés : `findNearby`/`findWithinBounds` acceptent
+  désormais `REJECTED` comme valeur de `status` sans lever d'exception
+  (2 nouveaux cas dans `ActivityServiceTest`).
+
+Non exécuté en sandbox : ni compilation (Maven absent, pas d'accès
+réseau à Maven Central — même limitation que tous les tickets
+précédents), ni migration appliquée à une base réelle.
+
+## LL-6002 — Renforcer la validation de `Activity` ✅
+
+**Dépendance :** LL-6001. Décision reçue d'Alex entre les deux
+tickets : ajouter le champ `url` manquant (point laissé ouvert par
+l'audit) plutôt que le différer.
+
+* **Champ `url` ajouté à `Activity`** (dernier champ du record, même
+  approche que `sourceId`/`importKey` en LL-5008) + migration
+  `V10__add_url_to_activity.sql` (`VARCHAR(512)` nullable, alignée sur
+  `source.url`). `NormalizationService` reporte désormais
+  `CollectedActivity#sourceUrl` sur `Activity#url` au lieu de le perdre
+  (problème n°8 de l'audit) ; `ImportService` le propage lors des
+  mises à jour/changements de statut. Toujours `null` pour une création
+  manuelle (le formulaire de contribution n'en demande pas — hors
+  périmètre de ce ticket).
+* **`NormalizationService`** (import) : validation étendue au-delà de
+  LL-5005 — longueur max de `title` (255, alignée sur la colonne),
+  cohérence `endDate >= startDate` (problème n°3), `category` non
+  vide/blanche si renseignée (problème n°7, interprétation minimale vu
+  qu'aucune liste de référence n'existe — voir javadoc), `url` valide
+  (`http`/`https`, syntaxe correcte) si renseignée (problème n°8).
+* **`ActivityService#createActivity`** (contribution manuelle) :
+  `title` désormais obligatoire et validé (non vide, ≤ 255 caractères —
+  problème n°1, jusqu'ici totalement absent sur ce chemin), `category`
+  non vide/blanche si renseignée, coordonnées revalidées après
+  géocodage par défense en profondeur (peu probable en pratique,
+  Nominatim ne renvoyant que des coordonnées réelles).
+* ⚠️ Décision non tranchée par ce ticket, signalée dans le code : la
+  notion de « catégorie valide » reste minimale (non vide/blanche)
+  tant que `category` est un champ libre sans lien avec la table
+  `category` — une validation plus stricte impliquerait un changement
+  de modèle hors périmètre.
+* Tests unitaires ajoutés : `NormalizationServiceTest` (9 nouveaux cas
+  — longueur de titre, cohérence de dates, catégorie blanche, URL
+  invalide/valide/absente, propagation de l'URL) et `ActivityServiceTest`
+  (6 nouveaux cas — titre nul/blanc/trop long, catégorie blanche,
+  création réussie avec/sans catégorie).
+* Tous les constructeurs `Activity` existants (17 occurrences, code +
+  tests) mis à jour pour le nouveau champ. ⚠️ Vérifié par comptage
+  programmatique des arguments (script Python contant les virgules de
+  premier niveau de chaque appel `new Activity(...)`), **pas par
+  compilation** : Maven absent de la sandbox et Maven Central hors des
+  domaines réseau autorisés — même limitation que tous les tickets
+  précédents. À confirmer par `mvn verify` de ton côté.
+
+Non exécuté en sandbox : ni compilation, ni migration appliquée à une
+base réelle.
+
 ## LL-6001 — Auditer la qualité des données ✅
 
 **Dépendance :** aucune (premier ticket du sprint).

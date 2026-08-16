@@ -12,7 +12,6 @@ import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
@@ -26,14 +25,14 @@ public class ActivityService {
     /** Contrat LL-4001 : rayon maximal autorisé pour la recherche géographique. */
     private static final double MAX_RADIUS_KM = 50;
 
+    /** Alignée sur la colonne {@code activity.title} (V2__create_activity_table.sql), voir {@code createActivity}. */
+    private static final int MAX_TITLE_LENGTH = 255;
+
     /**
-     * Statuts connus d'une activité. Pas d'enum dédié dans le domaine à ce
-     * stade (le champ {@code status} d'{@link Activity} reste une simple
-     * chaîne, comme partout ailleurs dans le projet) : cette liste sert
-     * uniquement à valider le paramètre {@code status} de la recherche
-     * géographique (LL-4003), conformément au contrat LL-4001.
+     * Seul statut retourné par les recherches publiques depuis LL-6004 —
+     * voir {@link #findNearby} et {@link #findWithinBounds}.
      */
-    private static final Set<String> KNOWN_STATUSES = Set.of("PENDING", "PUBLISHED");
+    private static final String PUBLIC_STATUS = "PUBLISHED";
 
     private final ActivityRepository activityRepository;
     private final GeocodingService geocodingService;
@@ -57,8 +56,8 @@ public class ActivityService {
     /**
      * Recherche géographique (LL-4002/LL-4003/LL-4004) : activités situées
      * à moins de {@code radius} kilomètres du point donné, triées par
-     * distance croissante, avec filtres optionnels par statut et par
-     * catégorie. Reçoit les paramètres bruts (chaînes, tels que fournis par
+     * distance croissante, avec filtres optionnels par catégorie et par
+     * date. Reçoit les paramètres bruts (chaînes, tels que fournis par
      * la query string) et fait toute la validation ici plutôt que de
      * s'appuyer sur la coercition automatique de Spring MVC
      * ({@code @RequestParam(required = true)}) :
@@ -68,6 +67,19 @@ public class ActivityService {
      * Spring lever l'exception lui-même — même choix de conception que
      * {@link GeocodingService} (LL-3012) : validation locale, exceptions
      * {@link IllegalArgumentException} attrapées par le contrôleur.
+     *
+     * Statut (LL-6004) : ce point d'accès est public (aucune
+     * authentification requise) — il ne retourne donc que les activités
+     * {@code PUBLISHED}, sans exception possible. Jusqu'en LL-6003, un
+     * paramètre {@code status} permettait de filtrer sur n'importe quelle
+     * valeur connue (y compris {@code PENDING}/{@code REJECTED}) ; ce
+     * paramètre a été retiré de l'API publique avec l'introduction de la
+     * modération (dette technique signalée en LL-5012/LL-5008 : une
+     * activité non publiée restait visible sur la carte faute de filtre
+     * par défaut — voir {@code DETTE_TECHNIQUE.md}). Une future
+     * consultation par statut (ex. file de modération) passera par un
+     * endpoint distinct, réservé aux administrateurs (LL-6005), pas par
+     * celui-ci.
      *
      * {@code category} (LL-4004) : liste de catégories séparées par des
      * virgules (ex. {@code "concert,marché"}), ou {@code null} pour ne pas
@@ -104,13 +116,11 @@ public class ActivityService {
      * @throws IllegalArgumentException si un paramètre obligatoire est
      *         manquant/non numérique, hors des contraintes du contrat
      *         LL-4001 (latitude/longitude hors plage, rayon ≤ 0 ou
-     *         &gt; 50 km), si {@code status} ne correspond à aucune
-     *         valeur connue, ou si {@code date} n'est pas au format
+     *         &gt; 50 km), ou si {@code date} n'est pas au format
      *         ISO-8601 ({@code yyyy-MM-dd}).
      */
     public List<Activity> findNearby(
-            String latitudeRaw, String longitudeRaw, String radiusRaw, String status, String category,
-            String dateRaw) {
+            String latitudeRaw, String longitudeRaw, String radiusRaw, String category, String dateRaw) {
         double latitude = parseRequiredDouble("latitude", latitudeRaw);
         double longitude = parseRequiredDouble("longitude", longitudeRaw);
         double radiusKm = parseRequiredDouble("radius", radiusRaw);
@@ -122,14 +132,12 @@ public class ActivityService {
                     "Le paramètre 'radius' doit être strictement positif et ne pas dépasser " + (int) MAX_RADIUS_KM
                             + " km.");
         }
-        if (status != null && !KNOWN_STATUSES.contains(status)) {
-            throw new IllegalArgumentException("Le paramètre 'status' ne correspond à aucune valeur connue.");
-        }
         LocalDate date = parseOptionalDate(dateRaw);
 
         double radiusMeters = radiusKm * 1000;
         String categoriesCsv = normalizeCategories(category);
-        return activityRepository.findWithinRadius(latitude, longitude, radiusMeters, status, categoriesCsv, date);
+        return activityRepository.findWithinRadius(
+                latitude, longitude, radiusMeters, PUBLIC_STATUS, categoriesCsv, date);
     }
 
     /**
@@ -137,8 +145,9 @@ public class ActivityService {
      * situées à l'intérieur du rectangle défini par les coins sud-ouest
      * ({@code swLatitude}/{@code swLongitude}) et nord-est
      * ({@code neLatitude}/{@code neLongitude}), avec les mêmes filtres
-     * optionnels par statut, catégorie et date que {@link #findNearby}.
-     * Voir le contrat détaillé dans
+     * optionnels par catégorie et date que {@link #findNearby} (et la
+     * même restriction au statut {@code PUBLISHED}, voir sa javadoc pour
+     * le détail — LL-6004). Voir le contrat détaillé dans
      * {@code docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md}. Même
      * approche de validation locale que {@link #findNearby} (paramètres
      * reçus en {@code String}, exceptions {@link IllegalArgumentException}
@@ -157,12 +166,12 @@ public class ActivityService {
      *         plage (-90/90, -180/180), si {@code swLatitude >=
      *         neLatitude} ou {@code swLongitude >= neLongitude} (contrat
      *         LL-4006 : la traversée de l'antiméridien n'est pas
-     *         supportée), si {@code status} ne correspond à aucune valeur
-     *         connue, ou si {@code date} n'est pas au format ISO-8601.
+     *         supportée), ou si {@code date} n'est pas au format
+     *         ISO-8601.
      */
     public List<Activity> findWithinBounds(
             String swLatitudeRaw, String swLongitudeRaw, String neLatitudeRaw, String neLongitudeRaw,
-            String status, String category, String dateRaw) {
+            String category, String dateRaw) {
         double swLatitude = parseRequiredDouble("swLatitude", swLatitudeRaw);
         double swLongitude = parseRequiredDouble("swLongitude", swLongitudeRaw);
         double neLatitude = parseRequiredDouble("neLatitude", neLatitudeRaw);
@@ -182,14 +191,11 @@ public class ActivityService {
                     "Le paramètre 'swLongitude' doit être strictement inférieur à 'neLongitude' "
                             + "(la traversée de l'antiméridien n'est pas supportée).");
         }
-        if (status != null && !KNOWN_STATUSES.contains(status)) {
-            throw new IllegalArgumentException("Le paramètre 'status' ne correspond à aucune valeur connue.");
-        }
         LocalDate date = parseOptionalDate(dateRaw);
 
         String categoriesCsv = normalizeCategories(category);
         return activityRepository.findWithinBounds(
-                swLatitude, swLongitude, neLatitude, neLongitude, status, categoriesCsv, date);
+                swLatitude, swLongitude, neLatitude, neLongitude, PUBLIC_STATUS, categoriesCsv, date);
     }
 
     private void validateLatitude(String paramName, double latitude) {
@@ -243,11 +249,14 @@ public class ActivityService {
      * Crée une activité à partir d'une contribution (LL-2012, adresse
      * géocodée depuis LL-3012). L'adresse elle-même n'est pas conservée en
      * base, seules les coordonnées obtenues via {@link GeocodingService} le
-     * sont. Statut par défaut : {@code PENDING} (pas de système de
-     * modération à ce stade, à ajuster si besoin). Aucune date de
+     * sont. Statut par défaut : {@code PENDING} (en attente de modération —
+     * l'une des trois valeurs formalisées en LL-6003, voir
+     * {@link Activity#status()}). Aucune date de
      * début/fin n'est demandée par le formulaire de contribution ; la date
      * de soumission est utilisée comme {@code startDate} en attendant un
-     * futur ticket sur ce point.
+     * futur ticket sur ce point. {@code url} toujours {@code null} : le
+     * formulaire de contribution ne demande pas d'URL (LL-6002, hors
+     * périmètre — voir {@code DATA_QUALITY_AUDIT.md}).
      *
      * Rattachée à la source réservée {@code MANUAL} (LL-5008, voir
      * {@code SOURCE_CONTRACT.md}) : critère d'acceptation explicite de
@@ -256,9 +265,28 @@ public class ActivityService {
      * désormais obligatoire est renseigné en interne. {@code importKey}
      * reste {@code null} : aucune donnée collectée à déduplicer pour une
      * contribution manuelle.
+     *
+     * Validation ajoutée en LL-6002 (audit LL-6001, problème n°1 —
+     * {@code title} n'était jusqu'ici pas du tout validé sur ce chemin) :
+     * {@code title} obligatoire, non vide après {@code trim()}, longueur
+     * ≤ 255 caractères (alignée sur la colonne {@code activity.title}) ;
+     * {@code category}, si renseignée, non vide/blanche après
+     * {@code trim()} (même interprétation minimale que
+     * {@code NormalizationService}, {@code category} restant un champ
+     * libre — voir sa javadoc) ; coordonnées revalidées après géocodage
+     * par défense en profondeur, bien qu'improbable en pratique
+     * (Nominatim ne renvoie que des coordonnées réelles).
+     *
+     * @throws IllegalArgumentException si {@code title} est manquant, vide
+     *         ou trop long, ou si {@code category} est fournie mais
+     *         vide/blanche.
      */
     public Activity createActivity(String title, String description, String category, String address) {
+        validateTitle(title);
+        validateCategory(category);
         Coordinates coordinates = geocodingService.geocode(address);
+        validateLatitude("latitude", coordinates.latitude());
+        validateLongitude("longitude", coordinates.longitude());
         Long manualSourceId = sourceService.findByType("MANUAL")
                 .map(Source::id)
                 .orElseThrow(() -> new IllegalStateException(
@@ -266,8 +294,24 @@ public class ActivityService {
         Activity activity = new Activity(
                 null, title, description, category,
                 coordinates.latitude(), coordinates.longitude(), LocalDateTime.now(), null, "PENDING",
-                manualSourceId, null);
+                manualSourceId, null, null);
         return activityRepository.save(activity);
+    }
+
+    private void validateTitle(String title) {
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("Le champ 'title' est obligatoire.");
+        }
+        if (title.length() > MAX_TITLE_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Le champ 'title' ne doit pas dépasser " + MAX_TITLE_LENGTH + " caractères.");
+        }
+    }
+
+    private void validateCategory(String category) {
+        if (category != null && category.isBlank()) {
+            throw new IllegalArgumentException("Le champ 'category', s'il est fourni, ne peut pas être vide.");
+        }
     }
 
 }

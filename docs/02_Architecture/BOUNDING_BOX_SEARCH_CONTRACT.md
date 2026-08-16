@@ -45,14 +45,19 @@ traduction nécessaire côté frontend en LL-4012.
 | `swLongitude` | double | oui          | entre -180 et 180                | Longitude du coin sud-ouest de la zone.           |
 | `neLatitude`  | double | oui          | entre -90 et 90, `> swLatitude`  | Latitude du coin nord-est de la zone.             |
 | `neLongitude` | double | oui          | entre -180 et 180, `> swLongitude` | Longitude du coin nord-est de la zone.          |
-| `status`      | string | non          | doit correspondre à une valeur existante (ex. `PUBLISHED`, `PENDING`) | Filtre les résultats sur ce statut. Absent → aucun filtrage. Identique au contrat `/nearby`. |
 | `category`    | string | non          | une ou plusieurs valeurs séparées par des virgules | Filtre sur la/les catégorie(s). Identique au contrat `/nearby` (LL-4004). |
 | `date`        | string | non          | format ISO-8601 `yyyy-MM-dd`     | Filtre sur une date donnée. Identique au contrat `/nearby` (LL-4005). |
+
+⚠️ **Mise à jour LL-6004 (Sprint 6)** : le paramètre `status`,
+documenté ci-dessous jusqu'à LL-4007 (« identique au contrat `/nearby` »),
+**a été retiré**, pour la même raison que sur `/nearby` — voir la mise à
+jour équivalente dans `GEO_SEARCH_CONTRACT.md`. Cet endpoint étant
+public, il ne retourne désormais que les activités `PUBLISHED`.
 
 Exemple :
 
 ```text
-GET /api/v1/activities/within-bounds?swLatitude=43.28&swLongitude=5.35&neLatitude=43.31&neLongitude=5.40&status=PUBLISHED
+GET /api/v1/activities/within-bounds?swLatitude=43.28&swLongitude=5.35&neLatitude=43.31&neLongitude=5.40
 ```
 
 ⚠️ Décision à valider (implémentée telle quelle en LL-4007) :
@@ -86,7 +91,6 @@ Même format standardisé que le reste de l'API (`ErrorResponse`) :
 | Paramètre non numérique                                             | `400 Bad Request` |
 | Latitude/longitude hors plage (-90/90, -180/180)                    | `400 Bad Request` |
 | `swLatitude >= neLatitude` ou `swLongitude >= neLongitude`          | `400 Bad Request` |
-| `status` fourni mais ne correspondant à aucune valeur connue        | `400 Bad Request` |
 | `date` fournie mais pas au format ISO-8601                          | `400 Bad Request` |
 
 ## Implémentation (LL-4007)
@@ -98,10 +102,12 @@ Même format standardisé que le reste de l'API (`ErrorResponse`) :
   l'index spatial) plutôt que `ST_Within`/`ST_Contains`, suffisant
   puisque la zone de recherche est elle-même un rectangle — voir la
   javadoc de `ActivityRepository#findWithinBounds`.
-* Réutilisation des mêmes filtres optionnels `status`/`category`/`date`
+* Réutilisation des mêmes filtres optionnels `category`/`date`
   que `findNearby` (même logique de validation et de normalisation),
   pour rester cohérent entre les deux modes de recherche et permettre la
-  combinaison de filtres exigée par LL-4014 (tests d'intégration).
+  combinaison de filtres exigée par LL-4014 (tests d'intégration). Le
+  statut `PUBLISHED` est fixé côté service pour les deux (LL-6004),
+  plutôt que réutilisé comme filtre optionnel.
 * Aucun nouveau moteur de recherche — explicitement exclu du périmètre du
   Sprint 4 (voir `SPRINT_4.md`).
 

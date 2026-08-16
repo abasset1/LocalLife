@@ -202,14 +202,14 @@ public class ImportService {
         return new Activity(
                 id, activity.title(), activity.description(), activity.category(),
                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
-                activity.status(), sourceId, importKey);
+                activity.status(), sourceId, importKey, activity.url());
     }
 
     private Activity withStatus(Activity activity, String status) {
         return new Activity(
                 activity.id(), activity.title(), activity.description(), activity.category(),
                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
-                status, activity.sourceId(), activity.importKey());
+                status, activity.sourceId(), activity.importKey(), activity.url());
     }
 
 }

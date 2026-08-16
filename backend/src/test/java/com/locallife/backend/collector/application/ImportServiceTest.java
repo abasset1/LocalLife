@@ -59,7 +59,8 @@ class ImportServiceTest {
     private Activity normalizedActivity() {
         return new Activity(
                 null, "Marché de Noël", "description", "marché",
-                43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED", null, null);
+                43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED", null, null,
+                "https://example.com");
     }
 
     @Test
@@ -111,7 +112,7 @@ class ImportServiceTest {
         Activity existing = new Activity(
                 42L, "Marché de Noël", "old description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED",
-                10L, "external:OpenAgenda Marseille:ext-1");
+                10L, "external:OpenAgenda Marseille:ext-1", "https://example.com/old");
         when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
                 .thenReturn(Optional.of(existing));
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of(existing));
@@ -200,7 +201,7 @@ class ImportServiceTest {
         Activity previouslyImported = new Activity(
                 42L, "Marché de Noël", "description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED",
-                10L, "external:OpenAgenda Marseille:ext-1");
+                10L, "external:OpenAgenda Marseille:ext-1", "https://example.com");
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of(previouslyImported));
 
         // When
@@ -222,7 +223,7 @@ class ImportServiceTest {
         Activity alreadyArchived = new Activity(
                 42L, "Marché de Noël", "description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "ARCHIVED",
-                10L, "external:OpenAgenda Marseille:ext-1");
+                10L, "external:OpenAgenda Marseille:ext-1", "https://example.com");
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of(alreadyArchived));
 
         // When

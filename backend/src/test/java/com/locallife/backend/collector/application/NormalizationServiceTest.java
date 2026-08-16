@@ -103,4 +103,90 @@ class NormalizationServiceTest {
         assertTrue(normalizationService.normalize(collected).isPresent());
     }
 
+    // --- Renforcement de la validation (LL-6002, audit LL-6001) ---
+
+    @Test
+    void normalize_ShouldRejectData_WhenTitleExceedsMaxLength() {
+        CollectedActivity collected = new CollectedActivity(
+                "T".repeat(256), "description", LocalDateTime.now(), null, "marché",
+                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
+
+        assertFalse(normalizationService.normalize(collected).isPresent());
+    }
+
+    @Test
+    void normalize_ShouldAcceptData_WhenTitleIsExactlyMaxLength() {
+        CollectedActivity collected = new CollectedActivity(
+                "T".repeat(255), "description", LocalDateTime.now(), null, "marché",
+                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
+
+        assertTrue(normalizationService.normalize(collected).isPresent());
+    }
+
+    @Test
+    void normalize_ShouldRejectData_WhenEndDateIsBeforeStartDate() {
+        CollectedActivity collected = new CollectedActivity(
+                "Titre", "description",
+                LocalDateTime.of(2026, 12, 24, 20, 0), LocalDateTime.of(2026, 12, 1, 10, 0),
+                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
+
+        assertFalse(normalizationService.normalize(collected).isPresent());
+    }
+
+    @Test
+    void normalize_ShouldAcceptData_WhenEndDateEqualsStartDate() {
+        LocalDateTime sameInstant = LocalDateTime.of(2026, 12, 1, 10, 0);
+        CollectedActivity collected = new CollectedActivity(
+                "Titre", "description", sameInstant, sameInstant,
+                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
+
+        assertTrue(normalizationService.normalize(collected).isPresent());
+    }
+
+    @Test
+    void normalize_ShouldRejectData_WhenCategoryIsBlankButNotNull() {
+        CollectedActivity collected = new CollectedActivity(
+                "Titre", "description", LocalDateTime.now(), null, "   ",
+                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
+
+        assertFalse(normalizationService.normalize(collected).isPresent());
+    }
+
+    @Test
+    void normalize_ShouldRejectData_WhenUrlIsMalformed() {
+        CollectedActivity collected = new CollectedActivity(
+                "Titre", "description", LocalDateTime.now(), null, "marché",
+                43.2965, 5.3698, "pas une url", "ext-1", "OpenAgenda Marseille");
+
+        assertFalse(normalizationService.normalize(collected).isPresent());
+    }
+
+    @Test
+    void normalize_ShouldRejectData_WhenUrlSchemeIsNotHttpOrHttps() {
+        CollectedActivity collected = new CollectedActivity(
+                "Titre", "description", LocalDateTime.now(), null, "marché",
+                43.2965, 5.3698, "ftp://example.com/fichier", "ext-1", "OpenAgenda Marseille");
+
+        assertFalse(normalizationService.normalize(collected).isPresent());
+    }
+
+    @Test
+    void normalize_ShouldAcceptData_WhenUrlIsNull() {
+        CollectedActivity collected = new CollectedActivity(
+                "Titre", "description", LocalDateTime.now(), null, "marché",
+                43.2965, 5.3698, null, "ext-1", "OpenAgenda Marseille");
+
+        assertTrue(normalizationService.normalize(collected).isPresent());
+    }
+
+    @Test
+    void normalize_ShouldCarryUrlThrough_ToNormalizedActivity() {
+        CollectedActivity collected = validCollectedActivity();
+
+        Optional<Activity> result = normalizationService.normalize(collected);
+
+        assertTrue(result.isPresent());
+        assertEquals("https://example.com/evenement/123", result.get().url());
+    }
+
 }
