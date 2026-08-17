@@ -15,8 +15,8 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
 * Consultation des catégories (`GET /api/v1/categories`).
 * Formulaire de contribution : proposer une activité directement depuis la
   carte (titre, description, catégorie, localisation), envoyée à
-  `POST /api/v1/activities` (statut `PENDING` par défaut — pas de
-  modération à ce stade).
+  `POST /api/v1/activities` (statut `PENDING` par défaut — modération
+  décrite dans la section Sprint 6 ci-dessous).
 
 ## Authentification
 
@@ -53,10 +53,12 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
 * Recherche par zone rectangulaire (typiquement la zone visible sur la
   carte) : `GET /api/v1/activities/within-bounds?swLatitude=...&swLongitude=...&neLatitude=...&neLongitude=...`,
   triée par id croissant (pas de point de référence pour une distance).
-* Filtres optionnels, communs aux deux endpoints : `status`, `category`
+* Filtres optionnels, communs aux deux endpoints : `category`
   (une ou plusieurs valeurs séparées par des virgules), `date` (format
   ISO-8601 `yyyy-MM-dd` — une activité est retenue quand cette date
-  tombe dans sa période `startDate`/`endDate`).
+  tombe dans sa période `startDate`/`endDate`). Depuis le Sprint 6, ces
+  deux endpoints ne retournent que les activités `PUBLISHED` — `status`
+  n'est plus un paramètre exposé (voir plus bas).
 * Détail des contrats :
   [`docs/02_Architecture/GEO_SEARCH_CONTRACT.md`](docs/02_Architecture/GEO_SEARCH_CONTRACT.md)
   et
@@ -91,6 +93,40 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
 * ⚠️ Aucun déclencheur automatique n'existe encore (pas de tâche
   planifiée, pas d'endpoint) — voir
   [`docs/02_Architecture/COLLECTOR_OPERATIONS.md`](docs/02_Architecture/COLLECTOR_OPERATIONS.md).
+
+## Sprint 6 — Qualité des données et administration minimale
+
+* **Validation renforcée** : `title` obligatoire (≤ 255 caractères),
+  `url` conservée (perdue à tort par la normalisation avant ce
+  sprint), migration `V10` (colonne `url`).
+* **Statut de modération** : chaque activité a désormais un statut
+  (`PENDING`/`PUBLISHED`/`REJECTED`, contrainte `CHECK` en base,
+  migration `V11`). Seules les activités `PUBLISHED` sont retournées
+  par `GET /api/v1/activities/nearby` et `/within-bounds` — `status`
+  n'est plus un paramètre exposé par ces endpoints publics.
+* **Contrôle administratif minimal** (rôle `ADMIN` requis) :
+  * `GET /api/v1/admin/activities?status=...` — consultation par
+    statut (ex. la file d'attente `PENDING`).
+  * `PATCH /api/v1/admin/activities/{id}/publish` et
+    `PATCH /api/v1/admin/activities/{id}/reject` — publier ou rejeter
+    une activité `PENDING`.
+* **Source identifiable** : `GET /api/v1/sources` et
+  `GET /api/v1/sources/{id}` (public) permettent de résoudre le
+  `sourceId` porté par une activité en un nom/type lisible (ex.
+  `OpenAgenda` vs `Saisie manuelle`).
+* **Premier jalon Food Truck** : nouveau module indépendant
+  `foodtruck` (voir
+  [`docs/02_Architecture/FOOD_TRUCK_CONTRACT.md`](docs/02_Architecture/FOOD_TRUCK_CONTRACT.md)),
+  affiché sur la même carte que les activités avec une icône dédiée.
+  * `GET /api/v1/foodtrucks` (public) — food trucks `PUBLISHED`
+    (statut par défaut à la création, aucune modération food truck à
+    ce stade).
+  * `POST /api/v1/foodtrucks` — utilisateur connecté requis, même
+    posture que `POST /api/v1/activities`.
+* **Tests de non-régression** : suite dédiée vérifiant explicitement
+  la visibilité publique par statut, le contrôle d'accès
+  administrateur/utilisateur standard, la visibilité des food trucks,
+  et que la recherche géographique reste inchangée.
 
 ## Démarrage
 

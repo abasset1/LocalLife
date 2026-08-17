@@ -59,6 +59,26 @@ JWT, BCrypt, protection des endpoints, authentification frontend et géocodage.
 - Tests du pipeline (cas principaux automatisés) et vérification de
   l'intégration avec la recherche/les filtres du Sprint 4.
 
+### Sprint 6 — Qualité des données et administration minimale
+**Statut : ✅ Terminé**
+
+- Validation renforcée des activités (`title` obligatoire, `url`
+  conservée).
+- Statut de modération (`PENDING`/`PUBLISHED`/`REJECTED`) ; seules les
+  activités `PUBLISHED` visibles publiquement.
+- Contrôle administratif minimal (consultation par statut, publier/
+  rejeter une activité), réservé au rôle `ADMIN`.
+- Source d'une activité identifiable via l'API (`GET /api/v1/sources`).
+- Premier jalon Food Truck : modèle défini, module indépendant créé,
+  création possible, visible sur la carte avec une distinction
+  visuelle.
+- Tests de non-régression consolidés couvrant les points ci-dessus.
+
+Cette liste de Phase 2 comprenait déjà (« Pistes ») la qualité des
+données, l'administration et les food trucks : le Sprint 6 en a livré
+un premier socle minimal, mais Phase 2 elle-même (validation par de
+vrais utilisateurs) reste à planifier — voir ci-dessous.
+
 ---
 
 ## Phase 2 — Validation du MVP
@@ -68,10 +88,13 @@ Objectif : vérifier que le produit est réellement utile avant d'ajouter de nou
 
 Pistes :
 
-- qualité des données ;
-- administration ;
+- qualité des données (premier socle livré en Sprint 6, à approfondir) ;
+- administration (contrôle minimal livré en Sprint 6, à étoffer si
+  besoin réel) ;
 - amélioration des contributions ;
-- food trucks ;
+- food trucks (premier jalon livré en Sprint 6 : modèle, création,
+  visibilité sur la carte — reste à approfondir : modération dédiée,
+  recherche géographique, etc.) ;
 - expérience utilisateur ;
 - stabilité et performance.
 

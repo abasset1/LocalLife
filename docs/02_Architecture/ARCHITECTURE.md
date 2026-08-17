@@ -10,6 +10,11 @@ Un package par domaine métier sous `com.locallife.backend` :
   (rayon, zone cartographique), filtres, contribution manuelle.
 * `source` — origine d'une activité (import ou saisie manuelle). Voir
   `SOURCE_CONTRACT.md`.
+* `foodtruck` — module indépendant (Sprint 6), point d'intérêt
+  affiché sur la même carte que `Activity` sans en dépendre (pas de
+  champs de date, pas de lien avec `source`) — voir
+  `FOOD_TRUCK_CONTRACT.md` pour le raisonnement complet et le patron à
+  suivre pour un futur type de point supplémentaire.
 * `collector` — collecte, normalisation, déduplication et import de
   données externes vers `Activity`. Voir `COLLECTOR_CONTRACT.md` et
   `COLLECTOR_OPERATIONS.md`.
@@ -69,4 +74,7 @@ React + Vite, carte interactive (Leaflet), consomme l'API REST du
 backend. Aucune fonctionnalité frontend spécifique au pipeline d'import
 (Sprint 5) : les activités importées sont de simples `Activity`,
 indiscernables des activités manuelles côté carte/recherche/filtres
-(vérifié en LL-5011).
+(vérifié en LL-5011). Depuis le Sprint 6, un second type de marqueur
+(food truck) est affiché sur la même carte, avec une icône dédiée pour
+la distinction visuelle — voir `FOOD_TRUCK_CONTRACT.md` pour le patron
+à suivre si un troisième type de point est ajouté plus tard.

@@ -110,6 +110,40 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 
 ---
 
+## Documentation — deux fichiers `ROADMAP.md` distincts
+
+* **Détecté** : lors de LL-6011 (documentation de fin de Sprint 6, 17
+  août 2026), en cherchant où mettre à jour la roadmap.
+* **Où** : `docs/04_Project/ROADMAP.md` (fichier d'origine, présent
+  depuis le commit initial, structure détaillée et alignée sur les
+  autres documents du dossier `04_Project`) et `docs/ROADMAP.md`
+  (fichier distinct, créé séparément — voir son historique Git,
+  `Create ROADMAP.md` puis `Update ROADMAP.md` — contenu plus terse,
+  sans les mêmes sous-sections).
+* **Nature** : duplication non intentionnelle, déjà repérée sans être
+  résolue lors de LL-5012 (qui avait mis à jour les deux fichiers en
+  parallèle, corrigeant au passage une information obsolète dans
+  `docs/ROADMAP.md`, sans consolider). LL-6011 a de nouveau mis à jour
+  les deux fichiers en parallèle pour éviter de les faire diverger
+  davantage, sans trancher laquelle des deux copies doit devenir la
+  seule source de vérité — décision produit/documentaire plutôt que
+  choix technique unilatéral.
+* **Impact réel** : risque de divergence progressive entre les deux
+  fichiers si l'un des deux est oublié lors d'une future mise à jour
+  (déjà arrivé une fois avant LL-5012, selon son propre journal) ;
+  aucun impact fonctionnel (documentation uniquement).
+* **Correctif disponible** : choisir l'un des deux fichiers comme
+  source unique (probablement `docs/04_Project/ROADMAP.md`, plus
+  complet et cohérent avec le rangement du dossier `04_Project`),
+  supprimer l'autre, et rediriger toute référence externe éventuelle.
+* **Pourquoi pas corrigé immédiatement** : supprimer un fichier de
+  documentation est une décision structurante qui dépasse le périmètre
+  d'un ticket de mise à jour de documentation (LL-6011) — à confirmer
+  avec Alex avant suppression.
+* **Statut** : ouvert.
+
+---
+
 <!--
 Modèle pour une nouvelle entrée :
 

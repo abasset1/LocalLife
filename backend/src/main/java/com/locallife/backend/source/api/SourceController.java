@@ -2,6 +2,10 @@ package com.locallife.backend.source.api;
 
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +45,12 @@ import org.springframework.web.bind.annotation.RestController;
  * activité donnée) ; la liste complète est ajoutée pour rester cohérente
  * avec le seul autre module de référencement simple du projet
  * ({@code Category}), pas pour un besoin fonctionnel identifié.
+ *
+ * Annotations Swagger/OpenAPI ajoutées en LL-6011 (documentation de fin
+ * de sprint), pour la même richesse de documentation générée que
+ * {@code ActivityController}/{@code AdminActivityController} — Springdoc
+ * documentait déjà cet endpoint automatiquement sans elles, mais avec des
+ * descriptions génériques inférées des noms de méthode/paramètre.
  */
 @RestController
 @RequestMapping("/api/v1/sources")
@@ -52,6 +62,13 @@ public class SourceController {
         this.sourceService = sourceService;
     }
 
+    @Operation(
+            summary = "Liste toutes les sources",
+            description = "Retourne toutes les sources connues (import externe ou saisie manuelle). "
+                    + "Endpoint public, sans authentification.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Liste renvoyée avec succès (peut être vide).")
+    })
     @GetMapping
     public ResponseEntity<List<Source>> getAllSources() {
         List<Source> sources = sourceService.getAllSources();
@@ -64,8 +81,18 @@ public class SourceController {
      * ne correspond — même convention que
      * {@code ActivityController#getActivityById}.
      */
+    @Operation(
+            summary = "Résout un identifiant de source",
+            description = "Retourne la source correspondant à l'id fourni (utile pour résoudre le "
+                    + "sourceId d'une activité en nom/type lisible). Endpoint public.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Source trouvée."),
+        @ApiResponse(responseCode = "404", description = "Aucune source ne correspond à cet id.")
+    })
     @GetMapping("/{id}")
-    public ResponseEntity<Source> getSourceById(@PathVariable Long id) {
+    public ResponseEntity<Source> getSourceById(
+            @Parameter(description = "Identifiant de la source à résoudre.", required = true)
+            @PathVariable Long id) {
         return sourceService.getSourceById(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());

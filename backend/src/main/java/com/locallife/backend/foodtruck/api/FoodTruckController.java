@@ -3,6 +3,11 @@ package com.locallife.backend.foodtruck.api;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.foodtruck.application.FoodTruckService;
 import com.locallife.backend.foodtruck.domain.FoodTruck;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
@@ -27,6 +32,9 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code POST /api/v1/activities} (LL-3008, {@code SecurityConfig}) :
  * utilisateur connecté requis, même posture de sécurité qu'une
  * contribution d'activité.
+ *
+ * Annotations Swagger/OpenAPI ajoutées en LL-6011 (documentation de fin
+ * de sprint) — voir la remarque équivalente sur {@code SourceController}.
  */
 @RestController
 @RequestMapping("/api/v1/foodtrucks")
@@ -38,12 +46,31 @@ public class FoodTruckController {
         this.foodTruckService = foodTruckService;
     }
 
+    @Operation(
+            summary = "Liste les food trucks visibles publiquement",
+            description = "Retourne les food trucks PUBLISHED (statut par défaut à la création, aucune "
+                    + "modération food truck à ce stade — voir FoodTruck). Endpoint public.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Liste renvoyée avec succès (peut être vide).")
+    })
     @GetMapping
     public ResponseEntity<List<FoodTruck>> getAllFoodTrucks() {
         List<FoodTruck> foodTrucks = foodTruckService.findAllPublished();
         return ResponseEntity.ok(foodTrucks);
     }
 
+    @Operation(
+            summary = "Crée un food truck",
+            description = "Crée un food truck (statut PUBLISHED par défaut, visible immédiatement — voir "
+                    + "FoodTruck). Réservé aux utilisateurs authentifiés, même posture que "
+                    + "POST /api/v1/activities.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Food truck créé avec succès."),
+        @ApiResponse(responseCode = "400",
+                description = "Nom ou catégorie manquant/vide, nom trop long, ou coordonnées hors bornes.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide).")
+    })
     @PostMapping
     public ResponseEntity<Object> createFoodTruck(
             @RequestBody CreateFoodTruckRequest request, HttpServletRequest httpRequest) {

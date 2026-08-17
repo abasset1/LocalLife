@@ -1,14 +1,14 @@
 # LocalLife - Project Status
 
-**Version :** 0.3.0
-**Dernière mise à jour :** 2026-08-17 (LL-6010)
+**Version :** 0.6.0
+**Dernière mise à jour :** 2026-08-17 (LL-6011)
 
 ---
 ## Phase actuelle
-🟡 Phase 1 — Construction du socle technique
+🟢 Phase 1 — Construction du socle technique et du MVP
 
 Le cadrage fonctionnel et technique est terminé.
-Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) terminé. Sprint 3 (authentification, géocodage) terminé. Sprint 4 (recherche et découverte géographique) terminé.
+Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) terminé. Sprint 3 (authentification, géocodage) terminé. Sprint 4 (recherche et découverte géographique) terminé. Sprint 5 (alimentation réelle : sources, collecteur OpenAgenda, import) terminé. Sprint 6 (qualité des données et administration minimale : validation renforcée, statut de modération, contrôle administratif, source identifiable, premier jalon Food Truck, tests de non-régression) terminé.
 
 ---
 ## Avancement
@@ -27,7 +27,8 @@ Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité
  | Repository                 | ✅ Initialisé |
  | Développement Backend      | 🟡 En cours   |
  | Développement Frontend     | 🟡 En cours   |
- | Collecteurs                | 🟡 Prochaine étape |
+ | Collecteurs                | ✅ Terminé (Sprint 5) |
+ | Modération / administration | ✅ Terminé (Sprint 6) |
  | Phase 1 (Socle Technique)  | ✅ Terminé    |
  | Infrastructure             | 🟡 À consolider |
 
@@ -48,7 +49,7 @@ Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité
 ---
 # Phase 1 — Socle Technique
 **Statut :** ✅ Terminé
-Tous les sprints (0 à 4) sont terminés.
+Tous les sprints (0 à 6) sont terminés.
 
 ---
 # MVP retenu
@@ -335,6 +336,72 @@ Statut : 🟡 En cours.
 Objectif : fiabiliser les données réellement présentes dans LocalLife
 après l'intégration de la première source externe (Sprint 5) — voir
 `docs/05_Sprints/SPRINT_6.md`.
+
+## LL-6011 — Documentation ✅
+
+**Priorité : Haute. Dépendance :** tous les tickets précédents.
+
+Mis à jour, conformément à `SPRINT_6.md` :
+* **`PROJECT_STATUS.md`** (ce fichier) : version `0.3.0` → `0.6.0`
+  (champ resté figé depuis un sprint antérieur alors que
+  `CHANGELOG.md` affichait déjà `0.4.0` en tête — corrigé au passage) ;
+  section « Phase actuelle » et tableau « Avancement » mis à jour
+  (mentionnaient encore le Sprint 4 comme dernier sprint terminé,
+  « Collecteurs » comme « prochaine étape » alors que livrés en
+  Sprint 5).
+* **`docs/04_Project/ROADMAP.md`** (fichier canonique) et
+  **`docs/ROADMAP.md`** (copie parallèle maintenue depuis LL-5012,
+  voir ci-dessous) : Sprint 6 ajouté, section « Phase 2 » nuancée
+  (les « pistes » qualité des données/administration/food trucks y
+  étaient déjà listées ; Sprint 6 en a livré un premier socle, sans
+  que Phase 2 elle-même — validation par de vrais utilisateurs —
+  ne soit lancée).
+* **`CHANGELOG.md`** : entrée `0.6.0 - Sprint 6` ajoutée. Écart repéré
+  et corrigé au passage : `0.5.0 - Sprint 5` n'avait **jamais** été
+  ajoutée (le fichier passait directement de `0.4.0 - Sprint 4` à
+  `0.3.0 - 2026-08-11`, laissant croire qu'aucun changement notable
+  n'avait eu lieu en Sprint 5) — comblé.
+* **Documentation API** : annotations Swagger/OpenAPI (`@Operation`,
+  `@ApiResponses`) ajoutées à `SourceController` et
+  `FoodTruckController`, pour la même richesse de documentation
+  générée que `ActivityController`/`AdminActivityController` — ces
+  deux contrôleurs avaient été volontairement laissés sans
+  annotations lors de LL-6007/LL-6009 (miroir de `CategoryController`,
+  le seul précédent de contrôleur minimal du projet à l'époque), mais
+  `AdminActivityController` avait entre-temps établi un niveau de
+  documentation plus riche qu'il est apparu cohérent de généraliser.
+* **`docs/02_Architecture/ARCHITECTURE.md`** : module `foodtruck`
+  ajouté à la liste des modules ; section Frontend complétée (second
+  type de marqueur sur la carte).
+* **`README.md`** (racine) : section « Sprint 6 » ajoutée, même format
+  que les sections précédentes. Deux inexactitudes corrigées au
+  passage : la section « Recherche géographique » mentionnait encore
+  `status` comme paramètre de `/nearby`/`/within-bounds`, retiré
+  depuis LL-6004 ; la section Sprint 2 affirmait « pas de modération à
+  ce stade », devenu faux depuis LL-6003.
+
+**Au-delà du périmètre strict du ticket** (même justification que
+LL-5012 : ces fichiers existent précisément pour ce type
+d'information) : une entrée ajoutée à `docs/DETTE_TECHNIQUE.md` — la
+duplication `docs/04_Project/ROADMAP.md`/`docs/ROADMAP.md`, déjà
+repérée sans être résolue lors de LL-5012, toujours non consolidée
+(décision structurante — suppression d'un fichier — hors périmètre
+d'un ticket de documentation, à confirmer avec Alex).
+
+Non compilé (documentation + annotations uniquement, aucune logique
+modifiée) : brace-checker Python (79 fichiers, OK) comme proxy de
+compilation habituel pour les deux contrôleurs annotés.
+
+**Definition of Done du sprint** (`SPRINT_6.md`) : les dix points sont
+couverts par LL-6001 à LL-6011 (données invalides mieux contrôlées,
+statut de publication, visibilité publique restreinte, consultation/
+publication/rejet administrateur, source identifiable, food truck
+référencé et visible sur la carte, tests de non-régression écrits,
+documentation à jour). Réserve constante depuis le début du sprint :
+aucun test backend n'a pu être réellement compilé/exécuté en sandbox
+(Maven indisponible) — seul le brace-checker Python a servi de proxy ;
+le frontend, en revanche, a pu être réellement compilé et testé
+(`tsc`/`npm run build`) à partir de LL-6009.
 
 ## LL-6010 — Tests de non-régression ✅
 

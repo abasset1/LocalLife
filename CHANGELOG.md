@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.6.0 - Sprint 6
+
+### Added
+
+* Validation renforcée des activités : `title` obligatoire (≤ 255
+  caractères) ; `url` de l'activité conservée après normalisation
+  (colonne `url`, migration `V10`).
+* Statut de modération sur `Activity`
+  (`PENDING`/`PUBLISHED`/`REJECTED`, contrainte `CHECK` en base,
+  migration `V11`).
+* `GET /api/v1/activities/nearby` et `/within-bounds` ne retournent
+  désormais que les activités `PUBLISHED` — `status` retiré des
+  paramètres de ces endpoints publics.
+* Contrôle administratif minimal (rôle `ADMIN` requis) :
+  `GET /api/v1/admin/activities?status=...`,
+  `PATCH /api/v1/admin/activities/{id}/publish`,
+  `PATCH /api/v1/admin/activities/{id}/reject`.
+* `GET /api/v1/sources` et `GET /api/v1/sources/{id}` (public) : une
+  activité importée est désormais identifiable via l'API, pas
+  seulement en base.
+* Premier jalon Food Truck : nouveau module `foodtruck` indépendant,
+  `GET`/`POST /api/v1/foodtrucks`, migration `V12` ; affiché sur la
+  carte avec une icône dédiée, distincte de celle des activités.
+* Suite de tests de non-régression consolidée
+  (`NonRegressionIntegrationTest`) couvrant explicitement la
+  visibilité publique par statut, le contrôle d'accès administrateur/
+  utilisateur standard, la visibilité des food trucks et la recherche
+  géographique.
+
+### Fixed
+
+* `README.md` : mention obsolète du paramètre `status` sur `/nearby`/
+  `/within-bounds` (retiré depuis ce sprint) corrigée.
+
+## 0.5.0 - Sprint 5
+
+### Added
+
+* Pipeline d'import de données externes : collecte → déduplication →
+  normalisation/validation → persistance → journalisation.
+* Premier collecteur réel (OpenAgenda).
+* Modèle et module `Source` (`GET` non exposé à ce stade — ajouté en
+  Sprint 6), source réservée `MANUAL` pour les contributions
+  manuelles.
+* Détection simple des doublons (identifiant externe, ou clé
+  composite).
+* Persistance des imports (création/mise à jour/archivage doux),
+  journalisation.
+
 ## 0.4.0 - Sprint 4
 
 ### Added

@@ -41,7 +41,13 @@ Import de données
 Premier collecteur (OpenAgenda)
 Gestion des sources
 Détection simple des doublons
-Persistance et journalisation des imports
+Sprint 6 ✅
+Validation renforcée des activités
+Statut de modération (PENDING/PUBLISHED/REJECTED)
+Contrôle administratif minimal (rôle ADMIN)
+Source identifiable via l'API
+Premier jalon Food Truck (modèle, création, visibilité sur la carte)
+Tests de non-régression
 Phase 2 — Première bêta ⏳
 
 Objectif :
@@ -62,3 +68,4 @@ objectifs :
  | 3      | ✅ Terminé    | Authentification, Géocodage, JWT             |
  | 4      | ✅ Terminé    | Recherche et découverte géographique       |
  | 5      | ✅ Terminé    | Alimentation réelle (source, collecteur, import) |
+ | 6      | ✅ Terminé    | Qualité des données et administration minimale |
