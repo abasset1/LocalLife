@@ -79,7 +79,7 @@ Priorité actuelle : exécuter le Sprint 7 et vérifier le MVP de bout en bout.
 
 Ordre :
 
-1. définir le protocole de validation ;
+1. définir le protocole de validation ; ✅ (`LL-7001`)
 2. permettre un déclenchement contrôlé de l'import réel ;
 3. vérifier import → modération → carte ;
 4. vérifier recherche, contribution, authentification et Food Truck ;
@@ -898,11 +898,62 @@ ce qui n'est pas le cas actuellement) ?
 
 Non compilé (documentation uniquement, aucun fichier source touché).
 
+# Sprint 7
+
+Statut : 🟡 En cours.
+
+Objectif : passer du MVP techniquement construit à un MVP vérifiable en
+conditions réelles, sans ajouter de nouvelle fonctionnalité produit
+majeure — voir `docs/05_Sprints/SPRINT_7.md`.
+
+## LL-7001 — Définir le protocole de validation du MVP ✅
+
+**Dépendance :** aucune (premier ticket du sprint).
+
+**Ticket de conception/documentation uniquement** (comme
+`SOURCE_CONTRACT.md` en LL-5001 ou `FOOD_TRUCK_CONTRACT.md` en
+LL-6008) : aucun code, aucune migration, aucun endpoint.
+
+* **`docs/02_Architecture/MVP_VALIDATION_PROTOCOL.md`** (nouveau) : les
+  dix scénarios minimum de `SPRINT_7.md` détaillés (objectif, étapes,
+  critère de succès, critère d'échec, dépendance MVP explicite pour
+  chacun), un critère de succès/échec global par scénario et pour le
+  protocole dans son ensemble, et un rappel de traçabilité (résultats à
+  consigner dans ce fichier au fil de LL-7003 à LL-7006, synthétisés en
+  LL-7009).
+* **Emplacement retenu** : `docs/02_Architecture/`, par analogie avec
+  `DATA_QUALITY_AUDIT.md` (LL-6001) — même nature de document (audit/
+  protocole transversal, pas un contrat d'API à proprement parler), déjà
+  rangé dans ce dossier plutôt que dans un nouveau dossier `06_...`
+  dédié à la validation.
+* **Critères d'acceptation du ticket couverts** :
+  * *protocole documenté* : section 4 du document (dix scénarios) ;
+  * *critères succès/échec définis* : section 4 (par scénario) et
+    section 5 (globaux, alignés sur la décision « MVP validé »/« MVP non
+    validé » attendue en LL-7009) ;
+  * *aucun scénario ne dépend d'une fonctionnalité hors MVP* : vérifié
+    explicitement scénario par scénario (champ « Dépend de »,
+    systématiquement une fonctionnalité déjà livrée en Sprints 0 à 6 et
+    listée dans le MVP retenu), et section 2.3 dédiée à cette
+    vérification.
+* **Vérifications effectuées avant rédaction** (sandbox, lecture de
+  code) : endpoints réels des contrôleurs (`ActivityController`,
+  `AdminActivityController`, `AuthController`, `FoodTruckController`)
+  relus directement dans le code plutôt que supposés à partir de la
+  documentation, pour éviter de documenter un endpoint erroné dans le
+  protocole (leçon du correctif SecurityConfig, Sprint 3) ; confirmé que
+  `ImportService#importAll()` n'a toujours aucun déclencheur (cohérent
+  avec la dette technique ouverte, planifiée pour `LL-7002`).
+* **Aucun code modifié** : conforme à l'intitulé du ticket.
+
+Non compilé (documentation uniquement, aucun fichier source touché) —
+sans objet ici, pas de vérification brace-checker nécessaire.
+
 # Prochaine action
 
-Sprint 6 est terminé (`LL-6001` → `LL-6011`).
+`LL-7001` est terminé.
 
-La prochaine tâche est **LL-7001 — Définir le protocole de validation du MVP**, dans `docs/05_Sprints/SPRINT_7.md`.
+La prochaine tâche est **LL-7002 — Ajouter un déclencheur contrôlé du pipeline d'import**, dans `docs/05_Sprints/SPRINT_7.md`.
 
 Aucun Sprint 8 ne doit être défini avant la conclusion de Sprint 7.
 

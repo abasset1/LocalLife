@@ -6,15 +6,20 @@ Sprint 6 terminé (`LL-6001` → `LL-6011`).
 
 Phase actuelle : **Phase 2 — Validation du MVP**.
 
+`LL-7001` terminé : protocole de validation documenté dans
+`docs/02_Architecture/MVP_VALIDATION_PROTOCOL.md` (dix scénarios,
+critères de succès/échec, vérification d'indépendance vis-à-vis du
+hors-MVP).
+
 ## Prochaine tâche
 
 **Sprint 7 — Validation du MVP**
 
-### Premier ticket
+### Prochain ticket
 
-**LL-7001 — Définir le protocole de validation du MVP**
+**LL-7002 — Ajouter un déclencheur contrôlé du pipeline d'import**
 
-Détail : `docs/05_Sprints/SPRINT_7.md`.
+Dépendance : LL-7001 (terminé). Détail : `docs/05_Sprints/SPRINT_7.md`.
 
 ## Règles
 
