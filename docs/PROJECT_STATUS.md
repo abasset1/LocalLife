@@ -1,7 +1,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.3.0
-**Dernière mise à jour :** 2026-08-16
+**Dernière mise à jour :** 2026-08-17 (LL-6010)
 
 ---
 ## Phase actuelle
@@ -335,6 +335,237 @@ Statut : 🟡 En cours.
 Objectif : fiabiliser les données réellement présentes dans LocalLife
 après l'intégration de la première source externe (Sprint 5) — voir
 `docs/05_Sprints/SPRINT_6.md`.
+
+## LL-6010 — Tests de non-régression ✅
+
+**Priorité : Haute. Dépendance :** LL-6004, LL-6006, LL-6009 (tous terminés).
+
+**Audit préalable** : les neuf points listés dans `SPRINT_6.md` (« ###
+Tester ») étaient déjà couverts, au moins en partie, par les tests des
+tickets précédents :
+* accès administrateur / accès utilisateur standard / publication /
+  rejet : `AdminActivityControllerIntegrationTest` (LL-6005/LL-6006) ;
+* food truck visible sur la carte :
+  `FoodTruckControllerIntegrationTest` (LL-6009) ;
+* recherche géographique : `ActivityControllerIntegrationTest`
+  (LL-4001-LL-4014, vérifie les codes HTTP) et
+  `ImportedActivityVisibilityIntegrationTest` (LL-5011, vérifie le
+  contenu via `ActivityService` directement, pas via HTTP).
+
+**Écart réel identifié** : aucun test bout en bout, au niveau HTTP,
+avec des données réellement créées, ne vérifiait explicitement qu'une
+activité `PENDING`/`REJECTED` est **absente** de `GET /nearby` et
+`GET /within-bounds` (LL-6004 n'était couvert qu'au niveau unitaire —
+`ActivityServiceTest` vérifie que le repository est toujours appelé
+avec `PUBLISHED`, une garantie architecturale forte mais qui ne
+protège pas contre une régression qui contournerait
+`ActivityService`).
+
+* **`NonRegressionIntegrationTest`** (nouveau, `integration/`) : une
+  suite dédiée, volontairement redondante par endroits avec les suites
+  existantes — voir sa javadoc pour la justification de ce choix (faire
+  correspondre chacun des neuf points du ticket à une méthode de test
+  explicitement nommée et repérable en un seul endroit, plutôt que de
+  se fier à une couverture dispersée). Sept méthodes couvrent les neuf
+  points : publication+visibilité publiée, en-attente invisible,
+  rejet+invisibilité rejetée, accès admin, accès utilisateur standard,
+  food truck visible, recherche géographique inchangée (filtres
+  combinés inclus).
+* Comble l'écart réel identifié ci-dessus : `pendingActivity_
+  ShouldNotBeVisibleInPublicSearch` et `rejectedActivity_
+  ShouldNotBeVisibleInPublicSearch` créent réellement une activité via
+  `POST /api/v1/activities`, la font transiter par
+  `PATCH .../reject` le cas échéant, puis vérifient son absence du
+  corps de réponse HTTP de `/nearby` et `/within-bounds` — jamais
+  vérifié bout en bout avant ce ticket.
+* **Correction appliquée en cours de route** (LL-6009, avant push,
+  donc sans impact sur l'historique) : `FoodTruckControllerIntegrationTest`
+  utilisait `.expectBody(String.class).value(lambda)`, un enchaînement
+  jamais utilisé ni validé ailleurs dans le projet (seul `.expectBody
+  (Type.class).returnResult().getResponseBody()` l'était,
+  voir `AdminActivityControllerIntegrationTest`) — remplacé par ce
+  dernier pattern, plus sûr en l'absence de compilation Maven réelle
+  en sandbox. Même correction appliquée par précaution dans
+  `NonRegressionIntegrationTest`.
+* Aucun changement de code de production : ticket de test uniquement,
+  conforme à son intitulé.
+
+Non exécuté en sandbox : toujours pas de Maven disponible (ni binaire
+installé, ni accès réseau à Maven Central) — brace-checker Python
+utilisé comme à l'habitude comme proxy de compilation (79 fichiers,
+tous équilibrés).
+
+## LL-6009 — Première intégration Food Truck ✅
+
+**Dépendance :** LL-6008.
+
+**Décision d'extensibilité (demande explicite d'Alex, avant ce ticket)** :
+prévoir de pouvoir ajouter d'autres modules de ce type plus tard.
+Traduite en un **patron reproductible documenté**, pas en une
+abstraction générique construite par anticipation (rejetée : avec
+seulement deux types de points sur la carte — `Activity` et
+`FoodTruck` — une couche d'abstraction configurable ajouterait de la
+complexité sans bénéfice mesurable, à réévaluer si un troisième type
+concret est demandé) :
+* backend : un nouveau module autonome par type
+  (`domain`/`application`/`infrastructure`/`api`), documenté dans
+  `FOOD_TRUCK_CONTRACT.md` (LL-6008) ;
+* frontend : patron en 4 étapes documenté directement dans
+  `App.tsx` (javadoc de `FOOD_TRUCK_MARKER_ICON`) — interface
+  TypeScript dédiée, `useEffect` de récupération isolé, icône
+  `divIcon` dédiée, bloc de marqueurs supplémentaire dans le même
+  `<MapContainer>` (jamais un second composant carte).
+
+**Backend, nouveau module `foodtruck`** (structure calquée sur
+`source`, comme prévu par la décision structurante de LL-6008) :
+* **`FoodTruck`** (record), **`FoodTruckRepository`**
+  (`Repository<FoodTruck, Long>`, `save`/`findByStatus`, même style
+  que `SourceRepository`), **`FoodTruckService`**
+  (`createFoodTruck`/`findAllPublished`), **`FoodTruckController`**
+  (`GET`/`POST /api/v1/foodtrucks`).
+* **Migration `V12__create_food_truck_table.sql`** : table `food_truck`
+  neuve avec contrainte `CHECK` sur `status` posée dès la création
+  (contrairement à `activity`, où V11 est arrivée après coup) — mêmes
+  trois valeurs `PENDING`/`PUBLISHED`/`REJECTED` qu'`Activity.status`
+  (LL-6003), défaut DB `'PENDING'` (filet de sécurité, voir migration).
+* ⚠️ **Décision, à valider avec Alex** : le statut choisi par
+  l'application à la création est **`PUBLISHED`** (pas `PENDING` comme
+  pour une activité manuelle) — voir la javadoc de `FoodTruck` pour la
+  justification complète : aucun endpoint de modération (publier/
+  rejeter) n'existe pour les food trucks dans ce ticket ; un statut par
+  défaut `PENDING` sans aucun moyen de le faire évoluer aurait rendu
+  tout food truck créé invisible, contredisant directement le critère
+  d'acceptation « visibilité sur la carte ». Si une modération des food
+  trucks est souhaitée, un ticket dédié pourra réutiliser le mécanisme
+  déjà en place pour les activités (LL-6005/LL-6006).
+* **Pas de géocodage d'adresse** (contrairement à
+  `ActivityService#createActivity`, LL-3012) : la création reçoit
+  directement `latitude`/`longitude` — décision documentée dans
+  `FoodTruckService`, pour rester strictement dans le périmètre du
+  ticket (pas demandé par les critères d'acceptation).
+* **`POST /api/v1/foodtrucks`** protégé (`SecurityConfig`,
+  `.authenticated()`) — même posture que `POST /api/v1/activities`
+  (LL-3008) : n'importe quel utilisateur connecté peut contribuer.
+  `GET /api/v1/foodtrucks` reste public, ne retourne que les
+  `PUBLISHED`, même convention que les activités depuis LL-6004.
+* **Pas d'endpoint `GET /api/v1/foodtrucks/{id}`** : non demandé par
+  les critères d'acceptation du ticket, volontairement omis pour ne
+  pas dépasser le périmètre.
+
+**Frontend (`App.tsx`)** :
+* Nouvel état `foodTrucks`, `useEffect` de récupération isolé de celui
+  des activités (pas de filtres, un seul appel au montage — les
+  critères d'acceptation ne demandent aucun filtrage pour les food
+  trucks). Échec de la requête traité silencieusement (la carte reste
+  utilisable sans food trucks) — délibérément différent du traitement
+  d'erreur des activités (`searchError`), les food trucks restant un
+  contenu secondaire de la carte.
+* **`FOOD_TRUCK_MARKER_ICON`** : `divIcon` (HTML/CSS, camion 🚚 sur
+  fond orange, classe `.food-truck-marker` dans `styles.css`) plutôt
+  qu'une image externe — évite tout problème de résolution d'assets
+  Leaflet avec Vite pour un seul marqueur. Distinction visuelle avec
+  une activité (critère d'acceptation explicite). Distinction
+  fonctionnelle : popup sans date (un food truck n'est pas un
+  événement daté).
+* Bloc de marqueurs food trucks ajouté dans le même `<MapContainer>`
+  que les activités — un seul système cartographique, conformément à
+  la contrainte MVP de `SPRINT_6.md`.
+
+**Tests** : unitaires (`FoodTruckServiceTest`, 8 cas — création valide,
+validations nom/catégorie/coordonnées, restriction `PUBLISHED` ;
+`FoodTruckControllerTest`, 3 cas) + intégration bout en bout
+(`FoodTruckControllerIntegrationTest`, 5 cas — `GET` public, `POST`
+authentifié réussi, visibilité immédiate après création sans
+modération, `401` sans token, `400` sur validation).
+
+Non exécuté en sandbox pour le backend : ni compilation Maven (toujours
+indisponible), ni requête sur une base réelle. **Le frontend, en
+revanche, a pu être réellement vérifié** cette fois (`npm install`
+fonctionnel dans ce sandbox, contrairement à Maven) : `tsc --noEmit`
+et `npm run build` passent tous les deux sans erreur.
+
+## LL-6008 — Définir le modèle Food Truck ✅
+
+**Ticket de conception/documentation uniquement** (comme LL-5001 pour le
+modèle `Source`) : aucun code, aucune migration, aucun endpoint.
+
+* **`docs/02_Architecture/FOOD_TRUCK_CONTRACT.md`** (nouveau) : modèle
+  `FoodTruck` — `id`, `name`, `description`, `latitude`/`longitude`,
+  `category` (chaîne libre, même convention qu'`Activity.category`),
+  `contact` (URL **ou** contact, champ texte libre unique, sans
+  validation de format stricte), `status` (réutilise les trois valeurs
+  `PENDING`/`PUBLISHED`/`REJECTED` déjà établies par `Activity`
+  depuis LL-6003, pour rester compatible avec le mécanisme de
+  modération existant si LL-6009 ou un ticket ultérieur souhaite le
+  réutiliser).
+* **Décision structurante, à valider avec Alex avant LL-6009** : module
+  `FoodTruck` **séparé** (nouveau module `foodtruck`, sur le schéma
+  domain/application/infrastructure/api déjà utilisé par `source`/
+  `category`), plutôt qu'une extension d'`Activity` avec un
+  discriminant de type. Raison principale : `startDate`/`endDate` et
+  `sourceId`/`importKey` n'ont pas de sens pour un food truck (pas
+  d'événement daté, pas d'import externe prévu à ce stade) — les
+  ajouter en colonnes nullables sur `Activity` aurait introduit des
+  branches conditionnelles dans `ActivityService`/
+  `NormalizationService`/`ImportService`, contraire à l'interdiction
+  explicite de `SPRINT_6.md` (« pas de module complexe ») et au
+  principe « pas de changement spéculatif ». La contrainte du ticket
+  (« sans créer un second système cartographique ») porte sur le
+  résultat visible pour l'utilisateur (une seule carte, prévu en
+  LL-6009 par un second appel API affiché sur le même composant
+  Leaflet), pas sur une table unique côté modèle.
+* **Aucun lien avec `Source`** : décision documentée, à valider —
+  aucun food truck importé n'est prévu par ce ticket ni par
+  `SPRINT_6.md`.
+* Aucun test à écrire (documentation uniquement).
+
+## LL-6007 — Gestion minimale des activités importées ✅
+
+**Dépendance :** LL-6006.
+
+**Constat de départ (audit rapide avant implémentation)** : 3 des 4
+critères d'acceptation étaient déjà satisfaits par LL-5008/LL-5009,
+sans rapport avec LL-6006 :
+* *activité manuelle conservée* / *activité importée conservée avec sa
+  source* : `Activity.sourceId` toujours renseigné depuis LL-5008
+  (source réservée `MANUAL` pour les contributions manuelles) ;
+* *aucune duplication de données* : `ImportService` retrouve toute
+  activité déjà importée via `findBySourceIdAndImportKey` et la met à
+  jour plutôt que d'en recréer une (LL-5008).
+
+Seul écart réel : *source identifiable*. `sourceId` était bien présent
+dans chaque réponse JSON contenant une `Activity` (champ de record,
+sérialisé automatiquement), mais rien ne permettait à un consommateur
+de l'API de résoudre cet id en un nom/type lisible — aucun
+`SourceController` n'existait (`SOURCE_CONTRACT.md`, LL-5001,
+l'excluait alors explicitement du périmètre).
+
+* **`SourceController`** (nouveau, `source/api`) : `GET /api/v1/sources`
+  (miroir exact de `CategoryController#getAllCategories`, pour rester
+  cohérent avec l'unique autre module de référencement simple du
+  projet) et `GET /api/v1/sources/{id}` (réutilise
+  `SourceService#getSourceById`, méthode déjà existante depuis LL-5002
+  mais jusqu'ici inutilisée par aucun contrôleur — répond concrètement
+  au besoin de résolution). `404` sans corps si id inconnu, même
+  convention que `ActivityController#getActivityById`.
+* **Non protégé** : une source n'est pas une donnée sensible (comme les
+  catégories) ; `SecurityConfig` inchangé, `anyRequest().permitAll()`
+  couvre déjà ce nouveau chemin par défaut — javadoc de la classe mise
+  à jour pour tracer cette décision sans modification de code.
+* **Aucun changement** sur `SourceService`, `SourceRepository`,
+  `Source`, `ImportService`, `ActivityService` : les trois autres
+  critères étaient déjà couverts, conformément à la règle « une seule
+  responsabilité par ticket, pas de changement spéculatif ».
+* **Tests** : unitaires (`SourceControllerTest`, 4 cas — liste pleine/
+  vide, résolution par id existant/inexistant) + intégration bout en
+  bout légère (`SourceControllerIntegrationTest`, 3 cas — accès sans
+  JWT, 200 sur la source `MANUAL` d'id 1 [migration `V8`], 404 sur id
+  inconnu). Pas de tests de sécurité (401/403) : rien à couvrir, aucune
+  protection ajoutée.
+
+Non exécuté en sandbox : ni compilation (Maven absent, pas d'accès
+réseau à Maven Central), ni requête sur une base réelle — même
+limitation que tous les tickets précédents.
 
 ## LL-6006 — Publier ou rejeter une activité ✅
 

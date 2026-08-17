@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { LatLngExpression } from "leaflet";
+import L from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
 import { Link } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
@@ -13,6 +14,22 @@ interface Activity {
     latitude: number;
     longitude: number;
     startDate: string;
+}
+
+/**
+ * Food truck (LL-6009) : deuxième type de marqueur affiché sur la même
+ * carte qu'`Activity`, depuis un module backend séparé
+ * (`docs/02_Architecture/FOOD_TRUCK_CONTRACT.md`). Volontairement plus
+ * simple qu'`Activity` côté frontend aussi : pas de filtres, pas de date
+ * — voir la section « Ajouter un nouveau type de point sur la carte »
+ * plus bas pour le patron à suivre si un troisième type doit être ajouté.
+ */
+interface FoodTruck {
+    id: number;
+    name: string;
+    category: string;
+    latitude: number;
+    longitude: number;
 }
 
 interface ApiErrorBody {
@@ -124,6 +141,42 @@ const ALL_CATEGORIES = "";
  */
 const NO_DATE_FILTER = "";
 
+/**
+ * Icône dédiée au marqueur food truck (LL-6009, critère « distinction
+ * visuelle [...] suffisante avec une activité ») : `divIcon` (HTML/CSS,
+ * classe `.food-truck-marker` dans `styles.css`) plutôt qu'une image
+ * externe — évite tout problème de résolution d'assets Leaflet avec Vite
+ * (icône par défaut de `react-leaflet` déjà utilisée telle quelle pour
+ * les activités, sans configuration particulière ; ajouter une deuxième
+ * image nécessiterait de résoudre ce problème pour un seul marqueur,
+ * disproportionné pour ce ticket).
+ *
+ * --- Ajouter un nouveau type de point sur la carte ---
+ * `FoodTruck` est pensé comme un patron reproductible pour un futur
+ * troisième type (décision Alex, LL-6009) : côté backend, un nouveau
+ * module autonome (`domain`/`application`/`infrastructure`/`api`, voir
+ * `docs/02_Architecture/FOOD_TRUCK_CONTRACT.md` pour le raisonnement
+ * complet) plutôt qu'une extension d'un module existant. Côté frontend,
+ * le patron est : (1) une interface TypeScript dédiée (voir `FoodTruck`
+ * ci-dessus) — champs minimaux, pas de réutilisation forcée du type
+ * `Activity` ; (2) un état + un `useEffect` de récupération isolé (voir
+ * plus bas, indépendant de celui des activités — pas de filtres
+ * partagés tant qu'aucun besoin réel ne l'exige) ; (3) une icône
+ * `divIcon` dédiée, même schéma que `FOOD_TRUCK_MARKER_ICON` ; (4) un
+ * bloc `{items.map(...)}` de marqueurs supplémentaire dans le même
+ * `<MapContainer>` (jamais un second composant carte). Pas d'abstraction
+ * générique (« couche de carte » configurable) construite par
+ * anticipation ici : avec seulement deux types de points, une telle
+ * abstraction ajouterait de la complexité sans bénéfice mesurable — à
+ * réévaluer si un troisième type concret est effectivement demandé.
+ */
+const FOOD_TRUCK_MARKER_ICON = L.divIcon({
+    className: "food-truck-marker",
+    html: "🚚",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+});
+
 function buildCategoryOptions(items: Activity[]): string[] {
     return Array.from(new Set(items.map((item) => item.category))).sort((a, b) => a.localeCompare(b, "fr"));
 }
@@ -147,6 +200,7 @@ function App() {
     const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
     const [geolocationErrorMessage, setGeolocationErrorMessage] = useState<string | null>(null);
     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+    const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
 
     useEffect(() => {
         const abortController = new AbortController();
@@ -234,6 +288,38 @@ function App() {
 
         return () => abortController.abort();
     }, [selectedCategory, selectedDate, refreshKey, userPosition, mapBounds]);
+
+    /**
+     * Récupération des food trucks (LL-6009), isolée de celle des
+     * activités ci-dessus — pas de filtres, pas de zone géographique
+     * (critères d'acceptation du ticket : consultation simple), un seul
+     * appel au montage. Voir la javadoc de `FOOD_TRUCK_MARKER_ICON` pour
+     * le patron à suivre si un type de point supplémentaire est ajouté
+     * plus tard.
+     */
+    useEffect(() => {
+        const abortController = new AbortController();
+
+        async function loadFoodTrucks() {
+            try {
+                const response = await fetch("/api/v1/foodtrucks", { signal: abortController.signal });
+                if (response.ok) {
+                    const data: FoodTruck[] = await response.json();
+                    setFoodTrucks(data);
+                }
+                // Pas de gestion d'erreur dédiée (contrairement à `searchError` pour les
+                // activités) : les food trucks restent un contenu secondaire de la carte,
+                // un échec ne doit pas bloquer l'affichage des activités.
+            } catch {
+                // Requête annulée (démontage) ou serveur injoignable : la carte reste
+                // utilisable sans food trucks, même choix que ci-dessus.
+            }
+        }
+
+        void loadFoodTrucks();
+
+        return () => abortController.abort();
+    }, []);
 
     function handleLogout() {
         clearToken();
@@ -463,6 +549,26 @@ function App() {
                                 {activity.category}
                                 <br />
                                 {new Date(activity.startDate).toLocaleDateString("fr-FR")}
+                            </Popup>
+                        </Marker>
+                    ))}
+                    {/*
+                      LL-6009 : food trucks, deuxième type de marqueur sur la même carte
+                      (« sans créer un second système cartographique »). Icône dédiée
+                      (FOOD_TRUCK_MARKER_ICON) pour la distinction visuelle avec une
+                      activité ; popup sans date (un food truck n'est pas un événement
+                      daté, voir FOOD_TRUCK_CONTRACT.md) — distinction fonctionnelle.
+                    */}
+                    {foodTrucks.map((foodTruck) => (
+                        <Marker
+                            icon={FOOD_TRUCK_MARKER_ICON}
+                            key={`food-truck-${foodTruck.id}`}
+                            position={[foodTruck.latitude, foodTruck.longitude]}
+                        >
+                            <Popup>
+                                <strong>{foodTruck.name}</strong>
+                                <br />
+                                {foodTruck.category}
                             </Popup>
                         </Marker>
                     ))}

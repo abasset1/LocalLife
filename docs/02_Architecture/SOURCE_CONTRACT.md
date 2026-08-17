@@ -82,6 +82,15 @@ séquence retenue), pas de LL-5001.
 
 ---
 
+> **Mise à jour LL-6007 (Sprint 6)** : l'exclusion « aucun endpoint REST »
+> ci-dessous concernait le périmètre de LL-5001 (ce contrat), pas une
+> décision définitive. LL-6007 a ajouté `SourceController` en lecture
+> seule (`GET /api/v1/sources`, `GET /api/v1/sources/{id}`), non
+> protégé, pour rendre le `sourceId` porté par `Activity` (depuis
+> LL-5008) identifiable côté API — voir PROJECT_STATUS.md pour le
+> détail. Aucune écriture (création/modification/suppression de source
+> via l'API) n'a été ajoutée : toujours hors périmètre.
+
 ## Hors périmètre de LL-5001
 
 Conformément à `SPRINT_5.md` et `AI_RULES.md` (un ticket = une seule

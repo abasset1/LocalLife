@@ -34,6 +34,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * - PATCH /api/v1/admin/activities/{id}/publish et .../reject : réservés
  *   au rôle ADMIN, même mécanisme que GET /api/v1/admin/activities
  *   ci-dessus (voir {@code AdminActivityController}).
+ * GET /api/v1/sources et /api/v1/sources/{id} (LL-6007, Sprint 6) restent
+ * volontairement non protégés (voir {@code SourceController}) : ajoutés
+ * ici sans modification de cette classe, aucune règle dédiée n'était
+ * nécessaire.
+ * Endpoint protégé (LL-6009, Sprint 6) :
+ * - POST /api/v1/foodtrucks : utilisateur connecté (JWT valide requis),
+ *   même posture que POST /api/v1/activities ci-dessus (voir
+ *   {@code FoodTruckController}). GET /api/v1/foodtrucks reste public,
+ *   comme GET /api/v1/activities.
  * Tous les autres endpoints restent accessibles sans JWT (consultation
  * publique des activités/catégories, inscription/connexion).
  */
@@ -58,6 +67,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/activities").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/publish").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/reject").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/foodtrucks").authenticated()
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptions -> exceptions

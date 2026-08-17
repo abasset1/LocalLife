@@ -187,6 +187,25 @@ body {
     flex: 1;
 }
 
+/*
+ * Marqueur food truck (LL-6009) : divIcon (pas d'image externe, voir
+ * App.tsx) pour distinguer visuellement un food truck d'une activité
+ * (icône Leaflet par défaut, bleue) — critère d'acceptation « distinction
+ * visuelle [...] suffisante avec une activité ».
+ */
+.food-truck-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background-color: #f97316;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    font-size: 1.1rem;
+}
+
 .activities-status {
     margin: 0;
     padding: 0.5rem 1.5rem;
