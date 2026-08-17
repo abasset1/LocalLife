@@ -1,6 +1,6 @@
 # Sprint 3 — Authentification, géocodage et gestion des utilisateurs
 
-**Statut :** À faire
+**Statut :** ✅ Terminé
 
 ---
 ## 🎯 **Objectif**

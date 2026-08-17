@@ -1,6 +1,6 @@
 # Sprint 4 — Recherche et découverte géographique
 
-**Statut :** 🟡 En cours
+**Statut :** ✅ Terminé
 
 ---
 # 🎯 Objectif

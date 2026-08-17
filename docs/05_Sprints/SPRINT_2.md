@@ -1,6 +1,6 @@
 # Sprint 2 — Gestion des utilisateurs et des catégories
 
-**Statut :** À faire
+**Statut :** ✅ Terminé
 
 ---
 ## 🎯 Objectif

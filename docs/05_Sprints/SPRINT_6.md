@@ -2,7 +2,7 @@
 
 # Sprint 6 — Qualité des données et administration minimale
 
-**Statut :** À faire
+**Statut :** ✅ Terminé
 
 ---
 
@@ -368,4 +368,4 @@ Le Sprint 6 est terminé lorsque :
 
 > Une carte alimentée par des données réelles, mais désormais suffisamment contrôlées pour éviter que des données invalides ou non validées soient exposées publiquement.
 
-Le sprint suivant pourra être consacré à l'amélioration de l'expérience utilisateur et à l'élargissement maîtrisé des données, selon les résultats du MVP.
+Le sprint suivant est **Sprint 7 — Validation du MVP**. Il ne doit pas ajouter de nouvelle fonctionnalité majeure : il sert à vérifier le MVP de bout en bout avant toute évolution.

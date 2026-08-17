@@ -1,13 +1,14 @@
 # LocalLife - Project Status
 
-**Version :** 0.6.0
-**Dernière mise à jour :** 2026-08-17 (LL-6011)
+**Version :** 0.7.0
+**Dernière mise à jour :** 2026-08-17 (préparation Sprint 7)
 
 ---
 ## Phase actuelle
-🟢 Phase 1 — Construction du socle technique et du MVP
+🟡 Phase 2 — Validation du MVP
 
-Le cadrage fonctionnel et technique est terminé.
+Le cadrage fonctionnel et technique est terminé. La construction du périmètre MVP (Sprints 0 à 6) est terminée. Le projet entre maintenant dans une phase de validation du MVP avant toute nouvelle évolution.
+
 Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) terminé. Sprint 3 (authentification, géocodage) terminé. Sprint 4 (recherche et découverte géographique) terminé. Sprint 5 (alimentation réelle : sources, collecteur OpenAgenda, import) terminé. Sprint 6 (qualité des données et administration minimale : validation renforcée, statut de modération, contrôle administratif, source identifiable, premier jalon Food Truck, tests de non-régression) terminé.
 
 ---
@@ -29,7 +30,8 @@ Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité
  | Développement Frontend     | 🟡 En cours   |
  | Collecteurs                | ✅ Terminé (Sprint 5) |
  | Modération / administration | ✅ Terminé (Sprint 6) |
- | Phase 1 (Socle Technique)  | ✅ Terminé    |
+ | Phase 1 (Socle Technique + MVP) | ✅ Terminé    |
+ | Phase 2 (Validation MVP)    | 🟡 En cours   |
  | Infrastructure             | 🟡 À consolider |
 
 ---
@@ -70,18 +72,21 @@ Le MVP comprend uniquement :
 Tout le reste est hors périmètre.
 
 ---
-## Priorité actuelle
-Créer le socle technique.
+## Phase 2 — Validation du MVP
+**Statut :** 🟡 En cours
 
-Ordre recommandé :
+Priorité actuelle : exécuter le Sprint 7 et vérifier le MVP de bout en bout.
 
-1. Backend
-2. Base PostgreSQL/PostGIS
-3. Docker
-4. Flyway
-5. Frontend
-6. Carte interactive
-7. Modules métier
+Ordre :
+
+1. définir le protocole de validation ;
+2. permettre un déclenchement contrôlé de l'import réel ;
+3. vérifier import → modération → carte ;
+4. vérifier recherche, contribution, authentification et Food Truck ;
+5. corriger uniquement les blocages ;
+6. décider si le MVP est prêt pour une première bêta.
+
+Référence : `docs/05_Sprints/SPRINT_7.md`.
 
 ---
 ## Risques identifiés
@@ -331,7 +336,7 @@ métier. Implémentée en LL-5002 ci-dessous.
 ---
 # Sprint 6
 
-Statut : 🟡 En cours.
+Statut : ✅ Terminé.
 
 Objectif : fiabiliser les données réellement présentes dans LocalLife
 après l'intégration de la première source externe (Sprint 5) — voir
@@ -895,13 +900,11 @@ Non compilé (documentation uniquement, aucun fichier source touché).
 
 # Prochaine action
 
-Sprint 6 en cours. Prochaine tâche : LL-6002 (renforcer la validation
-`Activity`), une fois les points signalés « à valider » dans
-`DATA_QUALITY_AUDIT.md` tranchés par Alex — en particulier la question
-du champ `url`, qui conditionne le critère d'acceptation « URL valide
-lorsqu'elle est fournie » de LL-6002.
+Sprint 6 est terminé (`LL-6001` → `LL-6011`).
 
-Le Sprint 5 étant terminé, aucune tâche du Sprint 5 ne doit être reprise sauf régression ou anomalie découverte après clôture.
+La prochaine tâche est **LL-7001 — Définir le protocole de validation du MVP**, dans `docs/05_Sprints/SPRINT_7.md`.
+
+Aucun Sprint 8 ne doit être défini avant la conclusion de Sprint 7.
 
 ## LL-5012 — Documentation ✅
 

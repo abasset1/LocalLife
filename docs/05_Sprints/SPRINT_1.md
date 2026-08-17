@@ -2,7 +2,7 @@
 
 ## Sprint 1 — Première fonctionnalité visible
 
-**Statut :** À faire
+**Statut :** ✅ Terminé
 
 ---
 

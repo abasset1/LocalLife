@@ -2,7 +2,7 @@
 
 # Sprint 5 — Alimentation réelle de la carte
 
-**Statut :** À faire
+**Statut :** ✅ Terminé
 
 ---
 
@@ -429,4 +429,4 @@ Le Sprint 5 est terminé lorsque :
 
 > Une première alimentation réelle de LocalLife permettant de valider que l'architecture peut passer de données internes à des données externes sans complexifier prématurément le projet.
 
-Le sprint suivant pourra ensuite se concentrer sur **la qualité des données, les food trucks et la validation/administration**, selon les résultats de cette première intégration.
+Le sprint suivant est **Sprint 6 — Qualité des données et administration minimale**.

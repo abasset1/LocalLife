@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0 — 2026-08-17
+
+### Documentation / Planification
+- Sprint 6 confirmé terminé après LL-6011.
+- Phase 2 de validation du MVP ouverte.
+- Sprint 7 défini pour valider le MVP de bout en bout avant toute nouvelle évolution.
+- Backlog, roadmap et NEXT_TASK réalignés sur une source de vérité explicite.
+
 ## 0.6.0 - Sprint 6
 
 ### Added

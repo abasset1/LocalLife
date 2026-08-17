@@ -1,122 +1,101 @@
 # Roadmap — LocalLife
 
+## Source de vérité
+
+Ce fichier est la **source de vérité de la roadmap**.
+
+`docs/ROADMAP.md` est un ancien doublon historique et ne doit plus être modifié pour planifier le projet. Sa suppression pourra être faite séparément.
+
+---
+
 ## Phase 0 — Cadrage
 **Statut : ✅ Terminé**
 
-- Vision produit
-- MVP
-- User Stories
-- Backlog
-- Architecture
-- Modèle de données
-- API MVP
+Vision, MVP, User Stories, backlog initial, architecture, modèle de données et API MVP.
 
 ---
 
 ## Phase 1 — Construction du socle et du MVP
 **Statut : ✅ Terminé**
 
-### Sprint 0 — Socle technique
-**Statut : ✅ Terminé**
+| Sprint | Statut | Objectif |
+|---|---|---|
+| 0 | ✅ | Socle technique |
+| 1 | ✅ | Première fonctionnalité visible |
+| 2 | ✅ | Utilisateurs, catégories, contributions |
+| 3 | ✅ | Authentification et géocodage |
+| 4 | ✅ | Recherche et découverte géographique |
+| 5 | ✅ | Alimentation réelle |
+| 6 | ✅ | Qualité des données, modération minimale et Food Truck |
 
-Backend, frontend, PostgreSQL/PostGIS, Docker, Flyway, CI.
-
-### Sprint 1 — Première fonctionnalité visible
-**Statut : ✅ Terminé**
-
-Carte interactive, activités et données de démonstration.
-
-### Sprint 2 — Utilisateurs, catégories et contributions
-**Statut : ✅ Terminé**
-
-Utilisateurs, catégories et première contribution d'activité.
-
-### Sprint 3 — Authentification et géocodage
-**Statut : ✅ Terminé**
-
-JWT, BCrypt, protection des endpoints, authentification frontend et géocodage.
-
-### Sprint 4 — Recherche et découverte géographique
-**Statut : ✅ Terminé**
-
-- Recherche par rayon PostGIS
-- Recherche par zone cartographique
-- Filtres catégorie/date
-- Géolocalisation utilisateur
-- Intégration des filtres dans la carte
-
-### Sprint 5 — Alimentation réelle
-**Statut : ✅ Terminé**
-
-- Modèle et module `Source`, source réservée `MANUAL` pour les
-  contributions manuelles.
-- Contrat et interface `Collector` ; premier collecteur réel
-  (OpenAgenda).
-- Modèle `CollectedActivity`, pipeline de normalisation et validation.
-- Détection simple des doublons (identifiant externe, ou clé composite).
-- Persistance des imports (création/mise à jour/suppression douce),
-  journalisation.
-- Tests du pipeline (cas principaux automatisés) et vérification de
-  l'intégration avec la recherche/les filtres du Sprint 4.
-
-### Sprint 6 — Qualité des données et administration minimale
-**Statut : ✅ Terminé**
-
-- Validation renforcée des activités (`title` obligatoire, `url`
-  conservée).
-- Statut de modération (`PENDING`/`PUBLISHED`/`REJECTED`) ; seules les
-  activités `PUBLISHED` visibles publiquement.
-- Contrôle administratif minimal (consultation par statut, publier/
-  rejeter une activité), réservé au rôle `ADMIN`.
-- Source d'une activité identifiable via l'API (`GET /api/v1/sources`).
-- Premier jalon Food Truck : modèle défini, module indépendant créé,
-  création possible, visible sur la carte avec une distinction
-  visuelle.
-- Tests de non-régression consolidés couvrant les points ci-dessus.
-
-Cette liste de Phase 2 comprenait déjà (« Pistes ») la qualité des
-données, l'administration et les food trucks : le Sprint 6 en a livré
-un premier socle minimal, mais Phase 2 elle-même (validation par de
-vrais utilisateurs) reste à planifier — voir ci-dessous.
+La construction du périmètre MVP est considérée comme terminée.
 
 ---
 
 ## Phase 2 — Validation du MVP
-**Statut : ⏳ À planifier**
+**Statut : 🟡 En cours — Sprint 7 à venir**
 
-Objectif : vérifier que le produit est réellement utile avant d'ajouter de nouvelles briques.
+### Objectif
 
-Pistes :
+Vérifier que le MVP fonctionne réellement de bout en bout avant d'ajouter de nouvelles fonctionnalités.
 
-- qualité des données (premier socle livré en Sprint 6, à approfondir) ;
-- administration (contrôle minimal livré en Sprint 6, à étoffer si
-  besoin réel) ;
-- amélioration des contributions ;
-- food trucks (premier jalon livré en Sprint 6 : modèle, création,
-  visibilité sur la carte — reste à approfondir : modération dédiée,
-  recherche géographique, etc.) ;
-- expérience utilisateur ;
-- stabilité et performance.
+### Sprint 7 — Validation du MVP
+**Statut : ⏳ À faire**
+
+- protocole de validation ;
+- déclenchement contrôlé de l'import ;
+- validation des données réelles ;
+- carte et recherche avec données réelles ;
+- contribution et authentification ;
+- validation du Food Truck existant ;
+- correction des blocages ;
+- environnement de démonstration ;
+- décision de sortie du MVP.
+
+**Référence détaillée :** `docs/05_Sprints/SPRINT_7.md`.
+
+### Règle de sortie
+
+Aucun Sprint 8 ne doit être défini avant la conclusion de Sprint 7.
+
+Deux résultats sont possibles :
+
+1. **MVP validé** → préparation d'une première bêta et définition des évolutions selon les retours ;
+2. **MVP non validé** → sprint de correction ciblé, sans élargissement fonctionnel.
 
 ---
 
-## Phase 3 — Évolution
-**Statut : ⏳ À planifier**
+## Phase 3 — Évolution après validation
+**Statut : ⏳ Non démarrée**
 
-Uniquement après validation du MVP.
+Cette phase ne sera planifiée qu'après validation du MVP. Les possibilités restent volontairement ouvertes :
 
-Pistes :
-
-- plusieurs sources ;
+- amélioration des sources et des collecteurs ;
 - nouveaux types de lieux ;
-- collecteurs supplémentaires ;
+- amélioration des contributions ;
 - fonctionnalités communautaires ;
 - application mobile éventuelle.
 
+Aucune de ces pistes n'est actuellement un engagement de développement.
+
 ---
 
-## Règle de roadmap
+## Dette technique et décisions à traiter
 
-La roadmap reste volontairement simple.
+Les éléments suivants existent mais ne doivent pas automatiquement devenir des tickets de sprint :
 
-Une fonctionnalité hors MVP ne doit pas être ajoutée à un sprint uniquement parce qu'elle est techniquement intéressante. Toute évolution doit être justifiée par une valeur utilisateur ou une nécessité technique.
+- déclencheur du pipeline d'import → traité dans LL-7002 ;
+- duplication des `ROADMAP.md` → décision documentaire séparée ;
+- vulnérabilité transitive `nanoid` → à traiter dans un ticket technique dédié si toujours présente ;
+- défaut de formatage `ActivityController` → à corriger dans un ticket qualité dédié si nécessaire.
+
+---
+
+## Règles de roadmap
+
+- La roadmap décrit les **objectifs**, pas chaque détail technique.
+- Le backlog contient les tickets.
+- Un sprint ne peut pas apparaître dans la roadmap sans être défini dans `docs/05_Sprints/`.
+- Un ticket ne peut pas être déclaré terminé uniquement parce qu'un document le dit : une preuve dans le dépôt est requise.
+- Aucune fonctionnalité hors MVP ne doit être ajoutée avant validation utilisateur.
+- Toute nouvelle phase doit être justifiée par la valeur utilisateur ou une nécessité technique démontrée.

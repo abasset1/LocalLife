@@ -106,7 +106,7 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 * **Pourquoi pas corrigé immédiatement** : décision produit (fréquence
   souhaitée, méthode de déclenchement) plutôt que choix technique
   unilatéral — à trancher avec Alex avant implémentation.
-* **Statut** : ouvert.
+* **Statut** : planifié dans `LL-7002` (Sprint 7).
 
 ---
 
