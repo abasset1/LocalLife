@@ -43,6 +43,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   même posture que POST /api/v1/activities ci-dessus (voir
  *   {@code FoodTruckController}). GET /api/v1/foodtrucks reste public,
  *   comme GET /api/v1/activities.
+ * Endpoint protégé (LL-7002, Sprint 7) :
+ * - POST /api/v1/admin/import : réservé au rôle ADMIN, même mécanisme
+ *   que les autres endpoints d'administration ci-dessus (voir
+ *   {@code AdminImportController}). Déclenchement manuel du pipeline
+ *   d'import existant (Sprint 5) — aucune planification automatique.
  * Tous les autres endpoints restent accessibles sans JWT (consultation
  * publique des activités/catégories, inscription/connexion).
  */
@@ -68,6 +73,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/publish").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/reject").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/foodtrucks").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/admin/import").hasRole("ADMIN")
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptions -> exceptions

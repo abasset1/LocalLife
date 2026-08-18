@@ -949,11 +949,77 @@ LL-6008) : aucun code, aucune migration, aucun endpoint.
 Non compilé (documentation uniquement, aucun fichier source touché) —
 sans objet ici, pas de vérification brace-checker nécessaire.
 
+## LL-7002 — Ajouter un déclencheur contrôlé du pipeline d'import ✅
+
+**Dépendance :** LL-7001.
+
+**Décision MVP** (`SPRINT_7.md`) : déclenchement manuel protégé par le
+rôle `ADMIN`, pas de scheduler — appliquée telle quelle.
+
+* **`collector/api/AdminImportController.java`** (nouveau) :
+  `POST /api/v1/admin/import` → `ImportService#importAll()` → `200` avec
+  la liste des `ImportResult` (un par `Collector` enregistré, un seul à
+  ce stade : `OpenAgendaCollector`). Nouveau package `collector/api`
+  (le module `collector` n'avait jusqu'ici aucune couche `api` — la
+  seule couche manquante pour ce module, cohérent avec la structure
+  domain/application/infrastructure déjà en place pour `activity`,
+  `auth`, `foodtruck`, `source`).
+* **`SecurityConfig.java`** : `.requestMatchers(HttpMethod.POST,
+  "/api/v1/admin/import").hasRole("ADMIN")` ajouté, même mécanisme que
+  les endpoints d'administration existants (LL-6005/LL-6006). Contrôleur
+  distinct d'`AdminActivityController` plutôt qu'une méthode
+  supplémentaire dessus (chemin et objectif différents — voir la javadoc
+  du nouveau contrôleur, même raisonnement déjà documenté sur
+  `AdminActivityController` pour sa propre séparation
+  d'`ActivityController`).
+* **Réutilisation sans duplication** (critère d'acceptation) : le
+  contrôleur ne fait qu'appeler `ImportService#importAll()`, déjà
+  responsable de l'orchestration complète `Collector → Normalisation →
+  Validation → Persistance` depuis LL-5008 — aucune logique d'import
+  écrite ici.
+* **Journalisation** (critère d'acceptation) : déjà assurée par
+  `ImportService` (LL-5009, un log `INFO` par source) — non dupliquée
+  côté contrôleur ; le résultat détaillé est en plus renvoyé directement
+  dans la réponse HTTP.
+* **Comportement en cas d'échec de collecte** : `ImportService` capture
+  déjà toute erreur de collecte et la traduit en `ImportResult` dégradé
+  (`errors = 1`) plutôt que de laisser remonter une exception — ce
+  contrôleur répond donc toujours `200` avec le détail, y compris en cas
+  d'échec, plutôt qu'une erreur HTTP générique qui masquerait ce détail
+  (documenté dans la javadoc du contrôleur).
+* **Tests** :
+  * `AdminImportControllerTest` (unitaire, `ImportService` mocké) :
+    résultat renvoyé tel quel, résultat dégradé toujours `200`, liste
+    vide si aucun collecteur enregistré.
+  * `AdminImportControllerIntegrationTest` (bout en bout, contexte Spring
+    réel, base réelle, `Collector` mocké — même isolation du seul point
+    d'accès réseau que `ImportServiceIntegrationTest`, LL-5010) : accès
+    `200` en `ADMIN` avec persistance réellement vérifiée en base (le
+    pipeline existant est bien exécuté, pas seulement invoqué en
+    apparence), `401` sans token, `403` avec un compte `USER` (flux
+    d'inscription/connexion public réel, pas de token fabriqué pour ce
+    cas — mêmes conventions qu'`AdminActivityControllerIntegrationTest`).
+    Ne revérifie pas le détail du pipeline lui-même (création/mise à
+    jour/rejet), déjà couvert exhaustivement par
+    `ImportServiceTest`/`ImportServiceIntegrationTest` (LL-5008/LL-5010)
+    — se concentre sur ce qui est propre à LL-7002 (protection par rôle,
+    déclenchement réel via HTTP).
+
+Vérification (proxy de compilation, Maven indisponible en sandbox) :
+script Python de balance des accolades relancé sur l'ensemble des
+fichiers `.java` (82 après ce ticket) ; 3 fichiers préexistants et non
+modifiés par ce ticket ressortent en faux positif à cause d'une
+limitation connue du script (regex contenant des quantificateurs du
+type `{2}` dans une chaîne, ex. `OpenAgendaCollector.java` ligne 164) —
+sans lien avec ce ticket. Les 4 fichiers créés/modifiés par LL-7002 ont
+été vérifiés individuellement (comptage brut, sans ce risque de faux
+positif ici) : tous équilibrés.
+
 # Prochaine action
 
-`LL-7001` est terminé.
+`LL-7002` est terminé.
 
-La prochaine tâche est **LL-7002 — Ajouter un déclencheur contrôlé du pipeline d'import**, dans `docs/05_Sprints/SPRINT_7.md`.
+La prochaine tâche est **LL-7003 — Valider le parcours de données réelles de bout en bout**, dans `docs/05_Sprints/SPRINT_7.md`. Ce ticket dépend d'un import réel exécuté par Alex (hors sandbox, via `POST /api/v1/admin/import`) sur un environnement avec les identifiants OpenAgenda configurés — la sandbox n'a pas accès au réseau externe requis.
 
 Aucun Sprint 8 ne doit être défini avant la conclusion de Sprint 7.
 

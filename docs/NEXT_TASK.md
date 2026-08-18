@@ -11,15 +11,22 @@ Phase actuelle : **Phase 2 — Validation du MVP**.
 critères de succès/échec, vérification d'indépendance vis-à-vis du
 hors-MVP).
 
+`LL-7002` terminé : `POST /api/v1/admin/import` (rôle `ADMIN`), déclenche
+`ImportService#importAll()` sans dupliquer le pipeline existant. Aucun
+scheduler, conformément à la décision MVP du sprint.
+
 ## Prochaine tâche
 
 **Sprint 7 — Validation du MVP**
 
 ### Prochain ticket
 
-**LL-7002 — Ajouter un déclencheur contrôlé du pipeline d'import**
+**LL-7003 — Valider le parcours de données réelles de bout en bout**
 
-Dépendance : LL-7001 (terminé). Détail : `docs/05_Sprints/SPRINT_7.md`.
+Dépendance : LL-7002 (terminé). Nécessite un import réel exécuté par
+Alex (hors sandbox — pas d'accès réseau externe ici, ni d'identifiants
+OpenAgenda), via `POST /api/v1/admin/import`. Détail :
+`docs/05_Sprints/SPRINT_7.md`.
 
 ## Règles
 
