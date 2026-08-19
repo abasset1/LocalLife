@@ -1015,11 +1015,90 @@ sans lien avec ce ticket. Les 4 fichiers créés/modifiés par LL-7002 ont
 été vérifiés individuellement (comptage brut, sans ce risque de faux
 positif ici) : tous équilibrés.
 
+## LL-7003 — Valider le parcours de données réelles de bout en bout ✅
+
+**Dépendance :** LL-7002.
+
+**Ticket de vérification uniquement** (aucun fichier modifié) : exécuté
+en conditions réelles par Alex (hors sandbox — aucun accès réseau
+externe ni base réelle disponible ici), en suivant le Scénario 2, 3, 5,
+7 et 8 du protocole `MVP_VALIDATION_PROTOCOL.md` (LL-7001), avec de
+vraies données OpenAgenda (source `id=19`, agenda Marseille).
+
+**Résultats, tous les critères d'acceptation du ticket validés :**
+
+* **Donnée OpenAgenda collectée** ✅ — import réel exécuté via
+  `POST /api/v1/admin/import` (LL-7002), dizaines d'activités réelles
+  récupérées (ex. « Merlan l'enchanteur », « Kouss·Kouss en partage de
+  l'été marseillais »), avec titres, dates et coordonnées cohérents.
+* **Activité persistée** ✅ — vérifié directement en base
+  (`SELECT id, title, status, source_id, import_key FROM activity WHERE
+  source_id = 19 ...`) : lignes bien présentes, `import_key` unique par
+  activité (`external:OpenAgenda:<slug>`).
+* **Source identifiable** ✅ — toutes les activités importées portent
+  `source_id = 19`, cohérent avec la table `source`.
+* **Validation appliquée** ✅ — aucune activité en erreur de validation
+  parmi les données observées (titres non vides, dates/coordonnées
+  valides).
+* **Activité `PUBLISHED` visible dans la recherche publique** ✅ —
+  `GET /api/v1/activities/nearby?latitude=43.2965&longitude=5.3698&radius=50`
+  renvoie bien l'activité `id=154` (« Merlan l'enchanteur »,
+  `status=PUBLISHED`), parmi d'autres activités importées.
+* **Activité `PENDING` non visible** ✅ — testé avec une activité créée
+  manuellement (`POST /api/v1/activities`, flux de contribution réel,
+  `id=155`, `status=PENDING`) plutôt qu'une activité importée (celles-ci
+  sont `PUBLISHED` par défaut depuis LL-5005, donc pas de statut
+  `PENDING`/`REJECTED` observable sur des données importées — la
+  transition `reject` a d'ailleurs été testée sur une activité importée
+  `PUBLISHED` et refusée avec `400`, comportement correct de
+  `AdminActivityController`, confirmant qu'un rejet n'est possible que
+  depuis `PENDING`). La même requête `nearby` ne retourne pas l'activité
+  `id=155` : absence confirmée.
+* **Consultation par identifiant fonctionnelle** ✅ —
+  `GET /api/v1/activities/154` renvoie le détail complet sans erreur.
+
+**Point d'observation, non bloquant** : l'affichage PowerShell des
+résultats montre des caractères mal encodés (ex. `MarchÃ©` au lieu de
+`Marché`). Très probablement un problème d'encodage de la console
+PowerShell côté client (non UTF-8 par défaut), pas une corruption des
+données en base — à revérifier si le même problème apparaît côté
+frontend (LL-7004/LL-7005) avant de le considérer comme un blocage réel.
+
+**Blocage réel trouvé, documenté pour LL-7007** (pas corrigé ici, hors
+périmètre du ticket, conformément à la règle du sprint : les
+corrections sont réservées à LL-7007) :
+
+* **Bug** : `ImportService#archiveActivitiesNoLongerInSource` (LL-5008,
+  Sprint 5) affecte le statut `ARCHIVED` aux activités disparues de la
+  source lors d'un ré-import — mais la contrainte `chk_activity_status`
+  ajoutée ensuite par la migration `V11__enforce_activity_status.sql`
+  (LL-6003, Sprint 6) n'autorise que `PENDING`, `PUBLISHED`, `REJECTED`.
+  Un second import déclenche donc systématiquement une
+  `DataIntegrityViolationException` (`ERROR: new row for relation
+  "activity" violates check constraint "chk_activity_status"`),
+  remontée en `500` par `GlobalExceptionHandler`.
+* **Reproduit** : import réel avec de vraies données OpenAgenda,
+  message exact récupéré côté client (`GlobalExceptionHandler` ne
+  journalise rien côté serveur — lacune notée ci-dessous).
+* **Portée** : uniquement la phase d'archivage, qui s'exécute après la
+  boucle de création/mise à jour (elle-même non transactionnelle et non
+  affectée) — les activités créées/mises à jour lors de cet import ont
+  bien été persistées malgré le crash final, comme vérifié en base
+  ci-dessus.
+* **Lacune connexe notée** (également pour LL-7007 ou un ticket dédié
+  selon décision d'Alex) : `GlobalExceptionHandler` ne journalise aucune
+  exception avant de répondre `500` — un échec serveur silencieux,
+  invisible dans les logs, seul le corps de la réponse HTTP contient le
+  message d'erreur. Repéré en pratique lors du diagnostic de ce blocage
+  (aucune trace dans la console du backend malgré un `500` effectif).
+
 # Prochaine action
 
-`LL-7002` est terminé.
+`LL-7003` est terminé.
 
-La prochaine tâche est **LL-7003 — Valider le parcours de données réelles de bout en bout**, dans `docs/05_Sprints/SPRINT_7.md`. Ce ticket dépend d'un import réel exécuté par Alex (hors sandbox, via `POST /api/v1/admin/import`) sur un environnement avec les identifiants OpenAgenda configurés — la sandbox n'a pas accès au réseau externe requis.
+La prochaine tâche est **LL-7004 — Valider la recherche et la carte avec les données réelles**, dans `docs/05_Sprints/SPRINT_7.md`. Utilisera les mêmes données réelles déjà importées (source `id=19`, OpenAgenda) — pas besoin d'un nouvel import.
+
+Un blocage réel a été trouvé pendant LL-7003 (contrainte `chk_activity_status` n'autorisant pas `ARCHIVED`, utilisé par `ImportService` depuis LL-5008) : documenté ci-dessus, correction réservée à **LL-7007** (règle du sprint), pas traitée maintenant. À noter : un second import déclenchera la même erreur tant que ce n'est pas corrigé — éviter de relancer `POST /api/v1/admin/import` avant LL-7007 si tu veux éviter ce 500 (sans risque pour les données déjà importées).
 
 Aucun Sprint 8 ne doit être défini avant la conclusion de Sprint 7.
 

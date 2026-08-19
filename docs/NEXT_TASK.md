@@ -15,17 +15,23 @@ hors-MVP).
 `ImportService#importAll()` sans dupliquer le pipeline existant. Aucun
 scheduler, conformément à la décision MVP du sprint.
 
+`LL-7003` terminé : parcours de bout en bout validé avec de vraies
+données OpenAgenda (import réel, persistance, visibilité publique,
+consultation par id). Blocage réel trouvé et documenté pour LL-7007 :
+contrainte `chk_activity_status` n'autorisant pas `ARCHIVED` (utilisé
+par `ImportService` depuis LL-5008) → tout second import échoue en
+`500` tant que non corrigé. Voir `PROJECT_STATUS.md`, section Sprint 7.
+
 ## Prochaine tâche
 
 **Sprint 7 — Validation du MVP**
 
 ### Prochain ticket
 
-**LL-7003 — Valider le parcours de données réelles de bout en bout**
+**LL-7004 — Valider la recherche et la carte avec les données réelles**
 
-Dépendance : LL-7002 (terminé). Nécessite un import réel exécuté par
-Alex (hors sandbox — pas d'accès réseau externe ici, ni d'identifiants
-OpenAgenda), via `POST /api/v1/admin/import`. Détail :
+Dépendance : LL-7003 (terminé). Peut réutiliser les données déjà
+importées (source `id=19`) sans relancer d'import. Détail :
 `docs/05_Sprints/SPRINT_7.md`.
 
 ## Règles
