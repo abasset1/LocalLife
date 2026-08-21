@@ -38,16 +38,26 @@ rencontré en test s'est avéré être un artefact d'encodage UTF-8 côté
 frontend), sans lien avec le backend. Voir `PROJECT_STATUS.md`, section
 Sprint 7.
 
+`LL-7006` terminé : parcours Food Truck (Sprint 6) revérifié — création,
+position, distinction visuelle, cohérence avec les activités sur la
+carte et protection par JWT tous validés. Aucun blocage réel trouvé
+(un test initial sans `401` s'est avéré être un `$headers` résiduel
+d'une session PowerShell précédente, reconfirmé `401` avec un terminal
+neuf). Voir `PROJECT_STATUS.md`, section Sprint 7.
+
 ## Prochaine tâche
 
 **Sprint 7 — Validation du MVP**
 
 ### Prochain ticket
 
-**LL-7006 — Validation du parcours Food Truck**
+**LL-7007 — Corriger uniquement les blocages de validation**
 
-Dépendance : LL-7001 (terminé). Détail :
-`docs/05_Sprints/SPRINT_7.md`.
+Dépendance : LL-7003, LL-7004, LL-7005, LL-7006 (tous terminés). Détail :
+`docs/05_Sprints/SPRINT_7.md`. Corrections à apporter (et rien
+d'autre) :
+1. Contrainte `chk_activity_status` n'autorisant pas `ARCHIVED` (LL-7003).
+2. `buildCategoryOptions` (`App.tsx`) plante sur une catégorie `null` (LL-7004).
 
 ## Règles
 

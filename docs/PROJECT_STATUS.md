@@ -1,7 +1,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.7.0
-**Dernière mise à jour :** 2026-08-21 (Sprint 7, LL-7005)
+**Dernière mise à jour :** 2026-08-21 (Sprint 7, LL-7006)
 
 ---
 ## Phase actuelle
@@ -1226,13 +1226,53 @@ maintien de l'authentification, création d'une activité en `PENDING`,
 retour utilisateur compréhensible en cas d'erreur, déconnexion — tous
 vérifiés sans correction fonctionnelle.
 
+## LL-7006 — Validation du parcours Food Truck ✅
+
+**Dépendance :** LL-7001.
+
+**Ticket de vérification uniquement** (aucun fichier modifié) : exécuté
+en conditions réelles par Alex (hors sandbox), scénario 10 de
+`MVP_VALIDATION_PROTOCOL.md`.
+
+**Résultats :**
+
+* **Création fonctionnelle** ✅ — `POST /api/v1/foodtrucks` (authentifié)
+  renvoie `201`, food truck créé directement en `status = PUBLISHED`
+  (statut par défaut, décision LL-6009 — pas de modération food truck à
+  ce stade).
+* **Présence via `GET /api/v1/foodtrucks`** ✅ — le food truck créé
+  apparaît dans la liste publique, sans JWT requis pour la consultation.
+* **Position correctement affichée** ✅ — marqueur visible sur la carte
+  frontend à la position (`latitude`/`longitude`) fournie à la création.
+* **Distinction visuelle conservée** ✅ — icône dédiée
+  (`FOOD_TRUCK_MARKER_ICON`, `App.tsx`) visuellement différente d'un
+  marqueur d'activité ; popup sans date, cohérent avec
+  `FOOD_TRUCK_CONTRACT.md` (un food truck n'est pas un événement daté).
+* **Présence sur la carte cohérente avec les activités** ✅ — mêmes
+  marqueurs Leaflet, même carte, aucun système cartographique séparé.
+* **Protection de la création** ✅ — `POST /api/v1/foodtrucks` sans JWT
+  renvoie bien `401` (`SecurityConfig`,
+  `.requestMatchers(HttpMethod.POST, "/api/v1/foodtrucks").authenticated()`).
+  Un premier essai avait semblé aboutir sans erreur : confirmé comme un
+  faux positif de test (`$headers` d'une session PowerShell précédente
+  toujours défini, donc JWT effectivement envoyé), pas une régression de
+  sécurité — reconfirmé avec un terminal PowerShell neuf.
+* **Aucune nouvelle logique de tournée/commande** ✅ — périmètre du
+  contrôleur inchangé depuis LL-6009 (consultation + création
+  uniquement), conforme à l'exclusion explicite de `SPRINT_7.md`.
+
+**Critère d'acceptation LL-7006 atteint** : les cinq points du protocole
+(création, position, distinction visuelle, cohérence avec les
+activités, absence d'élargissement du périmètre) passent sans
+correction fonctionnelle. Aucun blocage réel trouvé pour LL-7007.
+
 # Prochaine action
 
-`LL-7005` est terminé.
+`LL-7006` est terminé.
 
-La prochaine tâche est **LL-7006 — Validation du parcours Food Truck**, dans `docs/05_Sprints/SPRINT_7.md`.
+La prochaine tâche est **LL-7007 — Corriger uniquement les blocages de validation**, dans `docs/05_Sprints/SPRINT_7.md`.
 
-Deux blocages réels ont été trouvés pendant LL-7003/LL-7004, documentés ci-dessus, correction réservée à **LL-7007** (règle du sprint), pas traitée maintenant :
+Trois blocages réels ont été trouvés pendant LL-7003/LL-7004 (rien de nouveau en LL-7005/LL-7006), documentés ci-dessus, correction réservée à **LL-7007** (règle du sprint), pas traitée maintenant :
 1. Contrainte `chk_activity_status` n'autorisant pas `ARCHIVED` (LL-7003) → tout second import échoue en `500`.
 2. `buildCategoryOptions` (`App.tsx`) plante sur une catégorie `null` (LL-7004) → vue par défaut (sans filtre) cassée dès qu'une activité réelle a une catégorie manquante ; carte Leaflet qui ne se recentre pas sur la géolocalisation utilisateur (`useMap()` manquant).
 
