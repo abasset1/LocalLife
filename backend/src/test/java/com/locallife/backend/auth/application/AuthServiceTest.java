@@ -84,6 +84,42 @@ class AuthServiceTest {
         verify(userRepository, never()).save(any());
     }
 
+    // --- bootstrapFirstAdmin ---
+
+    @Test
+    void bootstrapFirstAdmin_ShouldCreateAdmin_WhenNoAdminExists() {
+        when(userRepository.existsByRole(Role.ADMIN)).thenReturn(false);
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.empty());
+        when(passwordHashingService.hash("motDePasseAdmin1")).thenReturn("hashed");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Optional<User> created = authService.bootstrapFirstAdmin("admin", "admin@example.com", "motDePasseAdmin1");
+
+        assertEquals(true, created.isPresent());
+        assertEquals(Role.ADMIN, created.get().role());
+        assertEquals("hashed", created.get().passwordHash());
+    }
+
+    @Test
+    void bootstrapFirstAdmin_ShouldDoNothing_WhenAnAdminAlreadyExists() {
+        when(userRepository.existsByRole(Role.ADMIN)).thenReturn(true);
+
+        Optional<User> result = authService.bootstrapFirstAdmin("admin", "admin@example.com", "motDePasseAdmin1");
+
+        assertEquals(true, result.isEmpty());
+        verify(userRepository, never()).findByEmail(any());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void bootstrapFirstAdmin_ShouldThrow_WhenPasswordIsTooShort() {
+        when(userRepository.existsByRole(Role.ADMIN)).thenReturn(false);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> authService.bootstrapFirstAdmin("admin", "admin@example.com", "court"));
+        verify(userRepository, never()).save(any());
+    }
+
     // --- login ---
 
     @Test

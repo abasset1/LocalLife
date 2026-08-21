@@ -170,7 +170,14 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 * **Pourquoi pas corrigé immédiatement** : hors périmètre de LL-7008
   (documentation uniquement) ; décision produit/sécurité (seeding en
   base vs commande dédiée) plutôt que choix technique unilatéral.
-* **Statut** : ouvert.
+* **Résolu par** : `LL-8002` (Sprint 8) — `AdminBootstrapRunner`
+  (`com.locallife.backend.auth.application`), exécuté une seule fois
+  au démarrage : crée le premier compte `ADMIN` uniquement si aucun
+  n'existe déjà en base, à partir des variables d'environnement
+  `LOCALLIFE_BOOTSTRAP_ADMIN_EMAIL` / `LOCALLIFE_BOOTSTRAP_ADMIN_PASSWORD`
+  (aucun secret par défaut, aucune élévation d'un compte `USER`
+  existant). Procédure documentée dans `backend/README.md`.
+* **Statut** : résolu.
 
 ---
 

@@ -29,6 +29,12 @@ Le profil `local` est actif par défaut. L'application est accessible sur `http:
 * Health check : `http://localhost:8080/actuator/health`
 * Documentation API (Swagger) : `http://localhost:8080/swagger-ui.html`
 
+**Premier compte administrateur** : sur une base neuve, définir
+`LOCALLIFE_BOOTSTRAP_ADMIN_EMAIL` et `LOCALLIFE_BOOTSTRAP_ADMIN_PASSWORD`
+avant le premier `mvn spring-boot:run` — voir la section
+« Compte administrateur de démonstration » du `README.md` racine pour
+la procédure complète et les garanties de sécurité (LL-8002).
+
 ## Profils Spring
 
 | Profil  | Usage                                    | Datasource configurée |

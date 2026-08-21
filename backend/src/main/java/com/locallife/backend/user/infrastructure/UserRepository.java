@@ -1,5 +1,6 @@
 package com.locallife.backend.user.infrastructure;
 
+import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
 import java.util.Optional;
 import org.springframework.data.repository.Repository;
@@ -19,5 +20,7 @@ public interface UserRepository extends Repository<User, Long> {
     Optional<User> findById(Long id);
 
     Optional<User> findByEmail(String email);
+
+    boolean existsByRole(Role role);
 
 }

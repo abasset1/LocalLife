@@ -191,28 +191,39 @@ répond : `GET http://localhost:8080/actuator/health` doit renvoyer
 
 ### 4. Compte administrateur de démonstration
 
-**Aucun mécanisme de création automatique n'existe à ce jour** :
-`POST /api/v1/users` (seule route capable d'assigner explicitement un
-rôle) est elle-même réservée au rôle `ADMIN` — un premier compte
-administrateur ne peut donc pas être créé via l'API. Pour une
-démonstration, créer un utilisateur standard puis le promouvoir
-directement en base :
+Depuis LL-8002 (Sprint 8), le premier compte `ADMIN` est créé
+automatiquement au **premier démarrage** du backend sur une base
+neuve, à partir de variables d'environnement — plus besoin de
+promotion SQL manuelle. Aucun compte `ADMIN` n'est créé par défaut :
+sans ces variables, le bootstrap est simplement ignoré (log
+`Bootstrap admin non configuré ... : ignoré.`).
 
 ```powershell
-# 1. Inscription (crée un compte avec le rôle USER par défaut)
-curl -X POST http://localhost:8080/api/v1/auth/register `
-  -H "Content-Type: application/json" `
-  -d '{"username":"demo-admin","email":"demo-admin@example.com","password":"changez-moi"}'
+# À définir AVANT de lancer `mvn spring-boot:run`, dans le même terminal
+$env:LOCALLIFE_BOOTSTRAP_ADMIN_EMAIL = "demo-admin@example.com"
+$env:LOCALLIFE_BOOTSTRAP_ADMIN_PASSWORD = "changez-moi-en-production"
+# Optionnel, "admin" par défaut :
+$env:LOCALLIFE_BOOTSTRAP_ADMIN_USERNAME = "demo-admin"
 
-# 2. Promotion en ADMIN, directement en base
-docker exec -it locallife-postgres psql -U locallife -d locallife `
-  -c "UPDATE users SET role = 'ADMIN' WHERE email = 'demo-admin@example.com';"
+cd backend
+mvn spring-boot:run
+```
 
-# 3. Connexion : récupérer le JWT à réutiliser dans les étapes suivantes
+Puis se connecter normalement pour récupérer le JWT :
+
+```powershell
 curl -X POST http://localhost:8080/api/v1/auth/login `
   -H "Content-Type: application/json" `
-  -d '{"email":"demo-admin@example.com","password":"changez-moi"}'
+  -d '{"email":"demo-admin@example.com","password":"changez-moi-en-production"}'
 ```
+
+**Comportement de sécurité important** : ce bootstrap ne se déclenche
+que si **aucun** compte `ADMIN` n'existe déjà en base — sur une base
+déjà initialisée (ou lors d'un redémarrage suivant), il est ignoré,
+même si les variables d'environnement restent définies. Il ne permet
+jamais d'élever un compte `USER` existant, ni de créer un second
+administrateur. Une fois le premier `ADMIN` créé, il est recommandé
+de retirer ces variables d'environnement du terminal.
 
 ### 5. Déclenchement d'un import
 

@@ -42,6 +42,40 @@ public class AuthService {
      * @throws IllegalArgumentException si les entrées sont invalides ou si l'email est déjà utilisé
      */
     public User register(String username, String email, String password) {
+        validateCredentials(username, email, password);
+
+        String passwordHash = passwordHashingService.hash(password);
+        User user = new User(null, username, email, passwordHash, Role.USER, LocalDateTime.now());
+        return userRepository.save(user);
+    }
+
+    /**
+     * Crée le premier compte {@code ADMIN}, uniquement si aucun compte
+     * {@code ADMIN} n'existe déjà en base (LL-8002).
+     *
+     * <p>Ne fait rien et retourne {@link Optional#empty()} si un compte
+     * {@code ADMIN} existe déjà — cette méthode ne permet donc jamais
+     * d'élever un compte {@code USER} existant ni de créer un second
+     * administrateur. Elle est destinée à être appelée uniquement au
+     * démarrage de l'application, à partir d'identifiants fournis de façon
+     * opérationnelle (variables d'environnement), jamais depuis un endpoint
+     * HTTP accessible publiquement.
+     *
+     * @throws IllegalArgumentException si les entrées sont invalides ou si l'email est déjà utilisé
+     */
+    public Optional<User> bootstrapFirstAdmin(String username, String email, String password) {
+        if (userRepository.existsByRole(Role.ADMIN)) {
+            return Optional.empty();
+        }
+
+        validateCredentials(username, email, password);
+
+        String passwordHash = passwordHashingService.hash(password);
+        User admin = new User(null, username, email, passwordHash, Role.ADMIN, LocalDateTime.now());
+        return Optional.of(userRepository.save(admin));
+    }
+
+    private void validateCredentials(String username, String email, String password) {
         if (username == null || username.isBlank()) {
             throw new IllegalArgumentException("Le nom d'utilisateur est requis.");
         }
@@ -55,10 +89,6 @@ public class AuthService {
         if (userRepository.findByEmail(email).isPresent()) {
             throw new IllegalArgumentException("Cet email est déjà utilisé.");
         }
-
-        String passwordHash = passwordHashingService.hash(password);
-        User user = new User(null, username, email, passwordHash, Role.USER, LocalDateTime.now());
-        return userRepository.save(user);
     }
 
     /**
