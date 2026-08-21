@@ -1,6 +1,6 @@
 # Sprint 7 — Validation du MVP
 
-**Statut :** À faire
+**Statut :** ✅ Terminé
 
 ---
 
