@@ -7,10 +7,17 @@
 # Objectif
 
 Préparer une première bêta contrôlée à partir du MVP validé au Sprint 7.
-
-Le sprint ne cherche pas à enrichir le produit. Il doit rendre la version
-actuelle suffisamment reproductible, observable, documentée et sûre pour
-être confiée à un petit nombre d'utilisateurs réels.
+**La bêta de LocalLife n'a pas de sens si les activités ne sont pas alimentées automatiquement par les collecteurs.**
+Ce sprint vise donc à :
+1. **Valider le parcours MVP** (LL-8001).
+2. **Sécuriser le bootstrap opérationnel** (LL-8002).
+3. **Améliorer l'observabilité** (LL-8003).
+4. **Configurer les sources OpenAgenda** (LL-8004) — **Nouvelle priorité** pour tester l'agrégation automatique.
+5. **Automatiser l'import et la persistance** (LL-8005).
+6. **Valider l'affichage bout en bout** (LL-8006).
+7. **Traiter la dette technique** (LL-8004 anciennement, maintenant renuméroté en LL-8007).
+8. **Consolider la documentation** (LL-8005 anciennement, maintenant renuméroté en LL-8008).
+9. **Décider l'ouverture de la bêta** (LL-8006 anciennement, maintenant renuméroté en LL-8009).
 
 ---
 
@@ -18,7 +25,10 @@ actuelle suffisamment reproductible, observable, documentée et sûre pour
 
 ## Inclus
 
-- rejouer le parcours MVP après les corrections du Sprint 7 ;
+- Rejouer le parcours MVP après les corrections du Sprint 7 ;
+- **Configurer plusieurs agendas OpenAgenda pour Avignon (LL-8004)** ;
+- **Automatiser l'import et la persistance des données (LL-8005)** ;
+- **Valider l'affichage des activités sur la carte (LL-8006)** ;
 - figer une baseline fonctionnelle de référence ;
 - sécuriser le bootstrap opérationnel d'un premier administrateur ;
 - améliorer l'observabilité des erreurs serveur importantes ;
@@ -38,12 +48,13 @@ actuelle suffisamment reproductible, observable, documentée et sûre pour
 - back-office complet ;
 - refonte graphique importante ;
 - recherche avancée ;
-- scheduler d'import automatique ;
 - optimisation d'architecture non justifiée par un problème réel.
 
 ---
 
 # Tickets
+
+---
 
 ## LL-8001 — Rejouer le parcours MVP après les corrections et figer la baseline
 
@@ -78,6 +89,8 @@ Vérifier que les corrections du Sprint 7 n'ont pas introduit de régression et
 
 ---
 
+---
+
 ## LL-8002 — Sécuriser le bootstrap du premier compte administrateur
 
 **Priorité : Haute**
@@ -106,6 +119,8 @@ et sûre si un bootstrap applicatif n'est pas retenu.
 
 ---
 
+---
+
 ## LL-8003 — Améliorer la journalisation des erreurs serveur bloquantes
 
 **Priorité : Haute**
@@ -127,9 +142,93 @@ notamment celles rencontrées pendant la validation du pipeline d'import.
 
 ---
 
-## LL-8004 — Traiter la dette technique pertinente pour une bêta
+---
+---
+
+## LL-8004 — Configurer les sources OpenAgenda d’Avignon
 
 **Priorité : Haute**
+
+**Dépendance :** LL-8001
+
+### Objectif
+**Disposer d'un ensemble représentatif d'agendas OpenAgenda couvrant différents types d'activités à Avignon.**
+
+### Le ticket doit prévoir :
+
+- identifier plusieurs agendas pertinents pour Avignon ;
+- sélectionner des sources suffisamment variées :
+  - culture ;
+  - spectacles ;
+  - patrimoine ;
+  - loisirs ;
+  - éventuellement sport / vie locale ;
+- configurer leurs identifiants dans LocalLife ;
+- vérifier que chaque agenda est réellement accessible et exploitable par le collector ;
+- lancer une collecte sur l'ensemble des agendas ;
+- vérifier que les événements récupérés sont correctement attribués à leur source ;
+- vérifier qu'il n'y a pas de doublons excessifs entre agendas ;
+- documenter les agendas retenus et leur rôle.
+
+### Critères d'acceptation
+- **Une exécution du collector doit récupérer des activités provenant de plusieurs agendas Avignon, et pas uniquement d'une source de démonstration.**
+
+---
+
+---
+---
+
+## LL-8005 — Automatiser l'import et la persistance des données collectées
+
+**Priorité : Haute**
+
+**Dépendance :** LL-8004
+
+### Objectif
+**Mettre en place un pipeline automatisé pour importer et stocker les données récupérées depuis les sources OpenAgenda configurées dans LL-8004.**
+
+### Le ticket doit prévoir :
+
+- configurer un job planifié (cron) pour exécuter régulièrement le collector ;
+- implémenter la logique de persistance des événements collectés dans la base de données ;
+- gérer les mises à jour incrémentielles (éviter les doublons, gérer les modifications) ;
+- valider que les données sont correctement structurées et accessibles via l'API LocalLife ;
+- s'assurer que les métadonnées des sources (ex: ID de l'agenda OpenAgenda) sont conservées.
+
+### Critères d'acceptation
+- **Les données collectées doivent être automatiquement importées et persistées sans intervention manuelle.**
+
+---
+
+---
+---
+## LL-8006 — Vérifier l'apparition des activités de bout en bout sur la carte
+
+**Priorité : Haute**
+
+**Dépendance :** LL-8004, LL-8005
+
+### Objectif
+**S'assurer que les activités collectées et importées (LL-8004 et LL-8005) s'affichent correctement sur l'interface utilisateur, notamment sur la carte interactive.**
+
+### Le ticket doit prévoir :
+
+- vérifier que les événements persistés sont bien exposés via l'API utilisée par le frontend ;
+- tester l'affichage des activités sur la carte (marqueurs, popups, filtres) ;
+- valider que les informations clés (titre, date, lieu, source) sont correctement affichées ;
+- tester les interactions utilisateur (clic sur un événement, filtrage par type/catégorie) ;
+- corriger les éventuels problèmes d'affichage ou de cohérence des données ;
+- documenter les tests effectués et les résultats.
+
+### Critères d'acceptation
+- **Les activités collectées doivent être visibles et interactives sur la carte, avec toutes leurs métadonnées.**
+
+---
+---
+---
+## LL-8007 — Traiter la dette technique pertinente pour une bêta
+
+**Priorité : Moyenne**
 
 **Dépendance :** LL-8001
 
@@ -156,12 +255,13 @@ Chaque dette examinée reçoit l'un des états suivants :
 Aucun refactoring hors de cette liste n'est introduit par ce ticket.
 
 ---
-
-## LL-8005 — Consolider la documentation et préparer la checklist de bêta
+---
+---
+## LL-8008 — Consolider la documentation et préparer la checklist de bêta
 
 **Priorité : Moyenne**
 
-**Dépendance :** LL-8002, LL-8003, LL-8004
+**Dépendance :** LL-8002, LL-8003, LL-8007
 
 ### Objectif
 
@@ -189,12 +289,13 @@ installer, démarrer, vérifier et démontrer LocalLife.
 - aucune documentation ne désigne encore le Sprint 7 comme sprint courant.
 
 ---
-
-## LL-8006 — Décider et documenter l'ouverture de la première bêta contrôlée
+---
+---
+## LL-8009 — Décider et documenter l'ouverture de la première bêta contrôlée
 
 **Priorité : Haute**
 
-**Dépendance :** LL-8001, LL-8002, LL-8003, LL-8004, LL-8005
+**Dépendance :** LL-8001, LL-8002, LL-8003, LL-8004, LL-8005, LL-8006, LL-8007, LL-8008
 
 ### Objectif
 
@@ -206,6 +307,7 @@ groupe restreint d'utilisateurs.
 **GO bêta** si :
 
 - la baseline MVP passe ;
+- **les activités sont alimentées automatiquement par les collecteurs (LL-8004, LL-8005, LL-8006)** ;
 - aucun défaut critique ou blocage connu n'est ouvert ;
 - le démarrage et le compte `ADMIN` sont reproductibles ;
 - les erreurs serveur importantes sont observables ;
@@ -216,6 +318,7 @@ groupe restreint d'utilisateurs.
 - un parcours MVP critique régresse ;
 - un problème de sécurité ou de données empêche une utilisation réelle ;
 - l'installation ou le démarrage n'est pas reproductible ;
+- **les activités ne sont pas alimentées automatiquement par les collecteurs** ;
 - une dette considérée comme critique reste non maîtrisée.
 
 ### Livrable
@@ -224,47 +327,13 @@ Une décision explicite **GO bêta** ou **NO-GO bêta**, consignée dans
 `docs/PROJECT_STATUS.md` et accompagnée des éventuels tickets de correction.
 
 ---
-
+---
+---
 # Dépendances
 
 ```text
 LL-8001
    ├── LL-8002 ─┐
-   ├── LL-8003 ─┼──→ LL-8005 → LL-8006
-   └── LL-8004 ─┘
-```
-
----
-
-# Règles du sprint
-
-- Aucun nouveau domaine métier.
-- Aucun nouveau collecteur.
-- Aucun élargissement fonctionnel motivé uniquement par une idée de bêta.
-- Toute correction doit être liée à la baseline, à la sécurité, à
-  l'observabilité, à la dette retenue ou à la reproductibilité.
-- Un ticket terminé doit avoir une preuve dans le code, les tests ou la
-  validation documentée.
-- Les retours utilisateurs serviront à construire la Phase 3 après la bêta ;
-  ils ne sont pas anticipés sous forme de fonctionnalités dans ce sprint.
-
----
-
-# Definition of Done
-
-Le Sprint 8 est terminé lorsque :
-
-- la baseline MVP est rejouée et documentée ;
-- le premier administrateur peut être initialisé de façon reproductible et sûre ;
-- les erreurs serveur importantes sont observables ;
-- les dettes pertinentes pour la bêta sont traitées ou explicitement acceptées ;
-- la documentation est cohérente avec l'état réel du projet ;
-- une checklist de bêta est disponible ;
-- une décision explicite **GO bêta** ou **NO-GO bêta** est prise.
-
----
-
-# Livrable du Sprint
-
-> Une version de LocalLife prête à être soumise à une première bêta contrôlée,\> avec une baseline vérifiée, un démarrage reproductible, une observabilité
-> minimale, une documentation cohérente et une décision de go/no-go explicite.
+   ├── LL-8003 ─┼──→ LL-8007 → LL-8008 → LL-8009
+   ├── LL-8004 ─┼──→ LL-8005 ─┐
+   └── LL-8006 ───────┘
