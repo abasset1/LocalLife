@@ -29,15 +29,24 @@ une catégorie `null` (fréquent avec de vraies données OpenAgenda),
 cassant la vue par défaut ; la carte ne se recentre pas visuellement
 après géolocalisation (`useMap()` manquant dans `App.tsx`).
 
+`LL-7005` terminé : parcours utilisateur contribution / authentification
+validé de bout en bout (inscription, connexion, maintien de la session,
+création d'une activité en `PENDING`, publication/rejet, déconnexion,
+retour d'erreur compréhensible). Aucun blocage réel trouvé — un `500`
+rencontré en test s'est avéré être un artefact d'encodage UTF-8 côté
+`Invoke-RestMethod`/PowerShell (non reproductible via le formulaire
+frontend), sans lien avec le backend. Voir `PROJECT_STATUS.md`, section
+Sprint 7.
+
 ## Prochaine tâche
 
 **Sprint 7 — Validation du MVP**
 
 ### Prochain ticket
 
-**LL-7005 — Valider le parcours utilisateur contribution / authentification**
+**LL-7006 — Validation du parcours Food Truck**
 
-Dépendance : LL-7004 (terminé). Détail :
+Dépendance : LL-7001 (terminé). Détail :
 `docs/05_Sprints/SPRINT_7.md`.
 
 ## Règles

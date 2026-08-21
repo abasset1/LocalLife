@@ -1,7 +1,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.7.0
-**Dernière mise à jour :** 2026-08-17 (préparation Sprint 7)
+**Dernière mise à jour :** 2026-08-21 (Sprint 7, LL-7005)
 
 ---
 ## Phase actuelle
@@ -1170,11 +1170,67 @@ règle que pour LL-7003) :
   accents pour une raison propre à la console, sans lien avec le
   backend).
 
+## LL-7005 — Valider le parcours utilisateur contribution / authentification ✅
+
+**Dépendance :** LL-7001.
+
+**Ticket de vérification uniquement** (aucun fichier modifié) : exécuté
+en conditions réelles par Alex (hors sandbox), scénarios 7, 8 et 9 de
+`MVP_VALIDATION_PROTOCOL.md` passés un par un.
+
+**Résultats :**
+
+* **Inscription / connexion** ✅ — `POST /api/v1/auth/register` puis
+  `POST /api/v1/auth/login` fonctionnels, JWT exploitable obtenu.
+* **Création d'une activité (contribution)** ✅ — `POST
+  /api/v1/activities` avec le JWT obtenu renvoie `201`, activité créée
+  en `status = PENDING`.
+* **Statut `PENDING` de la contribution** ✅ (scénario 8) — vérifié par
+  `GET /api/v1/activities/{id}` (`status = PENDING`) et absence
+  confirmée à la fois de `GET /api/v1/activities/nearby` et de `GET
+  /api/v1/activities/within-bounds` autour de sa position.
+* **Publier ou rejeter la contribution** ✅ (scénario 9) — la première
+  contribution publiée par un compte `ADMIN`
+  (`PATCH /api/v1/admin/activities/{id}/publish`) devient bien visible
+  dans `nearby` ; une seconde contribution créée puis rejetée
+  (`PATCH .../reject`) passe à `status = REJECTED` et reste absente de
+  la recherche publique à chaque étape.
+* **Maintien de l'authentification / déconnexion** ✅ — vérifié côté
+  frontend (`http://localhost:5173`) : le JWT stocké en `localStorage`
+  (`authStorage.ts`) survit à un rechargement de page (session
+  maintenue) ; la déconnexion efface bien le token et repasse l'app en
+  état non-authentifié.
+* **Retour utilisateur compréhensible en cas d'erreur** ✅ — `400` avec
+  message explicite sur mot de passe trop court / email déjà utilisé /
+  création sans JWT (`401`), conformément au comportement déjà validé
+  en LL-3007/LL-3008.
+
+**Point de diagnostic, pas un bug** (rencontré pendant l'exécution,
+documenté ici pour ne pas être rejoué inutilement en LL-7007) : un
+premier essai de création d'activité via `Invoke-RestMethod` avec un
+titre/description accentués (« Activité ») a renvoyé un `500`. Cause
+identifiée : encodage UTF-8 non forcé par `Invoke-RestMethod` /
+`ConvertTo-Json` dans PowerShell, corrompant le JSON envoyé avant même
+d'atteindre le backend — même famille de souci que l'artefact
+d'affichage `Ã©` déjà connu (`NEXT_TASK.md`), mais côté requête sortante
+cette fois, pas juste console. Confirmé comme non applicatif : (1) en
+forçant l'encodage UTF-8 explicitement côté PowerShell
+(`[System.Text.Encoding]::UTF8.GetBytes(...)`), la même requête aboutit
+normalement ; (2) le vrai parcours utilisateur, testé via le formulaire
+de contribution du frontend (React, JSON UTF-8 natif), fonctionne sans
+contournement avec un titre/description accentués. Aucune action pour
+LL-7007 sur ce point.
+
+**Critère d'acceptation LL-7005 atteint** : inscription, connexion,
+maintien de l'authentification, création d'une activité en `PENDING`,
+retour utilisateur compréhensible en cas d'erreur, déconnexion — tous
+vérifiés sans correction fonctionnelle.
+
 # Prochaine action
 
-`LL-7004` est terminé.
+`LL-7005` est terminé.
 
-La prochaine tâche est **LL-7005 — Valider le parcours utilisateur contribution / authentification**, dans `docs/05_Sprints/SPRINT_7.md`.
+La prochaine tâche est **LL-7006 — Validation du parcours Food Truck**, dans `docs/05_Sprints/SPRINT_7.md`.
 
 Deux blocages réels ont été trouvés pendant LL-7003/LL-7004, documentés ci-dessus, correction réservée à **LL-7007** (règle du sprint), pas traitée maintenant :
 1. Contrainte `chk_activity_status` n'autorisant pas `ARCHIVED` (LL-7003) → tout second import échoue en `500`.
