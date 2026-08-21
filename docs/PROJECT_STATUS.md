@@ -1266,15 +1266,61 @@ en conditions réelles par Alex (hors sandbox), scénario 10 de
 activités, absence d'élargissement du périmètre) passent sans
 correction fonctionnelle. Aucun blocage réel trouvé pour LL-7007.
 
+## LL-7007 — Corriger uniquement les blocages de validation ✅
+
+**Dépendance :** LL-7003, LL-7004, LL-7005, LL-7006.
+
+Corrige les trois blocages réels trouvés pendant LL-7003/LL-7004 et
+documentés ci-dessus. Aucune amélioration esthétique ni fonctionnalité
+nouvelle, conformément à la règle du ticket (`SPRINT_7.md`).
+
+⚠️ **Point de scope clarifié avant traitement** : `NEXT_TASK.md`
+listait explicitement 2 corrections (« et rien d'autre ») dans sa
+section « Prochaine tâche », omettant le recentrage de carte pourtant
+documenté juste au-dessus dans le même fichier (paragraphe LL-7004) et
+dans la présente section. Confirmé par Alex comme inclus dans le
+périmètre de LL-7007 avant traitement — les trois corrections
+ci-dessous ont donc été apportées.
+
+**Corrections :**
+
+1. **Contrainte `chk_activity_status` n'autorisant pas `ARCHIVED`
+   (LL-7003)** — nouvelle migration `V13__allow_archived_activity_status.sql` :
+   la contrainte `CHECK` (V11, LL-6003) est recréée avec `ARCHIVED` en
+   plus des trois statuts existants. `V11` n'est pas modifiée (migration
+   déjà appliquée, jamais éditée rétroactivement). Test ajouté :
+   `ImportServiceIntegrationTest#importAll_ShouldArchiveActivity_WhenNoLongerInSource`
+   (contexte Spring réel, reproduit le scénario exact du blocage : une
+   activité présente à un premier import puis absente au second doit
+   être archivée sans exception).
+2. **`buildCategoryOptions` (`App.tsx`) plante sur une catégorie `null`
+   (LL-7004)** — les catégories vides/`null` sont désormais filtrées
+   avant le tri (`Array.prototype.filter` avec garde de type), évitant
+   le crash de `localeCompare` sur une valeur non-string.
+3. **Carte Leaflet ne se recentre pas après géolocalisation (LL-7004,
+   `useMap()` manquant)** — nouveau composant `MapRecenterOnUserPosition`
+   (même patron que `MapBoundsWatcher` existant) monté dans
+   `<MapContainer>`, qui appelle `map.setView(...)` lorsque
+   `userPosition` passe de `null` à une valeur. `MapContainer` ne
+   respecte sa prop `center` qu'au montage initial ; ce composant
+   comble ce manque sans introduire de nouvelle dépendance.
+
+**Hors périmètre, volontairement non traité par ce ticket** (règle
+« un ticket = une seule responsabilité ») : l'absence de journalisation
+des exceptions dans `GlobalExceptionHandler`, notée comme lacune
+connexe lors du diagnostic de LL-7003 — laissée pour un ticket dédié
+selon décision d'Alex.
+
+**Critère d'acceptation LL-7007 atteint** : chaque correction est liée
+à un scénario de validation en échec (LL-7003/LL-7004) ; test ajouté
+pour le blocage backend ; aucune régression du périmètre existant
+(aucun fichier hors des trois zones ci-dessus modifié).
+
 # Prochaine action
 
-`LL-7006` est terminé.
+`LL-7007` est terminé.
 
-La prochaine tâche est **LL-7007 — Corriger uniquement les blocages de validation**, dans `docs/05_Sprints/SPRINT_7.md`.
-
-Trois blocages réels ont été trouvés pendant LL-7003/LL-7004 (rien de nouveau en LL-7005/LL-7006), documentés ci-dessus, correction réservée à **LL-7007** (règle du sprint), pas traitée maintenant :
-1. Contrainte `chk_activity_status` n'autorisant pas `ARCHIVED` (LL-7003) → tout second import échoue en `500`.
-2. `buildCategoryOptions` (`App.tsx`) plante sur une catégorie `null` (LL-7004) → vue par défaut (sans filtre) cassée dès qu'une activité réelle a une catégorie manquante ; carte Leaflet qui ne se recentre pas sur la géolocalisation utilisateur (`useMap()` manquant).
+La prochaine tâche est **LL-7008**, dans `docs/05_Sprints/SPRINT_7.md`.
 
 Aucun Sprint 8 ne doit être défini avant la conclusion de Sprint 7.
 

@@ -186,6 +186,31 @@ class ImportServiceIntegrationTest {
     }
 
     @Test
+    void importAll_ShouldArchiveActivity_WhenNoLongerInSource() {
+        // Given : une activité importée une première fois, puis absente
+        // de la collecte suivante (LL-7003 : reproduit le blocage réel où
+        // chk_activity_status n'autorisait pas ARCHIVED, corrigé en LL-7007).
+        String sourceName = uniqueSourceName();
+        when(collector.getSourceName()).thenReturn(sourceName);
+        when(collector.collect()).thenReturn(List.of(validItem(sourceName, "ext-1", "Marché de Noël")));
+        importService.importAll();
+        Long activityId = activityRepository.findBySourceId(sourceIdFor(sourceName)).get(0).id();
+
+        when(collector.collect()).thenReturn(List.of());
+
+        // When
+        List<ImportResult> results = importService.importAll();
+
+        // Then : l'activité disparue de la source est archivée, pas supprimée.
+        assertThat(results.get(0).archived()).isEqualTo(1);
+        Activity archived = activityRepository.findBySourceId(sourceIdFor(sourceName)).stream()
+                .filter(activity -> activity.id().equals(activityId))
+                .findFirst()
+                .orElseThrow();
+        assertThat(archived.status()).isEqualTo("ARCHIVED");
+    }
+
+    @Test
     void importAll_ShouldHandleEmptyImport_WithoutError() {
         // Given : le collecteur ne retourne rien.
         String sourceName = uniqueSourceName();

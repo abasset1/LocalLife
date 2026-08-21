@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { LatLngExpression } from "leaflet";
 import L from "leaflet";
-import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { Link } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
@@ -115,6 +115,27 @@ function MapBoundsWatcher({ onBoundsChange }: { onBoundsChange: (bounds: MapBoun
     return null;
 }
 
+/**
+ * Composant enfant sans rendu visuel (LL-7007, même patron que
+ * `MapBoundsWatcher` ci-dessus) : `MapContainer` ne respecte sa prop
+ * `center` qu'au montage initial — un changement ultérieur de
+ * `userPosition` (LL-4010) ne recentre donc jamais visuellement la
+ * carte. `useMap()` (accessible uniquement depuis un descendant de
+ * `MapContainer`) donne accès à l'instance Leaflet pour appeler
+ * `setView` explicitement lorsqu'une position est obtenue.
+ */
+function MapRecenterOnUserPosition({ position }: { position: UserPosition | null }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (position) {
+            map.setView([position.latitude, position.longitude], map.getZoom());
+        }
+    }, [position, map]);
+
+    return null;
+}
+
 const MARSEILLE_LATITUDE = 43.2965;
 const MARSEILLE_LONGITUDE = 5.3698;
 const MARSEILLE_COORDINATES: LatLngExpression = [MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE];
@@ -178,7 +199,11 @@ const FOOD_TRUCK_MARKER_ICON = L.divIcon({
 });
 
 function buildCategoryOptions(items: Activity[]): string[] {
-    return Array.from(new Set(items.map((item) => item.category))).sort((a, b) => a.localeCompare(b, "fr"));
+    // LL-7007 : des activités importées depuis OpenAgenda peuvent avoir une
+    // catégorie absente (`null`/vide) — sans ce filtre, `.localeCompare`
+    // plantait sur ces valeurs et cassait la vue par défaut (voir LL-7004).
+    const categories = items.map((item) => item.category).filter((category): category is string => Boolean(category));
+    return Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b, "fr"));
 }
 
 function App() {
@@ -538,6 +563,7 @@ function App() {
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
                     <MapBoundsWatcher onBoundsChange={setMapBounds} />
+                    <MapRecenterOnUserPosition position={userPosition} />
                     {activities.map((activity) => (
                         <Marker
                             key={activity.id}

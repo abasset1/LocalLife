@@ -45,19 +45,23 @@ carte et protection par JWT tous validés. Aucun blocage réel trouvé
 d'une session PowerShell précédente, reconfirmé `401` avec un terminal
 neuf). Voir `PROJECT_STATUS.md`, section Sprint 7.
 
+`LL-7007` terminé : trois corrections apportées, liées aux blocages
+trouvés en LL-7003/LL-7004 — contrainte `chk_activity_status`
+autorisant désormais `ARCHIVED` (migration `V13`) ; `buildCategoryOptions`
+(`App.tsx`) ne plante plus sur une catégorie `null` ; carte Leaflet
+recentrée après géolocalisation (`MapRecenterOnUserPosition`, `useMap()`).
+Voir `PROJECT_STATUS.md`, section Sprint 7, pour le détail et la note
+de clarification de périmètre (recentrage de carte confirmé inclus par
+Alex, malgré une liste « et rien d'autre » incomplète dans une
+précédente version de ce fichier).
+
 ## Prochaine tâche
 
 **Sprint 7 — Validation du MVP**
 
 ### Prochain ticket
 
-**LL-7007 — Corriger uniquement les blocages de validation**
-
-Dépendance : LL-7003, LL-7004, LL-7005, LL-7006 (tous terminés). Détail :
-`docs/05_Sprints/SPRINT_7.md`. Corrections à apporter (et rien
-d'autre) :
-1. Contrainte `chk_activity_status` n'autorisant pas `ARCHIVED` (LL-7003).
-2. `buildCategoryOptions` (`App.tsx`) plante sur une catégorie `null` (LL-7004).
+**LL-7008**, détail : `docs/05_Sprints/SPRINT_7.md`.
 
 ## Règles
 
