@@ -32,17 +32,18 @@ explicite — comportement attendu, pas un bug (voir LL-5006).
 
 ## Comment est déclenché un import
 
-**Aucun déclencheur automatique n'existe à ce jour.**
-`ImportService.importAll()` (`com.locallife.backend.collector.application`)
-exécute l'import pour tous les `Collector` enregistrés, mais rien
-n'appelle cette méthode dans l'application en cours d'exécution — ni
-tâche planifiée (`@Scheduled`), ni endpoint dédié. Elle est appelable
-directement en test (voir `ImportServiceIntegrationTest`, LL-5010) ou
-depuis du code Java, mais pas encore depuis une requête HTTP ou un cron.
+**Déclenchement manuel via `POST /api/v1/admin/import`** (LL-7002,
+Sprint 7), réservé au rôle `ADMIN` — voir `AdminImportController`
+(`com.locallife.backend.collector.api`) et la section « Sprint 7 —
+Démonstration du MVP » du `README.md` racine pour un exemple complet.
+Toujours aucune tâche planifiée (`@Scheduled`) : décision explicite du
+Sprint 7 (« aucun scheduler complexe »), pas une limitation restante.
 
-C'est une limitation connue, pas un oubli silencieux — voir
-`DETTE_TECHNIQUE.md`. Aucun ticket du Sprint 5 ne demandait
-explicitement d'ajouter un déclencheur.
+`ImportService.importAll()` (`com.locallife.backend.collector.application`)
+reste la seule logique d'orchestration — le contrôleur ne fait que
+l'invoquer, sans dupliquer de logique d'import. Elle reste aussi
+appelable directement en test (voir `ImportServiceIntegrationTest`,
+LL-5010) ou depuis du code Java.
 
 ## Résultat d'un import
 

@@ -1316,11 +1316,44 @@ selon décision d'Alex.
 pour le blocage backend ; aucune régression du périmètre existant
 (aucun fichier hors des trois zones ci-dessus modifié).
 
+## LL-7008 — Préparer l'environnement de démonstration ✅
+
+**Dépendance :** LL-7007.
+
+**Ticket de documentation uniquement** (aucun changement de code) :
+nouvelle section « Sprint 7 — Démonstration du MVP » dans le
+`README.md` racine, couvrant les six points demandés par
+`SPRINT_7.md` — base de données, configuration, démarrage
+backend/frontend, compte administrateur, déclenchement d'un import,
+vérification de la carte.
+
+**Point relevé pendant la rédaction** : aucun mécanisme applicatif ne
+permet de créer un premier compte `ADMIN` (`POST /api/v1/users`,
+seule route capable d'assigner un rôle, est elle-même réservée au
+rôle `ADMIN`). Contournement documenté (inscription standard puis
+promotion par requête SQL directe) plutôt que blocage silencieux ;
+lacune tracée dans `DETTE_TECHNIQUE.md` (nouvelle entrée, statut
+ouvert) — aucun correctif applicatif ajouté par ce ticket (hors
+périmètre, ticket documentation uniquement).
+
+**Corrections de documentation obsolète, nécessaires à la cohérence du
+guide** : `docs/02_Architecture/COLLECTOR_OPERATIONS.md` affirmait
+encore qu'aucun déclencheur d'import n'existait, alors que LL-7002
+(Sprint 7) a ajouté `POST /api/v1/admin/import` — corrigé, ainsi que
+l'entrée correspondante de `DETTE_TECHNIQUE.md` (marquée résolue).
+
+**Critère d'acceptation LL-7008 atteint** : une personne connaissant
+le dépôt mais n'ayant pas suivi le développement peut reproduire le
+parcours de démonstration à partir du `README.md` seul (base de
+données → configuration → démarrage → compte admin → import →
+vérification carte), chaque étape incluant les commandes exactes.
+
 # Prochaine action
 
-`LL-7007` est terminé.
+`LL-7008` est terminé.
 
-La prochaine tâche est **LL-7008**, dans `docs/05_Sprints/SPRINT_7.md`.
+La prochaine tâche est **LL-7009 — Documentation et décision de sortie
+du MVP**, dans `docs/05_Sprints/SPRINT_7.md`.
 
 Aucun Sprint 8 ne doit être défini avant la conclusion de Sprint 7.
 

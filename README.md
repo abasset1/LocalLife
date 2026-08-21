@@ -150,3 +150,94 @@ npm run dev
 
 Le frontend est accessible sur `http://localhost:5173` et le backend sur
 `http://localhost:8080`.
+
+## Sprint 7 — Démonstration du MVP (LL-7008)
+
+Parcours complet pour reproduire une démonstration à partir d'un
+environnement neuf, sans connaissance préalable du développement.
+
+### 1. Base de données
+
+```powershell
+cd infra
+docker compose up -d
+```
+
+Démarre PostgreSQL/PostGIS (`infra/docker-compose.yml`) : base
+`locallife`, utilisateur/mot de passe `locallife`, port `5432`. Les
+migrations Flyway (`backend/src/main/resources/db/migration`) sont
+appliquées automatiquement au démarrage du backend, aucune action
+manuelle requise.
+
+### 2. Configuration
+
+Deux fichiers de variables d'environnement à préparer, en s'appuyant
+sur `backend/.env.example` :
+
+* `JWT_SECRET` — obligatoire. Générer une valeur avec
+  `openssl rand -base64 32` (une valeur de secours existe pour le
+  développement, mais explicite, pas pour une démonstration).
+* `OPENAGENDA_API_KEY` / `OPENAGENDA_AGENDA_UID` — obligatoires
+  uniquement si l'étape 5 (import réel) doit utiliser de vraies
+  données OpenAgenda plutôt que des activités créées manuellement.
+  Voir `docs/02_Architecture/COLLECTOR_OPERATIONS.md` pour le détail
+  de ces variables.
+
+### 3. Démarrage backend/frontend
+
+Voir la section « Démarrage » ci-dessus. Vérifier que le backend
+répond : `GET http://localhost:8080/actuator/health` doit renvoyer
+`{"status":"UP"}`.
+
+### 4. Compte administrateur de démonstration
+
+**Aucun mécanisme de création automatique n'existe à ce jour** :
+`POST /api/v1/users` (seule route capable d'assigner explicitement un
+rôle) est elle-même réservée au rôle `ADMIN` — un premier compte
+administrateur ne peut donc pas être créé via l'API. Pour une
+démonstration, créer un utilisateur standard puis le promouvoir
+directement en base :
+
+```powershell
+# 1. Inscription (crée un compte avec le rôle USER par défaut)
+curl -X POST http://localhost:8080/api/v1/auth/register `
+  -H "Content-Type: application/json" `
+  -d '{"username":"demo-admin","email":"demo-admin@example.com","password":"changez-moi"}'
+
+# 2. Promotion en ADMIN, directement en base
+docker exec -it locallife-postgres psql -U locallife -d locallife `
+  -c "UPDATE users SET role = 'ADMIN' WHERE email = 'demo-admin@example.com';"
+
+# 3. Connexion : récupérer le JWT à réutiliser dans les étapes suivantes
+curl -X POST http://localhost:8080/api/v1/auth/login `
+  -H "Content-Type: application/json" `
+  -d '{"email":"demo-admin@example.com","password":"changez-moi"}'
+```
+
+### 5. Déclenchement d'un import
+
+Avec le JWT obtenu à l'étape précédente (rôle `ADMIN` requis,
+`POST /api/v1/admin/import`, voir `AdminImportController`) :
+
+```powershell
+curl -X POST http://localhost:8080/api/v1/admin/import `
+  -H "Authorization: Bearer <token>"
+```
+
+Répond `200` avec un `ImportResult` par collecteur enregistré
+(`fetched`/`created`/`updated`/`ignored`/`errors`/`archived`). Si
+`OPENAGENDA_API_KEY`/`OPENAGENDA_AGENDA_UID` ne sont pas configurées,
+l'import se termine quand même avec un résultat dégradé
+(`errors = 1`) plutôt qu'une erreur HTTP — voir
+`docs/02_Architecture/COLLECTOR_OPERATIONS.md`. Sans configuration
+OpenAgenda, la carte peut aussi être démontrée avec une activité créée
+manuellement via le formulaire de contribution du frontend, publiée
+ensuite par l'administrateur (`PATCH /api/v1/admin/activities/{id}/publish`).
+
+### 6. Vérification de la carte
+
+Ouvrir `http://localhost:5173` : les activités importées ou publiées
+doivent apparaître comme marqueurs sur la carte, avec popup au clic
+(titre/catégorie/date). Le filtre catégorie/date et le bouton
+« Utiliser ma position » permettent de vérifier la recherche
+géographique (voir la section « Recherche géographique » ci-dessus).

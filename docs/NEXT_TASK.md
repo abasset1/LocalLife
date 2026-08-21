@@ -55,13 +55,26 @@ de clarification de périmètre (recentrage de carte confirmé inclus par
 Alex, malgré une liste « et rien d'autre » incomplète dans une
 précédente version de ce fichier).
 
+`LL-7008` terminé : guide de démonstration ajouté au `README.md`
+racine (base de données, configuration, démarrage, compte admin,
+déclenchement d'un import, vérification de la carte). Lacune relevée :
+aucun mécanisme applicatif pour créer un premier compte `ADMIN`
+(contournement documenté, lacune tracée dans `DETTE_TECHNIQUE.md`).
+Documentation obsolète corrigée au passage
+(`COLLECTOR_OPERATIONS.md`/`DETTE_TECHNIQUE.md` décrivaient encore
+l'absence de déclencheur d'import, alors que LL-7002 l'a ajouté). Voir
+`PROJECT_STATUS.md`, section Sprint 7.
+
 ## Prochaine tâche
 
 **Sprint 7 — Validation du MVP**
 
 ### Prochain ticket
 
-**LL-7008**, détail : `docs/05_Sprints/SPRINT_7.md`.
+**LL-7009 — Documentation et décision de sortie du MVP**, détail :
+`docs/05_Sprints/SPRINT_7.md`. Dernier ticket du sprint : doit
+conclure explicitement soit « MVP validé → préparation de la bêta »,
+soit « MVP non validé → sprint de correction ciblé ».
 
 ## Règles
 

@@ -89,7 +89,7 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 
 ---
 
-## Backend — aucun déclencheur pour le pipeline d'import
+## Backend — aucun déclencheur pour le pipeline d'import ✅ Résolu
 
 * **Détecté** : LL-5008/LL-5009, formalisé en LL-5012.
 * **Où** : `ImportService#importAll()`
@@ -106,7 +106,10 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 * **Pourquoi pas corrigé immédiatement** : décision produit (fréquence
   souhaitée, méthode de déclenchement) plutôt que choix technique
   unilatéral — à trancher avec Alex avant implémentation.
-* **Statut** : planifié dans `LL-7002` (Sprint 7).
+* **Résolu par** : `LL-7002` (Sprint 7) — endpoint d'administration
+  protégé (`POST /api/v1/admin/import`, rôle `ADMIN`), pas de
+  scheduler, conformément à la décision du sprint. Voir
+  `docs/02_Architecture/COLLECTOR_OPERATIONS.md`.
 
 ---
 
@@ -140,6 +143,33 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
   documentation est une décision structurante qui dépasse le périmètre
   d'un ticket de mise à jour de documentation (LL-6011) — à confirmer
   avec Alex avant suppression.
+* **Statut** : ouvert.
+
+---
+
+## Backend — aucun mécanisme de création du premier compte administrateur
+
+* **Détecté** : LL-7008 (Sprint 7), en rédigeant le guide de
+  démonstration.
+* **Où** : `POST /api/v1/users`
+  (`com.locallife.backend.user.api.UserController`), seule route
+  capable d'assigner explicitement un rôle — mais réservée au rôle
+  `ADMIN` (`SecurityConfig`). `POST /api/v1/auth/register` crée
+  toujours un compte `USER` (`AuthService`).
+* **Nature** : sur une base de données neuve, aucun compte `ADMIN`
+  n'existe et aucune route ne permet d'en créer un — la seule route
+  qui le pourrait exige déjà d'être authentifié en `ADMIN`.
+* **Impact réel** : aucun blocage fonctionnel (contournement documenté
+  dans le `README.md`, section « Sprint 7 — Démonstration du MVP » :
+  inscription via `/auth/register` puis promotion par requête SQL
+  directe), mais aucun chemin applicatif ne couvre ce besoin.
+* **Correctif disponible** : à trancher avec Alex — ex. compte
+  `ADMIN` seedé par une migration Flyway dédiée (données de
+  démonstration uniquement, jamais en prod), ou commande
+  d'administration hors API.
+* **Pourquoi pas corrigé immédiatement** : hors périmètre de LL-7008
+  (documentation uniquement) ; décision produit/sécurité (seeding en
+  base vs commande dédiée) plutôt que choix technique unilatéral.
 * **Statut** : ouvert.
 
 ---
