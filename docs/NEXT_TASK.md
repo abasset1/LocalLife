@@ -67,18 +67,19 @@ l'absence de déclencheur d'import, alors que LL-7002 l'a ajouté). Voir
 
 ## Prochaine tâche
 
-**Sprint 7 — Validation du MVP**
+**Sprint 8 — Préparation de la bêta**
 
 ### Prochain ticket
 
-**LL-7009 — Documentation et décision de sortie du MVP**, détail :
-`docs/05_Sprints/SPRINT_7.md`. Dernier ticket du sprint : doit
-conclure explicitement soit « MVP validé → préparation de la bêta »,
-soit « MVP non validé → sprint de correction ciblé ».
+**LL-8001 — Rejouer le parcours MVP après les corrections et figer la baseline**,
+détail : `docs/05_Sprints/SPRINT_8.md`.
+
+Le Sprint 7 est conclu avec la décision **MVP validé → préparation de la
+bêta**. Le Sprint 8 ne doit pas ajouter de nouveau domaine métier : il doit
+consolider le produit existant avant les premiers retours utilisateurs.
 
 ## Règles
 
-- Ne pas créer de Sprint 8 avant la conclusion de Sprint 7.
-- Ne pas ajouter de nouvelle fonctionnalité majeure pendant la validation.
-- Toute correction doit être reliée à un scénario de validation.
-- Un ticket terminé doit être vérifié dans Git, les tests ou la validation documentée.
+- Ne pas élargir le MVP avant les premiers retours de bêta.
+- Toute correction doit être reliée à un risque de mise en bêta, une dette technique ou un critère de baseline.
+- Un ticket terminé doit être vérifié dans Git, les tests ou une validation documentée.

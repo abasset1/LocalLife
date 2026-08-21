@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.0 — 2026-08-21
+
+### Sprint 7 / Validation
+- Sprint 7 terminé (`LL-7001` → `LL-7009`).
+- MVP validé après exécution des parcours réels et correction des blocages identifiés.
+- Environnement de démonstration documenté.
+- Phase suivante : préparation d'une première bêta contrôlée.
+
+### Sprint 8 / Planification
+- Sprint 8 défini pour consolider la baseline, l'opérationnel, la qualité et la documentation avant bêta.
+
+
 ## 0.7.0 — 2026-08-17
 
 ### Documentation / Planification

@@ -368,4 +368,4 @@ Le Sprint 6 est terminé lorsque :
 
 > Une carte alimentée par des données réelles, mais désormais suffisamment contrôlées pour éviter que des données invalides ou non validées soient exposées publiquement.
 
-Le sprint suivant est **Sprint 7 — Validation du MVP**. Il ne doit pas ajouter de nouvelle fonctionnalité majeure : il sert à vérifier le MVP de bout en bout avant toute évolution.
+Le Sprint 7 (**Validation du MVP**) est terminé. Le sprint courant est désormais le **Sprint 8 — Préparation de la bêta** ; voir `docs/05_Sprints/SPRINT_8.md`.

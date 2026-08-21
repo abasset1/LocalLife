@@ -276,3 +276,23 @@ puis synthétisés dans le document de fin de sprint (LL-7009), conformément
 à la règle générale du projet (`AI_RULES.md`, section 15) : un ticket
 n'est terminé qu'avec une preuve dans le code, les tests, ou — pour ce
 sprint spécifiquement — la validation documentée ici.
+
+
+## 7. Conclusion Sprint 7
+
+**Décision : MVP validé → préparation de la bêta.**
+
+Les scénarios de validation ont été exécutés en conditions réelles. Les
+blocages identifiés sur le pipeline d'import et la carte/recherche ont été
+traités dans `LL-7007`, sans élargissement fonctionnel du MVP. Les parcours
+contribution/authentification et Food Truck ont été validés sans correction
+fonctionnelle. L'environnement de démonstration est documenté dans le
+`README.md`.
+
+Les points restant ouverts (notamment le bootstrap du premier compte `ADMIN`,
+la journalisation des exceptions et la dette documentaire) sont des sujets
+de préparation/qualité et ne remettent pas en cause le périmètre fonctionnel
+validé du MVP.
+
+Le Sprint 8 doit donc préparer une première bêta contrôlée, sans ajouter de
+nouveau domaine métier majeur avant les premiers retours utilisateurs.

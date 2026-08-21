@@ -1,8 +1,8 @@
 # Roadmap — LocalLife
 
-Ce fichier est conservé comme **point d’entrée historique**.
+Ce fichier est conservé comme **point d'entrée historique**.
 
 **Source de vérité :** `docs/04_Project/ROADMAP.md`.
 
-Le prochain sprint est **Sprint 7 — Validation du MVP**.
-Voir `docs/05_Sprints/SPRINT_7.md`.
+Le prochain sprint est **Sprint 8 — Préparation de la bêta**.
+Voir `docs/05_Sprints/SPRINT_8.md`.

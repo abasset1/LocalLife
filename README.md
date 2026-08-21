@@ -153,6 +153,10 @@ Le frontend est accessible sur `http://localhost:5173` et le backend sur
 
 ## Sprint 7 — Démonstration du MVP (LL-7008)
 
+Le MVP a été validé à l'issue du Sprint 7. Le guide ci-dessous reste la
+procédure de référence pour la démonstration de la baseline. Le Sprint 8
+prépare la première bêta contrôlée.
+
 Parcours complet pour reproduire une démonstration à partir d'un
 environnement neuf, sans connaissance préalable du développement.
 

@@ -4,7 +4,8 @@
 
 Ce fichier est la **source de vérité de la roadmap**.
 
-`docs/ROADMAP.md` est un ancien doublon historique et ne doit plus être modifié pour planifier le projet. Sa suppression pourra être faite séparément.
+`docs/ROADMAP.md` est un point d'entrée historique et ne doit pas être utilisé
+pour planifier le projet.
 
 ---
 
@@ -28,49 +29,52 @@ Vision, MVP, User Stories, backlog initial, architecture, modèle de données et
 | 5 | ✅ | Alimentation réelle |
 | 6 | ✅ | Qualité des données, modération minimale et Food Truck |
 
-La construction du périmètre MVP est considérée comme terminée.
+La construction du périmètre MVP est terminée.
 
 ---
 
-## Phase 2 — Validation du MVP
-**Statut : 🟡 En cours — Sprint 7 à venir**
-
-### Objectif
-
-Vérifier que le MVP fonctionne réellement de bout en bout avant d'ajouter de nouvelles fonctionnalités.
+## Phase 2 — Validation et préparation de la bêta
+**Statut : 🟡 En cours — Sprint 8**
 
 ### Sprint 7 — Validation du MVP
-**Statut : ⏳ À faire**
+**Statut : ✅ Terminé**
 
 - protocole de validation ;
 - déclenchement contrôlé de l'import ;
 - validation des données réelles ;
 - carte et recherche avec données réelles ;
 - contribution et authentification ;
-- validation du Food Truck existant ;
+- validation du Food Truck ;
 - correction des blocages ;
 - environnement de démonstration ;
-- décision de sortie du MVP.
+- décision : **MVP validé → préparation de la bêta**.
 
-**Référence détaillée :** `docs/05_Sprints/SPRINT_7.md`.
+**Référence :** `docs/05_Sprints/SPRINT_7.md`.
 
-### Règle de sortie
+### Sprint 8 — Préparation de la bêta
+**Statut : ⏳ À faire**
 
-Aucun Sprint 8 ne doit être défini avant la conclusion de Sprint 7.
+Objectif : rendre le MVP suffisamment robuste, reproductible et documenté
+pour une première bêta contrôlée, sans ajouter de nouveau domaine métier.
 
-Deux résultats sont possibles :
+- rejouer et figer la baseline MVP après les corrections ;
+- sécuriser le démarrage opérationnel avec un administrateur ;
+- rendre les erreurs serveur importantes observables ;
+- traiter les dettes techniques réellement pertinentes pour une bêta ;
+- consolider la documentation et la checklist de bêta ;
+- décider l'ouverture de la première bêta contrôlée.
 
-1. **MVP validé** → préparation d'une première bêta et définition des évolutions selon les retours ;
-2. **MVP non validé** → sprint de correction ciblé, sans élargissement fonctionnel.
+**Référence :** `docs/05_Sprints/SPRINT_8.md`.
 
 ---
 
-## Phase 3 — Évolution après validation
+## Phase 3 — Évolution après bêta
 **Statut : ⏳ Non démarrée**
 
-Cette phase ne sera planifiée qu'après validation du MVP. Les possibilités restent volontairement ouvertes :
+Cette phase sera planifiée à partir des retours utilisateurs et des besoins
+réellement observés. Les pistes restent ouvertes :
 
-- amélioration des sources et des collecteurs ;
+- amélioration des sources et collecteurs ;
 - nouveaux types de lieux ;
 - amélioration des contributions ;
 - fonctionnalités communautaires ;
@@ -82,12 +86,9 @@ Aucune de ces pistes n'est actuellement un engagement de développement.
 
 ## Dette technique et décisions à traiter
 
-Les éléments suivants existent mais ne doivent pas automatiquement devenir des tickets de sprint :
-
-- déclencheur du pipeline d'import → traité dans LL-7002 ;
-- duplication des `ROADMAP.md` → décision documentaire séparée ;
-- vulnérabilité transitive `nanoid` → à traiter dans un ticket technique dédié si toujours présente ;
-- défaut de formatage `ActivityController` → à corriger dans un ticket qualité dédié si nécessaire.
+Les dettes restent suivies dans `docs/DETTE_TECHNIQUE.md`. Elles ne deviennent
+un ticket que si leur impact est démontré ou si elles sont explicitement
+retenues dans un sprint.
 
 ---
 
@@ -97,5 +98,5 @@ Les éléments suivants existent mais ne doivent pas automatiquement devenir des
 - Le backlog contient les tickets.
 - Un sprint ne peut pas apparaître dans la roadmap sans être défini dans `docs/05_Sprints/`.
 - Un ticket ne peut pas être déclaré terminé uniquement parce qu'un document le dit : une preuve dans le dépôt est requise.
-- Aucune fonctionnalité hors MVP ne doit être ajoutée avant validation utilisateur.
+- Aucune nouvelle fonctionnalité majeure ne doit être ajoutée avant les premiers retours de bêta.
 - Toute nouvelle phase doit être justifiée par la valeur utilisateur ou une nécessité technique démontrée.

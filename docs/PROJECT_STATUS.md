@@ -1,13 +1,13 @@
 # LocalLife - Project Status
 
-**Version :** 0.7.0
-**Dernière mise à jour :** 2026-08-21 (Sprint 7, LL-7006)
+**Version :** 0.8.0
+**Dernière mise à jour :** 2026-08-21 (Sprint 7 terminé, LL-7009)
 
 ---
 ## Phase actuelle
-🟡 Phase 2 — Validation du MVP
+🟡 Phase 2 — Validation et préparation de la bêta
 
-Le cadrage fonctionnel et technique est terminé. La construction du périmètre MVP (Sprints 0 à 6) est terminée. Le projet entre maintenant dans une phase de validation du MVP avant toute nouvelle évolution.
+Le cadrage fonctionnel et technique est terminé. La construction du périmètre MVP (Sprints 0 à 6) et sa validation réelle (Sprint 7) sont terminées. Le projet prépare maintenant une première bêta contrôlée avant toute évolution produit majeure.
 
 Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité visible) terminé. Sprint 2 (utilisateurs et catégories) terminé. Sprint 3 (authentification, géocodage) terminé. Sprint 4 (recherche et découverte géographique) terminé. Sprint 5 (alimentation réelle : sources, collecteur OpenAgenda, import) terminé. Sprint 6 (qualité des données et administration minimale : validation renforcée, statut de modération, contrôle administratif, source identifiable, premier jalon Food Truck, tests de non-régression) terminé.
 
@@ -31,7 +31,7 @@ Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité
  | Collecteurs                | ✅ Terminé (Sprint 5) |
  | Modération / administration | ✅ Terminé (Sprint 6) |
  | Phase 1 (Socle Technique + MVP) | ✅ Terminé    |
- | Phase 2 (Validation MVP)    | 🟡 En cours   |
+ | Phase 2 (Validation et préparation bêta) | 🟡 En cours |
  | Infrastructure             | 🟡 À consolider |
 
 ---
@@ -72,21 +72,23 @@ Le MVP comprend uniquement :
 Tout le reste est hors périmètre.
 
 ---
-## Phase 2 — Validation du MVP
+## Phase 2 — Validation et préparation de la bêta
 **Statut :** 🟡 En cours
 
-Priorité actuelle : exécuter le Sprint 7 et vérifier le MVP de bout en bout.
+Priorité actuelle : préparer une première bêta contrôlée à partir du MVP validé.
 
 Ordre :
 
 1. définir le protocole de validation ; ✅ (`LL-7001`)
-2. permettre un déclenchement contrôlé de l'import réel ;
-3. vérifier import → modération → carte ;
-4. vérifier recherche, contribution, authentification et Food Truck ;
-5. corriger uniquement les blocages ;
-6. décider si le MVP est prêt pour une première bêta.
+2. permettre un déclenchement contrôlé de l'import réel ; ✅ (`LL-7002`)
+3. vérifier import → modération → carte ; ✅ (`LL-7003`)
+4. vérifier recherche, contribution, authentification et Food Truck ; ✅ (`LL-7004` → `LL-7006`)
+5. corriger uniquement les blocages ; ✅ (`LL-7007`)
+6. préparer un environnement de démonstration ; ✅ (`LL-7008`)
+7. décider si le MVP est prêt pour une première bêta ; ✅ (`LL-7009`)
+8. préparer la bêta contrôlée ; 🟡 Sprint 8.
 
-Référence : `docs/05_Sprints/SPRINT_7.md`.
+Références : `docs/05_Sprints/SPRINT_7.md` pour la validation terminée ; `docs/05_Sprints/SPRINT_8.md` pour la préparation de la bêta.
 
 ---
 ## Risques identifiés
@@ -1355,7 +1357,7 @@ vérification carte), chaque étape incluant les commandes exactes.
 La prochaine tâche est **LL-7009 — Documentation et décision de sortie
 du MVP**, dans `docs/05_Sprints/SPRINT_7.md`.
 
-Aucun Sprint 8 ne doit être défini avant la conclusion de Sprint 7.
+Le Sprint 7 étant conclu avec un MVP validé, le Sprint 8 peut désormais être exécuté : voir `docs/05_Sprints/SPRINT_8.md`.
 
 ## LL-5012 — Documentation ✅
 
@@ -1744,3 +1746,22 @@ en a réellement besoin (LL-5004 ou LL-5006 selon l'usage réel).
   qu'à ce moment-là ;
 * aucun type d'exception imposé pour la gestion d'erreurs : différé à
   LL-5006 (premier collecteur réel), une fois la source retenue connue.
+
+
+# Sprint 8
+
+**Statut :** ⏳ À faire.
+
+**Objectif :** préparer une première bêta contrôlée à partir du MVP validé,
+sans ajouter de nouveau domaine métier.
+
+Tickets planifiés :
+
+* LL-8001 — Rejouer le parcours MVP après les corrections et figer la baseline ⏳
+* LL-8002 — Sécuriser le bootstrap du premier compte administrateur ⏳
+* LL-8003 — Améliorer la journalisation des erreurs serveur bloquantes ⏳
+* LL-8004 — Traiter la dette technique bloquante pour une bêta (dépendances et qualité) ⏳
+* LL-8005 — Consolider la documentation et préparer la checklist de bêta ⏳
+* LL-8006 — Décider et documenter l'ouverture de la première bêta contrôlée ⏳
+
+Référence détaillée : `docs/05_Sprints/SPRINT_8.md`.
