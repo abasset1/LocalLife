@@ -1757,7 +1757,7 @@ sans ajouter de nouveau domaine métier.
 
 Tickets planifiés :
 
-* LL-8001 — Rejouer le parcours MVP après les corrections et figer la baseline ⏳
+* LL-8001 — Rejouer le parcours MVP après les corrections et figer la baseline ✅
 * LL-8002 — Sécuriser le bootstrap du premier compte administrateur ⏳
 * LL-8003 — Améliorer la journalisation des erreurs serveur bloquantes ⏳
 * LL-8004 — Traiter la dette technique bloquante pour une bêta (dépendances et qualité) ⏳
@@ -1765,3 +1765,45 @@ Tickets planifiés :
 * LL-8006 — Décider et documenter l'ouverture de la première bêta contrôlée ⏳
 
 Référence détaillée : `docs/05_Sprints/SPRINT_8.md`.
+
+## LL-8001 — Rejouer le parcours MVP après les corrections et figer la baseline ✅
+
+Protocole exécuté par Alex, en local (Docker Postgres/PostGIS, `mvn
+spring-boot:run`, `npm run dev`), conformément à
+`docs/02_Architecture/MVP_VALIDATION_PROTOCOL.md`, sur le commit
+`b1c29d9` (2026-08-21).
+
+**Résultat : les 10 scénarios sont passés.**
+
+| Scénario | Objectif | Résultat |
+|---|---|---|
+| 1 | Démarrage backend/frontend | ✅ |
+| 2 | Import réel OpenAgenda | ✅ (après vérification du token admin — voir note) |
+| 3 | Activité importée consultable | ✅ |
+| 4 | Publication ADMIN + refus 403 non-admin | ✅ |
+| 5 | Visibilité carte publique (publié vs non publié) | ✅ |
+| 6 | Recherche zone/catégorie/date | ✅ |
+| 7 | Création activité par un utilisateur | ✅ |
+| 8 | Statut PENDING de la contribution | ✅ |
+| 9 | Publish / reject de la contribution | ✅ |
+| 10 | Création et affichage Food Truck | ✅ |
+
+Aucune correction de code n'a été nécessaire pendant l'exécution du
+protocole — les 10 scénarios sont passés sans contournement, ce qui
+correspond au critère « Protocole global réussi » de la section 5 du
+protocole.
+
+**Points observés, non bloquants (aucun n'a nécessité de correction) :**
+
+* Scénario 2 : un premier essai a renvoyé `401` — cause identifiée
+  comme un token admin absent/obtenu avant la promotion en base
+  (rappel : rafraîchir le JWT après tout changement de rôle), pas un
+  bug applicatif. Réessai réussi avec un token valide.
+* Scénario 7 : accents affichés incorrectement (`Ã©` etc.) dans la
+  console PowerShell lors de l'inspection de la réponse — confirmé
+  comme un artefact d'encodage de la console (`[Console]::OutputEncoding`
+  non réglé sur UTF-8), pas une corruption de donnée côté API/DB/frontend.
+  Cohérent avec le point déjà documenté sur ce projet.
+
+**Décision LL-8001 : baseline figée, MVP toujours valide après les
+corrections du Sprint 7.** Sprint 8 peut se poursuivre avec LL-8002.
