@@ -1092,13 +1092,93 @@ corrections sont réservées à LL-7007) :
   message d'erreur. Repéré en pratique lors du diagnostic de ce blocage
   (aucune trace dans la console du backend malgré un `500` effectif).
 
+## LL-7004 — Valider la recherche et la carte avec les données réelles ✅
+
+**Dépendance :** LL-7003.
+
+**Ticket de vérification uniquement** (aucun fichier modifié) : exécuté
+en conditions réelles par Alex (hors sandbox), points à vérifier listés
+dans `SPRINT_7.md` passés un par un.
+
+**Résultats :**
+
+* **Recherche autour d'une position** ✅ — `GET
+  /api/v1/activities/nearby` fonctionnel (déjà revérifié en LL-7003).
+* **Recherche par zone de carte** ✅ — déplacement/zoom déclenche bien
+  `GET /api/v1/activities/within-bounds` (LL-4012/LL-4006), marqueurs
+  mis à jour en conséquence.
+* **Filtre catégorie** ✅ — testé avec le jeu de données manuel
+  (`marché`, `loisir`, `concert`, `cinéma`, `exposition`, catégories non
+  nulles) : filtrage correct.
+* **Filtre date** ✅ — testé, filtrage correct.
+* **Géolocalisation utilisateur** ⚠️ — partiellement fonctionnelle : le
+  clic sur « Utiliser ma position » met bien à jour `userPosition` et
+  relance correctement la recherche côté backend (nouvelle position
+  effectivement utilisée), **mais la carte Leaflet ne se recentre pas
+  visuellement**. Bug réel trouvé et localisé :
+  `<MapContainer center={MARSEILLE_COORDINATES}>` (`App.tsx`) — en
+  `react-leaflet`, la prop `center` n'est prise en compte qu'au montage
+  initial du composant, jamais ensuite ; aucun appel à `useMap()` (hook
+  `react-leaflet` donnant accès à l'instance Leaflet pour la recentrer
+  programmatiquement, ex. `map.setView(...)`) n'existe dans `App.tsx`.
+  Piège classique de cette librairie, pas remarqué avant faute de test
+  avec une vraie position utilisateur visiblement différente de
+  Marseille.
+* **Affichage des activités importées** ⚠️ — non re-testé avec le jeu de
+  données OpenAgenda (supprimé par Alex pendant le diagnostic du
+  blocage ci-dessous, pour retrouver un état utilisable). Bloqué par le
+  bug ci-dessous tant que le filtre catégorie par défaut (« Toutes »)
+  est actif avec des données réelles en base.
+* **Affichage des Food Trucks** ✅ — `Le Camion qui Fume` (vrai
+  `FoodTruck`, table dédiée) affiché avec une icône distincte des
+  activités. Point de clarification en cours de vérification : `Food
+  Truck Festival` (`id=3`) n'est **pas** un `FoodTruck` mais une simple
+  `Activity` de catégorie `"food truck"` — comportement correct
+  (icône générique d'activité), pas un bug, simple confusion de
+  nommage entre les deux jeux de données de test.
+
+**Blocage réel trouvé, documenté pour LL-7007** (pas corrigé ici, même
+règle que pour LL-7003) :
+
+* **Bug** : `buildCategoryOptions` (`App.tsx`) —
+  `Array.from(new Set(items.map((item) => item.category))).sort((a, b)
+  => a.localeCompare(b, "fr")))`. De nombreuses activités OpenAgenda
+  réelles ont `category = null` (confirmé en LL-7003, ex. activités
+  `id=128`, `133`, `114`...). `null.localeCompare(...)` lève une
+  `TypeError`, piégée par le `catch` générique de `loadActivities`
+  (`App.tsx`), qui affiche à tort « Impossible de contacter le
+  serveur, réessaie plus tard. » — alors que le serveur répond
+  correctement (`200`, confirmé par Alex : appel direct au backend et
+  au proxy Vite tous deux corrects, seul le traitement du JSON côté
+  app échoue).
+* **Déclenchement** : uniquement quand `selectedCategory ===
+  ALL_CATEGORIES && selectedDate === NO_DATE_FILTER` (seule condition
+  où `buildCategoryOptions` est appelée, cf. commentaire dans le code)
+  — donc la vue par défaut au chargement de la page, dès qu'au moins
+  une activité réelle en base a une catégorie manquante.
+* **Impact** : bloque de fait l'affichage par défaut (sans filtre) dès
+  qu'un import OpenAgenda réel a eu lieu — contradiction directe avec
+  le critère d'acceptation de LL-7004 (« les scénarios de LL-7001
+  passent sans correction fonctionnelle majeure »), documentée ici
+  plutôt que silencieusement ignorée.
+* **Diagnostic effectué avant d'identifier ce bug** (piste écartées,
+  pour éviter de les rejouer inutilement en LL-7007) : proxy Vite
+  instable (écarté — requête directe au proxy, JSON complet et valide) ;
+  volumétrie/timeout réseau (écarté — 51 activités, réponse rapide en
+  direct) ; encodage de caractères (écarté — aucun souci observé
+  côté frontend, contrairement à PowerShell qui affichait mal les
+  accents pour une raison propre à la console, sans lien avec le
+  backend).
+
 # Prochaine action
 
-`LL-7003` est terminé.
+`LL-7004` est terminé.
 
-La prochaine tâche est **LL-7004 — Valider la recherche et la carte avec les données réelles**, dans `docs/05_Sprints/SPRINT_7.md`. Utilisera les mêmes données réelles déjà importées (source `id=19`, OpenAgenda) — pas besoin d'un nouvel import.
+La prochaine tâche est **LL-7005 — Valider le parcours utilisateur contribution / authentification**, dans `docs/05_Sprints/SPRINT_7.md`.
 
-Un blocage réel a été trouvé pendant LL-7003 (contrainte `chk_activity_status` n'autorisant pas `ARCHIVED`, utilisé par `ImportService` depuis LL-5008) : documenté ci-dessus, correction réservée à **LL-7007** (règle du sprint), pas traitée maintenant. À noter : un second import déclenchera la même erreur tant que ce n'est pas corrigé — éviter de relancer `POST /api/v1/admin/import` avant LL-7007 si tu veux éviter ce 500 (sans risque pour les données déjà importées).
+Deux blocages réels ont été trouvés pendant LL-7003/LL-7004, documentés ci-dessus, correction réservée à **LL-7007** (règle du sprint), pas traitée maintenant :
+1. Contrainte `chk_activity_status` n'autorisant pas `ARCHIVED` (LL-7003) → tout second import échoue en `500`.
+2. `buildCategoryOptions` (`App.tsx`) plante sur une catégorie `null` (LL-7004) → vue par défaut (sans filtre) cassée dès qu'une activité réelle a une catégorie manquante ; carte Leaflet qui ne se recentre pas sur la géolocalisation utilisateur (`useMap()` manquant).
 
 Aucun Sprint 8 ne doit être défini avant la conclusion de Sprint 7.
 

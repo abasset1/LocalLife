@@ -22,16 +22,22 @@ contrainte `chk_activity_status` n'autorisant pas `ARCHIVED` (utilisé
 par `ImportService` depuis LL-5008) → tout second import échoue en
 `500` tant que non corrigé. Voir `PROJECT_STATUS.md`, section Sprint 7.
 
+`LL-7004` terminé : recherche par zone, filtre catégorie, filtre date
+et affichage des Food Trucks validés. Deux blocages réels trouvés et
+documentés pour LL-7007 : `buildCategoryOptions` (`App.tsx`) plante sur
+une catégorie `null` (fréquent avec de vraies données OpenAgenda),
+cassant la vue par défaut ; la carte ne se recentre pas visuellement
+après géolocalisation (`useMap()` manquant dans `App.tsx`).
+
 ## Prochaine tâche
 
 **Sprint 7 — Validation du MVP**
 
 ### Prochain ticket
 
-**LL-7004 — Valider la recherche et la carte avec les données réelles**
+**LL-7005 — Valider le parcours utilisateur contribution / authentification**
 
-Dépendance : LL-7003 (terminé). Peut réutiliser les données déjà
-importées (source `id=19`) sans relancer d'import. Détail :
+Dépendance : LL-7004 (terminé). Détail :
 `docs/05_Sprints/SPRINT_7.md`.
 
 ## Règles
