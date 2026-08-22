@@ -25,6 +25,7 @@ secret committé) :
 | `OPENAGENDA_API_KEY`     | oui          | Clé publique OpenAgenda (compte gratuit, voir leur documentation).   |
 | `OPENAGENDA_AGENDA_UID`  | oui          | Identifiant numérique de l'agenda ciblé.                             |
 | `OPENAGENDA_SOURCE_NAME` | non          | Nom affiché comme `Source.name`. Par défaut `"OpenAgenda"`.          |
+| `OPENAGENDA_REGION_FILTER` | non, **temporaire** | Ne conserve que les événements dont `location.region` correspond exactement (insensible casse/espaces). Filtrage côté client, après récupération (ajoute `detailed=1` à la requête quand actif). ⚠️ Non vérifié contre l'API réelle en sandbox — à confirmer avec une clé réelle que le champ `region` est bien présent dans la réponse. À retirer quand le besoin temporaire n'existe plus (pas de ticket associé). |
 
 Tant que `OPENAGENDA_API_KEY`/`OPENAGENDA_AGENDA_UID` ne sont pas
 définies, `OpenAgendaCollector.collect()` lève une `CollectorException`

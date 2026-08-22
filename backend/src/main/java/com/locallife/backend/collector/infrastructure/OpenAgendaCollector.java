@@ -33,6 +33,17 @@ import org.springframework.web.client.RestClientException;
  *       utiliser comme {@code Source.name} (voir {@code SOURCE_CONTRACT.md}
  *       et {@code getSourceName()} ci-dessous). Par défaut {@code
  *       "OpenAgenda"}.</li>
+ *   <li>{@code OPENAGENDA_REGION_FILTER} — optionnel, filtre
+ *       <strong>temporaire</strong> (demande explicite, hors ticket de
+ *       sprint) : ne conserve que les événements dont {@code
+ *       location.region} correspond exactement (insensible à la casse et
+ *       aux espaces superflus) à la valeur fournie. Filtrage effectué
+ *       côté client après récupération — non vérifié contre l'API réelle
+ *       en sandbox (pas d'accès réseau à api.openagenda.com), le champ
+ *       {@code region} exact à recevoir est à confirmer avec une clé
+ *       réelle. Quand ce filtre est actif, {@code detailed=1} est ajouté
+ *       à la requête pour maximiser les chances que {@code region} soit
+ *       présent dans la réponse.</li>
  * </ul>
  *
  * ⚠️ Décisions prises pour ce premier collecteur, à valider :
@@ -62,13 +73,15 @@ public class OpenAgendaCollector implements Collector {
     private final String apiKey;
     private final String agendaUid;
     private final String sourceName;
+    private final String regionFilter;
 
     @Autowired
     public OpenAgendaCollector(
             @Value("${openagenda.api-key:}") String apiKey,
             @Value("${openagenda.agenda-uid:}") String agendaUid,
-            @Value("${openagenda.source-name:OpenAgenda}") String sourceName) {
-        this(RestClient.builder(), apiKey, agendaUid, sourceName);
+            @Value("${openagenda.source-name:OpenAgenda}") String sourceName,
+            @Value("${OPENAGENDA_REGION_FILTER:}") String regionFilter) {
+        this(RestClient.builder(), apiKey, agendaUid, sourceName, regionFilter);
     }
 
     /**
@@ -78,10 +91,20 @@ public class OpenAgendaCollector implements Collector {
      * {@code GeocodingService}.
      */
     OpenAgendaCollector(RestClient.Builder builder, String apiKey, String agendaUid, String sourceName) {
+        this(builder, apiKey, agendaUid, sourceName, "");
+    }
+
+    OpenAgendaCollector(
+            RestClient.Builder builder,
+            String apiKey,
+            String agendaUid,
+            String sourceName,
+            String regionFilter) {
         this.restClient = builder.baseUrl(BASE_URL).build();
         this.apiKey = apiKey;
         this.agendaUid = agendaUid;
         this.sourceName = sourceName;
+        this.regionFilter = regionFilter == null ? "" : regionFilter.trim();
     }
 
     @Override
@@ -96,13 +119,18 @@ public class OpenAgendaCollector implements Collector {
                     "OPENAGENDA_API_KEY et OPENAGENDA_AGENDA_UID doivent être configurés pour collecter.", null);
         }
 
+        boolean hasRegionFilter = !regionFilter.isEmpty();
+
         OpenAgendaEventsResponse response;
         try {
             response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/v2/agendas/{agendaUid}/events")
-                            .queryParam("key", apiKey)
-                            .build(agendaUid))
+                    .uri(uriBuilder -> {
+                        uriBuilder.path("/v2/agendas/{agendaUid}/events").queryParam("key", apiKey);
+                        if (hasRegionFilter) {
+                            uriBuilder.queryParam("detailed", "1");
+                        }
+                        return uriBuilder.build(agendaUid);
+                    })
                     .retrieve()
                     .body(OpenAgendaEventsResponse.class);
         } catch (RestClientException exception) {
@@ -115,8 +143,23 @@ public class OpenAgendaCollector implements Collector {
 
         return response.events().stream()
                 .filter(event -> event.location() != null)
+                .filter(this::matchesRegionFilter)
                 .map(this::toCollectedActivity)
                 .toList();
+    }
+
+    /**
+     * Filtre temporaire par région (LL non planifié, demande explicite,
+     * voir Javadoc de la classe). Comparaison insensible à la casse et aux
+     * espaces superflus ; un événement sans champ {@code region} renseigné
+     * est exclu dès qu'un filtre est actif, plutôt que retenu par défaut.
+     */
+    private boolean matchesRegionFilter(OpenAgendaEvent event) {
+        if (regionFilter.isEmpty()) {
+            return true;
+        }
+        String eventRegion = event.location().region();
+        return eventRegion != null && eventRegion.trim().equalsIgnoreCase(regionFilter);
     }
 
     private CollectedActivity toCollectedActivity(OpenAgendaEvent event) {
@@ -179,7 +222,7 @@ public class OpenAgendaCollector implements Collector {
             OpenAgendaTiming lastTiming) {
     }
 
-    private record OpenAgendaLocation(double latitude, double longitude) {
+    private record OpenAgendaLocation(double latitude, double longitude, String region) {
     }
 
     private record OpenAgendaTiming(String begin, String end) {

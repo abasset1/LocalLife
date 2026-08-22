@@ -41,6 +41,12 @@ class OpenAgendaCollectorTest {
         return new OpenAgendaCollector(builder, apiKey, agendaUid, "OpenAgenda Marseille");
     }
 
+    private OpenAgendaCollector newCollectorWithRegionFilter(String apiKey, String agendaUid, String regionFilter) {
+        RestClient.Builder builder = RestClient.builder();
+        mockServer = MockRestServiceServer.bindTo(builder).build();
+        return new OpenAgendaCollector(builder, apiKey, agendaUid, "OpenAgenda Marseille", regionFilter);
+    }
+
     @Test
     void getSourceName_ShouldReturnConfiguredName() {
         OpenAgendaCollector collector = newCollector("key", "12345");
@@ -143,6 +149,76 @@ class OpenAgendaCollectorTest {
 
         assertEquals(1, result.size());
         assertEquals(LocalDateTime.of(2026, 12, 1, 10, 0), result.get(0).startDate());
+    }
+
+    // --- filtre région temporaire (OPENAGENDA_REGION_FILTER) ---
+
+    @Test
+    void collect_ShouldKeepOnlyMatchingRegion_WhenRegionFilterIsSet() {
+        OpenAgendaCollector collector =
+                newCollectorWithRegionFilter("key", "12345", "Provence-Alpes-Côte d'Azur");
+        String eventInRegion = """
+                {
+                  "slug": "concert-marseille",
+                  "title": {"fr": "Concert Marseille"},
+                  "description": {"fr": "Description"},
+                  "keywords": {"fr": ["concert"]},
+                  "location": {"latitude": 43.2965, "longitude": 5.3698, "region": "Provence-Alpes-Côte d'Azur"},
+                  "nextTiming": {"begin": "2026-12-01T10:00:00+0100", "end": null}
+                }
+                """;
+        String eventOutsideRegion = """
+                {
+                  "slug": "concert-paris",
+                  "title": {"fr": "Concert Paris"},
+                  "description": {"fr": "Description"},
+                  "keywords": {"fr": ["concert"]},
+                  "location": {"latitude": 48.8566, "longitude": 2.3522, "region": "Île-de-France"},
+                  "nextTiming": {"begin": "2026-12-01T10:00:00+0100", "end": null}
+                }
+                """;
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andExpect(requestTo(containsString("detailed=1")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + eventInRegion + "," + eventOutsideRegion + "]}",
+                        MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.size());
+        assertEquals("concert-marseille", result.get(0).externalId());
+    }
+
+    @Test
+    void collect_ShouldExcludeEvent_WhenRegionFilterSetAndRegionFieldMissing() {
+        OpenAgendaCollector collector =
+                newCollectorWithRegionFilter("key", "12345", "Provence-Alpes-Côte d'Azur");
+        String eventWithoutRegion = """
+                {
+                  "slug": "concert-sans-region",
+                  "title": {"fr": "Concert"},
+                  "description": {"fr": "Description"},
+                  "keywords": {"fr": ["concert"]},
+                  "location": {"latitude": 43.2965, "longitude": 5.3698},
+                  "nextTiming": {"begin": "2026-12-01T10:00:00+0100", "end": null}
+                }
+                """;
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + eventWithoutRegion + "]}", MediaType.APPLICATION_JSON));
+
+        assertTrue(collector.collect().isEmpty());
+    }
+
+    @Test
+    void collect_ShouldNotAddDetailedParam_WhenRegionFilterIsNotSet() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess("{\"events\": [" + EVENT_JSON + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.size());
     }
 
 }
