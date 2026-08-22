@@ -4,6 +4,7 @@ import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +47,22 @@ import org.springframework.web.client.RestClientException;
  *       présent dans la réponse.</li>
  * </ul>
  *
+ * <b>Pagination</b> (corrige un écart constaté par Alex : seuls 20
+ * événements — la première page, taille par défaut de l'API — étaient
+ * collectés au lieu de la totalité d'un agenda). {@code collect()} envoie
+ * désormais {@code size=300} (maximum autorisé par l'API) et boucle sur
+ * les pages suivantes en repassant la clé {@code after} de chaque réponse
+ * en paramètres {@code after} de la requête suivante (protocole documenté
+ * developers.openagenda.com/10-lecture/), jusqu'à obtenir une page
+ * d'événements vide. Une valeur {@code null} dans {@code after} est
+ * repassée telle quelle comme la chaîne littérale {@code "null"} (exigé
+ * par la documentation). Un garde-fou ({@link #MAX_PAGES}) arrête la
+ * boucle après un nombre de pages déraisonnable, pour ne jamais boucler
+ * indéfiniment sur une réponse API inattendue. ⚠️ Non vérifié contre
+ * l'API réelle en sandbox (pas d'accès réseau à api.openagenda.com) — le
+ * format exact des valeurs {@code after} (types, nombre d'éléments) est à
+ * confirmer avec une clé réelle.
+ *
  * ⚠️ Décisions prises pour ce premier collecteur, à valider :
  * <ul>
  *   <li>un seul événement par occurrence à venir ({@code nextTiming}),
@@ -68,6 +85,15 @@ import org.springframework.web.client.RestClientException;
 public class OpenAgendaCollector implements Collector {
 
     private static final String BASE_URL = "https://api.openagenda.com";
+
+    /** Nombre d'événements par page, maximum autorisé par l'API. */
+    private static final int PAGE_SIZE = 300;
+
+    /**
+     * Garde-fou anti-boucle infinie (nombre de pages, pas d'événements) —
+     * voir Javadoc de la classe.
+     */
+    private static final int MAX_PAGES = 500;
 
     private final RestClient restClient;
     private final String apiKey;
@@ -121,27 +147,45 @@ public class OpenAgendaCollector implements Collector {
 
         boolean hasRegionFilter = !regionFilter.isEmpty();
 
-        OpenAgendaEventsResponse response;
-        try {
-            response = restClient.get()
-                    .uri(uriBuilder -> {
-                        uriBuilder.path("/v2/agendas/{agendaUid}/events").queryParam("key", apiKey);
-                        if (hasRegionFilter) {
-                            uriBuilder.queryParam("detailed", "1");
-                        }
-                        return uriBuilder.build(agendaUid);
-                    })
-                    .retrieve()
-                    .body(OpenAgendaEventsResponse.class);
-        } catch (RestClientException exception) {
-            throw new CollectorException("Échec de la collecte depuis OpenAgenda.", exception);
-        }
+        List<OpenAgendaEvent> allEvents = new ArrayList<>();
+        List<Object> after = null;
+        int page = 0;
 
-        if (response == null || response.events() == null) {
-            return List.of();
-        }
+        do {
+            List<Object> currentAfter = after;
+            OpenAgendaEventsResponse response;
+            try {
+                response = restClient.get()
+                        .uri(uriBuilder -> {
+                            uriBuilder.path("/v2/agendas/{agendaUid}/events")
+                                    .queryParam("key", apiKey)
+                                    .queryParam("size", PAGE_SIZE);
+                            if (hasRegionFilter) {
+                                uriBuilder.queryParam("detailed", "1");
+                            }
+                            if (currentAfter != null) {
+                                for (Object value : currentAfter) {
+                                    uriBuilder.queryParam("after", value == null ? "null" : String.valueOf(value));
+                                }
+                            }
+                            return uriBuilder.build(agendaUid);
+                        })
+                        .retrieve()
+                        .body(OpenAgendaEventsResponse.class);
+            } catch (RestClientException exception) {
+                throw new CollectorException("Échec de la collecte depuis OpenAgenda.", exception);
+            }
 
-        return response.events().stream()
+            if (response == null || response.events() == null || response.events().isEmpty()) {
+                break;
+            }
+
+            allEvents.addAll(response.events());
+            after = response.after();
+            page++;
+        } while (after != null && page < MAX_PAGES);
+
+        return allEvents.stream()
                 .filter(event -> event.location() != null)
                 .filter(this::matchesRegionFilter)
                 .map(this::toCollectedActivity)
@@ -209,7 +253,7 @@ public class OpenAgendaCollector implements Collector {
     }
 
     /** Sous-ensemble de la réponse JSON OpenAgenda qui nous intéresse. */
-    private record OpenAgendaEventsResponse(List<OpenAgendaEvent> events) {
+    private record OpenAgendaEventsResponse(List<OpenAgendaEvent> events, List<Object> after) {
     }
 
     private record OpenAgendaEvent(

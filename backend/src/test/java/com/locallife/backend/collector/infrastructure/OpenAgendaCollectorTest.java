@@ -1,5 +1,6 @@
 package com.locallife.backend.collector.infrastructure;
 
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -219,6 +220,73 @@ class OpenAgendaCollectorTest {
         List<CollectedActivity> result = collector.collect();
 
         assertEquals(1, result.size());
+    }
+
+    // --- pagination (paramètres size + after) ---
+
+    @Test
+    void collect_ShouldSendPageSize_OnFirstRequest() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andExpect(requestTo(containsString("size=300")))
+                .andRespond(withSuccess("{\"events\": [" + EVENT_JSON + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void collect_ShouldFollowAfterCursor_UntilEmptyPage() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        String secondEvent = """
+                {
+                  "slug": "brocante-du-cours",
+                  "title": {"fr": "Brocante"},
+                  "description": {"fr": "Brocante mensuelle"},
+                  "keywords": {"fr": ["brocante"]},
+                  "location": {"latitude": 43.2, "longitude": 5.4},
+                  "nextTiming": {"begin": "2026-12-05T09:00:00+0100", "end": null}
+                }
+                """;
+
+        // Page 1 : un événement + un curseur "after" à repasser
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + EVENT_JSON + "], \"after\": [1700000000, 42]}",
+                        MediaType.APPLICATION_JSON));
+        // Page 2 : le curseur reçu doit être repassé, un second événement, plus de curseur
+        mockServer.expect(requestTo(allOf(
+                        containsString("/v2/agendas/12345/events"),
+                        containsString("after=1700000000"),
+                        containsString("after=42"))))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + secondEvent + "], \"after\": null}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(2, result.size());
+        assertTrue(result.stream().anyMatch(a -> a.externalId().equals("marche-de-noel-2026")));
+        assertTrue(result.stream().anyMatch(a -> a.externalId().equals("brocante-du-cours")));
+    }
+
+    @Test
+    void collect_ShouldStop_WhenAfterPageIsEmpty() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+
+        // Page 1 : un événement + un curseur "after"
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + EVENT_JSON + "], \"after\": [1700000000, 42]}",
+                        MediaType.APPLICATION_JSON));
+        // Page 2 : liste vide -> la boucle doit s'arrêter, pas de 3e appel
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess("{\"events\": [], \"after\": null}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.size());
+        mockServer.verify();
     }
 
 }
