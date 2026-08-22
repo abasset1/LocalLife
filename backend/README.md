@@ -28,6 +28,9 @@ Le profil `local` est actif par défaut. L'application est accessible sur `http:
 
 * Health check : `http://localhost:8080/actuator/health`
 * Documentation API (Swagger) : `http://localhost:8080/swagger-ui.html`
+  — bouton « Authorize » disponible pour tester les endpoints protégés :
+  coller le JWT obtenu via `POST /api/v1/auth/login` (sans préfixe
+  `Bearer `, ajouté automatiquement).
 
 **Premier compte administrateur** : sur une base neuve, définir
 `LOCALLIFE_BOOTSTRAP_ADMIN_EMAIL` et `LOCALLIFE_BOOTSTRAP_ADMIN_PASSWORD`
