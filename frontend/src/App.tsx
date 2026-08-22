@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import type { LatLngExpression } from "leaflet";
 import L from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import { Link } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
@@ -564,20 +565,35 @@ function App() {
                     />
                     <MapBoundsWatcher onBoundsChange={setMapBounds} />
                     <MapRecenterOnUserPosition position={userPosition} />
-                    {activities.map((activity) => (
-                        <Marker
-                            key={activity.id}
-                            position={[activity.latitude, activity.longitude]}
-                        >
-                            <Popup>
-                                <strong>{activity.title}</strong>
-                                <br />
-                                {activity.category}
-                                <br />
-                                {new Date(activity.startDate).toLocaleDateString("fr-FR")}
-                            </Popup>
-                        </Marker>
-                    ))}
+                    {/*
+                      Clustering (demande explicite d'Alex, hors ticket de sprint) : au-delà
+                      d'un volume normal d'activités importées (LL-8009, pagination
+                      OpenAgenda), un marqueur par activité rendait la carte inutilisable.
+                      `MarkerClusterGroup` (react-leaflet-cluster, au-dessus de
+                      leaflet.markercluster) regroupe les marqueurs proches en un badge
+                      « +N » qui se sépare au zoom — solution standard avec Leaflet, aucun
+                      changement côté backend (le volume de données transmises reste le
+                      même, seul le rendu change). Seules les activités sont regroupées :
+                      les food trucks restent des marqueurs individuels, cohérent avec leur
+                      isolement déjà documenté (voir `FOOD_TRUCK_MARKER_ICON` ci-dessus) —
+                      leur volume n'a pas posé ce problème.
+                    */}
+                    <MarkerClusterGroup>
+                        {activities.map((activity) => (
+                            <Marker
+                                key={activity.id}
+                                position={[activity.latitude, activity.longitude]}
+                            >
+                                <Popup>
+                                    <strong>{activity.title}</strong>
+                                    <br />
+                                    {activity.category}
+                                    <br />
+                                    {new Date(activity.startDate).toLocaleDateString("fr-FR")}
+                                </Popup>
+                            </Marker>
+                        ))}
+                    </MarkerClusterGroup>
                     {/*
                       LL-6009 : food trucks, deuxième type de marqueur sur la même carte
                       (« sans créer un second système cartographique »). Icône dédiée
