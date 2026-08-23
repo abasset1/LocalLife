@@ -48,9 +48,9 @@ public class ImportScheduler {
      * Format : seconde, minute, heure, jour, mois, jour de la semaine
      *
      * Exemples alternatifs :
-     * - "0 0 */6 * * *" = toutes les 6 heures
+     * - "0 0 *&#47;6 * * *" = toutes les 6 heures
      * - "0 0 0 * * *" = tous les jours a minuit
-     * - "0 0 */2 * * *" = toutes les 2 heures
+     * - "0 0 *&#47;2 * * *" = toutes les 2 heures
      */
     @Scheduled(cron = "0 0 * * * *")
     public void scheduledImport() {
