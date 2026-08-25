@@ -193,7 +193,9 @@ public class ActivityController {
         Optional<Activity> activity = activityService.findById(id);
         return activity.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
-    }    @PostMapping
+    }
+
+    @PostMapping
     public ResponseEntity<Object> createActivity(
             @RequestBody CreateActivityRequest request, HttpServletRequest httpRequest) {
         try {

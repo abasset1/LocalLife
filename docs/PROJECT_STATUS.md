@@ -1892,3 +1892,73 @@ au lieu de figer `1`. Par cohérence, le test `WhenNotExists` est passé
 de l'id fixe `9999` (qui pourrait un jour être atteint par un import
 réel à grande échelle) à `Long.MAX_VALUE - 1`, hors de portée dans
 n'importe quel scénario réaliste.
+
+Correctif Checkstyle apporté dans la foulée (signalé séparément par
+Alex) : deux lignes dépassant 120 caractères dans `ActivityController`
+(Javadoc du champ `UNKNOWN_SOURCE_NAME`) et `ImportScheduler` (message
+de log concaténé), reformatées sur plusieurs lignes sans changement de
+comportement.
+
+## LL-8007 — Traiter la dette technique pertinente pour une bêta
+
+**Dépendance :** LL-8001.
+
+**Objectif du ticket** (rappel `SPRINT_8.md`) : traiter uniquement les
+dettes présentant un risque concret pour une bêta, sans campagne de
+refactoring générale. Chaque dette listée dans `docs/DETTE_TECHNIQUE.md`
+reçoit l'un des trois états prévus par le ticket : corrigée avec preuve,
+acceptée comme non bloquante, ou transformée en ticket futur borné.
+
+### Dettes examinées
+
+1. **Vulnérabilité transitive `nanoid`** (`frontend/package-lock.json`,
+   [GHSA-2v37-7h3g-55p8](https://github.com/advisories/GHSA-2v37-7h3g-55p8))
+   → **corrigée, avec preuve**. `npm ls nanoid` confirme la version
+   installée `3.3.18`, exactement la version corrigeant l'avis
+   (« all versions before 3.3.18 »). `npm audit` (dans `frontend/`)
+   confirme `0 vulnerabilities` ; `npm audit fix --dry-run` ne propose
+   plus que des binaires optionnels de plateformes sans lien avec cette
+   CVE. Déjà résolue avant ce ticket (mise à jour de dépendance
+   antérieure non tracée comme telle) — ce ticket formalise la preuve
+   et clôt l'entrée dans `docs/DETTE_TECHNIQUE.md`.
+
+2. **Défaut de formatage résiduel de `ActivityController`**
+   (`}    @PostMapping` sur une seule ligne, entre `getActivityById` et
+   `createActivity`) → **corrigée, avec preuve**. Saut de ligne ajouté ;
+   aucune autre occurrence du même défaut trouvée dans ce fichier
+   (vérifié par relecture complète).
+
+3. **Duplication documentaire des deux `ROADMAP.md`**
+   (`docs/ROADMAP.md` et `docs/04_Project/ROADMAP.md`) → **déjà
+   corrigée avant ce ticket, avec preuve** (commit `b1c29d9`, entre
+   LL-6011 et l'ouverture du Sprint 8) : `docs/ROADMAP.md` a été réduit
+   à un point d'entrée historique de 8 lignes qui redirige
+   explicitement vers `docs/04_Project/ROADMAP.md` comme source de
+   vérité — plus de risque de divergence de contenu entre les deux
+   fichiers. Ce ticket formalise la preuve (`diff` entre les deux
+   fichiers vérifié le 25 août 2026) et clôt l'entrée correspondante
+   dans `docs/DETTE_TECHNIQUE.md`.
+
+4. **Nouvelle dette découverte pendant LL-8001** : aucune. Les deux
+   points observés lors du rejeu du parcours MVP (scénario 2 : `401`
+   dû à un token obtenu avant la promotion en base ; scénario 7 :
+   artefact d'encodage PowerShell) avaient déjà été explicitement
+   qualifiés de non bloquants et sans correction nécessaire dans la
+   section LL-8001 ci-dessus — pas de nouvelle entrée justifiée.
+
+### Bilan
+
+Après ce ticket, `docs/DETTE_TECHNIQUE.md` ne contient plus aucune
+entrée au statut « ouvert » : les cinq entrées existantes sont toutes
+« résolu » (les deux plus anciennes l'étaient déjà avant LL-8007 :
+activités `ARCHIVED` visibles par défaut, résolue par LL-6004 ; absence
+de déclencheur d'import, résolue par LL-7002 ; bootstrap admin, résolue
+par LL-8002).
+
+Aucun refactoring hors de cette liste n'a été introduit, conformément
+au critère d'acceptation du ticket.
+
+**Décision LL-8007 :** dette technique pertinente pour une bêta traitée
+intégralement — les trois éléments identifiés dans `SPRINT_8.md` sont
+corrigés avec preuve, aucune nouvelle dette bloquante découverte. Sprint
+8 peut se poursuivre avec LL-8008 (consolidation de la documentation).

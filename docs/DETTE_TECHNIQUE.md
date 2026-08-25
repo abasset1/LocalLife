@@ -25,7 +25,17 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
   cours (LL-4011) au moment de la détection ; à traiter séparément pour
   ne pas mélanger une mise à jour de dépendances avec un changement
   fonctionnel dans le même commit/diff.
-* **Statut** : ouvert.
+* **Résolu par** : mise à jour de dépendance déjà présente dans le
+  lockfile actuel (vérifié le 25 août 2026, LL-8007) —
+  `npm ls nanoid` donne désormais `vite@8.2.2 → postcss@8.5.26 →
+  nanoid@3.3.18`, exactement la version corrigeant
+  [GHSA-2v37-7h3g-55p8](https://github.com/advisories/GHSA-2v37-7h3g-55p8)
+  (« all versions before 3.3.18 »). `npm audit` confirme
+  `0 vulnerabilities` (`"total": 0` dans le rapport JSON) ;
+  `npm audit fix --dry-run` ne propose plus aucune mise à jour de
+  sécurité, seulement des binaires optionnels de plateformes (non liés
+  à cette vulnérabilité). Aucune action supplémentaire nécessaire.
+* **Statut** : résolu.
 
 ---
 
@@ -48,7 +58,11 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
   de documentation (LL-4015), pas de ticket dédié pour une modification
   de code, même triviale — évite de mélanger un changement de code
   (même cosmétique) avec un diff purement documentaire.
-* **Statut** : ouvert.
+* **Résolu par** : LL-8007 (25 août 2026) — saut de ligne ajouté entre
+  `getActivityById` et `createActivity`. Pas de nouvelle violation
+  Checkstyle sur ce fichier depuis (voir aussi le correctif de longueur
+  de ligne livré juste avant ce ticket sur le même fichier, LL-8006).
+* **Statut** : résolu.
 
 ---
 
@@ -143,7 +157,21 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
   documentation est une décision structurante qui dépasse le périmètre
   d'un ticket de mise à jour de documentation (LL-6011) — à confirmer
   avec Alex avant suppression.
-* **Statut** : ouvert.
+* **Résolu par** : commit `b1c29d9` (« Mise à jour de la doc suite
+  cloture sprint 7 + depot du sprint 8 »), sans ticket dédié, entre
+  LL-6011 et l'ouverture du Sprint 8 — `docs/ROADMAP.md` a été
+  transformé en simple point d'entrée historique (8 lignes) qui
+  redirige explicitement vers `docs/04_Project/ROADMAP.md` comme
+  « source de vérité », au lieu d'être supprimé (conserve un lien
+  historique, sans dupliquer le contenu détaillé — voir la différence
+  entre les deux fichiers, vérifiée le 25 août 2026 pour LL-8007). Plus
+  aucun risque de divergence : `docs/ROADMAP.md` ne contient plus de
+  section susceptible d'être oubliée lors d'une mise à jour, seulement
+  un renvoi. Cette solution (redirection plutôt que suppression) diverge
+  légèrement du correctif initialement envisagé ci-dessus, mais
+  satisfait le même objectif (une seule source de vérité) sans perdre
+  le point d'entrée historique évoqué dans `docs/ROADMAP.md` lui-même.
+* **Statut** : résolu.
 
 ---
 
