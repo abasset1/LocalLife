@@ -39,7 +39,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/activities")
 public class ActivityController {
 
-    /** Valeur affichée quand une {@code Source} référencée par {@code sourceId} est introuvable (LL-8006, cas défensif — ne devrait pas se produire, {@code sourceId} étant une FK). */
+    /**
+     * Valeur affichée quand une {@code Source} référencée par {@code sourceId} est introuvable
+     * (LL-8006, cas défensif — ne devrait pas se produire, {@code sourceId} étant une FK).
+     */
     private static final String UNKNOWN_SOURCE_NAME = "Source inconnue";
 
     private final ActivityService activityService;

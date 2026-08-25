@@ -68,8 +68,9 @@ public class ImportScheduler {
             long totalErrors = results.stream().mapToLong(ImportResult::errors).sum();
 
             LOGGER.info(
-                    "Import planifie termine en {}ms - " +
-                    "Recapitulatif : {} sources, {} evenements recuperes, {} crees, {} mis a jour, {} archives, {} erreurs",
+                    "Import planifie termine en {}ms - "
+                    + "Recapitulatif : {} sources, {} evenements recuperes, {} crees, "
+                    + "{} mis a jour, {} archives, {} erreurs",
                     java.time.Duration.between(startedAt, endedAt).toMillis(),
                     results.size(),
                     totalFetched,
