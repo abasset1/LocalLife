@@ -1807,3 +1807,71 @@ protocole.
 
 **Décision LL-8001 : baseline figée, MVP toujours valide après les
 corrections du Sprint 7.** Sprint 8 peut se poursuivre avec LL-8002.
+
+> ⚠️ Note : la liste des tickets Sprint 8 ci-dessus (LL-8002 à LL-8006)
+> reflète la numérotation initiale, remplacée depuis par
+> `docs/05_Sprints/SPRINT_8.md` (voir sa section « Objectif », qui
+> documente le renumérotage). Le renommage complet de cette section
+> relève de LL-8008 (« consolider la documentation »), pas de ce
+> ticket — seule la section LL-8006 ci-dessous utilise la numérotation
+> actuelle, pour rester cohérente avec le travail réellement effectué.
+
+## LL-8006 — Vérifier l'apparition des activités de bout en bout sur la carte
+
+**Dépendance :** LL-8004 (sources OpenAgenda), LL-8005 (import/scheduler automatiques).
+
+### Revue effectuée (sans accès réseau/BDD en sandbox — voir limites plus bas)
+
+* **API exposée au frontend** : `/api/v1/activities/nearby` et
+  `/api/v1/activities/within-bounds` retournent bien les activités
+  `PUBLISHED` importées par le pipeline LL-8004/LL-8005 (`ImportService` →
+  `NormalizationService`, statut par défaut `PUBLISHED` pour une source
+  importée). ✅
+* **Affichage carte (marqueurs, popups, clustering)** : `App.tsx` affiche
+  déjà un marqueur par activité (`MarkerClusterGroup`), avec popup au
+  clic. ✅
+* **Filtres (catégorie, date, zone)** : déjà câblés depuis LL-4004/LL-4005/
+  LL-4007, aucune régression constatée à la lecture du code. ✅
+* **Informations clés du popup (titre, date, lieu, source)** — critère
+  d'acceptation explicite du ticket : **écart trouvé** ❌ → **corrigé** ✅.
+  Avant correction, le popup n'affichait que titre/catégorie/date ;
+  `lieu` et `source` étaient absents, et le backend n'exposait de toute
+  façon que `sourceId` (identifiant technique, pas un nom lisible), pas
+  d'adresse texte (design assumé depuis LL-3012 : seules les coordonnées
+  géocodées sont conservées, pas l'adresse saisie).
+
+### Correctifs apportés
+
+1. **Backend** — nouveau DTO `ActivityResponse` (`sourceId` → `sourceName`
+   résolu via `SourceService`), utilisé uniquement par `/nearby` et
+   `/within-bounds` (les deux endpoints qui alimentent la carte ;
+   `/activities` et `/activities/{id}` inchangés, hors périmètre).
+   Résolution en une seule requête (`getAllSources()` + `Map`), pas
+   d'aller-retour par activité.
+2. **Frontend** — `App.tsx` : popup complété avec `Lieu : {latitude,
+   longitude}` (pas d'adresse texte disponible, voir ci-dessus) et
+   `Source : {sourceName}`.
+3. **Tests** — `ActivityControllerTest` mis à jour (nouveau champ
+   `sourceService` mocké) + un nouveau cas (`sourceId` sans `Source`
+   correspondante → `"Source inconnue"`, cas défensif).
+
+### Limites de cette vérification (sandbox sans réseau/BDD)
+
+Cette sandbox n'a pas accès à PostgreSQL/PostGIS ni à un dépôt Maven
+(seuls npm/pip/crates/apt sont accessibles), donc :
+
+* `npm run build` (frontend, TypeScript + Vite) a été exécuté avec
+  succès — aucune erreur de type introduite par `sourceName`. ✅
+* **`mvn verify` n'a pas pu être exécuté ici** (pas d'accès au dépôt
+  Maven Central depuis ce réseau) : à faire par Alex avant commit, comme
+  pour chaque ticket précédent.
+* **Aucun test manuel en conditions réelles** (carte avec de vraies
+  activités importées, clic sur un marqueur, vérification visuelle du
+  popup) n'a pu être effectué ici, faute d'environnement Docker/DB —
+  à rejouer par Alex après `mvn verify`, en suivant le scénario 5/6 du
+  protocole LL-8001 (`docs/02_Architecture/MVP_VALIDATION_PROTOCOL.md`)
+  avec un œil particulier sur le contenu du popup (lieu/source).
+
+**Décision LL-8006 (provisoire, à confirmer par Alex après test manuel) :**
+écart corrigé au niveau du code ; statut définitif du ticket en attente
+de la vérification visuelle réelle sur la carte.

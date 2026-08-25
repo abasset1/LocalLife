@@ -8,6 +8,17 @@ import { Link } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
 
+/**
+ * `sourceName` ajouté en LL-8006 : jusqu'ici le backend n'exposait que
+ * `sourceId` (identifiant technique, retiré de la réponse au profit de
+ * `sourceName` — voir `ActivityResponse` côté backend), inexploitable
+ * pour l'affichage demandé par le critère d'acceptation du ticket
+ * (« titre, date, lieu, source correctement affichés »). Aucune adresse
+ * texte n'étant stockée en base (voir `ActivityController.CreateActivityRequest`
+ * côté backend), `latitude`/`longitude` (déjà présents ici pour le
+ * positionnement du marqueur) servent aussi de « lieu » affiché dans le
+ * popup ci-dessous.
+ */
 interface Activity {
     id: number;
     title: string;
@@ -15,6 +26,7 @@ interface Activity {
     latitude: number;
     longitude: number;
     startDate: string;
+    sourceName: string;
 }
 
 /**
@@ -590,6 +602,13 @@ function App() {
                                     {activity.category}
                                     <br />
                                     {new Date(activity.startDate).toLocaleDateString("fr-FR")}
+                                    <br />
+                                    {/* LL-8006 : lieu (aucune adresse texte en base, voir Activity côté backend) et
+                                        source (nom lisible résolu depuis sourceId par ActivityResponse) — critère
+                                        d'acceptation « titre, date, lieu, source correctement affichés ». */}
+                                    Lieu : {activity.latitude.toFixed(4)}, {activity.longitude.toFixed(4)}
+                                    <br />
+                                    Source : {activity.sourceName}
                                 </Popup>
                             </Marker>
                         ))}

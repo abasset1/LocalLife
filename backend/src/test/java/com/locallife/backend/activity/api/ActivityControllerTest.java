@@ -5,6 +5,8 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.geocoding.application.AddressNotFoundException;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
+import com.locallife.backend.source.application.SourceService;
+import com.locallife.backend.source.domain.Source;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,6 +27,9 @@ class ActivityControllerTest {
 
     @Mock
     private ActivityService activityService;
+
+    @Mock
+    private SourceService sourceService;
 
     @Mock
     private HttpServletRequest httpRequest;
@@ -155,8 +160,29 @@ class ActivityControllerTest {
         // Given
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
+        Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null);
         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
                 .thenReturn(List.of(nearby));
+        when(sourceService.getAllSources()).thenReturn(List.of(source));
+
+        // When
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", httpRequest);
+
+        // Then
+        // LL-8006 : sourceId (technique) est résolu en sourceName (lisible) dans la réponse.
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(List.of(ActivityResponse.from(nearby, "OpenAgenda — Avignon")), response.getBody());
+    }
+
+    @Test
+    void getNearbyActivities_ShouldReturnUnknownSourceName_WhenSourceNotFound() {
+        // Given : sourceId référencé par l'activité absent des sources connues (cas défensif LL-8006).
+        Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
+                LocalDateTime.now(), null, "PUBLISHED", 99L, null, null);
+        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
+                .thenReturn(List.of(nearby));
+        when(sourceService.getAllSources()).thenReturn(List.of());
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
@@ -164,7 +190,7 @@ class ActivityControllerTest {
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(List.of(nearby), response.getBody());
+        assertEquals(List.of(ActivityResponse.from(nearby, "Source inconnue")), response.getBody());
     }
 
     @Test
@@ -205,17 +231,20 @@ class ActivityControllerTest {
         // Given
         Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
+        Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null);
         when(activityService.findWithinBounds(
                 "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05"))
                 .thenReturn(List.of(inBounds));
+        when(sourceService.getAllSources()).thenReturn(List.of(source));
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
                 "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", httpRequest);
 
         // Then
+        // LL-8006 : sourceId (technique) est résolu en sourceName (lisible) dans la réponse.
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(List.of(inBounds), response.getBody());
+        assertEquals(List.of(ActivityResponse.from(inBounds, "OpenAgenda — Avignon")), response.getBody());
     }
 
     @Test

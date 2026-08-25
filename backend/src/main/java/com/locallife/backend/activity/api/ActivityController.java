@@ -5,6 +5,8 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.geocoding.application.AddressNotFoundException;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
+import com.locallife.backend.source.application.SourceService;
+import com.locallife.backend.source.domain.Source;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -14,7 +16,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,10 +39,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/activities")
 public class ActivityController {
 
-    private final ActivityService activityService;
+    /** Valeur affichée quand une {@code Source} référencée par {@code sourceId} est introuvable (LL-8006, cas défensif — ne devrait pas se produire, {@code sourceId} étant une FK). */
+    private static final String UNKNOWN_SOURCE_NAME = "Source inconnue";
 
-    public ActivityController(ActivityService activityService) {
+    private final ActivityService activityService;
+    private final SourceService sourceService;
+
+    public ActivityController(ActivityService activityService, SourceService sourceService) {
         this.activityService = activityService;
+        this.sourceService = sourceService;
     }
 
     @GetMapping
@@ -99,7 +108,7 @@ public class ActivityController {
             HttpServletRequest httpRequest) {
         try {
             List<Activity> activities = activityService.findNearby(latitude, longitude, radius, category, date);
-            return ResponseEntity.ok(activities);
+            return ResponseEntity.ok(withSourceNames(activities));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
         }
@@ -152,10 +161,28 @@ public class ActivityController {
         try {
             List<Activity> activities = activityService.findWithinBounds(
                     swLatitude, swLongitude, neLatitude, neLongitude, category, date);
-            return ResponseEntity.ok(activities);
+            return ResponseEntity.ok(withSourceNames(activities));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
         }
+    }
+
+    /**
+     * Résout {@code sourceId} → nom de source pour une liste d'activités
+     * (LL-8006), en une seule requête ({@link SourceService#getAllSources})
+     * plutôt qu'un aller-retour par activité : le nombre de sources reste
+     * faible (une poignée d'agendas OpenAgenda + la source {@code MANUAL},
+     * voir {@code SOURCE_CONTRACT.md}), donc les charger toutes une fois
+     * par appel est largement suffisant à l'échelle d'une bêta — pas de
+     * cache introduit, hors périmètre de ce ticket de vérification.
+     */
+    private List<ActivityResponse> withSourceNames(List<Activity> activities) {
+        Map<Long, String> sourceNamesById = sourceService.getAllSources().stream()
+                .collect(Collectors.toMap(Source::id, Source::name));
+        return activities.stream()
+                .map(activity -> ActivityResponse.from(
+                        activity, sourceNamesById.getOrDefault(activity.sourceId(), UNKNOWN_SOURCE_NAME)))
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
