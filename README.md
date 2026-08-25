@@ -90,8 +90,10 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
   importée est consultable exactement comme une activité manuelle.
 * Une activité déjà importée mais absente d'une collecte plus récente
   est archivée (`status = "ARCHIVED"`), jamais supprimée.
-* ⚠️ Aucun déclencheur automatique n'existe encore (pas de tâche
-  planifiée, pas d'endpoint) — voir
+* Deux façons de déclencher l'import : automatiquement, toutes les
+  heures (`ImportScheduler`, LL-8005), ou manuellement via
+  `POST /api/v1/admin/import` (rôle `ADMIN`) — voir la section
+  « Déclenchement d'un import » plus bas et
   [`docs/02_Architecture/COLLECTOR_OPERATIONS.md`](docs/02_Architecture/COLLECTOR_OPERATIONS.md).
 
 ## Sprint 6 — Qualité des données et administration minimale
@@ -154,8 +156,9 @@ Le frontend est accessible sur `http://localhost:5173` et le backend sur
 ## Sprint 7 — Démonstration du MVP (LL-7008)
 
 Le MVP a été validé à l'issue du Sprint 7. Le guide ci-dessous reste la
-procédure de référence pour la démonstration de la baseline. Le Sprint 8
-prépare la première bêta contrôlée.
+procédure de référence pour la démonstration de la baseline, mise à
+jour au fil du Sprint 8 (bootstrap admin, import automatique, popup
+enrichi — voir la section « Sprint 8 » plus bas pour l'état complet).
 
 Parcours complet pour reproduire une démonstration à partir d'un
 environnement neuf, sans connaissance préalable du développement.
@@ -231,8 +234,14 @@ de retirer ces variables d'environnement du terminal.
 
 ### 5. Déclenchement d'un import
 
-Avec le JWT obtenu à l'étape précédente (rôle `ADMIN` requis,
-`POST /api/v1/admin/import`, voir `AdminImportController`) :
+Deux options, non exclusives :
+
+* **Automatique** : depuis LL-8005, `ImportScheduler` déclenche
+  `ImportService#importAll()` toutes les heures (à la minute 0), sans
+  action manuelle — utile pour une démonstration longue, mais pas
+  pour obtenir des données immédiatement après un démarrage.
+* **Manuel**, avec le JWT obtenu à l'étape précédente (rôle `ADMIN`
+  requis, `POST /api/v1/admin/import`, voir `AdminImportController`) :
 
 ```powershell
 curl -X POST http://localhost:8080/api/v1/admin/import `
@@ -252,7 +261,34 @@ ensuite par l'administrateur (`PATCH /api/v1/admin/activities/{id}/publish`).
 ### 6. Vérification de la carte
 
 Ouvrir `http://localhost:5173` : les activités importées ou publiées
-doivent apparaître comme marqueurs sur la carte, avec popup au clic
-(titre/catégorie/date). Le filtre catégorie/date et le bouton
-« Utiliser ma position » permettent de vérifier la recherche
-géographique (voir la section « Recherche géographique » ci-dessus).
+doivent apparaître comme marqueurs sur la carte (regroupés en clusters
+si nombreux, voir `react-leaflet-cluster`), avec popup au clic
+(titre, catégorie, date, lieu — coordonnées géographiques — et source).
+Le filtre catégorie/date et le bouton « Utiliser ma position »
+permettent de vérifier la recherche géographique (voir la section
+« Recherche géographique » ci-dessus).
+
+## Sprint 8 — Préparation de la bêta
+
+Sprint en cours, voir `docs/05_Sprints/SPRINT_8.md` pour le détail des
+tickets et `docs/PROJECT_STATUS.md` pour le suivi et les preuves.
+Résumé de l'avancement (25 août 2026) :
+
+* **LL-8001** — baseline rejouée après les corrections du Sprint 7,
+  aucune régression, baseline figée.
+* **LL-8002** — premier compte `ADMIN` bootstrapé automatiquement (voir
+  section 4 ci-dessus).
+* **LL-8003** — exceptions serveur non gérées désormais journalisées
+  (niveau `ERROR`, sans donnée sensible) par `GlobalExceptionHandler`.
+* **LL-8004** — plusieurs agendas OpenAgenda configurés pour Avignon ;
+  pagination complète de l'API OpenAgenda (au-delà des 20 premiers
+  résultats par défaut).
+* **LL-8005** — import automatique planifié (voir section 5
+  ci-dessus).
+* **LL-8006** — affichage de bout en bout vérifié sur la carte ; popup
+  enrichi (lieu, source).
+* **LL-8007** — dette technique pertinente pour une bêta traitée ;
+  `docs/DETTE_TECHNIQUE.md` ne contient plus d'entrée ouverte.
+* **LL-8008** (ce ticket) — documentation consolidée.
+* **LL-8009** — reste à faire : décision d'ouverture de la première
+  bêta contrôlée.

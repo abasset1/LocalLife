@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.0 — 2026-08-25
+
+### Sprint 8 / Préparation de la bêta (LL-8001 → LL-8008)
+- `LL-8001` : parcours MVP rejoué après les corrections du Sprint 7, aucune régression, baseline figée.
+- `LL-8002` : premier compte `ADMIN` bootstrapé automatiquement au premier démarrage (`AdminBootstrapRunner`), remplace la promotion SQL manuelle.
+- `LL-8003` : exceptions serveur non gérées journalisées (niveau `ERROR`, sans donnée sensible) par `GlobalExceptionHandler`.
+- `LL-8004` : plusieurs agendas OpenAgenda configurés pour Avignon ; pagination complète de l'API OpenAgenda (`size=300` + curseur `after`).
+- `LL-8005` : import automatique planifié (`ImportScheduler`, toutes les heures), en complément du déclenchement manuel existant.
+- `LL-8006` : affichage de bout en bout vérifié sur la carte ; popup enrichi avec le lieu (coordonnées) et la source lisible (`ActivityResponse`, résolution de `sourceId` en `sourceName`).
+- `LL-8007` : dette technique pertinente pour une bêta traitée (vulnérabilité `nanoid`, formatage de `ActivityController`, duplication des `ROADMAP.md`) — `docs/DETTE_TECHNIQUE.md` sans entrée ouverte.
+- `LL-8008` : documentation consolidée sur l'ensemble des fichiers de référence (`README.md`, `docs/PROJECT_STATUS.md`, `docs/04_Project/ROADMAP.md`, `docs/01_Product/BACKLOG.md`, `docs/NEXT_TASK.md`, etc.), plus aucune ne désigne le Sprint 7 comme sprint courant.
+- Reste à faire avant la clôture du Sprint 8 : `LL-8009` (décision go/no-go de la première bêta contrôlée).
+
+### Fixed
+- Correctifs de qualité signalés par `mvn verify` au fil du sprint : test d'intégration dépendant d'un id d'activité fixe (fragile sur base persistante), dépassements de la limite Checkstyle de 120 caractères, échappement `*/` dans un Javadoc (`ImportScheduler`) provoquant une erreur de compilation.
+
 ## 0.8.0 — 2026-08-21
 
 ### Sprint 7 / Validation

@@ -52,17 +52,22 @@ La construction du périmètre MVP est terminée.
 **Référence :** `docs/05_Sprints/SPRINT_7.md`.
 
 ### Sprint 8 — Préparation de la bêta
-**Statut : ⏳ À faire**
+**Statut : 🟡 En cours**
 
 Objectif : rendre le MVP suffisamment robuste, reproductible et documenté
 pour une première bêta contrôlée, sans ajouter de nouveau domaine métier.
 
-- rejouer et figer la baseline MVP après les corrections ;
-- sécuriser le démarrage opérationnel avec un administrateur ;
-- rendre les erreurs serveur importantes observables ;
-- traiter les dettes techniques réellement pertinentes pour une bêta ;
-- consolider la documentation et la checklist de bêta ;
-- décider l'ouverture de la première bêta contrôlée.
+| Ticket | Objectif | Statut |
+|---|---|---|
+| LL-8001 | Rejouer le parcours MVP après les corrections et figer la baseline | ✅ |
+| LL-8002 | Sécuriser le bootstrap du premier compte administrateur | ✅ |
+| LL-8003 | Améliorer la journalisation des erreurs serveur bloquantes | ✅ |
+| LL-8004 | Configurer les sources OpenAgenda d'Avignon | ✅ |
+| LL-8005 | Automatiser l'import et la persistance des données collectées | ✅ |
+| LL-8006 | Vérifier l'apparition des activités de bout en bout sur la carte | ✅ |
+| LL-8007 | Traiter la dette technique pertinente pour une bêta | ✅ |
+| LL-8008 | Consolider la documentation et préparer la checklist de bêta | ✅ |
+| LL-8009 | Décider et documenter l'ouverture de la première bêta contrôlée | ⏳ |
 
 **Référence :** `docs/05_Sprints/SPRINT_8.md`.
 

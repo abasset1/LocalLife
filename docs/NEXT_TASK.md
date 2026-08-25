@@ -2,81 +2,69 @@
 
 ## État actuel
 
-Sprint 6 terminé (`LL-6001` → `LL-6011`).
+Sprint 7 terminé (`LL-7001` → `LL-7009`). MVP validé de bout en bout
+avec de vraies données OpenAgenda, blocages trouvés corrigés (LL-7007),
+guide de démonstration ajouté au `README.md` (LL-7008). Détail complet :
+`docs/PROJECT_STATUS.md`, section Sprint 7.
 
-Phase actuelle : **Phase 2 — Validation du MVP**.
+Phase actuelle : **Phase 2 — Validation et préparation de la bêta**.
 
-`LL-7001` terminé : protocole de validation documenté dans
-`docs/02_Architecture/MVP_VALIDATION_PROTOCOL.md` (dix scénarios,
-critères de succès/échec, vérification d'indépendance vis-à-vis du
-hors-MVP).
+**Sprint 8 — Préparation de la bêta**, en cours. Huit tickets sur neuf
+terminés :
 
-`LL-7002` terminé : `POST /api/v1/admin/import` (rôle `ADMIN`), déclenche
-`ImportService#importAll()` sans dupliquer le pipeline existant. Aucun
-scheduler, conformément à la décision MVP du sprint.
+`LL-8001` terminé : parcours MVP rejoué après les corrections du
+Sprint 7, aucune régression, baseline figée.
 
-`LL-7003` terminé : parcours de bout en bout validé avec de vraies
-données OpenAgenda (import réel, persistance, visibilité publique,
-consultation par id). Blocage réel trouvé et documenté pour LL-7007 :
-contrainte `chk_activity_status` n'autorisant pas `ARCHIVED` (utilisé
-par `ImportService` depuis LL-5008) → tout second import échoue en
-`500` tant que non corrigé. Voir `PROJECT_STATUS.md`, section Sprint 7.
+`LL-8002` terminé : premier compte `ADMIN` bootstrapé automatiquement
+au premier démarrage (`AdminBootstrapRunner`,
+`LOCALLIFE_BOOTSTRAP_ADMIN_EMAIL`/`LOCALLIFE_BOOTSTRAP_ADMIN_PASSWORD`),
+remplace la promotion SQL manuelle utilisée jusque-là.
 
-`LL-7004` terminé : recherche par zone, filtre catégorie, filtre date
-et affichage des Food Trucks validés. Deux blocages réels trouvés et
-documentés pour LL-7007 : `buildCategoryOptions` (`App.tsx`) plante sur
-une catégorie `null` (fréquent avec de vraies données OpenAgenda),
-cassant la vue par défaut ; la carte ne se recentre pas visuellement
-après géolocalisation (`useMap()` manquant dans `App.tsx`).
+`LL-8003` terminé : exceptions serveur non gérées (réponse `500`)
+journalisées au niveau `ERROR` par `GlobalExceptionHandler`, sans mot
+de passe ni JWT dans les logs ; contrat HTTP existant inchangé.
 
-`LL-7005` terminé : parcours utilisateur contribution / authentification
-validé de bout en bout (inscription, connexion, maintien de la session,
-création d'une activité en `PENDING`, publication/rejet, déconnexion,
-retour d'erreur compréhensible). Aucun blocage réel trouvé — un `500`
-rencontré en test s'est avéré être un artefact d'encodage UTF-8 côté
-`Invoke-RestMethod`/PowerShell (non reproductible via le formulaire
-frontend), sans lien avec le backend. Voir `PROJECT_STATUS.md`, section
-Sprint 7.
+`LL-8004` terminé : plusieurs agendas OpenAgenda configurés pour
+Avignon ; pagination complète de l'API OpenAgenda (`size=300` + curseur
+`after`), l'API ne renvoyant que 20 résultats par défaut.
 
-`LL-7006` terminé : parcours Food Truck (Sprint 6) revérifié — création,
-position, distinction visuelle, cohérence avec les activités sur la
-carte et protection par JWT tous validés. Aucun blocage réel trouvé
-(un test initial sans `401` s'est avéré être un `$headers` résiduel
-d'une session PowerShell précédente, reconfirmé `401` avec un terminal
-neuf). Voir `PROJECT_STATUS.md`, section Sprint 7.
+`LL-8005` terminé : import automatique planifié (`ImportScheduler`,
+toutes les heures), en plus du déclenchement manuel existant
+(`POST /api/v1/admin/import`, LL-7002).
 
-`LL-7007` terminé : trois corrections apportées, liées aux blocages
-trouvés en LL-7003/LL-7004 — contrainte `chk_activity_status`
-autorisant désormais `ARCHIVED` (migration `V13`) ; `buildCategoryOptions`
-(`App.tsx`) ne plante plus sur une catégorie `null` ; carte Leaflet
-recentrée après géolocalisation (`MapRecenterOnUserPosition`, `useMap()`).
-Voir `PROJECT_STATUS.md`, section Sprint 7, pour le détail et la note
-de clarification de périmètre (recentrage de carte confirmé inclus par
-Alex, malgré une liste « et rien d'autre » incomplète dans une
-précédente version de ce fichier).
+`LL-8006` terminé : affichage de bout en bout des activités vérifié sur
+la carte. Écart trouvé et corrigé : le popup n'affichait ni le lieu ni
+la source lisible (seul `sourceId`, un identifiant technique, était
+exposé) — `ActivityResponse` résout désormais `sourceId` en
+`sourceName`, popup complété. Corrections complémentaires signalées par
+Alex au fil de `mvn verify` : test d'intégration dépendant d'un id
+d'activité fixe (fragile sur base persistante), dépassements de la
+limite Checkstyle de 120 caractères.
 
-`LL-7008` terminé : guide de démonstration ajouté au `README.md`
-racine (base de données, configuration, démarrage, compte admin,
-déclenchement d'un import, vérification de la carte). Lacune relevée :
-aucun mécanisme applicatif pour créer un premier compte `ADMIN`
-(contournement documenté, lacune tracée dans `DETTE_TECHNIQUE.md`).
-Documentation obsolète corrigée au passage
-(`COLLECTOR_OPERATIONS.md`/`DETTE_TECHNIQUE.md` décrivaient encore
-l'absence de déclencheur d'import, alors que LL-7002 l'a ajouté). Voir
-`PROJECT_STATUS.md`, section Sprint 7.
+`LL-8007` terminé : dette technique pertinente pour une bêta traitée —
+vulnérabilité `nanoid` (déjà résolue, preuve formalisée), défaut de
+formatage de `ActivityController` (corrigé), duplication des deux
+`ROADMAP.md` (déjà résolue avant ce ticket, preuve formalisée). Aucune
+nouvelle dette bloquante découverte pendant LL-8001.
+`docs/DETTE_TECHNIQUE.md` ne contient plus d'entrée « ouverte ».
+
+`LL-8008` terminé (ce ticket) : documentation consolidée —
+`README.md`, `backend/README.md`, `frontend/README.md`,
+`docs/PROJECT_STATUS.md`, `docs/04_Project/ROADMAP.md`,
+`docs/01_Product/BACKLOG.md`, `docs/NEXT_TASK.md` (ce fichier),
+`docs/DETTE_TECHNIQUE.md`, `CHANGELOG.md` — plus aucune ne désigne le
+Sprint 7 comme sprint courant ; le guide de démonstration du `README.md`
+racine reflète la baseline actuelle (import automatique, popup
+lieu/source, clustering).
 
 ## Prochaine tâche
 
-**Sprint 8 — Préparation de la bêta**
+**LL-8009 — Décider et documenter l'ouverture de la première bêta
+contrôlée**, détail : `docs/05_Sprints/SPRINT_8.md`.
 
-### Prochain ticket
-
-**LL-8001 — Rejouer le parcours MVP après les corrections et figer la baseline**,
-détail : `docs/05_Sprints/SPRINT_8.md`.
-
-Le Sprint 7 est conclu avec la décision **MVP validé → préparation de la
-bêta**. Le Sprint 8 ne doit pas ajouter de nouveau domaine métier : il doit
-consolider le produit existant avant les premiers retours utilisateurs.
+Dernier ticket du Sprint 8 : formaliser une décision go/no-go à partir
+de la baseline figée en LL-8001 et des corrections apportées depuis
+(LL-8002 → LL-8008), avec une checklist de bêta documentée.
 
 ## Règles
 

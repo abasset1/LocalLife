@@ -17,16 +17,19 @@
 
 ### Sprint 8 — Préparation de la bêta
 
-**Statut : À faire**
+**Statut : En cours**
 
 | Ticket | Objectif | Statut |
 |---|---|---|
-| LL-8001 | Rejouer le parcours MVP après les corrections et figer la baseline | ⏳ |
-| LL-8002 | Sécuriser le bootstrap du premier compte administrateur | ⏳ |
-| LL-8003 | Améliorer la journalisation des erreurs serveur bloquantes | ⏳ |
-| LL-8004 | Traiter la dette technique bloquante pour une bêta (dépendances et qualité) | ⏳ |
-| LL-8005 | Consolider la documentation et préparer la checklist de bêta | ⏳ |
-| LL-8006 | Décider et documenter l'ouverture de la première bêta contrôlée | ⏳ |
+| LL-8001 | Rejouer le parcours MVP après les corrections et figer la baseline | ✅ |
+| LL-8002 | Sécuriser le bootstrap du premier compte administrateur | ✅ |
+| LL-8003 | Améliorer la journalisation des erreurs serveur bloquantes | ✅ |
+| LL-8004 | Configurer les sources OpenAgenda d'Avignon | ✅ |
+| LL-8005 | Automatiser l'import et la persistance des données collectées | ✅ |
+| LL-8006 | Vérifier l'apparition des activités de bout en bout sur la carte | ✅ |
+| LL-8007 | Traiter la dette technique pertinente pour une bêta | ✅ |
+| LL-8008 | Consolider la documentation et préparer la checklist de bêta | ✅ |
+| LL-8009 | Décider et documenter l'ouverture de la première bêta contrôlée | ⏳ |
 
 **Détail :** `docs/05_Sprints/SPRINT_8.md`.
 

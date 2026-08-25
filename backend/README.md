@@ -38,6 +38,16 @@ avant le premier `mvn spring-boot:run` — voir la section
 « Compte administrateur de démonstration » du `README.md` racine pour
 la procédure complète et les garanties de sécurité (LL-8002).
 
+**Import planifié** : `ImportScheduler` (LL-8005) déclenche
+automatiquement l'import de toutes les sources configurées toutes les
+heures, en plus de l'endpoint manuel `POST /api/v1/admin/import` — voir
+la section « Déclenchement d'un import » du `README.md` racine.
+
+**Journalisation des erreurs serveur** : toute exception non gérée
+entraînant une réponse `500` est journalisée au niveau `ERROR` par
+`GlobalExceptionHandler` (LL-8003), sans mot de passe ni JWT dans les
+logs.
+
 ## Profils Spring
 
 | Profil  | Usage                                    | Datasource configurée |

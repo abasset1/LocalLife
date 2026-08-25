@@ -1,7 +1,7 @@
 # LocalLife - Project Status
 
-**Version :** 0.8.0
-**Dernière mise à jour :** 2026-08-21 (Sprint 7 terminé, LL-7009)
+**Version :** 0.9.0
+**Dernière mise à jour :** 2026-08-25 (Sprint 8 en cours, LL-8008 terminé)
 
 ---
 ## Phase actuelle
@@ -1750,19 +1750,23 @@ en a réellement besoin (LL-5004 ou LL-5006 selon l'usage réel).
 
 # Sprint 8
 
-**Statut :** ⏳ À faire.
+**Statut :** 🟡 En cours.
 
 **Objectif :** préparer une première bêta contrôlée à partir du MVP validé,
 sans ajouter de nouveau domaine métier.
 
-Tickets planifiés :
+Tickets (numérotation actuelle, voir la note ci-dessous LL-8001 pour
+l'historique du renumérotage) :
 
 * LL-8001 — Rejouer le parcours MVP après les corrections et figer la baseline ✅
-* LL-8002 — Sécuriser le bootstrap du premier compte administrateur ⏳
-* LL-8003 — Améliorer la journalisation des erreurs serveur bloquantes ⏳
-* LL-8004 — Traiter la dette technique bloquante pour une bêta (dépendances et qualité) ⏳
-* LL-8005 — Consolider la documentation et préparer la checklist de bêta ⏳
-* LL-8006 — Décider et documenter l'ouverture de la première bêta contrôlée ⏳
+* LL-8002 — Sécuriser le bootstrap du premier compte administrateur ✅
+* LL-8003 — Améliorer la journalisation des erreurs serveur bloquantes ✅
+* LL-8004 — Configurer les sources OpenAgenda d'Avignon ✅
+* LL-8005 — Automatiser l'import et la persistance des données collectées ✅
+* LL-8006 — Vérifier l'apparition des activités de bout en bout sur la carte ✅
+* LL-8007 — Traiter la dette technique pertinente pour une bêta ✅
+* LL-8008 — Consolider la documentation et préparer la checklist de bêta ✅
+* LL-8009 — Décider et documenter l'ouverture de la première bêta contrôlée ⏳
 
 Référence détaillée : `docs/05_Sprints/SPRINT_8.md`.
 
@@ -1962,3 +1966,83 @@ au critère d'acceptation du ticket.
 intégralement — les trois éléments identifiés dans `SPRINT_8.md` sont
 corrigés avec preuve, aucune nouvelle dette bloquante découverte. Sprint
 8 peut se poursuivre avec LL-8008 (consolidation de la documentation).
+
+## LL-8008 — Consolider la documentation et préparer la checklist de bêta
+
+**Dépendance :** LL-8002, LL-8003, LL-8007 (toutes terminées, voir
+sections ci-dessus).
+
+**Objectif du ticket** (rappel `SPRINT_8.md`) : faire de la
+documentation actuelle une procédure unique et reproductible pour
+installer, démarrer, vérifier et démontrer LocalLife.
+
+### Revue et corrections apportées, fichier par fichier
+
+* **`README.md`** : section « Sprint 5 » corrigée — affirmait encore
+  qu'« aucun déclencheur automatique n'existe » pour l'import, alors
+  que LL-8005 a ajouté `ImportScheduler` (import automatique toutes les
+  heures). Étape 5 du guide de démonstration mise à jour pour présenter
+  les deux options (automatique/manuelle). Étape 6 mise à jour : le
+  popup affiche désormais lieu et source en plus de titre/catégorie/
+  date (LL-8006), et les marqueurs peuvent être groupés en clusters
+  (LL-8004). Nouvelle section « Sprint 8 » résumant l'avancement des
+  neuf tickets.
+* **`backend/README.md`** : déjà à jour (bootstrap admin LL-8002
+  documenté). Ajout de deux notes courtes : import planifié (LL-8005)
+  et journalisation des erreurs serveur (LL-8003), absentes jusqu'ici.
+* **`frontend/README.md`** : ajout d'une mention du clustering
+  (`react-leaflet-cluster`, LL-8004) et du contenu du popup (LL-8006),
+  absents de la description des fonctionnalités.
+* **`docs/PROJECT_STATUS.md`** (ce fichier) : liste de tickets Sprint 8
+  en tête de section corrigée — utilisait encore l'ancienne
+  numérotation (LL-8004 = dette technique, LL-8005 = documentation,
+  LL-8006 = décision bêta), remplacée par la numérotation actuelle
+  confirmée dans `SPRINT_8.md`, avec le statut réel de chaque ticket.
+  Statut du sprint passé de « ⏳ À faire » à « 🟡 En cours ».
+* **`docs/04_Project/ROADMAP.md`** : statut du Sprint 8 passé de
+  « ⏳ À faire » à « 🟡 En cours », liste à puces remplacée par un
+  tableau ticket/statut (même contenu que le backlog, pour éviter une
+  troisième liste divergente).
+* **`docs/01_Product/BACKLOG.md`** : tableau des tickets Sprint 8
+  entièrement corrigé (même numérotation obsolète que
+  `PROJECT_STATUS.md`, même correction).
+* **`docs/NEXT_TASK.md`** : réécrit intégralement — figé depuis la fin
+  du Sprint 7 (« Prochain ticket : LL-8001 »), sans aucune trace des
+  huit tickets déjà terminés du Sprint 8. Nouvelle version : Sprint 7
+  résumé en un paragraphe (renvoi vers `PROJECT_STATUS.md` pour le
+  détail), état des lieux LL-8001 → LL-8008, prochaine tâche pointée
+  sur LL-8009.
+* **`docs/DETTE_TECHNIQUE.md`** : déjà à jour (toutes les entrées
+  résolues par LL-8007) — aucune modification supplémentaire
+  nécessaire pour ce ticket.
+* **`CHANGELOG.md`** : nouvelle entrée `0.9.0` couvrant LL-8001 →
+  LL-8008, avec une sous-section « Fixed » pour les correctifs de
+  qualité apparus au fil du sprint (test d'intégration fragile,
+  dépassements Checkstyle, échappement Javadoc).
+
+### Critères d'acceptation (rappel `SPRINT_8.md`)
+
+* **Une personne connaissant le dépôt peut installer et démarrer le
+  projet sans connaissance des décisions historiques** : le guide de
+  démonstration du `README.md` racine (sections 1 à 6) reste la
+  procédure de référence, mise à jour pour refléter la baseline
+  actuelle (import automatique, popup enrichi, clustering) — aucune
+  étape ne suppose une connaissance des sprints précédents.
+* **La procédure de démonstration utilise la baseline du Sprint 8** :
+  confirmé (voir corrections des étapes 5/6 ci-dessus).
+* **Les dettes et limitations importantes sont visibles au bon
+  endroit** : `docs/DETTE_TECHNIQUE.md` référencé depuis
+  `docs/04_Project/ROADMAP.md` ; toutes les entrées actuelles sont
+  résolues (LL-8007), donc rien à signaler comme limitation ouverte à
+  ce stade.
+* **Aucune documentation ne désigne encore le Sprint 7 comme sprint
+  courant** : vérifié sur les neuf fichiers listés par le ticket (voir
+  détail ci-dessus) — recherche textuelle (`grep -i "sprint 7"`)
+  confirmant que les occurrences restantes sont toutes des références
+  historiques explicites (ex. « MVP validé à l'issue du Sprint 7 »),
+  jamais une désignation du sprint courant.
+
+**Décision LL-8008 :** documentation consolidée sur l'ensemble des
+neuf fichiers listés par le ticket, critères d'acceptation satisfaits.
+Sprint 8 peut se poursuivre avec LL-8009 (décision go/no-go de la
+première bêta contrôlée), dernier ticket du sprint.
