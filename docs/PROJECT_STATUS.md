@@ -1875,3 +1875,20 @@ Cette sandbox n'a pas accès à PostgreSQL/PostGIS ni à un dépôt Maven
 **Décision LL-8006 (provisoire, à confirmer par Alex après test manuel) :**
 écart corrigé au niveau du code ; statut définitif du ticket en attente
 de la vérification visuelle réelle sur la carte.
+
+### Correctif complémentaire — `mvn verify` en échec (signalé par Alex)
+
+`ActivityControllerIntegrationTest.getActivityById_ShouldReturnOk_WhenExists`
+échouait (`404` au lieu de `200`) : le test supposait qu'une activité
+d'id `1` existe toujours. Sans lien avec le correctif ci-dessus (aucune
+des deux classes touchées par LL-8006 n'est en cause) — cause réelle :
+cette base Postgres locale est persistante entre les exécutions, et
+après les imports/tests manuels de LL-8004/LL-8005 rien ne garantit
+qu'un id auto-incrémenté précis reste stable dans le temps.
+
+Corrigé : le test récupère désormais un id réellement présent via
+`GET /api/v1/activities` avant de tester `GET /api/v1/activities/{id}`,
+au lieu de figer `1`. Par cohérence, le test `WhenNotExists` est passé
+de l'id fixe `9999` (qui pourrait un jour être atteint par un import
+réel à grande échelle) à `Long.MAX_VALUE - 1`, hors de portée dans
+n'importe quel scénario réaliste.

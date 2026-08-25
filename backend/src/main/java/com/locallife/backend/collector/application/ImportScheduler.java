@@ -60,7 +60,7 @@ public class ImportScheduler {
         try {
             List<ImportResult> results = importService.importAll();
             LocalDateTime endedAt = LocalDateTime.now();
-            
+
             long totalFetched = results.stream().mapToLong(ImportResult::fetched).sum();
             long totalCreated = results.stream().mapToLong(ImportResult::created).sum();
             long totalUpdated = results.stream().mapToLong(ImportResult::updated).sum();

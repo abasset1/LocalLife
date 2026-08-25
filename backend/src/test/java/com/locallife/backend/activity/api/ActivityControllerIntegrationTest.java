@@ -1,9 +1,13 @@
 package com.locallife.backend.activity.api;
 
+import com.locallife.backend.activity.domain.Activity;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.web.servlet.client.RestTestClient;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ActivityControllerIntegrationTest {
@@ -22,14 +26,50 @@ class ActivityControllerIntegrationTest {
         restTestClient().get().uri("/api/v1/activities").exchange().expectStatus().isOk();
     }
 
+    /**
+     * LL-8006 : ne plus supposer qu'une activité d'id={@code 1} existe.
+     * Ce test échouait en environnement réel (base Postgres locale
+     * persistante) : après les imports automatiques LL-8004/LL-8005 et les
+     * manipulations manuelles effectuées pendant leur test, rien ne
+     * garantit qu'une activité porte encore précisément l'id {@code 1}
+     * (id auto-incrémenté, jamais réutilisé) — {@code mvn verify} a
+     * échoué avec {@code 404} au lieu de {@code 200} pour cette raison,
+     * sans lien avec un bug applicatif. Correction : récupérer un id
+     * réellement présent via {@code GET /api/v1/activities} avant de
+     * tester {@code GET /api/v1/activities/{id}}, plutôt que de figer un
+     * id arbitraire.
+     */
     @Test
     void getActivityById_ShouldReturnOk_WhenExists() {
-        restTestClient().get().uri("/api/v1/activities/1").exchange().expectStatus().isOk();
+        Activity[] activities = restTestClient().get().uri("/api/v1/activities")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(Activity[].class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(activities);
+        assertTrue(activities.length > 0,
+                "Aucune activité en base : la migration de démonstration V3 a-t-elle bien été appliquée ?");
+
+        restTestClient().get().uri("/api/v1/activities/" + activities[0].id())
+                .exchange()
+                .expectStatus().isOk();
     }
 
+    /**
+     * LL-8006 : {@code 9999} n'est plus une garantie d'absence maintenant
+     * que l'import automatique OpenAgenda (LL-8004/LL-8005, pagination
+     * {@code size=300}) peut créer un nombre significatif d'activités —
+     * un id proche de {@code 9999} pourrait un jour exister réellement.
+     * {@code Long.MAX_VALUE - 1} reste hors de portée d'une colonne
+     * {@code BIGINT} auto-incrémentée dans n'importe quel scénario
+     * réaliste de ce projet.
+     */
     @Test
     void getActivityById_ShouldReturnNotFound_WhenNotExists() {
-        restTestClient().get().uri("/api/v1/activities/9999").exchange().expectStatus().isNotFound();
+        restTestClient().get().uri("/api/v1/activities/" + (Long.MAX_VALUE - 1))
+                .exchange().expectStatus().isNotFound();
     }
 
     @Test
