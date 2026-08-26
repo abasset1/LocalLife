@@ -22,7 +22,7 @@
 
 | Ticket | Objectif | Statut |
 |---|---|---|
-| LL-9001 | Ne plus afficher les activités hors période sur les recherches publiques | ⏳ |
+| LL-9001 | Ne plus afficher les activités hors période sur les recherches publiques | ✅ (en attente mvn verify) |
 
 **Détail :** `docs/05_Sprints/SPRINT_9.md`. Sprint ouvert au fil de l'eau :
 chaque correctif identifié par Alex devient un ticket autonome, traité un

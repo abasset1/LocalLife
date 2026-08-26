@@ -2181,21 +2181,77 @@ post-bêta traités un par un (voir `docs/05_Sprints/SPRINT_9.md`).
 pendant/après la bêta. Sprint ouvert au fil de l'eau, pas de périmètre
 figé à l'avance — voir `docs/05_Sprints/SPRINT_9.md`.
 
-* LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ⏳
+* LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ✅
 
-## LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ⏳
+## LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ✅
 
 **Dépendance :** aucune.
 
 Signalé par Alex le 26/08/2026 : les recherches publiques
-(`/nearby`, `/within-bounds`) ne filtrent aujourd'hui que sur le
-statut (`PUBLISHED`, LL-6004) — aucun filtre n'exclut par défaut une
+(`/nearby`, `/within-bounds`) ne filtraient jusqu'ici que sur le
+statut (`PUBLISHED`, LL-6004) — aucun filtre n'excluait par défaut une
 activité déjà terminée (`end_date` passée) ou pas encore commencée
 (`start_date` future). Le paramètre `date` existant (LL-4005) permet
-de filtrer sur une date donnée, mais rien ne l'applique par défaut à
+de filtrer sur une date donnée, mais rien ne l'appliquait par défaut à
 la date du jour.
 
-Ticket détaillé (constat, points à trancher avec Alex, piste
-d'implémentation, critères d'acceptation) : `docs/05_Sprints/SPRINT_9.md`.
+### Décisions retenues (propositions par défaut du ticket, non contredites par Alex)
+
+* **Portée** : uniquement `findNearby`/`findWithinBounds` (recherches
+  publiques). `findByStatus` (consultation administrative, LL-6005)
+  volontairement non concernée.
+* **Bornes** : strictement "en cours aujourd'hui"
+  (`start_date <= aujourd'hui <= end_date`), pas de marge pour les
+  événements à venir.
+* **`end_date` absente** : traitée comme `start_date` (activité d'une
+  seule journée), réutilise la logique SQL déjà en place pour le
+  paramètre `date` (`COALESCE(end_date, start_date)`).
+* **Interaction avec `date`** : un `date` explicite continue de primer
+  à l'identique (comportement LL-4005 inchangé) — le nouveau défaut ne
+  s'applique que si `date` est absent de la requête.
+
+### Implémentation
+
+`ActivityService#findNearby`/`#findWithinBounds` : quand `dateRaw` est
+absent, la date du jour (`LocalDate.now()`) est désormais transmise au
+repository au lieu de `null` — réutilise directement le filtre SQL
+déjà existant pour le paramètre `date` (aucune modification de
+`ActivityRepository`/des requêtes SQL, qui restent exhaustivement
+couvertes par `ActivityRepositoryIntegrationTest` pour n'importe
+quelle date donnée). Nouvelle méthode privée
+`defaultToTodayIfAbsent`.
+
+### Effet de bord identifié côté frontend (documenté, pas corrigé)
+
+`App.tsx` ne reconstruit la liste des catégories disponibles du filtre
+que quand aucun filtre catégorie/date n'est actif — cette logique
+supposait jusqu'ici qu'« aucun filtre date » signifie « réponse non
+filtrée ». Ce n'est plus vrai : la réponse est désormais filtrée sur
+aujourd'hui même sans `date` explicite, donc cette liste ne reflète
+que les catégories des activités en cours aujourd'hui, pas
+l'historique complet. Effet jugé cohérent avec l'objectif du ticket
+(pas de sens à proposer un filtre catégorie qui ne renverrait rien) —
+documenté dans le code (`NO_DATE_FILTER`, `App.tsx`), à confirmer avec
+Alex si un comportement différent est souhaité.
+
+### Tests
+
+`ActivityServiceTest` : tous les tests vérifiant la transmission de
+`null` en absence de `date` corrigés pour vérifier
+`LocalDate.now()` à la place ; test dédié renommé
+(`findNearby_ShouldPassNullDate_WhenDateNotProvided` →
+`findNearby_ShouldDefaultDateToToday_WhenDateNotProvided`, comportement
+inversé) et son équivalent ajouté pour `findWithinBounds`. Les tests
+de validation (paramètres manquants/invalides, jamais d'appel au
+repository) restent inchangés. `ActivityControllerTest` non affecté
+(mocke `ActivityService`, pas son comportement interne).
+
+### Vérifications non réalisables depuis cette sandbox
+
+`mvn verify` — pas d'accès au dépôt Maven Central, à faire par Alex
+avant tout commit/push, comme pour chaque ticket précédent. `npm run
+build` (frontend) exécuté avec succès dans cette sandbox.
+
+**Statut : traité, en attente de confirmation `mvn verify` par Alex.**
 
 **Statut :** ⏳ non commencé.

@@ -80,7 +80,7 @@ figé à l'avance.
 
 | Ticket | Objectif | Statut |
 |---|---|---|
-| LL-9001 | Ne plus afficher les activités hors période sur les recherches publiques | ⏳ |
+| LL-9001 | Ne plus afficher les activités hors période sur les recherches publiques | ✅ (en attente mvn verify) |
 
 **Référence :** `docs/05_Sprints/SPRINT_9.md`.
 

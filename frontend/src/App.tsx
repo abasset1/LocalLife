@@ -167,11 +167,16 @@ const DEFAULT_SEARCH_RADIUS_KM = 50;
 const ALL_CATEGORIES = "";
 
 /**
- * Valeur du filtre date représentant « pas de filtre ». Un `<input
- * type="date">` HTML renvoie nativement une chaîne vide quand il est
- * effacé, et sinon déjà au format ISO-8601 `yyyy-MM-dd` attendu par le
- * contrat LL-4005 — aucune conversion nécessaire avant de la passer telle
- * quelle en paramètre `date`.
+ * Valeur du filtre date représentant « pas de filtre explicite ». Un
+ * `<input type="date">` HTML renvoie nativement une chaîne vide quand il
+ * est effacé, et sinon déjà au format ISO-8601 `yyyy-MM-dd` attendu par
+ * le contrat LL-4005 — aucune conversion nécessaire avant de la passer
+ * telle quelle en paramètre `date`. Depuis LL-9001, ne pas envoyer ce
+ * paramètre ne veut plus dire "aucun filtre de date" côté backend : la
+ * date du jour est appliquée par défaut (voir
+ * {@code ActivityService#findNearby} côté backend) — pour voir les
+ * activités passées ou futures, l'utilisateur doit choisir une date
+ * explicitement via ce filtre.
  */
 const NO_DATE_FILTER = "";
 
@@ -291,11 +296,18 @@ function App() {
                 if (response.ok) {
                     const data: Activity[] = await response.json();
                     setActivities(data);
-                    // La liste des catégories disponibles n'est reconstruite que sur la
-                    // réponse non filtrée (ni catégorie ni date) : sinon elle se
-                    // réduirait au fil des sélections (une fois qu'un filtre est actif,
-                    // la réponse ne contient plus que ce qui correspond) et l'utilisateur
-                    // ne pourrait plus revenir en arrière.
+                    // La liste des catégories disponibles n'est reconstruite que quand
+                    // aucun filtre catégorie/date n'est actif : sinon elle se réduirait au
+                    // fil des sélections (une fois qu'un filtre est actif, la réponse ne
+                    // contient plus que ce qui correspond) et l'utilisateur ne pourrait
+                    // plus revenir en arrière.
+                    // Depuis LL-9001, l'absence de filtre date explicite ne veut plus dire
+                    // "réponse non filtrée" côté backend (qui applique désormais la date du
+                    // jour par défaut, voir ActivityService#findNearby) : cette liste ne
+                    // reflète donc que les catégories des activités en cours aujourd'hui,
+                    // pas l'historique complet. Effet de bord jugé cohérent avec l'objectif
+                    // du ticket (ne pas proposer un filtre qui ne renverrait rien) — à
+                    // confirmer avec Alex si un comportement différent est souhaité.
                     if (selectedCategory === ALL_CATEGORIES && selectedDate === NO_DATE_FILTER) {
                         setAvailableCategories(buildCategoryOptions(data));
                     }

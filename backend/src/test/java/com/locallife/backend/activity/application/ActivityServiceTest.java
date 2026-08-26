@@ -60,15 +60,15 @@ class ActivityServiceTest {
         // Given
         Activity expected = new Activity(
                 1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, LocalDate.now()))
                 .thenReturn(List.of(expected));
 
         // When : radius exprimé en km ("5") doit être converti en mètres (5000) pour le repository.
         List<Activity> result = activityService().findNearby("43.2951", "5.3739", "5", null, null);
 
-        // Then
+        // Then : date non fournie -> défaut "aujourd'hui" (LL-9001), pas null.
         verify(activityRepository)
-                .findWithinRadius(eq(43.2951), eq(5.3739), eq(5_000.0), eq("PUBLISHED"), isNull(), isNull());
+                .findWithinRadius(eq(43.2951), eq(5.3739), eq(5_000.0), eq("PUBLISHED"), isNull(), eq(LocalDate.now()));
         assertThat(result).containsExactly(expected);
     }
 
@@ -77,14 +77,14 @@ class ActivityServiceTest {
         // Given : endpoint public (LL-6004) — quels que soient les autres filtres, le statut demandé
         // au repository est toujours PUBLISHED, jamais laissé au choix de l'appelant (contrairement au
         // comportement pré-LL-6003/LL-6004, où un paramètre status existait sur cette méthode).
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", LocalDate.now()))
                 .thenReturn(List.of());
 
         // When
         activityService().findNearby("43.2951", "5.3739", "5", "concert", null);
 
         // Then
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null);
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", LocalDate.now());
     }
 
     @ParameterizedTest
@@ -138,51 +138,53 @@ class ActivityServiceTest {
 
     @Test
     void findNearby_ShouldAccept_WhenRadiusIsExactlyFiftyKilometers() {
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 50_000, "PUBLISHED", null, null))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 50_000, "PUBLISHED", null, LocalDate.now()))
                 .thenReturn(List.of());
 
         activityService().findNearby("43.2951", "5.3739", "50", null, null);
 
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 50_000, "PUBLISHED", null, null);
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 50_000, "PUBLISHED", null, LocalDate.now());
     }
 
     @Test
     void findNearby_ShouldPassCategoryThrough_Unchanged_WhenSingleValue() {
         // Given
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", LocalDate.now()))
                 .thenReturn(List.of());
 
         // When
         activityService().findNearby("43.2951", "5.3739", "5", "concert", null);
 
         // Then
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null);
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", LocalDate.now());
     }
 
     @Test
     void findNearby_ShouldTrimAndDropEmptyValues_WhenMultipleCategoriesWithSpaces() {
         // Given : la normalisation doit retirer les espaces et les segments vides.
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert,marché", null))
+        when(activityRepository.findWithinRadius(
+                43.2951, 5.3739, 5_000, "PUBLISHED", "concert,marché", LocalDate.now()))
                 .thenReturn(List.of());
 
         // When
         activityService().findNearby("43.2951", "5.3739", "5", " concert , marché ,, ", null);
 
         // Then
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert,marché", null);
+        verify(activityRepository)
+                .findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert,marché", LocalDate.now());
     }
 
     @Test
     void findNearby_ShouldPassNullCategory_WhenOnlyBlankValuesProvided() {
         // Given : "  , , " ne contient que des segments vides après nettoyage → équivalent à "pas de filtre".
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, LocalDate.now()))
                 .thenReturn(List.of());
 
         // When
         activityService().findNearby("43.2951", "5.3739", "5", "  , , ", null);
 
         // Then
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null);
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, LocalDate.now());
     }
 
     @Test
@@ -200,16 +202,19 @@ class ActivityServiceTest {
     }
 
     @Test
-    void findNearby_ShouldPassNullDate_WhenDateNotProvided() {
-        // Given
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null))
+    void findNearby_ShouldDefaultDateToToday_WhenDateNotProvided() {
+        // Given : LL-9001 — sans paramètre 'date' explicite, la recherche publique ne doit plus
+        // renvoyer les activités déjà terminées ou pas encore commencées ; le service doit donc
+        // transmettre la date du jour au repository (qui applique déjà ce filtre pour 'date'),
+        // plutôt que null (comportement d'avant LL-9001, qui ne filtrait alors pas du tout).
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, LocalDate.now()))
                 .thenReturn(List.of());
 
         // When
         activityService().findNearby("43.2951", "5.3739", "5", null, null);
 
         // Then
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null);
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, LocalDate.now());
     }
 
     @Test
@@ -236,29 +241,30 @@ class ActivityServiceTest {
         // Given
         Activity expected = new Activity(
                 1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
-        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null))
+        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, LocalDate.now()))
                 .thenReturn(List.of(expected));
 
         // When
         List<Activity> result = activityService()
                 .findWithinBounds("43.28", "5.35", "43.31", "5.40", null, null);
 
-        // Then
-        verify(activityRepository).findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null);
+        // Then : date non fournie -> défaut "aujourd'hui" (LL-9001), pas null.
+        verify(activityRepository).findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, LocalDate.now());
         assertThat(result).containsExactly(expected);
     }
 
     @Test
     void findWithinBounds_ShouldOnlyEverRequestPublishedStatus_SinceLL6004() {
         // Given : même règle que findNearby (LL-6004) — voir findNearby_ShouldOnlyEverRequestPublishedStatus_SinceLL6004.
-        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null))
+        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", LocalDate.now()))
                 .thenReturn(List.of());
 
         // When
         activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", "concert", null);
 
         // Then
-        verify(activityRepository).findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null);
+        verify(activityRepository)
+                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", LocalDate.now());
     }
 
     @ParameterizedTest
@@ -345,14 +351,15 @@ class ActivityServiceTest {
     @Test
     void findWithinBounds_ShouldPassCategoryThrough_WhenProvided() {
         // Given
-        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null))
+        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", LocalDate.now()))
                 .thenReturn(List.of());
 
         // When
         activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", "concert", null);
 
         // Then
-        verify(activityRepository).findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null);
+        verify(activityRepository)
+                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", LocalDate.now());
     }
 
     @Test
@@ -378,6 +385,20 @@ class ActivityServiceTest {
                 .hasMessageContaining("date");
 
         verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findWithinBounds_ShouldDefaultDateToToday_WhenDateNotProvided() {
+        // Given : LL-9001 — même règle que findNearby, voir
+        // findNearby_ShouldDefaultDateToToday_WhenDateNotProvided.
+        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, LocalDate.now()))
+                .thenReturn(List.of());
+
+        // When
+        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", null, null);
+
+        // Then
+        verify(activityRepository).findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, LocalDate.now());
     }
 
     // --- Combinaison de filtres (LL-4014) ---

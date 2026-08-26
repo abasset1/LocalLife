@@ -41,6 +41,8 @@ d'autres correctifs.)
 
 **Priorité : Haute**
 
+**Statut : ✅ traité (en attente de confirmation `mvn verify` par Alex) — voir `docs/PROJECT_STATUS.md` pour le détail de l'implémentation et des décisions retenues.**
+
 **Dépendance :** aucune (indépendant des tickets Sprint 8).
 
 ### Constat

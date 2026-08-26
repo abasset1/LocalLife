@@ -121,17 +121,31 @@ public class ActivityService {
      * aucune activité renvoie simplement une liste vide, pas d'erreur 400.
      *
      * {@code date} (LL-4005) : date unique au format ISO-8601
-     * ({@code yyyy-MM-dd}), ou {@code null} pour ne pas filtrer. Une
-     * activité est retenue quand cette date tombe dans sa période
-     * {@code [startDate, endDate]} (bornes incluses, comparaison au jour
-     * près — l'heure de {@code startDate}/{@code endDate} n'entre pas en
-     * jeu). Couvre à la fois les activités d'une seule journée et celles
-     * s'étalant sur plusieurs jours. {@code endDate} peut être absent en
-     * base (activités créées via le formulaire de contribution, voir
+     * ({@code yyyy-MM-dd}). Une activité est retenue quand cette date
+     * tombe dans sa période {@code [startDate, endDate]} (bornes
+     * incluses, comparaison au jour près — l'heure de {@code
+     * startDate}/{@code endDate} n'entre pas en jeu). Couvre à la fois
+     * les activités d'une seule journée et celles s'étalant sur
+     * plusieurs jours. {@code endDate} peut être absent en base
+     * (activités créées via le formulaire de contribution, voir
      * {@code createActivity} ci-dessous, qui ne renseigne pas de date de
      * fin) : dans ce cas l'activité est traitée comme ne durant que la
      * journée de {@code startDate}, voir
      * {@link ActivityRepository#findWithinRadius} pour le détail SQL.
+     *
+     * Si {@code date} n'est pas fourni (LL-9001, signalé par Alex : les
+     * recherches publiques affichaient jusqu'ici des activités déjà
+     * terminées ou pas encore commencées), la date du jour est utilisée
+     * par défaut plutôt que de ne pas filtrer du tout — une activité
+     * dont la période ne couvre pas aujourd'hui n'apparaît donc plus
+     * sans que l'appelant ait besoin de le demander explicitement. Pour
+     * consulter une activité déjà terminée ou pas encore commencée, il
+     * faut fournir {@code date} explicitement (comportement de
+     * {@code date} lui-même inchangé, seule sa valeur par défaut change).
+     * Ce changement de comportement par défaut est volontairement limité
+     * aux recherches publiques ({@link #findNearby}/
+     * {@link #findWithinBounds}) : {@link #findByStatus} (consultation
+     * administrative, LL-6005) n'est pas concernée.
      *
      * @throws IllegalArgumentException si un paramètre obligatoire est
      *         manquant/non numérique, hors des contraintes du contrat
@@ -152,7 +166,7 @@ public class ActivityService {
                     "Le paramètre 'radius' doit être strictement positif et ne pas dépasser " + (int) MAX_RADIUS_KM
                             + " km.");
         }
-        LocalDate date = parseOptionalDate(dateRaw);
+        LocalDate date = defaultToTodayIfAbsent(parseOptionalDate(dateRaw));
 
         double radiusMeters = radiusKm * 1000;
         String categoriesCsv = normalizeCategories(category);
@@ -211,7 +225,7 @@ public class ActivityService {
                     "Le paramètre 'swLongitude' doit être strictement inférieur à 'neLongitude' "
                             + "(la traversée de l'antiméridien n'est pas supportée).");
         }
-        LocalDate date = parseOptionalDate(dateRaw);
+        LocalDate date = defaultToTodayIfAbsent(parseOptionalDate(dateRaw));
 
         String categoriesCsv = normalizeCategories(category);
         return activityRepository.findWithinBounds(
@@ -360,6 +374,16 @@ public class ActivityService {
             throw new IllegalArgumentException(
                     "Le paramètre 'date' doit être au format ISO-8601 (yyyy-MM-dd).");
         }
+    }
+
+    /**
+     * Applique le défaut « aujourd'hui » décrit dans la javadoc de
+     * {@link #findNearby}/{@link #findWithinBounds} (LL-9001) : un
+     * {@code date} explicite (y compris passé ou futur) reste toujours
+     * prioritaire, {@code parseOptionalDate} n'étant modifiée en rien.
+     */
+    private LocalDate defaultToTodayIfAbsent(LocalDate date) {
+        return date != null ? date : LocalDate.now();
     }
 
     private String normalizeCategories(String categoryRaw) {
