@@ -12,28 +12,21 @@
 - Sprint 5 : `LL-5001` → `LL-5012`
 - Sprint 6 : `LL-6001` → `LL-6011`
 - Sprint 7 : `LL-7001` → `LL-7009`
+- Sprint 8 : `LL-8001` → `LL-8009` (GO bêta conditionnel confirmé par Alex le 26/08/2026)
 
 ## Sprint actuel / prochain sprint
 
-### Sprint 8 — Préparation de la bêta
+### Sprint 9 — Corrections post-bêta
 
 **Statut : En cours**
 
 | Ticket | Objectif | Statut |
 |---|---|---|
-| LL-8001 | Rejouer le parcours MVP après les corrections et figer la baseline | ✅ |
-| LL-8002 | Sécuriser le bootstrap du premier compte administrateur | ✅ |
-| LL-8003 | Améliorer la journalisation des erreurs serveur bloquantes | ✅ |
-| LL-8004 | Configurer les sources OpenAgenda d'Avignon | ✅ |
-| LL-8005 | Automatiser l'import et la persistance des données collectées | ✅ |
-| LL-8006 | Vérifier l'apparition des activités de bout en bout sur la carte | ✅ |
-| LL-8007 | Traiter la dette technique pertinente pour une bêta | ✅ |
-| LL-8008 | Consolider la documentation et préparer la checklist de bêta | ✅ |
-| LL-8009 | Décider et documenter l'ouverture de la première bêta contrôlée | 🟡 GO conditionnel |
+| LL-9001 | Ne plus afficher les activités hors période sur les recherches publiques | ⏳ |
 
-**Détail :** `docs/05_Sprints/SPRINT_8.md`.
-
-## Après Sprint 8
+**Détail :** `docs/05_Sprints/SPRINT_9.md`. Sprint ouvert au fil de l'eau :
+chaque correctif identifié par Alex devient un ticket autonome, traité un
+par un.
 
 Les évolutions produit de Phase 3 restent volontairement non engagées. Elles
 seront priorisées à partir des retours de la bêta et des besoins réellement

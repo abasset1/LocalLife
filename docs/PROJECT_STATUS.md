@@ -1750,7 +1750,7 @@ en a réellement besoin (LL-5004 ou LL-5006 selon l'usage réel).
 
 # Sprint 8
 
-**Statut :** 🟡 En cours.
+**Statut :** ✅ Terminé — GO bêta conditionnel confirmé par Alex le 26/08/2026.
 
 **Objectif :** préparer une première bêta contrôlée à partir du MVP validé,
 sans ajouter de nouveau domaine métier.
@@ -1766,7 +1766,7 @@ l'historique du renumérotage) :
 * LL-8006 — Vérifier l'apparition des activités de bout en bout sur la carte ✅
 * LL-8007 — Traiter la dette technique pertinente pour une bêta ✅
 * LL-8008 — Consolider la documentation et préparer la checklist de bêta ✅
-* LL-8009 — Décider et documenter l'ouverture de la première bêta contrôlée 🟡 (GO conditionnel, voir section dédiée)
+* LL-8009 — Décider et documenter l'ouverture de la première bêta contrôlée ✅ GO conditionnel confirmé
 
 Référence détaillée : `docs/05_Sprints/SPRINT_8.md`.
 
@@ -2163,3 +2163,39 @@ vérifications et à un arbitrage produit qu'Alex est le mieux placé
 pour trancher.
 
 **Sprint 8 terminé** une fois ces trois points confirmés par Alex.
+
+### Confirmation d'Alex (26/08/2026)
+
+Les trois conditions ci-dessus ont été confirmées par Alex (« tout est
+ok »). **Sprint 8 clôturé, bêta ouverte sous les conditions décrites
+ci-dessus** (diversité d'agendas Avignon acceptée en l'état pour cette
+première bêta — un seul agenda Avignon-spécifique actif, voir
+`docs/DETTE_TECHNIQUE.md`). Suite : Sprint 9, tickets de correction
+post-bêta traités un par un (voir `docs/05_Sprints/SPRINT_9.md`).
+
+# Sprint 9
+
+**Statut :** 🟡 En cours.
+
+**Objectif :** traiter, un par un, les correctifs identifiés par Alex
+pendant/après la bêta. Sprint ouvert au fil de l'eau, pas de périmètre
+figé à l'avance — voir `docs/05_Sprints/SPRINT_9.md`.
+
+* LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ⏳
+
+## LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ⏳
+
+**Dépendance :** aucune.
+
+Signalé par Alex le 26/08/2026 : les recherches publiques
+(`/nearby`, `/within-bounds`) ne filtrent aujourd'hui que sur le
+statut (`PUBLISHED`, LL-6004) — aucun filtre n'exclut par défaut une
+activité déjà terminée (`end_date` passée) ou pas encore commencée
+(`start_date` future). Le paramètre `date` existant (LL-4005) permet
+de filtrer sur une date donnée, mais rien ne l'applique par défaut à
+la date du jour.
+
+Ticket détaillé (constat, points à trancher avec Alex, piste
+d'implémentation, critères d'acceptation) : `docs/05_Sprints/SPRINT_9.md`.
+
+**Statut :** ⏳ non commencé.

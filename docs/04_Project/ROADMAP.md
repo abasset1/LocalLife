@@ -34,7 +34,7 @@ La construction du périmètre MVP est terminée.
 ---
 
 ## Phase 2 — Validation et préparation de la bêta
-**Statut : 🟡 En cours — Sprint 8**
+**Statut : 🟡 En cours — Sprint 9**
 
 ### Sprint 7 — Validation du MVP
 **Statut : ✅ Terminé**
@@ -52,7 +52,7 @@ La construction du périmètre MVP est terminée.
 **Référence :** `docs/05_Sprints/SPRINT_7.md`.
 
 ### Sprint 8 — Préparation de la bêta
-**Statut : 🟡 En cours**
+**Statut : ✅ Terminé — GO bêta conditionnel confirmé par Alex (26/08/2026)**
 
 Objectif : rendre le MVP suffisamment robuste, reproductible et documenté
 pour une première bêta contrôlée, sans ajouter de nouveau domaine métier.
@@ -67,9 +67,22 @@ pour une première bêta contrôlée, sans ajouter de nouveau domaine métier.
 | LL-8006 | Vérifier l'apparition des activités de bout en bout sur la carte | ✅ |
 | LL-8007 | Traiter la dette technique pertinente pour une bêta | ✅ |
 | LL-8008 | Consolider la documentation et préparer la checklist de bêta | ✅ |
-| LL-8009 | Décider et documenter l'ouverture de la première bêta contrôlée | 🟡 GO conditionnel |
+| LL-8009 | Décider et documenter l'ouverture de la première bêta contrôlée | ✅ GO conditionnel confirmé |
 
 **Référence :** `docs/05_Sprints/SPRINT_8.md`.
+
+### Sprint 9 — Corrections post-bêta
+**Statut : 🟡 En cours**
+
+Objectif : traiter, un par un, les correctifs identifiés par Alex
+pendant/après la bêta. Sprint ouvert au fil de l'eau, pas de périmètre
+figé à l'avance.
+
+| Ticket | Objectif | Statut |
+|---|---|---|
+| LL-9001 | Ne plus afficher les activités hors période sur les recherches publiques | ⏳ |
+
+**Référence :** `docs/05_Sprints/SPRINT_9.md`.
 
 ---
 
