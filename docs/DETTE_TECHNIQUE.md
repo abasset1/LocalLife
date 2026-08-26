@@ -207,6 +207,43 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
   existant). Procédure documentée dans `backend/README.md`.
 * **Statut** : résolu.
 
+## Trois agendas Avignon sur quatre restent non identifiés
+
+* **Détecté** : lors de LL-8009 (décision go/no-go de la bêta, 25 août
+  2026), en vérifiant le critère d'acceptation de LL-8004 (« plusieurs
+  agendas Avignon »).
+* **Où** : `backend/src/main/resources/application.properties`
+  (`openagenda.avignon-spectacles-uid`, `-patrimoine-uid`,
+  `-loisirs-uid`), toutes vides.
+* **Nature** : à l'origine, un écart plus grave existait — ces
+  propriétés étaient définies mais **jamais lues par aucun bean**
+  (`OpenAgendaCollector` ne consommait que `openagenda.agenda-uid`,
+  un seul agenda au total, même pas Avignon-spécifique). Corrigé par
+  LL-8009 : `OpenAgendaSourcesConfig` enregistre désormais
+  automatiquement un collecteur par agenda dont l'uid est renseigné.
+  Il ne reste donc plus qu'un écart de **donnée** (identifiants réels
+  manquants), plus un écart de **code**.
+* **Impact réel** : un seul agenda spécifiquement Avignonnais est
+  actif (Culture, uid `79839448`), en plus de l'agenda de démonstration
+  historique (Ministère de la culture, non Avignon-spécifique). La
+  diversité de contenu (spectacles, patrimoine, loisirs) visée par
+  LL-8004 n'est donc que partiellement au rendez-vous pour une bêta.
+* **Correctif disponible** : aucune modification de code nécessaire —
+  définir `OPENAGENDA_AVIGNON_SPECTACLES_UID`/`_PATRIMOINE_UID`/
+  `_LOISIRS_UID` (ou les propriétés `openagenda.avignon-*-uid`
+  correspondantes) avec de vrais identifiants d'agendas OpenAgenda
+  suffit ; `OpenAgendaSourcesConfig` les enregistrera automatiquement
+  au prochain démarrage.
+* **Pourquoi pas corrigé immédiatement** : identifier des agendas
+  OpenAgenda réels et pertinents pour Avignon (spectacles, patrimoine,
+  loisirs) est une recherche métier qu'Alex doit faire (accès à
+  openagenda.com, connaissance du terrain), pas quelque chose que
+  Claude peut déterminer depuis cette sandbox (pas d'accès réseau à
+  openagenda.com, domaine non autorisé).
+* **Statut** : ouvert — signalé explicitement dans la décision LL-8009
+  (`docs/PROJECT_STATUS.md`) comme condition à évaluer avant, ou tôt
+  après, l'ouverture de la bêta.
+
 ---
 
 <!--

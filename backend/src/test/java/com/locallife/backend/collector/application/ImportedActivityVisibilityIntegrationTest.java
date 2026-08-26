@@ -8,16 +8,19 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -33,9 +36,12 @@ import org.springframework.transaction.annotation.Transactional;
  * PUBLISHED} — {@code status} n'est plus un paramètre qu'il faille
  * fournir (voir {@code importedActivity_ShouldAppearInPublicSearch_WithoutAnyStatusParameter}).
  *
- * Même approche que {@code ImportServiceIntegrationTest} (LL-5010) :
- * contexte Spring réel, base réelle, seul {@code Collector} mocké
- * ({@code @MockitoBean}). Passe par {@code ImportService} pour créer les
+ * Même approche que {@code ImportServiceIntegrationTest} (LL-5010/
+ * LL-8009) : contexte Spring réel, base réelle, seul {@code Collector}
+ * mocké ({@code SingleMockCollectorConfig}, voir sa Javadoc pour
+ * pourquoi un simple {@code @MockitoBean private Collector} ne suffit
+ * plus depuis que plusieurs {@code OpenAgendaCollector} réels peuvent
+ * être enregistrés). Passe par {@code ImportService} pour créer les
  * activités (pipeline réel), puis par {@code ActivityService} (les mêmes
  * méthodes que celles exposées par {@code ActivityController}) pour
  * vérifier qu'elles sont retrouvées — sans distinction entre activité
@@ -43,6 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
  * d'acceptation (« consultable comme une activité normale »).
  */
 @SpringBootTest
+@Import(SingleMockCollectorConfig.class)
 @Transactional
 class ImportedActivityVisibilityIntegrationTest {
 
@@ -58,8 +65,14 @@ class ImportedActivityVisibilityIntegrationTest {
     @Autowired
     private SourceRepository sourceRepository;
 
-    @MockitoBean
+    @Autowired
     private Collector collector;
+
+    /** Voir {@code ImportServiceIntegrationTest.resetCollectorMock()} (LL-8009). */
+    @BeforeEach
+    void resetCollectorMock() {
+        Mockito.reset(collector);
+    }
 
     private static final double LATITUDE = 43.2965;
     private static final double LONGITUDE = 5.3698;

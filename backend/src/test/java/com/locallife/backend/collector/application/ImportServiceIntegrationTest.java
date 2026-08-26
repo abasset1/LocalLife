@@ -8,27 +8,32 @@ import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.CollectorException;
+import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Tests du pipeline complet (LL-5010) : contexte Spring réel, base réelle
  * (comme {@code ActivityRepositoryIntegrationTest}/
  * {@code UserRepositoryIntegrationTest}) — seul {@code Collector} est
- * remplacé par un mock ({@code @MockitoBean}, remplacement recommandé
- * depuis Spring Boot 3.4 pour l'ancien {@code @MockBean}, retiré en 4.0) :
- * c'est la seule véritable frontière externe du pipeline (appel réseau
- * vers OpenAgenda). {@code NormalizationService}, {@code
- * DeduplicationService}, {@code SourceService}/{@code SourceRepository}
- * et {@code ActivityRepository} sont les implémentations réelles.
+ * remplacé par un mock ({@code SingleMockCollectorConfig}, LL-8009 —
+ * remplace un unique {@code @MockitoBean private Collector collector;},
+ * insuffisant depuis que plusieurs {@code OpenAgendaCollector} réels
+ * peuvent être enregistrés, voir sa Javadoc) : c'est la seule véritable
+ * frontière externe du pipeline (appel réseau vers OpenAgenda).
+ * {@code NormalizationService}, {@code DeduplicationService},
+ * {@code SourceService}/{@code SourceRepository} et
+ * {@code ActivityRepository} sont les implémentations réelles.
  *
  * Couvre les 7 cas demandés par {@code SPRINT_5.md} : donnée valide,
  * donnée invalide, doublon, nouvelle activité, mise à jour, erreur du
@@ -39,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code ActivityRepositoryIntegrationTest}.
  */
 @SpringBootTest
+@Import(SingleMockCollectorConfig.class)
 @Transactional
 class ImportServiceIntegrationTest {
 
@@ -51,8 +57,21 @@ class ImportServiceIntegrationTest {
     @Autowired
     private SourceRepository sourceRepository;
 
-    @MockitoBean
+    @Autowired
     private Collector collector;
+
+    /**
+     * {@code @MockitoBean} réinitialisait automatiquement le mock entre
+     * chaque test (comportement par défaut, {@code MockReset.AFTER}) —
+     * un simple {@code @Autowired} sur le bean fourni par
+     * {@code SingleMockCollectorConfig} (LL-8009) ne le fait plus,
+     * puisque ce n'est plus {@code @MockitoBean} qui gère ce bean.
+     * Reproduit le même comportement explicitement.
+     */
+    @BeforeEach
+    void resetCollectorMock() {
+        Mockito.reset(collector);
+    }
 
     private String uniqueSourceName() {
         return "Test Source " + UUID.randomUUID();

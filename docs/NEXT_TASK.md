@@ -9,8 +9,10 @@ guide de démonstration ajouté au `README.md` (LL-7008). Détail complet :
 
 Phase actuelle : **Phase 2 — Validation et préparation de la bêta**.
 
-**Sprint 8 — Préparation de la bêta**, en cours. Huit tickets sur neuf
-terminés :
+**Sprint 8 — Préparation de la bêta.** Les neuf tickets ont été
+traités ; LL-8009 (dernier ticket) a rendu une décision **GO bêta
+conditionnel** — trois conditions restent à confirmer par Alex avant
+l'ouverture effective (voir plus bas).
 
 `LL-8001` terminé : parcours MVP rejoué après les corrections du
 Sprint 7, aucune régression, baseline figée.
@@ -24,9 +26,11 @@ remplace la promotion SQL manuelle utilisée jusque-là.
 journalisées au niveau `ERROR` par `GlobalExceptionHandler`, sans mot
 de passe ni JWT dans les logs ; contrat HTTP existant inchangé.
 
-`LL-8004` terminé : plusieurs agendas OpenAgenda configurés pour
-Avignon ; pagination complète de l'API OpenAgenda (`size=300` + curseur
-`after`), l'API ne renvoyant que 20 résultats par défaut.
+`LL-8004` : agendas OpenAgenda configurés pour Avignon ; pagination
+complète de l'API OpenAgenda (`size=300` + curseur `after`), l'API ne
+renvoyant que 20 résultats par défaut. **Écart trouvé pendant LL-8009**
+(voir plus bas) : les propriétés `openagenda.avignon-*-uid` n'étaient
+en réalité jamais lues par aucun bean — corrigé par LL-8009.
 
 `LL-8005` terminé : import automatique planifié (`ImportScheduler`,
 toutes les heures), en plus du déclenchement manuel existant
@@ -45,10 +49,10 @@ limite Checkstyle de 120 caractères.
 vulnérabilité `nanoid` (déjà résolue, preuve formalisée), défaut de
 formatage de `ActivityController` (corrigé), duplication des deux
 `ROADMAP.md` (déjà résolue avant ce ticket, preuve formalisée). Aucune
-nouvelle dette bloquante découverte pendant LL-8001.
-`docs/DETTE_TECHNIQUE.md` ne contient plus d'entrée « ouverte ».
+nouvelle dette bloquante découverte pendant LL-8001. Une nouvelle
+entrée a été ajoutée depuis, par LL-8009 (voir plus bas).
 
-`LL-8008` terminé (ce ticket) : documentation consolidée —
+`LL-8008` terminé : documentation consolidée —
 `README.md`, `backend/README.md`, `frontend/README.md`,
 `docs/PROJECT_STATUS.md`, `docs/04_Project/ROADMAP.md`,
 `docs/01_Product/BACKLOG.md`, `docs/NEXT_TASK.md` (ce fichier),
@@ -57,14 +61,31 @@ Sprint 7 comme sprint courant ; le guide de démonstration du `README.md`
 racine reflète la baseline actuelle (import automatique, popup
 lieu/source, clustering).
 
+`LL-8009` terminé (ce ticket) : décision go/no-go de la bêta. Écart
+trouvé en vérifiant le critère « plusieurs agendas Avignon » (LL-8004,
+voir ci-dessus) et corrigé (`OpenAgendaSourcesConfig` enregistre
+désormais un collecteur par agenda réellement configuré, au lieu d'un
+unique `@Component` ne consommant qu'un seul agenda). Limite résiduelle
+documentée dans `docs/DETTE_TECHNIQUE.md` : un seul agenda
+Avignon-spécifique a un uid réel (Culture) ; les trois autres restent
+à identifier par Alex. **Décision : GO bêta conditionnel**, trois
+conditions à confirmer par Alex avant ouverture effective (voir
+`docs/PROJECT_STATUS.md`, section LL-8009) :
+
+1. `mvn verify` passe.
+2. Vérification manuelle : un import réel affiche des activités des
+   deux agendas actifs sur la carte.
+3. Arbitrage produit : un seul agenda Avignon actif suffit-il pour
+   cette première bêta restreinte, ou faut-il en identifier d'autres
+   avant l'ouverture ?
+
 ## Prochaine tâche
 
-**LL-8009 — Décider et documenter l'ouverture de la première bêta
-contrôlée**, détail : `docs/05_Sprints/SPRINT_8.md`.
-
-Dernier ticket du Sprint 8 : formaliser une décision go/no-go à partir
-de la baseline figée en LL-8001 et des corrections apportées depuis
-(LL-8002 → LL-8008), avec une checklist de bêta documentée.
+Sprint 8 terminé sur le plan du contenu ; il ne reste que les trois
+confirmations ci-dessus, à la charge d'Alex (nécessitent un
+environnement réel — réseau, base de données locale — indisponible
+dans cette sandbox). Une fois confirmées, le Sprint 9 (post-bêta,
+retours utilisateurs) pourra être planifié.
 
 ## Règles
 

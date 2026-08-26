@@ -27,9 +27,12 @@ import org.springframework.stereotype.Service;
  *
  * Injecte {@code List<Collector>} (et non un seul) : pattern Spring
  * standard pour rester ouvert à plusieurs collecteurs sans construire de
- * registre ni de mécanisme de découverte — un seul {@code Collector} est
- * enregistré à ce stade ({@code OpenAgendaCollector}, LL-5006), la règle
- * du sprint « ne pas créer plusieurs collecteurs » n'est pas enfreinte.
+ * registre ni de mécanisme de découverte — un seul type de
+ * {@code Collector} existe ({@code OpenAgendaCollector}, LL-5006), mais
+ * plusieurs instances en sont enregistrées depuis LL-8009 (une par
+ * agenda OpenAgenda configuré, voir {@code OpenAgendaSourcesConfig}) ;
+ * la règle du sprint « ne pas créer plusieurs collecteurs » (au sens
+ * plusieurs sources/API différentes) n'est donc toujours pas enfreinte.
  *
  * Critères LL-5008 :
  * <ul>

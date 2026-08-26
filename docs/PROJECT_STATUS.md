@@ -1766,7 +1766,7 @@ l'historique du renumérotage) :
 * LL-8006 — Vérifier l'apparition des activités de bout en bout sur la carte ✅
 * LL-8007 — Traiter la dette technique pertinente pour une bêta ✅
 * LL-8008 — Consolider la documentation et préparer la checklist de bêta ✅
-* LL-8009 — Décider et documenter l'ouverture de la première bêta contrôlée ⏳
+* LL-8009 — Décider et documenter l'ouverture de la première bêta contrôlée 🟡 (GO conditionnel, voir section dédiée)
 
 Référence détaillée : `docs/05_Sprints/SPRINT_8.md`.
 
@@ -2046,3 +2046,120 @@ installer, démarrer, vérifier et démontrer LocalLife.
 neuf fichiers listés par le ticket, critères d'acceptation satisfaits.
 Sprint 8 peut se poursuivre avec LL-8009 (décision go/no-go de la
 première bêta contrôlée), dernier ticket du sprint.
+
+## LL-8009 — Décider et documenter l'ouverture de la première bêta contrôlée
+
+**Dépendance :** LL-8001 → LL-8008 (toutes terminées, voir sections
+ci-dessus).
+
+### Écart trouvé pendant l'évaluation du critère « alimentation automatique multi-agenda »
+
+En vérifiant le critère « les activités sont alimentées automatiquement
+par les collecteurs (LL-8004, LL-8005, LL-8006) », relecture du câblage
+Spring réel de `OpenAgendaCollector` (pas seulement des propriétés) :
+
+* `application.properties` définissait bien `openagenda.avignon-culture-uid`
+  (`79839448`) et trois placeholders vides pour spectacles/patrimoine/
+  loisirs, comme documenté pour LL-8004.
+* **Mais** `OpenAgendaCollector` restait un unique `@Component` Spring,
+  construit uniquement à partir de `openagenda.agenda-uid` (l'agenda
+  de démonstration historique, `86244142`, pas même Avignon-spécifique)
+  — les propriétés `openagenda.avignon-*` n'étaient donc **jamais
+  lues par aucun bean**. Une exécution du collecteur ne portait donc
+  jamais que sur un seul agenda, en contradiction directe avec le
+  critère d'acceptation explicite de LL-8004 (« une exécution du
+  collector doit récupérer des activités provenant de plusieurs
+  agendas Avignon »).
+
+### Correctif apporté
+
+* `OpenAgendaCollector` n'est plus un `@Component` auto-détecté.
+* Nouvelle classe `OpenAgendaSourcesConfig` (`@Configuration`) qui
+  construit directement un `List<Collector>` : une instance
+  `OpenAgendaCollector` par agenda dont l'uid est réellement configuré
+  (non vide), silencieusement ignoré sinon plutôt que d'ajouter un
+  collecteur voué à échouer à chaque import. `ImportService` reçoit
+  ce `List<Collector>` sans aucune modification de son propre code
+  (Spring injecte directement la collection déjà construite par le
+  `@Bean`).
+* Trois tests d'intégration (`ImportServiceIntegrationTest`,
+  `ImportedActivityVisibilityIntegrationTest`,
+  `AdminImportControllerIntegrationTest`) reposaient sur
+  `@MockitoBean private Collector collector;`, qui ne fonctionne que
+  s'il existe exactement un bean `Collector` dans le contexte —
+  cassé dès qu'un deuxième agenda réel est enregistré. Remplacé par
+  une configuration de test partagée (`SingleMockCollectorConfig`,
+  `@TestConfiguration` + `@Primary`) qui substitue tous les
+  collecteurs réels par un unique mock pilotable, avec réinitialisation
+  explicite entre tests (`@BeforeEach`, comportement que
+  `@MockitoBean` fournissait implicitement).
+* Nouveaux tests (`OpenAgendaSourcesConfigTest`) : un collecteur par
+  agenda configuré, aucun pour un agenda non configuré, les cinq
+  agendas simultanément si tous configurés.
+* `ImportService`, `COLLECTOR_OPERATIONS.md` : Javadoc/documentation
+  corrigées (affirmaient encore explicitement qu'un seul `Collector`
+  est enregistré).
+
+### Limite résiduelle, non corrigible depuis cette sandbox
+
+Seul l'agenda Avignon Culture (`79839448`) a un uid réel configuré ;
+Spectacles/Patrimoine/Loisirs restent des placeholders vides — Alex
+doit identifier ces agendas sur openagenda.com (recherche métier,
+hors de portée d'une sandbox sans accès à ce domaine) et définir les
+variables d'environnement correspondantes, aucune modification de code
+n'étant nécessaire ensuite. Nouvelle entrée dans
+`docs/DETTE_TECHNIQUE.md` pour ce point.
+
+### Évaluation des critères de décision (rappel `SPRINT_8.md`)
+
+| Critère GO | Évaluation |
+|---|---|
+| La baseline MVP passe | ✅ LL-8001, 10/10 scénarios, aucune régression |
+| Activités alimentées automatiquement par les collecteurs | 🟡 Oui (`ImportScheduler`, LL-8005), mais seulement 2 agendas réels actifs (démonstration + Avignon Culture) au lieu de « plusieurs agendas Avignon » au sens plein — voir écart ci-dessus |
+| Aucun défaut critique ou blocage connu ouvert | ✅ `docs/DETTE_TECHNIQUE.md` : une seule entrée ouverte, la limite résiduelle ci-dessus (non bloquante — dégradation, pas panne) |
+| Démarrage et compte `ADMIN` reproductibles | ✅ LL-8002, procédure documentée (`README.md`) |
+| Erreurs serveur importantes observables | ✅ LL-8003, `GlobalExceptionHandler` |
+| Documentation de démonstration cohérente | ✅ LL-8008 |
+
+Aucun critère NO-GO n'est rempli strictement (pas de régression MVP,
+pas de problème de sécurité/données, installation reproductible,
+alimentation automatique réellement fonctionnelle même si limitée en
+diversité, aucune dette critique non maîtrisée) — mais le critère
+« plusieurs agendas Avignon » de LL-8004 n'est encore que partiellement
+satisfait après correctif : une décision produit (diversité jugée
+suffisante ou non pour une première bêta restreinte), pas seulement
+technique.
+
+### Vérifications non réalisables depuis cette sandbox
+
+* `mvn verify` — pas d'accès au dépôt Maven Central, à faire par Alex
+  avant tout commit/push (comme pour chaque ticket précédent).
+* Vérification manuelle réelle sur la carte (import déclenché, deux
+  sources visibles avec leurs vraies données OpenAgenda) — nécessite
+  un accès réseau à `api.openagenda.com` et une base Postgres locale,
+  absents de cette sandbox. LL-8006 avait déjà laissé ce point en
+  attente ; toujours non confirmé par Alex à ce jour.
+
+### Décision
+
+**GO bêta, sous conditions**, à confirmer par Alex avant l'ouverture
+effective :
+
+1. `mvn verify` passe (avec les correctifs de ce ticket inclus).
+2. Vérification manuelle rapide : un import réel affiche bien des
+   activités provenant des deux agendas actuellement actifs
+   (démonstration + Avignon Culture) sur la carte.
+3. Décision produit explicite sur la diversité d'agendas Avignon :
+   soit accepter un seul agenda Avignon-spécifique actif pour cette
+   première bêta restreinte (la dette résiduelle documentée
+   ci-dessus n'étant pas bloquante en soi), soit identifier au moins
+   un agenda Avignon supplémentaire avant l'ouverture.
+
+Aucune de ces trois conditions ne remet en cause la baseline
+technique elle-même (aucune régression, aucun problème de sécurité ou
+de données, installation reproductible) — la décision GO n'est donc
+pas conditionnée à un nouveau cycle de développement, seulement à des
+vérifications et à un arbitrage produit qu'Alex est le mieux placé
+pour trancher.
+
+**Sprint 8 terminé** une fois ces trois points confirmés par Alex.

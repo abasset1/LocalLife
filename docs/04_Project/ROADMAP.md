@@ -67,7 +67,7 @@ pour une première bêta contrôlée, sans ajouter de nouveau domaine métier.
 | LL-8006 | Vérifier l'apparition des activités de bout en bout sur la carte | ✅ |
 | LL-8007 | Traiter la dette technique pertinente pour une bêta | ✅ |
 | LL-8008 | Consolider la documentation et préparer la checklist de bêta | ✅ |
-| LL-8009 | Décider et documenter l'ouverture de la première bêta contrôlée | ⏳ |
+| LL-8009 | Décider et documenter l'ouverture de la première bêta contrôlée | 🟡 GO conditionnel |
 
 **Référence :** `docs/05_Sprints/SPRINT_8.md`.
 

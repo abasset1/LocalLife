@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.1 — 2026-08-25
+
+### Sprint 8 / LL-8009 — Décision go/no-go de la bêta
+- Écart trouvé en vérifiant le critère « plusieurs agendas Avignon » (LL-8004) : les propriétés `openagenda.avignon-*-uid` étaient définies mais jamais lues par aucun bean — un seul agenda (la démonstration historique, pas même Avignon-spécifique) était réellement collecté, quel que soit le nombre d'agendas configurés en propriétés.
+- Corrigé : `OpenAgendaSourcesConfig` (nouvelle classe) enregistre désormais un collecteur par agenda dont l'uid est réellement configuré ; `OpenAgendaCollector` n'est plus un `@Component` auto-détecté.
+- Trois tests d'intégration ajustés (`SingleMockCollectorConfig`, nouvelle configuration de test partagée) pour rester isolés d'un appel réseau réel malgré plusieurs collecteurs désormais actifs.
+- Limite résiduelle documentée (`docs/DETTE_TECHNIQUE.md`) : seul l'agenda Avignon Culture a un uid réel, les trois autres (spectacles/patrimoine/loisirs) restent à identifier par Alex.
+- Décision : **GO bêta conditionnel**, voir `docs/PROJECT_STATUS.md` (section LL-8009) pour les conditions précises avant ouverture effective.
+
 ## 0.9.0 — 2026-08-25
 
 ### Sprint 8 / Préparation de la bêta (LL-8001 → LL-8008)

@@ -7,9 +7,6 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -80,8 +77,18 @@ import org.springframework.web.client.RestClientException;
  *       documentation OpenAgenda ne fournit pas d'URL canonique directe
  *       dans la réponse de lecture des événements.</li>
  * </ul>
+ *
+ * <b>Multi-agenda (LL-8004/LL-8009)</b> : cette classe n'est plus un
+ * {@code @Component} auto-enregistré — un même agenda (un seul
+ * {@code openagenda.agenda-uid}) ne suffisait pas au critère
+ * d'acceptation de LL-8004 (« plusieurs agendas Avignon »), et les
+ * propriétés {@code openagenda.avignon-*-uid} ajoutées pour ce ticket
+ * n'étaient en réalité jamais lues par aucun bean. Une instance par
+ * agenda réellement configuré est désormais créée par
+ * {@link OpenAgendaSourcesConfig}, qui construit un
+ * {@code List<Collector>} directement (voir sa Javadoc) plutôt que de
+ * s'appuyer sur le scan de composants Spring.
  */
-@Component
 public class OpenAgendaCollector implements Collector {
 
     private static final String BASE_URL = "https://api.openagenda.com";
@@ -101,25 +108,22 @@ public class OpenAgendaCollector implements Collector {
     private final String sourceName;
     private final String regionFilter;
 
-    @Autowired
-    public OpenAgendaCollector(
-            @Value("${openagenda.api-key:}") String apiKey,
-            @Value("${openagenda.agenda-uid:}") String agendaUid,
-            @Value("${openagenda.source-name:OpenAgenda}") String sourceName,
-            @Value("${OPENAGENDA_REGION_FILTER:}") String regionFilter) {
-        this(RestClient.builder(), apiKey, agendaUid, sourceName, regionFilter);
-    }
-
     /**
-     * Constructeur visible package-privé pour les tests : permet d'injecter
-     * un {@link RestClient.Builder} lié à un {@code MockRestServiceServer}
-     * plutôt que d'appeler la vraie API OpenAgenda, comme
-     * {@code GeocodingService}.
+     * Constructeur package-privé sans filtre de région, pour les tests
+     * qui n'en ont pas besoin (voir le second constructeur pour l'usage
+     * en production, {@link OpenAgendaSourcesConfig}).
      */
     OpenAgendaCollector(RestClient.Builder builder, String apiKey, String agendaUid, String sourceName) {
         this(builder, apiKey, agendaUid, sourceName, "");
     }
 
+    /**
+     * Constructeur package-privé : permet d'injecter un
+     * {@link RestClient.Builder} lié à un {@code MockRestServiceServer}
+     * plutôt que d'appeler la vraie API OpenAgenda dans les tests, comme
+     * {@code GeocodingService}. Utilisé aussi en production, une fois
+     * par agenda configuré, par {@link OpenAgendaSourcesConfig}.
+     */
     OpenAgendaCollector(
             RestClient.Builder builder,
             String apiKey,

@@ -11,6 +11,7 @@ import com.locallife.backend.auth.api.RegisterRequest;
 import com.locallife.backend.collector.application.ImportResult;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
 import io.jsonwebtoken.Jwts;
@@ -22,15 +23,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import javax.crypto.SecretKey;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
@@ -41,9 +44,12 @@ import org.springframework.test.web.servlet.client.RestTestClient;
  * (LL-6005/LL-6006) pour la construction des tokens ({@code adminToken()}
  * fabriqué directement, aucun endpoint ne permettant de créer un compte
  * {@code ADMIN}) — et même approche que {@code ImportServiceIntegrationTest}
- * (LL-5010) pour isoler le pipeline d'un appel réseau réel : le
- * {@code Collector} enregistré ({@code OpenAgendaCollector}) est remplacé
- * par un mock ({@code @MockitoBean}), seule frontière externe du pipeline.
+ * (LL-5010/LL-8009) pour isoler le pipeline d'un appel réseau réel : les
+ * {@code Collector}s réellement enregistrés ({@code OpenAgendaCollector},
+ * potentiellement plusieurs depuis LL-8009, voir
+ * {@code OpenAgendaSourcesConfig}) sont remplacés par un unique mock
+ * ({@code SingleMockCollectorConfig}), seule frontière externe du
+ * pipeline.
  *
  * Ne revérifie pas le détail du pipeline lui-même (création/mise à
  * jour/rejet/erreurs), déjà couvert exhaustivement par
@@ -53,6 +59,7 @@ import org.springframework.test.web.servlet.client.RestTestClient;
  * réellement {@code ImportService#importAll()} via le pipeline existant.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(SingleMockCollectorConfig.class)
 class AdminImportControllerIntegrationTest {
 
     private static final String PASSWORD = "motDePasse123";
@@ -63,8 +70,14 @@ class AdminImportControllerIntegrationTest {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @MockitoBean
+    @Autowired
     private Collector collector;
+
+    /** Voir {@code ImportServiceIntegrationTest.resetCollectorMock()} (LL-8009). */
+    @BeforeEach
+    void resetCollectorMock() {
+        Mockito.reset(collector);
+    }
 
     @Autowired
     private ActivityRepository activityRepository;

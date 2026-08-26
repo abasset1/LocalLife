@@ -280,15 +280,21 @@ Résumé de l'avancement (25 août 2026) :
   section 4 ci-dessus).
 * **LL-8003** — exceptions serveur non gérées désormais journalisées
   (niveau `ERROR`, sans donnée sensible) par `GlobalExceptionHandler`.
-* **LL-8004** — plusieurs agendas OpenAgenda configurés pour Avignon ;
-  pagination complète de l'API OpenAgenda (au-delà des 20 premiers
-  résultats par défaut).
+* **LL-8004** — pagination complète de l'API OpenAgenda (au-delà des 20
+  premiers résultats par défaut) ; agendas Avignon configurés en
+  propriétés, mais réellement câblés (plusieurs collecteurs enregistrés
+  simultanément) seulement depuis la correction apportée par LL-8009
+  (voir ci-dessous — écart trouvé lors de la vérification finale).
 * **LL-8005** — import automatique planifié (voir section 5
   ci-dessus).
 * **LL-8006** — affichage de bout en bout vérifié sur la carte ; popup
   enrichi (lieu, source).
-* **LL-8007** — dette technique pertinente pour une bêta traitée ;
-  `docs/DETTE_TECHNIQUE.md` ne contient plus d'entrée ouverte.
-* **LL-8008** (ce ticket) — documentation consolidée.
-* **LL-8009** — reste à faire : décision d'ouverture de la première
-  bêta contrôlée.
+* **LL-8007** — dette technique pertinente pour une bêta traitée à la
+  date du ticket (nouvelle entrée ouverte depuis, voir LL-8009).
+* **LL-8008** — documentation consolidée.
+* **LL-8009** — décision **GO bêta conditionnel** : écart trouvé et
+  corrigé (agendas Avignon jamais réellement câblés malgré les
+  propriétés déjà présentes), un seul agenda Avignon réel reste actif
+  (Culture) en attendant qu'Alex en identifie d'autres — voir
+  `docs/PROJECT_STATUS.md` et `docs/DETTE_TECHNIQUE.md` pour le détail
+  et les conditions avant ouverture effective.
