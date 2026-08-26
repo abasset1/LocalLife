@@ -94,8 +94,9 @@ class ImportedActivityVisibilityIntegrationTest {
 
     @Test
     void importedActivity_ShouldAppearInNearbySearch() {
-        // Given
-        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now().plusDays(1));
+        // Given : LL-9001 — l'activité doit être "en cours aujourd'hui" pour apparaître sans
+        // paramètre 'date' explicite (sinon désormais filtrée par défaut, voir ActivityService).
+        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now());
 
         // When : recherche géographique (LL-4002/LL-4003), rayon 5 km autour du point exact.
         List<Activity> results = activityService.findNearby(
@@ -107,8 +108,8 @@ class ImportedActivityVisibilityIntegrationTest {
 
     @Test
     void importedActivity_ShouldAppearInBoundingBoxSearch() {
-        // Given
-        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now().plusDays(1));
+        // Given : voir importedActivity_ShouldAppearInNearbySearch (LL-9001).
+        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now());
 
         // When : recherche par zone cartographique (LL-4006/LL-4007), zone englobant Marseille.
         List<Activity> results = activityService.findWithinBounds(
@@ -120,8 +121,8 @@ class ImportedActivityVisibilityIntegrationTest {
 
     @Test
     void importedActivity_ShouldBeFilterableByCategory() {
-        // Given
-        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now().plusDays(1));
+        // Given : voir importedActivity_ShouldAppearInNearbySearch (LL-9001).
+        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now());
 
         // When / Then : filtre catégorie correspondant (LL-4004).
         List<Activity> matching = activityService.findNearby(
@@ -157,7 +158,8 @@ class ImportedActivityVisibilityIntegrationTest {
         // Depuis LL-6004, findNearby/findWithinBounds ne prennent plus de paramètre status : ce test
         // vérifie qu'une activité importée (PUBLISHED) apparaît bien sans qu'il faille rien demander de
         // particulier — c'est précisément le seul statut que ces endpoints publics retournent désormais.
-        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now().plusDays(1));
+        // Voir aussi importedActivity_ShouldAppearInNearbySearch pour la date (LL-9001).
+        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now());
 
         // When / Then
         List<Activity> matching = activityService.findNearby(

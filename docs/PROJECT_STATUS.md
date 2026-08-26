@@ -2254,4 +2254,23 @@ build` (frontend) exécuté avec succès dans cette sandbox.
 
 **Statut : traité, en attente de confirmation `mvn verify` par Alex.**
 
+### Correctif complémentaire — `mvn verify` en échec (signalé par Alex)
+
+`ImportedActivityVisibilityIntegrationTest` échouait sur 4 tests
+(`ShouldAppearInNearbySearch`, `ShouldAppearInBoundingBoxSearch`,
+`ShouldBeFilterableByCategory`,
+`ShouldAppearInPublicSearch_WithoutAnyStatusParameter`) : ces tests
+créaient une activité de test démarrant **demain**
+(`LocalDateTime.now().plusDays(1)`), puis recherchaient sans paramètre
+`date` explicite — comportement désormais correctement filtré par
+LL-9001 (une activité qui n'a pas encore commencé n'apparaît plus par
+défaut). Pas une régression du correctif : les données de test étaient
+devenues incohérentes avec la nouvelle règle métier qu'elles exercent
+sans le vouloir. Corrigé en changeant la date de fixture pour ces 4
+tests (`LocalDateTime.now()`, activité "en cours aujourd'hui"), sans
+toucher `importedActivity_ShouldBeFilterableByDate` (utilise déjà une
+date fixe avec un paramètre `date` explicite, non affecté) ni
+`importedActivity_ShouldBeConsultableById_LikeAnyOtherActivity`
+(passe par `findById`, pas par la recherche publique).
+
 **Statut :** ⏳ non commencé.
