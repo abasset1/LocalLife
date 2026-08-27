@@ -57,8 +57,9 @@ Internet
 │                                               │
 │   Caddy (reverse proxy + HTTPS automatique)  │
 │     │                                        │
-│     ├── /api/*  ──────────► backend (8080)   │
-│     └── /*      ──────────► frontend (nginx) │
+│     ├── /api/*       ─────► backend (8080)   │
+│     ├── /actuator/*  ─────► backend (8080)   │
+│     └── /*           ─────► frontend (nginx) │
 │                                               │
 │   backend ─────────► postgres (PostGIS)      │
 │                                               │
@@ -154,27 +155,145 @@ pour rester dans le périmètre strictement documentaire de ce ticket.
 
 ---
 
-## Procédure de déploiement (résumé)
+### Constat signalé — données de démo (`V3__insert_demo_activities.sql`)
 
-Le détail opérationnel (commandes exactes, dépannage) est développé
-lors de l'exécution réelle en LL-9003/LL-9004. Ce résumé fixe la
-séquence attendue :
+Les migrations Flyway s'exécutent automatiquement au premier démarrage
+du backend, y compris en bêta. `V3__insert_demo_activities.sql`
+(Sprint 1) insère 5 activités de démonstration situées à **Marseille**
+(pas Avignon) avec des dates majoritairement déjà **passées** au
+27/08/2026 — elles resteront donc invisibles des recherches publiques
+grâce au filtre LL-9001, mais visibles en consultation administrative
+(`findByStatus`) et présentes en base.
 
-1. Créer l'instance Oracle Cloud Free Tier (Ampere A1, Ubuntu, région
-   Europe), ouvrir les ports 80/443 dans les règles réseau (Security
-   List / NSG).
-2. Installer Docker et Docker Compose sur l'instance.
-3. Pointer le sous-domaine DuckDNS vers l'IP publique de l'instance.
-4. Cloner le dépôt sur le VPS (lecture seule, pas de clé de
-   déploiement à privilèges élevés).
-5. Créer `infra/.env.beta` sur le VPS à partir du template, avec des
-   valeurs générées pour la bêta (jamais copiées depuis le dev
-   local).
-6. Lancer `docker compose -f infra/docker-compose.beta.yml up -d
-   --build`.
-7. Vérifier le health check backend (`GET /actuator/health`, déjà
-   exposé via `management.endpoints.web.exposure.include=health,info`)
-   et l'accès HTTPS au frontend.
+Non corrigé ici : modifier une migration déjà appliquée dans d'autres
+environnements casserait la validation de checksum Flyway
+(`docs/AI_RULES.md`, ne jamais modifier une décision déjà actée sans
+raison). Une nouvelle migration (`V14__...`) pour retirer ces lignes
+en bêta serait possible mais constitue un choix de contenu de données,
+pas une tâche d'infrastructure — hors périmètre de LL-9003/9002. À
+trancher explicitement par Alex si souhaité.
+
+## Procédure de déploiement — LL-9003 (backend + base de données)
+
+Mode opératoire détaillé pour ce ticket : rendre l'API et PostgreSQL/
+PostGIS opérationnels sur le VPS bêta, accessibles depuis Internet en
+HTTPS. Le frontend (`frontend/Dockerfile`) est construit et démarré
+dans le même mouvement (`docker compose up` sur l'ensemble des
+services définis dans `docker-compose.beta.yml`) car Caddy route déjà
+`/*` vers lui — mais sa validation fonctionnelle (inscription,
+connexion, carte, contribution) reste le périmètre de LL-9004, pas de
+celui-ci.
+
+### 1. Créer l'instance Oracle Cloud
+
+* Compute → Create Instance → forme **Ampere (ARM), VM.Standard.A1.Flex**
+  (2 OCPU / 12 Go — voir note ARM ci-dessus), image **Ubuntu 24.04
+  (aarch64)**, région Europe (ex. Marseille ou Francfort selon
+  disponibilité).
+* Ajouter une clé SSH publique à la création (pas de mot de passe).
+* Noter l'adresse IP publique attribuée.
+
+### 2. Ouvrir les ports 80/443 — deux endroits, pas un seul
+
+Piège Oracle Cloud connu : le trafic est bloqué à **deux niveaux**
+indépendants, les deux doivent être ouverts :
+
+* **Security List / Network Security Group** (console Oracle, au
+  niveau du VCN) : ajouter des règles ingress pour les ports 80 et 443
+  (0.0.0.0/0, TCP).
+* **Pare-feu système de l'instance** (`iptables`, actif par défaut sur
+  les images Ubuntu Oracle) :
+
+```bash
+sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+sudo netfilter-persistent save
+```
+
+### 3. Installer Docker
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER
+# se reconnecter en SSH pour que le groupe soit pris en compte
+docker compose version   # vérifie le plugin Compose (inclus depuis get.docker.com)
+```
+
+### 4. Configurer le sous-domaine DuckDNS
+
+* Créer un compte sur https://www.duckdns.org, créer le sous-domaine
+  (ex. `locallife-beta`), le faire pointer vers l'IP publique de
+  l'instance.
+* Vérifier la propagation : `dig +short locallife-beta.duckdns.org`
+  doit renvoyer l'IP de l'instance.
+
+### 5. Cloner le dépôt
+
+```bash
+git clone https://github.com/abasset1/LocalLife.git
+cd LocalLife
+```
+
+(dépôt public, pas de clé de déploiement nécessaire.)
+
+### 6. Créer les secrets bêta
+
+```bash
+cd infra
+cp .env.beta.example .env.beta
+chmod 600 .env.beta
+# éditer .env.beta et remplacer chaque "changez_moi" par une valeur réelle :
+openssl rand -base64 32   # à exécuter deux fois : POSTGRES_PASSWORD, JWT_SECRET
+```
+
+`LOCALLIFE_DOMAIN` = `locallife-beta.duckdns.org` (ou le sous-domaine
+choisi). `OPENAGENDA_API_KEY` : reprendre la clé déjà utilisée en
+local (`application.properties`) — pas un nouveau secret à générer.
+
+### 7. Démarrer la pile
+
+```bash
+docker compose -f docker-compose.beta.yml up -d --build
+docker compose -f docker-compose.beta.yml ps
+```
+
+### 8. Vérifier les critères d'acceptation LL-9003
+
+```bash
+# Health check, en HTTPS via Caddy :
+curl -i https://locallife-beta.duckdns.org/actuator/health
+# attendu : 200, {"status":"UP"}
+
+# Authentification (inscription) :
+curl -i -X POST https://locallife-beta.duckdns.org/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"test","email":"test@example.com","password":"motdepassetest"}'
+# attendu : 201 Created
+
+# Absence de secret dans les logs :
+docker compose -f docker-compose.beta.yml logs backend postgres caddy | grep -iE "password|secret|jwt_secret"
+# attendu : aucune valeur de secret affichée (au pire le nom de la variable, jamais sa valeur)
+```
+
+### Non réalisable depuis cette sandbox
+
+Toutes les étapes ci-dessus nécessitent l'accès réel à l'instance
+Oracle (SSH) et à la console Oracle Cloud, indisponibles depuis cette
+sandbox. Ce mode opératoire a été rédigé et vérifié sur la base de la
+documentation Oracle/Docker/DuckDNS, mais son exécution et la
+confirmation effective des critères d'acceptation restent à la charge
+d'Alex.
+
+---
+
+## Procédure de déploiement — LL-9004 (frontend)
+
+Sera détaillé lors du traitement de ce ticket : validation
+fonctionnelle des parcours (inscription, connexion, carte, recherche,
+contribution) sur le frontend déjà démarré à l'étape 7 ci-dessus, et
+nettoyage de toute configuration de développement résiduelle
+(`vite.config.js` proxy, notamment — actif uniquement en `npm run
+dev`, sans effet sur le build de production, mais à confirmer).
 
 ---
 

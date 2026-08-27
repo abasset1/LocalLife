@@ -175,6 +175,8 @@ l'environnement de développement local.
 
 **Priorité : Haute**
 
+**Statut : 🟡 mode opératoire prêt — exécution sur l'infrastructure réelle (Oracle Cloud) à la charge d'Alex, non vérifiable depuis cette sandbox.** Voir `docs/02_Architecture/BETA_DEPLOYMENT.md`.
+
 **Dépendance :** LL-9002
 
 ### Objectif

@@ -2183,6 +2183,7 @@ figé à l'avance — voir `docs/05_Sprints/SPRINT_9.md`.
 
 * LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ✅
 * LL-9002 — Préparer l'environnement de déploiement bêta ✅
+* LL-9003 — Déployer le backend et la base de données bêta 🟡 (mode opératoire prêt, exécution par Alex)
 
 ## LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ✅
 
@@ -2336,3 +2337,55 @@ absents de cette sandbox. Explicitement délégué à LL-9003/LL-9004,
 comme signalé dans `BETA_DEPLOYMENT.md`.
 
 **Statut : traité.**
+
+---
+
+## LL-9003 — Déployer le backend et la base de données bêta 🟡
+
+**Dépendance :** LL-9002 ✅.
+
+Ticket majoritairement opérationnel (création réelle d'une instance
+Oracle Cloud, exécution de commandes sur cette instance) : hors de ce
+que cette sandbox peut exécuter ou vérifier elle-même. Contribution de
+cette session : mode opératoire complet et vérifié sur la base de la
+documentation officielle (Oracle, Docker, DuckDNS), plus deux
+corrections trouvées en le rédigeant.
+
+### Corrections apportées en rédigeant le mode opératoire
+
+* **Health check inatteignable via le reverse proxy** :
+  `infra/Caddyfile.beta` (LL-9002) ne routait que `/api/*` vers le
+  backend — `/actuator/health` (chemin réel de l'endpoint,
+  `management.endpoints.web.exposure.include=health,info`) serait
+  tombé sur la règle catch-all vers le frontend. Ajout d'une règle
+  `/actuator/*` dédiée avant de rédiger la commande de vérification.
+* **Pare-feu Oracle à deux niveaux** : au-delà de la Security List
+  (console), les images Ubuntu Oracle appliquent des règles
+  `iptables` locales qui bloquent aussi les ports 80/443 par défaut —
+  piège documenté et connu, ajouté explicitement au mode opératoire
+  (les deux niveaux doivent être ouverts, pas un seul).
+
+### Constat signalé (non corrigé, décision laissée à Alex)
+
+`V3__insert_demo_activities.sql` (Sprint 1) insère automatiquement 5
+activités de démonstration situées à Marseille (pas Avignon) au
+premier démarrage — y compris en bêta, migrations Flyway obligent.
+Dates majoritairement passées : invisibles des recherches publiques
+grâce à LL-9001, mais présentes en base et visibles en consultation
+administrative. Migration existante non modifiée (casserait le
+checksum Flyway) ; une migration additionnelle pour les retirer en
+bêta est possible mais reste un choix de contenu de données, pas
+d'infrastructure — détail dans `BETA_DEPLOYMENT.md`.
+
+### Vérifications non réalisables depuis cette sandbox
+
+L'intégralité des critères d'acceptation du ticket (PostgreSQL/PostGIS
+opérationnel, migrations appliquées, API accessible depuis Internet,
+health check, authentification, absence de secret dans les logs)
+nécessite l'exécution réelle sur l'instance Oracle. Le mode opératoire
+(`docs/02_Architecture/BETA_DEPLOYMENT.md`, section LL-9003) inclut
+les commandes de vérification exactes à exécuter par Alex pour
+confirmer chacun de ces critères.
+
+**Statut : mode opératoire prêt, en attente d'exécution et de
+confirmation par Alex.**
