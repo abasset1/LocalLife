@@ -1,4 +1,4 @@
-# Sprint 9 — Corrections post-bêta
+# Sprint 9 — Bêta et corrections post-bêta
 
 **Statut :** ⏳ À faire
 
@@ -6,11 +6,19 @@
 
 # Objectif
 
-Sprint 8 clôturé avec une décision **GO bêta conditionnel** (LL-8009,
-voir `docs/PROJECT_STATUS.md`). Ce sprint traite, un par un, les
-correctifs identifiés par Alex pendant/après la bêta — chaque ticket
-est autonome et testable indépendamment, dans la continuité de la
-méthode adoptée en Sprint 8.
+Sprint 8 clôturé avec une décision **GO bêta conditionnel** (`LL-8009`,
+voir `docs/PROJECT_STATUS.md`).
+
+Ce sprint a deux objectifs successifs :
+
+1. rendre LocalLife accessible dans un environnement bêta réel ;
+2. permettre à Alex d'effectuer les premiers tests bêta et de traiter les
+   problèmes réellement identifiés.
+
+Le sprint ne doit pas introduire de nouvelles fonctionnalités métier.
+
+Les corrections sont ajoutées au sprint au fur et à mesure qu'elles sont
+identifiées et doivent rester autonomes et testables indépendamment.
 
 ---
 
@@ -18,113 +26,281 @@ méthode adoptée en Sprint 8.
 
 ## Inclus
 
-- corrections de comportement identifiées sur la baseline bêta ;
-- chaque correctif traité comme un ticket isolé, avec ses propres
-  critères d'acceptation et sa propre vérification.
+### Mise à disposition de la bêta
+
+* déploiement du frontend ;
+* déploiement du backend ;
+* base de données dédiée à la bêta ;
+* configuration des variables d'environnement et secrets ;
+* configuration CORS ;
+* HTTPS ;
+* configuration des collecteurs Avignon ;
+* exécution automatique des collectes ;
+* vérification de l'alimentation automatique ;
+* validation du parcours complet depuis Internet.
+
+### Bêta
+
+* tests du MVP par Alex ;
+* tests par un panel d'utilisateurs ;
+* identification des erreurs et comportements inattendus ;
+* collecte des retours utilisateurs ;
+* corrections nécessaires identifiées pendant la bêta.
 
 ## Exclus
 
-- nouveau domaine métier ;
-- refonte graphique importante ;
-- optimisation d'architecture non justifiée par un problème réel.
+* nouveau domaine métier ;
+* nouvelle fonctionnalité majeure ;
+* refonte graphique importante ;
+* optimisation d'architecture non justifiée par un problème réel ;
+* fonctionnalités ajoutées uniquement sur hypothèse ;
+* préparation de la V1 avant analyse des retours bêta.
 
-(Liste susceptible d'être complétée à mesure que Alex identifie
-d'autres correctifs.)
+---
+
+# Phase 0 — Préparation de la bêta
+
+Cette phase est un **prérequis au test utilisateur** et ne constitue pas une
+nouvelle fonctionnalité du produit.
+
+## Déploiement
+
+L'application doit être accessible depuis Internet dans un environnement
+distinct du développement local.
+
+La cible est :
+
+```text
+Utilisateur
+     ↓
+Frontend LocalLife
+     ↓
+API Backend
+     ↓
+PostgreSQL / PostGIS
+     ↑
+Collecteurs Avignon
+     ↑
+Agendas configurés au Sprint 8
+```
+
+## Vérifications minimales
+
+* frontend accessible depuis Internet ;
+* backend accessible depuis Internet ;
+* HTTPS actif ;
+* base de données bêta opérationnelle ;
+* secrets absents du dépôt ;
+* CORS correctement configuré ;
+* authentification fonctionnelle ;
+* rôles correctement protégés ;
+* health check fonctionnel ;
+* collecteurs Avignon configurés ;
+* exécution automatique des collectes active ;
+* activités collectées visibles via l'API ;
+* activités collectées visibles sur la carte.
+
+### Critère de passage
+
+La bêta ne peut commencer que si une activité provenant d'une collecte réelle
+peut être suivie de bout en bout :
+
+```text
+Agenda Avignon
+      ↓
+Collector
+      ↓
+Activity en base
+      ↓
+API
+      ↓
+Carte LocalLife
+```
+
+---
+
+# Phase 1 — Bêta utilisateur
+
+## Objectif
+
+Permettre à un petit panel d'utilisateurs réels d'utiliser LocalLife dans des
+conditions normales.
+
+Les utilisateurs ne doivent pas être guidés pas à pas dans l'application.
+
+Ils doivent recevoir des objectifs généraux afin de permettre l'observation
+des problèmes réels d'utilisation.
+
+### Exemples de missions
+
+* trouver une activité intéressante à Avignon ;
+* explorer les activités disponibles sur la carte ;
+* rechercher une activité ;
+* consulter le détail d'une activité ;
+* créer une activité ;
+* revenir sur l'application et consulter de nouvelles activités.
+
+Les missions exactes peuvent être adaptées au profil des testeurs.
+
+---
+
+# Phase 2 — Corrections post-bêta
+
+Les problèmes sont ajoutés sous forme de tickets `LL-90xx`.
+
+Chaque ticket doit contenir :
+
+* constat ;
+* objectif ;
+* périmètre ;
+* dépendances ;
+* critères d'acceptation ;
+* tests nécessaires ;
+* statut.
+
+Aucune correction ne doit être ajoutée uniquement sur la base d'une
+hypothèse.
 
 ---
 
 # Tickets
 
----
-
 ## LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques
 
 **Priorité : Haute**
 
-**Statut : ✅ traité (en attente de confirmation `mvn verify` par Alex) — voir `docs/PROJECT_STATUS.md` pour le détail de l'implémentation et des décisions retenues.**
+**Statut : ✅ traité — en attente de confirmation `mvn verify` par Alex**
 
-**Dépendance :** aucune (indépendant des tickets Sprint 8).
+**Dépendance :** aucune
 
 ### Constat
 
-Signalé par Alex le 26/08/2026, confirmé par relecture de
-`ActivityRepository`/`ActivityService` : les recherches publiques
-(`GET /api/v1/activities/nearby`, `GET /api/v1/activities/within-bounds`)
-ne filtrent aujourd'hui que sur le statut (`PUBLISHED` uniquement,
-LL-6004). Aucun filtre n'exclut par défaut :
+Les recherches publiques ne filtrent actuellement que sur le statut
+`PUBLISHED`.
 
-- une activité dont `end_date` est déjà passée (activité terminée) ;
-- une activité dont `start_date` est dans le futur (annonce trop en
-  avance par rapport à la date du jour).
-
-Un paramètre `date` existe déjà (LL-4005) mais est **optionnel et à la
-charge de l'appelant** — rien ne l'applique par défaut à la date du
-jour. Une activité terminée depuis plusieurs mois ou prévue dans
-plusieurs mois s'affiche donc aujourd'hui exactement comme une
-activité en cours.
+Une activité terminée ou prévue dans le futur peut donc être retournée par
+les recherches publiques.
 
 ### Objectif
 
-Ne plus retourner, par défaut, sur les recherches publiques, une
-activité dont la période `[start_date, end_date]` ne couvre pas la
-date du jour — sans supprimer ni archiver la donnée elle-même, et sans
-retirer le paramètre `date` existant (LL-4005), qui doit continuer à
-fonctionner pour filtrer sur une date différente d'aujourd'hui.
+Ne plus retourner par défaut une activité dont la période ne couvre pas la
+date du jour.
 
-### Points à trancher avec Alex avant/pendant l'implémentation
-
-- **Portée** : uniquement `findNearby`/`findWithinBounds` (recherches
-  publiques, LL-6004), ou aussi `findAll`/`findByStatus`
-  (consultation administrative, LL-6005) ? Proposition par défaut :
-  uniquement les deux endpoints publics, cohérent avec la logique déjà
-  utilisée pour le filtre de statut `PUBLISHED` (LL-6004) — la file de
-  modération doit rester consultable sans restriction de date.
-- **Bornes** : une activité est-elle "en cours" quand
-  `start_date <= aujourd'hui <= end_date` (bornes incluses, comme le
-  filtre `date` existant), ou faut-il aussi retenir les activités dont
-  `start_date` est dans le futur proche (ex. J+7, pour ne pas cacher
-  un événement qui vient d'être publié) ? Proposition par défaut :
-  strictement "en cours aujourd'hui", conforme à la formulation d'Alex
-  (« date de début > date du jour, pas affichée »).
-- **`end_date` absente** (activités créées via le formulaire de
-  contribution, LL-2012, qui ne renseigne pas de date de fin) : déjà
-  traité comme une activité d'une seule journée par le filtre `date`
-  existant (`COALESCE(end_date, start_date)`), même logique à
-  réutiliser ici.
-- **Interaction avec le paramètre `date` existant** : si le client
-  fournit explicitement `date`, ce filtre explicite doit-il continuer
-  à primer (comportement actuel inchangé), le filtre "aujourd'hui"
-  n'intervenant que si `date` est absent ? Proposition par défaut :
-  oui, pas de changement de comportement quand `date` est fourni
-  explicitement.
-
-### Piste d'implémentation (à confirmer)
-
-Réutiliser le filtre SQL déjà en place pour le paramètre `date`
-(`ActivityRepository#findWithinRadius`/`findWithinBounds`,
-`:date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date`)
-en le rendant systématique côté service (`ActivityService#findNearby`/
-`findWithinBounds`) : si `dateRaw` n'est pas fourni par l'appelant,
-passer la date du jour au lieu de `null`, plutôt que de dupliquer la
-logique de comparaison de dates. Limite couverte plus haut
-(« portée ») : cette évolution ne toucherait que ces deux méthodes,
-pas `findByStatus`/`findAll`.
+Le paramètre `date` existant (`LL-4005`) doit continuer à fonctionner
+lorsqu'il est explicitement fourni.
 
 ### Critères d'acceptation
 
-- une activité dont `end_date < aujourd'hui` n'apparaît plus dans
-  `/nearby`/`/within-bounds` sans paramètre `date` explicite ;
-- une activité dont `start_date > aujourd'hui` n'apparaît plus dans
-  ces mêmes conditions ;
-- une activité en cours (`start_date <= aujourd'hui <= end_date`,
-  `end_date` traitée comme `start_date` si absente) continue de
-  s'afficher normalement ;
-- le paramètre `date` existant (LL-4005) continue de fonctionner à
-  l'identique quand il est fourni explicitement (aucune régression) ;
-- la consultation administrative par statut (LL-6005) n'est pas
-  affectée par ce changement, sauf décision contraire d'Alex ;
-- tests couvrant les quatre cas ci-dessus (terminée, future, en
-  cours, `end_date` absente) ajoutés à
-  `ActivityServiceTest`/`ActivityRepositoryIntegrationTest`.
+* une activité terminée n'apparaît plus dans les recherches publiques ;
+* une activité future n'apparaît plus sans `date` explicite ;
+* une activité en cours continue d'apparaître ;
+* une activité sans `end_date` continue d'être traitée correctement ;
+* `date` explicite conserve son comportement ;
+* la consultation administrative n'est pas affectée ;
+* les tests correspondants sont présents.
 
 ---
+
+# Ajout de tickets pendant la bêta
+
+Les tickets `LL-9002` et suivants seront créés uniquement lorsqu'un problème
+réel aura été identifié.
+
+Exemples de catégories possibles :
+
+* bug backend ;
+* bug frontend ;
+* problème d'affichage ;
+* problème de données collectées ;
+* problème de recherche ;
+* problème de carte ;
+* problème d'authentification ;
+* problème de contribution ;
+* problème UX bloquant ou critique.
+
+Le numéro du ticket doit être attribué au moment où le problème est
+formalisé.
+
+---
+
+# Priorisation des corrections
+
+Les problèmes identifiés pendant la bêta sont classés :
+
+### Bloquant
+
+Empêche l'utilisation d'une fonction essentielle ou rend l'application
+inutilisable.
+
+→ Correction prioritaire avant poursuite de la bêta.
+
+### Critique
+
+Dégrade fortement un parcours essentiel mais ne bloque pas complètement
+l'application.
+
+→ Correction prioritaire.
+
+### Important
+
+Problème réel ayant un impact significatif mais permettant de poursuivre
+l'utilisation.
+
+→ À traiter selon la capacité du sprint.
+
+### Mineur
+
+Problème cosmétique ou faible impact.
+
+→ Peut être reporté.
+
+### Amélioration
+
+Demande ou idée d'évolution qui n'est pas un bug.
+
+→ Backlog, pas de développement automatique pendant ce sprint.
+
+---
+
+# Definition of Done
+
+Le Sprint 9 est terminé lorsque :
+
+* LocalLife est accessible sur Internet ;
+* l'environnement bêta est distinct du développement ;
+* frontend et backend fonctionnent depuis Internet ;
+* PostgreSQL/PostGIS est opérationnel ;
+* HTTPS et les secrets sont correctement configurés ;
+* les collecteurs Avignon alimentent automatiquement la bêta ;
+* le parcours `collector → base → API → carte` est validé ;
+* le panel bêta a pu utiliser l'application ;
+* les problèmes identifiés ont été formalisés ;
+* les problèmes bloquants et critiques retenus ont été corrigés ;
+* les corrections ont été retestées ;
+* aucun nouveau problème bloquant connu ne subsiste.
+
+---
+
+# Fin du Sprint
+
+Le Sprint 9 ne déclenche **pas automatiquement** une nouvelle phase
+fonctionnelle.
+
+À sa clôture, les retours bêta sont analysés.
+
+Deux possibilités :
+
+### Cas A — Corrections suffisantes
+
+La bêta est stable et les retours ne justifient pas d'évolution majeure.
+
+→ Décision de poursuivre vers une V1.
+
+### Cas B — Problèmes ou besoins importants
+
+Les problèmes ou besoins identifiés sont priorisés.
+
+→ Ils alimentent le backlog et servent de base au prochain sprint.
+
+**Le Sprint suivant ne doit donc être défini qu'après analyse des résultats
+réels de la bêta.**
