@@ -1,321 +1,415 @@
-# Sprint 9 — Bêta et corrections post-bêta
+Sprint 9 — Bêta et corrections post-bêta
 
-**Statut :** ⏳ À faire
+Statut : ⏳ À faire
 
 ---
 
-# Objectif
+Objectif
 
-Sprint 8 clôturé avec une décision **GO bêta conditionnel** (`LL-8009`,
-voir `docs/PROJECT_STATUS.md`).
+Sprint 8 clôturé avec une décision GO bêta conditionnel ("LL-8009",
+voir "docs/PROJECT_STATUS.md").
 
-Le Sprint 9 a pour objectif de rendre LocalLife accessible dans un
-environnement bêta réel, de permettre les premiers tests par un panel
-d'utilisateurs et de corriger les problèmes réellement identifiés pendant
-ces tests.
+Le Sprint 9 a deux objectifs successifs :
+
+1. rendre LocalLife accessible dans un environnement bêta réel ;
+2. permettre les premiers tests par un panel d'utilisateurs et corriger les
+   problèmes réellement identifiés pendant ces tests.
 
 Le sprint poursuit la méthode adoptée précédemment :
 
-* chaque problème ou évolution technique est traité comme un ticket ;
-* chaque ticket possède ses propres critères d'acceptation ;
-* aucune nouvelle fonctionnalité métier n'est ajoutée sur simple hypothèse ;
-* les corrections supplémentaires sont ajoutées au sprint lorsqu'elles sont
+- chaque problème ou évolution technique est traité comme un ticket ;
+- chaque ticket possède ses propres critères d'acceptation ;
+- aucune nouvelle fonctionnalité métier n'est ajoutée sur simple hypothèse ;
+- les corrections supplémentaires sont ajoutées au sprint lorsqu'elles sont
   réellement identifiées.
 
-La chaîne cible du Sprint 9 est :
-
-```text
-Utilisateur bêta
-      ↓
-Frontend LocalLife
-      ↓
-API Backend
-      ↓
-PostgreSQL / PostGIS
-      ↑
-Collecteurs Avignon
-      ↑
-Agendas configurés au Sprint 8
-```
+Important : aucune ouverture publique de la bêta ne doit avoir lieu avant
+la validation du Security Gate "LL-9004".
 
 ---
 
-# Périmètre
+Périmètre
 
-## Inclus
+Inclus
 
-### Mise à disposition de la bêta
+Mise à disposition de la bêta
 
-* préparation de l'environnement bêta ;
-* déploiement du backend ;
-* déploiement du frontend ;
-* configuration de la base de données bêta ;
-* configuration des secrets et variables d'environnement ;
-* configuration HTTPS et CORS ;
-* configuration des collecteurs Avignon ;
-* vérification de l'alimentation automatique ;
-* validation du fonctionnement depuis Internet.
+- environnement bêta dédié ;
+- backend et base de données bêta ;
+- audit sécurité pré-exposition ;
+- déploiement du frontend ;
+- HTTPS ;
+- configuration CORS ;
+- configuration des secrets ;
+- configuration des collecteurs Avignon ;
+- exécution automatique des collectes ;
+- validation du fonctionnement depuis Internet.
 
-### Tests bêta
+Bêta
 
-* tests du MVP depuis l'environnement en ligne ;
-* utilisation par un panel d'utilisateurs ;
-* identification des erreurs ;
-* identification des problèmes de données ;
-* identification des problèmes UX ;
-* collecte et qualification des retours.
+- tests du MVP depuis l'environnement en ligne ;
+- tests par un panel d'utilisateurs ;
+- identification des erreurs ;
+- identification des problèmes de données ;
+- identification des problèmes UX ;
+- collecte et qualification des retours.
 
-### Corrections
+Corrections
 
-* correction des problèmes réellement identifiés ;
-* tests de non-régression ;
-* stabilisation de la version bêta.
-
-## Exclus
-
-* nouveau domaine métier ;
-* nouvelle fonctionnalité majeure ;
-* refonte graphique importante ;
-* optimisation d'architecture non justifiée par un problème réel ;
-* fonctionnalité développée uniquement sur hypothèse ;
-* préparation de la V1 avant analyse des retours bêta.
+- correction des problèmes réellement identifiés ;
+- tests de non-régression ;
+- stabilisation de la version bêta.
 
 ---
 
-# Tickets
+Exclus
 
-## LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques
+- nouveau domaine métier ;
+- nouvelle fonctionnalité majeure ;
+- refonte graphique importante ;
+- optimisation d'architecture non justifiée par un problème réel ;
+- fonctionnalité développée uniquement sur hypothèse ;
+- évolution fonctionnelle décidée avant analyse des retours bêta.
 
-**Priorité : Haute**
+---
 
-**Statut : ✅ traité — en attente de confirmation `mvn verify` par Alex**
+Tickets
 
-**Dépendance :** aucune
+LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques
 
-### Constat
+Priorité : Haute
+
+Statut : ✅ Traité — en attente de confirmation "mvn verify" par Alex
+
+Dépendance : aucune
+
+Constat
 
 Les recherches publiques
-(`GET /api/v1/activities/nearby`,
-`GET /api/v1/activities/within-bounds`)
-ne filtrent actuellement que sur le statut (`PUBLISHED` uniquement,
-LL-6004).
+("GET /api/v1/activities/nearby",
+"GET /api/v1/activities/within-bounds")
+ne filtrent actuellement que sur le statut ("PUBLISHED", LL-6004).
 
-Une activité terminée ou prévue dans le futur peut donc être retournée
-par les recherches publiques.
+Une activité terminée ou prévue dans le futur peut donc être retournée par
+les recherches publiques.
 
-### Objectif
+Objectif
 
 Ne plus retourner par défaut une activité dont la période
-`[start_date, end_date]` ne couvre pas la date du jour.
+"[start_date, end_date]" ne couvre pas la date du jour.
 
-Le paramètre `date` existant (`LL-4005`) doit continuer à fonctionner
+Le paramètre "date" existant ("LL-4005") doit continuer à fonctionner
 lorsqu'il est explicitement fourni.
 
-### Points de décision
+Points de décision
 
-* portée : uniquement les recherches publiques
-  `findNearby` / `findWithinBounds` ;
-* les consultations administratives restent consultables sans restriction
+- portée : uniquement les recherches publiques
+  "findNearby" / "findWithinBounds" ;
+- les consultations administratives restent consultables sans restriction
   de date ;
-* une activité est considérée comme en cours lorsque
-  `start_date <= aujourd'hui <= end_date` ;
-* lorsque `end_date` est absente, `start_date` est utilisé ;
-* lorsqu'un paramètre `date` explicite est fourni, il conserve son
+- une activité est considérée comme en cours lorsque
+  "start_date <= aujourd'hui <= end_date" ;
+- lorsque "end_date" est absente, "start_date" est utilisé ;
+- lorsqu'un paramètre "date" explicite est fourni, il conserve son
   comportement actuel.
 
-### Critères d'acceptation
+Critères d'acceptation
 
-* une activité dont `end_date < aujourd'hui` n'apparaît plus dans
-  `/nearby` / `/within-bounds` sans paramètre `date` explicite ;
-* une activité dont `start_date > aujourd'hui` n'apparaît plus dans les
+- une activité dont "end_date < aujourd'hui" n'apparaît plus dans
+  "/nearby" / "/within-bounds" sans paramètre "date" explicite ;
+- une activité dont "start_date > aujourd'hui" n'apparaît plus dans les
   mêmes conditions ;
-* une activité en cours continue de s'afficher ;
-* une activité sans `end_date` est correctement traitée ;
-* le paramètre `date` existant continue de fonctionner ;
-* la consultation administrative n'est pas affectée ;
-* les tests couvrent les cas terminée, future, en cours et sans
-  `end_date`.
+- une activité en cours continue de s'afficher ;
+- une activité sans "end_date" est correctement traitée ;
+- le paramètre "date" existant continue de fonctionner ;
+- la consultation administrative n'est pas affectée ;
+- les tests couvrent les cas terminée, future, en cours et sans
+  "end_date".
 
 ---
 
-## LL-9002 — Préparer l'environnement de déploiement bêta
+LL-9002 — Préparer l'environnement de déploiement bêta
 
-**Priorité : Haute**
+Priorité : Haute
 
-**Statut : ✅ traité** — voir `docs/02_Architecture/BETA_DEPLOYMENT.md`.
+Statut : ✅ Terminé
 
-**Dépendance :** aucune
+Dépendance : aucune
 
-### Objectif
+Objectif
 
 Définir et préparer un environnement dédié à la bêta, distinct de
 l'environnement de développement local.
 
-### À traiter
+Critères d'acceptation
 
-* choix de l'hébergement ;
-* définition des composants nécessaires ;
-* configuration de l'environnement ;
-* définition des variables d'environnement ;
-* définition de la stratégie de gestion des secrets ;
-* définition des URL frontend/backend.
-
-### Critères d'acceptation
-
-* l'architecture de l'environnement bêta est documentée ;
-* frontend, backend et base de données sont identifiés ;
-* l'environnement bêta est distinct du développement local ;
-* les secrets nécessaires sont identifiés ;
-* aucun secret n'est ajouté au dépôt Git ;
-* la procédure de déploiement est documentée.
+- l'architecture de l'environnement bêta est documentée ;
+- frontend, backend et base de données sont identifiés ;
+- l'environnement bêta est distinct du développement local ;
+- les secrets nécessaires sont identifiés ;
+- aucun secret n'est ajouté au dépôt Git ;
+- la procédure de déploiement est documentée.
 
 ---
 
-## LL-9003 — Déployer le backend et la base de données bêta
+LL-9003 — Déployer le backend et la base de données bêta
 
-**Priorité : Haute**
+Priorité : Haute
 
-**Statut : 🟡 mode opératoire prêt — exécution sur l'infrastructure réelle (Oracle Cloud) à la charge d'Alex, non vérifiable depuis cette sandbox.** Voir `docs/02_Architecture/BETA_DEPLOYMENT.md`.
+Statut : ✅ Terminé — commit effectué
 
-**Dépendance :** LL-9002
+Dépendance : "LL-9002"
 
-### Objectif
+Objectif
 
 Rendre l'API LocalLife opérationnelle dans l'environnement bêta avec sa
 propre base de données.
 
-### À traiter
+Critères d'acceptation
 
-* déploiement du backend ;
-* déploiement/configuration de PostgreSQL/PostGIS ;
-* configuration des migrations ;
-* configuration des variables d'environnement ;
-* configuration des secrets ;
-* configuration du profil d'exécution bêta.
-
-### Critères d'acceptation
-
-* PostgreSQL/PostGIS est opérationnel ;
-* les migrations du projet sont appliquées ;
-* le backend démarre sans dépendance à l'environnement local ;
-* l'API est accessible depuis Internet ;
-* le health check fonctionne ;
-* l'authentification fonctionne ;
-* aucun secret n'est exposé dans le dépôt ;
-* aucun secret ou mot de passe n'apparaît dans les logs.
+- PostgreSQL/PostGIS est opérationnel ;
+- les migrations du projet sont appliquées ;
+- le backend démarre sans dépendance à l'environnement local ;
+- l'API est accessible depuis l'environnement bêta ;
+- le health check fonctionne ;
+- l'authentification fonctionne ;
+- aucun secret n'est exposé dans le dépôt ;
+- aucun secret ou mot de passe n'apparaît dans les logs.
 
 ---
 
-## LL-9004 — Déployer le frontend et rendre LocalLife accessible en ligne
+LL-9004 — Audit sécurité pré-exposition
 
-**Priorité : Haute**
+Priorité : Bloquante
 
-**Dépendance :** LL-9003
+Statut : ⏳ À faire
 
-### Objectif
+Dépendance : "LL-9003"
+
+Objectif
+
+Effectuer un contrôle de sécurité complet avant d'exposer LocalLife
+publiquement.
+
+"LL-9004" constitue le Security Gate du Sprint 9.
+
+Aucun accès public destiné au panel bêta ne doit être ouvert tant que ce
+ticket n'est pas validé.
+
+Contrôles obligatoires
+
+1. Secrets et configuration
+
+- rechercher les secrets dans l'historique et l'état actuel du dépôt ;
+- vérifier les secrets JWT ;
+- vérifier les mots de passe et identifiants BDD ;
+- vérifier les clés API et credentials OpenAgenda ;
+- vérifier les variables d'environnement ;
+- vérifier le build frontend afin qu'aucun secret backend ne soit embarqué ;
+- vérifier l'absence de credentials par défaut ;
+- vérifier que les secrets sont fournis uniquement par l'environnement
+  sécurisé.
+
+2. Authentification
+
+- endpoint protégé sans JWT ;
+- JWT invalide ;
+- JWT expiré ;
+- JWT malformé ;
+- absence de token ;
+- vérification de l'expiration et de la signature ;
+- vérification du comportement des comptes désactivés lorsqu'applicable.
+
+3. Autorisation
+
+- utilisateur "USER" tentant une opération "ADMIN" ;
+- utilisateur non authentifié tentant une opération protégée ;
+- vérification des contrôles d'accès aux ressources ;
+- vérification du bootstrap du premier "ADMIN" ;
+- vérification que les endpoints administratifs ne sont pas accessibles
+  sans autorisation.
+
+4. Données sensibles
+
+- aucune "passwordHash" dans les réponses ;
+- aucune donnée sensible dans les logs ;
+- aucune donnée sensible dans les erreurs ;
+- aucune stack trace détaillée retournée au client ;
+- vérification des DTO exposés par les endpoints publics ;
+- vérification des réponses d'erreur.
+
+5. API et validation des entrées
+
+- paramètres invalides ;
+- IDs inexistants ;
+- IDs manipulés ;
+- valeurs hors limites ;
+- payloads invalides ;
+- payloads excessivement volumineux lorsque pertinent ;
+- champs inattendus ;
+- méthodes HTTP non autorisées ;
+- vérification correcte des réponses "400", "401", "403", "404" ;
+- absence d'endpoints de debug ou de test inutiles.
+
+6. CORS et sécurité HTTP
+
+- CORS limité aux origines nécessaires ;
+- aucune autorisation globale inutile ;
+- HTTPS configuré ;
+- redirection HTTP → HTTPS si applicable ;
+- headers de sécurité pertinents ;
+- cookies configurés correctement s'ils sont utilisés.
+
+7. Infrastructure et réseau
+
+- PostgreSQL/PostGIS non accessible directement depuis Internet ;
+- seuls les ports nécessaires sont exposés ;
+- aucun service d'administration inutilement public ;
+- aucun endpoint Actuator sensible publiquement accessible ;
+- comptes système et services configurés avec les privilèges minimum
+  nécessaires.
+
+8. Base de données
+
+- utilisateur BDD avec privilèges minimaux ;
+- accès réseau limité ;
+- migrations contrôlées ;
+- absence de données de développement sensibles ;
+- sauvegarde minimale disponible ;
+- procédure de restauration documentée.
+
+9. Dépendances
+
+- audit des dépendances backend ;
+- audit des dépendances frontend ;
+- vérification des vulnérabilités connues ;
+- aucune vulnérabilité connue critique ou bloquante non traitée sans
+  justification explicite.
+
+10. Collecteurs
+
+- clés et credentials non exposés ;
+- données externes correctement validées ;
+- erreurs de source correctement isolées ;
+- un échec d'une source ne compromet pas les autres collectes ;
+- aucune donnée externe ne peut contourner les contrôles métier.
+
+Critères d'acceptation
+
+"LL-9004" est validé uniquement si :
+
+- aucun secret n'est exposé ;
+- aucun secret backend n'est présent dans le build frontend ;
+- authentification et JWT sont correctement contrôlés ;
+- "USER" et "ADMIN" sont correctement séparés ;
+- les endpoints protégés sont effectivement protégés ;
+- aucune donnée sensible n'est exposée ;
+- aucune stack trace interne n'est exposée ;
+- les entrées utilisateur sont correctement validées ;
+- CORS est correctement restreint ;
+- HTTPS est configuré ;
+- PostgreSQL/PostGIS n'est pas accessible directement depuis Internet ;
+- aucun endpoint de debug dangereux n'est exposé ;
+- les dépendances ne présentent pas de vulnérabilité critique/bloquante
+  connue non traitée ;
+- les logs ne contiennent pas de secrets ou données sensibles ;
+- les collecteurs ne permettent pas de contourner les contrôles de sécurité.
+
+Règle de blocage
+
+Toute vulnérabilité critique ou tout problème permettant un accès non
+autorisé aux données ou fonctions sensibles bloque la validation de
+"LL-9004".
+
+---
+
+LL-9005 — Déployer le frontend et rendre LocalLife accessible en ligne
+
+Priorité : Haute
+
+Dépendance : "LL-9004"
+
+Objectif
 
 Permettre à un utilisateur extérieur à l'environnement de développement
-d'accéder à LocalLife et d'utiliser le MVP.
+d'accéder à LocalLife.
 
-### Critères d'acceptation
+Critères d'acceptation
 
-* le frontend est accessible depuis Internet ;
-* l'accès se fait en HTTPS ;
-* le frontend utilise l'API bêta et non une URL localhost ;
-* l'inscription fonctionne ;
-* la connexion fonctionne ;
-* la carte fonctionne ;
-* les recherches fonctionnent ;
-* le détail d'une activité fonctionne ;
-* la contribution fonctionne ;
-* aucun élément de configuration de développement ne subsiste dans le
-  build bêta.
-
----
-
-## LL-9005 — Sécuriser la configuration de la bêta
-
-**Priorité : Haute**
-
-**Dépendance :** LL-9003, LL-9004
-
-### Objectif
-
-Garantir que l'environnement bêta est suffisamment sécurisé pour être
-accessible à des utilisateurs externes.
-
-### À traiter
-
-* HTTPS ;
-* CORS ;
-* secrets ;
-* JWT ;
-* protection des endpoints administratifs ;
-* configuration des comptes ;
-* exposition des informations techniques.
-
-### Critères d'acceptation
-
-* les communications frontend/backend utilisent HTTPS ;
-* aucun secret n'est présent côté frontend ;
-* les secrets backend proviennent de la configuration sécurisée de
-  l'environnement ;
-* un utilisateur `USER` ne peut pas accéder aux opérations `ADMIN` ;
-* les endpoints administratifs restent protégés ;
-* aucune information sensible n'est exposée par l'API ;
-* aucune information sensible n'est exposée dans les logs.
+- le frontend est accessible depuis Internet ;
+- l'accès utilise HTTPS ;
+- le frontend utilise l'API bêta ;
+- aucune URL "localhost" ne subsiste ;
+- l'inscription fonctionne ;
+- la connexion fonctionne ;
+- la carte fonctionne ;
+- les recherches fonctionnent ;
+- le détail d'une activité fonctionne ;
+- la contribution fonctionne ;
+- aucun secret backend n'est présent dans le build frontend.
 
 ---
 
-## LL-9006 — Activer et vérifier l'alimentation automatique Avignon en bêta
+LL-9006 — Finaliser la sécurisation de l'exposition web
 
-**Priorité : Haute**
+Priorité : Haute
 
-**Dépendance :** LL-9003
+Dépendance : "LL-9005"
 
-### Objectif
+Objectif
 
-Vérifier que les agendas Avignon configurés pendant le Sprint 8
-continuent à alimenter automatiquement l'environnement bêta.
+Vérifier la configuration de sécurité spécifique à l'exposition réelle du
+frontend et du backend sur Internet.
 
-### À traiter
+Critères d'acceptation
 
-* configuration des agendas validés au Sprint 8 ;
-* configuration de l'exécution automatique ;
-* vérification de la collecte ;
-* vérification de la persistance ;
-* vérification de la gestion des doublons ;
-* vérification des erreurs de collecte.
-
-### Critères d'acceptation
-
-* les agendas Avignon validés au Sprint 8 sont configurés ;
-* le mécanisme d'exécution automatique est actif ;
-* plusieurs agendas sont effectivement collectés ;
-* les activités collectées sont persistées en base ;
-* les doublons sont gérés conformément au comportement validé au
-  Sprint 8 ;
-* une erreur d'une source n'empêche pas les autres sources d'être
-  collectées ;
-* les résultats des collectes sont observables ;
-* une activité collectée peut être retrouvée via l'API.
+- HTTPS fonctionne depuis un navigateur externe ;
+- les certificats sont valides ;
+- CORS fonctionne uniquement depuis les origines autorisées ;
+- les requêtes non sécurisées sont correctement gérées ;
+- les endpoints administratifs restent protégés ;
+- les informations techniques inutiles ne sont pas exposées ;
+- le comportement des erreurs HTTP est conforme aux contrôles du
+  "LL-9004".
 
 ---
 
-## LL-9007 — Valider le parcours complet depuis Internet
+LL-9007 — Activer et vérifier l'alimentation automatique Avignon en bêta
 
-**Priorité : Haute**
+Priorité : Haute
 
-**Dépendance :** LL-9004, LL-9005, LL-9006
+Dépendance : "LL-9003"
 
-### Objectif
+Objectif
 
-Vérifier que LocalLife fonctionne réellement de bout en bout dans
-l'environnement bêta.
+Vérifier que les agendas Avignon configurés au Sprint 8 alimentent
+automatiquement l'environnement bêta.
 
-### Parcours de validation
+Critères d'acceptation
 
-```text
+- les agendas Avignon validés au Sprint 8 sont configurés ;
+- plusieurs agendas sont effectivement collectés ;
+- le mécanisme d'exécution automatique est actif ;
+- les activités collectées sont persistées ;
+- les doublons sont gérés conformément au comportement validé au Sprint 8 ;
+- une erreur d'une source n'empêche pas les autres sources d'être collectées ;
+- les résultats des collectes sont observables ;
+- une activité collectée peut être retrouvée via l'API.
+
+---
+
+LL-9008 — Valider le parcours complet depuis Internet
+
+Priorité : Haute
+
+Dépendance : "LL-9005", "LL-9006", "LL-9007"
+
+Objectif
+
+Valider LocalLife de bout en bout depuis un accès Internet réel.
+
+Parcours
+
 Agenda Avignon
       ↓
 Collector
@@ -327,134 +421,132 @@ API
 Frontend
       ↓
 Carte
-```
 
-### Critères d'acceptation
+Critères d'acceptation
 
-* une collecte réelle est exécutée ;
-* les activités collectées sont présentes en base ;
-* les activités sont retournées par l'API ;
-* les activités sont visibles sur la carte ;
-* la recherche permet de retrouver les activités ;
-* le détail d'une activité fonctionne ;
-* l'inscription fonctionne ;
-* la connexion fonctionne ;
-* la contribution fonctionne ;
-* les opérations administratives fonctionnent avec un compte autorisé ;
-* aucun problème bloquant n'est identifié.
+- une collecte réelle est exécutée ;
+- les activités collectées sont présentes en base ;
+- les activités sont retournées par l'API ;
+- les activités sont visibles sur la carte ;
+- la recherche permet de retrouver les activités ;
+- le détail d'une activité fonctionne ;
+- l'inscription fonctionne ;
+- la connexion fonctionne ;
+- la contribution fonctionne ;
+- les opérations administratives fonctionnent avec un compte autorisé ;
+- aucun problème bloquant n'est identifié.
 
 ---
 
-## LL-9008 — Préparer et lancer le panel bêta
+LL-9009 — Préparer et lancer le panel bêta
 
-**Priorité : Haute**
+Priorité : Haute
 
-**Dépendance :** LL-9007
+Dépendance : "LL-9008"
 
-### Objectif
+Objectif
 
-Permettre à un premier panel d'utilisateurs réels de tester LocalLife dans
-des conditions normales.
+Permettre à un premier panel d'utilisateurs réels de tester LocalLife
+dans des conditions normales.
 
-### Préparation
+Préparation
 
-* sélectionner un petit panel de testeurs ;
-* transmettre l'URL bêta ;
-* définir les consignes générales ;
-* préparer les missions de test ;
-* préparer le moyen de remontée des problèmes ;
-* définir les informations à recueillir.
+- sélectionner un petit panel de testeurs ;
+- transmettre l'URL bêta ;
+- définir les consignes générales ;
+- préparer les missions de test ;
+- préparer le moyen de remontée des problèmes ;
+- définir les informations à recueillir.
 
-### Principe
+Principe
 
 Les utilisateurs ne doivent pas être guidés bouton par bouton.
 
 Les missions doivent permettre d'observer leur comportement réel.
 
-### Exemples de missions
+Exemples de missions
 
-* trouver une activité intéressante à Avignon ;
-* explorer la carte ;
-* rechercher une activité ;
-* consulter le détail d'une activité ;
-* créer une activité ;
-* revenir ultérieurement vérifier les nouvelles activités.
+- trouver une activité intéressante à Avignon ;
+- explorer la carte ;
+- rechercher une activité ;
+- consulter le détail d'une activité ;
+- créer une activité ;
+- revenir ultérieurement vérifier les nouvelles activités.
 
-### Critères d'acceptation
+Critères d'acceptation
 
-* le panel est constitué ;
-* chaque testeur dispose d'un accès à la bêta ;
-* les consignes sont disponibles ;
-* les missions sont définies ;
-* le mécanisme de remontée des problèmes fonctionne ;
-* les premiers tests utilisateurs ont été réalisés.
+- le panel est constitué ;
+- chaque testeur dispose d'un accès à la bêta ;
+- les consignes sont disponibles ;
+- les missions sont définies ;
+- le mécanisme de remontée des problèmes fonctionne ;
+- les premiers tests utilisateurs ont été réalisés.
 
 ---
 
-## LL-9009 — Suivre et qualifier les problèmes bêta
+LL-9010 — Suivre et qualifier les problèmes bêta
 
-**Priorité : Haute**
+Priorité : Haute
 
-**Dépendance :** LL-9008
+Dépendance : "LL-9009"
 
-### Objectif
+Objectif
 
 Centraliser les problèmes et retours identifiés pendant la bêta afin de
 permettre leur traitement méthodique.
 
-### Chaque problème doit être qualifié
+Chaque problème doit être qualifié
 
-* description du constat ;
-* contexte ;
-* étapes de reproduction lorsque pertinentes ;
-* comportement attendu ;
-* comportement observé ;
-* impact ;
-* priorité ;
-* ticket associé lorsqu'une correction est nécessaire.
+- description du constat ;
+- contexte ;
+- étapes de reproduction lorsque pertinentes ;
+- comportement attendu ;
+- comportement observé ;
+- impact ;
+- priorité ;
+- ticket associé lorsqu'une correction est nécessaire.
 
-### Classification
+Classification
 
-**Bloquant**
+Bloquant
 
 Empêche l'utilisation d'une fonctionnalité essentielle ou de l'application.
 
-**Critique**
+Critique
 
 Dégrade fortement un parcours essentiel.
 
-**Important**
+Important
 
 Problème réel avec un impact significatif mais non bloquant.
 
-**Mineur**
+Mineur
 
 Problème de faible impact.
 
-**Amélioration**
+Amélioration
 
 Suggestion ou besoin fonctionnel ne constituant pas un bug.
 
-### Critères d'acceptation
+Critères d'acceptation
 
-* tous les problèmes identifiés sont enregistrés ;
-* chaque problème possède une priorité ;
-* les doublons sont regroupés ;
-* les problèmes nécessitant une correction possèdent un ticket ;
-* les simples suggestions d'évolution sont placées dans le backlog ;
-* aucune amélioration fonctionnelle n'est développée sans décision
+- tous les problèmes identifiés sont enregistrés ;
+- chaque problème possède une priorité ;
+- les doublons sont regroupés ;
+- les problèmes nécessitant une correction possèdent un ticket ;
+- les suggestions d'évolution sont placées dans le backlog ;
+- aucune amélioration fonctionnelle n'est développée sans décision
   explicite.
 
 ---
 
-# Tickets correctifs supplémentaires
+Tickets correctifs supplémentaires
 
-Les tickets `LL-9010` et suivants sont créés uniquement lorsqu'un problème
+Les tickets "LL-9011" et suivants sont créés uniquement lorsqu'un problème
 réel est identifié pendant la bêta.
 
 Ils suivent la structure :
 
-```text
 LL-90XX — <problème>
 
 Priorité :
@@ -468,49 +560,73 @@ Objectif
 Critères d'acceptation
 
 Tests nécessaires
-```
 
 Ils ne doivent pas être pré-remplis avec des problèmes hypothétiques.
 
 ---
 
-# Definition of Done
+Dépendances
 
-Le Sprint 9 est terminé lorsque :
+LL-9002
+   ↓
+LL-9003
+   ↓
+LL-9004  ← SECURITY GATE
+   ↓
+LL-9005
+   ↓
+LL-9006
+   ↓
+LL-9008 ← LL-9007
+   ↓
+LL-9009
+   ↓
+LL-9010
+   ↓
+LL-9011+ corrections réelles
 
-* LocalLife est accessible sur Internet ;
-* l'environnement bêta est distinct du développement ;
-* frontend et backend sont opérationnels ;
-* PostgreSQL/PostGIS est opérationnel ;
-* HTTPS est actif ;
-* les secrets sont correctement externalisés ;
-* l'authentification fonctionne ;
-* les autorisations fonctionnent ;
-* les collecteurs Avignon fonctionnent automatiquement ;
-* plusieurs agendas Avignon alimentent la base ;
-* le parcours `collector → base → API → carte` est validé ;
-* le panel bêta a pu utiliser l'application ;
-* les problèmes rencontrés ont été qualifiés ;
-* les problèmes bloquants et critiques retenus ont été corrigés ;
-* les corrections ont été testées ;
-* aucun problème bloquant connu ne subsiste.
+"LL-9001" reste indépendant de cette chaîne.
 
 ---
 
-# Fin du Sprint
+Definition of Done
+
+Le Sprint 9 est terminé lorsque :
+
+- LocalLife est accessible sur Internet ;
+- l'environnement bêta est distinct du développement ;
+- frontend et backend sont opérationnels ;
+- PostgreSQL/PostGIS est opérationnel ;
+- le Security Gate "LL-9004" est validé ;
+- HTTPS est actif ;
+- les secrets sont correctement externalisés ;
+- l'authentification fonctionne ;
+- les autorisations fonctionnent ;
+- les collecteurs Avignon fonctionnent automatiquement ;
+- plusieurs agendas Avignon alimentent la base ;
+- le parcours "collector → base → API → carte" est validé ;
+- le panel bêta a pu utiliser l'application ;
+- les problèmes rencontrés ont été qualifiés ;
+- les problèmes bloquants et critiques retenus ont été corrigés ;
+- les corrections ont été testées ;
+- aucun problème bloquant connu ne subsiste.
+
+---
+
+Fin du Sprint
 
 La clôture du Sprint 9 doit donner lieu à un bilan de la bêta.
 
 Deux situations sont possibles.
 
-## Bêta satisfaisante
+Bêta satisfaisante
 
 Les problèmes restants sont mineurs et aucune évolution majeure n'est
 nécessaire.
 
 → Préparation de la suite vers une V1.
 
-## Bêta nécessitant des évolutions
+Bêta nécessitant des évolutions
 
 Des problèmes importants ou des besoins fonctionnels significatifs sont
 identifiés.
