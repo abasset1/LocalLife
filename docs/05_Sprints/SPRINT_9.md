@@ -142,6 +142,8 @@ lorsqu'il est explicitement fourni.
 
 **Priorité : Haute**
 
+**Statut : ✅ traité** — voir `docs/02_Architecture/BETA_DEPLOYMENT.md`.
+
 **Dépendance :** aucune
 
 ### Objectif

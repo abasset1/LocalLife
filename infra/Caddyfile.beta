@@ -1,0 +1,16 @@
+# Reverse proxy bêta (LL-9002).
+#
+# Sert le frontend et l'API sous le même domaine : HTTPS automatique
+# (Let's Encrypt) géré par Caddy, aucune configuration CORS nécessaire
+# côté backend puisque frontend et API partagent la même origine.
+# Voir docs/02_Architecture/BETA_DEPLOYMENT.md.
+
+{$LOCALLIFE_DOMAIN} {
+    handle /api/* {
+        reverse_proxy backend:8080
+    }
+
+    handle {
+        reverse_proxy frontend:80
+    }
+}

@@ -2182,6 +2182,7 @@ pendant/après la bêta. Sprint ouvert au fil de l'eau, pas de périmètre
 figé à l'avance — voir `docs/05_Sprints/SPRINT_9.md`.
 
 * LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ✅
+* LL-9002 — Préparer l'environnement de déploiement bêta ✅
 
 ## LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ✅
 
@@ -2274,3 +2275,64 @@ date fixe avec un paramètre `date` explicite, non affecté) ni
 (passe par `findById`, pas par la recherche publique).
 
 **Statut :** ⏳ non commencé.
+
+---
+
+## LL-9002 — Préparer l'environnement de déploiement bêta ✅
+
+**Dépendance :** aucune.
+
+Ticket de nature purement documentaire/architecturale (choix
+d'hébergement, définition des composants, des variables
+d'environnement et de la stratégie de secrets). Conformément à
+`docs/AI_RULES.md` (« en cas de doute, l'IA ne doit jamais faire un
+choix d'architecture seule »), le choix d'hébergement a été soumis à
+Alex avant toute rédaction, avec plusieurs options chiffrées et leurs
+compromis.
+
+### Décisions validées par Alex (27/08/2026)
+
+* Hébergement principal : **Oracle Cloud Infrastructure — Always
+  Free** (VPS unique, Docker Compose, architecture ARM/aarch64).
+* Hébergement de secours : **Hetzner CX22** si l'inscription Oracle
+  échoue.
+* Domaine : sous-domaine gratuit **DuckDNS**, choisi après
+  vérification explicite avec Alex qu'une migration ultérieure vers
+  un domaine payant resterait simple (le frontend n'appelle l'API
+  qu'en chemin relatif, le domaine n'est référencé qu'à un seul
+  endroit : la configuration Caddy).
+* AWS et GCP écartés après vérification : AWS n'offre plus de VM
+  gratuite 12 mois pour un nouveau compte depuis juillet 2025 (crédit
+  de 200$/6 mois désormais), et l'instance gratuite permanente GCP
+  (e2-micro) est restreinte aux régions US, donc écartée pour une
+  bêta ciblant des utilisateurs en France.
+
+### Livrables
+
+* `docs/02_Architecture/BETA_DEPLOYMENT.md` — architecture complète,
+  schéma des composants, tableau des variables d'environnement,
+  stratégie de secrets, procédure de déploiement résumée.
+* `infra/docker-compose.beta.yml` — composants bêta (postgres,
+  backend, frontend, reverse proxy Caddy), variables externalisées
+  via `.env.beta` (non commité).
+* `infra/Caddyfile.beta` — reverse proxy HTTPS ; frontend et API
+  servis sous le même domaine, ce qui rend toute configuration CORS
+  inutile en bêta (décision d'architecture documentée, anticipe une
+  partie de LL-9005 sans en sortir le code applicatif).
+* `infra/.env.beta.example` — template des variables d'environnement,
+  aucune valeur réelle.
+* `frontend/Dockerfile` — absent du dépôt jusqu'ici, ajouté comme
+  composant nécessaire au schéma d'architecture ; sa construction et
+  son test réels restent le périmètre de LL-9004.
+* `.gitignore` complété (`infra/.env.beta`) pour empêcher tout commit
+  accidentel d'un futur fichier de secrets bêta.
+
+### Vérifications non réalisables depuis cette sandbox
+
+Build réel des images Docker (notamment la compatibilité ARM des
+images de base sur l'instance Oracle visée) et exécution de
+`docker compose up` — nécessitent un accès Docker/à l'instance cible,
+absents de cette sandbox. Explicitement délégué à LL-9003/LL-9004,
+comme signalé dans `BETA_DEPLOYMENT.md`.
+
+**Statut : traité.**

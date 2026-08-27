@@ -1,0 +1,74 @@
+# Environnement bêta (LL-9002).
+#
+# Prolonge directement docker-compose.yml (dev local) avec les
+# composants nécessaires à une bêta accessible depuis Internet :
+# backend, frontend, reverse proxy HTTPS. Voir
+# docs/02_Architecture/BETA_DEPLOYMENT.md pour le détail des décisions.
+#
+# Déploiement effectif (construction/test réels des images) hors
+# périmètre de LL-9002 — voir LL-9003 (backend/BDD) et LL-9004
+# (frontend).
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: locallife-postgres-beta
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_beta_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ../backend
+    container_name: locallife-backend-beta
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      LOCALLIFE_BOOTSTRAP_ADMIN_USERNAME: ${LOCALLIFE_BOOTSTRAP_ADMIN_USERNAME}
+      LOCALLIFE_BOOTSTRAP_ADMIN_EMAIL: ${LOCALLIFE_BOOTSTRAP_ADMIN_EMAIL}
+      LOCALLIFE_BOOTSTRAP_ADMIN_PASSWORD: ${LOCALLIFE_BOOTSTRAP_ADMIN_PASSWORD}
+      OPENAGENDA_API_KEY: ${OPENAGENDA_API_KEY}
+      OPENAGENDA_AGENDA_UID: ${OPENAGENDA_AGENDA_UID}
+      OPENAGENDA_SOURCE_NAME: ${OPENAGENDA_SOURCE_NAME}
+      OPENAGENDA_AVIGNON_CULTURE_UID: ${OPENAGENDA_AVIGNON_CULTURE_UID}
+      OPENAGENDA_AVIGNON_CULTURE_NAME: ${OPENAGENDA_AVIGNON_CULTURE_NAME}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+    container_name: locallife-frontend-beta
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: locallife-caddy-beta
+    environment:
+      LOCALLIFE_DOMAIN: ${LOCALLIFE_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile.beta:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  postgres_beta_data:
+  caddy_data:
+  caddy_config:
