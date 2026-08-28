@@ -3,4 +3,5 @@ node_modules/
 dist/
 .env
 infra/.env.beta
+infra/backups/
 *.log
