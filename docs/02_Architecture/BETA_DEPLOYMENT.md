@@ -120,7 +120,7 @@ template sans valeur réelle est fourni dans
 | `JWT_SECRET` | Secret de signature des JWT (`SecurityConfig`) | **Oui** |
 | `LOCALLIFE_BOOTSTRAP_ADMIN_EMAIL` | Email du premier compte ADMIN (LL-8002) | Non (mais lié au secret suivant) |
 | `LOCALLIFE_BOOTSTRAP_ADMIN_PASSWORD` | Mot de passe du premier compte ADMIN | **Oui** |
-| `OPENAGENDA_API_KEY` | Clé API OpenAgenda | Déjà présente en clair dans `application.properties` (LL-5006) — à sortir en variable d'environnement en bêta plutôt que reconduire cette exception |
+| `OPENAGENDA_API_KEY` | Clé API OpenAgenda | **Oui** — externalisée en LL-9004 (`application.properties` contenait auparavant cette clé en clair, exposée publiquement dans l'historique Git ; la clé doit être révoquée/régénérée sur le portail OpenAgenda avant tout déploiement bêta) |
 | `OPENAGENDA_AVIGNON_CULTURE_UID` et variables `OPENAGENDA_AVIGNON_*` | Agendas Avignon configurés au Sprint 8 | Non |
 
 Ce tableau définit les variables ; leur branchement effectif dans
@@ -247,8 +247,10 @@ openssl rand -base64 32   # à exécuter deux fois : POSTGRES_PASSWORD, JWT_SECR
 ```
 
 `LOCALLIFE_DOMAIN` = `locallife-beta.duckdns.org` (ou le sous-domaine
-choisi). `OPENAGENDA_API_KEY` : reprendre la clé déjà utilisée en
-local (`application.properties`) — pas un nouveau secret à générer.
+choisi). `OPENAGENDA_API_KEY` : **ne pas réutiliser l'ancienne clé**
+(compromise, exposée publiquement dans l'historique Git — voir
+LL-9004) — utiliser la nouvelle clé régénérée sur le portail
+OpenAgenda.
 
 ### 7. Démarrer la pile
 
