@@ -14,15 +14,23 @@ il ne l'exécute pas.
 
 ## Décisions retenues (validées par Alex le 27/08/2026)
 
-* **Hébergement principal :** Oracle Cloud Infrastructure — Always
-  Free (instance Ampere A1, architecture ARM/aarch64). Gratuit sans
-  échéance, région Europe disponible (contrairement à l'offre
-  gratuite permanente de GCP, limitée aux régions US), ressources
-  largement suffisantes pour la bêta (2 OCPU / 12 Go RAM au jour de
-  cette rédaction).
-* **Hébergement de secours :** Hetzner CX22 (~4-5 €/mois), si
-  l'inscription Oracle échoue ou est mise en revue trop longtemps.
-  Architecture x86, aucune adaptation d'image nécessaire.
+* **Hébergement retenu : Hetzner CX22** (ou son équivalent renommé —
+  voir note ci-dessous), ~4,35-5,99 €/mois selon la période. Décidé
+  le 27/08/2026 : Oracle Cloud Free Tier, initialement retenu en
+  principal, s'est révélé **indisponible** (pas de capacité ARM
+  allouable à l'inscription — risque déjà identifié lors du choix
+  initial). Bascule sur le plan de secours déjà validé le même jour,
+  sans nouvelle décision d'architecture à prendre : Oracle n'est plus
+  poursuivi pour ce déploiement.
+  Architecture x86 (Intel/AMD), 2 vCPU / 4 Go RAM, 40 Go NVMe, 20 To
+  de trafic inclus — largement suffisant pour la bêta, et sans
+  l'incertitude de compatibilité ARM d'Oracle (voir ancien « point de
+  vigilance » ci-dessous, devenu sans objet).
+  ⚠️ Le nom exact du plan a pu changer entre la rédaction de ce
+  document et le déploiement réel (des sources évoquent un possible
+  renommage CX22 → CX23 chez Hetzner courant 2026) : vérifier le nom
+  et les caractéristiques exactes dans la console Hetzner au moment
+  de la création plutôt que de se fier uniquement à ce document.
 * **Domaine :** sous-domaine gratuit DuckDNS (ex.
   `locallife-beta.duckdns.org`), migrable plus tard sans impact sur le
   code (voir « URLs et absence de CORS » ci-dessous).
@@ -32,16 +40,14 @@ il ne l'exécute pas.
   complexité non justifiée pour une bêta à périmètre contrôlé (cf.
   `docs/AI_RULES.md`, point 6 : pas d'anticipation).
 
-### Point de vigilance signalé (non un blocage)
+### Point de vigilance ARM — sans objet depuis la bascule Hetzner
 
-L'instance Oracle ciblée est en **architecture ARM (aarch64)**, alors
-que le développement local est fait en x86. Les images de base
-utilisées par le projet (`eclipse-temurin`, `postgis/postgis`,
-`nginx`) publient toutes des variantes `arm64` — aucun changement de
-Dockerfile n'est donc a priori nécessaire, mais ce point n'a pas pu
-être vérifié par un build réel depuis cette sandbox (pas d'accès à
-une machine ARM). À confirmer par Alex au premier déploiement réel
-(LL-9003).
+Ce document ciblait initialement une instance Oracle en architecture
+ARM (aarch64), ce qui aurait nécessité de vérifier la compatibilité
+`arm64` des images Docker du projet. Hetzner CX22 étant en
+architecture x86 standard, **ce point de vigilance ne s'applique
+plus** : les images (`eclipse-temurin`, `postgis/postgis`, `nginx`,
+`node`) sont utilisées sans adaptation, comme en développement local.
 
 ---
 
@@ -53,7 +59,7 @@ Internet
    │ HTTPS (443)
    ▼
 ┌─────────────────────────────────────────────┐
-│  VPS unique (Oracle Cloud Free Tier)         │
+│  VPS unique (Hetzner CX22)                   │
 │                                               │
 │   Caddy (reverse proxy + HTTPS automatique)  │
 │     │                                        │
@@ -184,25 +190,35 @@ services définis dans `docker-compose.beta.yml`) car Caddy route déjà
 connexion, carte, contribution) reste le périmètre de LL-9004, pas de
 celui-ci.
 
-### 1. Créer l'instance Oracle Cloud
+### 1. Créer l'instance Hetzner
 
-* Compute → Create Instance → forme **Ampere (ARM), VM.Standard.A1.Flex**
-  (2 OCPU / 12 Go — voir note ARM ci-dessus), image **Ubuntu 24.04
-  (aarch64)**, région Europe (ex. Marseille ou Francfort selon
-  disponibilité).
+* Console Hetzner Cloud → New Project (si pas déjà fait) → Add
+  Server.
+* Location : région Europe la plus proche (ex. Falkenstein ou
+  Nuremberg, Allemagne).
+* Image : **Ubuntu 24.04**.
+* Type : **CX22** — vérifier le nom exact dans la console au moment
+  de la création (voir note ci-dessus sur un possible renommage en
+  CX23), viser ~2 vCPU / 4 Go RAM.
 * Ajouter une clé SSH publique à la création (pas de mot de passe).
+* Activer le **Hetzner Cloud Firewall** dans le même flux de
+  création : autoriser TCP 22 (SSH, idéalement restreint à l'IP
+  d'Alex), 80 et 443 (0.0.0.0/0).
 * Noter l'adresse IP publique attribuée.
 
-### 2. Ouvrir les ports 80/443 — deux endroits, pas un seul
+### 2. Ouvrir les ports 80/443
 
-Piège Oracle Cloud connu : le trafic est bloqué à **deux niveaux**
-indépendants, les deux doivent être ouverts :
+Contrairement à Oracle Cloud, Hetzner n'ajoute pas de règles
+`iptables` bloquantes par défaut sur les images Ubuntu standard : le
+**Hetzner Cloud Firewall** configuré à l'étape 1 suffit normalement.
+À vérifier tout de même après le premier démarrage :
 
-* **Security List / Network Security Group** (console Oracle, au
-  niveau du VCN) : ajouter des règles ingress pour les ports 80 et 443
-  (0.0.0.0/0, TCP).
-* **Pare-feu système de l'instance** (`iptables`, actif par défaut sur
-  les images Ubuntu Oracle) :
+```bash
+sudo iptables -L -n   # doit être permissif (ACCEPT par défaut) ou vide
+```
+
+Si une règle bloquante apparaît malgré tout (rare, dépend de l'image),
+l'ouvrir comme pour Oracle :
 
 ```bash
 sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
@@ -280,9 +296,9 @@ docker compose -f docker-compose.beta.yml logs backend postgres caddy | grep -iE
 ### Non réalisable depuis cette sandbox
 
 Toutes les étapes ci-dessus nécessitent l'accès réel à l'instance
-Oracle (SSH) et à la console Oracle Cloud, indisponibles depuis cette
-sandbox. Ce mode opératoire a été rédigé et vérifié sur la base de la
-documentation Oracle/Docker/DuckDNS, mais son exécution et la
+Hetzner (SSH) et à la console Hetzner Cloud, indisponibles depuis
+cette sandbox. Ce mode opératoire a été rédigé et vérifié sur la base
+de la documentation Hetzner/Docker/DuckDNS, mais son exécution et la
 confirmation effective des critères d'acceptation restent à la charge
 d'Alex.
 

@@ -2382,10 +2382,24 @@ d'infrastructure — détail dans `BETA_DEPLOYMENT.md`.
 L'intégralité des critères d'acceptation du ticket (PostgreSQL/PostGIS
 opérationnel, migrations appliquées, API accessible depuis Internet,
 health check, authentification, absence de secret dans les logs)
-nécessite l'exécution réelle sur l'instance Oracle. Le mode opératoire
+nécessite l'exécution réelle sur l'instance cible. Le mode opératoire
 (`docs/02_Architecture/BETA_DEPLOYMENT.md`, section LL-9003) inclut
 les commandes de vérification exactes à exécuter par Alex pour
 confirmer chacun de ces critères.
+
+### Bascule Oracle → Hetzner (27/08/2026)
+
+Oracle Cloud Free Tier, retenu en principal dans LL-9002, s'est révélé
+indisponible (pas de capacité ARM allouable à l'inscription) — risque
+déjà identifié et documenté au moment du choix initial. Bascule sur
+**Hetzner CX22**, le plan de secours déjà validé par Alex le même
+jour dans LL-9002 : pas de nouvelle décision d'architecture à
+prendre. Mode opératoire (`BETA_DEPLOYMENT.md`) mis à jour en
+conséquence : création d'instance, pare-feu (plus simple chez
+Hetzner, pas de piège `iptables` par défaut comme sur Oracle), et
+retrait du point de vigilance ARM devenu sans objet (Hetzner est en
+architecture x86 standard). Coût : ~4,35-5,99 €/mois au lieu de
+gratuit — accepté avec le choix initial du plan de secours.
 
 **Statut : mode opératoire prêt, en attente d'exécution et de
 confirmation par Alex.**
