@@ -304,7 +304,7 @@ d'Alex.
 
 ---
 
-## Procédure de déploiement — LL-9004 (frontend)
+## Procédure de déploiement — LL-9005 (frontend)
 
 Sera détaillé lors du traitement de ce ticket : validation
 fonctionnelle des parcours (inscription, connexion, carte, recherche,
