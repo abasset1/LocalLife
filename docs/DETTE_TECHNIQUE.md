@@ -246,6 +246,134 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 
 ---
 
+## Backend — `GET /api/v1/users/{id}` public, expose l'email
+
+* **Détecté** : audit sécurité LL-9004 (28 août 2026), catégorie
+  Autorisation.
+* **Où** : `UserController` (`com.locallife.backend.user.api`),
+  `SecurityConfig` (`anyRequest().permitAll()` couvre cette route par
+  défaut, aucune règle explicite ne la restreint).
+* **Nature** : la route retourne `UserResponse` (id, username,
+  **email**, role, createdAt) sans authentification requise. Permet
+  l'énumération de tous les comptes par incrémentation d'id, avec
+  fuite de l'email associé à chacun.
+* **Impact réel** : pas de fuite de `passwordHash` (déjà exclu de
+  `UserResponse` depuis LL-3010), mais fuite d'une donnée personnelle
+  (email) et vecteur d'énumération de comptes, sans authentification.
+* **Correctif disponible** : à trancher avec Alex — restreindre la
+  route (authentifiée, ou limitée à l'utilisateur lui-même/`ADMIN`),
+  ou réduire `UserResponse` pour cette route (retirer l'email) si un
+  usage public partiel reste voulu côté frontend.
+* **Pourquoi pas corrigé immédiatement** : je n'ai pas le contexte
+  produit pour savoir si cette route a un usage prévu côté frontend
+  nécessitant qu'elle reste publique — décision produit/sécurité,
+  pas un choix technique unilatéral.
+* **Statut** : ouvert.
+
+---
+
+## Backend — messages d'exception bruts renvoyés au client sur les 500
+
+* **Détecté** : audit sécurité LL-9004 (28 août 2026), catégorie
+  Données sensibles.
+* **Où** : `GlobalExceptionHandler`
+  (`com.locallife.backend.shared.api` ou équivalent — gestionnaire
+  d'exceptions générique du projet).
+* **Nature** : le corps de la réponse 500 inclut `exception.getMessage()`
+  tel quel. Pas de stack trace (déjà correct), mais le message brut de
+  certaines exceptions (ex. `DataIntegrityViolationException`) peut
+  contenir des détails internes (nom de contrainte SQL, colonne,
+  table).
+* **Impact réel** : fuite d'information technique interne limitée
+  (pas de données utilisateur), mais pas strictement conforme à
+  l'esprit « aucune donnée technique interne exposée » du critère
+  LL-9004.
+* **Correctif disponible** : remplacer par un message générique côté
+  client (« Une erreur interne est survenue »), conserver le détail
+  dans les logs uniquement (déjà fait pour les logs actuellement).
+* **Pourquoi pas corrigé immédiatement** : changement de comportement
+  sur toutes les réponses 500 de l'API — à confirmer avec Alex que le
+  détail actuel n'est utile à aucun consommateur (frontend, débogage
+  bêta) avant de le retirer.
+* **Statut** : ouvert.
+
+---
+
+## Infrastructure — un seul utilisateur PostgreSQL (migrations et runtime)
+
+* **Détecté** : audit sécurité LL-9004 (28 août 2026), catégorie Base
+  de données.
+* **Où** : `infra/docker-compose.beta.yml` (`POSTGRES_USER`), utilisé
+  à la fois par Flyway pour les migrations et par le backend pour
+  toutes les requêtes applicatives.
+* **Nature** : cet utilisateur est propriétaire de la base créée par
+  l'image `postgis/postgis`, avec des privilèges complets sur cette
+  base — plus large que nécessaire pour de simples opérations CRUD en
+  exécution normale.
+* **Impact réel** : limité pour une bêta à petite échelle (pas de
+  surface d'attaque supplémentaire tant que l'accès réseau à
+  PostgreSQL reste confiné, cf. catégorie 7 de l'audit, déjà
+  conforme), mais ne respecte pas strictement le principe de
+  privilèges minimaux.
+* **Correctif disponible** : créer un second rôle PostgreSQL dédié au
+  runtime applicatif (droits `SELECT`/`INSERT`/`UPDATE`/`DELETE` sur
+  les tables applicatives uniquement, pas de droits DDL), garder
+  l'utilisateur actuel réservé aux migrations Flyway.
+* **Pourquoi pas corrigé immédiatement** : implique de modifier
+  `docker-compose.beta.yml` et la procédure de déploiement
+  (`BETA_DEPLOYMENT.md`) — décision d'architecture, à trancher avec
+  Alex plutôt qu'un changement unilatéral, d'autant que ce n'est pas
+  bloquant pour la validation de LL-9004.
+* **Statut** : ouvert.
+
+---
+
+## Infrastructure — aucun header de sécurité HTTP explicite (Caddy)
+
+* **Détecté** : audit sécurité LL-9004 (28 août 2026), catégorie CORS
+  et sécurité HTTP.
+* **Où** : `infra/Caddyfile.beta`.
+* **Nature** : aucun header de sécurité explicite (HSTS,
+  `X-Content-Type-Options`, `X-Frame-Options`, etc.) n'est configuré.
+  Spring Security ajoute certains headers par défaut côté API, mais
+  rien n'est garanti côté fichiers statiques servis par le conteneur
+  frontend.
+* **Impact réel** : faible pour une bêta fermée à un petit panel, mais
+  à corriger avant une exposition plus large.
+* **Correctif disponible** : ajouter un bloc `header` dans
+  `Caddyfile.beta` (HSTS, `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY` au minimum).
+* **Pourquoi pas corrigé immédiatement** : correctif simple mais qui
+  touche à la configuration réseau exposée publiquement — à valider
+  avec Alex avant modification, comme les autres points non bloquants
+  de l'audit LL-9004.
+* **Statut** : ouvert.
+
+---
+
+## Backend — `UnsupportedJwtException` non capturée dans `JwtFilter`
+
+* **Détecté** : audit sécurité LL-9004 (28 août 2026), catégorie
+  Authentification.
+* **Où** : `JwtFilter` (`com.locallife.backend.auth` ou équivalent).
+* **Nature** : `SignatureException`, `MalformedJwtException`,
+  `ExpiredJwtException` et `IllegalArgumentException` sont capturées
+  explicitement et renvoient 401, mais pas `UnsupportedJwtException`
+  (jjwt) — un token JWT valide mais d'un type non supporté remonterait
+  au `GlobalExceptionHandler` générique en 500 plutôt qu'en 401.
+* **Impact réel** : nul en termes de sécurité (pas de fuite de droits,
+  l'accès reste refusé), simple incohérence de code HTTP par rapport
+  aux autres cas d'erreur JWT.
+* **Correctif disponible** : ajouter `UnsupportedJwtException` au
+  `catch` existant dans `JwtFilter`.
+* **Pourquoi pas corrigé immédiatement** : correctif trivial et sans
+  risque, mais périmètre de LL-9004 traité comme rapport d'audit
+  d'abord — à inclure dans le prochain lot de correctifs validé par
+  Alex plutôt que modifié isolément.
+* **Statut** : ouvert.
+
+---
+
 <!--
 Modèle pour une nouvelle entrée :
 
