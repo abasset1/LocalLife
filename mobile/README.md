@@ -64,7 +64,13 @@ mobile/
 ├── app.config.ts       # config Expo + lecture de EXPO_PUBLIC_API_URL
 ├── .env.example         # template de configuration (à copier en .env)
 ├── src/
-│   ├── app/              # écrans et navigation (Expo Router)
+│   ├── app/                # écrans et navigation (Expo Router)
+│   │   ├── _layout.tsx       # stack racine : (tabs) + détail activité
+│   │   ├── (tabs)/            # navigation par onglets
+│   │   │   ├── index.tsx        # Découvrir
+│   │   │   ├── contribution.tsx # Contribution
+│   │   │   └── compte.tsx       # Compte
+│   │   └── activite/[id].tsx  # détail d'une activité (écran empilé)
 │   ├── components/       # composants UI réutilisables
 │   ├── constants/        # constantes (thème, etc.)
 │   ├── config/           # configuration applicative (env.ts)
@@ -74,16 +80,28 @@ mobile/
 
 Cette structure sera enrichie au fil des tickets du sprint mobile
 (`docs/05_Sprints/SPRINT_MOBILE.md`), notamment `src/features/` pour le
-découpage par fonctionnalité prévu par LL-MOB-0001, et un client API dédié
-en LL-MOB-0003.
+découpage par fonctionnalité, et un client API dédié en LL-MOB-0003.
 
-## État actuel (LL-MOB-0001)
+## Navigation (LL-MOB-0002)
 
-- [x] Projet Expo + TypeScript initialisé, versionné dans le dépôt
-- [x] Expo Router en place (navigation par fichiers)
-- [x] URL de l'API configurable par environnement, aucun secret embarqué
-- [ ] Navigation adaptée aux usages mobiles (LL-MOB-0002)
+3 onglets : **Découvrir**, **Contribution**, **Compte**. Le détail d'une
+activité n'est pas un onglet : il s'atteint depuis "Découvrir" via un écran
+empilé au-dessus des onglets (`src/app/activite/[id].tsx`), avec un header
+natif portant le bouton retour. Le geste/bouton retour Android est géré
+nativement par le stack navigator, sans code additionnel.
+
+Implémentation avec le `Tabs` standard de `expo-router` (pas `NativeTabs`,
+qui est une API instable) : même comportement sur toutes les plateformes,
+pas de double implémentation à maintenir.
+
+Les écrans des 3 onglets et le détail d'activité sont pour l'instant des
+écrans de contenu (le contenu réel arrive avec LL-MOB-0004 authentification,
+LL-MOB-0005 carte, LL-MOB-0007 filtres, LL-MOB-0008 détail d'activité,
+LL-MOB-0010 contribution).
+
+## État actuel
+
+- [x] Projet Expo + TypeScript initialisé, versionné dans le dépôt (LL-MOB-0001)
+- [x] Navigation par onglets + écran de détail empilé (LL-MOB-0002)
 - [ ] Client API centralisé (LL-MOB-0003)
-
-L'écran de démarrage actuel est celui du template Expo par défaut ; il sera
-remplacé par la navigation cible lors de LL-MOB-0002.
+- [ ] Authentification (LL-MOB-0004)
