@@ -1,7 +1,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.9.0
-**Dernière mise à jour :** 2026-08-25 (Sprint 8 en cours, LL-8008 terminé)
+**Dernière mise à jour :** 2026-08-31 (Sprint 9 en cours, LL-9004 terminé — Security Gate validé, LL-9005 démarré)
 
 ---
 ## Phase actuelle
@@ -32,7 +32,7 @@ Sprint 0 (socle technique backend) terminé. Sprint 1 (première fonctionnalité
  | Modération / administration | ✅ Terminé (Sprint 6) |
  | Phase 1 (Socle Technique + MVP) | ✅ Terminé    |
  | Phase 2 (Validation et préparation bêta) | 🟡 En cours |
- | Infrastructure             | 🟡 À consolider |
+ | Infrastructure             | 🟡 Backend bêta déployé (Hetzner), frontend en cours (LL-9005) |
 
 ---
 ## Décisions validées
@@ -2183,7 +2183,9 @@ figé à l'avance — voir `docs/05_Sprints/SPRINT_9.md`.
 
 * LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ✅
 * LL-9002 — Préparer l'environnement de déploiement bêta ✅
-* LL-9003 — Déployer le backend et la base de données bêta 🟡 (mode opératoire prêt, exécution par Alex)
+* LL-9003 — Déployer le backend et la base de données bêta ✅ (Hetzner CX22, bascule depuis Oracle Cloud faute de capacité ARM)
+* LL-9004 — Audit sécurité pré-exposition (Security Gate) ✅
+* LL-9005 — Déployer le frontend et rendre LocalLife accessible en ligne 🟡 En cours
 
 ## LL-9001 — Ne plus afficher les activités hors période sur les recherches publiques ✅
 
@@ -2401,5 +2403,69 @@ retrait du point de vigilance ARM devenu sans objet (Hetzner est en
 architecture x86 standard). Coût : ~4,35-5,99 €/mois au lieu de
 gratuit — accepté avec le choix initial du plan de secours.
 
-**Statut : mode opératoire prêt, en attente d'exécution et de
-confirmation par Alex.**
+**Statut : ✅ Terminé.** Déploiement réellement exécuté par Alex sur
+l'instance Hetzner CX22 : backend et PostgreSQL/PostGIS opérationnels,
+migrations Flyway appliquées, health check accessible via
+`/actuator/health` (Caddy), authentification fonctionnelle. Sous-domaine
+DuckDNS confirmé, IPv4 publique activée sur l'instance (nécessaire pour
+l'enregistrement DNS A et Let's Encrypt).
+
+---
+
+## LL-9004 — Audit sécurité pré-exposition (Security Gate) ✅
+
+**Dépendance :** LL-9003 ✅.
+
+Audit mené selon les dix catégories de contrôle listées dans
+`docs/05_Sprints/SPRINT_9.md` (secrets, authentification, autorisation,
+données sensibles, validation des entrées, CORS/HTTP, infrastructure,
+base de données, dépendances, collecteurs).
+
+### Bloquants trouvés et corrigés
+
+1. **Clé API OpenAgenda codée en dur** — externalisée en variable
+   d'environnement `OPENAGENDA_API_KEY`, plus aucune valeur réelle dans
+   le dépôt ou son historique récent.
+2. **Aucune procédure de sauvegarde/restauration** — `infra/backup.sh`
+   (sauvegarde `pg_dump` vers Backblaze B2 via `rclone`, offre
+   gratuite) et `docs/02_Architecture/BACKUP_RESTORE.md` (procédure de
+   restauration documentée) ajoutés.
+
+### Constats non bloquants, documentés pour arbitrage d'Alex
+
+Cinq constats consignés dans `docs/DETTE_TECHNIQUE.md` (statut
+« ouvert », chacun avec correctif proposé mais non appliqué — décision
+produit/sécurité à trancher avec Alex avant modification) :
+
+* `GET /api/v1/users/{id}` public, expose l'email (énumération de
+  comptes possible) ;
+* messages d'exception bruts renvoyés au client sur les réponses 500 ;
+* un seul utilisateur PostgreSQL, utilisé à la fois pour les migrations
+  et l'exécution applicative (privilèges plus larges que nécessaire) ;
+* aucun en-tête de sécurité HTTP explicite (HSTS, `X-Content-Type-Options`,
+  `X-Frame-Options`) dans `infra/Caddyfile.beta` ;
+* `UnsupportedJwtException` non capturée dans `JwtFilter` (renvoie 500
+  au lieu de 401 pour ce cas précis — aucune fuite de droits, simple
+  incohérence de code HTTP).
+
+Aucun de ces cinq points ne remplit la règle de blocage de LL-9004
+(« vulnérabilité critique ou accès non autorisé aux données/fonctions
+sensibles ») : impact limité et périmètre d'une bêta fermée à un petit
+panel, mais à traiter avant une exposition plus large.
+
+### Décision
+
+**Security Gate validé le 28/08/2026** — les deux bloquants réels sont
+corrigés, aucun problème critique ouvert. Sprint 9 peut se poursuivre
+avec LL-9005 (déploiement du frontend), premier ticket qui dépendait
+explicitement de ce gate.
+
+**Statut : ✅ Terminé.**
+
+---
+
+## LL-9005 — Déployer le frontend et rendre LocalLife accessible en ligne 🟡
+
+**Dépendance :** LL-9004 ✅.
+
+**Statut : 🟡 En cours.**

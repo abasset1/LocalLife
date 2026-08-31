@@ -2,10 +2,11 @@
 
 ## État actuel
 
-Sprint 7 terminé (`LL-7001` → `LL-7009`). MVP validé de bout en bout
-avec de vraies données OpenAgenda, blocages trouvés corrigés (LL-7007),
-guide de démonstration ajouté au `README.md` (LL-7008). Détail complet :
-`docs/PROJECT_STATUS.md`, section Sprint 7.
+Sprint 7 (MVP validé bout en bout) et Sprint 8 (préparation de la
+bêta, GO conditionnel confirmé) terminés. Sprint 9 en cours : bêta
+ouverte, backend déployé et sécurisé (LL-9001 → LL-9004), déploiement
+du frontend en cours (LL-9005). Détail complet : `docs/PROJECT_STATUS.md`,
+sections Sprint 7 à 9.
 
 Phase actuelle : **Phase 2 — Validation et préparation de la bêta**.
 
@@ -79,13 +80,53 @@ conditions à confirmer par Alex avant ouverture effective (voir
    cette première bêta restreinte, ou faut-il en identifier d'autres
    avant l'ouverture ?
 
+## Sprint 8 — clôturé
+
+Les trois conditions du GO bêta conditionnel ont été confirmées par
+Alex le 26/08/2026 (`mvn verify` passe, import réel multi-agenda
+vérifié, diversité d'agendas Avignon acceptée en l'état). Bêta ouverte.
+Détail complet : `docs/PROJECT_STATUS.md`, section Sprint 8.
+
+## Sprint 9 — en cours (post-bêta)
+
+Objectif : traiter au fil de l'eau les correctifs identifiés
+pendant/après la bêta, puis déployer et sécuriser l'accès public à
+LocalLife. Voir `docs/05_Sprints/SPRINT_9.md` pour le détail des
+tickets et `docs/PROJECT_STATUS.md`, section Sprint 9, pour le
+narratif complet de chacun.
+
+* `LL-9001` terminé : les recherches publiques n'affichent plus par
+  défaut les activités hors période (filtre implicite sur la date du
+  jour quand `date` n'est pas fourni).
+* `LL-9002` terminé : architecture et procédure de l'environnement
+  bêta documentées (`docs/02_Architecture/BETA_DEPLOYMENT.md`),
+  infrastructure Docker/Caddy livrée.
+* `LL-9003` terminé : backend et PostgreSQL/PostGIS déployés en bêta
+  sur Hetzner CX22 (bascule depuis Oracle Cloud, capacité ARM
+  indisponible à l'inscription), health check et authentification
+  vérifiés.
+* `LL-9004` terminé : Security Gate validé le 28/08/2026. Deux
+  bloquants corrigés (clé API OpenAgenda externalisée, procédure de
+  sauvegarde/restauration Backblaze B2 ajoutée). Cinq constats non
+  bloquants documentés dans `docs/DETTE_TECHNIQUE.md`, en attente
+  d'arbitrage d'Alex (endpoint utilisateur public exposant l'email,
+  messages d'exception bruts sur les 500, utilisateur PostgreSQL
+  unique, en-têtes de sécurité HTTP absents côté Caddy,
+  `UnsupportedJwtException` non capturée).
+
 ## Prochaine tâche
 
-Sprint 8 terminé sur le plan du contenu ; il ne reste que les trois
-confirmations ci-dessus, à la charge d'Alex (nécessitent un
-environnement réel — réseau, base de données locale — indisponible
-dans cette sandbox). Une fois confirmées, le Sprint 9 (post-bêta,
-retours utilisateurs) pourra être planifié.
+**`LL-9005` — Déployer le frontend et rendre LocalLife accessible en
+ligne**, en cours. Dépend de `LL-9004` (Security Gate), désormais
+validé. Critères d'acceptation : frontend accessible depuis Internet en
+HTTPS, utilisant l'API bêta (aucune URL `localhost`), inscription/
+connexion/carte/recherches/détail d'activité/contribution
+fonctionnels, aucun secret backend dans le build frontend.
+
+En parallèle, le sprint mobile (`docs/05_Sprints/SPRINT_MOBILE.md`) a
+démarré : `LL-MOB-0001` (socle Expo/TypeScript) et `LL-MOB-0002`
+(navigation) livrés et poussés sur `main` ; `LL-MOB-0003` (client API)
+en pause en attendant deux décisions techniques d'Alex.
 
 ## Règles
 

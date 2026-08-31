@@ -1,6 +1,6 @@
 Sprint 9 — Bêta et corrections post-bêta
 
-Statut : ⏳ À faire
+Statut : 🟡 En cours
 
 ---
 
@@ -182,7 +182,14 @@ LL-9004 — Audit sécurité pré-exposition
 
 Priorité : Bloquante
 
-Statut : ⏳ À faire
+Statut : ✅ Terminé — Security Gate validé le 28/08/2026. Deux
+bloquants corrigés (clé API OpenAgenda externalisée, procédure de
+sauvegarde/restauration ajoutée). Cinq constats non bloquants
+documentés dans `docs/DETTE_TECHNIQUE.md`, en attente d'arbitrage
+d'Alex avant correction (endpoint utilisateur public exposant l'email,
+messages d'exception bruts sur les 500, utilisateur PostgreSQL unique,
+en-têtes de sécurité HTTP absents côté Caddy, `UnsupportedJwtException`
+non capturée).
 
 Dépendance : "LL-9003"
 
@@ -326,6 +333,8 @@ autorisé aux données ou fonctions sensibles bloque la validation de
 LL-9005 — Déployer le frontend et rendre LocalLife accessible en ligne
 
 Priorité : Haute
+
+Statut : 🟡 En cours
 
 Dépendance : "LL-9004"
 
