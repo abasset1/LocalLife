@@ -6,6 +6,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
@@ -56,7 +57,8 @@ public class JwtFilter extends OncePerRequestFilter {
             JwtAuthentication authentication = new JwtAuthentication(userId, email, role);
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        } catch (SignatureException | MalformedJwtException | ExpiredJwtException | IllegalArgumentException e) {
+        } catch (SignatureException | MalformedJwtException | ExpiredJwtException
+                | UnsupportedJwtException | IllegalArgumentException e) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token JWT invalide");
             return;
         }

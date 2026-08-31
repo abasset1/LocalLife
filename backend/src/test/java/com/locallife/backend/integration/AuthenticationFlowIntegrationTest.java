@@ -99,6 +99,22 @@ class AuthenticationFlowIntegrationTest {
                 .compact();
     }
 
+    /**
+     * JWT syntaxiquement valide mais non signé ("plaintext JWT", RFC 7519).
+     * {@code JwtFilter} attend systématiquement un JWS (jeton signé) via
+     * {@code parseSignedClaims} : un jeton non signé déclenche
+     * {@code UnsupportedJwtException} plutôt que {@code SignatureException}
+     * (LL-9006, constat non bloquant de l'audit LL-9004 — la classe
+     * d'exception n'était jusqu'ici pas capturée).
+     */
+    private String unsupportedToken() {
+        return Jwts.builder()
+                .claim("userId", 1L)
+                .claim("email", "unsupported@example.com")
+                .claim("role", "USER")
+                .compact();
+    }
+
     // --- Inscription -> connexion -> accès protégé (succès) ---
 
     @Test
@@ -176,6 +192,16 @@ class AuthenticationFlowIntegrationTest {
     void createActivity_ShouldBeRefused_WhenTokenIsExpired() {
         restTestClient().post().uri("/api/v1/activities")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new CreateActivityRequest("Titre", "Description", "sport", "Une adresse"))
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void createActivity_ShouldBeRefused_WhenTokenIsUnsupported() {
+        restTestClient().post().uri("/api/v1/activities")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + unsupportedToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new CreateActivityRequest("Titre", "Description", "sport", "Une adresse"))
                 .exchange()

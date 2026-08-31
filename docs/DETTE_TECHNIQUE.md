@@ -343,15 +343,10 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 * **Correctif disponible** : ajouter un bloc `header` dans
   `Caddyfile.beta` (HSTS, `X-Content-Type-Options: nosniff`,
   `X-Frame-Options: DENY` au minimum).
-* **Pourquoi pas corrigé immédiatement** : correctif simple mais qui
-  touche à la configuration réseau exposée publiquement — à valider
-  avec Alex avant modification, comme les autres points non bloquants
-  de l'audit LL-9004.
-* **Statut** : ouvert.
-
----
-
-## Backend — `UnsupportedJwtException` non capturée dans `JwtFilter`
+* **Statut** : résolu par LL-9006 (Sprint 9, 01/09/2026). `infra/Caddyfile.beta`
+  ajoute désormais un bloc `header` (`Strict-Transport-Security`,
+  `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`) appliqué
+  à toutes les réponses (API et fichiers statiques du frontend).
 
 * **Détecté** : audit sécurité LL-9004 (28 août 2026), catégorie
   Authentification.
@@ -370,7 +365,9 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
   risque, mais périmètre de LL-9004 traité comme rapport d'audit
   d'abord — à inclure dans le prochain lot de correctifs validé par
   Alex plutôt que modifié isolément.
-* **Statut** : ouvert.
+* **Statut** : résolu par LL-9006 (Sprint 9, 01/09/2026).
+  `UnsupportedJwtException` ajoutée au bloc `catch` existant de
+  `JwtFilter`, même comportement (401) que les autres cas d'erreur JWT.
 
 ---
 

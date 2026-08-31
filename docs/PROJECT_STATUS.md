@@ -2487,3 +2487,71 @@ requête ne part vers `localhost` dans l'onglet Réseau) — détaillée
 dans `docs/02_Architecture/BETA_DEPLOYMENT.md`, section LL-9005.
 
 **Statut : ✅ Traité côté code — en attente de confirmation par Alex.**
+
+---
+
+## LL-9006 — Finaliser la sécurisation de l'exposition web 🟡
+
+**Dépendance :** LL-9005 ✅.
+
+### Revue de code effectuée
+
+* **CORS** : aucune configuration CORS n'existe nulle part dans le
+  backend (ni `@CrossOrigin`, ni `CorsConfigurationSource`, ni
+  `WebMvcConfigurer#addCorsMappings`) — volontaire depuis LL-9002
+  (frontend et API sous le même domaine via Caddy). Conséquence :
+  aucune origine externe n'est autorisée par défaut, ce qui satisfait
+  strictement le critère « CORS limité aux origines nécessaires »
+  (l'ensemble vide en fait partie).
+* **`GlobalExceptionHandler`** : aucune stack trace renvoyée au
+  client ; comportement inchangé depuis l'audit LL-9004 (le seul écart
+  connu — message d'exception brut dans le corps — reste une entrée
+  ouverte de `docs/DETTE_TECHNIQUE.md`, non retraité ici, hors
+  périmètre des deux correctifs validés par Alex pour ce ticket).
+
+### Deux constats non bloquants de LL-9004 corrigés (validés par Alex)
+
+1. **En-têtes de sécurité HTTP** — `infra/Caddyfile.beta` : bloc
+   `header` ajouté (`Strict-Transport-Security`,
+   `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`),
+   appliqué à toutes les réponses (API et fichiers statiques du
+   frontend).
+2. **`UnsupportedJwtException` non capturée** — `JwtFilter` : ajoutée
+   au bloc `catch` existant, même comportement (`401`) que les autres
+   cas d'erreur JWT. Nouveau test d'intégration
+   (`AuthenticationFlowIntegrationTest#createActivity_ShouldBeRefused_WhenTokenIsUnsupported`,
+   JWT non signé — RFC 7519 « plaintext JWT »).
+
+### Constat supplémentaire trouvé pendant la revue, corrigé
+
+* **`/actuator/info`** exposait les métadonnées de build (nom,
+  version, date de build — `spring-boot-maven-plugin`, non bloquant,
+  jamais un secret) sans nécessité fonctionnelle identifiée.
+  `management.endpoints.web.exposure.include` réduit à `health` seul
+  (`backend/src/main/resources/application.properties`, s'applique à
+  tous les profils).
+
+### Reste ouvert dans `docs/DETTE_TECHNIQUE.md` (décision explicite
+d'Alex de ne pas les traiter dans ce ticket)
+
+* `GET /api/v1/users/{id}` public, expose l'email ;
+* messages d'exception bruts sur les 500 ;
+* utilisateur PostgreSQL unique (migrations + runtime).
+
+### Reste à vérifier par Alex (accès réel nécessaire, non réalisable
+depuis cette sandbox)
+
+* certificat HTTPS valide depuis un navigateur externe (déjà
+  provisionné par Let's Encrypt/Caddy depuis LL-9003, à reconfirmer
+  maintenant que le domaine sert aussi le frontend) ;
+* redirection HTTP → HTTPS effective (comportement automatique de
+  Caddy pour un site à nom de domaine, jamais désactivé dans
+  `Caddyfile.beta` — à confirmer avec `curl -I http://<domaine>`) ;
+* CORS refusé en pratique depuis une origine tierce (ex. requête
+  `fetch` depuis un `file://` ou un autre domaine — doit échouer côté
+  navigateur, aucun header `Access-Control-Allow-Origin` renvoyé) ;
+* endpoints administratifs (`/api/v1/admin/*`, `POST /api/v1/users`)
+  refusés sans JWT `ADMIN` depuis l'extérieur.
+
+**Statut : 🟡 Traité côté code, en attente de confirmation par Alex
+sur les quatre points ci-dessus.**

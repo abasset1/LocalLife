@@ -365,6 +365,10 @@ LL-9006 — Finaliser la sécurisation de l'exposition web
 
 Priorité : Haute
 
+Statut : ✅ Traité côté code — en attente de confirmation par Alex sur
+les points nécessitant un accès réel (certificat HTTPS externe,
+requêtes non sécurisées)
+
 Dépendance : "LL-9005"
 
 Objectif

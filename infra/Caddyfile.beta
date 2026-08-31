@@ -4,8 +4,29 @@
 # (Let's Encrypt) géré par Caddy, aucune configuration CORS nécessaire
 # côté backend puisque frontend et API partagent la même origine.
 # Voir docs/02_Architecture/BETA_DEPLOYMENT.md.
+#
+# En-têtes de sécurité HTTP (LL-9006) : constat non bloquant de l'audit
+# LL-9004 (docs/DETTE_TECHNIQUE.md), corrigé ici puisque LL-9006 porte
+# spécifiquement sur la sécurisation de l'exposition web. Appliqués à
+# toutes les réponses (frontend statique et API), Caddy ne distinguant
+# pas les deux pour cet aspect.
+# - Strict-Transport-Security : navigateur forcé en HTTPS pour ce
+#   domaine pendant 1 an (redirection HTTP → HTTPS déjà automatique
+#   via la gestion HTTPS de Caddy, ceci la renforce côté navigateur) ;
+# - X-Content-Type-Options : empêche le navigateur de deviner un type
+#   MIME différent de celui annoncé (protection contre certaines
+#   attaques XSS) ;
+# - X-Frame-Options : interdit d'intégrer le site dans une <iframe>
+#   (protection contre le clickjacking) — aucun besoin d'intégration
+#   identifié pour LocalLife.
 
 {$LOCALLIFE_DOMAIN} {
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+
     handle /api/* {
         reverse_proxy backend:8080
     }
