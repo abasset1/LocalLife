@@ -2464,8 +2464,26 @@ explicitement de ce gate.
 
 ---
 
-## LL-9005 — Déployer le frontend et rendre LocalLife accessible en ligne 🟡
+## LL-9005 — Déployer le frontend et rendre LocalLife accessible en ligne
 
 **Dépendance :** LL-9004 ✅.
 
-**Statut : 🟡 En cours.**
+**Constat : aucun changement de code nécessaire.** Le frontend
+n'appelle l'API qu'en chemins relatifs (décision d'architecture
+LL-9002, même origine que l'API via Caddy) — vérifié sur un build de
+production réel (`npm run build`) : aucune URL `localhost` dans le
+bundle livré (la seule occurrence du dépôt est le proxy
+`vite.config.js`, actif uniquement en développement, jamais exécuté
+par `vite build`), aucun secret backend embarqué (le frontend
+n'utilise aucune variable d'environnement `VITE_*`). Le conteneur
+`frontend` fait partie de `docker-compose.beta.yml` depuis LL-9002 et
+a donc déjà été construit/démarré à l'étape 7 de la procédure LL-9003.
+
+**Reste à faire, à la charge d'Alex** (nécessite le navigateur et
+l'environnement réel) : dérouler la checklist de vérification
+fonctionnelle en conditions réelles (inscription, connexion, carte,
+recherche, détail d'activité, contribution, confirmation qu'aucune
+requête ne part vers `localhost` dans l'onglet Réseau) — détaillée
+dans `docs/02_Architecture/BETA_DEPLOYMENT.md`, section LL-9005.
+
+**Statut : ✅ Traité côté code — en attente de confirmation par Alex.**

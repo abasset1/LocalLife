@@ -334,7 +334,9 @@ LL-9005 — Déployer le frontend et rendre LocalLife accessible en ligne
 
 Priorité : Haute
 
-Statut : 🟡 En cours
+Statut : ✅ Traité côté code (aucun changement nécessaire, vérifié) —
+en attente de la checklist de vérification en conditions réelles par
+Alex, voir `docs/02_Architecture/BETA_DEPLOYMENT.md`
 
 Dépendance : "LL-9004"
 

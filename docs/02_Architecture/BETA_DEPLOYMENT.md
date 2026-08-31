@@ -306,12 +306,72 @@ d'Alex.
 
 ## Procédure de déploiement — LL-9005 (frontend)
 
-Sera détaillé lors du traitement de ce ticket : validation
-fonctionnelle des parcours (inscription, connexion, carte, recherche,
-contribution) sur le frontend déjà démarré à l'étape 7 ci-dessus, et
-nettoyage de toute configuration de développement résiduelle
-(`vite.config.js` proxy, notamment — actif uniquement en `npm run
-dev`, sans effet sur le build de production, mais à confirmer).
+### Constat : aucun changement de code nécessaire
+
+Le frontend n'appelle l'API qu'en chemins relatifs (`/api/v1/...`,
+jamais d'URL absolue) — décision d'architecture prise dès LL-9002
+précisément pour que frontend et API partagent la même origine sous
+Caddy. Conséquence directe, vérifiée en sandbox sur un build réel
+(`npm run build`) :
+
+* **aucune URL `localhost` dans le bundle de production** — la seule
+  occurrence de `localhost` du dépôt frontend est
+  `vite.config.js` (`server.proxy`), qui ne s'applique qu'au serveur
+  de développement (`npm run dev`) et n'est jamais exécuté par
+  `vite build` ; confirmé par recherche dans `dist/assets/*.js` après
+  build : aucune occurrence liée à notre code (une seule occurrence de
+  `http://localhost`, interne à `react-router-dom`, une URL factice
+  utilisée par son analyseur d'URL, sans lien avec la configuration
+  API) ;
+* **aucun secret backend dans le build** — le frontend n'utilise aucune
+  variable d'environnement (`import.meta.env`/`VITE_*` : aucune
+  occurrence dans `frontend/src`), donc rien qui puisse embarquer une
+  valeur de `.env.beta` dans le bundle livré au navigateur ;
+* **le frontend utilise nécessairement l'API bêta** : servi par le
+  même conteneur Caddy que l'API (`Caddyfile.beta`), toute requête
+  relative part automatiquement vers `https://<LOCALLIFE_DOMAIN>/api/...`.
+
+Le conteneur `frontend` (image construite depuis `frontend/Dockerfile`,
+LL-9002) fait déjà partie de `docker-compose.beta.yml` : il a donc été
+construit et démarré dès l'étape 7 de la procédure LL-9003
+ci-dessus (`docker compose -f docker-compose.beta.yml up -d --build`
+construit et lance les quatre services, `frontend` compris). LL-9005
+est donc principalement un ticket de **vérification fonctionnelle en
+conditions réelles**, pas de nouveau déploiement.
+
+### Vérification à effectuer par Alex (checklist LL-9005)
+
+Depuis un navigateur, sur `https://<LOCALLIFE_DOMAIN>` (le sous-domaine
+DuckDNS configuré en LL-9003), en ouvrant les outils de développement
+(onglet Réseau) pour confirmer que chaque appel API part bien en
+relatif vers le même domaine, jamais vers `localhost` :
+
+1. **Accès HTTPS** : la page se charge sur `https://...`, cadenas
+   valide (certificat Let's Encrypt via Caddy, déjà provisionné en
+   LL-9003 pour `/actuator/health` — même certificat couvre tout le
+   domaine).
+2. **Inscription** : créer un compte via le formulaire — `201`,
+   compte utilisable ensuite.
+3. **Connexion** : se connecter avec ce compte — JWT obtenu, session
+   maintenue après rechargement de page.
+4. **Carte** : la carte s'affiche, les activités/food trucks bêta
+   (alimentés par LL-9007/collecteurs Avignon) apparaissent comme
+   marqueurs.
+5. **Recherches** : déplacement de carte (zone) et filtres
+   catégorie/date déclenchent bien de nouveaux appels
+   `/api/v1/activities/within-bounds` et mettent à jour les marqueurs.
+6. **Détail d'une activité** : clic sur un marqueur → popup avec
+   titre/date/lieu/source.
+7. **Contribution** : création d'une activité authentifiée — `201`,
+   activité en `PENDING` (comportement normal, non visible en
+   recherche publique tant que non publiée par un `ADMIN`).
+8. **Confirmation finale** : dans l'onglet Réseau du navigateur,
+   vérifier qu'aucune requête ne part vers `localhost`/`127.0.0.1` —
+   uniquement vers le domaine bêta.
+
+Aucune commande serveur supplémentaire n'est nécessaire pour cette
+checklist : elle se déroule entièrement côté navigateur, sur
+l'environnement déjà démarré.
 
 ---
 
