@@ -265,16 +265,28 @@ class ActivityRepositoryIntegrationTest {
     }
 
     @Test
-    void findWithinRadius_ShouldReturnAllDates_WhenDateNotProvided() {
-        Activity anyDate = activityAt(
+    void findWithinRadius_ShouldReturnCurrentAndFutureActivities_WhenDateNotProvided() {
+        LocalDate today = LocalDate.now();
+
+        Activity past = activityAt(
                 MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED", "concert",
-                LocalDateTime.of(2026, 9, 5, 20, 0), LocalDateTime.of(2026, 9, 5, 23, 0));
+                today.minusDays(5).atTime(20, 0), today.minusDays(5).atTime(23, 0));
+        Activity current = activityAt(
+                MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PUBLISHED", "concert",
+                today.minusDays(1).atTime(20, 0), today.atTime(23, 0));
+        Activity future = activityAt(
+                MARSEILLE_LAT + 0.003, MARSEILLE_LON, "PUBLISHED", "concert",
+                today.plusDays(5).atTime(20, 0), today.plusDays(5).atTime(23, 0));
+        Activity futureWithoutEndDate = activityAt(
+                MARSEILLE_LAT + 0.004, MARSEILLE_LON, "PUBLISHED", "concert",
+                today.plusDays(10).atTime(20, 0), null);
 
         List<Long> resultIds = activityRepository
                 .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null)
                 .stream().map(Activity::id).toList();
 
-        assertThat(resultIds).contains(anyDate.id());
+        assertThat(resultIds).doesNotContain(past.id());
+        assertThat(resultIds).contains(current.id(), future.id(), futureWithoutEndDate.id());
     }
 
     // --- findWithinBounds (LL-4006/LL-4007) ---

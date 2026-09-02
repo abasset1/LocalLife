@@ -49,8 +49,10 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      * pattern « paramètre nullable unique » que {@code status} ci-dessus.
      *
      * Filtre optionnel par date ajouté en LL-4005 : {@code date} peut être
-     * {@code null} (aucun filtrage), sinon une activité est retenue quand
-     * {@code date} tombe dans sa période {@code [start_date, end_date]}
+     * {@code null}; dans ce cas, seules les activités encore en cours ou à
+     * venir sont retenues. Lorsque {@code date} est fourni, une activité est
+     * retenue quand {@code date} tombe dans sa période
+     * {@code [start_date, end_date]}
      * (bornes incluses, comparaison au jour près via {@code ::date}, donc
      * l'heure de {@code start_date}/{@code end_date} n'entre pas en jeu).
      * {@code end_date} peut être {@code NULL} en base (activités créées via
@@ -76,8 +78,10 @@ public interface ActivityRepository extends Repository<Activity, Long> {
               AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
               AND (:status IS NULL OR status = :status)
               AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
-              AND (:date::date IS NULL
-                   OR :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
+              AND ((:date::date IS NULL
+                    AND COALESCE(end_date, start_date)::date >= CURRENT_DATE)
+                   OR (:date::date IS NOT NULL
+                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date))
             ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography)
             """)
     List<Activity> findWithinRadius(
@@ -117,8 +121,10 @@ public interface ActivityRepository extends Repository<Activity, Long> {
               AND location && ST_MakeEnvelope(:swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography
               AND (:status IS NULL OR status = :status)
               AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
-              AND (:date::date IS NULL
-                   OR :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
+              AND ((:date::date IS NULL
+                    AND COALESCE(end_date, start_date)::date >= CURRENT_DATE)
+                   OR (:date::date IS NOT NULL
+                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date))
             ORDER BY id
             """)
     List<Activity> findWithinBounds(
