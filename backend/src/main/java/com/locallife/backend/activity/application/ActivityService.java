@@ -223,7 +223,8 @@ public class ActivityService {
                     "Le paramètre 'swLongitude' doit être strictement inférieur à 'neLongitude' "
                             + "(la traversée de l'antiméridien n'est pas supportée).");
         }
-        LocalDate date = parseOptionalDate(dateRaw);
+        LocalDate date = defaultToTodayIfAbsent(parseOptionalDate(dateRaw));
+        /*LocalDate date = parseOptionalDate(dateRaw);*/
 
         String categoriesCsv = normalizeCategories(category);
         return activityRepository.findWithinBounds(
