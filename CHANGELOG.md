@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.2 — 2026-09-02
+
+### Sprint Évol-Fix / LL-EF-001 — Revoir l'affichage de la saisie d'une activité
+- Le formulaire de saisie d'une activité (bandeau permanent auparavant) devient une fenêtre modale, ouverte depuis un bouton « Proposer une activité » toujours visible dans l'en-tête.
+- Un visiteur non connecté cliquant sur ce bouton est redirigé vers `/login` ; seul un utilisateur connecté peut ouvrir la modale.
+- Champs du formulaire présentés avec des libellés visibles (`<label>`), disposition verticale plus lisible.
+- Fermeture de la modale via bouton ✕, clic sur l'arrière-plan, ou touche Échap.
+- Aucun changement backend.
+
 ## 0.9.1 — 2026-08-25
 
 ### Sprint 8 / LL-8009 — Décision go/no-go de la bêta

@@ -4,7 +4,7 @@ import type { LatLngExpression } from "leaflet";
 import L from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
 
@@ -225,6 +225,7 @@ function buildCategoryOptions(items: Activity[]): string[] {
 }
 
 function App() {
+    const navigate = useNavigate();
     const [activities, setActivities] = useState<Activity[]>([]);
     const [availableCategories, setAvailableCategories] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
@@ -236,6 +237,12 @@ function App() {
     const [address, setAddress] = useState("");
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
     const [submitError, setSubmitError] = useState<string | null>(null);
+    /**
+     * LL-EF-001 : le formulaire de saisie d'une activité passe d'un bandeau
+     * permanent (visible même pour un visiteur non connecté) à une fenêtre
+     * modale, ouverte explicitement via un bouton — voir `handleOpenContributionForm`.
+     */
+    const [isContributionModalOpen, setIsContributionModalOpen] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
     const [isLoadingActivities, setIsLoadingActivities] = useState(true);
     const [searchError, setSearchError] = useState<string | null>(null);
@@ -377,6 +384,46 @@ function App() {
     }
 
     /**
+     * LL-EF-001 : point d'entrée unique du bouton « Proposer une activité »,
+     * toujours visible (décision Alex) — un visiteur non connecté est
+     * redirigé vers /login plutôt que de voir le formulaire.
+     */
+    function handleOpenContributionForm() {
+        if (!currentUser) {
+            navigate("/login");
+            return;
+        }
+        setIsContributionModalOpen(true);
+    }
+
+    function handleCloseContributionForm() {
+        setIsContributionModalOpen(false);
+        // Un message d'un envoi précédent ne doit pas réapparaître à la
+        // prochaine ouverture de la fenêtre.
+        setSubmitStatus("idle");
+        setSubmitError(null);
+    }
+
+    // Fermeture au clavier (Échap), en plus du bouton de fermeture et du
+    // clic sur l'arrière-plan (voir le rendu de la modale plus bas) —
+    // critère d'acceptation « la fermeture de la fenêtre fonctionne
+    // correctement ».
+    useEffect(() => {
+        if (!isContributionModalOpen) {
+            return;
+        }
+
+        function handleKeyDown(event: KeyboardEvent) {
+            if (event.key === "Escape") {
+                handleCloseContributionForm();
+            }
+        }
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [isContributionModalOpen]);
+
+    /**
      * Déclenchée par un clic explicite sur le bouton « Utiliser ma
      * position » (pas automatiquement au chargement de la page) : demande
      * de permission plus prévisible pour l'utilisateur, et conforme au
@@ -451,6 +498,7 @@ function App() {
             setDescription("");
             setCategory("");
             setAddress("");
+            setIsContributionModalOpen(false);
         } catch {
             setSubmitError("Impossible de contacter le serveur, réessaie plus tard.");
             setSubmitStatus("error");
@@ -461,18 +509,32 @@ function App() {
         <main className="application-shell">
             <header className="application-header">
                 <h1>LocalLife</h1>
-                {currentUser ? (
-                    <div className="header-user">
-                        <span>Bonjour, {currentUser.email}</span>
-                        <button className="header-logout-button" onClick={handleLogout} type="button">
-                            Déconnexion
-                        </button>
-                    </div>
-                ) : (
-                    <Link className="header-login-link" to="/login">
-                        Se connecter
-                    </Link>
-                )}
+                <div className="header-actions">
+                    {/*
+                      LL-EF-001 : bouton toujours visible, y compris pour un visiteur non
+                      connecté (décision Alex) — voir `handleOpenContributionForm` pour la
+                      redirection vers /login dans ce cas.
+                    */}
+                    <button
+                        className="header-add-activity-button"
+                        onClick={handleOpenContributionForm}
+                        type="button"
+                    >
+                        Proposer une activité
+                    </button>
+                    {currentUser ? (
+                        <div className="header-user">
+                            <span>Bonjour, {currentUser.email}</span>
+                            <button className="header-logout-button" onClick={handleLogout} type="button">
+                                Déconnexion
+                            </button>
+                        </div>
+                    ) : (
+                        <Link className="header-login-link" to="/login">
+                            Se connecter
+                        </Link>
+                    )}
+                </div>
             </header>
             <div className="geolocation-bar">
                 <button
@@ -524,43 +586,90 @@ function App() {
                     </button>
                 )}
             </div>
-            <form className="contribution-form" onSubmit={(event) => void handleSubmit(event)}>
-                <input
-                    aria-label="Titre"
-                    onChange={(event) => setTitle(event.target.value)}
-                    placeholder="Titre"
-                    required
-                    type="text"
-                    value={title}
-                />
-                <input
-                    aria-label="Description"
-                    onChange={(event) => setDescription(event.target.value)}
-                    placeholder="Description"
-                    required
-                    type="text"
-                    value={description}
-                />
-                <input
-                    aria-label="Catégorie"
-                    onChange={(event) => setCategory(event.target.value)}
-                    placeholder="Catégorie"
-                    required
-                    type="text"
-                    value={category}
-                />
-                <input
-                    aria-label="Adresse"
-                    onChange={(event) => setAddress(event.target.value)}
-                    placeholder="Adresse (ex : 10 rue de la République, Marseille)"
-                    required
-                    type="text"
-                    value={address}
-                />
-                <button type="submit">Proposer une activité</button>
-                {submitStatus === "success" && <span className="form-message form-message-success">Activité proposée !</span>}
-                {submitStatus === "error" && <span className="form-message form-message-error">{submitError}</span>}
-            </form>
+            {/*
+              LL-EF-001 : formulaire de saisie sous forme de fenêtre modale (overlay),
+              ouverte uniquement pour un utilisateur connecté (voir
+              `handleOpenContributionForm`) — remplace le bandeau permanent précédent.
+              Fermeture possible de trois façons : bouton ✕, clic sur l'arrière-plan
+              (`handleOverlayClick` ci-dessous, arrêté par `stopPropagation` sur la boîte
+              de dialogue elle-même pour ne pas se fermer au clic à l'intérieur), et
+              touche Échap (voir le `useEffect` plus haut).
+            */}
+            {isContributionModalOpen && currentUser && (
+                <div
+                    className="modal-overlay"
+                    onClick={handleCloseContributionForm}
+                    role="presentation"
+                >
+                    <div
+                        aria-labelledby="contribution-modal-title"
+                        aria-modal="true"
+                        className="modal-dialog"
+                        onClick={(event) => event.stopPropagation()}
+                        role="dialog"
+                    >
+                        <div className="modal-header">
+                            <h2 id="contribution-modal-title">Proposer une activité</h2>
+                            <button
+                                aria-label="Fermer"
+                                className="modal-close-button"
+                                onClick={handleCloseContributionForm}
+                                type="button"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <form className="contribution-form" onSubmit={(event) => void handleSubmit(event)}>
+                            <div className="form-field">
+                                <label htmlFor="activity-title">Titre</label>
+                                <input
+                                    id="activity-title"
+                                    onChange={(event) => setTitle(event.target.value)}
+                                    required
+                                    type="text"
+                                    value={title}
+                                />
+                            </div>
+                            <div className="form-field">
+                                <label htmlFor="activity-description">Description</label>
+                                <input
+                                    id="activity-description"
+                                    onChange={(event) => setDescription(event.target.value)}
+                                    required
+                                    type="text"
+                                    value={description}
+                                />
+                            </div>
+                            <div className="form-field">
+                                <label htmlFor="activity-category">Catégorie</label>
+                                <input
+                                    id="activity-category"
+                                    onChange={(event) => setCategory(event.target.value)}
+                                    required
+                                    type="text"
+                                    value={category}
+                                />
+                            </div>
+                            <div className="form-field">
+                                <label htmlFor="activity-address">Adresse</label>
+                                <input
+                                    id="activity-address"
+                                    onChange={(event) => setAddress(event.target.value)}
+                                    placeholder="Ex : 10 rue de la République, Marseille"
+                                    required
+                                    type="text"
+                                    value={address}
+                                />
+                            </div>
+                            <div className="modal-actions">
+                                <button type="submit">Proposer l'activité</button>
+                            </div>
+                            {submitStatus === "success" && <span className="form-message form-message-success">Activité proposée !</span>}
+                            {submitStatus === "error" && <span className="form-message form-message-error">{submitError}</span>}
+                        </form>
+                    </div>
+                </div>
+            )}
             <div className="map-area">
                 {/*
                   LL-4013 : 4 états distincts, chacun visible et compréhensible séparément

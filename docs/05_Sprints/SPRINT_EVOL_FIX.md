@@ -20,15 +20,23 @@ Améliorer le parcours de création d'une activité.
 
 ### Critères d'acceptation
 
-- [ ] Un utilisateur non connecté ne peut pas accéder à la saisie d'une activité.
-- [ ] Un utilisateur connecté peut ouvrir le formulaire de création.
-- [ ] Le formulaire s'affiche dans une nouvelle fenêtre.
-- [ ] Les champs nécessaires à la création d'une activité sont présents.
-- [ ] La fermeture de la fenêtre fonctionne correctement.
-- [ ] Le comportement est cohérent avec le système d'authentification existant.
+- [x] Un utilisateur non connecté ne peut pas accéder à la saisie d'une activité.
+- [x] Un utilisateur connecté peut ouvrir le formulaire de création.
+- [x] Le formulaire s'affiche dans une nouvelle fenêtre.
+- [x] Les champs nécessaires à la création d'une activité sont présents.
+- [x] La fermeture de la fenêtre fonctionne correctement.
+- [x] Le comportement est cohérent avec le système d'authentification existant.
 
 **Priorité :** Haute  
 **Type :** Évolution / UX
+
+**Statut : Terminé.** Décisions validées par Alex : « nouvelle fenêtre »
+= fenêtre modale (overlay) dans la même page ; le bouton « Proposer une
+activité » reste toujours visible dans l'en-tête, y compris pour un
+visiteur non connecté, et redirige vers `/login` au clic dans ce cas
+(pas d'accès direct au formulaire). Fermeture de la modale possible via
+le bouton ✕, un clic sur l'arrière-plan, ou la touche Échap. Voir
+`docs/PROJECT_STATUS.md`, section Sprint Évol-Fix, pour le détail.
 
 ---
 

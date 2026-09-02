@@ -1,7 +1,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.9.0
-**Dernière mise à jour :** 2026-08-31 (Sprint 9 en cours, LL-9004 terminé — Security Gate validé, LL-9005 démarré)
+**Dernière mise à jour :** 2026-09-02 (Sprint 9 en cours ; Sprint Évol-Fix démarré en parallèle, LL-EF-001 terminé — formulaire de saisie d'activité en fenêtre modale)
 
 ---
 ## Phase actuelle
@@ -2555,3 +2555,37 @@ depuis cette sandbox)
 
 **Statut : 🟡 Traité côté code, en attente de confirmation par Alex
 sur les quatre points ci-dessus.**
+
+---
+
+## Sprint Évol-Fix — en cours (en parallèle du Sprint 9)
+
+Sprint dédié aux évolutions fonctionnelles et corrections identifiées
+sur LocalLife, alimenté progressivement (`docs/05_Sprints/SPRINT_EVOL_FIX.md`).
+
+## LL-EF-001 — Revoir l'affichage de la saisie d'une activité ✅
+
+Le formulaire de saisie d'une activité (auparavant un bandeau
+permanent, visible même pour un visiteur non connecté) devient une
+fenêtre modale (overlay), conformément à la décision d'Alex sur le
+sens de « nouvelle fenêtre » pour ce ticket.
+
+* Un bouton « Proposer une activité » reste toujours visible dans
+  l'en-tête (décision Alex), pour un visiteur connecté comme non
+  connecté.
+* Clic sur ce bouton : un utilisateur connecté ouvre la modale ; un
+  visiteur non connecté est redirigé vers `/login` (pas d'accès direct
+  au formulaire, décision Alex).
+* La modale présente les champs (titre, description, catégorie,
+  adresse) sous forme de champs étiquetés (`<label>` visibles,
+  disposition verticale), plus lisible que l'ancien bandeau horizontal
+  sans libellés visibles.
+* Fermeture possible de trois façons : bouton ✕, clic sur
+  l'arrière-plan, touche Échap.
+* Aucun changement côté backend : l'appel `POST /api/v1/activities`
+  (déjà protégé par JWT) est inchangé.
+
+**Fichiers modifiés :** `frontend/src/App.tsx`,
+`frontend/src/styles.css`.
+
+**Statut : ✅ Terminé**, `tsc --noEmit` et `npm run build` passent.

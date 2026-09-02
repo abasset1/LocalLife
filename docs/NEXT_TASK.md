@@ -128,6 +128,12 @@ démarré : `LL-MOB-0001` (socle Expo/TypeScript) et `LL-MOB-0002`
 (navigation) livrés et poussés sur `main` ; `LL-MOB-0003` (client API)
 en pause en attendant deux décisions techniques d'Alex.
 
+Également en parallèle, un nouveau sprint évolutions/corrections
+(`docs/05_Sprints/SPRINT_EVOL_FIX.md`) a démarré : `LL-EF-001`
+(formulaire de saisie d'activité en fenêtre modale, réservé aux
+utilisateurs connectés) terminé. Prochain ticket de ce sprint :
+`LL-EF-002` (suppression du bandeau « Utiliser la localisation »).
+
 ## Règles
 
 - Ne pas élargir le MVP avant les premiers retours de bêta.
