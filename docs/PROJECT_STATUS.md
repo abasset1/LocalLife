@@ -1,7 +1,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.9.0
-**Dernière mise à jour :** 2026-09-02 (Sprint 9 en cours ; Sprint Évol-Fix démarré en parallèle, LL-EF-001 terminé — formulaire de saisie d'activité en fenêtre modale)
+**Dernière mise à jour :** 2026-09-02 (Sprint 9 en cours ; Sprint Évol-Fix démarré en parallèle, LL-EF-001 à LL-EF-003 terminés)
 
 ---
 ## Phase actuelle
@@ -2562,6 +2562,10 @@ sur les quatre points ci-dessus.**
 
 Sprint dédié aux évolutions fonctionnelles et corrections identifiées
 sur LocalLife, alimenté progressivement (`docs/05_Sprints/SPRINT_EVOL_FIX.md`).
+Chaque ticket est développé sur une branche indépendante depuis
+`origin/main` et livré sous forme de patch séparé — voir la remarque
+de LL-EF-001 ci-dessous sur les conflits mineurs possibles entre
+patchs non encore appliqués.
 
 ## LL-EF-001 — Revoir l'affichage de la saisie d'une activité ✅
 
@@ -2587,5 +2591,77 @@ sens de « nouvelle fenêtre » pour ce ticket.
 
 **Fichiers modifiés :** `frontend/src/App.tsx`,
 `frontend/src/styles.css`.
+
+**Statut : ✅ Terminé**, `tsc --noEmit` et `npm run build` passent.
+Livré sous forme de patch, pas encore appliqué sur `origin/main` au
+moment de LL-EF-002/003 (chaque ticket de ce sprint est développé sur
+une branche indépendante depuis `origin/main`, appliqué et poussé
+séparément par Alex) : en cas de conflit lors de l'application des
+patchs dans le désordre, il portera surtout sur `grid-template-rows`
+dans `styles.css` (chaque ticket retire une ligne de la grille) et sur
+l'en-tête `## 0.9.2` commun aux entrées de `CHANGELOG.md` —
+facilement résoluble en fusionnant les blocs concernés.
+
+## LL-EF-002 — Supprimer le bandeau « Utiliser la localisation » ✅
+
+Le bandeau et son bouton « Utiliser ma position » (déclenchement
+manuel de la géolocalisation, introduit en LL-4010) sont supprimés.
+La géolocalisation navigateur (`navigator.geolocation.getCurrentPosition`)
+est désormais demandée automatiquement une seule fois, au montage du
+composant `App`, sans action utilisateur.
+
+* Succès : `userPosition` est renseigné, la carte se recentre dessus
+  (`MapRecenterOnUserPosition`, comportement LL-7007 inchangé), et la
+  recherche `/nearby` (tant que la carte n'a pas été déplacée,
+  comportement LL-4008/LL-4012 inchangé) l'utilise comme centre.
+* Refus de permission, indisponibilité ou timeout : plus aucun message
+  affiché (le bandeau qui les portait n'existe plus) — repli silencieux
+  sur `MARSEILLE_LATITUDE`/`MARSEILLE_LONGITUDE`, comportement de repli
+  déjà en place depuis LL-4008.
+* État React `GeolocationStatus`/`geolocationErrorMessage` (LL-4010),
+  devenu inutile sans bandeau à piloter, supprimé.
+
+**Fichiers modifiés :** `frontend/src/App.tsx`,
+`frontend/src/styles.css`.
+
+**Statut : ✅ Terminé**, `tsc --noEmit` et `npm run build` passent.
+Développé sur une branche indépendante depuis `origin/main` (pas
+encore rebasé sur LL-EF-001, voir remarque ci-dessus) ; en cas de
+conflit lors de l'application des deux patchs, il portera surtout sur
+`grid-template-rows` dans `styles.css` (chaque ticket retire une ligne
+de la grille) et sur l'en-tête `## 0.9.2` commun aux deux entrées de
+`CHANGELOG.md` — dans les deux cas, facilement résoluble en fusionnant
+les deux blocs.
+
+## LL-EF-003 — Revoir le rechargement de la carte ✅
+
+La coupure visuelle lors d'un déplacement/zoom de carte avait deux
+causes : (1) les anciens marqueurs étaient supprimés
+(`setActivities([])`) dès le déclenchement de toute nouvelle
+recherche, avant même la réponse — un déplacement faisait donc
+disparaître puis réapparaître les marqueurs à chaque geste ; (2) le
+texte « Chargement des activités… », affiché au-dessus de la carte
+dans une mise en page en colonne, réduisait temporairement sa hauteur
+à chaque geste.
+
+* Un déplacement/zoom pur de la carte (seuls les `mapBounds`
+  changent, aucun filtre ni position n'a changé — détecté via
+  `previousSearchDepsRef`) est traité comme un rafraîchissement
+  silencieux : les anciens marqueurs restent affichés tels quels
+  jusqu'à ce que les nouvelles données soient prêtes, sans suppression
+  préalable ni texte de chargement.
+* Un changement actif (filtre catégorie/date, position obtenue,
+  nouvelle activité proposée) conserve le comportement précédent
+  (LL-4012/LL-4013) : suppression immédiate des marqueurs et texte
+  « Chargement » — jugé approprié pour une action utilisateur
+  explicite, hors périmètre de ce ticket.
+* `MapContainer` n'a jamais été démonté/reconstruit à chaque recherche
+  (pas de prop `key` liée aux données) : déjà conforme, aucun
+  changement nécessaire sur ce point.
+* Nombre d'appels API pendant un déplacement continu : déjà limité par
+  le debounce de 400 ms existant (`MAP_BOUNDS_DEBOUNCE_MS`, LL-4012),
+  inchangé — satisfait déjà ce critère d'acceptation.
+
+**Fichiers modifiés :** `frontend/src/App.tsx`.
 
 **Statut : ✅ Terminé**, `tsc --noEmit` et `npm run build` passent.

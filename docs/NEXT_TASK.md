@@ -131,8 +131,13 @@ en pause en attendant deux décisions techniques d'Alex.
 Également en parallèle, un nouveau sprint évolutions/corrections
 (`docs/05_Sprints/SPRINT_EVOL_FIX.md`) a démarré : `LL-EF-001`
 (formulaire de saisie d'activité en fenêtre modale, réservé aux
-utilisateurs connectés) terminé. Prochain ticket de ce sprint :
-`LL-EF-002` (suppression du bandeau « Utiliser la localisation »).
+utilisateurs connectés), `LL-EF-002` (géolocalisation automatique,
+suppression du bandeau « Utiliser la localisation ») et `LL-EF-003`
+(rechargement fluide de la carte lors des déplacements/zoom, plus de
+coupure visuelle) terminés, livrés sous forme de patchs indépendants
+depuis `origin/main`, pas encore appliqués. Prochain ticket de ce
+sprint : `LL-EF-004` (interface d'administration pour valider/refuser
+les activités proposées).
 
 ## Règles
 
