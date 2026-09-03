@@ -19,7 +19,12 @@ body {
 
 .application-shell {
     display: grid;
-    grid-template-rows: auto auto auto 1fr;
+    /* LL-EF-002 : le bandeau de géolocalisation (une ligne de la grille) a été
+       supprimé du JSX ; il ne reste que 3 lignes réelles (en-tête, filtres,
+       zone de carte), sans quoi la zone de carte se retrouve sur une ligne
+       "auto" au lieu de la ligne "1fr" et s'effondre à une hauteur quasi
+       nulle au montage (cause d'un rendu Leaflet avec des bounds dégénérés). */
+    grid-template-rows: auto auto 1fr;
     height: 100%;
 }
 
