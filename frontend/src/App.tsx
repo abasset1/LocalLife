@@ -49,19 +49,6 @@ interface ApiErrorBody {
     message: string;
 }
 
-/**
- * États de la géolocalisation navigateur (LL-4010), désormais utilisés
- * pour piloter la recherche `/nearby` (LL-4011, voir plus bas) : tant que
- * la position n'est pas `granted`, la recherche reste centrée sur
- * `MARSEILLE_LATITUDE`/`MARSEILLE_LONGITUDE` (comportement par défaut
- * introduit en LL-4008). `idle` : géolocalisation jamais demandée.
- * `loading` : demande de permission/position en cours. `granted` :
- * position obtenue. `denied` : permission refusée par l'utilisateur.
- * `error` : géolocalisation indisponible ou autre échec (timeout,
- * position indisponible).
- */
-type GeolocationStatus = "idle" | "loading" | "granted" | "denied" | "error";
-
 interface UserPosition {
     latitude: number;
     longitude: number;
@@ -246,22 +233,54 @@ function App() {
     const [refreshKey, setRefreshKey] = useState(0);
     const [isLoadingActivities, setIsLoadingActivities] = useState(true);
     const [searchError, setSearchError] = useState<string | null>(null);
-    const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>("idle");
     const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
-    const [geolocationErrorMessage, setGeolocationErrorMessage] = useState<string | null>(null);
     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
     const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
+    /**
+     * LL-EF-003 : mémorise les dépendances de la recherche précédente pour
+     * distinguer, au sein du même effet, un déplacement/zoom pur de la
+     * carte (seul `mapBounds` a changé) d'un changement « actif »
+     * (filtre catégorie/date, position utilisateur obtenue, nouvelle
+     * activité proposée) — voir l'effet de récupération des activités
+     * plus bas pour l'utilisation.
+     */
+    const previousSearchDepsRef = useRef<{
+        selectedCategory: string;
+        selectedDate: string;
+        refreshKey: number;
+        userPosition: UserPosition | null;
+    } | null>(null);
 
     useEffect(() => {
         const abortController = new AbortController();
-        setIsLoadingActivities(true);
-        setSearchError(null);
-        // Supprime immédiatement les anciens marqueurs plutôt que d'attendre la réponse :
-        // critère d'acceptation explicite de LL-4012 (« suppression des anciens marqueurs
-        // avant affichage des nouveaux résultats »), appliqué ici à toute nouvelle
-        // recherche (changement de filtre, de position, ou de zone de carte) par simplicité
-        // et cohérence, pas uniquement au cas du déplacement de carte.
-        setActivities([]);
+
+        // LL-EF-003 : un déplacement/zoom pur de la carte (seuls les bounds
+        // changent, tout le reste de la recherche est identique à l'appel
+        // précédent) ne doit pas provoquer de coupure visuelle — l'ancienne
+        // carte de LL-4012 supprimait systématiquement les marqueurs avant
+        // même d'avoir reçu la réponse, ce qui faisait disparaître puis
+        // réapparaître les marqueurs à chaque geste. On ne fait cela que
+        // pour un changement « actif » (filtre, position, nouvelle
+        // activité proposée) : dans ce cas l'utilisateur vient d'agir
+        // explicitement, un état de chargement clair reste approprié.
+        const previousDeps = previousSearchDepsRef.current;
+        const isMapOnlyReload = previousDeps !== null
+            && previousDeps.selectedCategory === selectedCategory
+            && previousDeps.selectedDate === selectedDate
+            && previousDeps.refreshKey === refreshKey
+            && previousDeps.userPosition === userPosition;
+        previousSearchDepsRef.current = { selectedCategory, selectedDate, refreshKey, userPosition };
+
+        if (!isMapOnlyReload) {
+            setIsLoadingActivities(true);
+            setSearchError(null);
+            // Suppression immédiate des anciens marqueurs (critère d'acceptation
+            // de LL-4012), conservée pour un changement actif (filtre, position,
+            // nouvelle activité) — seul le cas d'un déplacement/zoom pur de la
+            // carte (voir `isMapOnlyReload` ci-dessus) évite désormais cette
+            // coupure visuelle.
+            setActivities([]);
+        }
 
         async function loadActivities() {
             const params = new URLSearchParams();
@@ -302,6 +321,10 @@ function App() {
 
                 if (response.ok) {
                     const data: Activity[] = await response.json();
+                    // Que ce soit un rechargement silencieux (carte) ou actif (filtre) :
+                    // un seul remplacement de la liste, une fois les données prêtes —
+                    // c'est ce remplacement (pas une suppression préalable) qui met à
+                    // jour les marqueurs affichés.
                     setActivities(data);
                     // La liste des catégories disponibles n'est reconstruite que quand
                     // aucun filtre catégorie/date n'est actif : sinon elle se réduirait au
@@ -424,27 +447,29 @@ function App() {
     }, [isContributionModalOpen]);
 
     /**
-     * Déclenchée par un clic explicite sur le bouton « Utiliser ma
-     * position » (pas automatiquement au chargement de la page) : demande
-     * de permission plus prévisible pour l'utilisateur, et conforme au
-     * critère d'acceptation « demande explicite de permission » de
-     * LL-4010 (le clic est la demande explicite, avant même que le
-     * navigateur affiche sa propre invite de permission).
+     * LL-EF-002 : la géolocalisation est désormais demandée automatiquement
+     * au chargement de la page (plus de bandeau « Utiliser la
+     * localisation » ni de clic explicite requis, voir critère
+     * d'acceptation « ne pas demander une action utilisateur inutile »).
+     * Ne s'exécute qu'une fois au montage (tableau de dépendances vide).
+     *
+     * Si la géolocalisation n'est pas disponible, si l'utilisateur refuse
+     * la permission, ou en cas d'erreur/timeout, `userPosition` reste
+     * `null` et la recherche continue de se rappuyer silencieusement sur
+     * `MARSEILLE_LATITUDE`/`MARSEILLE_LONGITUDE` (comportement de repli
+     * déjà en place depuis LL-4008) — plus aucun message n'est affiché à
+     * l'utilisateur dans ces cas, conformément à la suppression du
+     * bandeau.
      *
      * ⚠️ Aucune position utilisateur n'est envoyée au backend ni stockée
      * ailleurs qu'en état React local (`userPosition`) — perdue à chaque
      * rechargement de page, conformément au critère d'acceptation
      * « aucune position utilisateur persistée en base » de LL-4010.
      */
-    function handleUseMyLocation() {
+    useEffect(() => {
         if (!("geolocation" in navigator)) {
-            setGeolocationStatus("error");
-            setGeolocationErrorMessage("La géolocalisation n'est pas disponible sur ce navigateur.");
             return;
         }
-
-        setGeolocationStatus("loading");
-        setGeolocationErrorMessage(null);
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -452,21 +477,14 @@ function App() {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
                 });
-                setGeolocationStatus("granted");
             },
-            (error) => {
-                if (error.code === error.PERMISSION_DENIED) {
-                    setGeolocationStatus("denied");
-                    setGeolocationErrorMessage(
-                        "Autorisation refusée : impossible d'utiliser ta position pour le moment.");
-                } else {
-                    // POSITION_UNAVAILABLE ou TIMEOUT.
-                    setGeolocationStatus("error");
-                    setGeolocationErrorMessage("Impossible de récupérer ta position, réessaie plus tard.");
-                }
+            () => {
+                // Permission refusée, position indisponible ou timeout : pas de
+                // message affiché (plus de bandeau), repli silencieux sur
+                // MARSEILLE_LATITUDE/MARSEILLE_LONGITUDE.
             },
         );
-    }
+    }, []);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -536,25 +554,6 @@ function App() {
                     )}
                 </div>
             </header>
-            <div className="geolocation-bar">
-                <button
-                    disabled={geolocationStatus === "loading"}
-                    onClick={handleUseMyLocation}
-                    type="button"
-                >
-                    {geolocationStatus === "loading" ? "Localisation en cours…" : "Utiliser ma position"}
-                </button>
-                {geolocationStatus === "granted" && userPosition && (
-                    <span className="geolocation-message geolocation-message-success">
-                        Position récupérée ({userPosition.latitude.toFixed(4)}, {userPosition.longitude.toFixed(4)})
-                    </span>
-                )}
-                {(geolocationStatus === "denied" || geolocationStatus === "error") && geolocationErrorMessage && (
-                    <span className="geolocation-message geolocation-message-error">
-                        {geolocationErrorMessage}
-                    </span>
-                )}
-            </div>
             <div className="activity-filters">
                 <label htmlFor="category-filter">Filtrer par catégorie</label>
                 <select
