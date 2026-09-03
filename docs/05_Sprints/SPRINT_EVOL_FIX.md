@@ -139,6 +139,36 @@ L'objectif est de disposer d'une base propre pour les futures fonctionnalités d
 **Type :** Évolution / Administration
 
 ---
+## LL-EF-005 — Gérer les agendas depuis l'interface d'administration
+
+### Objectif
+
+Permettre à un administrateur de gérer les agendas utilisés par LocalLife directement depuis l'interface d'administration.
+
+### Fonctionnalités attendues
+
+- Afficher la liste des agendas existants.
+- Ajouter un nouvel agenda.
+- Modifier les informations d'un agenda si nécessaire.
+- Supprimer un agenda.
+- Demander une confirmation avant la suppression.
+- Empêcher la suppression accidentelle d'un agenda utilisé par des activités, ou gérer explicitement les activités qui lui sont associées.
+
+### Critères d'acceptation
+
+- [ ] Un administrateur peut consulter la liste des agendas.
+- [ ] Un administrateur peut créer un agenda.
+- [ ] Un administrateur peut renseigner les informations nécessaires à un agenda.
+- [ ] Un administrateur peut supprimer un agenda.
+- [ ] Une confirmation est demandée avant toute suppression.
+- [ ] Les droits d'administration sont vérifiés côté backend.
+- [ ] La suppression d'un agenda ne provoque pas de données incohérentes.
+- [ ] Les modifications sont persistées correctement.
+
+**Priorité :** Haute  
+**Type :** Évolution / Administration
+
+--
 
 # À ajouter
 
