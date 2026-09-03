@@ -9,6 +9,17 @@
 - Fermeture de la modale via bouton ✕, clic sur l'arrière-plan, ou touche Échap.
 - Aucun changement backend.
 
+### Sprint Évol-Fix / LL-EF-002 — Supprimer le bandeau « Utiliser la localisation »
+- Le bandeau et le bouton « Utiliser ma position » sont supprimés.
+- La géolocalisation navigateur est désormais demandée automatiquement, une seule fois au chargement de la page, sans action utilisateur.
+- En cas de refus, d'indisponibilité ou de timeout, plus aucun message affiché : repli silencieux sur la position par défaut (Marseille), comportement inchangé depuis LL-4008.
+- État React devenu inutile (`GeolocationStatus`, message d'erreur) supprimé.
+
+### Sprint Évol-Fix / LL-EF-003 — Revoir le rechargement de la carte
+- Un déplacement/zoom pur de la carte (aucun filtre ni position n'a changé) n'entraîne plus la suppression immédiate des marqueurs ni l'affichage d'un texte « Chargement » : les anciens marqueurs restent visibles jusqu'à ce que les nouvelles données soient prêtes, puis sont remplacés en une seule fois.
+- Un changement actif (filtre catégorie/date, position obtenue, nouvelle activité proposée) conserve le comportement précédent (suppression immédiate + texte de chargement).
+- Aucun changement sur le debounce des appels API (400 ms, déjà en place depuis LL-4012) ni sur le cycle de vie de `MapContainer` (jamais démonté/reconstruit).
+
 ## 0.9.1 — 2026-08-25
 
 ### Sprint 8 / LL-8009 — Décision go/no-go de la bêta

@@ -54,13 +54,22 @@ Simplifier l'utilisation de la carte en utilisant directement la localisation di
 
 ### Critères d'acceptation
 
-- [ ] Le bandeau « Utiliser la localisation » n'est plus affiché.
-- [ ] La localisation disponible est utilisée automatiquement.
-- [ ] La carte se positionne correctement sur la localisation obtenue.
-- [ ] Le fonctionnement reste correct si la localisation n'est pas disponible ou refusée.
+- [x] Le bandeau « Utiliser la localisation » n'est plus affiché.
+- [x] La localisation disponible est utilisée automatiquement.
+- [x] La carte se positionne correctement sur la localisation obtenue.
+- [x] Le fonctionnement reste correct si la localisation n'est pas disponible ou refusée.
 
 **Priorité :** Moyenne  
 **Type :** Évolution / UX
+
+**Statut : Terminé.** La demande de géolocalisation (`getCurrentPosition`)
+se déclenche désormais automatiquement au montage du composant (une
+seule fois), sans bouton ni bandeau. En cas de refus, d'indisponibilité
+ou de timeout, aucun message n'est affiché : la recherche continue de
+s'appuyer silencieusement sur la position par défaut (Marseille),
+comportement de repli déjà en place depuis LL-4008. Le recentrage de la
+carte sur la position obtenue (`MapRecenterOnUserPosition`, LL-7007)
+est inchangé.
 
 ---
 
@@ -85,16 +94,42 @@ Actuellement, lorsqu'un utilisateur déplace la carte, les données sont recharg
 
 ### Critères d'acceptation
 
-- [ ] Déplacer la carte ne provoque plus de coupure visuelle.
-- [ ] La carte conserve sa position et son rendu pendant le chargement des données.
-- [ ] Les marqueurs sont ajoutés ou mis à jour sans reconstruire inutilement la carte.
-- [ ] Un déplacement continu ne déclenche pas une succession excessive d'appels API.
-- [ ] Les nouvelles activités apparaissent une fois les données disponibles.
-- [ ] Le comportement reste correct lors d'un déplacement rapide.
-- [ ] Le comportement reste correct lors d'un zoom.
+- [x] Déplacer la carte ne provoque plus de coupure visuelle.
+- [x] La carte conserve sa position et son rendu pendant le chargement des données.
+- [x] Les marqueurs sont ajoutés ou mis à jour sans reconstruire inutilement la carte.
+- [x] Un déplacement continu ne déclenche pas une succession excessive d'appels API.
+- [x] Les nouvelles activités apparaissent une fois les données disponibles.
+- [x] Le comportement reste correct lors d'un déplacement rapide.
+- [x] Le comportement reste correct lors d'un zoom.
 
 **Priorité :** Haute  
 **Type :** Évolution / UX / Performance
+
+**Statut : Terminé.** La cause de la coupure visuelle était double :
+(1) les anciens marqueurs étaient supprimés (`setActivities([])`) dès
+le déclenchement de toute nouvelle recherche, avant même d'avoir reçu
+la réponse — un déplacement de carte faisait donc disparaître puis
+réapparaître les marqueurs à chaque geste ; (2) le texte « Chargement
+des activités… » s'affichait au même moment, au-dessus de la carte
+dans une mise en page en colonne, ce qui réduisait temporairement la
+hauteur de la carte à chaque geste (léger « saut » visuel).
+
+Un déplacement/zoom pur de la carte (seuls les `mapBounds` changent,
+aucun filtre ni position n'a changé) est désormais traité comme un
+rafraîchissement silencieux : les anciens marqueurs restent affichés
+telles quels jusqu'à ce que les nouvelles données soient prêtes, sans
+suppression préalable ni texte de chargement. Un changement actif
+(filtre catégorie/date, position obtenue, nouvelle activité proposée)
+conserve le comportement précédent (LL-4012/LL-4013) : suppression
+immédiate des marqueurs et texte « Chargement » pendant que la
+nouvelle recherche s'exécute — comportement jugé approprié pour une
+action utilisateur explicite.
+
+`MapContainer` n'a jamais été démonté/reconstruit à chaque recherche
+(pas de prop `key` liée aux données) : ce point de l'énoncé était déjà
+respecté, aucun changement nécessaire sur ce plan. Le nombre d'appels
+API pendant un déplacement continu reste limité par le debounce de
+400 ms déjà en place (`MAP_BOUNDS_DEBOUNCE_MS`, LL-4012), inchangé.
 
 ---
 
@@ -139,36 +174,6 @@ L'objectif est de disposer d'une base propre pour les futures fonctionnalités d
 **Type :** Évolution / Administration
 
 ---
-## LL-EF-005 — Gérer les agendas depuis l'interface d'administration
-
-### Objectif
-
-Permettre à un administrateur de gérer les agendas utilisés par LocalLife directement depuis l'interface d'administration.
-
-### Fonctionnalités attendues
-
-- Afficher la liste des agendas existants.
-- Ajouter un nouvel agenda.
-- Modifier les informations d'un agenda si nécessaire.
-- Supprimer un agenda.
-- Demander une confirmation avant la suppression.
-- Empêcher la suppression accidentelle d'un agenda utilisé par des activités, ou gérer explicitement les activités qui lui sont associées.
-
-### Critères d'acceptation
-
-- [ ] Un administrateur peut consulter la liste des agendas.
-- [ ] Un administrateur peut créer un agenda.
-- [ ] Un administrateur peut renseigner les informations nécessaires à un agenda.
-- [ ] Un administrateur peut supprimer un agenda.
-- [ ] Une confirmation est demandée avant toute suppression.
-- [ ] Les droits d'administration sont vérifiés côté backend.
-- [ ] La suppression d'un agenda ne provoque pas de données incohérentes.
-- [ ] Les modifications sont persistées correctement.
-
-**Priorité :** Haute  
-**Type :** Évolution / Administration
-
---
 
 # À ajouter
 
