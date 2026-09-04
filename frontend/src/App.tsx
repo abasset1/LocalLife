@@ -543,6 +543,18 @@ function App() {
                     {currentUser ? (
                         <div className="header-user">
                             <span>Bonjour, {currentUser.email}</span>
+                            {/*
+                              LL-EF-004 : lien affiché uniquement pour un utilisateur avec le
+                              rôle ADMIN — confort de navigation, pas une protection : l'accès
+                              réel est vérifié à l'ouverture de /admin (AdminPage) et, de toute
+                              façon, déjà appliqué côté backend sur chaque appel
+                              (SecurityConfig, rôle ADMIN requis).
+                            */}
+                            {currentUser.role === "ADMIN" && (
+                                <Link className="header-admin-link" to="/admin">
+                                    Administration
+                                </Link>
+                            )}
                             <button className="header-logout-button" onClick={handleLogout} type="button">
                                 Déconnexion
                             </button>

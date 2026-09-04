@@ -329,3 +329,196 @@ body {
     font-size: 0.85rem;
     color: #64748b;
 }
+
+.header-admin-link {
+    font-size: 0.9rem;
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.header-admin-link:hover {
+    text-decoration: underline;
+}
+
+/*
+ * LL-EF-004 : interface d'administration (modération des activités).
+ * Reprend les tokens de couleur déjà utilisés ailleurs dans l'app
+ * (#2563eb primaire, #16a34a succès, #dc2626 erreur, #64748b texte
+ * discret, #e2e8f0/#cbd5e1 bordures) plutôt que d'en introduire de
+ * nouveaux.
+ */
+.admin-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: #f8fafc;
+    overflow-y: auto;
+}
+
+.admin-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-header h1 {
+    margin: 0;
+    font-size: 1.15rem;
+}
+
+.admin-header a {
+    color: #2563eb;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.admin-header a:hover {
+    text-decoration: underline;
+}
+
+.admin-tabs {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-tab {
+    padding: 0.4rem 0.9rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background-color: #ffffff;
+    color: #334155;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.admin-tab:hover {
+    background-color: #f1f5f9;
+}
+
+.admin-tab-active {
+    background-color: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+}
+
+.admin-content {
+    padding: 1.25rem 1.5rem;
+}
+
+.admin-activity-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.admin-activity-card {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+}
+
+.admin-activity-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.admin-activity-header h2 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.admin-status-badge {
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.admin-status-pending {
+    background-color: #fef9c3;
+    color: #854d0e;
+}
+
+.admin-status-published {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.admin-status-rejected {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.admin-activity-description {
+    margin: 0.5rem 0;
+    color: #334155;
+}
+
+.admin-activity-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.5rem 1rem;
+    margin: 0.75rem 0 0;
+}
+
+.admin-activity-meta dt {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.admin-activity-meta dd {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.admin-activity-actions {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
+.admin-approve-button {
+    padding: 0.4rem 0.9rem;
+    border: none;
+    border-radius: 4px;
+    background-color: #16a34a;
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.admin-approve-button:hover:not(:disabled) {
+    background-color: #15803d;
+}
+
+.admin-reject-button {
+    padding: 0.4rem 0.9rem;
+    border: none;
+    border-radius: 4px;
+    background-color: #dc2626;
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.admin-reject-button:hover:not(:disabled) {
+    background-color: #b91c1c;
+}
+
+.admin-approve-button:disabled,
+.admin-reject-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
