@@ -175,10 +175,227 @@ L'objectif est de disposer d'une base propre pour les futures fonctionnalités d
 
 ---
 
+## LL-EF-005 — Gérer les agendas depuis l'interface d'administration
+
+### Objectif
+
+Permettre à un administrateur de gérer les agendas utilisés par LocalLife directement depuis l'interface d'administration.
+
+### Fonctionnalités attendues
+
+- Afficher la liste des agendas existants.
+- Ajouter un nouvel agenda.
+- Modifier les informations d'un agenda si nécessaire.
+- Supprimer un agenda.
+- Demander une confirmation avant la suppression.
+- Empêcher la suppression accidentelle d'un agenda utilisé par des activités, ou gérer explicitement les activités qui lui sont associées.
+
+### Critères d'acceptation
+
+- [ ] Un administrateur peut consulter la liste des agendas.
+- [ ] Un administrateur peut créer un agenda.
+- [ ] Un administrateur peut renseigner les informations nécessaires à un agenda.
+- [ ] Un administrateur peut supprimer un agenda.
+- [ ] Une confirmation est demandée avant toute suppression.
+- [ ] Les droits d'administration sont vérifiés côté backend.
+- [ ] La suppression d'un agenda ne provoque pas de données incohérentes.
+- [ ] Les modifications sont persistées correctement.
+
+**Priorité :** Haute  
+**Type :** Évolution / Administration
+
+---
+
+## LL-EF-006 — Créer une interface utilisateur
+
+### Objectif
+
+Créer une interface dédiée permettant à l'utilisateur de gérer son compte et d'accéder facilement aux fonctionnalités liées à son profil.
+
+### Fonctionnalités attendues
+
+- Accéder à son profil depuis l'application.
+- Consulter ses informations personnelles.
+- Modifier les informations autorisées.
+- Accéder aux fonctionnalités liées à son compte.
+- Permettre la déconnexion.
+- Prévoir une structure pouvant accueillir de futures fonctionnalités utilisateur.
+
+### Critères d'acceptation
+
+- [ ] Un utilisateur connecté peut accéder à son interface utilisateur.
+- [ ] Les informations de son compte sont affichées.
+- [ ] Les informations modifiables peuvent être modifiées.
+- [ ] Les modifications sont correctement persistées.
+- [ ] La déconnexion est accessible.
+- [ ] Un utilisateur non connecté ne peut pas accéder aux données d'un autre utilisateur.
+- [ ] Les contrôles d'accès sont également appliqués côté backend.
+
+**Priorité :** Haute  
+**Type :** Évolution / UX / Compte utilisateur
+
+
+---
+
+## LL-EF-007 — Réinitialisation du mot de passe
+
+### Objectif
+
+Permettre à un utilisateur ayant oublié son mot de passe de récupérer l'accès à son compte de manière sécurisée.
+
+### Parcours attendu
+
+1. L'utilisateur sélectionne « Mot de passe oublié ».
+2. Il renseigne son adresse e-mail.
+3. Un mécanisme sécurisé de réinitialisation est déclenché.
+4. L'utilisateur reçoit un lien ou un moyen sécurisé permettant de définir un nouveau mot de passe.
+5. L'utilisateur définit son nouveau mot de passe.
+6. Le nouveau mot de passe est enregistré de manière sécurisée.
+7. L'ancien mot de passe n'est plus utilisable.
+
+### Critères d'acceptation
+
+- [ ] Un lien « Mot de passe oublié » est disponible depuis l'interface de connexion.
+- [ ] L'utilisateur peut demander une réinitialisation avec son adresse e-mail.
+- [ ] Un mécanisme sécurisé de réinitialisation est généré.
+- [ ] Le mécanisme de réinitialisation possède une durée de validité limitée.
+- [ ] Le token de réinitialisation ne peut être utilisé qu'une seule fois.
+- [ ] L'utilisateur peut définir un nouveau mot de passe.
+- [ ] Le nouveau mot de passe respecte les règles de sécurité existantes.
+- [ ] Le nouveau mot de passe est stocké sous forme de hash.
+- [ ] L'ancien mot de passe n'est plus valide après la réinitialisation.
+- [ ] Une demande de réinitialisation ne révèle pas si une adresse e-mail existe dans la base.
+- [ ] Les tokens de réinitialisation ne sont pas stockés en clair si l'architecture permet leur hashage.
+
+### Sécurité
+
+La fonctionnalité doit être conçue pour éviter notamment :
+
+- l'énumération des comptes ;
+- la réutilisation d'un token ;
+- l'utilisation d'un token expiré ;
+- la fuite du token dans les logs ;
+- la possibilité de définir un mot de passe sans preuve de possession du mécanisme de récupération.
+
+**Priorité :** Haute  
+**Type :** Évolution / Authentification / Sécurité
+
+---
+
+## LL-EF-008 — Ajouter une liste des activités
+
+### Objectif
+
+Permettre à l'utilisateur de consulter facilement l'ensemble des activités sous forme de liste, en complément de la carte.
+
+### Accès
+
+Ajouter un bouton en haut à droite de l'interface, dans le même bandeau que le bouton **« Filtrer par catégorie »**.
+
+Le bouton permet de basculer vers l'affichage en liste.
+
+### Affichage de la liste
+
+La liste doit présenter les activités de manière claire et lisible.
+
+Les activités doivent être :
+
+1. regroupées ou triées par **ville** ;
+2. puis triées par **date de l'activité**.
+
+Chaque activité doit permettre d'identifier rapidement les informations essentielles, notamment :
+
+- nom de l'activité ;
+- ville ;
+- date ;
+- éventuellement l'heure ;
+- catégorie.
+
+### Comportement attendu
+
+- [ ] Un bouton « Liste » est présent en haut à droite.
+- [ ] Le bouton est placé dans le même bandeau que « Filtrer par catégorie ».
+- [ ] Un clic sur le bouton affiche la liste des activités.
+- [ ] Les activités sont triées par ville.
+- [ ] À l'intérieur d'une ville, les activités sont triées par date.
+- [ ] Les informations essentielles sont visibles sans ouvrir chaque activité.
+- [ ] L'utilisateur peut consulter le détail d'une activité depuis la liste.
+- [ ] Le retour à l'affichage carte est possible facilement.
+- [ ] Les filtres par catégorie restent cohérents avec l'affichage en liste.
+- [ ] La liste reste utilisable sur mobile.
+
+### UX
+
+L'affichage en liste ne doit pas remplacer définitivement la carte. Il s'agit d'une **seconde vue** permettant de passer rapidement de :
+
+**Carte ↔ Liste**
+
+L'état actif de la vue doit être clairement identifiable.
+
+**Priorité :** Haute  
+**Type :** Évolution / UX / Affichage
+
+---
+
+## LL-EF-009 — Réinitialisation du mot de passe
+
+### Objectif
+
+Permettre à un utilisateur ayant oublié son mot de passe de récupérer l'accès à son compte directement depuis la fenêtre de connexion.
+
+### Accès
+
+Dans la fenêtre de connexion, ajouter un lien ou bouton :
+
+**« Mot de passe oublié ? »**
+
+Celui-ci permet d'accéder au parcours de réinitialisation du mot de passe.
+
+### Parcours attendu
+
+1. L'utilisateur ouvre la fenêtre de connexion.
+2. Il clique sur **« Mot de passe oublié ? »**.
+3. Il renseigne son adresse e-mail.
+4. Un mécanisme sécurisé de réinitialisation est déclenché.
+5. L'utilisateur reçoit un lien de réinitialisation.
+6. Il définit un nouveau mot de passe.
+7. Il peut ensuite se connecter avec son nouveau mot de passe.
+
+### Critères d'acceptation
+
+- [ ] Le lien « Mot de passe oublié ? » est présent dans la fenêtre de connexion.
+- [ ] Le lien permet d'accéder au formulaire de réinitialisation.
+- [ ] L'utilisateur peut renseigner son adresse e-mail.
+- [ ] Un mécanisme sécurisé de réinitialisation est généré.
+- [ ] Le mécanisme de réinitialisation possède une durée de validité limitée.
+- [ ] Le token de réinitialisation ne peut être utilisé qu'une seule fois.
+- [ ] L'utilisateur peut définir un nouveau mot de passe.
+- [ ] Le nouveau mot de passe respecte les règles de sécurité existantes.
+- [ ] Le nouveau mot de passe est stocké sous forme de hash.
+- [ ] L'ancien mot de passe n'est plus valide après la réinitialisation.
+- [ ] Une demande ne révèle pas si l'adresse e-mail existe dans la base.
+- [ ] L'utilisateur peut revenir facilement à la fenêtre de connexion.
+
+### Sécurité
+
+La fonctionnalité doit notamment empêcher :
+
+- l'énumération des comptes ;
+- la réutilisation d'un token ;
+- l'utilisation d'un token expiré ;
+- la fuite du token dans les logs ;
+- la modification du mot de passe sans preuve de possession du mécanisme de récupération.
+
+**Priorité :** Haute  
+**Type :** Évolution / Authentification / Sécurité
+
+---
+
+
 # À ajouter
 
 Les prochains besoins identifiés seront ajoutés à cette section puis transformés en tickets numérotés.
 
 ## Prochains tickets
 
-- [ ] LL-EF-005 — À définir
+- [ ] LL-EF-010 — À définir
