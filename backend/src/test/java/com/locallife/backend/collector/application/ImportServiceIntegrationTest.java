@@ -26,14 +26,22 @@ import org.springframework.transaction.annotation.Transactional;
  * Tests du pipeline complet (LL-5010) : contexte Spring réel, base réelle
  * (comme {@code ActivityRepositoryIntegrationTest}/
  * {@code UserRepositoryIntegrationTest}) — seul {@code Collector} est
- * remplacé par un mock ({@code SingleMockCollectorConfig}, LL-8009 —
- * remplace un unique {@code @MockitoBean private Collector collector;},
- * insuffisant depuis que plusieurs {@code OpenAgendaCollector} réels
- * peuvent être enregistrés, voir sa Javadoc) : c'est la seule véritable
- * frontière externe du pipeline (appel réseau vers OpenAgenda).
+ * remplacé par un mock ({@code SingleMockCollectorConfig}, dont
+ * {@code OpenAgendaCollectorFactory} mocké renvoie ce même {@code Collector}
+ * pour n'importe quelle {@code Source}, voir sa Javadoc) : c'est la seule
+ * véritable frontière externe du pipeline (appel réseau vers OpenAgenda).
  * {@code NormalizationService}, {@code DeduplicationService},
  * {@code SourceService}/{@code SourceRepository} et
  * {@code ActivityRepository} sont les implémentations réelles.
+ *
+ * <b>Sources dynamiques (LL-EF-005)</b> : depuis ce ticket,
+ * {@code ImportService} ne collecte que les sources déjà présentes en
+ * base (type {@code API}, statut {@code ACTIVE}, {@code agendaUid} non
+ * vide) — chaque test doit donc persister une telle source avant
+ * d'appeler {@code importAll()} (voir {@link #createCollectibleSource}),
+ * alors qu'avant ce ticket la source était créée automatiquement à la
+ * volée à partir de {@code collector.getSourceName()}
+ * ({@code SourceService#findOrCreateByName}, supprimée).
  *
  * Couvre les 7 cas demandés par {@code SPRINT_5.md} : donnée valide,
  * donnée invalide, doublon, nouvelle activité, mise à jour, erreur du
@@ -77,6 +85,21 @@ class ImportServiceIntegrationTest {
         return "Test Source " + UUID.randomUUID();
     }
 
+    /**
+     * Persiste une source collectible (type {@code API}, statut
+     * {@code ACTIVE}, {@code agendaUid} non vide) pour que
+     * {@code ImportService} appelle {@code OpenAgendaCollectorFactory}
+     * dessus — remplace, depuis LL-EF-005, le stub
+     * {@code collector.getSourceName()} d'avant ce ticket : la source
+     * n'est plus déduite du collecteur après collecte
+     * ({@code SourceService#findOrCreateByName}, supprimée), elle doit
+     * exister en base avant l'import.
+     */
+    private void createCollectibleSource(String name) {
+        sourceRepository.save(
+                new Source(null, name, "API", null, "ACTIVE", null, "agenda-uid-" + UUID.randomUUID(), null));
+    }
+
     private CollectedActivity validItem(String sourceName, String externalId, String title) {
         return new CollectedActivity(
                 title, "description", LocalDateTime.now().plusDays(1), null,
@@ -94,18 +117,41 @@ class ImportServiceIntegrationTest {
         return sourceRepository.findByName(sourceName).map(Source::id).orElseThrow();
     }
 
+    /**
+     * Isole le résultat correspondant à la source de ce test.
+     *
+     * <p>Depuis la migration {@code V14__add_agenda_fields_to_source.sql}
+     * (LL-EF-005), deux sources OpenAgenda réelles sont déjà collectibles
+     * en base (type {@code API}, statut {@code ACTIVE}, {@code agendaUid}
+     * renseigné) — {@code results} contient donc systématiquement au moins
+     * 3 éléments (les 2 sources seedées + la source propre à ce test), pas
+     * un seul comme avant ce ticket. {@code collector} étant mocké de
+     * façon partagée pour toute {@code Source} ({@code SingleMockCollectorConfig}),
+     * le comportement stubbé (succès, erreur...) s'applique aussi aux 2
+     * sources seedées, sans conséquence sur les assertions de ce fichier
+     * (scopées par {@code sourceIdFor(sourceName)}, jamais par
+     * {@code results.get(0)}) tant que ce résultat lui-même est bien
+     * identifié par nom plutôt que par position dans la liste.
+     */
+    private ImportResult resultFor(List<ImportResult> results, String sourceName) {
+        return results.stream()
+                .filter(result -> sourceName.equals(result.sourceName()))
+                .findFirst()
+                .orElseThrow();
+    }
+
     @Test
     void importAll_ShouldPersistNewActivity_WhenDataIsValid() {
         // Given : donnée valide, nouvelle activité.
         String sourceName = uniqueSourceName();
-        when(collector.getSourceName()).thenReturn(sourceName);
+        createCollectibleSource(sourceName);
         when(collector.collect()).thenReturn(List.of(validItem(sourceName, "ext-1", "Marché de Noël")));
 
         // When
         List<ImportResult> results = importService.importAll();
 
         // Then
-        ImportResult result = results.get(0);
+        ImportResult result = resultFor(results, sourceName);
         assertThat(result.fetched()).isEqualTo(1);
         assertThat(result.created()).isEqualTo(1);
         assertThat(result.ignored()).isZero();
@@ -119,14 +165,14 @@ class ImportServiceIntegrationTest {
     void importAll_ShouldRejectData_WhenInvalid() {
         // Given : donnée invalide (titre vide).
         String sourceName = uniqueSourceName();
-        when(collector.getSourceName()).thenReturn(sourceName);
+        createCollectibleSource(sourceName);
         when(collector.collect()).thenReturn(List.of(invalidItem(sourceName)));
 
         // When
         List<ImportResult> results = importService.importAll();
 
         // Then
-        ImportResult result = results.get(0);
+        ImportResult result = resultFor(results, sourceName);
         assertThat(result.ignored()).isEqualTo(1);
         assertThat(result.created()).isZero();
         assertThat(activityRepository.findBySourceId(sourceIdFor(sourceName))).isEmpty();
@@ -136,7 +182,7 @@ class ImportServiceIntegrationTest {
     void importAll_ShouldNotCreateDuplicate_WhenSameDataImportedTwice() {
         // Given : même donnée collectée deux imports de suite.
         String sourceName = uniqueSourceName();
-        when(collector.getSourceName()).thenReturn(sourceName);
+        createCollectibleSource(sourceName);
         when(collector.collect()).thenReturn(List.of(validItem(sourceName, "ext-1", "Marché de Noël")));
 
         // When
@@ -145,22 +191,22 @@ class ImportServiceIntegrationTest {
 
         // Then : toujours une seule activité en base pour cette source.
         assertThat(activityRepository.findBySourceId(sourceIdFor(sourceName))).hasSize(1);
-        assertThat(secondRun.get(0).created()).isZero();
-        assertThat(secondRun.get(0).updated()).isEqualTo(1);
+        assertThat(resultFor(secondRun, sourceName).created()).isZero();
+        assertThat(resultFor(secondRun, sourceName).updated()).isEqualTo(1);
     }
 
     @Test
     void importAll_ShouldCreateNewActivity_OnFirstImport() {
         // Given
         String sourceName = uniqueSourceName();
-        when(collector.getSourceName()).thenReturn(sourceName);
+        createCollectibleSource(sourceName);
         when(collector.collect()).thenReturn(List.of(validItem(sourceName, "ext-1", "Concert")));
 
         // When
         List<ImportResult> results = importService.importAll();
 
         // Then
-        assertThat(results.get(0).created()).isEqualTo(1);
+        assertThat(resultFor(results, sourceName).created()).isEqualTo(1);
         assertThat(activityRepository.findBySourceId(sourceIdFor(sourceName))).hasSize(1);
     }
 
@@ -168,7 +214,7 @@ class ImportServiceIntegrationTest {
     void importAll_ShouldUpdateExistingActivity_WhenDataChangedOnSecondImport() {
         // Given : première collecte, puis la même donnée avec un titre modifié.
         String sourceName = uniqueSourceName();
-        when(collector.getSourceName()).thenReturn(sourceName);
+        createCollectibleSource(sourceName);
         when(collector.collect()).thenReturn(List.of(validItem(sourceName, "ext-1", "Marché de Noël")));
         importService.importAll();
         Long activityId = activityRepository.findBySourceId(sourceIdFor(sourceName)).get(0).id();
@@ -179,8 +225,8 @@ class ImportServiceIntegrationTest {
         List<ImportResult> results = importService.importAll();
 
         // Then : même ligne mise à jour, pas une nouvelle.
-        assertThat(results.get(0).updated()).isEqualTo(1);
-        assertThat(results.get(0).created()).isZero();
+        assertThat(resultFor(results, sourceName).updated()).isEqualTo(1);
+        assertThat(resultFor(results, sourceName).created()).isZero();
         List<Activity> persisted = activityRepository.findBySourceId(sourceIdFor(sourceName));
         assertThat(persisted).hasSize(1);
         assertThat(persisted.get(0).id()).isEqualTo(activityId);
@@ -191,14 +237,14 @@ class ImportServiceIntegrationTest {
     void importAll_ShouldReturnDegradedResult_WhenCollectorThrows() {
         // Given : le collecteur échoue entièrement (ex. panne réseau, configuration manquante).
         String sourceName = uniqueSourceName();
-        when(collector.getSourceName()).thenReturn(sourceName);
+        createCollectibleSource(sourceName);
         when(collector.collect()).thenThrow(new CollectorException("panne réseau", null));
 
         // When
         List<ImportResult> results = importService.importAll();
 
         // Then : pas d'exception propagée, aucune activité créée.
-        ImportResult result = results.get(0);
+        ImportResult result = resultFor(results, sourceName);
         assertThat(result.fetched()).isZero();
         assertThat(result.errors()).isEqualTo(1);
         assertThat(activityRepository.findBySourceId(sourceIdFor(sourceName))).isEmpty();
@@ -210,7 +256,7 @@ class ImportServiceIntegrationTest {
         // de la collecte suivante (LL-7003 : reproduit le blocage réel où
         // chk_activity_status n'autorisait pas ARCHIVED, corrigé en LL-7007).
         String sourceName = uniqueSourceName();
-        when(collector.getSourceName()).thenReturn(sourceName);
+        createCollectibleSource(sourceName);
         when(collector.collect()).thenReturn(List.of(validItem(sourceName, "ext-1", "Marché de Noël")));
         importService.importAll();
         Long activityId = activityRepository.findBySourceId(sourceIdFor(sourceName)).get(0).id();
@@ -221,7 +267,7 @@ class ImportServiceIntegrationTest {
         List<ImportResult> results = importService.importAll();
 
         // Then : l'activité disparue de la source est archivée, pas supprimée.
-        assertThat(results.get(0).archived()).isEqualTo(1);
+        assertThat(resultFor(results, sourceName).archived()).isEqualTo(1);
         Activity archived = activityRepository.findBySourceId(sourceIdFor(sourceName)).stream()
                 .filter(activity -> activity.id().equals(activityId))
                 .findFirst()
@@ -233,14 +279,14 @@ class ImportServiceIntegrationTest {
     void importAll_ShouldHandleEmptyImport_WithoutError() {
         // Given : le collecteur ne retourne rien.
         String sourceName = uniqueSourceName();
-        when(collector.getSourceName()).thenReturn(sourceName);
+        createCollectibleSource(sourceName);
         when(collector.collect()).thenReturn(List.of());
 
         // When
         List<ImportResult> results = importService.importAll();
 
         // Then
-        ImportResult result = results.get(0);
+        ImportResult result = resultFor(results, sourceName);
         assertThat(result.fetched()).isZero();
         assertThat(result.created()).isZero();
         assertThat(result.updated()).isZero();

@@ -82,7 +82,11 @@ class ImportedActivityVisibilityIntegrationTest {
     }
 
     private Activity importOneActivity(String sourceName, String category, LocalDateTime startDate) {
-        when(collector.getSourceName()).thenReturn(sourceName);
+        // LL-EF-005 : la source doit exister en base avant l'import (ImportService itère les
+        // sources déjà persistées, il ne les crée plus à la volée depuis le collecteur — voir
+        // ImportServiceIntegrationTest.createCollectibleSource).
+        sourceRepository.save(
+                new Source(null, sourceName, "API", null, "ACTIVE", null, "agenda-uid-" + UUID.randomUUID(), null));
         when(collector.collect()).thenReturn(List.of(new CollectedActivity(
                 "Marché de Noël", "Marché de Noël sur le Vieux-Port", startDate, null,
                 category, LATITUDE, LONGITUDE, "https://example.com", "ext-1", sourceName)));

@@ -15,6 +15,7 @@ import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.CollectorException;
+import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import java.time.LocalDateTime;
@@ -25,6 +26,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+/**
+ * LL-EF-005 : {@code ImportService} ne reçoit plus un {@code List<Collector>}
+ * fixé au démarrage — il relit {@code sourceService.getAllSources()} à
+ * chaque appel et construit un collecteur via
+ * {@code OpenAgendaCollectorFactory} pour chaque source collectible. Chaque
+ * test stub donc {@code sourceService.getAllSources()} pour renvoyer
+ * {@link #SOURCE} (type {@code API}, statut {@code ACTIVE}, un
+ * {@code agendaUid} non vide — les trois conditions de
+ * {@code ImportService#isCollectible}), et
+ * {@code openAgendaCollectorFactory.create(SOURCE)} pour renvoyer le
+ * {@code collector} mocké — {@code collector.getSourceName()} n'est plus
+ * consulté par {@code ImportService} (le nom vient directement de
+ * {@code SOURCE.name()}) et n'a donc plus besoin d'être stubbé.
+ */
 @ExtendWith(MockitoExtension.class)
 class ImportServiceTest {
 
@@ -41,14 +56,25 @@ class ImportServiceTest {
     private SourceService sourceService;
 
     @Mock
+    private OpenAgendaCollectorFactory openAgendaCollectorFactory;
+
+    @Mock
     private ActivityRepository activityRepository;
 
     private ImportService importService() {
         return new ImportService(
-                List.of(collector), normalizationService, deduplicationService, sourceService, activityRepository);
+                sourceService, openAgendaCollectorFactory, normalizationService, deduplicationService,
+                activityRepository);
     }
 
-    private static final Source SOURCE = new Source(10L, "OpenAgenda Marseille", "API", null, "ACTIVE", null);
+    private static final Source SOURCE = new Source(
+            10L, "OpenAgenda Marseille", "API", null, "ACTIVE", null, "agenda-uid-marseille", null);
+
+    /** Stub commun à tous les tests : une seule source collectible, {@link #SOURCE}. */
+    private void givenOneCollectibleSource() {
+        when(sourceService.getAllSources()).thenReturn(List.of(SOURCE));
+        when(openAgendaCollectorFactory.create(SOURCE)).thenReturn(collector);
+    }
 
     private CollectedActivity collectedActivity(String externalId) {
         return new CollectedActivity(
@@ -66,8 +92,7 @@ class ImportServiceTest {
     @Test
     void importAll_ShouldCreateNewActivity_WhenNoExistingMatchFound() {
         // Given
-        when(collector.getSourceName()).thenReturn("OpenAgenda Marseille");
-        when(sourceService.findOrCreateByName("OpenAgenda Marseille", "API", null)).thenReturn(SOURCE);
+        givenOneCollectibleSource();
         CollectedActivity item = collectedActivity("ext-1");
         when(collector.collect()).thenReturn(List.of(item));
         when(deduplicationService.computeDeduplicationKey(item)).thenReturn("external:OpenAgenda Marseille:ext-1");
@@ -103,8 +128,7 @@ class ImportServiceTest {
     @Test
     void importAll_ShouldUpdateExistingActivity_WhenMatchFoundForSameSource() {
         // Given
-        when(collector.getSourceName()).thenReturn("OpenAgenda Marseille");
-        when(sourceService.findOrCreateByName("OpenAgenda Marseille", "API", null)).thenReturn(SOURCE);
+        givenOneCollectibleSource();
         CollectedActivity item = collectedActivity("ext-1");
         when(collector.collect()).thenReturn(List.of(item));
         when(deduplicationService.computeDeduplicationKey(item)).thenReturn("external:OpenAgenda Marseille:ext-1");
@@ -130,8 +154,7 @@ class ImportServiceTest {
     @Test
     void importAll_ShouldCountIgnored_WhenNormalizationRejectsData() {
         // Given
-        when(collector.getSourceName()).thenReturn("OpenAgenda Marseille");
-        when(sourceService.findOrCreateByName("OpenAgenda Marseille", "API", null)).thenReturn(SOURCE);
+        givenOneCollectibleSource();
         CollectedActivity item = collectedActivity("ext-1");
         when(collector.collect()).thenReturn(List.of(item));
         when(deduplicationService.computeDeduplicationKey(item)).thenReturn("external:OpenAgenda Marseille:ext-1");
@@ -154,8 +177,7 @@ class ImportServiceTest {
     @Test
     void importAll_ShouldCountError_WhenUnexpectedExceptionThrownForOneItem() {
         // Given : la déduplication échoue de façon inattendue sur cet élément précis.
-        when(collector.getSourceName()).thenReturn("OpenAgenda Marseille");
-        when(sourceService.findOrCreateByName("OpenAgenda Marseille", "API", null)).thenReturn(SOURCE);
+        givenOneCollectibleSource();
         CollectedActivity item = collectedActivity("ext-1");
         when(collector.collect()).thenReturn(List.of(item));
         when(deduplicationService.computeDeduplicationKey(item)).thenThrow(new RuntimeException("boom"));
@@ -176,8 +198,7 @@ class ImportServiceTest {
     @Test
     void importAll_ShouldReturnDegradedResult_WhenCollectorFailsEntirely() {
         // Given
-        when(collector.getSourceName()).thenReturn("OpenAgenda Marseille");
-        when(sourceService.findOrCreateByName("OpenAgenda Marseille", "API", null)).thenReturn(SOURCE);
+        givenOneCollectibleSource();
         when(collector.collect()).thenThrow(new CollectorException("panne réseau", null));
 
         // When
@@ -195,8 +216,7 @@ class ImportServiceTest {
     @Test
     void importAll_ShouldArchiveActivity_WhenNoLongerReturnedByCollector() {
         // Given: aucune donnée collectée cette fois, mais une activité existante pour cette source.
-        when(collector.getSourceName()).thenReturn("OpenAgenda Marseille");
-        when(sourceService.findOrCreateByName("OpenAgenda Marseille", "API", null)).thenReturn(SOURCE);
+        givenOneCollectibleSource();
         when(collector.collect()).thenReturn(List.of());
         Activity previouslyImported = new Activity(
                 42L, "Marché de Noël", "description", "marché",
@@ -217,8 +237,7 @@ class ImportServiceTest {
     @Test
     void importAll_ShouldNotReArchive_WhenActivityAlreadyArchived() {
         // Given
-        when(collector.getSourceName()).thenReturn("OpenAgenda Marseille");
-        when(sourceService.findOrCreateByName("OpenAgenda Marseille", "API", null)).thenReturn(SOURCE);
+        givenOneCollectibleSource();
         when(collector.collect()).thenReturn(List.of());
         Activity alreadyArchived = new Activity(
                 42L, "Marché de Noël", "description", "marché",
@@ -240,8 +259,7 @@ class ImportServiceTest {
         // activités manuelles (sourceId différent) ne sont jamais dans cette liste, par
         // construction du repository. On vérifie ici que le service interroge bien
         // findBySourceId avec l'id de la source importée, pas une recherche globale.
-        when(collector.getSourceName()).thenReturn("OpenAgenda Marseille");
-        when(sourceService.findOrCreateByName("OpenAgenda Marseille", "API", null)).thenReturn(SOURCE);
+        givenOneCollectibleSource();
         when(collector.collect()).thenReturn(List.of());
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
 
@@ -250,6 +268,25 @@ class ImportServiceTest {
 
         // Then
         verify(activityRepository, times(1)).findBySourceId(eq(10L));
+    }
+
+    @Test
+    void importAll_ShouldIgnoreNonCollectibleSources() {
+        // Given : une source MANUAL (jamais collectible) et une source API sans agendaUid
+        // (type API mais pas encore configurée pour la collecte) ne doivent déclencher ni
+        // collecte ni construction de collecteur.
+        Source manualSource = new Source(1L, "Saisie manuelle", "MANUAL", null, "ACTIVE", null, null, null);
+        Source apiSourceWithoutAgendaUid = new Source(2L, "Futur RSS", "API", null, "ACTIVE", null, null, null);
+        Source inactiveSource = new Source(3L, "Agenda désactivé", "API", null, "INACTIVE", null, "uid-3", null);
+        when(sourceService.getAllSources())
+                .thenReturn(List.of(manualSource, apiSourceWithoutAgendaUid, inactiveSource));
+
+        // When
+        List<ImportResult> results = importService().importAll();
+
+        // Then
+        assertEquals(0, results.size());
+        verify(openAgendaCollectorFactory, never()).create(any());
     }
 
 }

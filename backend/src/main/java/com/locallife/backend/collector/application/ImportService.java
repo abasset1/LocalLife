@@ -4,6 +4,7 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import java.time.LocalDateTime;
@@ -25,14 +26,19 @@ import org.springframework.stereotype.Service;
  * en base » (le collecteur lui-même, {@code Collector}, ne fait toujours
  * que lire la source externe : c'est ce service, pas lui, qui écrit).
  *
- * Injecte {@code List<Collector>} (et non un seul) : pattern Spring
- * standard pour rester ouvert à plusieurs collecteurs sans construire de
- * registre ni de mécanisme de découverte — un seul type de
- * {@code Collector} existe ({@code OpenAgendaCollector}, LL-5006), mais
- * plusieurs instances en sont enregistrées depuis LL-8009 (une par
- * agenda OpenAgenda configuré, voir {@code OpenAgendaSourcesConfig}) ;
- * la règle du sprint « ne pas créer plusieurs collecteurs » (au sens
- * plusieurs sources/API différentes) n'est donc toujours pas enfreinte.
+ * <b>Sources dynamiques (LL-EF-005)</b> : {@link #importAll()} n'itère
+ * plus une {@code List<Collector>} fixée au démarrage de l'application
+ * (ancien {@code OpenAgendaSourcesConfig}, supprimé par ce ticket), mais
+ * relit {@link SourceService#getAllSources()} à chaque exécution et
+ * construit un collecteur ({@link OpenAgendaCollectorFactory}) pour
+ * chaque source {@link #isCollectible(Source) collectible} trouvée.
+ * Ajouter, modifier ou supprimer un agenda depuis l'interface
+ * d'administration prend donc effet dès le prochain import (planifié ou
+ * déclenché manuellement), sans redémarrage. Un seul type de collecteur
+ * existe à ce jour (OpenAgenda) : {@link #isCollectible(Source)} retient
+ * toute source de type {@code API}, active, avec un {@code agendaUid}
+ * renseigné — voir sa Javadoc si un second type de collecteur devait être
+ * ajouté un jour (ex. RSS).
  *
  * Critères LL-5008 :
  * <ul>
@@ -100,39 +106,65 @@ public class ImportService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ImportService.class);
 
-    /** Type par défaut attribué à une {@code Source} nouvellement créée à l'occasion d'un import. */
-    private static final String DEFAULT_SOURCE_TYPE = "API";
+    /**
+     * Type de source retenu comme collectible via OpenAgenda (LL-EF-005) —
+     * voir la Javadoc de la classe.
+     */
+    private static final String COLLECTIBLE_SOURCE_TYPE = "API";
+
+    private static final String ACTIVE_STATUS = "ACTIVE";
 
     /** Statut de suppression douce, voir la javadoc de la classe. */
     private static final String ARCHIVED_STATUS = "ARCHIVED";
 
-    private final List<Collector> collectors;
+    private final SourceService sourceService;
+    private final OpenAgendaCollectorFactory openAgendaCollectorFactory;
     private final NormalizationService normalizationService;
     private final DeduplicationService deduplicationService;
-    private final SourceService sourceService;
     private final ActivityRepository activityRepository;
 
     public ImportService(
-            List<Collector> collectors,
+            SourceService sourceService,
+            OpenAgendaCollectorFactory openAgendaCollectorFactory,
             NormalizationService normalizationService,
             DeduplicationService deduplicationService,
-            SourceService sourceService,
             ActivityRepository activityRepository) {
-        this.collectors = collectors;
+        this.sourceService = sourceService;
+        this.openAgendaCollectorFactory = openAgendaCollectorFactory;
         this.normalizationService = normalizationService;
         this.deduplicationService = deduplicationService;
-        this.sourceService = sourceService;
         this.activityRepository = activityRepository;
     }
 
-    /** Exécute l'import pour chaque {@code Collector} enregistré. */
+    /**
+     * Exécute l'import pour chaque source collectible actuellement en
+     * base (LL-EF-005) — voir {@link #isCollectible(Source)}.
+     */
     public List<ImportResult> importAll() {
-        return collectors.stream().map(this::importFrom).toList();
+        return sourceService.getAllSources().stream()
+                .filter(this::isCollectible)
+                .map(this::importFrom)
+                .toList();
     }
 
-    private ImportResult importFrom(Collector collector) {
+    /**
+     * Une source est collectible via OpenAgenda si elle est de type
+     * {@code API}, active, et porte un {@code agendaUid} non vide — les
+     * sources {@code RSS}/{@code MANUAL}, inactives, ou {@code API} sans
+     * {@code agendaUid} (créées pour un futur type de collecteur non
+     * encore implémenté) sont silencieusement ignorées, plutôt que de
+     * tenter une collecte vouée à échouer.
+     */
+    private boolean isCollectible(Source source) {
+        return COLLECTIBLE_SOURCE_TYPE.equals(source.type())
+                && ACTIVE_STATUS.equals(source.status())
+                && source.agendaUid() != null
+                && !source.agendaUid().isBlank();
+    }
+
+    private ImportResult importFrom(Source source) {
         LocalDateTime startedAt = LocalDateTime.now();
-        Source source = sourceService.findOrCreateByName(collector.getSourceName(), DEFAULT_SOURCE_TYPE, null);
+        Collector collector = openAgendaCollectorFactory.create(source);
 
         List<CollectedActivity> collected;
         try {

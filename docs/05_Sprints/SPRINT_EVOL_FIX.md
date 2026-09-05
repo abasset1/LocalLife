@@ -192,17 +192,41 @@ Permettre à un administrateur de gérer les agendas utilisés par LocalLife dir
 
 ### Critères d'acceptation
 
-- [ ] Un administrateur peut consulter la liste des agendas.
-- [ ] Un administrateur peut créer un agenda.
-- [ ] Un administrateur peut renseigner les informations nécessaires à un agenda.
-- [ ] Un administrateur peut supprimer un agenda.
-- [ ] Une confirmation est demandée avant toute suppression.
-- [ ] Les droits d'administration sont vérifiés côté backend.
-- [ ] La suppression d'un agenda ne provoque pas de données incohérentes.
-- [ ] Les modifications sont persistées correctement.
+- [x] Un administrateur peut consulter la liste des agendas.
+- [x] Un administrateur peut créer un agenda.
+- [x] Un administrateur peut renseigner les informations nécessaires à un agenda.
+- [x] Un administrateur peut supprimer un agenda.
+- [x] Une confirmation est demandée avant toute suppression.
+- [x] Les droits d'administration sont vérifiés côté backend.
+- [x] La suppression d'un agenda ne provoque pas de données incohérentes.
+- [x] Les modifications sont persistées correctement.
 
 **Priorité :** Haute  
 **Type :** Évolution / Administration
+
+**Statut : Terminé côté code.** Décisions validées par Alex : un
+« agenda » désigne une véritable configuration dynamique qui pilote les
+collecteurs OpenAgenda (uid + filtre région), en remplacement du
+système par propriétés (`OpenAgendaSourcesConfig`, supprimée) ; la
+suppression d'un agenda encore lié à des activités est autorisée, ces
+activités étant détachées vers la source réservée `MANUAL` plutôt que
+la suppression bloquée ; le CRUD est générique sur tous les types de
+source (API/RSS/MANUAL), pas réservé à OpenAgenda.
+
+Nouvelle section « Agendas » dans `/admin` (liste, création, édition,
+suppression avec confirmation `window.confirm`), consommant les
+nouveaux endpoints `POST`/`PUT`/`DELETE /api/v1/sources` (rôle `ADMIN`,
+`SecurityConfig`). Voir `docs/PROJECT_STATUS.md` pour le détail complet
+côté backend (migration, `Source`/`SourceService`,
+`OpenAgendaCollectorFactory`, `ImportService` réécrit) et
+`docs/02_Architecture/SOURCE_CONTRACT.md`/`COLLECTOR_CONTRACT.md`/
+`COLLECTOR_OPERATIONS.md` pour la mise à jour des contrats
+d'architecture.
+
+⚠️ **Non vérifié par compilation/tests** dans cette session (pas
+d'accès à Maven Central, réseau restreint à GitHub/npm/pip) : `mvn
+test` doit être lancé avant tout merge — voir la remarque dans
+`docs/PROJECT_STATUS.md`.
 
 ---
 

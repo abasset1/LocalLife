@@ -18,22 +18,26 @@ import org.springframework.web.client.RestClientException;
  * simple à parser, au prix d'une clé API à gérer (pas de secret committé,
  * comme {@code jwt.secret}).
  *
- * Configuration requise (variables d'environnement, valeurs vides par
- * défaut — {@link #collect()} échoue explicitement tant qu'elles ne sont
- * pas renseignées, plutôt que de planter le démarrage de l'application) :
+ * Configuration (LL-EF-005 : seule la clé API reste une variable
+ * d'environnement partagée entre tous les agendas — l'identifiant
+ * d'agenda, le nom de la source et le filtre région sont désormais portés
+ * par chaque {@code Source} en base, gérée depuis l'interface
+ * d'administration, voir {@link OpenAgendaCollectorFactory}) :
  * <ul>
- *   <li>{@code OPENAGENDA_API_KEY} — clé publique OpenAgenda (compte
- *       gratuit, voir developers.openagenda.com/authentification) ;</li>
- *   <li>{@code OPENAGENDA_AGENDA_UID} — identifiant numérique de l'agenda
- *       ciblé (visible en pied de barre latérale sur openagenda.com une
- *       fois l'agenda choisi) ;</li>
- *   <li>{@code OPENAGENDA_SOURCE_NAME} — optionnel, nom lisible à
+ *   <li>{@code OPENAGENDA_API_KEY} (variable d'environnement, valeur vide
+ *       par défaut — {@link #collect()} échoue explicitement tant qu'elle
+ *       n'est pas renseignée) — clé publique OpenAgenda (compte gratuit,
+ *       voir developers.openagenda.com/authentification), partagée par
+ *       tous les agendas d'un même compte ;</li>
+ *   <li>{@code agendaUid} ({@code Source.agendaUid()}) — identifiant
+ *       numérique de l'agenda ciblé (visible en pied de barre latérale
+ *       sur openagenda.com une fois l'agenda choisi) ;</li>
+ *   <li>{@code sourceName} ({@code Source.name()}) — nom lisible à
  *       utiliser comme {@code Source.name} (voir {@code SOURCE_CONTRACT.md}
- *       et {@code getSourceName()} ci-dessous). Par défaut {@code
- *       "OpenAgenda"}.</li>
- *   <li>{@code OPENAGENDA_REGION_FILTER} — optionnel, filtre
- *       <strong>temporaire</strong> (demande explicite, hors ticket de
- *       sprint) : ne conserve que les événements dont {@code
+ *       et {@code getSourceName()} ci-dessous).</li>
+ *   <li>{@code regionFilter} ({@code Source.regionFilter()}), optionnel —
+ *       filtre <strong>temporaire</strong> (demande explicite, hors ticket
+ *       de sprint) : ne conserve que les événements dont {@code
  *       location.region} correspond exactement (insensible à la casse et
  *       aux espaces superflus) à la valeur fournie. Filtrage effectué
  *       côté client après récupération — non vérifié contre l'API réelle
@@ -83,11 +87,12 @@ import org.springframework.web.client.RestClientException;
  * {@code openagenda.agenda-uid}) ne suffisait pas au critère
  * d'acceptation de LL-8004 (« plusieurs agendas Avignon »), et les
  * propriétés {@code openagenda.avignon-*-uid} ajoutées pour ce ticket
- * n'étaient en réalité jamais lues par aucun bean. Une instance par
- * agenda réellement configuré est désormais créée par
- * {@link OpenAgendaSourcesConfig}, qui construit un
- * {@code List<Collector>} directement (voir sa Javadoc) plutôt que de
- * s'appuyer sur le scan de composants Spring.
+ * n'étaient en réalité jamais lues par aucun bean. Depuis LL-EF-005, une
+ * instance par source de type {@code API} configurée en base avec un
+ * {@code agendaUid} est construite dynamiquement à chaque import par
+ * {@link OpenAgendaCollectorFactory} (voir sa Javadoc), qui remplace
+ * l'ancienne configuration par propriétés ({@code OpenAgendaSourcesConfig},
+ * qui construisait un {@code List<Collector>} fixé au démarrage).
  */
 public class OpenAgendaCollector implements Collector {
 
@@ -111,7 +116,7 @@ public class OpenAgendaCollector implements Collector {
     /**
      * Constructeur package-privé sans filtre de région, pour les tests
      * qui n'en ont pas besoin (voir le second constructeur pour l'usage
-     * en production, {@link OpenAgendaSourcesConfig}).
+     * en production, {@link OpenAgendaCollectorFactory}).
      */
     OpenAgendaCollector(RestClient.Builder builder, String apiKey, String agendaUid, String sourceName) {
         this(builder, apiKey, agendaUid, sourceName, "");
@@ -121,8 +126,8 @@ public class OpenAgendaCollector implements Collector {
      * Constructeur package-privé : permet d'injecter un
      * {@link RestClient.Builder} lié à un {@code MockRestServiceServer}
      * plutôt que d'appeler la vraie API OpenAgenda dans les tests, comme
-     * {@code GeocodingService}. Utilisé aussi en production, une fois
-     * par agenda configuré, par {@link OpenAgendaSourcesConfig}.
+     * {@code GeocodingService}. Utilisé aussi en production, une fois par
+     * agenda configuré en base, par {@link OpenAgendaCollectorFactory}.
      */
     OpenAgendaCollector(
             RestClient.Builder builder,

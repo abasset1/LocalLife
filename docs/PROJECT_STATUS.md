@@ -1,7 +1,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.9.0
-**Dernière mise à jour :** 2026-09-03 (Sprint 9 en cours ; Sprint Évol-Fix démarré en parallèle, LL-EF-001 à LL-EF-003 appliqués sur `main`, LL-EF-004 terminé en attente d'application, LL-EF-005 mis en pause en cours de route)
+**Dernière mise à jour :** 2026-09-05 (Sprint 9 en cours ; Sprint Évol-Fix démarré en parallèle, LL-EF-001 à LL-EF-004 appliqués sur `main`, LL-EF-005 terminé en attente d'application — non vérifié par compilation, voir sa section)
 
 ---
 ## Phase actuelle
@@ -2683,40 +2683,111 @@ changement backend**.
 `frontend/src/main.tsx`, `frontend/src/App.tsx`,
 `frontend/src/styles.css`.
 
-**Statut : ✅ Terminé, livré sous forme de patch, pas encore appliqué
-sur `main`.**
+**Statut : ✅ Terminé, appliqué sur `main`.**
 
-## LL-EF-005 — Gérer les agendas depuis l'interface d'administration ⏸️
+## LL-EF-005 — Gérer les agendas depuis l'interface d'administration ✅
 
-**Mis en pause à la demande d'Alex** avant d'être terminé — repris
-plus tard. Contexte pour la reprise :
+Décisions validées par Alex avant implémentation (point d'architecture
+explicite du ticket) :
 
-* Décisions déjà validées avec Alex (à ne pas redemander) :
-  1. un « agenda » désigne une configuration dynamique qui pilote
-     réellement les collecteurs OpenAgenda (uid agenda + filtre
-     région), en remplacement du système actuel par propriétés
-     (`OpenAgendaSourcesConfig`) ;
-  2. la suppression d'un agenda encore lié à des activités existantes
-     est autorisée : les activités concernées sont détachées vers une
-     source de repli (la source réservée `MANUAL`) plutôt que
-     bloquée ;
-  3. le CRUD doit être générique, sur tous les types de source
-     existants (API/RSS/MANUAL), pas seulement OpenAgenda.
-* Dépend de `LL-EF-004` (ajoute une section « Agendas » à
-  `AdminPage.tsx`) : à appliquer après `LL-EF-004`.
-* Travail commencé (migration `V14__add_agenda_fields_to_source.sql`,
-  `Source`/`SourceRepository`/`SourceService` étendus, nouveau
-  `OpenAgendaCollectorFactory` remplaçant `OpenAgendaSourcesConfig`,
-  `ImportService` réécrit pour lire les sources dynamiquement,
-  `SecurityConfig`/`SourceController` pour les nouveaux endpoints
-  d'écriture) conservé sur la branche
-  `feature/LL-EF-005-agenda-management`, **non fusionné, ne compile
-  pas en l'état** (sites d'appel `new Source(...)` dans les tests pas
-  encore mis à jour avec les deux nouveaux champs). Reste à faire :
-  finir la mise à jour des tests, ajouter la section « Agendas » côté
-  frontend, mettre à jour `SOURCE_CONTRACT.md`/`COLLECTOR_CONTRACT.md`.
-* ⚠️ Cette session de travail n'a pas eu accès à Maven Central (réseau
-  restreint à GitHub/npm/pip) : le backend n'a donc pas pu être
-  compilé ni testé pendant ce travail — à vérifier avec `mvn test`
-  avant de reprendre ou de fusionner quoi que ce soit issu de cette
-  branche.
+1. un « agenda » désigne une véritable configuration dynamique qui
+   pilote réellement les collecteurs OpenAgenda (uid agenda + filtre
+   région), en remplacement du système par propriétés
+   (`OpenAgendaSourcesConfig`) ;
+2. la suppression d'un agenda encore lié à des activités existantes
+   est autorisée : les activités concernées sont détachées vers la
+   source réservée `MANUAL` plutôt que la suppression bloquée ;
+3. le CRUD est générique, sur tous les types de source existants
+   (API/RSS/MANUAL), pas réservé à OpenAgenda.
+
+### Backend
+
+* Migration `V14__add_agenda_fields_to_source.sql` : ajoute
+  `agenda_uid`/`region_filter` (nullable) à la table `source`, et
+  recrée les deux agendas jusqu'ici actifs dans
+  `application.properties` (`OpenAgenda Ministere culture`, uid
+  `86244142` ; `OpenAgenda Ville d'Avignon`, uid `79839448`) pour
+  éviter une régression silencieuse au déploiement.
+* `Source` (domaine) étendu avec ces deux champs.
+* `SourceRepository` : ajout de `deleteById` (repository jusqu'ici
+  volontairement dépourvu de suppression, voir `SOURCE_CONTRACT.md`).
+* `SourceService` : CRUD complet —
+  `createSource`/`updateSource`/`deleteSource`, avec garde explicite
+  (la source réservée `MANUAL` ne peut jamais être supprimée) et
+  détachement automatique des activités liées vers `MANUAL` avant
+  suppression effective (décision 2 ci-dessus). Dépend désormais aussi
+  d'`ActivityRepository` (dépendance cross-module assumée et
+  documentée, justifiée par ce seul besoin).
+* `OpenAgendaCollectorFactory` (nouveau, remplace
+  `OpenAgendaSourcesConfig`, supprimée) : construit un
+  `OpenAgendaCollector` à partir d'une `Source`, appelé dynamiquement
+  par `ImportService` à chaque import plutôt qu'une seule fois au
+  démarrage de l'application.
+* `ImportService` réécrit : ne reçoit plus un `List<Collector>` fixé
+  au démarrage, mais relit `SourceService#getAllSources()` à chaque
+  exécution et ne collecte que les sources jugées collectibles
+  (`type = "API"`, `status = "ACTIVE"`, `agendaUid` non vide) — ajouter,
+  modifier ou supprimer un agenda depuis l'admin prend donc effet dès
+  le prochain import, sans redémarrage.
+* `SourceController` : trois nouveaux endpoints
+  `POST`/`PUT`/`DELETE /api/v1/sources[/{id}]`, réservés au rôle
+  `ADMIN` (`SecurityConfig`) — les lectures (`GET`, LL-6007) restent
+  non protégées, inchangées.
+* `application.properties`/`application-dev.properties` : propriétés
+  `openagenda.agenda-uid`/`avignon-*` retirées (superflues, remplacées
+  par la configuration en base) ; seule `openagenda.api-key` (secret
+  partagé, jamais stocké en base) subsiste.
+* Documentation d'architecture mise à jour :
+  `docs/02_Architecture/SOURCE_CONTRACT.md`,
+  `COLLECTOR_CONTRACT.md`, `COLLECTOR_OPERATIONS.md` — cette dernière
+  signale honnêtement un compromis assumé : ajouter un futur type de
+  collecteur réellement différent (ex. RSS) nécessite désormais de
+  modifier `ImportService` lui-même (avant ce ticket, `List<Collector>`
+  injecté par Spring ne demandait aucune modification).
+* Tests mis à jour ou réécrits : `ImportServiceTest`,
+  `ImportServiceIntegrationTest`, `ImportedActivityVisibilityIntegrationTest`,
+  `AdminImportControllerIntegrationTest`, `SourceServiceTest`,
+  `SourceControllerTest`, `SourceControllerIntegrationTest`,
+  `SourceRepositoryIntegrationTest` ; `OpenAgendaSourcesConfigTest`
+  supprimé, remplacé par `OpenAgendaCollectorFactoryTest` ;
+  `SingleMockCollectorConfig` réécrite pour mocker
+  `OpenAgendaCollectorFactory` plutôt qu'un `List<Collector>`.
+  ⚠️ Point technique notable : les deux agendas seedés par la migration
+  V14 étant eux-mêmes collectibles, plusieurs tests d'intégration qui
+  supposaient un unique résultat d'import (`results.get(0)`) ont dû
+  être adaptés pour isoler leur propre résultat par nom de source
+  plutôt que par position dans la liste — plus correct de toute façon
+  dès lors que plusieurs agendas collectibles peuvent coexister.
+
+### Frontend
+
+* Nouvelle section « Agendas » dans `/admin` (`AdminPage.tsx`), à côté
+  de la section « Modération des activités » existante (LL-EF-004,
+  bascule par onglets).
+* Liste des agendas/sources (`GET /api/v1/sources`), avec un bouton
+  « Ajouter un agenda » ouvrant une modale de création (réutilise les
+  styles `.modal-overlay`/`.contribution-form` de LL-EF-001).
+* Par agenda : bouton « Modifier » (même modale, pré-remplie,
+  permettant aussi de changer le statut) et bouton « Supprimer », qui
+  demande confirmation via `window.confirm` avant d'appeler
+  `DELETE /api/v1/sources/{id}` — le message de confirmation rappelle
+  explicitement que les activités liées seront réattribuées à la
+  source « Saisie manuelle », pas supprimées.
+
+**Fichiers modifiés :** migration `V14__add_agenda_fields_to_source.sql`
+(nouveau), `Source.java`, `SourceRepository.java`, `SourceService.java`,
+`SourceController.java`, `OpenAgendaCollectorFactory.java` (nouveau,
+remplace `OpenAgendaSourcesConfig.java`, supprimé), `ImportService.java`,
+`OpenAgendaCollector.java` (javadoc), `SecurityConfig.java`,
+`application.properties`, `application-dev.properties`,
+`frontend/src/pages/AdminPage.tsx`, `frontend/src/styles.css`, tests
+listés ci-dessus, `docs/02_Architecture/SOURCE_CONTRACT.md`/
+`COLLECTOR_CONTRACT.md`/`COLLECTOR_OPERATIONS.md`.
+
+**Statut : ✅ Terminé côté code, ⚠️ non vérifié par compilation/tests**
+dans cette session — cette session n'a pas eu accès à Maven Central
+(réseau restreint à GitHub/npm/pip pour cette conversation) : le
+backend n'a donc pas pu être compilé ni testé. `frontend`, en
+revanche, est vérifié (`tsc --noEmit` et `npm run build` passent).
+**`mvn test` doit être lancé côté Alex avant tout merge.** Livré sous
+forme de patch, pas encore appliqué sur `origin/main`.

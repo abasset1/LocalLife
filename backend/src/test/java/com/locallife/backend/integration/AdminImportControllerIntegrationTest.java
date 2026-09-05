@@ -44,12 +44,12 @@ import org.springframework.test.web.servlet.client.RestTestClient;
  * (LL-6005/LL-6006) pour la construction des tokens ({@code adminToken()}
  * fabriqué directement, aucun endpoint ne permettant de créer un compte
  * {@code ADMIN}) — et même approche que {@code ImportServiceIntegrationTest}
- * (LL-5010/LL-8009) pour isoler le pipeline d'un appel réseau réel : les
- * {@code Collector}s réellement enregistrés ({@code OpenAgendaCollector},
- * potentiellement plusieurs depuis LL-8009, voir
- * {@code OpenAgendaSourcesConfig}) sont remplacés par un unique mock
- * ({@code SingleMockCollectorConfig}), seule frontière externe du
- * pipeline.
+ * (LL-5010/LL-EF-005) pour isoler le pipeline d'un appel réseau réel :
+ * {@code OpenAgendaCollectorFactory} (qui construirait normalement un
+ * {@code OpenAgendaCollector} réel par source collectible, voir sa
+ * Javadoc) est remplacé par un mock renvoyant toujours le même
+ * {@code Collector} ({@code SingleMockCollectorConfig}), seule frontière
+ * externe du pipeline.
  *
  * Ne revérifie pas le détail du pipeline lui-même (création/mise à
  * jour/rejet/erreurs), déjà couvert exhaustivement par
@@ -148,8 +148,11 @@ class AdminImportControllerIntegrationTest {
     void triggerImport_ShouldReturnOkWithResult_WhenCalledByAdmin() {
         // Given : un collecteur renvoyant une donnée valide, pour vérifier que l'appel HTTP
         // déclenche réellement le pipeline existant (pas de duplication de logique).
+        // LL-EF-005 : la source doit exister en base avant l'import (voir
+        // ImportServiceIntegrationTest.createCollectibleSource).
         String sourceName = uniqueSourceName();
-        when(collector.getSourceName()).thenReturn(sourceName);
+        sourceRepository.save(
+                new Source(null, sourceName, "API", null, "ACTIVE", null, "agenda-uid-" + UUID.randomUUID(), null));
         when(collector.collect()).thenReturn(List.of(validItem(sourceName, "Marché de Noël")));
 
         // When / Then
@@ -161,8 +164,15 @@ class AdminImportControllerIntegrationTest {
                 .returnResult()
                 .getResponseBody();
 
-        assertThat(results).isNotNull().hasSize(1);
-        assertThat(results.get(0).created()).isEqualTo(1);
+        // LL-EF-005 : results contient aussi les deux agendas seedés par
+        // V14__add_agenda_fields_to_source.sql (également collectibles) — on isole le résultat
+        // de la source propre à ce test plutôt que de supposer une liste à un seul élément.
+        assertThat(results).isNotNull();
+        ImportResult result = results.stream()
+                .filter(r -> sourceName.equals(r.sourceName()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(result.created()).isEqualTo(1);
 
         // Le pipeline existant a bien été exécuté (pas seulement invoqué en apparence) : l'activité
         // est réellement persistée.
@@ -177,7 +187,8 @@ class AdminImportControllerIntegrationTest {
         // Given : échec de collecte (ex. panne réseau, configuration manquante) — capturé par
         // ImportService, ne doit pas faire échouer l'appel HTTP (voir AdminImportController).
         String sourceName = uniqueSourceName();
-        when(collector.getSourceName()).thenReturn(sourceName);
+        sourceRepository.save(
+                new Source(null, sourceName, "API", null, "ACTIVE", null, "agenda-uid-" + UUID.randomUUID(), null));
         when(collector.collect()).thenThrow(new RuntimeException("panne réseau"));
 
         // When / Then

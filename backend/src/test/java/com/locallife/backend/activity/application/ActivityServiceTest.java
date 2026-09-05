@@ -582,7 +582,7 @@ class ActivityServiceTest {
     // --- createActivity : validation renforcée (LL-6002, audit LL-6001) ---
 
     private Source manualSource() {
-        return new Source(1L, "Contribution manuelle", "MANUAL", null, "ACTIVE", null);
+        return new Source(1L, "Contribution manuelle", "MANUAL", null, "ACTIVE", null, null, null);
     }
 
     @Test

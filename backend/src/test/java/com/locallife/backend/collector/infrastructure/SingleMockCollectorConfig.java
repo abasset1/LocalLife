@@ -1,7 +1,7 @@
 package com.locallife.backend.collector.infrastructure;
 
 import com.locallife.backend.collector.domain.Collector;
-import java.util.List;
+import com.locallife.backend.source.domain.Source;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -9,27 +9,28 @@ import org.springframework.context.annotation.Primary;
 
 /**
  * Remplace, pour les tests {@code @SpringBootTest} du pipeline d'import,
- * le {@code List<Collector>} réel produit par {@link OpenAgendaSourcesConfig}
- * par une liste contenant un unique {@code Collector} mocké et pilotable
- * (LL-8009).
+ * le {@link OpenAgendaCollectorFactory} réel par une version mockée qui
+ * renvoie toujours le même {@code Collector} mocké et pilotable, quelle
+ * que soit la {@link Source} en base.
  *
- * <p>Avant LL-8009, {@code OpenAgendaCollector} était un unique
- * {@code @Component}, remplaçable directement par
- * {@code @MockitoBean private Collector collector;} (type unique dans le
- * contexte). Depuis que {@link OpenAgendaSourcesConfig} peut enregistrer
- * plusieurs {@code OpenAgendaCollector} réels (un par agenda configuré,
- * potentiellement 2 avec la configuration actuelle : agenda de
- * démonstration + Avignon Culture), remplacer un seul {@code Collector}
- * ne suffit plus à isoler le pipeline d'un appel réseau réel, et les
- * tests qui comptent le nombre d'{@code ImportResult} obtenus (un par
- * collecteur) casseraient dès qu'un deuxième agenda est configuré.
+ * <p>Depuis LL-EF-005, {@code ImportService} ne reçoit plus une liste de
+ * collecteurs fixée au démarrage ({@code OpenAgendaSourcesConfig},
+ * supprimée) mais construit un collecteur par {@link Source} collectible
+ * trouvée en base, via {@link OpenAgendaCollectorFactory#create(Source)}.
+ * Pour isoler les tests d'un appel réseau réel sans avoir à connaître à
+ * l'avance quelles sources exact seront présentes en base (l'ordre et le
+ * contenu dépendent du jeu de données de chaque test), ce
+ * {@code @TestConfiguration} remplace entièrement le factory par un mock
+ * dont {@code create(any())} renvoie toujours le même {@link #collector()}
+ * — chaque test reste libre de piloter {@code collector.collect()} comme
+ * avant LL-EF-005, à condition d'avoir persisté au moins une {@link Source}
+ * collectible (type {@code API}, statut {@code ACTIVE}, {@code agendaUid}
+ * non vide) pour que {@code ImportService} appelle le factory.
  *
- * <p>Le bean {@code @Primary} ci-dessous prend le pas sur celui de
- * {@link OpenAgendaSourcesConfig} pour l'injection de
- * {@code List<Collector>} dans {@code ImportService} — le bean réel
- * continue d'exister dans le contexte (construction d'objet uniquement,
- * aucun appel réseau tant que {@code collect()} n'est pas invoqué), mais
- * n'est jamais utilisé par {@code ImportService} grâce à {@code @Primary}.
+ * <p>Le bean {@code @Primary} ci-dessous prend le pas sur le
+ * {@link OpenAgendaCollectorFactory} réel (annoté {@code @Component}) pour
+ * l'injection dans {@code ImportService} — le bean réel continue d'exister
+ * dans le contexte, mais n'est jamais utilisé grâce à {@code @Primary}.
  */
 @TestConfiguration
 public class SingleMockCollectorConfig {
@@ -41,7 +42,9 @@ public class SingleMockCollectorConfig {
 
     @Bean
     @Primary
-    public List<Collector> testOpenAgendaCollectors(Collector collector) {
-        return List.of(collector);
+    public OpenAgendaCollectorFactory testOpenAgendaCollectorFactory(Collector collector) {
+        OpenAgendaCollectorFactory factory = Mockito.mock(OpenAgendaCollectorFactory.class);
+        Mockito.when(factory.create(Mockito.any())).thenReturn(collector);
+        return factory;
     }
 }

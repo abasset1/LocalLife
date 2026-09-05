@@ -91,6 +91,33 @@ séquence retenue), pas de LL-5001.
 > détail. Aucune écriture (création/modification/suppression de source
 > via l'API) n'a été ajoutée : toujours hors périmètre.
 
+> **Mise à jour LL-EF-005** : le paragraphe ci-dessus n'est plus exact —
+> `SourceController` expose désormais aussi `POST`/`PUT`/`DELETE`
+> (réservés au rôle `ADMIN`, voir `SecurityConfig`), pour permettre la
+> gestion des agendas depuis l'interface d'administration
+> (`docs/05_Sprints/SPRINT_EVOL_FIX.md`). Deux champs ont été ajoutés au
+> modèle (migration `V14__add_agenda_fields_to_source.sql`) :
+>
+> | Champ          | Type   | Obligatoire | Description |
+> | --------------- | ------ | ------------ | ------------ |
+> | `agendaUid`     | String | non          | Identifiant OpenAgenda de l'agenda (visible en pied de barre latérale sur openagenda.com). Significatif uniquement pour une source de type `API` destinée à être collectée via OpenAgenda — `null` pour `RSS`/`MANUAL`. |
+> | `regionFilter`  | String | non          | Filtre région optionnel appliqué à la collecte de cet agenda (voir `OpenAgendaCollector`) — remplace le filtre global unique `OPENAGENDA_REGION_FILTER` (une valeur par agenda plutôt qu'une seule pour tous). |
+>
+> Ces deux champs remplacent la configuration par propriétés
+> (`OpenAgendaSourcesConfig`, supprimée) : une source de type `API`,
+> statut `ACTIVE`, avec un `agendaUid` non vide, est désormais
+> automatiquement collectée par `ImportService` à chaque import — voir
+> sa Javadoc. La clé API OpenAgenda elle-même (secret partagé) reste
+> hors base, toujours lue depuis la variable d'environnement
+> `OPENAGENDA_API_KEY` (voir `OpenAgendaCollectorFactory`) : ce contrat
+> ne couvre que des identifiants non sensibles.
+>
+> Suppression (décision Alex, LL-EF-005) : autorisée même si des
+> activités sont encore rattachées à la source — celles-ci sont
+> détachées et réassignées à la source réservée `MANUAL` plutôt que la
+> suppression bloquée (voir `SourceService#deleteSource`). La source
+> réservée `MANUAL` elle-même ne peut jamais être supprimée.
+
 ## Hors périmètre de LL-5001
 
 Conformément à `SPRINT_5.md` et `AI_RULES.md` (un ticket = une seule

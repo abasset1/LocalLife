@@ -38,6 +38,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * volontairement non protégés (voir {@code SourceController}) : ajoutés
  * ici sans modification de cette classe, aucune règle dédiée n'était
  * nécessaire.
+ * Endpoints protégés (LL-EF-005) :
+ * - POST/PUT/DELETE /api/v1/sources[/{id}] : réservés au rôle ADMIN
+ *   (gestion des agendas depuis l'interface d'administration, voir
+ *   {@code SourceController}) — même posture que les endpoints
+ *   d'administration ci-dessus. GET reste public, inchangé.
  * Endpoint protégé (LL-6009, Sprint 6) :
  * - POST /api/v1/foodtrucks : utilisateur connecté (JWT valide requis),
  *   même posture que POST /api/v1/activities ci-dessus (voir
@@ -74,6 +79,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/reject").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/foodtrucks").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/import").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sources").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/sources/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/sources/*").hasRole("ADMIN")
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptions -> exceptions

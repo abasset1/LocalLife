@@ -13,49 +13,75 @@ déclencher, et comment ajouter un futur collecteur. Complète
 Une seule classe de collecteur existe à ce jour : `OpenAgendaCollector`
 (`com.locallife.backend.collector.infrastructure`), qui interroge
 l'API officielle [OpenAgenda](https://developers.openagenda.com/).
-Depuis LL-8009, plusieurs **instances** de cette classe peuvent être
-enregistrées — une par agenda réellement configuré — via
-`OpenAgendaSourcesConfig` (`@Configuration`, même package) : ce n'est
-plus un simple `@Component` auto-détecté par Spring, précisément parce
-qu'un unique `@Component` ne permettait d'enregistrer qu'un seul agenda
-à la fois (écart trouvé pendant LL-8009 — voir sa Javadoc et
-`docs/PROJECT_STATUS.md`, section LL-8009, pour le détail).
+
+**Mise à jour LL-EF-005 :** les agendas ne sont plus une liste fixe
+construite au démarrage de l'application à partir de variables
+d'environnement (`OpenAgendaSourcesConfig`, supprimée) — ils sont
+gérés dynamiquement depuis l'interface d'administration (`/admin`,
+section « Agendas »), via `SourceController`
+(`POST`/`PUT`/`DELETE /api/v1/sources`, réservés au rôle `ADMIN`). Une
+instance d'`OpenAgendaCollector` est construite par
+`OpenAgendaCollectorFactory` (`com.locallife.backend.collector.infrastructure`)
+pour chaque `Source` collectible trouvée en base **à chaque exécution**
+de `ImportService#importAll()` — ajouter, modifier ou désactiver
+(`status = INACTIVE`) ou supprimer un agenda prend donc effet dès le
+prochain import, sans redémarrage de l'application.
+
+Une source est collectible via OpenAgenda si, et seulement si :
+`type = "API"`, `status = "ACTIVE"`, et `agendaUid` non vide (voir
+`ImportService#isCollectible`).
 
 ### Configuration requise
 
-Variables d'environnement (aucune valeur par défaut sensible, aucun
-secret committé) :
+Une seule variable d'environnement reste nécessaire (secret partagé
+entre tous les agendas, jamais stocké en base — voir `SOURCE_CONTRACT.md`) :
 
-| Variable                | Obligatoire | Description                                                        |
-| ------------------------ | ------------ | -------------------------------------------------------------------- |
-| `OPENAGENDA_API_KEY`     | oui          | Clé publique OpenAgenda (compte gratuit, voir leur documentation), commune à tous les agendas. |
-| `OPENAGENDA_AGENDA_UID`  | oui          | Identifiant numérique de l'agenda de démonstration (rétrocompatibilité LL-5006). |
-| `OPENAGENDA_SOURCE_NAME` | non          | Nom affiché comme `Source.name` pour cet agenda. Par défaut `"OpenAgenda"`. |
-| `OPENAGENDA_REGION_FILTER` | non, **temporaire** | Ne conserve que les événements dont `location.region` correspond exactement (insensible casse/espaces). Filtrage côté client, après récupération (ajoute `detailed=1` à la requête quand actif). ⚠️ Non vérifié contre l'API réelle en sandbox — à confirmer avec une clé réelle que le champ `region` est bien présent dans la réponse. À retirer quand le besoin temporaire n'existe plus (pas de ticket associé). Appliqué à tous les agendas configurés, pas seulement celui par défaut. |
+| Variable            | Obligatoire | Description                                                        |
+| -------------------- | ------------ | -------------------------------------------------------------------- |
+| `OPENAGENDA_API_KEY` | oui          | Clé publique OpenAgenda (compte gratuit, voir leur documentation), commune à tous les agendas. |
 
-**Agendas Avignon (LL-8004/LL-8009)**, définis dans
-`application.properties` (`openagenda.avignon-*-uid`/`-name`) plutôt
-qu'en variables d'environnement dédiées (à l'exception de
-`OPENAGENDA_AVIGNON_SPECTACLES_UID` et consorts, réservées aux trois
-agendas pas encore identifiés) :
+Tout le reste (identifiant d'agenda, nom de la source, filtre région)
+se configure désormais **par agenda**, depuis l'interface
+d'administration (`SourceController`, champs `agendaUid`/
+`regionFilter` du modèle `Source` — voir `SOURCE_CONTRACT.md`) :
+
+| Champ (formulaire admin) | Correspond à                     | Obligatoire |
+| -------------------------- | ----------------------------------- | ------------ |
+| Nom                        | `Source.name`                       | oui          |
+| Identifiant d'agenda        | `Source.agendaUid`                  | oui, pour qu'un agenda de type `API` soit réellement collecté |
+| Filtre région (optionnel)  | `Source.regionFilter`               | non          |
+
+Le filtre région ne conserve que les événements dont `location.region`
+correspond exactement (insensible casse/espaces) à la valeur fournie —
+filtrage côté client après récupération (ajoute `detailed=1` à la
+requête OpenAgenda quand actif). ⚠️ Non vérifié contre l'API réelle en
+sandbox — à confirmer avec une clé réelle que le champ `region` est
+bien présent dans la réponse. Désormais réglable indépendamment par
+agenda (remplace l'ancien filtre global unique `OPENAGENDA_REGION_FILTER`).
+
+Tant que `OPENAGENDA_API_KEY` n'est pas définie, ou que l'`agendaUid`
+d'un agenda est vide, `OpenAgendaCollector.collect()` lève une
+`CollectorException` explicite pour cet agenda — comportement attendu,
+pas un bug (voir LL-5006) ; les autres agendas configurés ne sont pas
+affectés par cet échec isolé (voir « Résultat d'un import » ci-dessous).
+
+### Agendas migrés lors du passage à la configuration dynamique
+
+La migration `V14__add_agenda_fields_to_source.sql` (LL-EF-005) a
+recréé en base les deux agendas jusqu'ici actifs dans
+`application.properties`, pour éviter une régression silencieuse au
+déploiement (plus aucun agenda ne serait collecté tant qu'un
+administrateur ne les aurait pas ressaisis manuellement) :
 
 | Agenda | UID | Statut |
 | --- | --- | --- |
-| Avignon — Culture | `79839448` | actif |
-| Avignon — Spectacles | — | à identifier (placeholder vide) |
-| Avignon — Patrimoine | — | à identifier (placeholder vide) |
-| Avignon — Loisirs | — | à identifier (placeholder vide) |
+| OpenAgenda Ministère culture | `86244142` | actif |
+| OpenAgenda Ville d'Avignon | `79839448` | actif |
 
-Un agenda dont l'UID est vide n'est pas enregistré comme collecteur
-(voir la Javadoc de `OpenAgendaSourcesConfig`, `addIfConfigured`) —
-aucun risque d'erreur à chaque import tant que ces trois agendas ne
-sont pas identifiés.
-
-Tant que `OPENAGENDA_API_KEY`/l'uid d'un agenda ne sont pas définis,
-`OpenAgendaCollector.collect()` lève une `CollectorException`
-explicite pour cet agenda — comportement attendu, pas un bug (voir
-LL-5006) ; les autres agendas configurés ne sont pas affectés par cet
-échec isolé (voir « Résultat d'un import » ci-dessous).
+Les trois agendas Avignon non identifiés (Spectacles/Patrimoine/
+Loisirs, LL-8004) n'ont pas été migrés (jamais configurés avec un uid
+réel) — à créer depuis l'interface d'administration le jour où ils
+sont identifiés, plutôt que par une nouvelle migration.
 
 ## Comment est déclenché un import
 
@@ -80,11 +106,11 @@ l'invoquer. Elle reste aussi appelable directement en test (voir
 ## Résultat d'un import
 
 `ImportService.importAll()` retourne une liste d'`ImportResult` (un par
-`Collector` **enregistré**, donc un par agenda réellement configuré
-depuis LL-8009 — voir ci-dessus), et journalise (SLF4J) une ligne
-`INFO` récapitulative par source, plus une ligne de synthèse globale
-(`ImportScheduler`, LL-8005) quand l'import est déclenché
-automatiquement. Compteurs disponibles : `fetched`, `created`,
+source collectible trouvée en base au moment de l'appel — voir
+« Collecteur actif : OpenAgenda » ci-dessus, LL-EF-005), et journalise
+(SLF4J) une ligne `INFO` récapitulative par source, plus une ligne de
+synthèse globale (`ImportScheduler`, LL-8005) quand l'import est
+déclenché automatiquement. Compteurs disponibles : `fetched`, `created`,
 `updated`, `ignored` (donnée invalide, rejetée par
 `NormalizationService`), `errors` (exception inattendue sur un élément,
 ou échec total du collecteur), `archived` (voir stratégie de
@@ -133,36 +159,48 @@ source en cours d'import, catégoriquement différent de celui de
 
 ## Ajouter un futur collecteur
 
+**Mise à jour LL-EF-005 :** l'ancien mécanisme d'extension
+(`List<Collector>` injecté automatiquement par Spring, sans code à
+modifier dans `ImportService` pour ajouter un type de collecteur) a été
+**retiré** avec le passage à une configuration dynamique par source.
+`ImportService#isCollectible`/`#importFrom` sont désormais écrits
+spécifiquement pour OpenAgenda (`type = "API"` + `agendaUid`, voir
+ci-dessus) : ajouter un type de collecteur réellement différent (ex.
+RSS) nécessite donc, contrairement à avant ce ticket, de modifier
+`ImportService` lui-même pour reconnaître ce nouveau cas (par exemple
+`type = "RSS"` avec un champ dédié) et choisir la bonne factory selon
+le type de la source. Compromis assumé : la simplicité d'une
+configuration 100 % dynamique par source, au prix d'une extensibilité
+un peu moindre pour un futur type de collecteur — jugé acceptable tant
+qu'un seul type de collecteur existe réellement.
+
 1. Implémenter l'interface `Collector`
    (`com.locallife.backend.collector.domain.Collector`) :
    `getSourceName()` (nom de la `Source`) et `collect()` (renvoie une
    `List<CollectedActivity>`, sans écriture en base — interdit par les
    règles du sprint).
-2. Annoter l'implémentation `@Component` (ou `@Service`) si une seule
-   instance suffit : `Spring` l'ajoute alors automatiquement à la
-   `List<Collector>` injectée dans `ImportService`, sans registre ni
-   configuration supplémentaire. Si plusieurs instances sont nécessaires
-   (plusieurs sources pour la même API, comme `OpenAgendaCollector`
-   depuis LL-8009), suivre plutôt le modèle de `OpenAgendaSourcesConfig`
-   (`@Configuration` + un seul `@Bean` construisant directement le
-   `List<Collector>`) — `@Component` ne permet d'enregistrer qu'une
-   seule instance par classe.
-3. Si le nouveau collecteur nécessite des identifiants, suivre le
-   même principe que `OpenAgendaCollector` : configuration via
-   variables d'environnement (`application.properties`,
-   `${VARIABLE:valeur_par_défaut_non_sensible}`), aucun secret committé.
-4. Attention au piège rencontré en LL-5006 : si la classe a plus d'un
+2. Créer un factory dédié suivant le modèle d'`OpenAgendaCollectorFactory`
+   (`com.locallife.backend.collector.infrastructure`) : une méthode
+   `create(Source)` qui construit une instance du nouveau collecteur à
+   partir des champs pertinents de la `Source` — ajouter au modèle
+   `Source` (migration Flyway) les champs spécifiques à ce nouveau type
+   si nécessaire, comme `agendaUid`/`regionFilter` pour OpenAgenda (voir
+   `SOURCE_CONTRACT.md`).
+3. Étendre `ImportService#isCollectible` pour reconnaître ce nouveau
+   type de source comme collectible (voir le compromis assumé
+   ci-dessus), et `#importFrom`/`#importAll` pour appeler le bon
+   factory selon `source.type()`.
+4. Si le nouveau collecteur nécessite un secret partagé entre toutes
+   les sources de ce type (comme la clé API OpenAgenda), suivre le même
+   principe : variable d'environnement (`application.properties`,
+   `${VARIABLE:valeur_par_défaut_non_sensible}`), jamais stockée en
+   base ni exposée via `SourceController`.
+5. Attention au piège rencontré en LL-5006 : si la classe a plus d'un
    constructeur, annoter `@Autowired` celui destiné à Spring — sans
    quoi Spring tente un constructeur sans argument et le démarrage de
    l'application échoue entièrement (voir le correctif du 15/08/2026
    dans `PROJECT_STATUS.md`).
-5. Attention au format des dates : les API externes ne garantissent pas
+6. Attention au format des dates : les API externes ne garantissent pas
    toujours la forme exacte du décalage horaire ISO 8601 (`+0100` vs
    `+01:00`) — voir le correctif équivalent dans `PROJECT_STATUS.md`
    pour `OpenAgendaCollector`, à reproduire si besoin.
-
-Rien d'autre à modifier : ni `ImportService`, ni `NormalizationService`,
-ni `DeduplicationService` n'ont besoin de connaître le nouveau
-collecteur (règle du sprint : « ne pas créer de framework générique de
-collecte » — respectée : `List<Collector>` est le seul mécanisme
-d'extension, standard Spring, pas un registre maison).

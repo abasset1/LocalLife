@@ -20,6 +20,19 @@
 - Un changement actif (filtre catégorie/date, position obtenue, nouvelle activité proposée) conserve le comportement précédent (suppression immédiate + texte de chargement).
 - Aucun changement sur le debounce des appels API (400 ms, déjà en place depuis LL-4012) ni sur le cycle de vie de `MapContainer` (jamais démonté/reconstruit).
 
+### Sprint Évol-Fix / LL-EF-004 — Créer une interface d'administration
+- Nouvelle page `/admin`, réservée aux utilisateurs avec le rôle `ADMIN` (lien dans l'en-tête + garde de redirection côté page ; protection réelle déjà assurée côté backend, `SecurityConfig`, depuis LL-6005/LL-6006).
+- Trois onglets (En attente / Publiées / Rejetées) listent les activités par statut, avec le détail complet de chacune (titre, description, catégorie, dates, position).
+- Boutons Valider/Refuser sur les activités en attente, qui appellent les endpoints de modération existants (`PATCH /api/v1/admin/activities/{id}/publish` et `.../reject`).
+- Aucun changement backend : le statut de modération `PENDING`/`PUBLISHED`/`REJECTED` et ses endpoints existaient déjà depuis le Sprint 6.
+
+### Sprint Évol-Fix / LL-EF-005 — Gérer les agendas depuis l'interface d'administration
+- Nouvelle section « Agendas » dans `/admin` : liste, création, modification, suppression (avec confirmation) des sources/agendas.
+- Les agendas OpenAgenda sont désormais configurés dynamiquement en base (uid + filtre région par agenda), en remplacement du système par propriétés d'environnement — un ajout/modification/suppression prend effet dès le prochain import, sans redémarrage.
+- Suppression d'un agenda encore lié à des activités : autorisée, les activités sont détachées vers la source réservée « Saisie manuelle » plutôt que la suppression bloquée.
+- CRUD générique sur tous les types de source (API/RSS/MANUAL), pas réservé à OpenAgenda.
+- Nouveaux endpoints protégés (rôle ADMIN) : `POST`/`PUT`/`DELETE /api/v1/sources[/{id}]`.
+
 ## 0.9.1 — 2026-08-25
 
 ### Sprint 8 / LL-8009 — Décision go/no-go de la bêta

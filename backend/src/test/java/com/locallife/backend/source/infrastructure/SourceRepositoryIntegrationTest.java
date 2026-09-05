@@ -14,8 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
  * Tests d'intégration contre la base réelle (comme
  * UserRepositoryIntegrationTest). Chaque test est englobé dans une
  * transaction annulée à la fin (@Transactional) pour ne pas polluer la
- * base : ce repository n'expose volontairement pas de méthode de
- * suppression.
+ * base. {@code deleteById} (LL-EF-005) est désormais exposé — voir
+ * {@code SourceServiceTest} pour les garanties métier (source réservée
+ * {@code MANUAL} non supprimable, détachement des activités liées),
+ * appliquées par {@code SourceService}, pas ici.
  */
 @SpringBootTest
 @Transactional
@@ -26,8 +28,9 @@ class SourceRepositoryIntegrationTest {
 
     @Test
     void save_ShouldPersistSource_AndFindById_ShouldReturnIt() {
-        Source saved = sourceRepository.save(
-                new Source(null, "OpenAgenda Marseille", "API", "https://api.openagenda.com", "ACTIVE", null));
+        Source saved = sourceRepository.save(new Source(
+                null, "OpenAgenda Marseille", "API", "https://api.openagenda.com", "ACTIVE", null,
+                "agenda-uid-marseille", "Provence-Alpes-Côte d'Azur"));
 
         assertThat(saved.id()).isNotNull();
 
@@ -37,6 +40,8 @@ class SourceRepositoryIntegrationTest {
         assertThat(found.get().name()).isEqualTo("OpenAgenda Marseille");
         assertThat(found.get().type()).isEqualTo("API");
         assertThat(found.get().status()).isEqualTo("ACTIVE");
+        assertThat(found.get().agendaUid()).isEqualTo("agenda-uid-marseille");
+        assertThat(found.get().regionFilter()).isEqualTo("Provence-Alpes-Côte d'Azur");
     }
 
     @Test
@@ -55,6 +60,16 @@ class SourceRepositoryIntegrationTest {
                     assertThat(source.type()).isEqualTo("MANUAL");
                     assertThat(source.status()).isEqualTo("ACTIVE");
                 });
+    }
+
+    @Test
+    void deleteById_ShouldRemoveSource_WhenExists() {
+        Source saved = sourceRepository.save(
+                new Source(null, "Source temporaire", "RSS", null, "ACTIVE", null, null, null));
+
+        sourceRepository.deleteById(saved.id());
+
+        assertThat(sourceRepository.findById(saved.id())).isEmpty();
     }
 
 }

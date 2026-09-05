@@ -160,7 +160,7 @@ class ActivityControllerTest {
         // Given
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
-        Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null);
+        Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
                 .thenReturn(List.of(nearby));
         when(sourceService.getAllSources()).thenReturn(List.of(source));
@@ -231,7 +231,7 @@ class ActivityControllerTest {
         // Given
         Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
-        Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null);
+        Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findWithinBounds(
                 "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05"))
                 .thenReturn(List.of(inBounds));

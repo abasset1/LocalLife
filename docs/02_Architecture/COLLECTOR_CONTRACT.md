@@ -40,6 +40,20 @@ et la ligne `Source` existante (recherche, création si absente) est
 différé à un ticket ultérieur — le pipeline (LL-5006/LL-5008), pas le
 collecteur lui-même.
 
+**Mise à jour LL-EF-005 :** le rapprochement anticipé ci-dessus
+(« recherche, création si absente ») a été implémenté en LL-5008 sous
+la forme `SourceService#findOrCreateByName`, puis **retiré** par ce
+ticket : la source n'est plus déduite après coup d'un collecteur ayant
+déjà collecté — c'est l'inverse. `ImportService` part désormais des
+sources déjà en base (gérées depuis l'interface d'administration) et
+construit un collecteur pour chacune via
+`OpenAgendaCollectorFactory#create(Source)`, qui lui transmet
+`source.name()` au constructeur. `getSourceName()` reste donc conforme
+à l'interface et toujours implémenté par `OpenAgendaCollector`, mais
+n'est plus consulté par `ImportService` (qui connaît déjà le nom via la
+`Source` de départ) — la méthode garde sa place dans le contrat pour
+tout futur collecteur qui en aurait l'usage.
+
 ### `collect()`
 
 Récupère les données depuis la source externe et les retourne sous

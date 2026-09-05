@@ -138,12 +138,14 @@ coupure visuelle) terminés et **appliqués sur `main`**. `LL-EF-004`
 (interface d'administration `/admin` pour valider/refuser les
 activités proposées — le statut de modération PENDING/PUBLISHED/
 REJECTED demandé par ce ticket existait déjà depuis le Sprint 6,
-aucun changement backend) terminé, livré sous forme de patch, pas
-encore appliqué. `LL-EF-005` (gestion des agendas depuis l'interface
-d'administration) **mis en pause en cours de route** à la demande
-d'Alex — voir `docs/PROJECT_STATUS.md` pour le détail des décisions
-déjà validées et de ce qui a été commencé (branche
-`feature/LL-EF-005-agenda-management`, non fusionnable en l'état).
+aucun changement backend) déjà appliqué sur `main`. `LL-EF-005`
+(gestion des agendas OpenAgenda depuis l'interface d'administration —
+configuration dynamique en base, remplace `OpenAgendaSourcesConfig`)
+terminé, livré sous forme de patch depuis `origin/main`, pas encore
+appliqué. ⚠️ `LL-EF-005` n'a pas pu être compilé/testé côté backend
+dans la session qui l'a produit (pas d'accès à Maven Central) : lancer
+`mvn test` avant de l'appliquer. Prochain ticket de ce sprint :
+`LL-EF-006` (interface utilisateur).
 
 ## Règles
 
