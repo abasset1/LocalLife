@@ -134,10 +134,16 @@ en pause en attendant deux décisions techniques d'Alex.
 utilisateurs connectés), `LL-EF-002` (géolocalisation automatique,
 suppression du bandeau « Utiliser la localisation ») et `LL-EF-003`
 (rechargement fluide de la carte lors des déplacements/zoom, plus de
-coupure visuelle) terminés, livrés sous forme de patchs indépendants
-depuis `origin/main`, pas encore appliqués. Prochain ticket de ce
-sprint : `LL-EF-004` (interface d'administration pour valider/refuser
-les activités proposées).
+coupure visuelle) terminés et **appliqués sur `main`**. `LL-EF-004`
+(interface d'administration `/admin` pour valider/refuser les
+activités proposées — le statut de modération PENDING/PUBLISHED/
+REJECTED demandé par ce ticket existait déjà depuis le Sprint 6,
+aucun changement backend) terminé, livré sous forme de patch, pas
+encore appliqué. `LL-EF-005` (gestion des agendas depuis l'interface
+d'administration) **mis en pause en cours de route** à la demande
+d'Alex — voir `docs/PROJECT_STATUS.md` pour le détail des décisions
+déjà validées et de ce qui a été commencé (branche
+`feature/LL-EF-005-agenda-management`, non fusionnable en l'état).
 
 ## Règles
 

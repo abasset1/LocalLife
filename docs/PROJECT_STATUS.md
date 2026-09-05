@@ -1,7 +1,7 @@
 # LocalLife - Project Status
 
 **Version :** 0.9.0
-**Dernière mise à jour :** 2026-09-02 (Sprint 9 en cours ; Sprint Évol-Fix démarré en parallèle, LL-EF-001 à LL-EF-003 terminés)
+**Dernière mise à jour :** 2026-09-03 (Sprint 9 en cours ; Sprint Évol-Fix démarré en parallèle, LL-EF-001 à LL-EF-003 appliqués sur `main`, LL-EF-004 terminé en attente d'application, LL-EF-005 mis en pause en cours de route)
 
 ---
 ## Phase actuelle
@@ -2562,10 +2562,6 @@ sur les quatre points ci-dessus.**
 
 Sprint dédié aux évolutions fonctionnelles et corrections identifiées
 sur LocalLife, alimenté progressivement (`docs/05_Sprints/SPRINT_EVOL_FIX.md`).
-Chaque ticket est développé sur une branche indépendante depuis
-`origin/main` et livré sous forme de patch séparé — voir la remarque
-de LL-EF-001 ci-dessous sur les conflits mineurs possibles entre
-patchs non encore appliqués.
 
 ## LL-EF-001 — Revoir l'affichage de la saisie d'une activité ✅
 
@@ -2592,15 +2588,7 @@ sens de « nouvelle fenêtre » pour ce ticket.
 **Fichiers modifiés :** `frontend/src/App.tsx`,
 `frontend/src/styles.css`.
 
-**Statut : ✅ Terminé**, `tsc --noEmit` et `npm run build` passent.
-Livré sous forme de patch, pas encore appliqué sur `origin/main` au
-moment de LL-EF-002/003 (chaque ticket de ce sprint est développé sur
-une branche indépendante depuis `origin/main`, appliqué et poussé
-séparément par Alex) : en cas de conflit lors de l'application des
-patchs dans le désordre, il portera surtout sur `grid-template-rows`
-dans `styles.css` (chaque ticket retire une ligne de la grille) et sur
-l'en-tête `## 0.9.2` commun aux entrées de `CHANGELOG.md` —
-facilement résoluble en fusionnant les blocs concernés.
+**Statut : ✅ Terminé et appliqué sur `main`.**
 
 ## LL-EF-002 — Supprimer le bandeau « Utiliser la localisation » ✅
 
@@ -2624,14 +2612,7 @@ composant `App`, sans action utilisateur.
 **Fichiers modifiés :** `frontend/src/App.tsx`,
 `frontend/src/styles.css`.
 
-**Statut : ✅ Terminé**, `tsc --noEmit` et `npm run build` passent.
-Développé sur une branche indépendante depuis `origin/main` (pas
-encore rebasé sur LL-EF-001, voir remarque ci-dessus) ; en cas de
-conflit lors de l'application des deux patchs, il portera surtout sur
-`grid-template-rows` dans `styles.css` (chaque ticket retire une ligne
-de la grille) et sur l'en-tête `## 0.9.2` commun aux deux entrées de
-`CHANGELOG.md` — dans les deux cas, facilement résoluble en fusionnant
-les deux blocs.
+**Statut : ✅ Terminé et appliqué sur `main`.**
 
 ## LL-EF-003 — Revoir le rechargement de la carte ✅
 
@@ -2664,4 +2645,78 @@ dans une mise en page en colonne, réduisait temporairement sa hauteur
 
 **Fichiers modifiés :** `frontend/src/App.tsx`.
 
-**Statut : ✅ Terminé**, `tsc --noEmit` et `npm run build` passent.
+**Statut : ✅ Terminé et appliqué sur `main`.**
+
+## LL-EF-004 — Créer une interface d'administration ✅
+
+Le point d'architecture demandé par ce ticket (« prévoir un véritable
+statut de modération PENDING/APPROVED/REJECTED ») était déjà en place
+depuis le Sprint 6 : `LL-6003` a formalisé le statut `PENDING`/
+`PUBLISHED`/`REJECTED` (`PUBLISHED` au lieu d'`APPROVED`,
+fonctionnellement équivalent, avec contrainte `CHECK` en base et
+transitions minimales sans retour en arrière), et `LL-6005`/`LL-6006`
+ont ajouté les endpoints de modération
+(`GET /api/v1/admin/activities?status=`,
+`PATCH /api/v1/admin/activities/{id}/publish` et `.../reject`), déjà
+protégés par le rôle `ADMIN` dans `SecurityConfig` et déjà couverts
+par `AdminActivityControllerIntegrationTest`. Ce ticket se limitait
+donc à construire l'interface qui pilote ces endpoints — **aucun
+changement backend**.
+
+* Nouvelle page `/admin` (`AdminPage.tsx`), avec un lien
+  « Administration » dans l'en-tête visible uniquement pour un
+  utilisateur avec le rôle `ADMIN` (`currentUser.role`, déjà présent
+  dans le payload JWT décodé par `getPayload`).
+* Garde d'accès côté page : redirection vers `/login` (pas de JWT) ou
+  `/` (JWT sans rôle `ADMIN`) — confort d'UX uniquement, la protection
+  réelle reste entièrement backend (`SecurityConfig`), y compris en
+  cas de navigation directe vers `/admin` ou de JWT falsifié.
+* Trois onglets (En attente / Publiées / Rejetées) listent les
+  activités du statut correspondant, avec le détail complet de chacune
+  (titre, description, catégorie, dates, position).
+* Sur l'onglet « En attente » : boutons Valider/Refuser par activité,
+  qui appellent `PATCH .../publish` ou `.../reject` puis retirent
+  l'activité de la liste affichée une fois l'action confirmée par le
+  backend (elle ne correspond plus au statut de l'onglet courant).
+
+**Fichiers modifiés :** `frontend/src/pages/AdminPage.tsx` (nouveau),
+`frontend/src/main.tsx`, `frontend/src/App.tsx`,
+`frontend/src/styles.css`.
+
+**Statut : ✅ Terminé, livré sous forme de patch, pas encore appliqué
+sur `main`.**
+
+## LL-EF-005 — Gérer les agendas depuis l'interface d'administration ⏸️
+
+**Mis en pause à la demande d'Alex** avant d'être terminé — repris
+plus tard. Contexte pour la reprise :
+
+* Décisions déjà validées avec Alex (à ne pas redemander) :
+  1. un « agenda » désigne une configuration dynamique qui pilote
+     réellement les collecteurs OpenAgenda (uid agenda + filtre
+     région), en remplacement du système actuel par propriétés
+     (`OpenAgendaSourcesConfig`) ;
+  2. la suppression d'un agenda encore lié à des activités existantes
+     est autorisée : les activités concernées sont détachées vers une
+     source de repli (la source réservée `MANUAL`) plutôt que
+     bloquée ;
+  3. le CRUD doit être générique, sur tous les types de source
+     existants (API/RSS/MANUAL), pas seulement OpenAgenda.
+* Dépend de `LL-EF-004` (ajoute une section « Agendas » à
+  `AdminPage.tsx`) : à appliquer après `LL-EF-004`.
+* Travail commencé (migration `V14__add_agenda_fields_to_source.sql`,
+  `Source`/`SourceRepository`/`SourceService` étendus, nouveau
+  `OpenAgendaCollectorFactory` remplaçant `OpenAgendaSourcesConfig`,
+  `ImportService` réécrit pour lire les sources dynamiquement,
+  `SecurityConfig`/`SourceController` pour les nouveaux endpoints
+  d'écriture) conservé sur la branche
+  `feature/LL-EF-005-agenda-management`, **non fusionné, ne compile
+  pas en l'état** (sites d'appel `new Source(...)` dans les tests pas
+  encore mis à jour avec les deux nouveaux champs). Reste à faire :
+  finir la mise à jour des tests, ajouter la section « Agendas » côté
+  frontend, mettre à jour `SOURCE_CONTRACT.md`/`COLLECTOR_CONTRACT.md`.
+* ⚠️ Cette session de travail n'a pas eu accès à Maven Central (réseau
+  restreint à GitHub/npm/pip) : le backend n'a donc pas pu être
+  compilé ni testé pendant ce travail — à vérifier avec `mvn test`
+  avant de reprendre ou de fusionner quoi que ce soit issu de cette
+  branche.
