@@ -361,72 +361,10 @@ L'état actif de la vue doit être clairement identifiable.
 
 ---
 
-<<<<<<< HEAD
-=======
-## LL-EF-009 — Réinitialisation du mot de passe
-
-### Objectif
-
-Permettre à un utilisateur ayant oublié son mot de passe de récupérer l'accès à son compte directement depuis la fenêtre de connexion.
-
-### Accès
-
-Dans la fenêtre de connexion, ajouter un lien ou bouton :
-
-**« Mot de passe oublié ? »**
-
-Celui-ci permet d'accéder au parcours de réinitialisation du mot de passe.
-
-### Parcours attendu
-
-1. L'utilisateur ouvre la fenêtre de connexion.
-2. Il clique sur **« Mot de passe oublié ? »**.
-3. Il renseigne son adresse e-mail.
-4. Un mécanisme sécurisé de réinitialisation est déclenché.
-5. L'utilisateur reçoit un lien de réinitialisation.
-6. Il définit un nouveau mot de passe.
-7. Il peut ensuite se connecter avec son nouveau mot de passe.
-
-### Critères d'acceptation
-
-- [ ] Le lien « Mot de passe oublié ? » est présent dans la fenêtre de connexion.
-- [ ] Le lien permet d'accéder au formulaire de réinitialisation.
-- [ ] L'utilisateur peut renseigner son adresse e-mail.
-- [ ] Un mécanisme sécurisé de réinitialisation est généré.
-- [ ] Le mécanisme de réinitialisation possède une durée de validité limitée.
-- [ ] Le token de réinitialisation ne peut être utilisé qu'une seule fois.
-- [ ] L'utilisateur peut définir un nouveau mot de passe.
-- [ ] Le nouveau mot de passe respecte les règles de sécurité existantes.
-- [ ] Le nouveau mot de passe est stocké sous forme de hash.
-- [ ] L'ancien mot de passe n'est plus valide après la réinitialisation.
-- [ ] Une demande ne révèle pas si l'adresse e-mail existe dans la base.
-- [ ] L'utilisateur peut revenir facilement à la fenêtre de connexion.
-
-### Sécurité
-
-La fonctionnalité doit notamment empêcher :
-
-- l'énumération des comptes ;
-- la réutilisation d'un token ;
-- l'utilisation d'un token expiré ;
-- la fuite du token dans les logs ;
-- la modification du mot de passe sans preuve de possession du mécanisme de récupération.
-
-**Priorité :** Haute  
-**Type :** Évolution / Authentification / Sécurité
-
----
-
-
->>>>>>> 7dc68fa69c8baa5df0b9c7984e34e9dde54b478e
 # À ajouter
 
 Les prochains besoins identifiés seront ajoutés à cette section puis transformés en tickets numérotés.
 
 ## Prochains tickets
 
-<<<<<<< HEAD
 - [ ] LL-EF-009 — À définir
-=======
-- [ ] LL-EF-010 — À définir
->>>>>>> 7dc68fa69c8baa5df0b9c7984e34e9dde54b478e
