@@ -1,0 +1,1581 @@
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/main/java/com/locallife/backend/activity/api/ActivityResponse.java LocalLife/backend/src/main/java/com/locallife/backend/activity/api/ActivityResponse.java
+--- LocalLife_orig/backend/src/main/java/com/locallife/backend/activity/api/ActivityResponse.java	2026-09-05 06:44:33.396313487 +0000
++++ LocalLife/backend/src/main/java/com/locallife/backend/activity/api/ActivityResponse.java	2026-09-05 05:38:24.705923851 +0000
+@@ -17,11 +17,16 @@
+  * directement pour l'affichage (voir {@code SPRINT_8.md}, constat fait en
+  * vérifiant l'affichage bout en bout des activités sur la carte).
+  *
+- * {@code latitude}/{@code longitude} restent tels quels (aucune adresse
+- * texte n'est stockée en base, voir la javadoc de
+- * {@link ActivityController.CreateActivityRequest}) : ce sont les seules
+- * données de localisation disponibles, utilisées par le frontend comme
+- * « lieu » affiché dans le popup de la carte.
++ * {@code address}/{@code city} ajoutés en LL-EF-008 : afficher des
++ * coordonnées GPS brutes à l'utilisateur final n'étant pas viable (demande
++ * d'Alex), ce sont désormais elles qui servent de « lieu » affiché — dans
++ * le popup de la carte comme dans la nouvelle vue liste (regroupement par
++ * {@code city}) — {@code latitude}/{@code longitude} restant disponibles
++ * pour le seul positionnement du marqueur. Voir {@code Activity} pour la
++ * javadoc détaillée de leur résolution (géocodage à l'écriture, jamais à
++ * la lecture). Toutes deux nullables : activités existantes non
++ * re-géocodées/ré-importées, ou source ne fournissant pas cette donnée —
++ * le frontend doit prévoir un repli (voir {@code App.tsx}).
+  *
+ 
+  * Uniquement utilisée par {@code getNearbyActivities}/
+@@ -42,7 +47,9 @@
+         LocalDateTime endDate,
+         String status,
+         String sourceName,
+-        String url) {
++        String url,
++        String address,
++        String city) {
+ 
+     public static ActivityResponse from(Activity activity, String sourceName) {
+         return new ActivityResponse(
+@@ -56,6 +63,8 @@
+                 activity.endDate(),
+                 activity.status(),
+                 sourceName,
+-                activity.url());
++                activity.url(),
++                activity.address(),
++                activity.city());
+     }
+ }
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/main/java/com/locallife/backend/activity/application/ActivityService.java LocalLife/backend/src/main/java/com/locallife/backend/activity/application/ActivityService.java
+--- LocalLife_orig/backend/src/main/java/com/locallife/backend/activity/application/ActivityService.java	2026-09-05 06:44:21.971642581 +0000
++++ LocalLife/backend/src/main/java/com/locallife/backend/activity/application/ActivityService.java	2026-09-05 05:38:11.348774792 +0000
+@@ -346,7 +346,8 @@
+         return new Activity(
+                 activity.id(), activity.title(), activity.description(), activity.category(),
+                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
+-                status, activity.sourceId(), activity.importKey(), activity.url());
++                status, activity.sourceId(), activity.importKey(), activity.url(),
++                activity.address(), activity.city(), activity.postalCode());
+     }
+ 
+     private void validateLatitude(String paramName, double latitude) {
+@@ -398,9 +399,15 @@
+ 
+     /**
+      * Crée une activité à partir d'une contribution (LL-2012, adresse
+-     * géocodée depuis LL-3012). L'adresse elle-même n'est pas conservée en
+-     * base, seules les coordonnées obtenues via {@link GeocodingService} le
+-     * sont. Statut par défaut : {@code PENDING} (en attente de modération —
++     * géocodée depuis LL-3012). Depuis LL-EF-008, l'adresse saisie par le
++     * contributeur est désormais conservée telle quelle (colonne
++     * {@code address}) — elle a déjà servi de source de vérité pour le
++     * géocodage, il n'y a donc aucune raison de la perdre. {@code city}
++     * (utilisée pour le regroupement de la vue liste, voir le frontend) et
++     * {@code postalCode} proviennent de la même réponse Nominatim que les
++     * coordonnées ({@link GeocodingService}, paramètre
++     * {@code addressdetails=1}) : aucun appel réseau supplémentaire
++     * n'est nécessaire. Statut par défaut : {@code PENDING} (en attente de modération —
+      * l'une des trois valeurs formalisées en LL-6003, voir
+      * {@link Activity#status()}). Aucune date de
+      * début/fin n'est demandée par le formulaire de contribution ; la date
+@@ -445,7 +452,8 @@
+         Activity activity = new Activity(
+                 null, title, description, category,
+                 coordinates.latitude(), coordinates.longitude(), LocalDateTime.now(), null, "PENDING",
+-                manualSourceId, null, null);
++                manualSourceId, null, null,
++                address, coordinates.city(), coordinates.postalCode());
+         return activityRepository.save(activity);
+     }
+ 
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/main/java/com/locallife/backend/activity/domain/Activity.java LocalLife/backend/src/main/java/com/locallife/backend/activity/domain/Activity.java
+--- LocalLife_orig/backend/src/main/java/com/locallife/backend/activity/domain/Activity.java	2026-09-05 06:42:49.849109213 +0000
++++ LocalLife/backend/src/main/java/com/locallife/backend/activity/domain/Activity.java	2026-09-05 05:36:47.269482377 +0000
+@@ -48,6 +48,31 @@
+  * Rien ne change encore côté visibilité publique : l'exclusion des
+  * activités non {@code PUBLISHED} des recherches publiques est le
+  * périmètre de LL-6004, pas de celui-ci.
++ *
++ * {@code address}/{@code city}/{@code postalCode} ajoutés en LL-EF-008
++ * (voir {@code docs/02_Architecture/ADR-0001-adresse-structuree.md}) :
++ * jusqu'ici seules {@code latitude}/{@code longitude} étaient stockées,
++ * ce qui ne permettait ni d'afficher une adresse lisible, ni de regrouper
++ * les activités par ville (besoin de la vue liste LL-EF-008). Résolus une
++ * seule fois, à l'écriture :
++ * <ul>
++ *   <li>contribution manuelle ({@code ActivityService#createActivity}) :
++ *       {@code address} est le texte saisi par le contributeur (déjà
++ *       validé — il a servi au géocodage LL-3012) ; {@code city}/
++ *       {@code postalCode} proviennent de la même réponse Nominatim
++ *       (champ {@code addressdetails}), sans appel réseau
++ *       supplémentaire ;</li>
++ *   <li>import ({@code NormalizationService}) : les trois champs
++ *       proviennent directement de {@code CollectedActivity}, elle-même
++ *       alimentée par l'objet {@code location} déjà renvoyé par l'API du
++ *       collecteur (ex. OpenAgenda) — même principe que {@code url}
++ *       (LL-6002) : une donnée déjà présente dans la réponse de la
++ *       source, reprise plutôt que perdue.</li>
++ * </ul>
++ * Les trois champs sont nullables (activités existantes non re-géocodées/
++ * ré-importées, ou source ne fournissant pas cette donnée) : aucune
++ * activité ne doit être rejetée pour leur absence, voir
++ * {@code NormalizationService#isValid}, qui ne les valide pas.
+  */
+ public record Activity(
+         @Id Long id,
+@@ -61,5 +86,8 @@
+         String status,
+         Long sourceId,
+         String importKey,
+-        String url) {
++        String url,
++        String address,
++        String city,
++        String postalCode) {
+ }
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/main/java/com/locallife/backend/collector/application/ImportService.java LocalLife/backend/src/main/java/com/locallife/backend/collector/application/ImportService.java
+--- LocalLife_orig/backend/src/main/java/com/locallife/backend/collector/application/ImportService.java	2026-09-05 06:44:09.801024208 +0000
++++ LocalLife/backend/src/main/java/com/locallife/backend/collector/application/ImportService.java	2026-09-05 05:37:51.842974919 +0000
+@@ -205,14 +205,16 @@
+         return new Activity(
+                 id, activity.title(), activity.description(), activity.category(),
+                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
+-                activity.status(), sourceId, importKey, activity.url());
++                activity.status(), sourceId, importKey, activity.url(),
++                activity.address(), activity.city(), activity.postalCode());
+     }
+ 
+     private Activity withStatus(Activity activity, String status) {
+         return new Activity(
+                 activity.id(), activity.title(), activity.description(), activity.category(),
+                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
+-                status, activity.sourceId(), activity.importKey(), activity.url());
++                status, activity.sourceId(), activity.importKey(), activity.url(),
++                activity.address(), activity.city(), activity.postalCode());
+     }
+ 
+ }
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/main/java/com/locallife/backend/collector/application/NormalizationService.java LocalLife/backend/src/main/java/com/locallife/backend/collector/application/NormalizationService.java
+--- LocalLife_orig/backend/src/main/java/com/locallife/backend/collector/application/NormalizationService.java	2026-09-05 06:44:01.113078093 +0000
++++ LocalLife/backend/src/main/java/com/locallife/backend/collector/application/NormalizationService.java	2026-09-05 05:37:45.012669462 +0000
+@@ -93,7 +93,13 @@
+                 null,
+                 // url (LL-6002) : reprise directe de sourceUrl, désormais
+                 // conservée jusqu'en base au lieu d'être perdue ici.
+-                collected.sourceUrl());
++                collected.sourceUrl(),
++                // address/city/postalCode (LL-EF-008) : même principe que url
++                // ci-dessus, repris tels quels de la donnée collectée (voir
++                // CollectedActivity et OpenAgendaCollector).
++                collected.address(),
++                collected.city(),
++                collected.postalCode());
+         return Optional.of(activity);
+     }
+ 
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/main/java/com/locallife/backend/collector/domain/CollectedActivity.java LocalLife/backend/src/main/java/com/locallife/backend/collector/domain/CollectedActivity.java
+--- LocalLife_orig/backend/src/main/java/com/locallife/backend/collector/domain/CollectedActivity.java	2026-09-05 06:43:23.256140354 +0000
++++ LocalLife/backend/src/main/java/com/locallife/backend/collector/domain/CollectedActivity.java	2026-09-05 05:36:55.093099399 +0000
+@@ -17,6 +17,13 @@
+  * {@code getSourceName()} de {@code COLLECTOR_CONTRACT.md}), pas par un
+  * identifiant technique — ce modèle n'a pas connaissance de la
+  * persistance.
++ *
++ * {@code address}/{@code city}/{@code postalCode} ajoutés en LL-EF-008 :
++ * repris tels quels de l'objet {@code location} de la source (ex.
++ * OpenAgenda, voir {@code OpenAgendaCollector}), au même titre que
++ * {@code sourceUrl} (LL-6002) — voir {@code Activity} pour le détail de
++ * leur usage après normalisation. Tous trois optionnels : une source peut
++ * ne pas les fournir (ex. lieu imprécis).
+  */
+ public record CollectedActivity(
+         String title,
+@@ -28,5 +35,8 @@
+         double longitude,
+         String sourceUrl,
+         String externalId,
+-        String source) {
++        String source,
++        String address,
++        String city,
++        String postalCode) {
+ }
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/main/java/com/locallife/backend/collector/infrastructure/OpenAgendaCollector.java LocalLife/backend/src/main/java/com/locallife/backend/collector/infrastructure/OpenAgendaCollector.java
+--- LocalLife_orig/backend/src/main/java/com/locallife/backend/collector/infrastructure/OpenAgendaCollector.java	2026-09-05 06:43:33.384863320 +0000
++++ LocalLife/backend/src/main/java/com/locallife/backend/collector/infrastructure/OpenAgendaCollector.java	2026-09-05 05:37:06.877008436 +0000
+@@ -222,7 +222,10 @@
+                 event.location().longitude(),
+                 "https://openagenda.com/agendas/" + agendaUid + "/events/" + event.slug(),
+                 event.slug(),
+-                sourceName);
++                sourceName,
++                event.location().address(),
++                event.location().city(),
++                event.location().postalCode());
+     }
+ 
+     private boolean isBlank(String value) {
+@@ -270,7 +273,15 @@
+             OpenAgendaTiming lastTiming) {
+     }
+ 
+-    private record OpenAgendaLocation(double latitude, double longitude, String region) {
++    /**
++     * {@code address}/{@code city}/{@code postalCode} ajoutés en LL-EF-008 :
++     * champs documentés de l'objet {@code location} OpenAgenda (voir
++     * developers.openagenda.com/en/lieux/), au même titre que
++     * {@code region} — non vérifiés contre l'API réelle en sandbox, comme
++     * le reste de cette classe (voir sa javadoc).
++     */
++    private record OpenAgendaLocation(
++            double latitude, double longitude, String region, String address, String city, String postalCode) {
+     }
+ 
+     private record OpenAgendaTiming(String begin, String end) {
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/main/java/com/locallife/backend/geocoding/application/Coordinates.java LocalLife/backend/src/main/java/com/locallife/backend/geocoding/application/Coordinates.java
+--- LocalLife_orig/backend/src/main/java/com/locallife/backend/geocoding/application/Coordinates.java	2026-09-05 06:43:39.626913337 +0000
++++ LocalLife/backend/src/main/java/com/locallife/backend/geocoding/application/Coordinates.java	2026-09-05 05:37:25.805842540 +0000
+@@ -1,7 +1,14 @@
+ package com.locallife.backend.geocoding.application;
+ 
+ /**
+- * Coordonnées géographiques résultant d'un géocodage (LL-3012).
++ * Coordonnées géographiques résultant d'un géocodage (LL-3012), enrichies
++ * en LL-EF-008 de {@code city}/{@code postalCode} : Nominatim renvoie déjà
++ * ces informations dans la même réponse dès lors que l'appel demande
++ * {@code addressdetails=1} (voir {@link GeocodingService}) — aucun appel
++ * réseau supplémentaire n'était donc nécessaire pour permettre le
++ * regroupement par ville de la vue liste (LL-EF-008). Toutes deux
++ * nullables : Nominatim ne garantit pas leur présence (adresse rurale
++ * imprécise, ville absente de sa base d'{@code addressdetails}, etc.).
+  */
+-public record Coordinates(double latitude, double longitude) {
++public record Coordinates(double latitude, double longitude, String city, String postalCode) {
+ }
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/main/java/com/locallife/backend/geocoding/application/GeocodingService.java LocalLife/backend/src/main/java/com/locallife/backend/geocoding/application/GeocodingService.java
+--- LocalLife_orig/backend/src/main/java/com/locallife/backend/geocoding/application/GeocodingService.java	2026-09-05 06:43:54.627151460 +0000
++++ LocalLife/backend/src/main/java/com/locallife/backend/geocoding/application/GeocodingService.java	2026-09-05 05:37:39.612939137 +0000
+@@ -62,6 +62,11 @@
+                             .queryParam("q", address)
+                             .queryParam("format", "json")
+                             .queryParam("limit", 1)
++                            // LL-EF-008 : demande les composants d'adresse détaillés
++                            // (ville, code postal...) dans la même réponse, pour
++                            // éviter un second appel réseau (reverse-geocoding) —
++                            // voir la javadoc de Coordinates.
++                            .queryParam("addressdetails", 1)
+                             .build())
+                     .retrieve()
+                     .body(new ParameterizedTypeReference<List<NominatimResult>>() { });
+@@ -74,13 +79,38 @@
+         }
+ 
+         NominatimResult result = results.get(0);
+-        return new Coordinates(Double.parseDouble(result.lat()), Double.parseDouble(result.lon()));
++        NominatimAddress details = result.address();
++        String city = details == null ? null : firstNonBlank(details.city(), details.town(), details.village());
++        String postalCode = details == null ? null : details.postcode();
++        return new Coordinates(Double.parseDouble(result.lat()), Double.parseDouble(result.lon()), city, postalCode);
++    }
++
++    private String firstNonBlank(String... values) {
++        for (String value : values) {
++            if (value != null && !value.isBlank()) {
++                return value;
++            }
++        }
++        return null;
+     }
+ 
+     /**
+      * Sous-ensemble de la réponse JSON de Nominatim qui nous intéresse.
+      * Nominatim renvoie lat/lon sous forme de chaînes, pas de nombres.
++     * {@code address} n'est présent que si la requête demande
++     * {@code addressdetails=1} (LL-EF-008).
++     */
++    private record NominatimResult(String lat, String lon, NominatimAddress address) {
++    }
++
++    /**
++     * Sous-ensemble de l'objet {@code address} de Nominatim (LL-EF-008).
++     * Nominatim n'a pas de champ "ville" unique : selon la zone, la
++     * localité se trouve dans {@code city}, {@code town} ou
++     * {@code village} (voir sa documentation "Place types") — les trois
++     * sont donc lus, dans cet ordre de priorité (voir
++     * {@link #firstNonBlank}).
+      */
+-    private record NominatimResult(String lat, String lon) {
++    private record NominatimAddress(String city, String town, String village, String postcode) {
+     }
+ }
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/main/resources/db/migration/V14__add_address_to_activity.sql LocalLife/backend/src/main/resources/db/migration/V14__add_address_to_activity.sql
+--- LocalLife_orig/backend/src/main/resources/db/migration/V14__add_address_to_activity.sql	1970-01-01 00:00:00.000000000 +0000
++++ LocalLife/backend/src/main/resources/db/migration/V14__add_address_to_activity.sql	2026-09-05 05:36:34.278045544 +0000
+@@ -0,0 +1,13 @@
++-- LL-EF-008 (+ demande complémentaire d'Alex, voir ADR-0001) : jusqu'ici
++-- seules latitude/longitude étaient stockées (voir javadoc historique de
++-- ActivityController.CreateActivityRequest), ce qui empêchait d'afficher
++-- une adresse lisible ou de regrouper les activités par ville dans la
++-- nouvelle vue liste.
++--
++-- Colonnes nullables : les activités déjà en base (démo + contributions
++-- manuelles + imports antérieurs à ce ticket) n'ont pas cette donnée et le
++-- resteront tant qu'elles ne sont pas re-géocodées/ré-importées — pas de
++-- backfill dans ce ticket (hors périmètre, voir ADR-0001).
++ALTER TABLE activity ADD COLUMN address VARCHAR(500);
++ALTER TABLE activity ADD COLUMN city VARCHAR(255);
++ALTER TABLE activity ADD COLUMN postal_code VARCHAR(20);
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/test/java/com/locallife/backend/activity/api/ActivityControllerTest.java LocalLife/backend/src/test/java/com/locallife/backend/activity/api/ActivityControllerTest.java
+--- LocalLife_orig/backend/src/test/java/com/locallife/backend/activity/api/ActivityControllerTest.java	2026-09-05 11:34:44.544672523 +0000
++++ LocalLife/backend/src/test/java/com/locallife/backend/activity/api/ActivityControllerTest.java	2026-09-05 05:40:22.419819348 +0000
+@@ -42,9 +42,9 @@
+         // Given
+         List<Activity> activities = List.of(
+                 new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
+-                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null),
++                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null),
+                 new Activity(2L, "Another Activity", "Another Description", "Another Category", 1.0, 1.0,
+-                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null)
++                        LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null)
+         );
+         when(activityService.findAll()).thenReturn(activities);
+ 
+@@ -73,7 +73,7 @@
+     void getActivityById_ShouldReturnActivity_WhenFound() {
+         // Given
+         Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
+-                LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null);
++                LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null);
+         when(activityService.findById(1L)).thenReturn(Optional.of(activity));
+ 
+         // When
+@@ -101,7 +101,7 @@
+     void createActivity_ShouldReturnCreated_WithActivity() {
+         // Given
+         Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
+-                LocalDateTime.now(), null, "PENDING", 1L, null, null);
++                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null);
+         when(activityService.createActivity(
+                 "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille"))
+                 .thenReturn(created);
+@@ -159,7 +159,7 @@
+     void getNearbyActivities_ShouldReturnOk_WithActivities() {
+         // Given
+         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
+-                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
++                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null);
+         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null);
+         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
+                 .thenReturn(List.of(nearby));
+@@ -179,7 +179,7 @@
+     void getNearbyActivities_ShouldReturnUnknownSourceName_WhenSourceNotFound() {
+         // Given : sourceId référencé par l'activité absent des sources connues (cas défensif LL-8006).
+         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
+-                LocalDateTime.now(), null, "PUBLISHED", 99L, null, null);
++                LocalDateTime.now(), null, "PUBLISHED", 99L, null, null, null, null, null);
+         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
+                 .thenReturn(List.of(nearby));
+         when(sourceService.getAllSources()).thenReturn(List.of());
+@@ -230,7 +230,7 @@
+     void getActivitiesWithinBounds_ShouldReturnOk_WithActivities() {
+         // Given
+         Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
+-                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
++                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null);
+         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null);
+         when(activityService.findWithinBounds(
+                 "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05"))
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/test/java/com/locallife/backend/activity/application/ActivityServiceTest.java LocalLife/backend/src/test/java/com/locallife/backend/activity/application/ActivityServiceTest.java
+--- LocalLife_orig/backend/src/test/java/com/locallife/backend/activity/application/ActivityServiceTest.java	2026-09-05 06:45:04.533141505 +0000
++++ LocalLife/backend/src/test/java/com/locallife/backend/activity/application/ActivityServiceTest.java	2026-09-05 05:39:31.940622215 +0000
+@@ -59,7 +59,8 @@
+     void findNearby_ShouldConvertRadiusFromKilometersToMeters_AndDelegateToRepository() {
+         // Given
+         Activity expected = new Activity(
+-                1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
++                1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
++                null, null, null, null);
+         when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null))
+                 .thenReturn(List.of(expected));
+ 
+@@ -234,7 +235,8 @@
+     void findWithinBounds_ShouldDelegateToRepository_WithParsedCoordinates() {
+         // Given
+         Activity expected = new Activity(
+-                1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
++                1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
++                null, null, null, null);
+         when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null))
+                 .thenReturn(List.of(expected));
+ 
+@@ -437,7 +439,8 @@
+     void findByStatus_ShouldDelegateToRepository_WhenStatusIsKnown() {
+         // Given
+         Activity pending = new Activity(
+-                1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null, null);
++                1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
++                null, null, null, null);
+         when(activityRepository.findByStatus("PENDING")).thenReturn(List.of(pending));
+ 
+         // When
+@@ -490,7 +493,8 @@
+     void publish_ShouldChangeStatusToPublished_WhenActivityIsPending() {
+         // Given
+         Activity pending = new Activity(
+-                1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null, null);
++                1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
++                null, null, null, null);
+         when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
+         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+ 
+@@ -509,7 +513,8 @@
+     void reject_ShouldChangeStatusToRejected_WhenActivityIsPending() {
+         // Given
+         Activity pending = new Activity(
+-                2L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null, null);
++                2L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
++                null, null, null, null);
+         when(activityRepository.findById(2L)).thenReturn(Optional.of(pending));
+         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+ 
+@@ -552,7 +557,7 @@
+         // Given : transition non prévue par LL-6003 (seul PENDING → PUBLISHED existe).
+         Activity published = new Activity(
+                 3L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
+-                null);
++                null, null, null, null);
+         when(activityRepository.findById(3L)).thenReturn(Optional.of(published));
+ 
+         // When / Then
+@@ -568,7 +573,7 @@
+         // Given : transition non prévue par LL-6003 (seul PENDING → REJECTED existe).
+         Activity rejected = new Activity(
+                 4L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "REJECTED", 1L, null,
+-                null);
++                null, null, null, null);
+         when(activityRepository.findById(4L)).thenReturn(Optional.of(rejected));
+ 
+         // When / Then
+@@ -629,7 +634,7 @@
+ 
+     @Test
+     void createActivity_ShouldSucceed_WhenCategoryIsNull() {
+-        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37));
++        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37, null, null));
+         when(sourceService.findByType("MANUAL")).thenReturn(Optional.of(manualSource()));
+         when(activityRepository.save(any()))
+                 .thenAnswer(invocation -> invocation.getArgument(0));
+@@ -644,7 +649,7 @@
+ 
+     @Test
+     void createActivity_ShouldSaveActivityWithNullUrl_WhenValid() {
+-        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37));
++        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37, null, null));
+         when(sourceService.findByType("MANUAL")).thenReturn(Optional.of(manualSource()));
+         when(activityRepository.save(any()))
+                 .thenAnswer(invocation -> invocation.getArgument(0));
+@@ -660,5 +665,23 @@
+         assertThat(result.importKey()).isNull();
+     }
+ 
++    @Test
++    void createActivity_ShouldPersistAddressAndCity_FromGeocodingResult() {
++        // LL-EF-008 : l'adresse saisie doit être conservée telle quelle, et la
++        // ville renvoyée par le géocodage doit être reprise sur l'activité
++        // créée (voir Coordinates/GeocodingService).
++        when(geocodingService.geocode("1 rue de la Paix, Marseille"))
++                .thenReturn(new Coordinates(43.29, 5.37, "Marseille", "13001"));
++        when(sourceService.findByType("MANUAL")).thenReturn(Optional.of(manualSource()));
++        when(activityRepository.save(any()))
++                .thenAnswer(invocation -> invocation.getArgument(0));
++
++        Activity result = activityService()
++                .createActivity("Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille");
++
++        assertThat(result.address()).isEqualTo("1 rue de la Paix, Marseille");
++        assertThat(result.city()).isEqualTo("Marseille");
++        assertThat(result.postalCode()).isEqualTo("13001");
++    }
+ 
+ }
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/test/java/com/locallife/backend/activity/infrastructure/ActivityRepositoryIntegrationTest.java LocalLife/backend/src/test/java/com/locallife/backend/activity/infrastructure/ActivityRepositoryIntegrationTest.java
+--- LocalLife_orig/backend/src/test/java/com/locallife/backend/activity/infrastructure/ActivityRepositoryIntegrationTest.java	2026-09-05 06:45:26.724579827 +0000
++++ LocalLife/backend/src/test/java/com/locallife/backend/activity/infrastructure/ActivityRepositoryIntegrationTest.java	2026-09-05 05:40:07.038266103 +0000
+@@ -62,7 +62,8 @@
+         String uniqueTitle = "test-" + UUID.randomUUID();
+         return activityRepository.save(new Activity(
+                 null, uniqueTitle, "description", category,
+-                latitude, longitude, startDate, endDate, status, manualSourceId(), null, null));
++                latitude, longitude, startDate, endDate, status, manualSourceId(), null, null,
++                null, null, null));
+     }
+ 
+     private Activity activityAt(double latitude, double longitude, String status, String category) {
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/test/java/com/locallife/backend/collector/application/DeduplicationServiceTest.java LocalLife/backend/src/test/java/com/locallife/backend/collector/application/DeduplicationServiceTest.java
+--- LocalLife_orig/backend/src/test/java/com/locallife/backend/collector/application/DeduplicationServiceTest.java	2026-09-05 11:35:00.942806382 +0000
++++ LocalLife/backend/src/test/java/com/locallife/backend/collector/application/DeduplicationServiceTest.java	2026-09-05 06:37:37.685647383 +0000
+@@ -15,13 +15,13 @@
+     private CollectedActivity withExternalId(String externalId) {
+         return new CollectedActivity(
+                 "Marché de Noël", "description", LocalDateTime.of(2026, 12, 1, 10, 0), null,
+-                "marché", 43.2965, 5.3698, "https://example.com", externalId, "OpenAgenda Marseille");
++                "marché", 43.2965, 5.3698, "https://example.com", externalId, "OpenAgenda Marseille", null, null, null);
+     }
+ 
+     private CollectedActivity withoutExternalId(String title, LocalDateTime startDate, double lat, double lon) {
+         return new CollectedActivity(
+                 title, "description", startDate, null,
+-                "marché", lat, lon, "https://example.com", null, "OpenAgenda Marseille");
++                "marché", lat, lon, "https://example.com", null, "OpenAgenda Marseille", null, null, null);
+     }
+ 
+     @Test
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/test/java/com/locallife/backend/collector/application/ImportServiceIntegrationTest.java LocalLife/backend/src/test/java/com/locallife/backend/collector/application/ImportServiceIntegrationTest.java
+--- LocalLife_orig/backend/src/test/java/com/locallife/backend/collector/application/ImportServiceIntegrationTest.java	2026-09-05 11:35:00.943796746 +0000
++++ LocalLife/backend/src/test/java/com/locallife/backend/collector/application/ImportServiceIntegrationTest.java	2026-09-05 06:37:37.686225093 +0000
+@@ -80,14 +80,14 @@
+     private CollectedActivity validItem(String sourceName, String externalId, String title) {
+         return new CollectedActivity(
+                 title, "description", LocalDateTime.now().plusDays(1), null,
+-                "marché", 43.2965, 5.3698, "https://example.com", externalId, sourceName);
++                "marché", 43.2965, 5.3698, "https://example.com", externalId, sourceName, null, null, null);
+     }
+ 
+     private CollectedActivity invalidItem(String sourceName) {
+         // Titre vide : rejeté par NormalizationService (LL-5005).
+         return new CollectedActivity(
+                 "   ", "description", LocalDateTime.now().plusDays(1), null,
+-                "marché", 43.2965, 5.3698, "https://example.com", "ext-invalid", sourceName);
++                "marché", 43.2965, 5.3698, "https://example.com", "ext-invalid", sourceName, null, null, null);
+     }
+ 
+     private Long sourceIdFor(String sourceName) {
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/test/java/com/locallife/backend/collector/application/ImportServiceTest.java LocalLife/backend/src/test/java/com/locallife/backend/collector/application/ImportServiceTest.java
+--- LocalLife_orig/backend/src/test/java/com/locallife/backend/collector/application/ImportServiceTest.java	2026-09-05 11:34:52.956242383 +0000
++++ LocalLife/backend/src/test/java/com/locallife/backend/collector/application/ImportServiceTest.java	2026-09-05 05:40:48.393004206 +0000
+@@ -53,14 +53,15 @@
+     private CollectedActivity collectedActivity(String externalId) {
+         return new CollectedActivity(
+                 "Marché de Noël", "description", LocalDateTime.of(2026, 12, 1, 10, 0), null,
+-                "marché", 43.2965, 5.3698, "https://example.com", externalId, "OpenAgenda Marseille");
++                "marché", 43.2965, 5.3698, "https://example.com", externalId, "OpenAgenda Marseille",
++                null, null, null);
+     }
+ 
+     private Activity normalizedActivity() {
+         return new Activity(
+                 null, "Marché de Noël", "description", "marché",
+                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED", null, null,
+-                "https://example.com");
++                "https://example.com", null, null, null);
+     }
+ 
+     @Test
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/test/java/com/locallife/backend/collector/application/ImportedActivityVisibilityIntegrationTest.java LocalLife/backend/src/test/java/com/locallife/backend/collector/application/ImportedActivityVisibilityIntegrationTest.java
+--- LocalLife_orig/backend/src/test/java/com/locallife/backend/collector/application/ImportedActivityVisibilityIntegrationTest.java	2026-09-05 11:35:00.944646039 +0000
++++ LocalLife/backend/src/test/java/com/locallife/backend/collector/application/ImportedActivityVisibilityIntegrationTest.java	2026-09-05 06:37:37.686735993 +0000
+@@ -85,7 +85,7 @@
+         when(collector.getSourceName()).thenReturn(sourceName);
+         when(collector.collect()).thenReturn(List.of(new CollectedActivity(
+                 "Marché de Noël", "Marché de Noël sur le Vieux-Port", startDate, null,
+-                category, LATITUDE, LONGITUDE, "https://example.com", "ext-1", sourceName)));
++                category, LATITUDE, LONGITUDE, "https://example.com", "ext-1", sourceName, null, null, null)));
+         importService.importAll();
+ 
+         Long sourceId = sourceRepository.findByName(sourceName).map(Source::id).orElseThrow();
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/test/java/com/locallife/backend/collector/application/NormalizationServiceTest.java LocalLife/backend/src/test/java/com/locallife/backend/collector/application/NormalizationServiceTest.java
+--- LocalLife_orig/backend/src/test/java/com/locallife/backend/collector/application/NormalizationServiceTest.java	2026-09-05 11:35:00.941856176 +0000
++++ LocalLife/backend/src/test/java/com/locallife/backend/collector/application/NormalizationServiceTest.java	2026-09-05 06:37:37.685073804 +0000
+@@ -25,7 +25,7 @@
+                 5.3698,
+                 "https://example.com/evenement/123",
+                 "ext-123",
+-                "OpenAgenda Marseille");
++                "OpenAgenda Marseille", null, null, null);
+     }
+ 
+     @Test
+@@ -53,7 +53,7 @@
+     void normalize_ShouldRejectData_WhenTitleIsBlank() {
+         CollectedActivity collected = new CollectedActivity(
+                 "   ", "description", LocalDateTime.now(), null, "marché",
+-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
++                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertFalse(normalizationService.normalize(collected).isPresent());
+     }
+@@ -62,7 +62,7 @@
+     void normalize_ShouldRejectData_WhenTitleIsNull() {
+         CollectedActivity collected = new CollectedActivity(
+                 null, "description", LocalDateTime.now(), null, "marché",
+-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
++                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertFalse(normalizationService.normalize(collected).isPresent());
+     }
+@@ -71,7 +71,7 @@
+     void normalize_ShouldRejectData_WhenStartDateIsNull() {
+         CollectedActivity collected = new CollectedActivity(
+                 "Titre", "description", null, null, "marché",
+-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
++                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertFalse(normalizationService.normalize(collected).isPresent());
+     }
+@@ -80,7 +80,7 @@
+     void normalize_ShouldRejectData_WhenLatitudeOutOfRange() {
+         CollectedActivity collected = new CollectedActivity(
+                 "Titre", "description", LocalDateTime.now(), null, "marché",
+-                91, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
++                91, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertFalse(normalizationService.normalize(collected).isPresent());
+     }
+@@ -89,7 +89,7 @@
+     void normalize_ShouldRejectData_WhenLongitudeOutOfRange() {
+         CollectedActivity collected = new CollectedActivity(
+                 "Titre", "description", LocalDateTime.now(), null, "marché",
+-                43.2965, 181, "https://example.com", "ext-1", "OpenAgenda Marseille");
++                43.2965, 181, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertFalse(normalizationService.normalize(collected).isPresent());
+     }
+@@ -98,7 +98,7 @@
+     void normalize_ShouldAcceptData_WhenDescriptionAndCategoryAndEndDateAreNull() {
+         CollectedActivity collected = new CollectedActivity(
+                 "Titre", null, LocalDateTime.now(), null, null,
+-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
++                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertTrue(normalizationService.normalize(collected).isPresent());
+     }
+@@ -109,7 +109,7 @@
+     void normalize_ShouldRejectData_WhenTitleExceedsMaxLength() {
+         CollectedActivity collected = new CollectedActivity(
+                 "T".repeat(256), "description", LocalDateTime.now(), null, "marché",
+-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
++                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertFalse(normalizationService.normalize(collected).isPresent());
+     }
+@@ -118,7 +118,7 @@
+     void normalize_ShouldAcceptData_WhenTitleIsExactlyMaxLength() {
+         CollectedActivity collected = new CollectedActivity(
+                 "T".repeat(255), "description", LocalDateTime.now(), null, "marché",
+-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
++                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertTrue(normalizationService.normalize(collected).isPresent());
+     }
+@@ -128,7 +128,7 @@
+         CollectedActivity collected = new CollectedActivity(
+                 "Titre", "description",
+                 LocalDateTime.of(2026, 12, 24, 20, 0), LocalDateTime.of(2026, 12, 1, 10, 0),
+-                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
++                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertFalse(normalizationService.normalize(collected).isPresent());
+     }
+@@ -138,7 +138,7 @@
+         LocalDateTime sameInstant = LocalDateTime.of(2026, 12, 1, 10, 0);
+         CollectedActivity collected = new CollectedActivity(
+                 "Titre", "description", sameInstant, sameInstant,
+-                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
++                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertTrue(normalizationService.normalize(collected).isPresent());
+     }
+@@ -147,7 +147,7 @@
+     void normalize_ShouldRejectData_WhenCategoryIsBlankButNotNull() {
+         CollectedActivity collected = new CollectedActivity(
+                 "Titre", "description", LocalDateTime.now(), null, "   ",
+-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille");
++                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertFalse(normalizationService.normalize(collected).isPresent());
+     }
+@@ -156,7 +156,7 @@
+     void normalize_ShouldRejectData_WhenUrlIsMalformed() {
+         CollectedActivity collected = new CollectedActivity(
+                 "Titre", "description", LocalDateTime.now(), null, "marché",
+-                43.2965, 5.3698, "pas une url", "ext-1", "OpenAgenda Marseille");
++                43.2965, 5.3698, "pas une url", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertFalse(normalizationService.normalize(collected).isPresent());
+     }
+@@ -165,7 +165,7 @@
+     void normalize_ShouldRejectData_WhenUrlSchemeIsNotHttpOrHttps() {
+         CollectedActivity collected = new CollectedActivity(
+                 "Titre", "description", LocalDateTime.now(), null, "marché",
+-                43.2965, 5.3698, "ftp://example.com/fichier", "ext-1", "OpenAgenda Marseille");
++                43.2965, 5.3698, "ftp://example.com/fichier", "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertFalse(normalizationService.normalize(collected).isPresent());
+     }
+@@ -174,7 +174,7 @@
+     void normalize_ShouldAcceptData_WhenUrlIsNull() {
+         CollectedActivity collected = new CollectedActivity(
+                 "Titre", "description", LocalDateTime.now(), null, "marché",
+-                43.2965, 5.3698, null, "ext-1", "OpenAgenda Marseille");
++                43.2965, 5.3698, null, "ext-1", "OpenAgenda Marseille", null, null, null);
+ 
+         assertTrue(normalizationService.normalize(collected).isPresent());
+     }
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/test/java/com/locallife/backend/geocoding/application/GeocodingServiceTest.java LocalLife/backend/src/test/java/com/locallife/backend/geocoding/application/GeocodingServiceTest.java
+--- LocalLife_orig/backend/src/test/java/com/locallife/backend/geocoding/application/GeocodingServiceTest.java	2026-09-05 06:45:20.524925197 +0000
++++ LocalLife/backend/src/test/java/com/locallife/backend/geocoding/application/GeocodingServiceTest.java	2026-09-05 05:39:48.931832974 +0000
+@@ -42,6 +42,46 @@
+     }
+ 
+     @Test
++    void geocode_ShouldReturnCityAndPostalCode_FromAddressDetails() {
++        // LL-EF-008 : addressdetails=1 (voir GeocodingService) renvoie un
++        // sous-objet "address" avec city/town/village + postcode.
++        mockServer.expect(requestTo(containsString("/search")))
++                .andRespond(withSuccess(
++                        "[{\"lat\":\"43.29\",\"lon\":\"5.37\","
++                                + "\"address\":{\"city\":\"Marseille\",\"postcode\":\"13001\"}}]",
++                        MediaType.APPLICATION_JSON));
++
++        Coordinates coordinates = geocodingService.geocode("1 rue de la Paix, Marseille");
++
++        assertEquals("Marseille", coordinates.city());
++        assertEquals("13001", coordinates.postalCode());
++    }
++
++    @Test
++    void geocode_ShouldFallBackToTownThenVillage_WhenCityAbsent() {
++        // Nominatim n'a pas de champ "ville" unique (voir GeocodingService).
++        mockServer.expect(requestTo(containsString("/search")))
++                .andRespond(withSuccess(
++                        "[{\"lat\":\"43.29\",\"lon\":\"5.37\",\"address\":{\"town\":\"Cassis\"}}]",
++                        MediaType.APPLICATION_JSON));
++
++        Coordinates coordinates = geocodingService.geocode("Cassis");
++
++        assertEquals("Cassis", coordinates.city());
++    }
++
++    @Test
++    void geocode_ShouldReturnNullCityAndPostalCode_WhenAddressDetailsAbsent() {
++        mockServer.expect(requestTo(containsString("/search")))
++                .andRespond(withSuccess("[{\"lat\":\"43.29\",\"lon\":\"5.37\"}]", MediaType.APPLICATION_JSON));
++
++        Coordinates coordinates = geocodingService.geocode("1 rue de la Paix, Marseille");
++
++        assertEquals(null, coordinates.city());
++        assertEquals(null, coordinates.postalCode());
++    }
++
++    @Test
+     void geocode_ShouldThrowAddressNotFoundException_WhenNoResults() {
+         mockServer.expect(requestTo(containsString("/search")))
+                 .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+diff -ruN '--exclude=target' '--exclude=.git' LocalLife_orig/backend/src/test/java/com/locallife/backend/integration/AdminImportControllerIntegrationTest.java LocalLife/backend/src/test/java/com/locallife/backend/integration/AdminImportControllerIntegrationTest.java
+--- LocalLife_orig/backend/src/test/java/com/locallife/backend/integration/AdminImportControllerIntegrationTest.java	2026-09-05 11:35:00.945574282 +0000
++++ LocalLife/backend/src/test/java/com/locallife/backend/integration/AdminImportControllerIntegrationTest.java	2026-09-05 06:37:37.687201952 +0000
+@@ -139,7 +139,7 @@
+     private CollectedActivity validItem(String sourceName, String title) {
+         return new CollectedActivity(
+                 title, "description", LocalDateTime.now().plusDays(1), null,
+-                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", sourceName);
++                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", sourceName, null, null, null);
+     }
+ 
+     // --- Accès autorisé (rôle ADMIN) ---
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=package-lock.json' '--exclude=.git' LocalLife_orig/frontend/src/App.tsx LocalLife/frontend/src/App.tsx
+--- LocalLife_orig/frontend/src/App.tsx	2026-09-05 11:37:32.976663577 +0000
++++ LocalLife/frontend/src/App.tsx	2026-09-05 06:40:27.563416045 +0000
+@@ -13,11 +13,17 @@
+  * `sourceId` (identifiant technique, retiré de la réponse au profit de
+  * `sourceName` — voir `ActivityResponse` côté backend), inexploitable
+  * pour l'affichage demandé par le critère d'acceptation du ticket
+- * (« titre, date, lieu, source correctement affichés »). Aucune adresse
+- * texte n'étant stockée en base (voir `ActivityController.CreateActivityRequest`
+- * côté backend), `latitude`/`longitude` (déjà présents ici pour le
+- * positionnement du marqueur) servent aussi de « lieu » affiché dans le
+- * popup ci-dessous.
++ * (« titre, date, lieu, source correctement affichés »).
++ *
++ * `address`/`city` ajoutés en LL-EF-008 : afficher des coordonnées GPS
++ * brutes à l'utilisateur final n'étant pas viable (demande d'Alex),
++ * `latitude`/`longitude` ne servent plus désormais qu'au positionnement
++ * du marqueur — voir `ActivityResponse` côté backend pour le détail de
++ * leur résolution (géocodage à l'écriture, jamais à la lecture).
++ * Toutes deux nullables : activités existantes non re-géocodées/
++ * ré-importées, ou source ne fournissant pas cette donnée — voir
++ * `formatActivityLocation`/`formatActivityCity` ci-dessous pour le repli
++ * appliqué dans ce cas.
+  */
+ interface Activity {
+     id: number;
+@@ -27,6 +33,8 @@
+     longitude: number;
+     startDate: string;
+     sourceName: string;
++    address: string | null;
++    city: string | null;
+ }
+ 
+ /**
+@@ -211,6 +219,64 @@
+     return Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b, "fr"));
+ }
+ 
++/** Repli affiché quand une activité n'a pas de ville résolue (LL-EF-008, voir Activity ci-dessus). */
++const UNKNOWN_CITY_LABEL = "Ville non renseignée";
++
++/**
++ * Lieu affiché à l'utilisateur (LL-EF-008, demande d'Alex : des
++ * coordonnées GPS brutes ne sont pas viables). Ordre de repli :
++ * `address` (la plus précise et la plus lisible) puis `city` seule, puis
++ * enfin les coordonnées — uniquement pour les activités antérieures à ce
++ * ticket, jamais re-géocodées/ré-importées, qui n'ont ni l'une ni
++ * l'autre.
++ */
++function formatActivityLocation(activity: Activity): string {
++    if (activity.address) {
++        return activity.address;
++    }
++    if (activity.city) {
++        return activity.city;
++    }
++    return `${activity.latitude.toFixed(4)}, ${activity.longitude.toFixed(4)}`;
++}
++
++/**
++ * Regroupe les activités par ville puis trie chaque groupe par date
++ * (LL-EF-008, critères d'acceptation « triées par ville » / « à
++ * l'intérieur d'une ville, triées par date »). Les groupes eux-mêmes sont
++ * triés alphabétiquement (locale "fr", comme `buildCategoryOptions`
++ * ci-dessus) ; les activités sans ville connue sont regroupées sous
++ * `UNKNOWN_CITY_LABEL`, toujours affiché en dernier plutôt qu'intercalé
++ * alphabétiquement (une ville non renseignée n'est pas une vraie ville).
++ */
++function groupActivitiesByCity(items: Activity[]): Array<[string, Activity[]]> {
++    const groups = new Map<string, Activity[]>();
++    for (const activity of items) {
++        const city = activity.city ?? UNKNOWN_CITY_LABEL;
++        const group = groups.get(city);
++        if (group) {
++            group.push(activity);
++        } else {
++            groups.set(city, [activity]);
++        }
++    }
++
++    const sortByDate = (a: Activity, b: Activity) => a.startDate.localeCompare(b.startDate);
++    for (const group of groups.values()) {
++        group.sort(sortByDate);
++    }
++
++    return Array.from(groups.entries()).sort(([cityA], [cityB]) => {
++        if (cityA === UNKNOWN_CITY_LABEL) {
++            return cityB === UNKNOWN_CITY_LABEL ? 0 : 1;
++        }
++        if (cityB === UNKNOWN_CITY_LABEL) {
++            return -1;
++        }
++        return cityA.localeCompare(cityB, "fr");
++    });
++}
++
+ function App() {
+     const navigate = useNavigate();
+     const [activities, setActivities] = useState<Activity[]>([]);
+@@ -237,6 +303,23 @@
+     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+     const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
+     /**
++     * LL-EF-008 : bascule Carte ↔ Liste, dans le même bandeau que le filtre
++     * catégorie (voir le rendu plus bas) — la liste est une seconde vue des
++     * mêmes activités déjà chargées/filtrées (`activities`), pas une
++     * requête séparée : les filtres catégorie/date s'appliquent donc
++     * naturellement aux deux vues (critère d'acceptation « les filtres par
++     * catégorie restent cohérents avec l'affichage en liste »).
++     */
++    const [viewMode, setViewMode] = useState<"map" | "list">("map");
++    /**
++     * Activité dont le détail est actuellement consulté depuis la liste
++     * (LL-EF-008, critère d'acceptation « consulter le détail d'une
++     * activité depuis la liste ») — `null` quand aucun détail n'est
++     * ouvert. Réutilise le patron `modal-overlay`/`modal-dialog` déjà en
++     * place pour le formulaire de contribution (LL-EF-001).
++     */
++    const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
++    /**
+      * LL-EF-003 : mémorise les dépendances de la recherche précédente pour
+      * distinguer, au sein du même effet, un déplacement/zoom pur de la
+      * carte (seul `mapBounds` a changé) d'un changement « actif »
+@@ -446,6 +529,23 @@
+         return () => window.removeEventListener("keydown", handleKeyDown);
+     }, [isContributionModalOpen]);
+ 
++    // LL-EF-008 : même comportement de fermeture au clavier (Échap) que la
++    // modale de contribution ci-dessus, pour la modale de détail d'activité.
++    useEffect(() => {
++        if (!selectedActivity) {
++            return;
++        }
++
++        function handleKeyDown(event: KeyboardEvent) {
++            if (event.key === "Escape") {
++                setSelectedActivity(null);
++            }
++        }
++
++        window.addEventListener("keydown", handleKeyDown);
++        return () => window.removeEventListener("keydown", handleKeyDown);
++    }, [selectedActivity]);
++
+     /**
+      * LL-EF-002 : la géolocalisation est désormais demandée automatiquement
+      * au chargement de la page (plus de bandeau « Utiliser la
+@@ -584,6 +684,32 @@
+                         ✕
+                     </button>
+                 )}
++                {/*
++                  LL-EF-008 : bascule Carte ↔ Liste, dans le même bandeau que
++                  « Filtrer par catégorie » (critère d'acceptation explicite du
++                  ticket) — `margin-left: auto` (voir styles.css) la pousse en
++                  haut à droite du bandeau, comme demandé. `aria-pressed`
++                  identifie clairement la vue active (critère d'acceptation
++                  « l'état actif de la vue doit être clairement identifiable »).
++                */}
++                <div className="view-mode-toggle" role="group" aria-label="Choix de l'affichage">
++                    <button
++                        aria-pressed={viewMode === "map"}
++                        className={viewMode === "map" ? "view-mode-button view-mode-button-active" : "view-mode-button"}
++                        onClick={() => setViewMode("map")}
++                        type="button"
++                    >
++                        Carte
++                    </button>
++                    <button
++                        aria-pressed={viewMode === "list"}
++                        className={viewMode === "list" ? "view-mode-button view-mode-button-active" : "view-mode-button"}
++                        onClick={() => setViewMode("list")}
++                        type="button"
++                    >
++                        Liste
++                    </button>
++                </div>
+             </div>
+             {/*
+               LL-EF-001 : formulaire de saisie sous forme de fenêtre modale (overlay),
+@@ -669,92 +795,214 @@
+                     </div>
+                 </div>
+             )}
+-            <div className="map-area">
+-                {/*
+-                  LL-4013 : 4 états distincts, chacun visible et compréhensible séparément
+-                  (chargement / résultats / aucun résultat / erreur) — l'état « résultats »
+-                  n'a pas besoin de message dédié : les marqueurs sur la carte en tiennent
+-                  lieu.
+-                */}
+-                {isLoadingActivities && <p className="activities-status">Chargement des activités…</p>}
+-                {!isLoadingActivities && searchError && (
+-                    <p className="activities-status activities-status-error" role="alert">
+-                        {searchError}
+-                    </p>
+-                )}
+-                {!isLoadingActivities && !searchError && activities.length === 0 && (
+-                    <p className="activities-status">Aucune activité trouvée dans cette zone.</p>
+-                )}
+-                <MapContainer
+-                    center={MARSEILLE_COORDINATES}
+-                    className="map"
+-                    zoom={13}
+-                    zoomControl
++            {/*
++              LL-EF-008 : modale de détail d'une activité sélectionnée depuis la
++              liste (critère d'acceptation « consulter le détail d'une activité
++              depuis la liste ») — même patron que la modale de contribution
++              ci-dessus (overlay cliquable, stopPropagation sur la boîte de
++              dialogue, fermeture Échap déjà branchée plus haut).
++            */}
++            {selectedActivity && (
++                <div
++                    className="modal-overlay"
++                    onClick={() => setSelectedActivity(null)}
++                    role="presentation"
+                 >
+-                    <TileLayer
+-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+-                    />
+-                    <MapBoundsWatcher onBoundsChange={setMapBounds} />
+-                    <MapRecenterOnUserPosition position={userPosition} />
++                    <div
++                        aria-labelledby="activity-detail-title"
++                        aria-modal="true"
++                        className="modal-dialog"
++                        onClick={(event) => event.stopPropagation()}
++                        role="dialog"
++                    >
++                        <div className="modal-header">
++                            <h2 id="activity-detail-title">{selectedActivity.title}</h2>
++                            <button
++                                aria-label="Fermer"
++                                className="modal-close-button"
++                                onClick={() => setSelectedActivity(null)}
++                                type="button"
++                            >
++                                ✕
++                            </button>
++                        </div>
++                        <div className="activity-detail-body">
++                            <p className="activity-detail-row">
++                                <strong>Lieu :</strong> {formatActivityLocation(selectedActivity)}
++                            </p>
++                            <p className="activity-detail-row">
++                                <strong>Date :</strong>{" "}
++                                {new Date(selectedActivity.startDate).toLocaleString("fr-FR", {
++                                    dateStyle: "long",
++                                    timeStyle: "short",
++                                })}
++                            </p>
++                            {selectedActivity.category && (
++                                <p className="activity-detail-row">
++                                    <strong>Catégorie :</strong> {selectedActivity.category}
++                                </p>
++                            )}
++                            <p className="activity-detail-row">
++                                <strong>Source :</strong> {selectedActivity.sourceName}
++                            </p>
++                        </div>
++                    </div>
++                </div>
++            )}
++            {/* LL-EF-008 : vue Carte, affichée uniquement quand viewMode === "map" (voir le bouton bascule du bandeau ci-dessus). */}
++            {viewMode === "map" && (
++                <div className="map-area">
+                     {/*
+-                      Clustering (demande explicite d'Alex, hors ticket de sprint) : au-delà
+-                      d'un volume normal d'activités importées (LL-8009, pagination
+-                      OpenAgenda), un marqueur par activité rendait la carte inutilisable.
+-                      `MarkerClusterGroup` (react-leaflet-cluster, au-dessus de
+-                      leaflet.markercluster) regroupe les marqueurs proches en un badge
+-                      « +N » qui se sépare au zoom — solution standard avec Leaflet, aucun
+-                      changement côté backend (le volume de données transmises reste le
+-                      même, seul le rendu change). Seules les activités sont regroupées :
+-                      les food trucks restent des marqueurs individuels, cohérent avec leur
+-                      isolement déjà documenté (voir `FOOD_TRUCK_MARKER_ICON` ci-dessus) —
+-                      leur volume n'a pas posé ce problème.
++                      LL-4013 : 4 états distincts, chacun visible et compréhensible séparément
++                      (chargement / résultats / aucun résultat / erreur) — l'état « résultats »
++                      n'a pas besoin de message dédié : les marqueurs sur la carte en tiennent
++                      lieu.
+                     */}
+-                    <MarkerClusterGroup>
+-                        {activities.map((activity) => (
++                    {isLoadingActivities && <p className="activities-status">Chargement des activités…</p>}
++                    {!isLoadingActivities && searchError && (
++                        <p className="activities-status activities-status-error" role="alert">
++                            {searchError}
++                        </p>
++                    )}
++                    {!isLoadingActivities && !searchError && activities.length === 0 && (
++                        <p className="activities-status">Aucune activité trouvée dans cette zone.</p>
++                    )}
++                    <MapContainer
++                        center={MARSEILLE_COORDINATES}
++                        className="map"
++                        zoom={13}
++                        zoomControl
++                    >
++                        <TileLayer
++                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
++                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
++                        />
++                        <MapBoundsWatcher onBoundsChange={setMapBounds} />
++                        <MapRecenterOnUserPosition position={userPosition} />
++                        {/*
++                          Clustering (demande explicite d'Alex, hors ticket de sprint) : au-delà
++                          d'un volume normal d'activités importées (LL-8009, pagination
++                          OpenAgenda), un marqueur par activité rendait la carte inutilisable.
++                          `MarkerClusterGroup` (react-leaflet-cluster, au-dessus de
++                          leaflet.markercluster) regroupe les marqueurs proches en un badge
++                          « +N » qui se sépare au zoom — solution standard avec Leaflet, aucun
++                          changement côté backend (le volume de données transmises reste le
++                          même, seul le rendu change). Seules les activités sont regroupées :
++                          les food trucks restent des marqueurs individuels, cohérent avec leur
++                          isolement déjà documenté (voir `FOOD_TRUCK_MARKER_ICON` ci-dessus) —
++                          leur volume n'a pas posé ce problème.
++                        */}
++                        <MarkerClusterGroup>
++                            {activities.map((activity) => (
++                                <Marker
++                                    key={activity.id}
++                                    position={[activity.latitude, activity.longitude]}
++                                >
++                                    <Popup>
++                                        <strong>{activity.title}</strong>
++                                        <br />
++                                        {activity.category}
++                                        <br />
++                                        {new Date(activity.startDate).toLocaleDateString("fr-FR")}
++                                        <br />
++                                        {/* LL-8006/LL-EF-008 : lieu (adresse si disponible, repli sur la ville puis
++                                            les coordonnées — voir formatActivityLocation) et source (nom lisible
++                                            résolu depuis sourceId par ActivityResponse) — critère d'acceptation
++                                            « titre, date, lieu, source correctement affichés ». */}
++                                        Lieu : {formatActivityLocation(activity)}
++                                        <br />
++                                        Source : {activity.sourceName}
++                                    </Popup>
++                                </Marker>
++                            ))}
++                        </MarkerClusterGroup>
++                        {/*
++                          LL-6009 : food trucks, deuxième type de marqueur sur la même carte
++                          (« sans créer un second système cartographique »). Icône dédiée
++                          (FOOD_TRUCK_MARKER_ICON) pour la distinction visuelle avec une
++                          activité ; popup sans date (un food truck n'est pas un événement
++                          daté, voir FOOD_TRUCK_CONTRACT.md) — distinction fonctionnelle.
++                        */}
++                        {foodTrucks.map((foodTruck) => (
+                             <Marker
+-                                key={activity.id}
+-                                position={[activity.latitude, activity.longitude]}
++                                icon={FOOD_TRUCK_MARKER_ICON}
++                                key={`food-truck-${foodTruck.id}`}
++                                position={[foodTruck.latitude, foodTruck.longitude]}
+                             >
+                                 <Popup>
+-                                    <strong>{activity.title}</strong>
++                                    <strong>{foodTruck.name}</strong>
+                                     <br />
+-                                    {activity.category}
+-                                    <br />
+-                                    {new Date(activity.startDate).toLocaleDateString("fr-FR")}
+-                                    <br />
+-                                    {/* LL-8006 : lieu (aucune adresse texte en base, voir Activity côté backend) et
+-                                        source (nom lisible résolu depuis sourceId par ActivityResponse) — critère
+-                                        d'acceptation « titre, date, lieu, source correctement affichés ». */}
+-                                    Lieu : {activity.latitude.toFixed(4)}, {activity.longitude.toFixed(4)}
+-                                    <br />
+-                                    Source : {activity.sourceName}
++                                    {foodTruck.category}
+                                 </Popup>
+                             </Marker>
+                         ))}
+-                    </MarkerClusterGroup>
+-                    {/*
+-                      LL-6009 : food trucks, deuxième type de marqueur sur la même carte
+-                      (« sans créer un second système cartographique »). Icône dédiée
+-                      (FOOD_TRUCK_MARKER_ICON) pour la distinction visuelle avec une
+-                      activité ; popup sans date (un food truck n'est pas un événement
+-                      daté, voir FOOD_TRUCK_CONTRACT.md) — distinction fonctionnelle.
+-                    */}
+-                    {foodTrucks.map((foodTruck) => (
+-                        <Marker
+-                            icon={FOOD_TRUCK_MARKER_ICON}
+-                            key={`food-truck-${foodTruck.id}`}
+-                            position={[foodTruck.latitude, foodTruck.longitude]}
+-                        >
+-                            <Popup>
+-                                <strong>{foodTruck.name}</strong>
+-                                <br />
+-                                {foodTruck.category}
+-                            </Popup>
+-                        </Marker>
+-                    ))}
+-                </MapContainer>
+-            </div>
++                    </MapContainer>
++                </div>
++            )}
++            {/*
++              LL-EF-008 : vue Liste — seconde vue des mêmes activités déjà chargées/
++              filtrées (voir la javadoc de `viewMode` plus haut), regroupées par ville
++              puis triées par date (`groupActivitiesByCity`). Les food trucks ne sont
++              pas des activités datées (voir FOOD_TRUCK_CONTRACT.md) et n'apparaissent
++              donc pas ici, cohérent avec leur périmètre déjà limité à la carte.
++            */}
++            {viewMode === "list" && (
++                <div className="list-area">
++                    {isLoadingActivities && <p className="activities-status">Chargement des activités…</p>}
++                    {!isLoadingActivities && searchError && (
++                        <p className="activities-status activities-status-error" role="alert">
++                            {searchError}
++                        </p>
++                    )}
++                    {!isLoadingActivities && !searchError && activities.length === 0 && (
++                        <p className="activities-status">Aucune activité trouvée dans cette zone.</p>
++                    )}
++                    {!isLoadingActivities && !searchError && activities.length > 0 && (
++                        <div className="activity-list">
++                            {groupActivitiesByCity(activities).map(([city, cityActivities]) => (
++                                <section className="activity-list-group" key={city}>
++                                    <h2 className="activity-list-city">{city}</h2>
++                                    <ul className="activity-list-items">
++                                        {cityActivities.map((activity) => (
++                                            <li key={activity.id}>
++                                                {/*
++                                                  Critère d'acceptation « consulter le détail d'une activité
++                                                  depuis la liste » : chaque ligne est un bouton (pas un <li>
++                                                  cliquable directement, pour rester accessible au clavier)
++                                                  qui ouvre la modale de détail définie plus haut.
++                                                */}
++                                                <button
++                                                    className="activity-list-item"
++                                                    onClick={() => setSelectedActivity(activity)}
++                                                    type="button"
++                                                >
++                                                    <span className="activity-list-item-title">{activity.title}</span>
++                                                    <span className="activity-list-item-meta">
++                                                        {new Date(activity.startDate).toLocaleDateString("fr-FR")}
++                                                        {/* Heure affichée seulement si elle est significative (voir
++                                                            critère d'acceptation « éventuellement l'heure ») : une
++                                                            activité créée sans heure précise (formulaire de
++                                                            contribution) reçoit minuit comme heure de soumission,
++                                                            qu'il serait trompeur d'afficher comme horaire réel. */}
++                                                        {new Date(activity.startDate).getHours() !== 0
++                                                            || new Date(activity.startDate).getMinutes() !== 0
++                                                            ? ` · ${new Date(activity.startDate).toLocaleTimeString("fr-FR", {
++                                                                hour: "2-digit",
++                                                                minute: "2-digit",
++                                                            })}`
++                                                            : ""}
++                                                        {activity.category ? ` · ${activity.category}` : ""}
++                                                    </span>
++                                                </button>
++                                            </li>
++                                        ))}
++                                    </ul>
++                                </section>
++                            ))}
++                        </div>
++                    )}
++                </div>
++            )}
+         </main>
+     );
+ }
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=package-lock.json' '--exclude=.git' LocalLife_orig/frontend/src/styles.css LocalLife/frontend/src/styles.css
+--- LocalLife_orig/frontend/src/styles.css	2026-09-05 11:37:48.015445233 +0000
++++ LocalLife/frontend/src/styles.css	2026-09-05 06:40:51.126923478 +0000
+@@ -129,6 +129,38 @@
+ }
+ 
+ /*
++ * LL-EF-008 : bascule Carte/Liste, poussée en haut à droite du bandeau
++ * (`margin-left: auto`) — voir le critère d'acceptation « bouton en haut
++ * à droite, dans le même bandeau que Filtrer par catégorie ».
++ */
++.view-mode-toggle {
++    display: flex;
++    gap: 0.25rem;
++    margin-left: auto;
++}
++
++.view-mode-button {
++    padding: 0.3rem 0.75rem;
++    border: 1px solid #cbd5e1;
++    border-radius: 4px;
++    background-color: #ffffff;
++    color: #334155;
++    cursor: pointer;
++    font-size: 0.9rem;
++}
++
++.view-mode-button:hover {
++    background-color: #f1f5f9;
++}
++
++/* État actif clairement identifiable (critère d'acceptation LL-EF-008). */
++.view-mode-button-active {
++    background-color: #2563eb;
++    border-color: #2563eb;
++    color: #ffffff;
++}
++
++/*
+  * LL-EF-001 : fenêtre modale du formulaire de saisie d'une activité.
+  * `.modal-overlay` couvre tout l'écran et sert aussi de zone cliquable de
+  * fermeture (voir `handleCloseContributionForm` dans App.tsx) ; le clic à
+@@ -279,6 +311,92 @@
+     color: #dc2626;
+ }
+ 
++/*
++ * LL-EF-008 : vue Liste, seconde vue des activités (voir App.tsx,
++ * `viewMode`). `.list-area` reprend la même ligne de grille que
++ * `.map-area` (`.application-shell`, grid-template-rows) : une seule des
++ * deux est montée à la fois selon `viewMode`.
++ */
++.list-area {
++    overflow-y: auto;
++    padding: 1rem 1.5rem;
++    background-color: #f8fafc;
++}
++
++.activity-list {
++    display: flex;
++    flex-direction: column;
++    gap: 1.5rem;
++    /* Largeur fluide plutôt qu'une valeur fixe : critère d'acceptation
++       « la liste reste utilisable sur mobile » (pas de largeur figée qui
++       débordarait sur un petit écran), sans introduire de media query
++       dédiée (aucune n'existe encore ailleurs dans ce fichier — voir
++       DEVELOPMENT_PHILOSOPHY.md, pas de complexité non justifiée). */
++    max-width: 720px;
++    margin: 0 auto;
++    width: 100%;
++}
++
++.activity-list-city {
++    margin: 0 0 0.5rem;
++    font-size: 1rem;
++    color: #334155;
++    border-bottom: 1px solid #e2e8f0;
++    padding-bottom: 0.35rem;
++}
++
++.activity-list-items {
++    list-style: none;
++    margin: 0;
++    padding: 0;
++    display: flex;
++    flex-direction: column;
++    gap: 0.5rem;
++}
++
++.activity-list-item {
++    display: flex;
++    flex-direction: column;
++    gap: 0.2rem;
++    width: 100%;
++    padding: 0.6rem 0.9rem;
++    border: 1px solid #e2e8f0;
++    border-radius: 6px;
++    background-color: #ffffff;
++    text-align: left;
++    cursor: pointer;
++    font: inherit;
++}
++
++.activity-list-item:hover {
++    border-color: #93c5fd;
++    background-color: #eff6ff;
++}
++
++.activity-list-item-title {
++    font-weight: 600;
++    color: #1e293b;
++}
++
++.activity-list-item-meta {
++    font-size: 0.85rem;
++    color: #64748b;
++}
++
++/* LL-EF-008 : détail d'une activité, dans la même modale que le formulaire de contribution. */
++.activity-detail-body {
++    display: flex;
++    flex-direction: column;
++    gap: 0.6rem;
++    padding: 1.25rem;
++}
++
++.activity-detail-row {
++    margin: 0;
++    font-size: 0.95rem;
++    color: #1e293b;
++}
++
+ .auth-shell {
+     display: flex;
+     align-items: center;
+--- LocalLife_orig/docs/05_Sprints/SPRINT_EVOL_FIX.md	2026-09-05 11:40:13.559290327 +0000
++++ LocalLife/docs/05_Sprints/SPRINT_EVOL_FIX.md	2026-09-05 11:38:59.185688194 +0000
+@@ -313,16 +313,16 @@
+ 
+ ### Comportement attendu
+ 
+-- [ ] Un bouton « Liste » est présent en haut à droite.
+-- [ ] Le bouton est placé dans le même bandeau que « Filtrer par catégorie ».
+-- [ ] Un clic sur le bouton affiche la liste des activités.
+-- [ ] Les activités sont triées par ville.
+-- [ ] À l'intérieur d'une ville, les activités sont triées par date.
+-- [ ] Les informations essentielles sont visibles sans ouvrir chaque activité.
+-- [ ] L'utilisateur peut consulter le détail d'une activité depuis la liste.
+-- [ ] Le retour à l'affichage carte est possible facilement.
+-- [ ] Les filtres par catégorie restent cohérents avec l'affichage en liste.
+-- [ ] La liste reste utilisable sur mobile.
++- [x] Un bouton « Liste » est présent en haut à droite.
++- [x] Le bouton est placé dans le même bandeau que « Filtrer par catégorie ».
++- [x] Un clic sur le bouton affiche la liste des activités.
++- [x] Les activités sont triées par ville.
++- [x] À l'intérieur d'une ville, les activités sont triées par date.
++- [x] Les informations essentielles sont visibles sans ouvrir chaque activité.
++- [x] L'utilisateur peut consulter le détail d'une activité depuis la liste.
++- [x] Le retour à l'affichage carte est possible facilement.
++- [x] Les filtres par catégorie restent cohérents avec l'affichage en liste.
++- [x] La liste reste utilisable sur mobile.
+ 
+ ### UX
+ 
+@@ -335,6 +335,16 @@
+ **Priorité :** Haute  
+ **Type :** Évolution / UX / Affichage
+ 
++### Note d'implémentation
++
++Le regroupement par ville a nécessité un changement de modèle métier
++(la ville n'existait nulle part en base) — voir
++`docs/02_Architecture/ADR-0001-adresse-structuree-activites.md`. À la
++demande d'Alex, la carte et le détail affichent désormais une adresse
++lisible (`address`) au lieu des coordonnées GPS brutes, avec repli sur
++`city` puis sur les coordonnées pour les activités non re-géocodées/
++ré-importées.
++
+ ---
+ 
+ ## LL-EF-009 — Réinitialisation du mot de passe
+--- LocalLife_orig/docs/NEXT_TASK.md	2026-09-05 11:40:24.528267216 +0000
++++ LocalLife/docs/NEXT_TASK.md	2026-09-05 11:39:16.161678540 +0000
+@@ -135,9 +135,21 @@
+ suppression du bandeau « Utiliser la localisation ») et `LL-EF-003`
+ (rechargement fluide de la carte lors des déplacements/zoom, plus de
+ coupure visuelle) terminés, livrés sous forme de patchs indépendants
+-depuis `origin/main`, pas encore appliqués. Prochain ticket de ce
+-sprint : `LL-EF-004` (interface d'administration pour valider/refuser
+-les activités proposées).
++depuis `origin/main`, pas encore appliqués.
++
++`LL-EF-008` (vue liste des activités, regroupées par ville/triées par
++date) traité à la demande explicite d'Alex, hors ordre du sprint —
++`LL-EF-004` à `LL-EF-007` restent non traités. Ce ticket a nécessité un
++changement de modèle métier non anticipé par sa rédaction initiale
++(aucune notion de ville n'existait en base) : voir
++`docs/02_Architecture/ADR-0001-adresse-structuree-activites.md`. Alex a
++également demandé, en complément, l'affichage d'une adresse lisible à
++la place des coordonnées GPS brutes — traité dans le même changement
++(même ADR). Livré sous forme de patch indépendant, pas encore appliqué.
++
++Prochain ticket de ce sprint, sauf arbitrage contraire d'Alex :
++`LL-EF-004` (interface d'administration pour valider/refuser les
++activités proposées).
+ 
+ ## Règles
+ 
+--- LocalLife_orig/docs/DETTE_TECHNIQUE.md	2026-09-05 11:40:37.823027434 +0000
++++ LocalLife/docs/DETTE_TECHNIQUE.md	2026-09-05 11:39:51.949809797 +0000
+@@ -8,6 +8,31 @@
+ 
+ ---
+ 
++## Backend — activités existantes sans adresse/ville (pas de backfill)
++
++* **Détecté** : en traitant LL-EF-008 (5 septembre 2026).
++* **Où** : table `activity`, colonnes `address`/`city`/`postal_code`
++  ajoutées par la migration `V14__add_address_to_activity.sql`.
++* **Nature** : ces trois colonnes sont résolues à l'écriture (voir
++  `docs/02_Architecture/ADR-0001-adresse-structuree-activites.md`) —
++  aucun backfill rétroactif n'a été fait sur les activités déjà en base
++  (démo + contributions + imports antérieurs à ce ticket), qui restent
++  donc avec ces trois champs à `null` tant qu'elles ne sont pas
++  re-géocodées (contribution) ou ré-importées (source).
++* **Impact réel** : ces activités sont regroupées sous « Ville non
++  renseignée » dans la vue liste (LL-EF-008) et affichent leurs
++  coordonnées brutes en repli dans le popup/détail
++  (`formatActivityLocation`, frontend) — dégradation gracieuse, pas de
++  rejet ni d'erreur.
++* **Pourquoi pas corrigé immédiatement** : un backfill (re-géocodage en
++  masse de toutes les activités existantes) est un traitement distinct,
++  avec son propre risque (volume d'appels Nominatim, limite de
++  1 req/s) — hors périmètre d'un ticket frontend/affichage.
++* **Statut** : ouvert, à arbitrer par Alex (utile seulement si le volume
++  d'activités anciennes sans ville devient gênant en pratique).
++
++---
++
+ ## Frontend — vulnérabilité `nanoid` (sévérité haute)
+ 
+ * **Détecté** : lors de la vérification de LL-4011 (13 août 2026).
+--- /dev/null	2026-09-02 20:15:24.501902847 +0000
++++ LocalLife/docs/02_Architecture/ADR-0001-adresse-structuree-activites.md	2026-09-05 11:38:42.404030476 +0000
+@@ -0,0 +1,64 @@
++# ADR-0001 — Adresse structurée des activités (LL-EF-008)
++
++## Contexte
++
++Le ticket LL-EF-008 (`docs/05_Sprints/SPRINT_EVOL_FIX.md`) demande une
++vue liste des activités « regroupées ou triées par ville ». Or le modèle
++métier (`Activity`) ne stockait jusqu'ici que `latitude`/`longitude` :
++aucune notion de ville n'existait nulle part dans l'application (ni en
++base, ni dans les DTOs, ni côté collecteurs).
++
++En complément, Alex a explicitement demandé qu'une adresse lisible soit
++affichée à l'utilisateur final à la place des coordonnées GPS brutes,
++« avec la méthode la plus professionnelle, qui aurait pu être utilisée
++pour une grosse application ».
++
++Ce document trace la décision retenue, conformément à `AI_RULES.md`
++(« aucun changement d'architecture sans ADR »).
++
++## Décision
++
++Ajouter trois colonnes nullables à `activity` — `address`, `city`,
++`postal_code` (migration `V14__add_address_to_activity.sql`) —
++résolues **une seule fois, à l'écriture**, jamais recalculées à la
++lecture :
++
++- **Contribution manuelle** (`ActivityService#createActivity`) :
++  `address` est le texte déjà saisi par le contributeur (jusqu'ici
++  géocodé via `GeocodingService`/Nominatim puis jeté après usage — il
++  suffit de le conserver). `city`/`postalCode` proviennent de la **même**
++  réponse Nominatim, en demandant `addressdetails=1` : aucun appel
++  réseau supplémentaire n'est nécessaire.
++- **Import** (`NormalizationService`) : les trois champs proviennent de
++  `CollectedActivity`, elle-même alimentée par l'objet `location` déjà
++  renvoyé par l'API de la source (ex. OpenAgenda, qui documente
++  `address`/`city`/`postalCode` sur son objet `location` — voir
++  developers.openagenda.com/en/lieux/). Même principe que `url`
++  (LL-6002) : une donnée déjà présente dans la réponse de la source,
++  reprise plutôt que perdue.
++
++`latitude`/`longitude` sont conservées inchangées pour le seul
++positionnement du marqueur sur la carte ; ce sont désormais `address`
++(avec repli sur `city`, puis sur les coordonnées) qui servent de « lieu »
++affiché à l'utilisateur (popup carte, vue liste), et `city` seule qui
++sert de clé de regroupement dans la vue liste.
++
++## Alternatives envisagées
++
++| Option | Rejetée car |
++| --- | --- |
++| Géocodage inverse (coordonnées → adresse) à chaque affichage, côté frontend | Appel réseau répété à chaque chargement de la liste, pas de persistance, dépendance à la disponibilité d'un service tiers au moment de l'affichage — non professionnel pour un volume d'activités qui croît avec les imports. |
++| Utiliser `sourceName` (ex. « OpenAgenda — Avignon ») comme proxy de ville | Trompeur dès qu'une source couvre plusieurs villes ; absent pour les contributions manuelles. |
++| Ne rien stocker, résoudre uniquement à la lecture via un service tiers | Mêmes inconvénients que la première option, en pire (à chaque rendu de chaque marqueur). |
++
++## Conséquences
++
++- Aucune activité existante n'est rétroactivement enrichie (pas de
++  backfill dans ce ticket) : les trois champs restent `null` pour les
++  activités déjà en base tant qu'elles ne sont pas re-géocodées/
++  ré-importées. Le frontend prévoit un repli (`formatActivityLocation`,
++  regroupement sous « Ville non renseignée »).
++- Aucune nouvelle dépendance externe : réutilisation de Nominatim (déjà
++  utilisé, LL-3012) et de l'API OpenAgenda (déjà appelée).
++- `ActivityResponse` expose désormais `address`/`city` en plus de
++  `latitude`/`longitude`.
+--- LocalLife_orig/CHANGELOG.md	2026-09-05 11:40:48.299160661 +0000
++++ LocalLife/CHANGELOG.md	2026-09-05 11:39:32.285646311 +0000
+@@ -1,5 +1,14 @@
+ # Changelog
+ 
++## 0.9.3 — 2026-09-05
++
++### Sprint Évol-Fix / LL-EF-008 — Ajouter une liste des activités
++- Bouton « Liste » ajouté dans le bandeau de filtres, à côté de « Filtrer par catégorie » ; bascule Carte ↔ Liste avec état actif visible (`aria-pressed`).
++- Vue liste : activités regroupées par ville, triées par date à l'intérieur de chaque ville ; chaque ligne affiche titre, date (+ heure si non nulle), catégorie. Clic sur une ligne : détail complet dans une modale (adresse, date/heure, catégorie, source).
++- Écart trouvé en traitant ce ticket : aucune notion de ville n'existait dans le modèle métier (seules `latitude`/`longitude` étaient stockées) — changement de modèle documenté dans `docs/02_Architecture/ADR-0001-adresse-structuree-activites.md`. Trois colonnes nullables ajoutées à `activity` (`address`, `city`, `postal_code`, migration `V14`), résolues une seule fois à l'écriture (contribution manuelle : réutilisation de l'appel Nominatim existant avec `addressdetails=1` ; import : champs déjà présents dans l'objet `location` d'OpenAgenda, jusqu'ici ignorés). Aucun appel réseau supplémentaire.
++- Demande complémentaire d'Alex traitée dans le même changement : la carte et le détail affichent désormais une adresse lisible (`address`, repli sur `city` puis sur les coordonnées) au lieu des coordonnées GPS brutes.
++- `LL-EF-004` à `LL-EF-007` restent non traités (ticket pris hors ordre à la demande d'Alex).
++
+ ## 0.9.2 — 2026-09-02
+ 
+ ### Sprint Évol-Fix / LL-EF-001 — Revoir l'affichage de la saisie d'une activité
