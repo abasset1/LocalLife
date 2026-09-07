@@ -59,7 +59,8 @@ class ActivityServiceTest {
     void findNearby_ShouldConvertRadiusFromKilometersToMeters_AndDelegateToRepository() {
         // Given
         Activity expected = new Activity(
-                1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
+                1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
+                null, null, null, null);
         when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null))
                 .thenReturn(List.of(expected));
 
@@ -234,7 +235,8 @@ class ActivityServiceTest {
     void findWithinBounds_ShouldDelegateToRepository_WithParsedCoordinates() {
         // Given
         Activity expected = new Activity(
-                1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null, null);
+                1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
+                null, null, null, null);
         when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null))
                 .thenReturn(List.of(expected));
 
@@ -437,7 +439,8 @@ class ActivityServiceTest {
     void findByStatus_ShouldDelegateToRepository_WhenStatusIsKnown() {
         // Given
         Activity pending = new Activity(
-                1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null, null);
+                1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
+                null, null, null, null);
         when(activityRepository.findByStatus("PENDING")).thenReturn(List.of(pending));
 
         // When
@@ -490,7 +493,8 @@ class ActivityServiceTest {
     void publish_ShouldChangeStatusToPublished_WhenActivityIsPending() {
         // Given
         Activity pending = new Activity(
-                1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null, null);
+                1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
+                null, null, null, null);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -509,7 +513,8 @@ class ActivityServiceTest {
     void reject_ShouldChangeStatusToRejected_WhenActivityIsPending() {
         // Given
         Activity pending = new Activity(
-                2L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null, null);
+                2L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
+                null, null, null, null);
         when(activityRepository.findById(2L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -552,7 +557,7 @@ class ActivityServiceTest {
         // Given : transition non prévue par LL-6003 (seul PENDING → PUBLISHED existe).
         Activity published = new Activity(
                 3L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null);
+                null, null, null, null);
         when(activityRepository.findById(3L)).thenReturn(Optional.of(published));
 
         // When / Then
@@ -568,7 +573,7 @@ class ActivityServiceTest {
         // Given : transition non prévue par LL-6003 (seul PENDING → REJECTED existe).
         Activity rejected = new Activity(
                 4L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "REJECTED", 1L, null,
-                null);
+                null, null, null, null);
         when(activityRepository.findById(4L)).thenReturn(Optional.of(rejected));
 
         // When / Then
@@ -629,7 +634,7 @@ class ActivityServiceTest {
 
     @Test
     void createActivity_ShouldSucceed_WhenCategoryIsNull() {
-        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37));
+        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37, null, null));
         when(sourceService.findByType("MANUAL")).thenReturn(Optional.of(manualSource()));
         when(activityRepository.save(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -644,7 +649,7 @@ class ActivityServiceTest {
 
     @Test
     void createActivity_ShouldSaveActivityWithNullUrl_WhenValid() {
-        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37));
+        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37, null, null));
         when(sourceService.findByType("MANUAL")).thenReturn(Optional.of(manualSource()));
         when(activityRepository.save(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -658,6 +663,25 @@ class ActivityServiceTest {
         assertThat(result.url()).isNull();
         assertThat(result.sourceId()).isEqualTo(1L);
         assertThat(result.importKey()).isNull();
+    }
+
+    @Test
+    void createActivity_ShouldPersistAddressAndCity_FromGeocodingResult() {
+        // LL-EF-008 : l'adresse saisie doit être conservée telle quelle, et la
+        // ville renvoyée par le géocodage doit être reprise sur l'activité
+        // créée (voir Coordinates/GeocodingService).
+        when(geocodingService.geocode("1 rue de la Paix, Marseille"))
+                .thenReturn(new Coordinates(43.29, 5.37, "Marseille", "13001"));
+        when(sourceService.findByType("MANUAL")).thenReturn(Optional.of(manualSource()));
+        when(activityRepository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Activity result = activityService()
+                .createActivity("Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille");
+
+        assertThat(result.address()).isEqualTo("1 rue de la Paix, Marseille");
+        assertThat(result.city()).isEqualTo("Marseille");
+        assertThat(result.postalCode()).isEqualTo("13001");
     }
 
 }

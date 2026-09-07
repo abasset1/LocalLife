@@ -89,7 +89,7 @@ class ImportedActivityVisibilityIntegrationTest {
                 new Source(null, sourceName, "API", null, "ACTIVE", null, "agenda-uid-" + UUID.randomUUID(), null));
         when(collector.collect()).thenReturn(List.of(new CollectedActivity(
                 "Marché de Noël", "Marché de Noël sur le Vieux-Port", startDate, null,
-                category, LATITUDE, LONGITUDE, "https://example.com", "ext-1", sourceName)));
+                category, LATITUDE, LONGITUDE, "https://example.com", "ext-1", sourceName, null, null, null)));
         importService.importAll();
 
         Long sourceId = sourceRepository.findByName(sourceName).map(Source::id).orElseThrow();

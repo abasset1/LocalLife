@@ -42,6 +42,46 @@ class GeocodingServiceTest {
     }
 
     @Test
+    void geocode_ShouldReturnCityAndPostalCode_FromAddressDetails() {
+        // LL-EF-008 : addressdetails=1 (voir GeocodingService) renvoie un
+        // sous-objet "address" avec city/town/village + postcode.
+        mockServer.expect(requestTo(containsString("/search")))
+                .andRespond(withSuccess(
+                        "[{\"lat\":\"43.29\",\"lon\":\"5.37\","
+                                + "\"address\":{\"city\":\"Marseille\",\"postcode\":\"13001\"}}]",
+                        MediaType.APPLICATION_JSON));
+
+        Coordinates coordinates = geocodingService.geocode("1 rue de la Paix, Marseille");
+
+        assertEquals("Marseille", coordinates.city());
+        assertEquals("13001", coordinates.postalCode());
+    }
+
+    @Test
+    void geocode_ShouldFallBackToTownThenVillage_WhenCityAbsent() {
+        // Nominatim n'a pas de champ "ville" unique (voir GeocodingService).
+        mockServer.expect(requestTo(containsString("/search")))
+                .andRespond(withSuccess(
+                        "[{\"lat\":\"43.29\",\"lon\":\"5.37\",\"address\":{\"town\":\"Cassis\"}}]",
+                        MediaType.APPLICATION_JSON));
+
+        Coordinates coordinates = geocodingService.geocode("Cassis");
+
+        assertEquals("Cassis", coordinates.city());
+    }
+
+    @Test
+    void geocode_ShouldReturnNullCityAndPostalCode_WhenAddressDetailsAbsent() {
+        mockServer.expect(requestTo(containsString("/search")))
+                .andRespond(withSuccess("[{\"lat\":\"43.29\",\"lon\":\"5.37\"}]", MediaType.APPLICATION_JSON));
+
+        Coordinates coordinates = geocodingService.geocode("1 rue de la Paix, Marseille");
+
+        assertEquals(null, coordinates.city());
+        assertEquals(null, coordinates.postalCode());
+    }
+
+    @Test
     void geocode_ShouldThrowAddressNotFoundException_WhenNoResults() {
         mockServer.expect(requestTo(containsString("/search")))
                 .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));

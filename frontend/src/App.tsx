@@ -13,11 +13,17 @@ import { clearToken, getPayload } from "./auth/authStorage";
  * `sourceId` (identifiant technique, retiré de la réponse au profit de
  * `sourceName` — voir `ActivityResponse` côté backend), inexploitable
  * pour l'affichage demandé par le critère d'acceptation du ticket
- * (« titre, date, lieu, source correctement affichés »). Aucune adresse
- * texte n'étant stockée en base (voir `ActivityController.CreateActivityRequest`
- * côté backend), `latitude`/`longitude` (déjà présents ici pour le
- * positionnement du marqueur) servent aussi de « lieu » affiché dans le
- * popup ci-dessous.
+ * (« titre, date, lieu, source correctement affichés »).
+ *
+ * `address`/`city` ajoutés en LL-EF-008 : afficher des coordonnées GPS
+ * brutes à l'utilisateur final n'étant pas viable (demande d'Alex),
+ * `latitude`/`longitude` ne servent plus désormais qu'au positionnement
+ * du marqueur — voir `ActivityResponse` côté backend pour le détail de
+ * leur résolution (géocodage à l'écriture, jamais à la lecture).
+ * Toutes deux nullables : activités existantes non re-géocodées/
+ * ré-importées, ou source ne fournissant pas cette donnée — voir
+ * `formatActivityLocation`/`formatActivityCity` ci-dessous pour le repli
+ * appliqué dans ce cas.
  */
 interface Activity {
     id: number;
@@ -27,6 +33,8 @@ interface Activity {
     longitude: number;
     startDate: string;
     sourceName: string;
+    address: string | null;
+    city: string | null;
 }
 
 /**
@@ -211,6 +219,64 @@ function buildCategoryOptions(items: Activity[]): string[] {
     return Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b, "fr"));
 }
 
+/** Repli affiché quand une activité n'a pas de ville résolue (LL-EF-008, voir Activity ci-dessus). */
+const UNKNOWN_CITY_LABEL = "Ville non renseignée";
+
+/**
+ * Lieu affiché à l'utilisateur (LL-EF-008, demande d'Alex : des
+ * coordonnées GPS brutes ne sont pas viables). Ordre de repli :
+ * `address` (la plus précise et la plus lisible) puis `city` seule, puis
+ * enfin les coordonnées — uniquement pour les activités antérieures à ce
+ * ticket, jamais re-géocodées/ré-importées, qui n'ont ni l'une ni
+ * l'autre.
+ */
+function formatActivityLocation(activity: Activity): string {
+    if (activity.address) {
+        return activity.address;
+    }
+    if (activity.city) {
+        return activity.city;
+    }
+    return `${activity.latitude.toFixed(4)}, ${activity.longitude.toFixed(4)}`;
+}
+
+/**
+ * Regroupe les activités par ville puis trie chaque groupe par date
+ * (LL-EF-008, critères d'acceptation « triées par ville » / « à
+ * l'intérieur d'une ville, triées par date »). Les groupes eux-mêmes sont
+ * triés alphabétiquement (locale "fr", comme `buildCategoryOptions`
+ * ci-dessus) ; les activités sans ville connue sont regroupées sous
+ * `UNKNOWN_CITY_LABEL`, toujours affiché en dernier plutôt qu'intercalé
+ * alphabétiquement (une ville non renseignée n'est pas une vraie ville).
+ */
+function groupActivitiesByCity(items: Activity[]): Array<[string, Activity[]]> {
+    const groups = new Map<string, Activity[]>();
+    for (const activity of items) {
+        const city = activity.city ?? UNKNOWN_CITY_LABEL;
+        const group = groups.get(city);
+        if (group) {
+            group.push(activity);
+        } else {
+            groups.set(city, [activity]);
+        }
+    }
+
+    const sortByDate = (a: Activity, b: Activity) => a.startDate.localeCompare(b.startDate);
+    for (const group of groups.values()) {
+        group.sort(sortByDate);
+    }
+
+    return Array.from(groups.entries()).sort(([cityA], [cityB]) => {
+        if (cityA === UNKNOWN_CITY_LABEL) {
+            return cityB === UNKNOWN_CITY_LABEL ? 0 : 1;
+        }
+        if (cityB === UNKNOWN_CITY_LABEL) {
+            return -1;
+        }
+        return cityA.localeCompare(cityB, "fr");
+    });
+}
+
 function App() {
     const navigate = useNavigate();
     const [activities, setActivities] = useState<Activity[]>([]);
@@ -236,6 +302,23 @@ function App() {
     const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
     const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
+    /**
+     * LL-EF-008 : bascule Carte ↔ Liste, dans le même bandeau que le filtre
+     * catégorie (voir le rendu plus bas) — la liste est une seconde vue des
+     * mêmes activités déjà chargées/filtrées (`activities`), pas une
+     * requête séparée : les filtres catégorie/date s'appliquent donc
+     * naturellement aux deux vues (critère d'acceptation « les filtres par
+     * catégorie restent cohérents avec l'affichage en liste »).
+     */
+    const [viewMode, setViewMode] = useState<"map" | "list">("map");
+    /**
+     * Activité dont le détail est actuellement consulté depuis la liste
+     * (LL-EF-008, critère d'acceptation « consulter le détail d'une
+     * activité depuis la liste ») — `null` quand aucun détail n'est
+     * ouvert. Réutilise le patron `modal-overlay`/`modal-dialog` déjà en
+     * place pour le formulaire de contribution (LL-EF-001).
+     */
+    const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
     /**
      * LL-EF-003 : mémorise les dépendances de la recherche précédente pour
      * distinguer, au sein du même effet, un déplacement/zoom pur de la
@@ -446,6 +529,23 @@ function App() {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isContributionModalOpen]);
 
+    // LL-EF-008 : même comportement de fermeture au clavier (Échap) que la
+    // modale de contribution ci-dessus, pour la modale de détail d'activité.
+    useEffect(() => {
+        if (!selectedActivity) {
+            return;
+        }
+
+        function handleKeyDown(event: KeyboardEvent) {
+            if (event.key === "Escape") {
+                setSelectedActivity(null);
+            }
+        }
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [selectedActivity]);
+
     /**
      * LL-EF-002 : la géolocalisation est désormais demandée automatiquement
      * au chargement de la page (plus de bandeau « Utiliser la
@@ -596,6 +696,32 @@ function App() {
                         ✕
                     </button>
                 )}
+                {/*
+                  LL-EF-008 : bascule Carte ↔ Liste, dans le même bandeau que
+                  « Filtrer par catégorie » (critère d'acceptation explicite du
+                  ticket) — `margin-left: auto` (voir styles.css) la pousse en
+                  haut à droite du bandeau, comme demandé. `aria-pressed`
+                  identifie clairement la vue active (critère d'acceptation
+                  « l'état actif de la vue doit être clairement identifiable »).
+                */}
+                <div className="view-mode-toggle" role="group" aria-label="Choix de l'affichage">
+                    <button
+                        aria-pressed={viewMode === "map"}
+                        className={viewMode === "map" ? "view-mode-button view-mode-button-active" : "view-mode-button"}
+                        onClick={() => setViewMode("map")}
+                        type="button"
+                    >
+                        Carte
+                    </button>
+                    <button
+                        aria-pressed={viewMode === "list"}
+                        className={viewMode === "list" ? "view-mode-button view-mode-button-active" : "view-mode-button"}
+                        onClick={() => setViewMode("list")}
+                        type="button"
+                    >
+                        Liste
+                    </button>
+                </div>
             </div>
             {/*
               LL-EF-001 : formulaire de saisie sous forme de fenêtre modale (overlay),
@@ -681,92 +807,214 @@ function App() {
                     </div>
                 </div>
             )}
-            <div className="map-area">
-                {/*
-                  LL-4013 : 4 états distincts, chacun visible et compréhensible séparément
-                  (chargement / résultats / aucun résultat / erreur) — l'état « résultats »
-                  n'a pas besoin de message dédié : les marqueurs sur la carte en tiennent
-                  lieu.
-                */}
-                {isLoadingActivities && <p className="activities-status">Chargement des activités…</p>}
-                {!isLoadingActivities && searchError && (
-                    <p className="activities-status activities-status-error" role="alert">
-                        {searchError}
-                    </p>
-                )}
-                {!isLoadingActivities && !searchError && activities.length === 0 && (
-                    <p className="activities-status">Aucune activité trouvée dans cette zone.</p>
-                )}
-                <MapContainer
-                    center={MARSEILLE_COORDINATES}
-                    className="map"
-                    zoom={13}
-                    zoomControl
+            {/*
+              LL-EF-008 : modale de détail d'une activité sélectionnée depuis la
+              liste (critère d'acceptation « consulter le détail d'une activité
+              depuis la liste ») — même patron que la modale de contribution
+              ci-dessus (overlay cliquable, stopPropagation sur la boîte de
+              dialogue, fermeture Échap déjà branchée plus haut).
+            */}
+            {selectedActivity && (
+                <div
+                    className="modal-overlay"
+                    onClick={() => setSelectedActivity(null)}
+                    role="presentation"
                 >
-                    <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    <MapBoundsWatcher onBoundsChange={setMapBounds} />
-                    <MapRecenterOnUserPosition position={userPosition} />
+                    <div
+                        aria-labelledby="activity-detail-title"
+                        aria-modal="true"
+                        className="modal-dialog"
+                        onClick={(event) => event.stopPropagation()}
+                        role="dialog"
+                    >
+                        <div className="modal-header">
+                            <h2 id="activity-detail-title">{selectedActivity.title}</h2>
+                            <button
+                                aria-label="Fermer"
+                                className="modal-close-button"
+                                onClick={() => setSelectedActivity(null)}
+                                type="button"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="activity-detail-body">
+                            <p className="activity-detail-row">
+                                <strong>Lieu :</strong> {formatActivityLocation(selectedActivity)}
+                            </p>
+                            <p className="activity-detail-row">
+                                <strong>Date :</strong>{" "}
+                                {new Date(selectedActivity.startDate).toLocaleString("fr-FR", {
+                                    dateStyle: "long",
+                                    timeStyle: "short",
+                                })}
+                            </p>
+                            {selectedActivity.category && (
+                                <p className="activity-detail-row">
+                                    <strong>Catégorie :</strong> {selectedActivity.category}
+                                </p>
+                            )}
+                            <p className="activity-detail-row">
+                                <strong>Source :</strong> {selectedActivity.sourceName}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* LL-EF-008 : vue Carte, affichée uniquement quand viewMode === "map" (voir le bouton bascule du bandeau ci-dessus). */}
+            {viewMode === "map" && (
+                <div className="map-area">
                     {/*
-                      Clustering (demande explicite d'Alex, hors ticket de sprint) : au-delà
-                      d'un volume normal d'activités importées (LL-8009, pagination
-                      OpenAgenda), un marqueur par activité rendait la carte inutilisable.
-                      `MarkerClusterGroup` (react-leaflet-cluster, au-dessus de
-                      leaflet.markercluster) regroupe les marqueurs proches en un badge
-                      « +N » qui se sépare au zoom — solution standard avec Leaflet, aucun
-                      changement côté backend (le volume de données transmises reste le
-                      même, seul le rendu change). Seules les activités sont regroupées :
-                      les food trucks restent des marqueurs individuels, cohérent avec leur
-                      isolement déjà documenté (voir `FOOD_TRUCK_MARKER_ICON` ci-dessus) —
-                      leur volume n'a pas posé ce problème.
+                      LL-4013 : 4 états distincts, chacun visible et compréhensible séparément
+                      (chargement / résultats / aucun résultat / erreur) — l'état « résultats »
+                      n'a pas besoin de message dédié : les marqueurs sur la carte en tiennent
+                      lieu.
                     */}
-                    <MarkerClusterGroup>
-                        {activities.map((activity) => (
+                    {isLoadingActivities && <p className="activities-status">Chargement des activités…</p>}
+                    {!isLoadingActivities && searchError && (
+                        <p className="activities-status activities-status-error" role="alert">
+                            {searchError}
+                        </p>
+                    )}
+                    {!isLoadingActivities && !searchError && activities.length === 0 && (
+                        <p className="activities-status">Aucune activité trouvée dans cette zone.</p>
+                    )}
+                    <MapContainer
+                        center={MARSEILLE_COORDINATES}
+                        className="map"
+                        zoom={13}
+                        zoomControl
+                    >
+                        <TileLayer
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <MapBoundsWatcher onBoundsChange={setMapBounds} />
+                        <MapRecenterOnUserPosition position={userPosition} />
+                        {/*
+                          Clustering (demande explicite d'Alex, hors ticket de sprint) : au-delà
+                          d'un volume normal d'activités importées (LL-8009, pagination
+                          OpenAgenda), un marqueur par activité rendait la carte inutilisable.
+                          `MarkerClusterGroup` (react-leaflet-cluster, au-dessus de
+                          leaflet.markercluster) regroupe les marqueurs proches en un badge
+                          « +N » qui se sépare au zoom — solution standard avec Leaflet, aucun
+                          changement côté backend (le volume de données transmises reste le
+                          même, seul le rendu change). Seules les activités sont regroupées :
+                          les food trucks restent des marqueurs individuels, cohérent avec leur
+                          isolement déjà documenté (voir `FOOD_TRUCK_MARKER_ICON` ci-dessus) —
+                          leur volume n'a pas posé ce problème.
+                        */}
+                        <MarkerClusterGroup>
+                            {activities.map((activity) => (
+                                <Marker
+                                    key={activity.id}
+                                    position={[activity.latitude, activity.longitude]}
+                                >
+                                    <Popup>
+                                        <strong>{activity.title}</strong>
+                                        <br />
+                                        {activity.category}
+                                        <br />
+                                        {new Date(activity.startDate).toLocaleDateString("fr-FR")}
+                                        <br />
+                                        {/* LL-8006/LL-EF-008 : lieu (adresse si disponible, repli sur la ville puis
+                                            les coordonnées — voir formatActivityLocation) et source (nom lisible
+                                            résolu depuis sourceId par ActivityResponse) — critère d'acceptation
+                                            « titre, date, lieu, source correctement affichés ». */}
+                                        Lieu : {formatActivityLocation(activity)}
+                                        <br />
+                                        Source : {activity.sourceName}
+                                    </Popup>
+                                </Marker>
+                            ))}
+                        </MarkerClusterGroup>
+                        {/*
+                          LL-6009 : food trucks, deuxième type de marqueur sur la même carte
+                          (« sans créer un second système cartographique »). Icône dédiée
+                          (FOOD_TRUCK_MARKER_ICON) pour la distinction visuelle avec une
+                          activité ; popup sans date (un food truck n'est pas un événement
+                          daté, voir FOOD_TRUCK_CONTRACT.md) — distinction fonctionnelle.
+                        */}
+                        {foodTrucks.map((foodTruck) => (
                             <Marker
-                                key={activity.id}
-                                position={[activity.latitude, activity.longitude]}
+                                icon={FOOD_TRUCK_MARKER_ICON}
+                                key={`food-truck-${foodTruck.id}`}
+                                position={[foodTruck.latitude, foodTruck.longitude]}
                             >
                                 <Popup>
-                                    <strong>{activity.title}</strong>
+                                    <strong>{foodTruck.name}</strong>
                                     <br />
-                                    {activity.category}
-                                    <br />
-                                    {new Date(activity.startDate).toLocaleDateString("fr-FR")}
-                                    <br />
-                                    {/* LL-8006 : lieu (aucune adresse texte en base, voir Activity côté backend) et
-                                        source (nom lisible résolu depuis sourceId par ActivityResponse) — critère
-                                        d'acceptation « titre, date, lieu, source correctement affichés ». */}
-                                    Lieu : {activity.latitude.toFixed(4)}, {activity.longitude.toFixed(4)}
-                                    <br />
-                                    Source : {activity.sourceName}
+                                    {foodTruck.category}
                                 </Popup>
                             </Marker>
                         ))}
-                    </MarkerClusterGroup>
-                    {/*
-                      LL-6009 : food trucks, deuxième type de marqueur sur la même carte
-                      (« sans créer un second système cartographique »). Icône dédiée
-                      (FOOD_TRUCK_MARKER_ICON) pour la distinction visuelle avec une
-                      activité ; popup sans date (un food truck n'est pas un événement
-                      daté, voir FOOD_TRUCK_CONTRACT.md) — distinction fonctionnelle.
-                    */}
-                    {foodTrucks.map((foodTruck) => (
-                        <Marker
-                            icon={FOOD_TRUCK_MARKER_ICON}
-                            key={`food-truck-${foodTruck.id}`}
-                            position={[foodTruck.latitude, foodTruck.longitude]}
-                        >
-                            <Popup>
-                                <strong>{foodTruck.name}</strong>
-                                <br />
-                                {foodTruck.category}
-                            </Popup>
-                        </Marker>
-                    ))}
-                </MapContainer>
-            </div>
+                    </MapContainer>
+                </div>
+            )}
+            {/*
+              LL-EF-008 : vue Liste — seconde vue des mêmes activités déjà chargées/
+              filtrées (voir la javadoc de `viewMode` plus haut), regroupées par ville
+              puis triées par date (`groupActivitiesByCity`). Les food trucks ne sont
+              pas des activités datées (voir FOOD_TRUCK_CONTRACT.md) et n'apparaissent
+              donc pas ici, cohérent avec leur périmètre déjà limité à la carte.
+            */}
+            {viewMode === "list" && (
+                <div className="list-area">
+                    {isLoadingActivities && <p className="activities-status">Chargement des activités…</p>}
+                    {!isLoadingActivities && searchError && (
+                        <p className="activities-status activities-status-error" role="alert">
+                            {searchError}
+                        </p>
+                    )}
+                    {!isLoadingActivities && !searchError && activities.length === 0 && (
+                        <p className="activities-status">Aucune activité trouvée dans cette zone.</p>
+                    )}
+                    {!isLoadingActivities && !searchError && activities.length > 0 && (
+                        <div className="activity-list">
+                            {groupActivitiesByCity(activities).map(([city, cityActivities]) => (
+                                <section className="activity-list-group" key={city}>
+                                    <h2 className="activity-list-city">{city}</h2>
+                                    <ul className="activity-list-items">
+                                        {cityActivities.map((activity) => (
+                                            <li key={activity.id}>
+                                                {/*
+                                                  Critère d'acceptation « consulter le détail d'une activité
+                                                  depuis la liste » : chaque ligne est un bouton (pas un <li>
+                                                  cliquable directement, pour rester accessible au clavier)
+                                                  qui ouvre la modale de détail définie plus haut.
+                                                */}
+                                                <button
+                                                    className="activity-list-item"
+                                                    onClick={() => setSelectedActivity(activity)}
+                                                    type="button"
+                                                >
+                                                    <span className="activity-list-item-title">{activity.title}</span>
+                                                    <span className="activity-list-item-meta">
+                                                        {new Date(activity.startDate).toLocaleDateString("fr-FR")}
+                                                        {/* Heure affichée seulement si elle est significative (voir
+                                                            critère d'acceptation « éventuellement l'heure ») : une
+                                                            activité créée sans heure précise (formulaire de
+                                                            contribution) reçoit minuit comme heure de soumission,
+                                                            qu'il serait trompeur d'afficher comme horaire réel. */}
+                                                        {new Date(activity.startDate).getHours() !== 0
+                                                            || new Date(activity.startDate).getMinutes() !== 0
+                                                            ? ` · ${new Date(activity.startDate).toLocaleTimeString("fr-FR", {
+                                                                hour: "2-digit",
+                                                                minute: "2-digit",
+                                                            })}`
+                                                            : ""}
+                                                        {activity.category ? ` · ${activity.category}` : ""}
+                                                    </span>
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </section>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </main>
     );
 }

@@ -346,7 +346,8 @@ public class ActivityService {
         return new Activity(
                 activity.id(), activity.title(), activity.description(), activity.category(),
                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
-                status, activity.sourceId(), activity.importKey(), activity.url());
+                status, activity.sourceId(), activity.importKey(), activity.url(),
+                activity.address(), activity.city(), activity.postalCode());
     }
 
     private void validateLatitude(String paramName, double latitude) {
@@ -398,9 +399,15 @@ public class ActivityService {
 
     /**
      * Crée une activité à partir d'une contribution (LL-2012, adresse
-     * géocodée depuis LL-3012). L'adresse elle-même n'est pas conservée en
-     * base, seules les coordonnées obtenues via {@link GeocodingService} le
-     * sont. Statut par défaut : {@code PENDING} (en attente de modération —
+     * géocodée depuis LL-3012). Depuis LL-EF-008, l'adresse saisie par le
+     * contributeur est désormais conservée telle quelle (colonne
+     * {@code address}) — elle a déjà servi de source de vérité pour le
+     * géocodage, il n'y a donc aucune raison de la perdre. {@code city}
+     * (utilisée pour le regroupement de la vue liste, voir le frontend) et
+     * {@code postalCode} proviennent de la même réponse Nominatim que les
+     * coordonnées ({@link GeocodingService}, paramètre
+     * {@code addressdetails=1}) : aucun appel réseau supplémentaire
+     * n'est nécessaire. Statut par défaut : {@code PENDING} (en attente de modération —
      * l'une des trois valeurs formalisées en LL-6003, voir
      * {@link Activity#status()}). Aucune date de
      * début/fin n'est demandée par le formulaire de contribution ; la date
@@ -445,7 +452,8 @@ public class ActivityService {
         Activity activity = new Activity(
                 null, title, description, category,
                 coordinates.latitude(), coordinates.longitude(), LocalDateTime.now(), null, "PENDING",
-                manualSourceId, null, null);
+                manualSourceId, null, null,
+                address, coordinates.city(), coordinates.postalCode());
         return activityRepository.save(activity);
     }
 

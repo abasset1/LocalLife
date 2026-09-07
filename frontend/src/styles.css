@@ -129,6 +129,38 @@ body {
 }
 
 /*
+ * LL-EF-008 : bascule Carte/Liste, poussée en haut à droite du bandeau
+ * (`margin-left: auto`) — voir le critère d'acceptation « bouton en haut
+ * à droite, dans le même bandeau que Filtrer par catégorie ».
+ */
+.view-mode-toggle {
+    display: flex;
+    gap: 0.25rem;
+    margin-left: auto;
+}
+
+.view-mode-button {
+    padding: 0.3rem 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: #334155;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.view-mode-button:hover {
+    background-color: #f1f5f9;
+}
+
+/* État actif clairement identifiable (critère d'acceptation LL-EF-008). */
+.view-mode-button-active {
+    background-color: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+}
+
+/*
  * LL-EF-001 : fenêtre modale du formulaire de saisie d'une activité.
  * `.modal-overlay` couvre tout l'écran et sert aussi de zone cliquable de
  * fermeture (voir `handleCloseContributionForm` dans App.tsx) ; le clic à
@@ -277,6 +309,92 @@ body {
 .activities-status-error {
     background-color: #fef2f2;
     color: #dc2626;
+}
+
+/*
+ * LL-EF-008 : vue Liste, seconde vue des activités (voir App.tsx,
+ * `viewMode`). `.list-area` reprend la même ligne de grille que
+ * `.map-area` (`.application-shell`, grid-template-rows) : une seule des
+ * deux est montée à la fois selon `viewMode`.
+ */
+.list-area {
+    overflow-y: auto;
+    padding: 1rem 1.5rem;
+    background-color: #f8fafc;
+}
+
+.activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    /* Largeur fluide plutôt qu'une valeur fixe : critère d'acceptation
+       « la liste reste utilisable sur mobile » (pas de largeur figée qui
+       débordarait sur un petit écran), sans introduire de media query
+       dédiée (aucune n'existe encore ailleurs dans ce fichier — voir
+       DEVELOPMENT_PHILOSOPHY.md, pas de complexité non justifiée). */
+    max-width: 720px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.activity-list-city {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    color: #334155;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 0.35rem;
+}
+
+.activity-list-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.activity-list-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    width: 100%;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background-color: #ffffff;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+}
+
+.activity-list-item:hover {
+    border-color: #93c5fd;
+    background-color: #eff6ff;
+}
+
+.activity-list-item-title {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.activity-list-item-meta {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+/* LL-EF-008 : détail d'une activité, dans la même modale que le formulaire de contribution. */
+.activity-detail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1.25rem;
+}
+
+.activity-detail-row {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #1e293b;
 }
 
 .auth-shell {

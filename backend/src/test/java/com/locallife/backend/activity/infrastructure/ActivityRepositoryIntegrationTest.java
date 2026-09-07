@@ -62,7 +62,8 @@ class ActivityRepositoryIntegrationTest {
         String uniqueTitle = "test-" + UUID.randomUUID();
         return activityRepository.save(new Activity(
                 null, uniqueTitle, "description", category,
-                latitude, longitude, startDate, endDate, status, manualSourceId(), null, null));
+                latitude, longitude, startDate, endDate, status, manualSourceId(), null, null,
+                null, null, null));
     }
 
     private Activity activityAt(double latitude, double longitude, String status, String category) {

@@ -144,7 +144,19 @@ configuration dynamique en base, remplace `OpenAgendaSourcesConfig`)
 terminé, livré sous forme de patch depuis `origin/main`, pas encore
 appliqué. ⚠️ `LL-EF-005` n'a pas pu être compilé/testé côté backend
 dans la session qui l'a produit (pas d'accès à Maven Central) : lancer
-`mvn test` avant de l'appliquer. Prochain ticket de ce sprint :
+`mvn test` avant de l'appliquer.
+
+`LL-EF-008` (vue liste des activités, regroupées par ville/triées par
+date) traité à la demande explicite d'Alex, hors ordre du sprint —
+`LL-EF-006` et `LL-EF-007` restent non traités. Ce ticket a nécessité un
+changement de modèle métier non anticipé par sa rédaction initiale
+(aucune notion de ville n'existait en base) : voir
+`docs/02_Architecture/ADR-0001-adresse-structuree-activites.md`. Alex a
+également demandé, en complément, l'affichage d'une adresse lisible à
+la place des coordonnées GPS brutes — traité dans le même changement
+(même ADR). Livré sous forme de patch indépendant, pas encore appliqué.
+
+Prochain ticket de ce sprint, sauf arbitrage contraire d'Alex :
 `LL-EF-006` (interface utilisateur).
 
 ## Règles

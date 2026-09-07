@@ -17,11 +17,16 @@ import java.time.LocalDateTime;
  * directement pour l'affichage (voir {@code SPRINT_8.md}, constat fait en
  * vérifiant l'affichage bout en bout des activités sur la carte).
  *
- * {@code latitude}/{@code longitude} restent tels quels (aucune adresse
- * texte n'est stockée en base, voir la javadoc de
- * {@link ActivityController.CreateActivityRequest}) : ce sont les seules
- * données de localisation disponibles, utilisées par le frontend comme
- * « lieu » affiché dans le popup de la carte.
+ * {@code address}/{@code city} ajoutés en LL-EF-008 : afficher des
+ * coordonnées GPS brutes à l'utilisateur final n'étant pas viable (demande
+ * d'Alex), ce sont désormais elles qui servent de « lieu » affiché — dans
+ * le popup de la carte comme dans la nouvelle vue liste (regroupement par
+ * {@code city}) — {@code latitude}/{@code longitude} restant disponibles
+ * pour le seul positionnement du marqueur. Voir {@code Activity} pour la
+ * javadoc détaillée de leur résolution (géocodage à l'écriture, jamais à
+ * la lecture). Toutes deux nullables : activités existantes non
+ * re-géocodées/ré-importées, ou source ne fournissant pas cette donnée —
+ * le frontend doit prévoir un repli (voir {@code App.tsx}).
  *
  * Uniquement utilisée par {@code getNearbyActivities}/
  * {@code getActivitiesWithinBounds} (les deux endpoints qui alimentent la
@@ -41,7 +46,9 @@ public record ActivityResponse(
         LocalDateTime endDate,
         String status,
         String sourceName,
-        String url) {
+        String url,
+        String address,
+        String city) {
 
     public static ActivityResponse from(Activity activity, String sourceName) {
         return new ActivityResponse(
@@ -55,6 +62,8 @@ public record ActivityResponse(
                 activity.endDate(),
                 activity.status(),
                 sourceName,
-                activity.url());
+                activity.url(),
+                activity.address(),
+                activity.city());
     }
 }

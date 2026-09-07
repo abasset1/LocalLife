@@ -62,6 +62,11 @@ public class GeocodingService {
                             .queryParam("q", address)
                             .queryParam("format", "json")
                             .queryParam("limit", 1)
+                            // LL-EF-008 : demande les composants d'adresse détaillés
+                            // (ville, code postal...) dans la même réponse, pour
+                            // éviter un second appel réseau (reverse-geocoding) —
+                            // voir la javadoc de Coordinates.
+                            .queryParam("addressdetails", 1)
                             .build())
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<NominatimResult>>() { });
@@ -74,13 +79,38 @@ public class GeocodingService {
         }
 
         NominatimResult result = results.get(0);
-        return new Coordinates(Double.parseDouble(result.lat()), Double.parseDouble(result.lon()));
+        NominatimAddress details = result.address();
+        String city = details == null ? null : firstNonBlank(details.city(), details.town(), details.village());
+        String postalCode = details == null ? null : details.postcode();
+        return new Coordinates(Double.parseDouble(result.lat()), Double.parseDouble(result.lon()), city, postalCode);
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     /**
      * Sous-ensemble de la réponse JSON de Nominatim qui nous intéresse.
      * Nominatim renvoie lat/lon sous forme de chaînes, pas de nombres.
+     * {@code address} n'est présent que si la requête demande
+     * {@code addressdetails=1} (LL-EF-008).
      */
-    private record NominatimResult(String lat, String lon) {
+    private record NominatimResult(String lat, String lon, NominatimAddress address) {
+    }
+
+    /**
+     * Sous-ensemble de l'objet {@code address} de Nominatim (LL-EF-008).
+     * Nominatim n'a pas de champ "ville" unique : selon la zone, la
+     * localité se trouve dans {@code city}, {@code town} ou
+     * {@code village} (voir sa documentation "Place types") — les trois
+     * sont donc lus, dans cet ordre de priorité (voir
+     * {@link #firstNonBlank}).
+     */
+    private record NominatimAddress(String city, String town, String village, String postcode) {
     }
 }

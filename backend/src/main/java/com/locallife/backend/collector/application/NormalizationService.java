@@ -93,7 +93,13 @@ public class NormalizationService {
                 null,
                 // url (LL-6002) : reprise directe de sourceUrl, désormais
                 // conservée jusqu'en base au lieu d'être perdue ici.
-                collected.sourceUrl());
+                collected.sourceUrl(),
+                // address/city/postalCode (LL-EF-008) : même principe que url
+                // ci-dessus, repris tels quels de la donnée collectée (voir
+                // CollectedActivity et OpenAgendaCollector).
+                collected.address(),
+                collected.city(),
+                collected.postalCode());
         return Optional.of(activity);
     }
 

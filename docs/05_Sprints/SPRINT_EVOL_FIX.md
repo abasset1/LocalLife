@@ -337,16 +337,16 @@ Chaque activité doit permettre d'identifier rapidement les informations essenti
 
 ### Comportement attendu
 
-- [ ] Un bouton « Liste » est présent en haut à droite.
-- [ ] Le bouton est placé dans le même bandeau que « Filtrer par catégorie ».
-- [ ] Un clic sur le bouton affiche la liste des activités.
-- [ ] Les activités sont triées par ville.
-- [ ] À l'intérieur d'une ville, les activités sont triées par date.
-- [ ] Les informations essentielles sont visibles sans ouvrir chaque activité.
-- [ ] L'utilisateur peut consulter le détail d'une activité depuis la liste.
-- [ ] Le retour à l'affichage carte est possible facilement.
-- [ ] Les filtres par catégorie restent cohérents avec l'affichage en liste.
-- [ ] La liste reste utilisable sur mobile.
+- [x] Un bouton « Liste » est présent en haut à droite.
+- [x] Le bouton est placé dans le même bandeau que « Filtrer par catégorie ».
+- [x] Un clic sur le bouton affiche la liste des activités.
+- [x] Les activités sont triées par ville.
+- [x] À l'intérieur d'une ville, les activités sont triées par date.
+- [x] Les informations essentielles sont visibles sans ouvrir chaque activité.
+- [x] L'utilisateur peut consulter le détail d'une activité depuis la liste.
+- [x] Le retour à l'affichage carte est possible facilement.
+- [x] Les filtres par catégorie restent cohérents avec l'affichage en liste.
+- [x] La liste reste utilisable sur mobile.
 
 ### UX
 
@@ -358,6 +358,16 @@ L'état actif de la vue doit être clairement identifiable.
 
 **Priorité :** Haute  
 **Type :** Évolution / UX / Affichage
+
+### Note d'implémentation
+
+Le regroupement par ville a nécessité un changement de modèle métier
+(la ville n'existait nulle part en base) — voir
+`docs/02_Architecture/ADR-0001-adresse-structuree-activites.md`. À la
+demande d'Alex, la carte et le détail affichent désormais une adresse
+lisible (`address`) au lieu des coordonnées GPS brutes, avec repli sur
+`city` puis sur les coordonnées pour les activités non re-géocodées/
+ré-importées.
 
 ---
 

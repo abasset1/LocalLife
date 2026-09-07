@@ -227,7 +227,10 @@ public class OpenAgendaCollector implements Collector {
                 event.location().longitude(),
                 "https://openagenda.com/agendas/" + agendaUid + "/events/" + event.slug(),
                 event.slug(),
-                sourceName);
+                sourceName,
+                event.location().address(),
+                event.location().city(),
+                event.location().postalCode());
     }
 
     private boolean isBlank(String value) {
@@ -275,7 +278,15 @@ public class OpenAgendaCollector implements Collector {
             OpenAgendaTiming lastTiming) {
     }
 
-    private record OpenAgendaLocation(double latitude, double longitude, String region) {
+    /**
+     * {@code address}/{@code city}/{@code postalCode} ajoutés en LL-EF-008 :
+     * champs documentés de l'objet {@code location} OpenAgenda (voir
+     * developers.openagenda.com/en/lieux/), au même titre que
+     * {@code region} — non vérifiés contre l'API réelle en sandbox, comme
+     * le reste de cette classe (voir sa javadoc).
+     */
+    private record OpenAgendaLocation(
+            double latitude, double longitude, String region, String address, String city, String postalCode) {
     }
 
     private record OpenAgendaTiming(String begin, String end) {

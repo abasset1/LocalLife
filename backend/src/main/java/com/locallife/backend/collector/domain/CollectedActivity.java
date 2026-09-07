@@ -17,6 +17,13 @@ import java.time.LocalDateTime;
  * {@code getSourceName()} de {@code COLLECTOR_CONTRACT.md}), pas par un
  * identifiant technique — ce modèle n'a pas connaissance de la
  * persistance.
+ *
+ * {@code address}/{@code city}/{@code postalCode} ajoutés en LL-EF-008 :
+ * repris tels quels de l'objet {@code location} de la source (ex.
+ * OpenAgenda, voir {@code OpenAgendaCollector}), au même titre que
+ * {@code sourceUrl} (LL-6002) — voir {@code Activity} pour le détail de
+ * leur usage après normalisation. Tous trois optionnels : une source peut
+ * ne pas les fournir (ex. lieu imprécis).
  */
 public record CollectedActivity(
         String title,
@@ -28,5 +35,8 @@ public record CollectedActivity(
         double longitude,
         String sourceUrl,
         String externalId,
-        String source) {
+        String source,
+        String address,
+        String city,
+        String postalCode) {
 }

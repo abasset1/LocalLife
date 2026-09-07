@@ -15,13 +15,13 @@ class DeduplicationServiceTest {
     private CollectedActivity withExternalId(String externalId) {
         return new CollectedActivity(
                 "Marché de Noël", "description", LocalDateTime.of(2026, 12, 1, 10, 0), null,
-                "marché", 43.2965, 5.3698, "https://example.com", externalId, "OpenAgenda Marseille");
+                "marché", 43.2965, 5.3698, "https://example.com", externalId, "OpenAgenda Marseille", null, null, null);
     }
 
     private CollectedActivity withoutExternalId(String title, LocalDateTime startDate, double lat, double lon) {
         return new CollectedActivity(
                 title, "description", startDate, null,
-                "marché", lat, lon, "https://example.com", null, "OpenAgenda Marseille");
+                "marché", lat, lon, "https://example.com", null, "OpenAgenda Marseille", null, null, null);
     }
 
     @Test

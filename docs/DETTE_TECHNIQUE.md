@@ -8,6 +8,31 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 
 ---
 
+## Backend — activités existantes sans adresse/ville (pas de backfill)
+
+* **Détecté** : en traitant LL-EF-008 (5 septembre 2026).
+* **Où** : table `activity`, colonnes `address`/`city`/`postal_code`
+  ajoutées par la migration `V15__add_address_to_activity.sql`.
+* **Nature** : ces trois colonnes sont résolues à l'écriture (voir
+  `docs/02_Architecture/ADR-0001-adresse-structuree-activites.md`) —
+  aucun backfill rétroactif n'a été fait sur les activités déjà en base
+  (démo + contributions + imports antérieurs à ce ticket), qui restent
+  donc avec ces trois champs à `null` tant qu'elles ne sont pas
+  re-géocodées (contribution) ou ré-importées (source).
+* **Impact réel** : ces activités sont regroupées sous « Ville non
+  renseignée » dans la vue liste (LL-EF-008) et affichent leurs
+  coordonnées brutes en repli dans le popup/détail
+  (`formatActivityLocation`, frontend) — dégradation gracieuse, pas de
+  rejet ni d'erreur.
+* **Pourquoi pas corrigé immédiatement** : un backfill (re-géocodage en
+  masse de toutes les activités existantes) est un traitement distinct,
+  avec son propre risque (volume d'appels Nominatim, limite de
+  1 req/s) — hors périmètre d'un ticket frontend/affichage.
+* **Statut** : ouvert, à arbitrer par Alex (utile seulement si le volume
+  d'activités anciennes sans ville devient gênant en pratique).
+
+---
+
 ## Frontend — vulnérabilité `nanoid` (sévérité haute)
 
 * **Détecté** : lors de la vérification de LL-4011 (13 août 2026).

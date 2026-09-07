@@ -103,14 +103,14 @@ class ImportServiceIntegrationTest {
     private CollectedActivity validItem(String sourceName, String externalId, String title) {
         return new CollectedActivity(
                 title, "description", LocalDateTime.now().plusDays(1), null,
-                "marché", 43.2965, 5.3698, "https://example.com", externalId, sourceName);
+                "marché", 43.2965, 5.3698, "https://example.com", externalId, sourceName, null, null, null);
     }
 
     private CollectedActivity invalidItem(String sourceName) {
         // Titre vide : rejeté par NormalizationService (LL-5005).
         return new CollectedActivity(
                 "   ", "description", LocalDateTime.now().plusDays(1), null,
-                "marché", 43.2965, 5.3698, "https://example.com", "ext-invalid", sourceName);
+                "marché", 43.2965, 5.3698, "https://example.com", "ext-invalid", sourceName, null, null, null);
     }
 
     private Long sourceIdFor(String sourceName) {

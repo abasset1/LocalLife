@@ -48,6 +48,31 @@ import org.springframework.data.annotation.Id;
  * Rien ne change encore côté visibilité publique : l'exclusion des
  * activités non {@code PUBLISHED} des recherches publiques est le
  * périmètre de LL-6004, pas de celui-ci.
+ *
+ * {@code address}/{@code city}/{@code postalCode} ajoutés en LL-EF-008
+ * (voir {@code docs/02_Architecture/ADR-0001-adresse-structuree.md}) :
+ * jusqu'ici seules {@code latitude}/{@code longitude} étaient stockées,
+ * ce qui ne permettait ni d'afficher une adresse lisible, ni de regrouper
+ * les activités par ville (besoin de la vue liste LL-EF-008). Résolus une
+ * seule fois, à l'écriture :
+ * <ul>
+ *   <li>contribution manuelle ({@code ActivityService#createActivity}) :
+ *       {@code address} est le texte saisi par le contributeur (déjà
+ *       validé — il a servi au géocodage LL-3012) ; {@code city}/
+ *       {@code postalCode} proviennent de la même réponse Nominatim
+ *       (champ {@code addressdetails}), sans appel réseau
+ *       supplémentaire ;</li>
+ *   <li>import ({@code NormalizationService}) : les trois champs
+ *       proviennent directement de {@code CollectedActivity}, elle-même
+ *       alimentée par l'objet {@code location} déjà renvoyé par l'API du
+ *       collecteur (ex. OpenAgenda) — même principe que {@code url}
+ *       (LL-6002) : une donnée déjà présente dans la réponse de la
+ *       source, reprise plutôt que perdue.</li>
+ * </ul>
+ * Les trois champs sont nullables (activités existantes non re-géocodées/
+ * ré-importées, ou source ne fournissant pas cette donnée) : aucune
+ * activité ne doit être rejetée pour leur absence, voir
+ * {@code NormalizationService#isValid}, qui ne les valide pas.
  */
 public record Activity(
         @Id Long id,
@@ -61,5 +86,8 @@ public record Activity(
         String status,
         Long sourceId,
         String importKey,
-        String url) {
+        String url,
+        String address,
+        String city,
+        String postalCode) {
 }

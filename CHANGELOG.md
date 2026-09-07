@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.3 — 2026-09-06
+
+### Sprint Évol-Fix / LL-EF-008 — Ajouter une liste des activités
+- Bouton « Liste » ajouté dans le bandeau de filtres, à côté de « Filtrer par catégorie » ; bascule Carte ↔ Liste avec état actif visible (`aria-pressed`).
+- Vue liste : activités regroupées par ville, triées par date à l'intérieur de chaque ville ; chaque ligne affiche titre, date (+ heure si non nulle), catégorie. Clic sur une ligne : détail complet dans une modale (adresse, date/heure, catégorie, source).
+- Écart trouvé en traitant ce ticket : aucune notion de ville n'existait dans le modèle métier (seules `latitude`/`longitude` étaient stockées) — changement de modèle documenté dans `docs/02_Architecture/ADR-0001-adresse-structuree-activites.md`. Trois colonnes nullables ajoutées à `activity` (`address`, `city`, `postal_code`, migration `V15` — `V14` déjà pris par LL-EF-005), résolues une seule fois à l'écriture (contribution manuelle : réutilisation de l'appel Nominatim existant avec `addressdetails=1` ; import : champs déjà présents dans l'objet `location` d'OpenAgenda, jusqu'ici ignorés). Aucun appel réseau supplémentaire.
+- Demande complémentaire d'Alex traitée dans le même changement : la carte et le détail affichent désormais une adresse lisible (`address`, repli sur `city` puis sur les coordonnées) au lieu des coordonnées GPS brutes.
+- `LL-EF-006` et `LL-EF-007` restent non traités (ticket pris hors ordre à la demande d'Alex).
+
 ## 0.9.2 — 2026-09-02
 
 ### Sprint Évol-Fix / LL-EF-001 — Revoir l'affichage de la saisie d'une activité
