@@ -190,7 +190,8 @@ class SourceServiceTest {
         Source manualSource = new Source(1L, "Saisie manuelle", "MANUAL", null, "ACTIVE", null, null, null);
         Activity linkedActivity = new Activity(
                 42L, "Marché de Noël", "description", "marché", 43.2965, 5.3698,
-                LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED", 2L, "external:key", null);
+                LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED", 2L, "external:key", null,
+                null, null, null);
         when(sourceRepository.findById(2L)).thenReturn(Optional.of(source));
         when(sourceRepository.findByType("MANUAL")).thenReturn(Optional.of(manualSource));
         when(activityRepository.findBySourceId(2L)).thenReturn(List.of(linkedActivity));

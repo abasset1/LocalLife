@@ -149,7 +149,10 @@ public class SourceService {
                 activity.status(),
                 sourceId,
                 activity.importKey(),
-                activity.url());
+                activity.url(),
+                activity.address(),
+                activity.city(),
+                activity.postalCode());
     }
 
     private void validate(String name, String type) {
