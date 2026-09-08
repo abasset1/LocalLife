@@ -28,6 +28,14 @@ import java.time.LocalDateTime;
  * re-géocodées/ré-importées, ou source ne fournissant pas cette donnée —
  * le frontend doit prévoir un repli (voir {@code App.tsx}).
  *
+ * {@code postalCode} ajouté en LL-10005 (contrat
+ * {@code docs/02_Architecture/LOCATION_CONTRACT.md}, LL-10001) : jusqu'ici
+ * présent sur {@code Activity} (LL-EF-008) mais absent de cette réponse,
+ * seul endpoint exposant {@code address}/{@code city} sans lui — écart
+ * documenté dans le contrat. Même nullabilité que {@code address}/
+ * {@code city} : présent quand la donnée d'origine (géocodage ou source
+ * importée) le fournit, {@code null} sinon, jamais déduit.
+ *
  * Uniquement utilisée par {@code getNearbyActivities}/
  * {@code getActivitiesWithinBounds} (les deux endpoints qui alimentent la
  * carte) : {@code getAllActivities}/{@code getActivityById} continuent de
@@ -48,7 +56,8 @@ public record ActivityResponse(
         String sourceName,
         String url,
         String address,
-        String city) {
+        String city,
+        String postalCode) {
 
     public static ActivityResponse from(Activity activity, String sourceName) {
         return new ActivityResponse(
@@ -64,6 +73,7 @@ public record ActivityResponse(
                 sourceName,
                 activity.url(),
                 activity.address(),
-                activity.city());
+                activity.city(),
+                activity.postalCode());
     }
 }

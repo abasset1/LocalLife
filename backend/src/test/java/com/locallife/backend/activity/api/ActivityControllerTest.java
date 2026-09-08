@@ -194,6 +194,37 @@ class ActivityControllerTest {
     }
 
     @Test
+    void getNearbyActivities_ShouldExposeAddressCityAndPostalCode() {
+        // LL-10005 : postalCode manquait jusqu'ici sur ActivityResponse
+        // (seul endpoint exposant address/city sans lui, voir
+        // LOCATION_CONTRACT.md). Les tests précédents utilisaient tous des
+        // activités avec address/city/postalCode à null, ce qui ne
+        // démontrait pas la propagation d'une valeur réelle.
+        Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null,
+                "Quai du Port", "Marseille", "13002");
+        Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
+        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
+                .thenReturn(List.of(nearby));
+        when(sourceService.getAllSources()).thenReturn(List.of(source));
+
+        // When
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        @SuppressWarnings("unchecked")
+        List<ActivityResponse> body = (List<ActivityResponse>) response.getBody();
+        ActivityResponse activityResponse = body.get(0);
+        assertEquals("Quai du Port", activityResponse.address());
+        assertEquals("Marseille", activityResponse.city());
+        assertEquals("13002", activityResponse.postalCode());
+        assertEquals(43.29, activityResponse.latitude());
+        assertEquals(5.37, activityResponse.longitude());
+    }
+
+    @Test
     void getNearbyActivities_ShouldReturnBadRequest_WhenParamsInvalid() {
         // Given
         when(activityService.findNearby(null, "5.3739", "5", null, null))
@@ -245,6 +276,33 @@ class ActivityControllerTest {
         // LL-8006 : sourceId (technique) est résolu en sourceName (lisible) dans la réponse.
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(List.of(ActivityResponse.from(inBounds, "OpenAgenda — Avignon")), response.getBody());
+    }
+
+    @Test
+    void getActivitiesWithinBounds_ShouldExposeAddressCityAndPostalCode() {
+        // LL-10005 : même vérification que getNearbyActivities ci-dessus,
+        // pour le second endpoint concerné par le contrat LOCATION_CONTRACT.md.
+        Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null,
+                "Quai du Port", "Marseille", "13002");
+        Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
+        when(activityService.findWithinBounds(
+                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05"))
+                .thenReturn(List.of(inBounds));
+        when(sourceService.getAllSources()).thenReturn(List.of(source));
+
+        // When
+        ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
+                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        @SuppressWarnings("unchecked")
+        List<ActivityResponse> body = (List<ActivityResponse>) response.getBody();
+        ActivityResponse activityResponse = body.get(0);
+        assertEquals("Quai du Port", activityResponse.address());
+        assertEquals("Marseille", activityResponse.city());
+        assertEquals("13002", activityResponse.postalCode());
     }
 
     @Test
