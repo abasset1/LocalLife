@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.4 — 2026-09-06
+
+### Sprint Évol-Fix / LL-EF-006 — Créer une interface utilisateur
+- Nouvelle page `/profile` : consultation (rôle, date d'inscription) et modification (username/email) du profil de l'utilisateur connecté, déconnexion accessible depuis cette page. Lien « Mon profil » ajouté dans l'en-tête, pour tout utilisateur connecté.
+- Nouveaux endpoints `GET`/`PATCH /api/v1/users/me` : l'utilisateur cible est résolu exclusivement depuis le JWT (`JwtAuthentication`), jamais depuis un paramètre de requête — impossible de consulter/modifier le profil d'un autre utilisateur par ce chemin.
+- `role`/`passwordHash` ne sont jamais modifiables via `PATCH /api/v1/users/me` (changement de mot de passe hors périmètre, prévu pour LL-EF-007).
+- Écart de sécurité trouvé et corrigé en traitant ce ticket : `GET /api/v1/users/{id}` n'avait aucune protection (accessible à quiconque, sans authentification) — restreint au rôle `ADMIN`, cet endpoint n'étant consommé par aucun client (frontend ni mobile).
+
 ## 0.9.3 — 2026-09-06
 
 ### Sprint Évol-Fix / LL-EF-008 — Ajouter une liste des activités

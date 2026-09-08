@@ -448,13 +448,15 @@ body {
     color: #64748b;
 }
 
-.header-admin-link {
+.header-admin-link,
+.header-profile-link {
     font-size: 0.9rem;
     color: #2563eb;
     text-decoration: none;
 }
 
-.header-admin-link:hover {
+.header-admin-link:hover,
+.header-profile-link:hover {
     text-decoration: underline;
 }
 
@@ -613,6 +615,90 @@ body {
     display: flex;
     gap: 0.6rem;
     margin-top: 1rem;
+}
+
+/*
+ * LL-EF-006 : page de profil. Réutilise `.admin-shell`/`.admin-header`
+ * (voir plus haut) pour la structure générale de la page, et le même
+ * motif dt/dd que `.admin-activity-meta` pour les informations en
+ * lecture seule — cohérence visuelle avec AdminPage plutôt qu'un
+ * troisième système de mise en page.
+ */
+.profile-content {
+    padding: 1.25rem 1.5rem;
+    max-width: 420px;
+}
+
+.profile-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.5rem 1rem;
+    margin: 0 0 1.5rem;
+    padding: 1rem 1.25rem;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.profile-meta dt {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.profile-meta dd {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1.25rem;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.profile-form label {
+    font-size: 0.85rem;
+    color: #334155;
+}
+
+.profile-form input {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+}
+
+.profile-form button {
+    padding: 0.5rem 0.8rem;
+    border: none;
+    border-radius: 4px;
+    background-color: #2563eb;
+    color: #ffffff;
+    cursor: pointer;
+    align-self: flex-start;
+}
+
+.profile-form button:disabled {
+    background-color: #93c5fd;
+    cursor: not-allowed;
+}
+
+.profile-logout-button {
+    margin-top: 1.5rem;
+    padding: 0.5rem 0.8rem;
+    border: 1px solid #dc2626;
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: #dc2626;
+    cursor: pointer;
+}
+
+.profile-logout-button:hover {
+    background-color: #fef2f2;
 }
 
 .admin-approve-button {

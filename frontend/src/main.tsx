@@ -9,6 +9,7 @@ import App from "./App";
 import AdminPage from "./pages/AdminPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
+import ProfilePage from "./pages/ProfilePage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 
@@ -18,6 +19,7 @@ createRoot(document.getElementById("root")!).render(
             <Routes>
                 <Route element={<App />} path="/" />
                 <Route element={<AdminPage />} path="/admin" />
+                <Route element={<ProfilePage />} path="/profile" />
                 <Route element={<LoginPage />} path="/login" />
                 <Route element={<RegisterPage />} path="/register" />
                 <Route element={<ForgotPasswordPage />} path="/forgot-password" />

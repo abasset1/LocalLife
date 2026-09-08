@@ -247,17 +247,29 @@ Créer une interface dédiée permettant à l'utilisateur de gérer son compte e
 
 ### Critères d'acceptation
 
-- [ ] Un utilisateur connecté peut accéder à son interface utilisateur.
-- [ ] Les informations de son compte sont affichées.
-- [ ] Les informations modifiables peuvent être modifiées.
-- [ ] Les modifications sont correctement persistées.
-- [ ] La déconnexion est accessible.
-- [ ] Un utilisateur non connecté ne peut pas accéder aux données d'un autre utilisateur.
-- [ ] Les contrôles d'accès sont également appliqués côté backend.
+- [x] Un utilisateur connecté peut accéder à son interface utilisateur.
+- [x] Les informations de son compte sont affichées.
+- [x] Les informations modifiables peuvent être modifiées.
+- [x] Les modifications sont correctement persistées.
+- [x] La déconnexion est accessible.
+- [x] Un utilisateur non connecté ne peut pas accéder aux données d'un autre utilisateur.
+- [x] Les contrôles d'accès sont également appliqués côté backend.
 
 **Priorité :** Haute  
 **Type :** Évolution / UX / Compte utilisateur
 
+### Note d'implémentation
+
+Nouveaux endpoints `GET`/`PATCH /api/v1/users/me` (username/email
+modifiables ; `role`/`passwordHash` jamais via ce chemin — le
+changement de mot de passe reste une fonctionnalité future, voir
+LL-EF-007). L'utilisateur cible est résolu exclusivement depuis le JWT
+(`JwtAuthentication`), jamais depuis un paramètre de requête.
+
+Écart de sécurité trouvé et corrigé en traitant ce ticket :
+`GET /api/v1/users/{id}` n'avait **aucune** protection (accessible sans
+authentification, à n'importe qui) — restreint au rôle `ADMIN`
+(endpoint non consommé par le frontend ni le mobile).
 
 ---
 

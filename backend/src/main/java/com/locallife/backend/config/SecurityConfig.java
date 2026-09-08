@@ -53,6 +53,21 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   que les autres endpoints d'administration ci-dessus (voir
  *   {@code AdminImportController}). Déclenchement manuel du pipeline
  *   d'import existant (Sprint 5) — aucune planification automatique.
+ * Endpoints protégés (LL-EF-006) :
+ * - GET/PATCH /api/v1/users/me : utilisateur connecté (JWT valide
+ *   requis) — consultation/modification de son propre profil, voir
+ *   {@code UserController}. Déclarés AVANT la règle générale
+ *   ci-dessous : Spring Security applique la première règle qui
+ *   correspond, donc l'ordre est significatif ici.
+ * - GET /api/v1/users/{id} : jusqu'ici {@code permitAll()} par défaut
+ *   (aucune règle dédiée n'existait), ce qui permettait à quiconque de
+ *   consulter le profil de n'importe quel utilisateur par id — écart
+ *   trouvé en traitant ce ticket (critère d'acceptation « un
+ *   utilisateur non connecté ne peut pas accéder aux données d'un
+ *   autre utilisateur »). Restreint au rôle {@code ADMIN}, même posture
+ *   que {@code POST /api/v1/users} ci-dessus : cet endpoint n'est
+ *   consommé par aucun client (frontend ni mobile), un usage
+ *   d'administration/support est la seule justification restante.
  * Tous les autres endpoints restent accessibles sans JWT (consultation
  * publique des activités/catégories, inscription/connexion).
  */
@@ -73,6 +88,13 @@ public class SecurityConfig {
                 .addFilterBefore(new JwtFilter(jwtSecret), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/activities").authenticated()
+                        // LL-EF-006 : règles /me déclarées avant la règle générale
+                        // GET /api/v1/users/{id} ci-dessous (voir la javadoc de
+                        // cette classe) — l'ordre conditionne quelle règle
+                        // s'applique.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/users/me").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/*").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/users").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/activities").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/publish").hasRole("ADMIN")

@@ -160,8 +160,17 @@ compilation ont suivi, des sites de construction `Activity`/
 (`SourceService#withSourceId`, puis 4 tests d'intégration) — la CI les
 a détectés, corrigés dans la foulée.
 
+`LL-EF-006` (interface utilisateur, page de profil) traité. Nouveaux
+endpoints `GET`/`PATCH /api/v1/users/me` (utilisateur résolu
+exclusivement depuis le JWT, jamais un paramètre de requête).
+Écart de sécurité trouvé et corrigé au passage :
+`GET /api/v1/users/{id}` n'avait aucune protection avant ce ticket
+(accessible sans authentification) — restreint au rôle `ADMIN`, endpoint
+non consommé par aucun client. Aucun changement de modèle métier, pas
+d'ADR nécessaire.
+
 Prochain ticket de ce sprint, sauf arbitrage contraire d'Alex :
-`LL-EF-006` (interface utilisateur).
+`LL-EF-007` (réinitialisation du mot de passe).
 
 ## Règles
 

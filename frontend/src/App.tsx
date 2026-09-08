@@ -644,6 +644,15 @@ function App() {
                         <div className="header-user">
                             <span>Bonjour, {currentUser.email}</span>
                             {/*
+                              LL-EF-006 : accès au profil, pour tout utilisateur connecté
+                              (contrairement au lien Administration ci-dessous, réservé au
+                              rôle ADMIN) — critère d'acceptation « un utilisateur connecté
+                              peut accéder à son interface utilisateur ».
+                            */}
+                            <Link className="header-profile-link" to="/profile">
+                                Mon profil
+                            </Link>
+                            {/*
                               LL-EF-004 : lien affiché uniquement pour un utilisateur avec le
                               rôle ADMIN — confort de navigation, pas une protection : l'accès
                               réel est vérifié à l'ouverture de /admin (AdminPage) et, de toute
