@@ -1269,6 +1269,146 @@ Cette fonctionnalité pourra ultérieurement permettre :
 
 ---
 
+## LL-EF-021 — Créer des alertes par catégorie et périmètre géographique
+
+### Objectif
+
+Permettre à un utilisateur de créer des alertes afin d'être informé lorsqu'un nouvel événement correspondant à ses critères est disponible.
+
+### Fonctionnement
+
+L'utilisateur peut créer une alerte en définissant :
+
+- une ou plusieurs catégories ;
+- une ville de référence ;
+- un périmètre autour de cette ville.
+
+Exemple :
+
+> **Concerts — Avignon — 30 km**
+
+L'utilisateur sera informé lorsqu'un nouvel événement correspondant à ces critères est disponible.
+
+### Création d'une alerte
+
+L'interface doit permettre de :
+
+- sélectionner une ou plusieurs catégories ;
+- rechercher et sélectionner une ville ;
+- choisir un périmètre autour de cette ville ;
+- activer ou désactiver l'alerte ;
+- donner éventuellement un nom à l'alerte.
+
+### Périmètre
+
+Le périmètre doit être calculé géographiquement à partir de la position de référence de la ville.
+
+Exemple :
+
+`Avignon + 30 km`
+
+Un événement est considéré comme correspondant si ses coordonnées GPS se trouvent dans le périmètre défini.
+
+Le calcul doit être effectué côté backend afin de garantir un comportement cohérent.
+
+### Notifications
+
+Lorsqu'un nouvel événement correspondant à une alerte est disponible :
+
+- une notification est générée ;
+- l'utilisateur peut accéder directement à l'événement ;
+- une même alerte ne doit pas générer plusieurs notifications pour le même événement.
+
+Exemple :
+
+> **Nouvel événement près d'Avignon**
+>
+> « Concert au Palais des Papes » correspond à votre alerte **Concerts — Avignon — 30 km**.
+>
+> [Voir l'événement]
+
+### Gestion des alertes
+
+L'utilisateur doit pouvoir :
+
+- consulter ses alertes ;
+- créer une alerte ;
+- modifier une alerte ;
+- désactiver une alerte ;
+- réactiver une alerte ;
+- supprimer une alerte.
+
+### Critères d'acceptation
+
+- [ ] Un utilisateur connecté peut créer une alerte.
+- [ ] Une alerte peut cibler une ou plusieurs catégories.
+- [ ] Une alerte possède une ville de référence.
+- [ ] Une alerte possède un périmètre géographique.
+- [ ] Le périmètre est exprimé en kilomètres.
+- [ ] Le système détermine si un événement appartient au périmètre à partir de ses coordonnées GPS.
+- [ ] L'utilisateur peut consulter ses alertes.
+- [ ] L'utilisateur peut modifier une alerte.
+- [ ] L'utilisateur peut désactiver une alerte.
+- [ ] L'utilisateur peut supprimer une alerte.
+- [ ] Un nouvel événement correspondant à une alerte déclenche une notification.
+- [ ] Un même événement ne génère pas plusieurs notifications pour une même alerte.
+- [ ] Un événement hors périmètre ne déclenche pas l'alerte.
+- [ ] Un événement ne correspondant pas aux catégories sélectionnées ne déclenche pas l'alerte.
+
+### Architecture
+
+Créer une entité dédiée aux alertes.
+
+Exemple conceptuel :
+
+`User → Alert`
+
+Une alerte pourrait contenir notamment :
+
+- `user`
+- `name`
+- `categories`
+- `city`
+- `latitude`
+- `longitude`
+- `radiusKm`
+- `enabled`
+- `createdAt`
+- `updatedAt`
+
+La ville doit être associée à des coordonnées GPS afin que le calcul du périmètre ne dépende pas uniquement du nom de la ville.
+
+### Déclenchement
+
+Le système devra déterminer lorsqu'un nouvel événement doit déclencher une alerte.
+
+Le mécanisme exact devra être choisi en fonction de l'architecture existante :
+
+- traitement lors de la création/import d'un événement ;
+- traitement asynchrone ;
+- tâche planifiée ;
+- ou combinaison de ces mécanismes.
+
+Éviter de parcourir inutilement tous les utilisateurs et toutes leurs alertes à chaque consultation de la carte.
+
+### Évolutions possibles
+
+Prévoir une architecture permettant ultérieurement d'ajouter :
+
+- alertes par ville sans rayon ;
+- alertes par date ou période ;
+- alertes par mots-clés ;
+- fréquence des notifications ;
+- notifications e-mail ;
+- notifications push mobile ;
+- alertes sur plusieurs villes ;
+- alertes « ce week-end ».
+
+**Priorité :** Haute  
+**Type :** Évolution / Notifications / Recherche / Géolocalisation
+
+---
+
 
 # À ajouter
 
