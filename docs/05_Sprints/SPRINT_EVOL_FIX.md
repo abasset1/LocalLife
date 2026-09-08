@@ -382,7 +382,54 @@ lisible (`address`) au lieu des coordonnées GPS brutes, avec repli sur
 ré-importées.
 
 ---
+## LL-EF-009 — Afficher l'adresse d'une activité
 
+### Objectif
+
+Afficher une adresse lisible lorsqu'un utilisateur consulte le détail d'une activité depuis la carte ou la liste.
+
+### Principe
+
+Les activités disposent déjà de coordonnées GPS obtenues lors de leur création à partir d'une adresse.
+
+Le système doit pouvoir effectuer un géocodage inverse :
+
+Coordonnées GPS → Adresse lisible
+
+### Comportement attendu
+
+- Lorsqu'un utilisateur clique sur une activité, son détail est affiché.
+- L'adresse correspondant aux coordonnées GPS de l'activité est affichée.
+- L'adresse doit être présentée sous une forme lisible pour l'utilisateur.
+- Le système doit gérer le cas où aucune adresse ne peut être déterminée.
+- Le chargement de l'adresse ne doit pas bloquer l'affichage du reste des informations de l'activité.
+
+### Critères d'acceptation
+
+- [ ] Le détail d'une activité affiche son adresse.
+- [ ] L'adresse est obtenue à partir des coordonnées GPS de l'activité.
+- [ ] Le géocodage inverse est effectué via le service de géocodage utilisé par LocalLife.
+- [ ] Une erreur du service de géocodage inverse n'empêche pas l'affichage de l'activité.
+- [ ] Un message ou une valeur de remplacement est affiché lorsqu'aucune adresse n'est disponible.
+- [ ] L'adresse affichée correspond à la position GPS de l'activité.
+- [ ] Le fonctionnement est identique depuis la carte et depuis la liste.
+
+### Architecture
+
+Les coordonnées GPS restent la donnée de référence stockée pour la localisation de l'activité.
+
+L'adresse retournée par le géocodage inverse ne doit pas être persistée en base dans le cadre de ce ticket, sauf nécessité identifiée lors de l'implémentation.
+
+### Performance
+
+Éviter de déclencher plusieurs requêtes de géocodage inverse pour une même activité lors d'une consultation.
+
+Prévoir si nécessaire un mécanisme de cache côté backend ou frontend.
+
+**Priorité :** Moyenne  
+**Type :** Évolution / UX / Géolocalisation
+
+---
 # À ajouter
 
 Les prochains besoins identifiés seront ajoutés à cette section puis transformés en tickets numérotés.
