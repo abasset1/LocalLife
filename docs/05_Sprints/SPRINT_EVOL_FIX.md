@@ -1,4 +1,4 @@
-# Sprint Évol-Fix
+il# Sprint Évol-Fix
 
 > Sprint dédié aux évolutions fonctionnelles, améliorations UX et corrections identifiées sur LocalLife.
 >
@@ -924,6 +924,351 @@ Cela permettra de faire évoluer ultérieurement le système vers plusieurs cont
 **Type :** Évolution / UX / Événements / Contact
 
 ---
+
+## LL-EF-017 — Rendre le nom utilisateur unique
+
+### Objectif
+
+Permettre d'identifier un utilisateur de manière unique dans LocalLife afin de pouvoir notamment le rechercher et l'ajouter comme ami.
+
+### Fonctionnalité attendue
+
+Chaque utilisateur possède un **nom utilisateur (username)** unique.
+
+Ce nom est différent de l'adresse e-mail et peut être utilisé publiquement pour identifier l'utilisateur.
+
+### Création / modification
+
+- [ ] Un utilisateur possède un username.
+- [ ] Le username est unique dans LocalLife.
+- [ ] Deux utilisateurs ne peuvent pas avoir le même username.
+- [ ] Le username peut être affiché publiquement.
+- [ ] L'utilisateur peut modifier son username selon les règles définies.
+- [ ] Une modification vérifie immédiatement la disponibilité du nouveau username.
+- [ ] L'adresse e-mail reste indépendante du username.
+
+### Contraintes
+
+Définir des règles cohérentes pour les usernames :
+
+- longueur minimale et maximale ;
+- caractères autorisés ;
+- gestion des espaces ;
+- gestion de la casse ;
+- usernames réservés.
+
+La comparaison doit empêcher deux usernames considérés comme identiques d'être enregistrés avec une différence de casse.
+
+Exemple :
+
+`AlexBasset` et `alexbasset` doivent être considérés comme identiques.
+
+### Sécurité
+
+- [ ] L'unicité est garantie côté base de données.
+- [ ] L'unicité est également contrôlée côté backend.
+- [ ] Un username ne peut pas être usurpé par un autre utilisateur.
+
+**Priorité :** Haute  
+**Type :** Évolution / Utilisateur / Social
+
+
+---
+
+## LL-EF-018 — Rechercher et ajouter un utilisateur comme ami
+
+### Objectif
+
+Permettre aux utilisateurs de retrouver d'autres utilisateurs LocalLife et de leur envoyer une demande d'ami.
+
+### Recherche
+
+L'utilisateur doit pouvoir rechercher un autre utilisateur à partir de son username.
+
+La recherche doit retourner uniquement les informations publiques nécessaires à l'identification de l'utilisateur.
+
+Exemple :
+
+> @alexbasset
+
+### Demande d'ami
+
+Depuis le résultat de recherche, l'utilisateur peut envoyer une demande d'ami.
+
+Le destinataire doit pouvoir :
+
+- accepter la demande ;
+- refuser la demande.
+
+### États d'une relation
+
+Prévoir un système permettant de distinguer notamment :
+
+- aucune relation ;
+- demande envoyée ;
+- demande reçue ;
+- amis ;
+- demande refusée ou annulée.
+
+### Comportement attendu
+
+- [ ] Un utilisateur peut rechercher un autre utilisateur par username.
+- [ ] Le résultat affiche clairement l'utilisateur trouvé.
+- [ ] Un utilisateur peut envoyer une demande d'ami.
+- [ ] Le destinataire peut accepter la demande.
+- [ ] Le destinataire peut refuser la demande.
+- [ ] Une demande déjà envoyée ne peut pas être envoyée une seconde fois.
+- [ ] Deux utilisateurs ne peuvent pas avoir plusieurs relations d'amitié simultanées.
+- [ ] Un utilisateur ne peut pas s'ajouter lui-même.
+- [ ] Une fois la demande acceptée, les deux utilisateurs sont considérés comme amis.
+- [ ] Un utilisateur peut consulter sa liste d'amis.
+- [ ] Un utilisateur peut retirer un ami.
+
+### Confidentialité
+
+La recherche par username ne doit exposer que les informations publiques du compte.
+
+Ne jamais exposer :
+
+- mot de passe ;
+- hash du mot de passe ;
+- informations d'authentification ;
+- données privées du compte.
+
+### Architecture
+
+Créer une relation dédiée entre utilisateurs plutôt que de stocker une simple liste d'identifiants dans `User`.
+
+Exemple conceptuel :
+
+`User ←→ Friendship ←→ User`
+
+La relation doit permettre de gérer proprement son état et son historique.
+
+Prévoir une architecture suffisamment générique pour permettre ultérieurement :
+
+- notifications de demandes d'amis ;
+- partage d'événements avec ses amis ;
+- événements créés par ses amis ;
+- invitations à des événements ;
+- autres fonctionnalités sociales.
+
+**Priorité :** Haute  
+**Type :** Évolution / Utilisateur / Social
+
+---
+
+## LL-EF-019 — Notification lorsqu'un ami like un événement
+
+### Objectif
+
+Permettre à un utilisateur d'être informé lorsqu'un de ses amis like un événement.
+
+### Fonctionnement
+
+Lorsqu'un utilisateur like un événement :
+
+1. Le système vérifie si cet utilisateur possède des amis.
+2. Une notification est créée pour les amis concernés.
+3. La notification indique quel ami a liké quel événement.
+4. L'utilisateur peut accéder directement à l'événement depuis la notification.
+
+### Exemple
+
+> **Alex a aimé un événement**
+>
+> Alex a aimé « Concert au Palais des Papes ».
+>
+> [Voir l'événement]
+
+### Conditions
+
+Une notification doit être créée uniquement lorsque :
+
+- l'utilisateur qui like est effectivement ami avec le destinataire ;
+- l'événement est accessible au destinataire.
+
+Les utilisateurs qui ne sont pas amis ne doivent pas recevoir cette notification.
+
+### Gestion des notifications
+
+Prévoir une interface permettant à l'utilisateur de :
+
+- consulter ses notifications ;
+- distinguer les notifications lues et non lues ;
+- ouvrir l'événement concerné depuis une notification ;
+- marquer une notification comme lue.
+
+### Comportement attendu
+
+- [ ] Un like effectué par un utilisateur génère une notification pour ses amis.
+- [ ] La notification identifie l'ami ayant effectué le like.
+- [ ] La notification identifie l'événement concerné.
+- [ ] Cliquer sur la notification ouvre le détail de l'événement.
+- [ ] Une notification possède un état lu/non lu.
+- [ ] Le nombre de notifications non lues peut être affiché dans l'interface utilisateur.
+- [ ] Un utilisateur ne reçoit pas de notification pour son propre like.
+- [ ] Un utilisateur qui n'est plus ami avec l'auteur du like ne reçoit pas de nouvelle notification.
+- [ ] Les notifications sont persistées.
+
+### Cas particuliers
+
+#### Retrait du like
+
+Le retrait d'un like ne doit pas nécessairement générer une nouvelle notification.
+
+Si la notification existante n'a pas encore été consultée, son comportement devra être défini lors de l'implémentation.
+
+#### Événement annulé
+
+Si l'événement est annulé après la création de la notification :
+
+- la notification peut rester dans l'historique ;
+- le lien vers l'événement doit gérer correctement son statut.
+
+### Architecture
+
+Créer un système de notifications générique plutôt qu'une fonctionnalité entièrement spécifique aux likes.
+
+Exemple conceptuel :
+
+`Notification`
+
+avec notamment :
+
+- `recipient`
+- `type`
+- `actor`
+- `event`
+- `createdAt`
+- `readAt`
+
+Le type pourrait être :
+
+`FRIEND_LIKED_EVENT`
+
+Cette architecture permettra d'ajouter ultérieurement d'autres notifications :
+
+- demande d'ami ;
+- demande d'ami acceptée ;
+- ami participant à un événement ;
+- nouvel événement créé par un ami ;
+- etc.
+
+### Confidentialité
+
+Les notifications ne doivent être envoyées qu'aux utilisateurs autorisés à connaître la relation entre l'ami et l'événement.
+
+Aucune information privée du compte ne doit être exposée.
+
+**Priorité :** Moyenne  
+**Type :** Évolution / Social / Notifications / Événements
+
+---
+
+## LL-EF-020 — Participer à un événement et notifier la communauté
+
+### Objectif
+
+Permettre à un utilisateur d'indiquer qu'il participe à un événement et informer les utilisateurs concernés de cette participation.
+
+### Fonctionnalité attendue
+
+Depuis le détail d'un événement, proposer une action :
+
+**« Je participe »**
+
+L'utilisateur peut activer ou désactiver sa participation.
+
+### États
+
+Un utilisateur peut avoir au minimum les états suivants pour un événement :
+
+- aucune participation ;
+- participe.
+
+La participation doit être indépendante du like.
+
+Un utilisateur peut donc :
+
+- liker un événement sans y participer ;
+- participer sans le liker ;
+- liker et participer.
+
+### Notification de la communauté
+
+Lorsqu'un utilisateur indique qu'il participe à un événement, une notification doit être générée pour les utilisateurs de sa communauté, selon les règles de visibilité définies par LocalLife.
+
+Exemple :
+
+> **Alex participe à un événement**
+>
+> Alex participe à « Concert au Palais des Papes ».
+>
+> [Voir l'événement]
+
+Le fonctionnement doit être similaire au système de notification mis en place pour les likes.
+
+### Comportement attendu
+
+- [ ] Un utilisateur connecté peut indiquer « Je participe ».
+- [ ] L'utilisateur peut annuler sa participation.
+- [ ] L'état « Je participe » est clairement visible sur l'événement.
+- [ ] La participation est persistée.
+- [ ] Un utilisateur ne peut pas enregistrer plusieurs participations pour le même événement.
+- [ ] Une participation est indépendante du like.
+- [ ] Lorsqu'un utilisateur participe, la communauté concernée reçoit une notification.
+- [ ] La notification identifie l'utilisateur participant.
+- [ ] La notification identifie l'événement.
+- [ ] Cliquer sur la notification ouvre le détail de l'événement.
+- [ ] Un utilisateur ne reçoit pas de notification pour sa propre participation.
+- [ ] Le retrait d'une participation ne génère pas nécessairement une notification.
+
+### Visibilité
+
+La notion de « communauté » devra être définie précisément lors de l'implémentation.
+
+Elle pourra notamment correspondre :
+
+- aux amis de l'utilisateur ;
+- aux utilisateurs qui le suivent ;
+- ou à une communauté LocalLife plus large.
+
+L'implémentation devra utiliser le mécanisme retenu par le projet plutôt que de coder une règle difficilement modifiable.
+
+### Architecture
+
+Créer une relation dédiée entre l'utilisateur et l'événement.
+
+Exemple conceptuel :
+
+`User ←→ EventParticipation ←→ Event`
+
+Ne pas réutiliser la relation de like.
+
+Prévoir un type de notification dédié :
+
+`FRIEND_GOING_TO_EVENT`
+
+ou un nom équivalent adapté au modèle de notification retenu.
+
+Le système de notification doit rester générique afin de pouvoir gérer les différents événements sociaux.
+
+### Évolutions possibles
+
+Cette fonctionnalité pourra ultérieurement permettre :
+
+- de voir combien de personnes participent à un événement ;
+- de voir lesquels de ses amis participent ;
+- de filtrer les événements auxquels ses amis participent ;
+- d'inviter des amis à participer ;
+- de recevoir une notification lorsqu'un ami participe au même événement.
+
+**Priorité :** Haute  
+**Type :** Évolution / Social / Notifications / Événements
+
+---
+
 
 # À ajouter
 
