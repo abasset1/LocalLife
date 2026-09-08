@@ -510,6 +510,344 @@ Cela permettra notamment de gérer correctement les changements d'informations d
 **Type :** Évolution / Activités / Droits utilisateur
 
 ---
+
+## LL-EF-011 — Créer un compte via Google
+
+### Objectif
+
+Permettre à un utilisateur de créer un compte LocalLife ou de se connecter à un compte existant en utilisant son compte Google.
+
+### Fonctionnement attendu
+
+Depuis l'interface de connexion / inscription :
+
+- afficher un bouton **« Continuer avec Google »** ;
+- l'utilisateur est redirigé vers Google pour s'authentifier ;
+- après authentification, LocalLife récupère les informations nécessaires ;
+- si aucun compte LocalLife correspondant n'existe, un compte est créé ;
+- si un compte existe déjà et peut être associé de manière fiable, l'utilisateur est connecté à celui-ci.
+
+### Création du compte
+
+Lors de la première connexion via Google :
+
+- récupérer uniquement les informations nécessaires ;
+- utiliser l'adresse e-mail fournie et vérifiée par Google comme identifiant de compte ;
+- créer l'utilisateur avec le rôle utilisateur standard ;
+- ne pas demander de mot de passe LocalLife pour ce compte.
+
+### Sécurité
+
+- [ ] Utiliser le protocole OAuth 2.0 / OpenID Connect recommandé par Google.
+- [ ] Vérifier correctement l'identité retournée par Google côté backend.
+- [ ] Ne jamais considérer une simple adresse e-mail fournie par le frontend comme une preuve d'identité.
+- [ ] Ne jamais stocker le mot de passe Google.
+- [ ] Les tokens Google ne doivent pas être exposés au frontend ou aux logs inutilement.
+- [ ] Les permissions demandées à Google doivent être limitées aux informations nécessaires.
+
+### Compatibilité avec l'authentification existante
+
+L'ajout de Google ne doit pas casser l'authentification classique.
+
+Un utilisateur doit pouvoir avoir :
+
+- une authentification LocalLife classique ;
+- une authentification Google ;
+- ou, si l'architecture le permet, les deux méthodes associées au même compte.
+
+### Critères d'acceptation
+
+- [ ] Le bouton « Continuer avec Google » est disponible sur l'inscription.
+- [ ] Le bouton est également disponible sur la connexion.
+- [ ] Un nouvel utilisateur peut créer son compte avec Google.
+- [ ] Un utilisateur existant peut se connecter avec Google.
+- [ ] Le compte créé possède les droits utilisateur standards.
+- [ ] L'utilisateur est correctement authentifié dans LocalLife après le retour de Google.
+- [ ] Le JWT/session LocalLife existant est utilisé après authentification Google.
+- [ ] Aucun mot de passe Google n'est stocké par LocalLife.
+- [ ] Les erreurs ou refus d'authentification Google sont correctement gérés.
+- [ ] Le mécanisme fonctionne également sur la future version mobile.
+
+### Architecture
+
+Prévoir dès maintenant une architecture d'authentification permettant plusieurs providers.
+
+Exemple conceptuel :
+
+- `LOCAL`
+- `GOOGLE`
+
+Éviter de faire dépendre directement l'entité `User` du fonctionnement spécifique de Google.
+
+L'association entre un utilisateur LocalLife et son identité Google doit être modélisée proprement afin de permettre l'ajout ultérieur d'autres providers sans refonte de l'authentification.
+
+**Priorité :** Moyenne  
+**Type :** Évolution / Authentification / UX / Sécurité
+
+---
+
+## LL-EF-012 — Liker et consulter ses événements favoris
+
+### Objectif
+
+Permettre à un utilisateur connecté de sauvegarder des événements qu'il apprécie afin de pouvoir les retrouver facilement ultérieurement.
+
+### Fonctionnalités attendues
+
+#### Liker un événement
+
+- Afficher une action permettant de liker un événement.
+- Un utilisateur connecté peut liker un événement.
+- Le like doit être associé à l'utilisateur et à l'événement.
+- Un utilisateur ne peut liker qu'une seule fois le même événement.
+- L'utilisateur peut retirer son like.
+
+#### Consulter ses événements likés
+
+Ajouter dans l'interface utilisateur une section permettant de consulter les événements likés.
+
+La liste doit afficher les événements sauvegardés avec les informations essentielles :
+
+- nom de l'événement ;
+- date ;
+- ville ;
+- catégorie ;
+- éventuellement une image.
+
+Un clic sur un événement permet d'accéder à son détail.
+
+### Comportement attendu
+
+- [ ] Le bouton « J'aime » est visible sur le détail d'un événement.
+- [ ] L'état du bouton indique si l'utilisateur a déjà liké l'événement.
+- [ ] Cliquer sur « J'aime » ajoute l'événement aux favoris.
+- [ ] Cliquer à nouveau retire le like.
+- [ ] Un utilisateur ne peut pas créer plusieurs likes pour le même événement.
+- [ ] Les événements likés sont accessibles depuis l'interface utilisateur.
+- [ ] La liste des événements likés est persistante.
+- [ ] Un événement retiré des favoris disparaît de cette liste.
+- [ ] Un événement liké peut être ouvert depuis la liste.
+- [ ] Un utilisateur non connecté ne peut pas enregistrer de favoris.
+
+### Données
+
+Créer une relation entre :
+
+- l'utilisateur ;
+- l'événement.
+
+Exemple conceptuel :
+
+`User ←→ Event`
+
+via une entité/table de favoris ou de likes.
+
+Cette relation doit être unique afin d'empêcher les doublons.
+
+### Suppression d'un événement
+
+Si un événement liké est annulé ou supprimé de l'affichage public :
+
+- il ne doit plus apparaître comme événement actif ;
+- la gestion de sa présence dans les favoris doit être définie proprement ;
+- aucune donnée orpheline ne doit rester en base.
+
+**Priorité :** Moyenne  
+**Type :** Évolution / UX / Utilisateur / Événements
+
+---
+
+## LL-EF-013 — Ajouter un événement à Google Agenda
+
+### Objectif
+
+Permettre à un utilisateur d'ajouter facilement un événement LocalLife à son agenda Google.
+
+### Fonctionnalité attendue
+
+Depuis le détail d'un événement, proposer une action :
+
+**« Ajouter à Google Agenda »**
+
+L'action doit ouvrir Google Agenda avec les informations de l'événement préremplies.
+
+### Informations à transmettre
+
+Lorsque les informations sont disponibles :
+
+- titre de l'événement ;
+- description ;
+- date ;
+- heure de début ;
+- heure de fin ;
+- adresse ;
+- localisation GPS si compatible ;
+- informations complémentaires utiles.
+
+### Comportement attendu
+
+- [ ] Le bouton « Ajouter à Google Agenda » est disponible sur le détail d'un événement.
+- [ ] Un clic ouvre Google Agenda.
+- [ ] Les informations de l'événement sont préremplies.
+- [ ] L'utilisateur conserve la possibilité de modifier les informations avant l'ajout.
+- [ ] L'adresse de l'événement est correctement transmise.
+- [ ] La date et les horaires sont correctement transmis.
+- [ ] Le fonctionnement est compatible avec la version web.
+- [ ] Le fonctionnement est prévu pour la future version mobile.
+
+### Cas particuliers
+
+- [ ] Si l'événement ne possède pas d'heure de fin, utiliser une durée par défaut cohérente ou ne pas renseigner l'heure de fin.
+- [ ] Si l'événement ne possède pas d'adresse, ne pas générer une localisation incorrecte.
+- [ ] Les événements sans informations suffisantes doivent tout de même pouvoir être ajoutés lorsque cela est possible.
+
+### Architecture
+
+Privilégier dans un premier temps une intégration simple via le mécanisme d'ajout d'événement de Google Agenda.
+
+Il n'est pas nécessaire de demander l'accès au compte Google de l'utilisateur ni de stocker ses identifiants Google pour cette fonctionnalité.
+
+L'utilisateur reste maître de l'ajout final dans son propre agenda.
+
+**Priorité :** Moyenne  
+**Type :** Évolution / UX / Intégration externe
+
+---
+
+## LL-EF-014 — Partager un événement
+
+### Objectif
+
+Permettre à un utilisateur de partager facilement un événement LocalLife avec d'autres personnes via différents moyens de communication.
+
+### Fonctionnalité attendue
+
+Depuis le détail d'un événement, proposer une action :
+
+**« Partager »**
+
+L'utilisateur peut ensuite choisir le moyen de partage disponible sur son appareil ou son navigateur.
+
+### Moyens de partage
+
+Prévoir notamment :
+
+- e-mail ;
+- Facebook ;
+- autres réseaux sociaux compatibles ;
+- applications de messagerie disponibles sur l'appareil ;
+- copie du lien de l'événement.
+
+La liste exacte des services proposés pourra évoluer.
+
+### Informations partagées
+
+Le partage doit contenir au minimum :
+
+- nom de l'événement ;
+- lien direct vers l'événement LocalLife.
+
+Lorsque cela est pertinent, ajouter :
+
+- date ;
+- heure ;
+- ville ;
+- adresse ;
+- courte description.
+
+### Comportement attendu
+
+- [ ] Un bouton « Partager » est disponible sur le détail d'un événement.
+- [ ] L'utilisateur peut choisir un moyen de partage.
+- [ ] Le lien partagé permet d'accéder directement à l'événement.
+- [ ] Le titre de l'événement est utilisé dans le partage.
+- [ ] Les informations principales sont correctement reprises.
+- [ ] L'utilisateur peut copier directement le lien.
+- [ ] Le partage fonctionne sur navigateur desktop.
+- [ ] Le fonctionnement est adapté aux possibilités natives de la future application mobile.
+- [ ] Si un service de partage n'est pas disponible, cela n'empêche pas les autres moyens de fonctionner.
+
+### Architecture
+
+Ne pas créer une implémentation spécifique et rigide pour chaque réseau social.
+
+Prévoir une abstraction de partage permettant d'ajouter ultérieurement de nouveaux services sans modifier le fonctionnement principal de l'événement.
+
+Lorsque le navigateur ou le système le permet, privilégier le mécanisme de partage natif afin de donner accès directement aux applications disponibles sur l'appareil.
+
+### Sécurité et confidentialité
+
+- [ ] Aucune donnée privée de l'utilisateur n'est incluse automatiquement dans le partage.
+- [ ] Le partage ne nécessite pas de donner à LocalLife un accès aux comptes sociaux de l'utilisateur.
+- [ ] Seules les informations publiques de l'événement sont partagées.
+
+**Priorité :** Moyenne  
+**Type :** Évolution / UX / Partage / Réseaux sociaux
+
+---
+
+## LL-EF-015 — « Y aller » vers un événement
+
+### Objectif
+
+Permettre à l'utilisateur de lancer facilement un itinéraire vers le lieu d'un événement depuis sa position actuelle.
+
+### Fonctionnalité attendue
+
+Depuis le détail d'un événement, proposer une action :
+
+**« Y aller »**
+
+L'action ouvre une application de navigation avec la destination de l'événement.
+
+### Destination
+
+Utiliser en priorité les coordonnées GPS de l'événement comme destination.
+
+Lorsque disponible, transmettre également l'adresse de l'événement.
+
+### Navigation
+
+Le système doit pouvoir utiliser les applications de navigation disponibles sur l'appareil, notamment :
+
+- Google Maps ;
+- Apple Plans ;
+- autres applications compatibles avec le système de navigation.
+
+Sur mobile, privilégier l'ouverture de l'application de navigation installée.
+
+Sur navigateur desktop, utiliser le service de cartographie disponible lorsque cela est possible.
+
+### Comportement attendu
+
+- [ ] Un bouton « Y aller » est disponible sur le détail d'un événement disposant d'une localisation.
+- [ ] Un clic sur « Y aller » lance un itinéraire vers l'événement.
+- [ ] Les coordonnées GPS de l'événement sont utilisées comme destination.
+- [ ] L'adresse est également transmise lorsqu'elle est disponible.
+- [ ] La position actuelle de l'utilisateur est utilisée comme point de départ lorsque le service de navigation le permet.
+- [ ] L'utilisateur peut choisir son application de navigation lorsque le système le permet.
+- [ ] Le fonctionnement est adapté à la future version mobile.
+- [ ] Un événement sans localisation ne propose pas l'action « Y aller ».
+
+### Architecture
+
+LocalLife ne doit pas développer son propre moteur de navigation.
+
+La fonctionnalité doit utiliser les mécanismes de deep-link / URL de navigation des services externes ou le système de partage/navigation natif de l'appareil.
+
+Les coordonnées GPS de l'événement restent la source de vérité pour la destination.
+
+### Confidentialité
+
+LocalLife ne doit pas stocker la position actuelle de l'utilisateur uniquement pour permettre cette fonctionnalité.
+
+La position peut être fournie directement au service de navigation utilisé par l'utilisateur.
+
+**Priorité :** Haute  
+**Type :** Évolution / UX / Géolocalisation / Navigation
+
+---
+
 # À ajouter
 
 Les prochains besoins identifiés seront ajoutés à cette section puis transformés en tickets numérotés.
