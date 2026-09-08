@@ -69,6 +69,9 @@ function LoginPage() {
                 </button>
                 {error && <span className="form-message form-message-error">{error}</span>}
                 <p className="auth-switch">
+                    <Link to="/forgot-password">Mot de passe oublié ?</Link>
+                </p>
+                <p className="auth-switch">
                     Pas encore de compte ? <Link to="/register">Créer un compte</Link>
                 </p>
             </form>
