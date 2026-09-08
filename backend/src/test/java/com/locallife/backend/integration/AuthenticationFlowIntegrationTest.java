@@ -121,7 +121,7 @@ class AuthenticationFlowIntegrationTest {
     void registerThenLogin_ShouldAllowAccessToProtectedEndpoint() {
         String token = registerAndLogin(uniqueEmail());
 
-        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37));
+        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37, null, null));
 
         restTestClient().post().uri("/api/v1/activities")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
@@ -138,7 +138,7 @@ class AuthenticationFlowIntegrationTest {
     void createActivity_ShouldPersistCoordinatesReturnedByGeocoding() {
         String token = registerAndLogin(uniqueEmail());
 
-        when(geocodingService.geocode("Vieux-Port, Marseille")).thenReturn(new Coordinates(43.2951, 5.3739));
+        when(geocodingService.geocode("Vieux-Port, Marseille")).thenReturn(new Coordinates(43.2951, 5.3739, null, null));
 
         restTestClient().post().uri("/api/v1/activities")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)

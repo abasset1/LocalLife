@@ -113,7 +113,7 @@ class AdminActivityControllerIntegrationTest {
      * dessus).
      */
     private Activity createPendingActivity(String title, String userToken) {
-        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37));
+        when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37, null, null));
 
         return restTestClient().post().uri("/api/v1/activities")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)

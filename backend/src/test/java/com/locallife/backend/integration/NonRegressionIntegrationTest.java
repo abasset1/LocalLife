@@ -111,7 +111,7 @@ class NonRegressionIntegrationTest {
     }
 
     private Activity createPendingActivity(String title, String userToken) {
-        when(geocodingService.geocode(ADDRESS)).thenReturn(new Coordinates(LATITUDE, LONGITUDE));
+        when(geocodingService.geocode(ADDRESS)).thenReturn(new Coordinates(LATITUDE, LONGITUDE, null, null));
 
         return restTestClient().post().uri("/api/v1/activities")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
