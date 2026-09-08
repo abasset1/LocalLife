@@ -447,4 +447,124 @@ class ActivityRepositoryIntegrationTest {
                 .doesNotContain(wrongStatus.id(), wrongCategory.id(), wrongDate.id(), outsideBounds.id());
     }
 
+    // --- findAllFiltered (LL-10006) ---
+    // Voir docs/02_Architecture/LOCATION_CONTRACT.md, section "Filtre city et tri sort".
+
+    private Activity activityWithCityAndDate(String city, LocalDateTime startDate) {
+        String uniqueTitle = "test-" + UUID.randomUUID();
+        return activityRepository.save(new Activity(
+                null, uniqueTitle, "description", "sport",
+                MARSEILLE_LAT, MARSEILLE_LON, startDate, null, "PUBLISHED", manualSourceId(), null, null,
+                null, city, null));
+    }
+
+    @Test
+    void findAllFiltered_ShouldOnlyReturnMatchingCity_CaseInsensitive() {
+        Activity avignon = activityWithCityAndDate("Avignon", LocalDateTime.now());
+        Activity marseille = activityWithCityAndDate("Marseille", LocalDateTime.now());
+
+        List<Long> resultIds = activityRepository.findAllFiltered("avignon", null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(avignon.id());
+        assertThat(resultIds).doesNotContain(marseille.id());
+    }
+
+    @Test
+    void findAllFiltered_ShouldReturnEmpty_WhenCityMatchesNoActivity() {
+        activityWithCityAndDate("Avignon", LocalDateTime.now());
+
+        List<Long> resultIds = activityRepository.findAllFiltered("ville-inexistante-xyz", null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).isEmpty();
+    }
+
+    @Test
+    void findAllFiltered_ShouldExcludeActivitiesWithNullCity_WhenCityFilterProvided() {
+        Activity withCity = activityWithCityAndDate("Avignon", LocalDateTime.now());
+        Activity withoutCity = activityWithCityAndDate(null, LocalDateTime.now());
+
+        List<Long> resultIds = activityRepository.findAllFiltered("Avignon", null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(withCity.id());
+        assertThat(resultIds).doesNotContain(withoutCity.id());
+    }
+
+    @Test
+    void findAllFiltered_ShouldReturnAllCities_WhenCityNotProvided() {
+        Activity avignon = activityWithCityAndDate("Avignon", LocalDateTime.now());
+        Activity marseille = activityWithCityAndDate("Marseille", LocalDateTime.now());
+
+        List<Long> resultIds = activityRepository.findAllFiltered(null, null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(avignon.id(), marseille.id());
+    }
+
+    @Test
+    void findAllFiltered_ShouldOrderByCityAscending_WhenPrimarySortIsCity() {
+        Activity marseille = activityWithCityAndDate("Marseille", LocalDateTime.now());
+        Activity avignon = activityWithCityAndDate("Avignon", LocalDateTime.now());
+
+        List<Long> resultIds = activityRepository.findAllFiltered(null, "city", null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds.indexOf(avignon.id())).isLessThan(resultIds.indexOf(marseille.id()));
+    }
+
+    @Test
+    void findAllFiltered_ShouldOrderByDateAscending_WhenPrimarySortIsDate() {
+        Activity later = activityWithCityAndDate("Avignon", LocalDateTime.of(2026, 9, 10, 20, 0));
+        Activity earlier = activityWithCityAndDate("Avignon", LocalDateTime.of(2026, 9, 5, 20, 0));
+
+        List<Long> resultIds = activityRepository.findAllFiltered(null, "date", null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds.indexOf(earlier.id())).isLessThan(resultIds.indexOf(later.id()));
+    }
+
+    @Test
+    void findAllFiltered_ShouldOrderByCityThenDate_WhenBothSortKeysProvided() {
+        // À ville égale (Avignon), le tri doit départager par date.
+        Activity avignonLater = activityWithCityAndDate("Avignon", LocalDateTime.of(2026, 9, 10, 20, 0));
+        Activity avignonEarlier = activityWithCityAndDate("Avignon", LocalDateTime.of(2026, 9, 5, 20, 0));
+        Activity marseille = activityWithCityAndDate("Marseille", LocalDateTime.of(2026, 9, 1, 20, 0));
+
+        List<Long> resultIds = activityRepository.findAllFiltered(null, "city", "date")
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds.indexOf(avignonEarlier.id())).isLessThan(resultIds.indexOf(avignonLater.id()));
+        assertThat(resultIds.indexOf(avignonLater.id())).isLessThan(resultIds.indexOf(marseille.id()));
+    }
+
+    @Test
+    void findAllFiltered_ShouldOrderByDateThenCity_WhenSortKeysReversed() {
+        // Priorité inversée par rapport au test précédent : la date prime désormais sur la ville.
+        LocalDateTime sameDate = LocalDateTime.of(2026, 9, 5, 20, 0);
+        Activity marseilleSameDate = activityWithCityAndDate("Marseille", sameDate);
+        Activity avignonSameDate = activityWithCityAndDate("Avignon", sameDate);
+        Activity avignonLaterDate = activityWithCityAndDate("Avignon", LocalDateTime.of(2026, 9, 20, 20, 0));
+
+        List<Long> resultIds = activityRepository.findAllFiltered(null, "date", "city")
+                .stream().map(Activity::id).toList();
+
+        // À date égale, tri par ville : Avignon avant Marseille.
+        assertThat(resultIds.indexOf(avignonSameDate.id())).isLessThan(resultIds.indexOf(marseilleSameDate.id()));
+        // Une date plus tardive passe après, même si sa ville (Avignon) serait triée avant Marseille.
+        assertThat(resultIds.indexOf(marseilleSameDate.id())).isLessThan(resultIds.indexOf(avignonLaterDate.id()));
+    }
+
+    @Test
+    void findAllFiltered_ShouldPlaceNullCityLast_WhenSortedByCity() {
+        Activity withoutCity = activityWithCityAndDate(null, LocalDateTime.now());
+        Activity withCity = activityWithCityAndDate("Avignon", LocalDateTime.now());
+
+        List<Long> resultIds = activityRepository.findAllFiltered(null, "city", null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds.indexOf(withCity.id())).isLessThan(resultIds.indexOf(withoutCity.id()));
+    }
+
 }

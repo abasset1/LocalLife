@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.5 — 2026-09-08
+
+### Sprint 10 / LL-10006 — Ajouter le filtre et le tri par ville
+- `GET /api/v1/activities` accepte désormais deux paramètres optionnels : `city` (filtre exact, insensible à la casse) et `sort` (une ou plusieurs clés parmi `city`/`date`, séparées par une virgule, ex. `sort=city,date`) — contrat détaillé dans `docs/02_Architecture/LOCATION_CONTRACT.md`.
+- Filtrage et tri réalisés côté base de données (requête SQL unique couvrant toutes les combinaisons de tri via des expressions `CASE WHEN`), pas en mémoire côté application.
+- Sans `city` ni `sort`, le comportement historique de l'endpoint est strictement inchangé (aucun `ORDER BY` ajouté).
+- `sort` contenant une valeur inconnue ou une clé en double renvoie `400 Bad Request`. `city` ne correspondant à aucune activité renvoie une liste vide (`200 OK`), pas une erreur.
+- `nearby`/`within-bounds` ne sont pas concernés par ce ticket (leurs contrats respectifs restent inchangés).
+
 ## 0.9.4 — 2026-09-06
 
 ### Sprint Évol-Fix / LL-EF-006 — Créer une interface utilisateur

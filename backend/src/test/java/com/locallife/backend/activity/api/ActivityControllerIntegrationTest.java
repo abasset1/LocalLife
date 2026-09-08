@@ -26,6 +26,39 @@ class ActivityControllerIntegrationTest {
         restTestClient().get().uri("/api/v1/activities").exchange().expectStatus().isOk();
     }
 
+    @Test
+    void getAllActivities_ShouldReturnOk_WhenCityProvided() {
+        // LL-10006 : ville inexistante -> liste vide, pas une erreur (même décision que 'category' sur /nearby).
+        restTestClient().get()
+                .uri("/api/v1/activities?city=ville-inexistante-xyz")
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    void getAllActivities_ShouldReturnOk_WhenSortProvided() {
+        restTestClient().get()
+                .uri("/api/v1/activities?sort=city,date")
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    void getAllActivities_ShouldReturnBadRequest_WhenSortValueUnknown() {
+        restTestClient().get()
+                .uri("/api/v1/activities?sort=unknown")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void getAllActivities_ShouldReturnBadRequest_WhenSortHasDuplicateKey() {
+        restTestClient().get()
+                .uri("/api/v1/activities?sort=city,city")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
     /**
      * LL-8006 : ne plus supposer qu'une activité d'id={@code 1} existe.
      * Ce test échouait en environnement réel (base Postgres locale

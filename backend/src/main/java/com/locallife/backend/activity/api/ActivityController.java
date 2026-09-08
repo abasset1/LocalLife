@@ -53,10 +53,42 @@ public class ActivityController {
         this.sourceService = sourceService;
     }
 
+    /**
+     * Liste des activités (LL-10006 : filtre optionnel par ville et tri
+     * optionnel). Voir le contrat détaillé dans
+     * {@code docs/02_Architecture/LOCATION_CONTRACT.md} (section « Filtre
+     * `city` et tri `sort` »). Endpoint historiquement sans paramètre :
+     * {@code city}/{@code sort} absents préservent le comportement
+     * précédent (voir {@link ActivityService#findAll(String, String)}).
+     */
+    @Operation(
+            summary = "Liste les activités",
+            description = "Retourne toutes les activités, avec filtre optionnel par ville ('city', comparaison "
+                    + "exacte insensible à la casse) et tri optionnel ('sort', une ou plusieurs clés parmi "
+                    + "'city'/'date' séparées par une virgule, ex. 'city,date').")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Recherche effectuée avec succès."),
+        @ApiResponse(responseCode = "400",
+                description = "Le paramètre 'sort' contient une valeur inconnue (autre que 'city'/'date') ou une "
+                        + "clé en double.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     @GetMapping
-    public ResponseEntity<List<Activity>> getAllActivities() {
-        List<Activity> activities = activityService.findAll();
-        return ResponseEntity.ok(activities);
+    public ResponseEntity<Object> getAllActivities(
+            @Parameter(description = "Filtre optionnel sur la ville (correspondance exacte, insensible à la "
+                    + "casse). Absent → aucun filtrage. Ville ne correspondant à aucune activité → liste vide.")
+            @RequestParam(required = false) String city,
+            @Parameter(description = "Tri optionnel : une ou plusieurs clés séparées par une virgule, parmi "
+                    + "'city' et 'date' (ex. 'city', 'date', 'city,date'). Absent → ordre non garanti "
+                    + "(comportement historique inchangé).")
+            @RequestParam(required = false) String sort,
+            HttpServletRequest httpRequest) {
+        try {
+            List<Activity> activities = activityService.findAll(city, sort);
+            return ResponseEntity.ok(activities);
+        } catch (IllegalArgumentException exception) {
+            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        }
     }
 
     /**

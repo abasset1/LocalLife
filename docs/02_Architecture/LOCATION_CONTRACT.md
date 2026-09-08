@@ -126,4 +126,92 @@ uniformément ce contrat :
 - Règles précises de normalisation à l'écriture (géocodage, source des
   trois champs pour une contribution manuelle vs. un import) : LL-10003
   et LL-10004 (déjà couverts, voir leurs livrables respectifs).
-- Paramètres de filtre (`city`) et de tri (`sort`) : LL-10006.
+- Paramètres de filtre (`city`) et de tri (`sort`) : LL-10006 (voir
+  section dédiée ci-dessous, désormais implémentée).
+
+## Filtre `city` et tri `sort` (LL-10006)
+
+Contrat exact demandé par `SPRINT_10.md` (« les valeurs exactes de
+`sort` doivent être définies dans le contrat avant implémentation »),
+défini et implémenté par ce même ticket — sur le modèle des sections
+« Décision » déjà présentes dans `GEO_SEARCH_CONTRACT.md` pour
+`category`/`date`.
+
+### Endpoint concerné
+
+```text
+GET /api/v1/activities
+```
+
+Uniquement cet endpoint (listing simple). `nearby` et
+`within-bounds` ont leurs propres contrats
+(`GEO_SEARCH_CONTRACT.md`, `BOUNDING_BOX_SEARCH_CONTRACT.md`) et
+restent inchangés — hors périmètre de LL-10006.
+
+### Paramètres (query string)
+
+| Paramètre | Type   | Obligatoire | Description |
+| --------- | ------ | ------------ | ------------ |
+| `city`    | string | non | Filtre les résultats sur cette ville. Comparaison **exacte, insensible à la casse** (`LOWER(city) = LOWER(:city)`) — pas de recherche partielle, pas de normalisation des accents. Absent → aucun filtrage. Ville ne correspondant à aucune activité → liste vide (`200 OK`), pas d'erreur (même décision que `category` sur `/nearby`, voir `GEO_SEARCH_CONTRACT.md`). Une activité dont `city` est `null` en base ne correspond jamais à un `city` donné explicitement (rien à comparer). |
+| `sort`    | string | non | Une ou plusieurs clés de tri séparées par une virgule, parmi **exactement** `city` et `date` (ex. `city`, `date`, `city,date`, `date,city`) — l'ordre des clés fixe la priorité du tri (`sort=city,date` trie d'abord par ville, puis par date à ville égale). `date` trie sur `startDate`. Tri **croissant uniquement** (pas de suffixe `-`/`desc` : non demandé par le ticket, non implémenté). Absent → comportement historique inchangé (aucun `ORDER BY` explicite ajouté, ordre non garanti). Valeur inconnue (ni `city` ni `date`) ou clé dupliquée → `400 Bad Request`. |
+
+Exemples :
+
+```text
+GET /api/v1/activities?city=Avignon
+GET /api/v1/activities?city=avignon        (identique au précédent, comparaison insensible à la casse)
+GET /api/v1/activities?city=Avignon&sort=date
+GET /api/v1/activities?sort=city,date
+```
+
+### Décision : déterminisme de la comparaison/du tri
+
+Critère d'acceptation « la comparaison de ville est déterministe » :
+compris ici comme « la règle de comparaison est fixe et prévisible »,
+pas comme une exigence de recherche floue. Deux garanties concrètes :
+
+- la comparaison de `city` utilise systématiquement `LOWER()` des deux
+  côtés (paramètre et colonne) — un même couple de chaînes donne
+  toujours le même résultat, quelle que soit la casse saisie par le
+  client ;
+- lorsque `sort` est fourni, l'`id` croissant est ajouté comme dernier
+  critère de tri (après les clés demandées) — deux activités à égalité
+  sur `city`/`date` (ou une valeur `city`/`date` absente pour les
+  deux) obtiennent malgré tout un ordre stable et reproductible d'un
+  appel à l'autre, plutôt qu'un ordre dépendant du plan d'exécution
+  PostgreSQL.
+
+Une activité sans `city` (`null`) triée par `city` est placée en fin
+de liste (`NULLS LAST`, comportement par défaut de PostgreSQL pour un
+tri ascendant) — cohérent avec le regroupement « Ville non renseignée »
+déjà utilisé côté frontend (LL-EF-008).
+
+### Décision : pas de paramètre `city`/`sort` sur `nearby`/`within-bounds`
+
+Le ticket LL-10006 (`SPRINT_10.md`) ne donne d'exemples que sur
+`GET /api/v1/activities`. Ajouter ces mêmes paramètres aux deux
+endpoints de recherche géographique n'est pas demandé par ce ticket
+(règle « un ticket = une seule responsabilité », `AI_RULES.md`) —
+pourra faire l'objet d'un ticket dédié si un besoin apparaît (ex.
+combiner recherche géographique et filtre ville).
+
+### Erreurs
+
+Même format standardisé que le reste de l'API (`ErrorResponse`) :
+
+| Cas | Code |
+| --- | ---- |
+| `sort` contient une valeur autre que `city`/`date` | `400 Bad Request` |
+| `sort` contient une clé en double (ex. `sort=city,city`) | `400 Bad Request` |
+
+### Implémentation
+
+- Filtrage et tri réalisés **côté base de données** (requête SQL avec
+  `WHERE`/`ORDER BY` conditionnels), pas en mémoire côté application —
+  cohérent avec le critère d'acceptation explicite du ticket et avec
+  l'approche déjà retenue pour `findWithinRadius`/`findWithinBounds`.
+- `sort` est validé (liste fermée `city`/`date`, pas de doublon) avant
+  d'atteindre la requête SQL : les deux seules valeurs possibles sont
+  ensuite injectées comme critères de `CASE WHEN` dans une unique
+  requête `@Query`, jamais concaténées directement dans le SQL à
+  partir de l'entrée brute du client.

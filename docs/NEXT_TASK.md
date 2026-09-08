@@ -172,6 +172,43 @@ d'ADR nécessaire.
 Prochain ticket de ce sprint, sauf arbitrage contraire d'Alex :
 `LL-EF-007` (réinitialisation du mot de passe).
 
+## Sprint 10 — en cours (localisation structurée, filtre et tri par ville)
+
+⚠️ Écart de documentation trouvé en traitant `LL-10006` (cette session) :
+l'historique Git (`git log`) montre `LL-EF-007` (réinitialisation du
+mot de passe), puis `LL-10004` et `LL-10005` déjà commités sur la
+branche traitée, alors que ce fichier et `CHANGELOG.md` s'arrêtaient
+encore à `LL-EF-006`. Cette session n'a pas les détails de ces trois
+tickets (traités dans des sessions précédentes, non documentés ici) et
+ne les invente pas — seul `LL-10006` est documenté ci-dessous avec
+certitude. Un rattrapage de `NEXT_TASK.md`/`CHANGELOG.md` pour
+`LL-EF-007`/`LL-10004` reste à faire par une session ayant accès à
+leur contenu réel.
+
+`LL-10001` à `LL-10005` (contrat de localisation, persistance,
+normalisation à l'écriture pour une contribution manuelle et pour les
+collectors, exposition API `address`/`postalCode`/`city` sur les
+quatre endpoints d'activité) : déjà appliqués sur la branche traitée
+par cette session, voir `docs/02_Architecture/LOCATION_CONTRACT.md`
+pour le contrat détaillé et son état d'implémentation.
+
+`LL-10006` (filtre `city` et tri `sort` sur `GET /api/v1/activities`)
+traité par cette session — voir `CHANGELOG.md` (version 0.9.5) et
+`docs/02_Architecture/LOCATION_CONTRACT.md` (section « Filtre `city`
+et tri `sort` ») pour le contrat exact. Filtrage/tri réalisés côté
+base de données ; comportement historique de l'endpoint strictement
+inchangé en l'absence des deux paramètres. `nearby`/`within-bounds`
+non concernés (hors périmètre du ticket). ⚠️ Cette session n'a pas eu
+accès à Maven Central (réseau restreint à GitHub/npm/pip) : le backend
+n'a donc pas pu être compilé ni testé. **`mvn verify` doit être lancé
+avant tout merge.**
+
+Prochain ticket du Sprint 10, sauf arbitrage contraire d'Alex :
+`LL-10007` (créer la vue liste des activités — à ne pas confondre avec
+la vue liste déjà livrée côté frontend par `LL-EF-008`, ce ticket
+formalise/généralise probablement ce qui existe déjà ; à vérifier au
+moment de le traiter).
+
 ## Règles
 
 - Ne pas élargir le MVP avant les premiers retours de bêta.

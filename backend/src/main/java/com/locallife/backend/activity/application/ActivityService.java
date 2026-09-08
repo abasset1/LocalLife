@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -47,6 +48,14 @@ public class ActivityService {
     private static final Set<String> KNOWN_STATUSES = Set.of("PENDING", "PUBLISHED", "REJECTED");
 
     /**
+     * Clés de tri connues du paramètre {@code sort} (LL-10006), voir
+     * {@link #findAll(String, String)} et le contrat détaillé dans
+     * {@code docs/02_Architecture/LOCATION_CONTRACT.md} (section « Filtre
+     * `city` et tri `sort` »).
+     */
+    private static final Set<String> KNOWN_SORT_KEYS = Set.of("city", "date");
+
+    /**
      * Seul statut de départ autorisé pour {@link #publish}/{@link #reject}
      * (LL-6006) — voir la javadoc du champ {@code status} sur
      * {@link Activity} : les seules transitions prévues en LL-6003 sont
@@ -67,6 +76,86 @@ public class ActivityService {
 
     public List<Activity> findAll() {
         return activityRepository.findAll();
+    }
+
+    /**
+     * Liste des activités avec filtre optionnel par ville et tri optionnel
+     * (LL-10006), pour {@code GET /api/v1/activities}. Voir le contrat
+     * détaillé dans {@code docs/02_Architecture/LOCATION_CONTRACT.md}
+     * (section « Filtre `city` et tri `sort` »).
+     *
+     * Ni {@code city} ni {@code sort} fournis : délègue à {@link #findAll()}
+     * sans passer par {@link ActivityRepository#findAllFiltered}, pour ne
+     * strictement rien changer au comportement historique de cet endpoint
+     * dans ce cas (critère d'acceptation « les filtres existants restent
+     * fonctionnels »).
+     *
+     * {@code city} : comparé tel quel (après nettoyage des espaces en
+     * début/fin), la comparaison insensible à la casse est faite côté SQL
+     * (voir {@link ActivityRepository#findAllFiltered}). Une valeur
+     * vide/blanche équivaut à une absence de filtre (même convention que
+     * {@code category} sur {@link #findNearby}).
+     *
+     * {@code sort} : liste de clés séparées par des virgules, parmi
+     * exactement {@code "city"}/{@code "date"} (voir {@link #parseSort}).
+     * L'ordre des clés fixe la priorité du tri ; au plus deux clés ont un
+     * sens (il n'existe que deux clés connues) — une troisième occurrence
+     * serait nécessairement un doublon, rejeté par {@link #parseSort}.
+     *
+     * @throws IllegalArgumentException si {@code sort} contient une valeur
+     *         inconnue (autre que {@code city}/{@code date}) ou une clé en
+     *         double.
+     */
+    public List<Activity> findAll(String city, String sortRaw) {
+        String normalizedCity = normalizeCity(city);
+        List<String> sortKeys = parseSort(sortRaw);
+
+        if (normalizedCity == null && sortKeys.isEmpty()) {
+            return activityRepository.findAll();
+        }
+
+        String primarySort = sortKeys.size() > 0 ? sortKeys.get(0) : null;
+        String secondarySort = sortKeys.size() > 1 ? sortKeys.get(1) : null;
+        return activityRepository.findAllFiltered(normalizedCity, primarySort, secondarySort);
+    }
+
+    private String normalizeCity(String cityRaw) {
+        if (cityRaw == null || cityRaw.isBlank()) {
+            return null;
+        }
+        return cityRaw.trim();
+    }
+
+    /**
+     * Analyse et valide le paramètre {@code sort} (LL-10006) : liste de
+     * clés séparées par des virgules, dont chaque valeur doit appartenir à
+     * {@link #KNOWN_SORT_KEYS}, sans doublon. {@code null}/vide/blanc →
+     * liste vide (pas de tri demandé), même convention que
+     * {@link #normalizeCategories} pour {@code category}.
+     *
+     * @throws IllegalArgumentException si une clé ne fait pas partie de
+     *         {@link #KNOWN_SORT_KEYS}, ou si une clé apparaît plusieurs
+     *         fois.
+     */
+    private List<String> parseSort(String sortRaw) {
+        if (sortRaw == null || sortRaw.isBlank()) {
+            return List.of();
+        }
+        List<String> keys = Arrays.stream(sortRaw.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .collect(Collectors.toList());
+        for (String key : keys) {
+            if (!KNOWN_SORT_KEYS.contains(key)) {
+                throw new IllegalArgumentException(
+                        "Le paramètre 'sort' ne peut contenir que 'city' et/ou 'date' (valeur reçue : '"
+                                + key + "').");
+            }
+        }
+        if (new HashSet<>(keys).size() != keys.size()) {
+            throw new IllegalArgumentException("Le paramètre 'sort' ne doit pas contenir de clé en double.");
+        }
+        return keys;
     }
 
     public Optional<Activity> findById(Long id) {

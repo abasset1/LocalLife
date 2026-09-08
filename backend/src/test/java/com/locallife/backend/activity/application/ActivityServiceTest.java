@@ -229,6 +229,127 @@ class ActivityServiceTest {
         verifyNoInteractions(activityRepository);
     }
 
+    // --- findAll(city, sort) (LL-10006) ---
+    // Voir docs/02_Architecture/LOCATION_CONTRACT.md, section "Filtre city et tri sort".
+
+    @Test
+    void findAll_ShouldDelegateToPlainFindAll_WhenNeitherCityNorSortProvided() {
+        // Given : ni city ni sort -> comportement historique préservé, pas de findAllFiltered appelé.
+        List<Activity> expected = List.of();
+        when(activityRepository.findAll()).thenReturn(expected);
+
+        // When
+        List<Activity> result = activityService().findAll(null, null);
+
+        // Then
+        assertThat(result).isEqualTo(expected);
+        verify(activityRepository).findAll();
+        verify(activityRepository, never()).findAllFiltered(any(), any(), any());
+    }
+
+    @Test
+    void findAll_ShouldDelegateToPlainFindAll_WhenCityAndSortAreBlank() {
+        // Given : chaînes blanches -> équivalent à absent (même convention que 'category').
+        when(activityRepository.findAll()).thenReturn(List.of());
+
+        // When
+        activityService().findAll("   ", "   ");
+
+        // Then
+        verify(activityRepository).findAll();
+        verify(activityRepository, never()).findAllFiltered(any(), any(), any());
+    }
+
+    @Test
+    void findAll_ShouldPassCityThrough_Trimmed() {
+        // Given
+        when(activityRepository.findAllFiltered("Avignon", null, null)).thenReturn(List.of());
+
+        // When
+        activityService().findAll("  Avignon  ", null);
+
+        // Then
+        verify(activityRepository).findAllFiltered("Avignon", null, null);
+    }
+
+    @Test
+    void findAll_ShouldPassSingleSortKeyThrough_AsPrimarySort() {
+        // Given
+        when(activityRepository.findAllFiltered(null, "city", null)).thenReturn(List.of());
+
+        // When
+        activityService().findAll(null, "city");
+
+        // Then
+        verify(activityRepository).findAllFiltered(null, "city", null);
+    }
+
+    @Test
+    void findAll_ShouldPassCombinedSortKeys_InOrder() {
+        // Given
+        when(activityRepository.findAllFiltered("Avignon", "city", "date")).thenReturn(List.of());
+
+        // When
+        activityService().findAll("Avignon", "city,date");
+
+        // Then
+        verify(activityRepository).findAllFiltered("Avignon", "city", "date");
+    }
+
+    @Test
+    void findAll_ShouldPreserveSortKeyOrder_WhenReversed() {
+        // Given : l'ordre des clés dans 'sort' fixe la priorité du tri, quel que soit l'ordre choisi.
+        when(activityRepository.findAllFiltered(null, "date", "city")).thenReturn(List.of());
+
+        // When
+        activityService().findAll(null, "date,city");
+
+        // Then
+        verify(activityRepository).findAllFiltered(null, "date", "city");
+    }
+
+    @Test
+    void findAll_ShouldTrimSortKeys_AndIgnoreBlankSegments() {
+        // Given : mêmes règles de nettoyage que normalizeCategories.
+        when(activityRepository.findAllFiltered(null, "city", "date")).thenReturn(List.of());
+
+        // When
+        activityService().findAll(null, " city , date ,, ");
+
+        // Then
+        verify(activityRepository).findAllFiltered(null, "city", "date");
+    }
+
+    @Test
+    void findAll_ShouldThrow_WhenSortContainsUnknownKey() {
+        assertThatThrownBy(() -> activityService().findAll(null, "unknown"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sort");
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findAll_ShouldThrow_WhenSortContainsDuplicateKey() {
+        assertThatThrownBy(() -> activityService().findAll(null, "city,city"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sort");
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findAll_ShouldReturnEmptyList_WhenCityMatchesNothing() {
+        // Given : cohérent avec la décision LL-4004 pour 'category' — pas d'erreur pour un filtre sans résultat.
+        when(activityRepository.findAllFiltered("Ville-Inexistante", null, null)).thenReturn(List.of());
+
+        // When
+        List<Activity> result = activityService().findAll("Ville-Inexistante", null);
+
+        // Then
+        assertThat(result).isEmpty();
+    }
+
     // --- findWithinBounds (LL-4006/LL-4007) ---
 
     @Test

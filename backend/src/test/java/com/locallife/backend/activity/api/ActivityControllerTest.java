@@ -46,27 +46,59 @@ class ActivityControllerTest {
                 new Activity(2L, "Another Activity", "Another Description", "Another Category", 1.0, 1.0,
                         LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null)
         );
-        when(activityService.findAll()).thenReturn(activities);
+        when(activityService.findAll(null, null)).thenReturn(activities);
 
         // When
-        ResponseEntity<List<Activity>> response = activityController.getAllActivities();
+        ResponseEntity<Object> response = activityController.getAllActivities(null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(2, response.getBody().size());
+        assertEquals(2, ((List<?>) response.getBody()).size());
     }
 
     @Test
     void getAllActivities_ShouldReturnEmptyList_WhenNoActivities() {
         // Given
-        when(activityService.findAll()).thenReturn(List.of());
+        when(activityService.findAll(null, null)).thenReturn(List.of());
 
         // When
-        ResponseEntity<List<Activity>> response = activityController.getAllActivities();
+        ResponseEntity<Object> response = activityController.getAllActivities(null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(0, response.getBody().size());
+        assertEquals(0, ((List<?>) response.getBody()).size());
+    }
+
+    @Test
+    void getAllActivities_ShouldPassCityAndSortThrough_ToService() {
+        // LL-10006 : les paramètres query 'city'/'sort' doivent être transmis tels quels au service,
+        // qui porte toute la logique de normalisation/validation (même approche que getNearbyActivities).
+        Activity activity = new Activity(1L, "Marché", "Description", "marché", 43.9493, 4.8055,
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, "Place Pie", "Avignon", "84000");
+        when(activityService.findAll("Avignon", "city,date")).thenReturn(List.of(activity));
+
+        // When
+        ResponseEntity<Object> response = activityController.getAllActivities("Avignon", "city,date", httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(List.of(activity), response.getBody());
+    }
+
+    @Test
+    void getAllActivities_ShouldReturnBadRequest_WhenSortInvalid() {
+        // Given
+        when(activityService.findAll(null, "unknown"))
+                .thenThrow(new IllegalArgumentException(
+                        "Le paramètre 'sort' ne peut contenir que 'city' et/ou 'date' (valeur reçue : 'unknown')."));
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities");
+
+        // When
+        ResponseEntity<Object> response = activityController.getAllActivities(null, "unknown", httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST.value(), ((ErrorResponse) response.getBody()).status());
     }
 
     @Test

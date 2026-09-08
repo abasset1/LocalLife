@@ -21,6 +21,63 @@ public interface ActivityRepository extends Repository<Activity, Long> {
 
     List<Activity> findAll();
 
+    /**
+     * Liste des activités avec filtre optionnel par ville et tri optionnel
+     * (LL-10006), conformément au contrat défini dans
+     * {@code docs/02_Architecture/LOCATION_CONTRACT.md} (section « Filtre
+     * `city` et tri `sort` »). Utilisé uniquement par
+     * {@code GET /api/v1/activities} — {@code findWithinRadius}/
+     * {@code findWithinBounds} ci-dessous ne sont pas concernées par ce
+     * ticket (leurs propres contrats géographiques restent inchangés).
+     *
+     * {@code city} : {@code null} pour ne pas filtrer, sinon comparaison
+     * exacte insensible à la casse ({@code LOWER()} des deux côtés) — voir
+     * {@code ActivityService#findAll(String, String)} pour la validation
+     * en amont. Cast explicite ({@code :city::text IS NULL}) par prudence,
+     * même raison que {@code :date::date IS NULL} sur
+     * {@link #findWithinRadius} (déjà rencontré sur ce projet :
+     * PostgreSQL ne peut pas toujours déterminer le type d'un paramètre à
+     * partir d'un simple {@code IS NULL} sans contexte).
+     *
+     * {@code primarySort}/{@code secondarySort} : chacun {@code null},
+     * {@code "city"} ou {@code "date"} (jamais une autre valeur — validées
+     * en amont par le service, liste fermée du contrat LL-10006), désigne
+     * respectivement la première et la seconde clé de tri demandées via
+     * le paramètre {@code sort} (ex. {@code sort=city,date} →
+     * {@code primarySort="city"}, {@code secondarySort="date"}). Une seule
+     * requête couvre toutes les combinaisons possibles (aucune, une seule
+     * clé, ou les deux dans n'importe quel ordre) via des expressions
+     * {@code CASE WHEN} : quand une clé ne correspond pas au paramètre
+     * fourni, la branche {@code CASE} vaut {@code NULL} et n'a donc aucun
+     * effet sur le tri à cette position. {@code id} croissant est toujours
+     * ajouté en dernier critère pour un résultat déterministe même à
+     * égalité parfaite sur {@code city}/{@code date} (voir la décision
+     * correspondante dans {@code LOCATION_CONTRACT.md}).
+     *
+     * Volontairement distincte de {@link #findAll()} plutôt que de la
+     * remplacer : {@code findAll()} reste appelée telle quelle par
+     * {@code ActivityService#findAll(String, String)} quand ni
+     * {@code city} ni {@code sort} ne sont fournis, pour ne strictement
+     * rien changer au comportement observable historique de
+     * {@code GET /api/v1/activities} dans ce cas (aucun {@code ORDER BY}
+     * ajouté), conformément au critère d'acceptation « les filtres
+     * existants restent fonctionnels ».
+     */
+    @Query("""
+            SELECT * FROM activity
+            WHERE (:city::text IS NULL OR LOWER(city) = LOWER(:city::text))
+            ORDER BY
+              CASE WHEN :primarySort = 'city' THEN city END ASC,
+              CASE WHEN :primarySort = 'date' THEN start_date END ASC,
+              CASE WHEN :secondarySort = 'city' THEN city END ASC,
+              CASE WHEN :secondarySort = 'date' THEN start_date END ASC,
+              id ASC
+            """)
+    List<Activity> findAllFiltered(
+            @Param("city") String city,
+            @Param("primarySort") String primarySort,
+            @Param("secondarySort") String secondarySort);
+
     Optional<Activity> findById(Long id);
 
     Activity save(Activity activity);
