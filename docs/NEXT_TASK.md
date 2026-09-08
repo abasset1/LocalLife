@@ -154,7 +154,11 @@ changement de modèle métier non anticipé par sa rédaction initiale
 `docs/02_Architecture/ADR-0001-adresse-structuree-activites.md`. Alex a
 également demandé, en complément, l'affichage d'une adresse lisible à
 la place des coordonnées GPS brutes — traité dans le même changement
-(même ADR). Livré sous forme de patch indépendant, pas encore appliqué.
+(même ADR). **Appliqué et poussé sur `main`.** Deux correctifs de
+compilation ont suivi, des sites de construction `Activity`/
+`Coordinates` manqués lors de la première livraison
+(`SourceService#withSourceId`, puis 4 tests d'intégration) — la CI les
+a détectés, corrigés dans la foulée.
 
 Prochain ticket de ce sprint, sauf arbitrage contraire d'Alex :
 `LL-EF-006` (interface utilisateur).

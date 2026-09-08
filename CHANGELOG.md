@@ -8,6 +8,7 @@
 - Écart trouvé en traitant ce ticket : aucune notion de ville n'existait dans le modèle métier (seules `latitude`/`longitude` étaient stockées) — changement de modèle documenté dans `docs/02_Architecture/ADR-0001-adresse-structuree-activites.md`. Trois colonnes nullables ajoutées à `activity` (`address`, `city`, `postal_code`, migration `V15` — `V14` déjà pris par LL-EF-005), résolues une seule fois à l'écriture (contribution manuelle : réutilisation de l'appel Nominatim existant avec `addressdetails=1` ; import : champs déjà présents dans l'objet `location` d'OpenAgenda, jusqu'ici ignorés). Aucun appel réseau supplémentaire.
 - Demande complémentaire d'Alex traitée dans le même changement : la carte et le détail affichent désormais une adresse lisible (`address`, repli sur `city` puis sur les coordonnées) au lieu des coordonnées GPS brutes.
 - `LL-EF-006` et `LL-EF-007` restent non traités (ticket pris hors ordre à la demande d'Alex).
+- Deux correctifs de compilation post-livraison (sites de construction `Activity`/`Coordinates` manqués lors du premier passage) : `SourceService#withSourceId`, puis 4 tests d'intégration (`AdminActivityControllerIntegrationTest`, `AuthenticationFlowIntegrationTest`, `NonRegressionIntegrationTest`).
 
 ## 0.9.2 — 2026-09-02
 
