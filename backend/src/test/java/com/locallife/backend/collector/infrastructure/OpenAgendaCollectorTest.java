@@ -3,6 +3,7 @@ package com.locallife.backend.collector.infrastructure;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -73,6 +74,59 @@ class OpenAgendaCollectorTest {
         assertEquals("marche-de-noel-2026", activity.externalId());
         assertEquals("OpenAgenda Marseille", activity.source());
         assertTrue(activity.sourceUrl().contains("marche-de-noel-2026"));
+    }
+
+    @Test
+    void collect_ShouldReturnAddressCityAndPostalCode_WhenPresentInLocation() {
+        // LL-10004 : vérifie que address/city/postalCode (LL-EF-008) sont bien
+        // repris de l'objet "location" OpenAgenda, au même titre que
+        // latitude/longitude — jusqu'ici seul EVENT_JSON (sans ces champs)
+        // était utilisé par les tests de ce fichier, laissant ce chemin non
+        // couvert.
+        String eventJsonWithAddress = """
+                {
+                  "slug": "marche-de-noel-2026",
+                  "title": {"fr": "Marché de Noël"},
+                  "description": {"fr": "Marché de Noël sur le Vieux-Port"},
+                  "keywords": {"fr": ["marché", "noël"]},
+                  "location": {
+                    "latitude": 43.2965,
+                    "longitude": 5.3698,
+                    "address": "Quai du Port",
+                    "city": "Marseille",
+                    "postalCode": "13002"
+                  },
+                  "nextTiming": {"begin": "2026-12-01T10:00:00+0100", "end": "2026-12-24T20:00:00+0100"}
+                }
+                """;
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess("{\"events\": [" + eventJsonWithAddress + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.size());
+        CollectedActivity activity = result.get(0);
+        assertEquals("Quai du Port", activity.address());
+        assertEquals("Marseille", activity.city());
+        assertEquals("13002", activity.postalCode());
+    }
+
+    @Test
+    void collect_ShouldReturnNullAddressCityPostalCode_WhenAbsentFromLocation() {
+        // LL-10004 : une source ne fournissant pas ces champs (cas de
+        // EVENT_JSON) ne doit rien inventer — null propagé tel quel, pas de
+        // valeur par défaut.
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess("{\"events\": [" + EVENT_JSON + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        CollectedActivity activity = result.get(0);
+        assertNull(activity.address());
+        assertNull(activity.city());
+        assertNull(activity.postalCode());
     }
 
     @Test

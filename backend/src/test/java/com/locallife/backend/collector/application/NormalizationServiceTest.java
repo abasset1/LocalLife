@@ -2,6 +2,7 @@ package com.locallife.backend.collector.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.locallife.backend.activity.domain.Activity;
@@ -47,6 +48,50 @@ class NormalizationServiceTest {
         assertEquals(collected.startDate(), activity.startDate());
         assertEquals(collected.endDate(), activity.endDate());
         assertEquals("PUBLISHED", activity.status());
+    }
+
+    @Test
+    void normalize_ShouldPropagateAddressCityAndPostalCode_WhenPresent() {
+        // LL-10004 : garantit que address/city/postalCode collectés par un
+        // collector (ex. OpenAgendaCollector) traversent la normalisation
+        // jusqu'à l'Activity finale, comme url (LL-6002) — non couvert
+        // jusqu'ici, validCollectedActivity() laissant ces trois champs à
+        // null.
+        CollectedActivity collected = new CollectedActivity(
+                "Marché de Noël",
+                "Marché de Noël sur le Vieux-Port",
+                LocalDateTime.of(2026, 12, 1, 10, 0),
+                LocalDateTime.of(2026, 12, 24, 20, 0),
+                "marché",
+                43.2965,
+                5.3698,
+                "https://example.com/evenement/123",
+                "ext-123",
+                "OpenAgenda Marseille",
+                "Quai du Port",
+                "Marseille",
+                "13002");
+
+        Optional<Activity> result = normalizationService.normalize(collected);
+
+        assertTrue(result.isPresent());
+        Activity activity = result.get();
+        assertEquals("Quai du Port", activity.address());
+        assertEquals("Marseille", activity.city());
+        assertEquals("13002", activity.postalCode());
+    }
+
+    @Test
+    void normalize_ShouldKeepAddressCityPostalCodeNull_WhenAbsentFromCollectedData() {
+        // LL-10004 : aucune ville/adresse ne doit être inventée quand la
+        // source ne les fournit pas — null propagé tel quel.
+        Optional<Activity> result = normalizationService.normalize(validCollectedActivity());
+
+        assertTrue(result.isPresent());
+        Activity activity = result.get();
+        assertNull(activity.address());
+        assertNull(activity.city());
+        assertNull(activity.postalCode());
     }
 
     @Test
