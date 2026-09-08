@@ -848,10 +848,87 @@ La position peut être fournie directement au service de navigation utilisé par
 
 ---
 
+## LL-EF-016 — Ajouter un lien web et un contact à un événement
+
+### Objectif
+
+Permettre d'associer à un événement des informations permettant à l'utilisateur d'obtenir davantage de renseignements ou de contacter directement l'organisateur.
+
+### Informations facultatives
+
+Lors de la création ou de la modification d'un événement, permettre d'ajouter :
+
+- un lien vers le site web de l'événement ;
+- un numéro de téléphone ;
+- une adresse e-mail ;
+- éventuellement un ou plusieurs contacts supplémentaires selon l'évolution du besoin.
+
+Aucune de ces informations n'est obligatoire.
+
+### Affichage dans le détail de l'événement
+
+Lorsque les informations sont renseignées, afficher clairement :
+
+**Site web**
+- lien cliquable ;
+- ouverture dans un nouvel onglet ou dans le navigateur/app approprié.
+
+**Téléphone**
+- numéro cliquable ;
+- sur mobile, possibilité de lancer directement un appel.
+
+**E-mail**
+- adresse cliquable ;
+- ouverture de l'application de messagerie.
+
+Les informations non renseignées ne doivent pas générer d'élément vide dans l'interface.
+
+### Création / modification
+
+- [ ] Le formulaire de création permet de renseigner un site web.
+- [ ] Le formulaire permet de renseigner un numéro de téléphone.
+- [ ] Le formulaire permet de renseigner une adresse e-mail.
+- [ ] Ces champs sont facultatifs.
+- [ ] Les informations peuvent être modifiées ultérieurement selon les droits de l'utilisateur.
+- [ ] Les données sont correctement persistées.
+
+### Validation des données
+
+- [ ] Vérifier que le lien web possède un format valide.
+- [ ] Vérifier que l'adresse e-mail possède un format valide.
+- [ ] Vérifier que le numéro de téléphone possède un format acceptable.
+- [ ] Ne pas accepter de contenu permettant l'injection de code ou de liens dangereux.
+- [ ] Les URL affichées doivent utiliser des protocoles autorisés.
+
+### Compatibilité
+
+Les liens et contacts doivent être utilisables :
+
+- sur navigateur desktop ;
+- sur navigateur mobile ;
+- sur la future application mobile LocalLife.
+
+### Architecture
+
+Les coordonnées de contact doivent être stockées comme des données structurées plutôt que dans un champ texte libre unique.
+
+Exemple conceptuel :
+
+- `websiteUrl`
+- `contactEmail`
+- `contactPhone`
+
+Cela permettra de faire évoluer ultérieurement le système vers plusieurs contacts ou plusieurs types de liens sans refonte importante.
+
+**Priorité :** Moyenne  
+**Type :** Évolution / UX / Événements / Contact
+
+---
+
 # À ajouter
 
 Les prochains besoins identifiés seront ajoutés à cette section puis transformés en tickets numérotés.
 
 ## Prochains tickets
 
-- [ ] LL-EF-009 — À définir
+- [ ] LL-EF-017 — À définir
