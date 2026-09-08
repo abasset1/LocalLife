@@ -430,6 +430,86 @@ Prévoir si nécessaire un mécanisme de cache côté backend ou frontend.
 **Type :** Évolution / UX / Géolocalisation
 
 ---
+
+## LL-EF-010 — Identifier et annuler les activités créées manuellement
+
+### Objectif
+
+Permettre d'identifier les activités saisies manuellement par un utilisateur et permettre à leur créateur de les annuler.
+
+### Périmètre
+
+Cette fonctionnalité concerne uniquement les activités **créées manuellement par un utilisateur**.
+
+Les activités provenant des collectors/agendas externes ne sont pas concernées.
+
+### Affichage du créateur
+
+Lorsqu'une activité créée manuellement est consultée, afficher l'utilisateur qui l'a créée.
+
+L'information doit être présentée de manière claire dans le détail de l'activité.
+
+Exemple :
+
+> Créée par : Jean Dupont
+
+### Annulation
+
+L'utilisateur ayant créé l'activité doit pouvoir l'annuler.
+
+L'annulation doit :
+
+- être accessible depuis le détail de l'activité ;
+- demander une confirmation avant l'action ;
+- modifier le statut de l'activité ;
+- empêcher l'activité annulée d'être considérée comme une activité active ;
+- conserver l'activité en base afin de préserver l'historique.
+
+### Droits
+
+- [ ] Seul le créateur peut annuler son activité.
+- [ ] Un administrateur peut également annuler une activité.
+- [ ] Un autre utilisateur ne peut pas annuler l'activité.
+- [ ] Les contrôles de permission sont effectués côté backend.
+
+### Statut
+
+Prévoir un statut permettant de distinguer une activité active d'une activité annulée.
+
+Exemple :
+
+- `PENDING`
+- `APPROVED`
+- `REJECTED`
+- `CANCELLED`
+
+Le statut exact devra être cohérent avec le système de modération existant.
+
+### Critères d'acceptation
+
+- [ ] Une activité saisie manuellement possède une référence vers son créateur.
+- [ ] Le créateur est identifiable depuis le détail de l'activité.
+- [ ] Le créateur peut annuler son activité.
+- [ ] Une confirmation est demandée avant l'annulation.
+- [ ] Une activité annulée n'est plus affichée comme activité active sur la carte.
+- [ ] Une activité annulée n'apparaît plus dans la liste des activités actives.
+- [ ] L'activité reste conservée en base.
+- [ ] Un administrateur peut annuler une activité.
+- [ ] Un utilisateur quelconque ne peut pas annuler l'activité d'un autre utilisateur.
+- [ ] Les activités provenant des collectors ne sont pas concernées par cette fonctionnalité.
+
+### Architecture
+
+L'activité doit conserver une référence vers son créateur lorsqu'elle est créée manuellement.
+
+Il est préférable d'utiliser une relation vers l'utilisateur (`createdBy` ou équivalent) plutôt que de simplement stocker son nom ou son adresse e-mail.
+
+Cela permettra notamment de gérer correctement les changements d'informations du compte utilisateur.
+
+**Priorité :** Haute  
+**Type :** Évolution / Activités / Droits utilisateur
+
+---
 # À ajouter
 
 Les prochains besoins identifiés seront ajoutés à cette section puis transformés en tickets numérotés.
