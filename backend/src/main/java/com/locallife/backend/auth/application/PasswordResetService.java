@@ -2,6 +2,7 @@ package com.locallife.backend.auth.application;
 
 import com.locallife.backend.auth.domain.PasswordResetToken;
 import com.locallife.backend.auth.infrastructure.PasswordResetTokenRepository;
+import com.locallife.backend.user.application.PasswordHashingService;
 import com.locallife.backend.user.domain.User;
 import com.locallife.backend.user.infrastructure.UserRepository;
 import java.security.MessageDigest;
