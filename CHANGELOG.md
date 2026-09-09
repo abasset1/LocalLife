@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.9.11 — 2026-09-09
+
+### Décision Alex — Retrait des contrôles « Filtrer par ville » et « Trier par »
+- Décision explicite d'Alex : les deux contrôles ajoutés par `LL-10008` (liste déroulante « Filtrer par ville » et liste déroulante « Trier par », bandeau de filtres de `App.tsx`) sont jugés inutiles et retirés.
+- Retrait complet côté frontend : les deux `<select>`/`<label>`, l'état associé (`selectedCity`, `sortOrder`, `availableCities`), les fonctions dédiées (`filterAndSortActivities`, `buildCityOptions`), le type `SortOrder` et les constantes `ALL_CITIES`/`NO_SORT`.
+- La vue liste revient à son comportement historique (`LL-EF-008`) : toujours regroupée par ville puis triée par date à l'intérieur de chaque groupe (`groupActivitiesByCity`, conservée), sans possibilité de filtrer par ville ni de choisir un tri plat. La ville n'étant plus jamais répétée par ligne (uniquement dans l'en-tête de groupe), `renderActivityListItem` perd son paramètre `showCity` et la règle CSS `.activity-list-item-city` (désormais inutilisée) est retirée de `styles.css`.
+- Carte et liste continuent de partager la même source de données (`activities`, remplace `visibleActivities`) — aucun changement de comportement côté carte, filtres catégorie/date/géographiques existants inchangés.
+- Aucun changement backend : `GET /api/v1/activities?city=...&sort=...` (contrat `LOCATION_CONTRACT.md`, `LL-10006`) reste disponible côté API, simplement plus consommé par ce frontend. Les documents historiques de sprint (`SPRINT_10.md`, `PROJECT_STATUS.md`, `LL-10009_VALIDATION_CARTE_LISTE_DETAIL.md`) ne sont pas réécrits : ils restent l'enregistrement fidèle de ce qui a été livré par `LL-10008`/`LL-10009` à l'époque ; ce changement en est un retrait ultérieur, documenté ici.
+- Vérifié avec `npm install && npx tsc --noEmit && npm run build` : compile sans erreur.
+
+## 0.9.10 — 2026-09-09
+
+### Correctif — Dernière synchronisation des agendas toujours vide
+- Bug signalé par Alex : le champ « Dernière synchronisation » de l'interface d'administration des agendas (`AdminPage.tsx`) affichait toujours `—`, alors que le champ existe côté modèle (`Source.lastSyncAt`), est bien exposé par l'API et bien rendu côté frontend.
+- Cause : `ImportService#importFrom` calculait déjà `endedAt` pour chaque import (utilisé dans `ImportResult`, journalisé) mais ne le reportait jamais sur la `Source` elle-même — `lastSyncAt` restait donc toujours `null` en base, alors que `docs/02_Architecture/SOURCE_CONTRACT.md` et la javadoc de `SourceService#updateSource` le décrivaient déjà comme renseigné par ce service. Écart d'implémentation par rapport au contrat existant, pas un changement de contrat.
+- Correction : nouvelle méthode `SourceService#recordSync(sourceId, syncedAt)`, appelée par `ImportService#importFrom` immédiatement après une collecte réussie, avec `endedAt` (date/heure de fin d'import). Non appelée en cas d'échec total de `collector.collect()` (source injoignable) — cohérent avec le contrat « date/heure du **dernier import réussi** ».
+- Aucun changement d'API, de DTO, de migration ni de frontend : le champ existait déjà de bout en bout, seule l'écriture manquait.
+- Tests ajoutés : `SourceServiceTest#recordSync_*` (mise à jour du seul champ `lastSyncAt`, aucun effet si la source n'existe plus) et `ImportServiceTest#importAll_ShouldRecordSync_*`/`importAll_ShouldNotRecordSync_*` (appelé sur succès, pas sur échec total de collecte).
+- ⚠️ Cette session n'a pas eu accès à Maven Central (réseau restreint à GitHub/npm/pip, `mvn` non installé dans le sandbox) : le backend n'a donc pas pu être compilé ni testé. **`mvn verify` doit être lancé avant tout merge.**
+
 ## 0.9.9 — 2026-09-09
 
 ### Sprint 10 / LL-10010 — Tests et documentation du sprint (clôture)

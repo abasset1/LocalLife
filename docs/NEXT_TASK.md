@@ -172,6 +172,30 @@ d'ADR nécessaire.
 Prochain ticket de ce sprint, sauf arbitrage contraire d'Alex :
 `LL-EF-007` (réinitialisation du mot de passe).
 
+## Décision hors sprint — Retrait des contrôles filtre ville / tri
+
+Décision explicite d'Alex, traitée hors ordre du sprint courant : les
+contrôles « Filtrer par ville » et « Trier par » ajoutés par `LL-10008`
+sont retirés du frontend (jugés inutiles). Voir `CHANGELOG.md` (version
+0.9.11). La liste redevient toujours regroupée par ville/triée par date
+(comportement `LL-EF-008`). L'endpoint `GET /api/v1/activities?city=...
+&sort=...` (`LL-10006`) reste disponible côté API, simplement plus
+consommé par ce frontend. Vérifié avec `npm run build` : compile sans
+erreur.
+
+## Correctif hors sprint — Dernière synchronisation des agendas
+
+Signalé par Alex (interface d'administration des agendas, champ toujours
+vide) et traité hors ordre du sprint courant, comme `LL-EF-008` en son
+temps. Voir `CHANGELOG.md` (version 0.9.10) pour le détail : bug
+d'implémentation (`ImportService` calculait `endedAt` mais ne le
+reportait jamais sur `Source.lastSyncAt`), pas un écart de contrat —
+`docs/02_Architecture/SOURCE_CONTRACT.md` décrivait déjà ce champ
+correctement. Corrigé par `SourceService#recordSync`, appelé après
+chaque import réussi. Aucun changement d'API/DTO/frontend nécessaire.
+⚠️ `mvn verify` non exécutable dans cette session (pas de `mvn` installé
+dans le sandbox) — à lancer avant tout merge.
+
 ## Sprint 10 — en cours (localisation structurée, filtre et tri par ville)
 
 ⚠️ Écart de documentation trouvé en traitant `LL-10006` (cette session) :

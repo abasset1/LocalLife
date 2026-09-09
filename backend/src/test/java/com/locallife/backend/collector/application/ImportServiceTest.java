@@ -214,6 +214,34 @@ class ImportServiceTest {
     }
 
     @Test
+    void importAll_ShouldRecordSync_WhenCollectSucceeds() {
+        // Given : bug corrigé — lastSyncAt restait toujours null (voir SourceService#recordSync).
+        givenOneCollectibleSource();
+        when(collector.collect()).thenReturn(List.of());
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+
+        // When
+        List<ImportResult> results = importService().importAll();
+
+        // Then : la date de synchronisation reportée est celle de fin d'import (endedAt).
+        verify(sourceService).recordSync(10L, results.get(0).endedAt());
+    }
+
+    @Test
+    void importAll_ShouldNotRecordSync_WhenCollectorFailsEntirely() {
+        // Given : « dernier import réussi » (SOURCE_CONTRACT.md) — un échec total de collecte
+        // n'est pas un import réussi.
+        givenOneCollectibleSource();
+        when(collector.collect()).thenThrow(new CollectorException("panne réseau", null));
+
+        // When
+        importService().importAll();
+
+        // Then
+        verify(sourceService, never()).recordSync(any(), any());
+    }
+
+    @Test
     void importAll_ShouldArchiveActivity_WhenNoLongerReturnedByCollector() {
         // Given: aucune donnée collectée cette fois, mais une activité existante pour cette source.
         givenOneCollectibleSource();

@@ -162,27 +162,6 @@ const DEFAULT_SEARCH_RADIUS_KM = 50;
 const ALL_CATEGORIES = "";
 
 /**
- * Valeur du filtre ville (LL-10008) représentant « pas de filtre » —
- * même convention que {@link ALL_CATEGORIES}.
- */
-const ALL_CITIES = "";
-
-/**
- * Ordre d'affichage sélectionnable par l'utilisateur (LL-10008, critères
- * d'acceptation « le tri par ville est disponible » / « le tri par date
- * est disponible »). Volontairement limité à ces deux clés prises
- * séparément (pas de combinaison "ville puis date") : ni la maquette du
- * ticket ni ses critères d'acceptation ne demandent de tri combiné côté
- * UI — l'API (LL-10006) le permettrait, mais l'exposer sans besoin réel
- * ajouterait un contrôle supplémentaire non demandé (`DEVELOPMENT_PHILOSOPHY.md`).
- * `"none"` restaure le comportement historique (liste groupée par ville
- * puis triée par date à l'intérieur de chaque groupe, voir
- * `groupActivitiesByCity`).
- */
-type SortOrder = "none" | "city" | "date";
-const NO_SORT: SortOrder = "none";
-
-/**
  * Valeur du filtre date représentant « pas de filtre explicite ». Un
  * `<input type="date">` HTML renvoie nativement une chaîne vide quand il
  * est effacé, et sinon déjà au format ISO-8601 `yyyy-MM-dd` attendu par
@@ -254,21 +233,6 @@ const UNKNOWN_CITY_LABEL = "Ville non renseignée";
 const UNKNOWN_ADDRESS_LABEL = "Adresse non renseignée";
 
 /**
- * Villes proposées dans le contrôle de filtre (LL-10008, critère
- * d'acceptation « la ville peut être sélectionnée »), construites à
- * partir des activités actuellement chargées — même approche que
- * {@link buildCategoryOptions} pour les catégories (pas d'appel API
- * dédié « liste des villes », qui n'existe pas et serait hors périmètre
- * de ce ticket). Les activités sans ville connue ne proposent pas
- * d'option dédiée : sélectionner « sans ville » n'est pas demandé par le
- * ticket (seul « une ville peut être sélectionnée » l'est).
- */
-function buildCityOptions(items: Activity[]): string[] {
-    const cities = items.map((item) => item.city).filter((city): city is string => Boolean(city));
-    return Array.from(new Set(cities)).sort((a, b) => a.localeCompare(b, "fr"));
-}
-
-/**
  * Compare deux villes pour un tri croissant, une ville absente
  * ({@link UNKNOWN_CITY_LABEL}) étant toujours placée en dernier — même
  * convention que le tri SQL `NULLS LAST` du contrat LL-10006
@@ -282,51 +246,6 @@ function compareCities(cityA: string, cityB: string): number {
         return -1;
     }
     return cityA.localeCompare(cityB, "fr");
-}
-
-/**
- * Filtre par ville puis trie les activités selon le contrôle choisi par
- * l'utilisateur (LL-10008). Appliqué **côté client**, en aval de la
- * récupération API existante (géographique + catégorie/date, voir
- * l'effet de récupération plus bas) plutôt qu'en la remplaçant par
- * l'endpoint `GET /api/v1/activities?city=...&sort=...` du contrat
- * LL-10006 — décision volontaire, pas un raccourci de flemme :
- *
- * 1. LL-10006 limite explicitement `city`/`sort` à cet unique endpoint
- *    (« pas de paramètre city/sort sur nearby/within-bounds », décision
- *    documentée dans `LOCATION_CONTRACT.md`) — y basculer perdrait la
- *    recherche géographique (rayon/zone visible), pourtant toujours
- *    active en parallèle du filtre ville.
- * 2. Plus important : `GET /api/v1/activities` (utilisé sans
- *    authentification par cette page publique) ne filtre **aucun**
- *    statut — contrairement à `nearby`/`within-bounds`, restreints à
- *    `PUBLISHED` (voir la javadoc de `ActivityService#findNearby` côté
- *    backend). Y basculer pour le filtre ville aurait exposé des
- *    activités `PENDING`/`REJECTED` au public — un vrai bug de
- *    confidentialité, pas une simplification acceptable. Corriger cette
- *    lacune côté backend serait un changement plus large que ce ticket
- *    (touche potentiellement d'autres consommateurs de cet endpoint) ;
- *    à traiter dans un ticket dédié si l'endpoint doit un jour servir de
- *    source principale de navigation.
- *
- * Le filtre/tri client reste cohérent avec les critères d'acceptation
- * du ticket (aucun n'exige explicitement un tri serveur) et respecte
- * automatiquement les filtres catégorie/date déjà actifs, puisqu'il
- * s'applique après eux — critère d'acceptation « compatible avec les
- * filtres existants ».
- */
-function filterAndSortActivities(items: Activity[], city: string, sortOrder: SortOrder): Activity[] {
-    const filtered = city === ALL_CITIES ? items : items.filter((item) => item.city === city);
-    if (sortOrder === NO_SORT) {
-        return filtered;
-    }
-    const sorted = [...filtered];
-    if (sortOrder === "city") {
-        sorted.sort((a, b) => compareCities(a.city ?? UNKNOWN_CITY_LABEL, b.city ?? UNKNOWN_CITY_LABEL));
-    } else {
-        sorted.sort((a, b) => a.startDate.localeCompare(b.startDate));
-    }
-    return sorted;
 }
 
 /**
@@ -382,16 +301,6 @@ function App() {
     const [availableCategories, setAvailableCategories] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
     const [selectedDate, setSelectedDate] = useState(NO_DATE_FILTER);
-    /**
-     * LL-10008 : filtre/tri par ville, appliqués côté client (voir la
-     * javadoc de `filterAndSortActivities` pour la justification) — donc
-     * volontairement séparés de `selectedCategory`/`selectedDate`
-     * ci-dessus, qui déclenchent eux un nouvel appel API. `availableCities`
-     * suit le même patron que `availableCategories` juste au-dessus.
-     */
-    const [availableCities, setAvailableCities] = useState<string[]>([]);
-    const [selectedCity, setSelectedCity] = useState(ALL_CITIES);
-    const [sortOrder, setSortOrder] = useState<SortOrder>(NO_SORT);
     const [currentUser, setCurrentUser] = useState(() => getPayload());
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -533,13 +442,6 @@ function App() {
                     if (selectedCategory === ALL_CATEGORIES && selectedDate === NO_DATE_FILTER) {
                         setAvailableCategories(buildCategoryOptions(data));
                     }
-                    // LL-10008 : contrairement à `selectedCategory`/`selectedDate`
-                    // ci-dessus, `selectedCity` ne fait pas partie de la requête API
-                    // (voir `filterAndSortActivities`) : `data` reflète donc toujours
-                    // toutes les villes de la zone/catégorie/date en cours, quel que
-                    // soit le filtre ville actif — reconstruction inconditionnelle,
-                    // pas besoin de condition équivalente à celle de la catégorie.
-                    setAvailableCities(buildCityOptions(data));
                 } else {
                     // LL-4013 : état « erreur » distinct de l'état « aucun résultat » —
                     // un échec de la requête (ex. 400/500) ne doit pas être présenté comme
@@ -740,31 +642,12 @@ function App() {
     }
 
     /**
-     * LL-10008 : vue filtrée/triée par ville, utilisée à la fois par la
-     * carte (marqueurs) et par la liste ci-dessous — même source pour les
-     * deux vues, critère d'acceptation « le comportement est cohérent
-     * entre carte et liste ». Recalculée à chaque rendu plutôt que
-     * mémoïsée (`useMemo`) : aucune autre partie du code de ce fichier
-     * n'utilise `useMemo`, et le volume d'activités affichées reste
-     * modeste (voir le clustering de marqueurs déjà en place pour la
-     * carte) — pas de complexité supplémentaire sans besoin de
-     * performance mesuré (`DEVELOPMENT_PHILOSOPHY.md`).
+     * Une ligne de la vue liste (LL-EF-008/LL-10007). La ville n'est pas
+     * répétée sur chaque ligne : elle est déjà portée par l'en-tête de
+     * groupe (`activity-list-city`, voir `groupActivitiesByCity`), la
+     * liste étant toujours affichée regroupée par ville.
      */
-    const visibleActivities = filterAndSortActivities(activities, selectedCity, sortOrder);
-
-    /**
-     * Une ligne de la vue liste (LL-EF-008/LL-10007), factorisée ici pour
-     * être réutilisée par les deux modes d'affichage de la liste
-     * (regroupée par ville par défaut, ou plate quand un tri explicite
-     * est actif — voir le rendu de `viewMode === "list"` plus bas et
-     * `filterAndSortActivities`). `showCity` : LL-10008, la ville n'a pas
-     * besoin d'être répétée sur chaque ligne quand elle est déjà portée
-     * par l'en-tête de groupe (`activity-list-city`), mais doit
-     * apparaître explicitement dans le mode plat, qui n'a pas de groupe —
-     * sinon le critère d'acceptation « la ville est visible » ne serait
-     * plus respecté dès qu'un tri est choisi.
-     */
-    function renderActivityListItem(activity: Activity, showCity: boolean) {
+    function renderActivityListItem(activity: Activity) {
         return (
             <li key={activity.id}>
                 {/*
@@ -779,9 +662,6 @@ function App() {
                     type="button"
                 >
                     <span className="activity-list-item-title">{activity.title}</span>
-                    {showCity && (
-                        <span className="activity-list-item-city">{activity.city ?? UNKNOWN_CITY_LABEL}</span>
-                    )}
                     {/*
                       LL-10007 : critère d'acceptation explicite « l'adresse est
                       visible » dans la liste (jusqu'ici affichée uniquement dans
@@ -897,39 +777,6 @@ function App() {
                         ✕
                     </button>
                 )}
-                {/*
-                  LL-10008 : filtre ville + tri, dans le même bandeau que les
-                  filtres catégorie/date ci-dessus (critère d'acceptation « les
-                  contrôles sont compatibles avec les filtres de catégorie et de
-                  date existants ») — même patron `<label>` + `<select>` que
-                  « Filtrer par catégorie ». Le filtrage/tri lui-même est
-                  appliqué côté client (voir `filterAndSortActivities`), donc ces
-                  deux contrôles ne déclenchent aucun nouvel appel API — seul le
-                  contenu affiché (carte et liste) change.
-                */}
-                <label htmlFor="city-filter">Filtrer par ville</label>
-                <select
-                    id="city-filter"
-                    onChange={(event) => setSelectedCity(event.target.value)}
-                    value={selectedCity}
-                >
-                    <option value={ALL_CITIES}>Toutes les villes</option>
-                    {availableCities.map((availableCity) => (
-                        <option key={availableCity} value={availableCity}>
-                            {availableCity}
-                        </option>
-                    ))}
-                </select>
-                <label htmlFor="sort-order">Trier par</label>
-                <select
-                    id="sort-order"
-                    onChange={(event) => setSortOrder(event.target.value as SortOrder)}
-                    value={sortOrder}
-                >
-                    <option value={NO_SORT}>Par défaut</option>
-                    <option value="city">Ville</option>
-                    <option value="date">Date</option>
-                </select>
                 {/*
                   LL-EF-008 : bascule Carte ↔ Liste, dans le même bandeau que
                   « Filtrer par catégorie » (critère d'acceptation explicite du
@@ -1110,7 +957,7 @@ function App() {
                             {searchError}
                         </p>
                     )}
-                    {!isLoadingActivities && !searchError && visibleActivities.length === 0 && (
+                    {!isLoadingActivities && !searchError && activities.length === 0 && (
                         <p className="activities-status">Aucune activité trouvée dans cette zone.</p>
                     )}
                     <MapContainer
@@ -1139,7 +986,7 @@ function App() {
                           leur volume n'a pas posé ce problème.
                         */}
                         <MarkerClusterGroup>
-                            {visibleActivities.map((activity) => (
+                            {activities.map((activity) => (
                                 <Marker
                                     key={activity.id}
                                     position={[activity.latitude, activity.longitude]}
@@ -1188,12 +1035,9 @@ function App() {
             {/*
               LL-EF-008 : vue Liste — seconde vue des mêmes activités déjà chargées/
               filtrées (voir la javadoc de `viewMode` plus haut), regroupées par ville
-              puis triées par date par défaut (`groupActivitiesByCity`) — LL-10008 permet
-              en plus de filtrer par ville et de choisir un tri explicite (voir
-              `visibleActivities`/`filterAndSortActivities` et le rendu ci-dessous). Les
-              food trucks ne sont pas des activités datées (voir FOOD_TRUCK_CONTRACT.md)
-              et n'apparaissent donc pas ici, cohérent avec leur périmètre déjà limité à
-              la carte.
+              puis triées par date (`groupActivitiesByCity`). Les food trucks ne sont
+              pas des activités datées (voir FOOD_TRUCK_CONTRACT.md) et n'apparaissent
+              donc pas ici, cohérent avec leur périmètre déjà limité à la carte.
             */}
             {viewMode === "list" && (
                 <div className="list-area">
@@ -1203,33 +1047,19 @@ function App() {
                             {searchError}
                         </p>
                     )}
-                    {!isLoadingActivities && !searchError && visibleActivities.length === 0 && (
+                    {!isLoadingActivities && !searchError && activities.length === 0 && (
                         <p className="activities-status">Aucune activité trouvée dans cette zone.</p>
                     )}
-                    {!isLoadingActivities && !searchError && visibleActivities.length > 0 && (
+                    {!isLoadingActivities && !searchError && activities.length > 0 && (
                         <div className="activity-list">
-                            {/*
-                              LL-10008 : le regroupement par ville (comportement historique
-                              de LL-EF-008) n'a de sens que pour l'ordre par défaut — un tri
-                              explicite (ville seule ou date) affiche au contraire une liste
-                              plate dans l'ordre choisi (`filterAndSortActivities`), avec la
-                              ville rappelée sur chaque ligne (`renderActivityListItem`,
-                              `showCity`) puisqu'il n'y a alors plus d'en-tête de groupe.
-                            */}
-                            {sortOrder === NO_SORT ? (
-                                groupActivitiesByCity(visibleActivities).map(([city, cityActivities]) => (
-                                    <section className="activity-list-group" key={city}>
-                                        <h2 className="activity-list-city">{city}</h2>
-                                        <ul className="activity-list-items">
-                                            {cityActivities.map((activity) => renderActivityListItem(activity, false))}
-                                        </ul>
-                                    </section>
-                                ))
-                            ) : (
-                                <ul className="activity-list-items">
-                                    {visibleActivities.map((activity) => renderActivityListItem(activity, true))}
-                                </ul>
-                            )}
+                            {groupActivitiesByCity(activities).map(([city, cityActivities]) => (
+                                <section className="activity-list-group" key={city}>
+                                    <h2 className="activity-list-city">{city}</h2>
+                                    <ul className="activity-list-items">
+                                        {cityActivities.map((activity) => renderActivityListItem(activity))}
+                                    </ul>
+                                </section>
+                            ))}
                         </div>
                     )}
                 </div>

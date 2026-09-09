@@ -4,6 +4,7 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -82,6 +83,32 @@ public class SourceService {
         return sourceRepository.findById(id).map(existing -> {
             Source updated = new Source(id, name, type, url, status, existing.lastSyncAt(), agendaUid, regionFilter);
             return sourceRepository.save(updated);
+        });
+    }
+
+    /**
+     * Enregistre la date/heure du dernier import réussi (bug corrigé :
+     * {@code lastSyncAt} restait toujours {@code null} en base, alors que
+     * {@code SOURCE_CONTRACT.md} et la javadoc de {@link #updateSource}
+     * le décrivaient déjà comme renseigné par {@code ImportService} — ce
+     * dernier calculait bien {@code endedAt} pour chaque import mais ne
+     * le reportait jamais sur la {@code Source}). Appelée uniquement par
+     * {@code ImportService}, après un import qui a effectivement pu
+     * contacter la source (voir sa javadoc pour le cas d'un échec total
+     * de collecte, qui n'appelle pas cette méthode).
+     *
+     * <p>Ignore silencieusement un {@code sourceId} inconnu plutôt que de
+     * lever une exception : ne devrait pas se produire en usage normal
+     * (la source vient d'être lue par {@code ImportService} au moment de
+     * l'appel), et une source supprimée entre-temps ne doit pas faire
+     * échouer tout l'import pour une raison accessoire.</p>
+     */
+    public void recordSync(Long sourceId, LocalDateTime syncedAt) {
+        sourceRepository.findById(sourceId).ifPresent(existing -> {
+            Source updated = new Source(
+                    sourceId, existing.name(), existing.type(), existing.url(), existing.status(), syncedAt,
+                    existing.agendaUid(), existing.regionFilter());
+            sourceRepository.save(updated);
         });
     }
 

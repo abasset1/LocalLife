@@ -166,6 +166,34 @@ class SourceServiceTest {
     }
 
     @Test
+    void recordSync_ShouldSaveSourceWithUpdatedLastSyncAt_WhenSourceExists() {
+        // Given : bug corrigé — lastSyncAt restait toujours null (voir ImportService).
+        LocalDateTime syncedAt = LocalDateTime.of(2026, 9, 9, 10, 30);
+        Source existing = new Source(
+                2L, "OpenAgenda Marseille", "API", "https://x", "ACTIVE", null, "agenda-uid", "PACA");
+        when(sourceRepository.findById(2L)).thenReturn(Optional.of(existing));
+
+        // When
+        sourceService.recordSync(2L, syncedAt);
+
+        // Then : tous les autres champs préservés, seul lastSyncAt change.
+        verify(sourceRepository).save(new Source(
+                2L, "OpenAgenda Marseille", "API", "https://x", "ACTIVE", syncedAt, "agenda-uid", "PACA"));
+    }
+
+    @Test
+    void recordSync_ShouldDoNothing_WhenSourceDoesNotExist() {
+        // Given
+        when(sourceRepository.findById(99L)).thenReturn(Optional.empty());
+
+        // When
+        sourceService.recordSync(99L, LocalDateTime.now());
+
+        // Then
+        verify(sourceRepository, never()).save(any());
+    }
+
+    @Test
     void deleteSource_ShouldDeleteAndReturnSource_WhenNotReservedManual() {
         // Given
         Source source = new Source(2L, "OpenAgenda Marseille", "API", null, "ACTIVE", null, "agenda-uid", null);

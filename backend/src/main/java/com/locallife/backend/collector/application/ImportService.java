@@ -83,6 +83,20 @@ import org.springframework.stereotype.Service;
  * LL-5010) mais rien n'invoque encore cette méthode dans l'application en
  * cours d'exécution.
  *
+ * <b>{@code lastSyncAt} (bug corrigé)</b> : {@link #importFrom(Source)}
+ * reporte désormais la date/heure de fin d'un import réussi sur
+ * {@code Source.lastSyncAt} (via {@code SourceService#recordSync}),
+ * conformément au contrat ({@code SOURCE_CONTRACT.md}) et à la javadoc
+ * de {@code SourceService#updateSource}, qui décrivaient déjà ce champ
+ * comme renseigné par ce service — {@code endedAt} était calculé pour
+ * chaque import (voir {@code ImportResult}) mais n'était jusqu'ici
+ * jamais reporté sur la source elle-même, laissant la colonne
+ * {@code last_sync_at} et l'affichage « Dernière synchronisation » de
+ * l'administration ({@code AdminPage.tsx}) toujours vides. Non reporté
+ * en cas d'échec total de {@code collector.collect()} (branche
+ * {@code catch} ci-dessous) : cohérent avec « dernier import
+ * <i>réussi</i> » du contrat.
+ *
  * <b>Journalisation (LL-5009)</b> : chaque import de source produit une
  * ligne de log (niveau {@code INFO}) résumant le résultat — voir
  * {@code ImportResult} pour le détail des compteurs. Pas de tableau de
@@ -212,6 +226,12 @@ public class ImportService {
 
         int archived = archiveActivitiesNoLongerInSource(source.id(), seenKeys);
         LocalDateTime endedAt = LocalDateTime.now();
+
+        // Bug corrigé : lastSyncAt restait toujours null (jamais reporté sur la Source),
+        // alors que SOURCE_CONTRACT.md le documente comme renseigné par ce service. Reporté
+        // uniquement ici, dans le chemin où collector.collect() a réussi (pas dans le catch
+        // ci-dessus) : conforme au contrat, "date/heure du dernier import réussi".
+        sourceService.recordSync(source.id(), endedAt);
 
         ImportResult result = new ImportResult(
                 source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors, archived);
