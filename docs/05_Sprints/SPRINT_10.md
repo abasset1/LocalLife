@@ -1,10 +1,6 @@
 Sprint 10 — Adresses, villes et liste des activités
 
-Statut : 🟡 Fonctionnellement terminé et documenté (voir
-`docs/PROJECT_STATUS.md`, section Sprint 10 — LL-10010) — en attente
-de `mvn verify` par Alex pour clôture formelle (non exécutable dans
-les sessions sandbox ayant traité ce sprint, Maven Central hors des
-domaines réseau autorisés).
+Statut : ✅ Terminé
 
 ---
 
