@@ -217,10 +217,28 @@ framework de test configuré, `package.json` ne définit qu'un script
 `build`) — pas de test ajouté pour ne pas introduire d'outillage de
 test sans décision explicite (ADR), hors périmètre de ce ticket.
 
+`LL-10008` (contrôles de filtre/tri par ville) traité par cette
+session — voir `CHANGELOG.md` (version 0.9.7). ⚠️ Écart volontaire par
+rapport à l'hypothèse formulée dans une précédente version de ce
+fichier : les contrôles **n'appellent pas**
+`GET /api/v1/activities?city=...&sort=...` (LL-10006) mais filtrent/
+trient côté client. Deux raisons trouvées en implémentant, documentées
+en détail dans `App.tsx` (javadoc de `filterAndSortActivities`) : (1)
+LL-10006 interdit explicitement de combiner `city`/`sort` avec la
+recherche géographique `nearby`/`within-bounds`, toujours active en
+parallèle du filtre ville ; (2) `GET /api/v1/activities` ne filtre
+aucun statut (contrairement à `nearby`/`within-bounds`, restreints à
+`PUBLISHED`) — l'utiliser pour cette page publique aurait exposé des
+activités `PENDING`/`REJECTED` au public. Point (2) est une vraie
+lacune de l'endpoint LL-10006, pas propre à ce ticket : à corriger
+dans un ticket dédié si cet endpoint doit un jour devenir la source
+principale de navigation de la page publique (actuellement aucun
+consommateur connu n'en a besoin).
+
 Prochain ticket du Sprint 10, sauf arbitrage contraire d'Alex :
-`LL-10008` (ajouter les contrôles de filtre et de tri par ville — la
-ville peut être sélectionnée dans l'UI et déclenche l'appel à
-`GET /api/v1/activities?city=...&sort=...`, contrat LL-10006).
+`LL-10009` (valider le parcours carte / liste / détail — scénario de
+bout en bout couvrant filtre ville, tri par date, ouverture d'une
+activité, retour carte/liste).
 
 ## Règles
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.7 — 2026-09-09
+
+### Sprint 10 / LL-10008 — Ajouter les contrôles de filtre et de tri par ville
+- Deux nouveaux contrôles dans le bandeau de filtres (`App.tsx`) : « Filtrer par ville » (liste déroulante, construite depuis les activités chargées, même patron que le filtre catégorie) et « Trier par » (Par défaut / Ville / Date).
+- ⚠️ Décision : filtrage et tri appliqués **côté client** (`filterAndSortActivities`), pas via l'endpoint `GET /api/v1/activities?city=...&sort=...` du contrat LL-10006, pour deux raisons documentées dans `App.tsx` :
+  1. cet endpoint ne peut pas être combiné avec la recherche géographique (`nearby`/`within-bounds`) — restriction explicite du contrat LL-10006 ;
+  2. plus important, cet endpoint ne filtre **aucun statut** (contrairement à `nearby`/`within-bounds`, restreints à `PUBLISHED`) : l'utiliser pour cette page publique aurait exposé des activités `PENDING`/`REJECTED`. Corriger cette lacune est un changement plus large, hors périmètre de ce ticket — signalé ici pour un futur ticket dédié si l'endpoint doit un jour devenir la source principale de navigation.
+- Le tri « Par défaut » conserve le regroupement par ville historique (LL-EF-008) ; un tri explicite (Ville ou Date) bascule la liste sur un affichage plat dans l'ordre choisi, avec la ville rappelée sur chaque ligne (plus d'en-tête de groupe dans ce mode).
+- Le filtre ville s'applique aussi à la carte (mêmes données affichées, critère d'acceptation « cohérent entre carte et liste »).
+- Compatible avec les filtres catégorie/date existants par construction (appliqué en aval de leur résultat déjà filtré côté serveur).
+- Vérifié avec `npm install && npx tsc --noEmit && npm run build` : compile sans erreur.
+
 ## 0.9.6 — 2026-09-09
 
 ### Sprint 10 / LL-10007 — Créer la vue liste des activités

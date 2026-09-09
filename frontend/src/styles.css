@@ -384,6 +384,17 @@ body {
     color: #475569;
 }
 
+/*
+ * LL-10008 : ville de l'activité, affichée uniquement en mode liste plate
+ * (tri explicite actif, pas de regroupement par ville) — voir
+ * `renderActivityListItem`/`showCity` dans App.tsx.
+ */
+.activity-list-item-city {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #334155;
+}
+
 .activity-list-item-meta {
     font-size: 0.85rem;
     color: #64748b;
