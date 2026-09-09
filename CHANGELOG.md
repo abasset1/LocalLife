@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.6 — 2026-09-09
+
+### Sprint 10 / LL-10007 — Créer la vue liste des activités
+- La vue liste, livrée par `LL-EF-008`, couvrait déjà la quasi-totalité du périmètre de ce ticket (bouton de bascule, activités récupérées depuis l'API, filtres catégorie/date actifs respectés, états chargement/erreur/aucun résultat, clic → détail). Seul écart identifié par rapport au critère d'acceptation explicite « la ville et l'adresse sont visibles » : l'adresse n'apparaissait que dans la modale de détail, pas dans la liste elle-même (la ville, elle, était déjà visible via l'en-tête de groupe).
+- Ajout de l'adresse (`activity.address`, repli « Adresse non renseignée » si absente — jamais de valeur déduite, cohérent avec `LOCATION_CONTRACT.md`) sur chaque ligne de la liste, entre le titre et la ligne date/catégorie.
+- Aucun changement côté API/backend pour ce ticket (les quatre endpoints exposent déjà `address`/`city` depuis LL-10005) ; aucun changement côté mobile (fonctionnalité non présente sur ce client, hors périmètre).
+
 ## 0.9.5 — 2026-09-08
 
 ### Sprint 10 / LL-10006 — Ajouter le filtre et le tri par ville

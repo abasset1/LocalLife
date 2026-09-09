@@ -203,11 +203,24 @@ accès à Maven Central (réseau restreint à GitHub/npm/pip) : le backend
 n'a donc pas pu être compilé ni testé. **`mvn verify` doit être lancé
 avant tout merge.**
 
+`LL-10007` (vue liste des activités) traité par cette session — voir
+`CHANGELOG.md` (version 0.9.6). La majeure partie du périmètre était
+déjà couverte par `LL-EF-008` (bouton de bascule, chargement depuis
+l'API, filtres actifs respectés, états chargement/erreur/aucun
+résultat, clic → détail) ; seul ajout réel : l'adresse est désormais
+visible directement dans chaque ligne de la liste (`App.tsx`,
+`styles.css`), pas seulement dans la modale de détail. Vérifié avec
+`npm install && npm run build` (accès npm disponible dans cette
+session, contrairement à Maven) : compile sans erreur TypeScript.
+Aucun test automatisé frontend n'existe dans ce projet (pas de
+framework de test configuré, `package.json` ne définit qu'un script
+`build`) — pas de test ajouté pour ne pas introduire d'outillage de
+test sans décision explicite (ADR), hors périmètre de ce ticket.
+
 Prochain ticket du Sprint 10, sauf arbitrage contraire d'Alex :
-`LL-10007` (créer la vue liste des activités — à ne pas confondre avec
-la vue liste déjà livrée côté frontend par `LL-EF-008`, ce ticket
-formalise/généralise probablement ce qui existe déjà ; à vérifier au
-moment de le traiter).
+`LL-10008` (ajouter les contrôles de filtre et de tri par ville — la
+ville peut être sélectionnée dans l'UI et déclenche l'appel à
+`GET /api/v1/activities?city=...&sort=...`, contrat LL-10006).
 
 ## Règles
 

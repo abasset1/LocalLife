@@ -223,6 +223,16 @@ function buildCategoryOptions(items: Activity[]): string[] {
 const UNKNOWN_CITY_LABEL = "Ville non renseignée";
 
 /**
+ * Repli affiché quand une activité n'a pas d'adresse résolue (LL-10007,
+ * critère d'acceptation « l'adresse est visible dans la liste ») — même
+ * convention que {@link UNKNOWN_CITY_LABEL} : jamais de valeur déduite ou
+ * approximative (règle explicite de `LOCATION_CONTRACT.md`), un texte de
+ * repli honnête plutôt qu'un champ vide ou une valeur construite à partir
+ * de `city`/des coordonnées.
+ */
+const UNKNOWN_ADDRESS_LABEL = "Adresse non renseignée";
+
+/**
  * Lieu affiché à l'utilisateur (LL-EF-008, demande d'Alex : des
  * coordonnées GPS brutes ne sont pas viables). Ordre de repli :
  * `address` (la plus précise et la plus lisible) puis `city` seule, puis
@@ -998,6 +1008,19 @@ function App() {
                                                     type="button"
                                                 >
                                                     <span className="activity-list-item-title">{activity.title}</span>
+                                                    {/*
+                                                      LL-10007 : critère d'acceptation explicite « l'adresse est
+                                                      visible » dans la liste (jusqu'ici affichée uniquement dans
+                                                      la modale de détail, LL-EF-008). La ville reste portée par
+                                                      l'en-tête de groupe (`activity-list-city`) juste au-dessus :
+                                                      pas de doublon, `activity.address` seul ici (jamais de repli
+                                                      sur `city`, contrairement à `formatActivityLocation` utilisée
+                                                      pour la carte/modale — la ville est déjà visible autrement
+                                                      dans la liste).
+                                                    */}
+                                                    <span className="activity-list-item-address">
+                                                        {activity.address ?? UNKNOWN_ADDRESS_LABEL}
+                                                    </span>
                                                     <span className="activity-list-item-meta">
                                                         {new Date(activity.startDate).toLocaleDateString("fr-FR")}
                                                         {/* Heure affichée seulement si elle est significative (voir
