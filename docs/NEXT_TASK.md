@@ -255,6 +255,19 @@ Prochain ticket du Sprint 10, sauf arbitrage contraire d'Alex :
 `LL-10010` (tests et documentation du sprint — dernier ticket de
 Sprint 10, dépend de LL-10009).
 
+`LL-10010` traité par cette session — voir `CHANGELOG.md` (version
+0.9.9) et `docs/PROJECT_STATUS.md` (section « Sprint 10 »). Ticket de
+clôture de sprint : documentation complétée (`PROJECT_STATUS.md`,
+`BACKLOG.md`, `README.md`, statut de `SPRINT_10.md`), nouvelle entrée
+de dette technique consolidant la limite récurrente « `mvn verify` non
+exécutable en sandbox » (`DETTE_TECHNIQUE.md`).
+
+⚠️ **Sprint 10 fonctionnellement complet et documenté, mais non
+formellement clos** : `mvn verify` (critère explicite de LL-10010)
+n'a pu être exécuté dans aucune session ayant traité ce sprint. **À
+faire par Alex avant d'ouvrir le Sprint Mobile** (`docs/05_Sprints/SPRINT_MOBILE.md`),
+prochain sprint du projet.
+
 ## Règles
 
 - Ne pas élargir le MVP avant les premiers retours de bêta.

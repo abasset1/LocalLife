@@ -396,6 +396,39 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 
 ---
 
+## Process — `mvn verify` non exécutable dans les sessions sandbox
+
+* **Détecté** : dès LL-EF-005 (config réseau restreinte), recontacté à
+  chaque ticket backend depuis (`LL-9001`, `LL-10004` à `LL-10006`,
+  clôture du Sprint 10 — `LL-10010`).
+* **Où** : toute session de développement assistée exécutée dans cette
+  sandbox (accès réseau limité à `github.com`/`npmjs.org`/`pypi.org` et
+  quelques autres domaines — voir configuration réseau de la session,
+  aucun domaine Maven Central `repo1.maven.org`/`maven.apache.org`).
+* **Nature** : le backend Java/Spring Boot ne peut pas être compilé ni
+  testé (`mvn compile`/`mvn test`/`mvn verify`) dans cet environnement,
+  faute d'accès aux dépendances Maven. Chaque changement backend livré
+  depuis une session sandbox l'est donc sous forme de patch relu avec
+  soin mais **jamais compilé**, contrairement au frontend (`npm
+  install`/`npx tsc --noEmit`/`npm run build` fonctionnent, `npmjs.org`
+  étant autorisé).
+* **Impact réel** : risque d'erreur de compilation/test non détectée
+  avant qu'Alex ne lance `mvn verify` en local — déjà arrivé une fois
+  courant Sprint 9 (voir « Correctif complémentaire » de `LL-9001`,
+  `docs/PROJECT_STATUS.md`), sans conséquence grave (corrigé rapidement)
+  mais confirmant le risque.
+* **Correctif disponible** : ajouter `repo1.maven.org`/
+  `repo.maven.apache.org` (et éventuellement un miroir type Google's
+  Maven mirror) aux domaines réseau autorisés de la sandbox — décision
+  côté configuration de l'environnement Anthropic/Claude, pas du code
+  du projet.
+* **Pourquoi pas corrigé immédiatement** : hors de portée d'un ticket
+  produit ; à signaler à Alex comme amélioration d'environnement plutôt
+  qu'à traiter comme un ticket LocalLife.
+* **Statut** : ouvert, récurrent depuis plusieurs sprints.
+
+---
+
 <!--
 Modèle pour une nouvelle entrée :
 

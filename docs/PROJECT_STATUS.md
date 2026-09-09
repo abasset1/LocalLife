@@ -2791,3 +2791,220 @@ backend n'a donc pas pu être compilé ni testé. `frontend`, en
 revanche, est vérifié (`tsc --noEmit` et `npm run build` passent).
 **`mvn test` doit être lancé côté Alex avant tout merge.** Livré sous
 forme de patch, pas encore appliqué sur `origin/main`.
+
+---
+
+## Écart de documentation — LL-EF-006 à LL-EF-008 non détaillés ici
+
+Ce fichier s'arrêtait à `LL-EF-005` avant la mise à jour ci-dessous
+(LL-10010). L'historique Git montre que `LL-EF-006` (page de profil),
+`LL-EF-007` (réinitialisation du mot de passe) et `LL-EF-008` (vue
+liste des activités, adresse structurée — voir
+`ADR-0001-adresse-structuree-activites.md`) ont bien été livrés, mais
+sans entrée dédiée ici (écart déjà signalé dans `docs/NEXT_TASK.md`).
+Non rattrapé dans cette mise à jour : `LL-10010` porte explicitement
+sur la documentation du **Sprint 10**, pas sur le rattrapage de la
+dette documentaire d'un autre sprint — un rattrapage dédié reste à
+faire par une session ayant le détail réel de ces trois tickets.
+
+---
+
+# Sprint 10 — Adresses, villes et liste des activités
+
+Sprint mené en parallèle du Sprint 9 et du Sprint Évol-Fix (`SPRINT_9.md`,
+`SPRINT_EVOL_FIX.md`), voir `docs/05_Sprints/SPRINT_10.md` pour le
+détail complet des dix tickets et leurs critères d'acceptation. Les
+sections ci-dessous ne reconstituent le détail de `LL-10001` à
+`LL-10004` qu'à partir des artefacts déjà présents dans le dépôt
+(`docs/02_Architecture/LOCATION_CONTRACT.md`, contenu du commit `git
+diff`) — ces quatre tickets ont été traités avant l'entrée en jeu des
+sessions qui rédigent ce document ; `LL-10005` à `LL-10010` sont
+documentés avec le détail complet, ayant été traités directement par
+ces sessions.
+
+## LL-10001 — Définir le contrat de localisation d'une activité ✅
+
+Ticket de conception/documentation uniquement (comme `SOURCE_CONTRACT.md`
+ou `GEO_SEARCH_CONTRACT.md`) : aucun code. Contrat rédigé dans
+`docs/02_Architecture/LOCATION_CONTRACT.md` — modèle cible
+(`address`/`postalCode`/`city`, chacun individuellement nullable,
+jamais de valeur déduite), comportement des champs absents,
+compatibilité avec les données existantes (additif, pas de backfill).
+Formalise et généralise ce que `LL-EF-008` avait déjà introduit dans
+le code (`address`/`city`/`postalCode` sur `Activity`, migration
+`V15`).
+
+**Statut : ✅ Terminé — contrat documenté, base du reste du sprint.**
+
+## LL-10002 — Faire évoluer la persistance de la localisation ✅
+
+Migration `V15` (colonnes `address`/`city`/`postal_code`, nullable,
+sur `activity`), déjà livrée par `LL-EF-008` (voir
+`ADR-0001-adresse-structuree-activites.md`) — ce ticket formalise que
+cette persistance respecte le contrat défini par `LL-10001`.
+
+**Statut : ✅ Terminé (persistance déjà en place depuis LL-EF-008).**
+
+## LL-10003 — Normaliser la localisation lors de la création d'une activité ✅
+
+Résolution à l'écriture (pas à la lecture), déjà en place depuis
+`LL-EF-008` : réponse Nominatim enrichie (`addressdetails=1`) pour une
+contribution manuelle. Ce ticket formalise que cette normalisation
+respecte le contrat `LL-10001` (aucune ville déduite d'une adresse non
+fiable, champs individuellement nullables).
+
+**Statut : ✅ Terminé (normalisation déjà en place depuis LL-EF-008).**
+
+## LL-10004 — Appliquer la normalisation aux données des collectors ✅
+
+`OpenAgendaCollector` réutilisait déjà les champs `location().address()`/
+`location().city()`/`location().postalCode()` d'OpenAgenda depuis
+`LL-EF-008` (voir commentaire dans `OpenAgendaCollector.java` :
+« address/city/postalCode ajoutés en LL-EF-008 »). Ce ticket a ajouté
+la couverture de test dédiée manquante :
+`NormalizationServiceTest`/`OpenAgendaCollectorTest` (commit `66a3b94`),
+formalisant que le pipeline d'import respecte lui aussi le contrat
+`LL-10001` (aucune production de code supplémentaire nécessaire, la
+normalisation existait déjà).
+
+**Statut : ✅ Terminé.**
+
+## LL-10005 — Exposer l'adresse et la ville dans l'API des activités ✅
+
+`postalCode` manquait sur `ActivityResponse` (utilisée par
+`nearby`/`within-bounds`) — `Activity` (utilisée telle quelle par
+`GET /api/v1/activities`/`GET /api/v1/activities/{id}`) exposait déjà
+les trois champs. Ajout de `postalCode` à `ActivityResponse` (commit
+`44028d1`), tests `ActivityControllerTest` associés, et rédaction de
+la table « État actuel de l'implémentation » dans
+`LOCATION_CONTRACT.md` confirmant les quatre endpoints uniformes.
+
+**Statut : ✅ Terminé — les quatre endpoints respectent le contrat.**
+
+## LL-10006 — Ajouter le filtre et le tri par ville ✅
+
+`GET /api/v1/activities` accepte `city` (filtre exact, insensible à la
+casse) et `sort` (`city`/`date`, combinables dans les deux ordres),
+réalisés côté base de données (`ActivityRepository#findAllFiltered`,
+une requête `@Query` unique avec des expressions `CASE WHEN` pour
+couvrir toutes les combinaisons de tri, `id` croissant en tie-break
+pour un résultat déterministe). Contrat détaillé (valeurs exactes de
+`sort`, décisions documentées) dans `LOCATION_CONTRACT.md`, section
+« Filtre `city` et tri `sort` ». Comportement historique de l'endpoint
+strictement inchangé en l'absence des deux paramètres.
+`nearby`/`within-bounds` non concernés (hors périmètre, décision
+documentée).
+
+**Fichiers modifiés :** `ActivityRepository.java`, `ActivityService.java`,
+`ActivityController.java`, `ActivityControllerTest.java`,
+`ActivityControllerIntegrationTest.java`, `ActivityServiceTest.java`,
+`ActivityRepositoryIntegrationTest.java`, `LOCATION_CONTRACT.md`.
+
+### Vérifications non réalisables depuis cette sandbox
+
+`mvn verify` — pas d'accès à Maven Central. **À lancer par Alex avant
+tout merge.**
+
+**Statut : ✅ Traité, en attente de confirmation `mvn verify` par Alex.**
+
+## LL-10007 — Créer la vue liste des activités ✅
+
+`LL-EF-008` couvrait déjà la quasi-totalité du périmètre (bouton de
+bascule, activités récupérées depuis l'API, filtres catégorie/date
+actifs respectés, états chargement/erreur/aucun résultat, clic →
+détail). Seul écart identifié par rapport au critère d'acceptation
+explicite « la ville et l'adresse sont visibles » : l'adresse
+n'apparaissait que dans la modale de détail. Ajout de `activity.address`
+(repli « Adresse non renseignée » si absente, jamais de valeur
+déduite) sur chaque ligne de la liste.
+
+**Fichiers modifiés :** `App.tsx`, `styles.css`.
+
+Vérifié avec `npm install && npx tsc --noEmit && npm run build`
+(accès npm disponible en sandbox, contrairement à Maven) : compile
+sans erreur. Pas de test automatisé ajouté : aucun framework de test
+frontend n'est configuré dans ce projet (introduire un tel outillage
+serait un changement d'architecture hors périmètre de ce ticket).
+
+**Statut : ✅ Terminé et vérifié (build frontend).**
+
+## LL-10008 — Ajouter les contrôles de filtre et de tri par ville ✅
+
+Deux contrôles dans le bandeau de filtres : « Filtrer par ville » et
+« Trier par » (Par défaut / Ville / Date). Filtrage/tri appliqués
+**côté client** (`filterAndSortActivities`), volontairement pas via
+`GET /api/v1/activities?city=...&sort=...` (`LL-10006`) : cet endpoint
+ne restreint aucun statut (contrairement à `nearby`/`within-bounds`,
+limités à `PUBLISHED` depuis `LL-6004`) — l'utiliser depuis la
+recherche géographique existante aurait exposé des activités
+`PENDING`/`REJECTED` au public. Décision documentée dans le code et
+dans `docs/NEXT_TASK.md`. Filtre ville et tri partagés entre carte et
+liste (`visibleActivities`), aucun impact sur les dépendances de
+l'effet de récupération des activités (`selectedCategory`,
+`selectedDate`, `refreshKey`, `userPosition`, `mapBounds` — inchangées).
+
+**Fichiers modifiés :** `App.tsx`, `styles.css`.
+
+Vérifié avec `npm install && npx tsc --noEmit && npm run build` :
+compile sans erreur.
+
+**Statut : ✅ Terminé et vérifié (build frontend).**
+
+## LL-10009 — Valider le parcours carte / liste / détail ✅
+
+Ticket de validation (comme `LL-7001`/`MVP_VALIDATION_PROTOCOL.md`) :
+pas de nouveau code fonctionnel. Revue de code exhaustive du parcours
+en 10 étapes du ticket, tracée jusqu'aux lignes de `App.tsx`
+concernées — voir
+`docs/02_Architecture/LL-10009_VALIDATION_CARTE_LISTE_DETAIL.md`. Les
+5 critères d'acceptation sont validés par le code : source de données
+unique (`visibleActivities`) partagée entre carte et liste, adresse/
+ville affichées sans transformation par rapport à l'API, aucune
+régression identifiée sur la recherche géographique.
+
+Point d'attention non bloquant signalé : la modale de détail affiche
+l'adresse sous le libellé « Lieu », pas « Adresse » (hérité de
+`LL-EF-008`).
+
+### Limite d'environnement
+
+Comme pour le protocole MVP (`LL-7001`), cette session sandbox n'a ni
+base PostgreSQL réelle ni navigateur pour un clic réel : validation
+par revue de code, pas par exécution. **Une exécution réelle par Alex
+reste nécessaire avant de considérer `LL-10009` définitivement clos.**
+
+**Statut : ✅ Validation par code terminée, ⚠️ exécution réelle en attente (Alex).**
+
+## LL-10010 — Tests et documentation du sprint 🟡
+
+Ticket de clôture de sprint. État par rapport à ses critères
+d'acceptation :
+
+| Critère | État |
+| --- | --- |
+| Tests backend passants | ⚠️ Non vérifiable en sandbox (pas d'accès à Maven Central) — écrits et relus avec soin (`ActivityControllerTest`, `ActivityControllerIntegrationTest`, `ActivityServiceTest`, `ActivityRepositoryIntegrationTest` pour `LL-10006`), mais jamais compilés dans cette session. |
+| Tests frontend passants | ✅ Aucun framework de test frontend n'existe dans ce projet (décision documentée en `LL-10007`, pas une lacune de ce ticket) — `tsc --noEmit`/`npm run build` passent. |
+| Tests d'intégration passants | ⚠️ Même limite que « tests backend » — écrits, non exécutés. |
+| Tests du pipeline collector passants | ⚠️ Même limite — `NormalizationServiceTest`/`OpenAgendaCollectorTest` (`LL-10004`) non ré-exécutés dans cette session, aucune modification apportée depuis leur écriture. |
+| Documentation API mise à jour | ✅ Annotations Swagger (`@Operation`/`@Parameter`) sur `ActivityController` pour `city`/`sort` ; `README.md` section « Sprint 10 » ajoutée ; contrat détaillé dans `LOCATION_CONTRACT.md`. |
+| Documentation architecture mise à jour | ✅ `LOCATION_CONTRACT.md` couvre l'intégralité du sprint (modèle cible, comportement des champs absents, filtre/tri, état d'implémentation par endpoint). |
+| `PROJECT_STATUS.md` mis à jour | ✅ Cette section. |
+| Backlog mis à jour | ✅ `docs/01_Product/BACKLOG.md` — voir entrée dédiée. |
+| Aucun ticket du sprint sans décision documentée | ✅ `LL-10001` à `LL-10009` ci-dessus, chacun avec une décision et une source documentées. |
+| `mvn verify` passe | ❌ **Non exécutable dans cette session** — Maven Central hors des domaines réseau autorisés en sandbox (`api.anthropic.com, api.github.com, ..., npmjs.org, pypi.org, ...` — voir configuration réseau de la session — aucun domaine `maven.apache.org`/`repo1.maven.org`). **Bloquant pour une clôture définitive du sprint : à exécuter par Alex.** |
+| Le build frontend passe | ✅ Vérifié à plusieurs reprises (`LL-10007`, `LL-10008`, et une dernière fois pour cette clôture) : `npm install && npx tsc --noEmit && npm run build` sans erreur. |
+
+### Conclusion Sprint 10
+
+**Sprint fonctionnellement complet et documenté**, mais **non
+formellement clos** : `mvn verify` (critère explicite de `LL-10010`)
+n'a pu être exécuté dans aucune des sessions ayant traité ce sprint,
+faute d'accès réseau à Maven Central en sandbox — même limite déjà
+rencontrée sur `LL-EF-005`, `LL-9001` et chaque ticket backend de ce
+sprint. Tout le code livré (`LL-10004` à `LL-10008`) a été relu avec
+soin pour maximiser la probabilité de compiler/passer du premier coup,
+mais **la vérification réelle reste entièrement à la charge d'Alex**
+avant tout merge sur `origin/main` et avant d'ouvrir le Sprint Mobile.
+
+**Statut : 🟡 Terminé côté code et documentation, en attente de
+`mvn verify` (Alex) pour clôture formelle.**

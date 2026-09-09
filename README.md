@@ -298,3 +298,47 @@ Résumé de l'avancement (25 août 2026) :
   (Culture) en attendant qu'Alex en identifie d'autres — voir
   `docs/PROJECT_STATUS.md` et `docs/DETTE_TECHNIQUE.md` pour le détail
   et les conditions avant ouverture effective.
+
+## Sprint 10 — Adresses, villes et liste des activités
+
+> Note : le Sprint 9 (corrections post-bêta) et le Sprint Évol-Fix
+> (`docs/05_Sprints/SPRINT_EVOL_FIX.md`), tous deux menés en parallèle
+> du Sprint 10, ne sont pas résumés dans ce README — écart de
+> documentation antérieur à ce sprint, signalé dans
+> `docs/NEXT_TASK.md`, non rattrapé ici (hors périmètre de LL-10010,
+> qui porte sur le Sprint 10).
+
+* **Localisation structurée** — une activité expose désormais `address`,
+  `postalCode` et `city` en plus de `latitude`/`longitude`, chacun
+  individuellement nullable (jamais de valeur déduite : `city` n'est
+  jamais construite à partir de `address`). Contrat complet, y compris
+  le comportement des champs absents et l'état d'implémentation par
+  endpoint :
+  [`docs/02_Architecture/LOCATION_CONTRACT.md`](docs/02_Architecture/LOCATION_CONTRACT.md).
+* **Filtre et tri par ville** — `GET /api/v1/activities` (le listing
+  simple, pas `nearby`/`within-bounds`) accepte deux paramètres
+  optionnels : `city` (filtre exact, insensible à la casse) et `sort`
+  (une ou plusieurs clés parmi `city`/`date`, séparées par une
+  virgule, ex. `sort=city,date`). Filtrage et tri réalisés côté base
+  de données ; sans ces deux paramètres, le comportement historique de
+  l'endpoint est strictement inchangé. Détail :
+  [`docs/02_Architecture/LOCATION_CONTRACT.md`](docs/02_Architecture/LOCATION_CONTRACT.md#filtre-city-et-tri-sort-ll-10006).
+* **Vue liste** — bouton Carte/Liste dans le bandeau de filtres ; la
+  liste affiche titre, date, ville, adresse et catégorie, regroupée
+  par ville par défaut ou triée explicitement (ville et/ou date) ;
+  clic sur une activité → même modale de détail que depuis la carte.
+  Carte et liste partagent une seule source de données filtrée/triée
+  (`visibleActivities`), sans appel réseau supplémentaire au
+  changement de vue ou de filtre ville/tri — voir
+  `docs/02_Architecture/LL-10009_VALIDATION_CARTE_LISTE_DETAIL.md`
+  pour la vérification détaillée de cette cohérence carte/liste.
+* Filtres ville/tri appliqués côté client (pas via `GET
+  /api/v1/activities?city=...&sort=...`) : `GET /api/v1/activities`
+  ne restreint aucun statut (contrairement à `nearby`/`within-bounds`,
+  limités à `PUBLISHED` depuis le Sprint 6), l'utiliser depuis la
+  recherche géographique existante aurait exposé des activités
+  `PENDING`/`REJECTED` — décision documentée dans `docs/NEXT_TASK.md`.
+* ⚠️ **`mvn verify` non exécuté par les sessions ayant traité ce
+  sprint** — accès réseau restreint (Maven Central hors des domaines
+  autorisés en sandbox). À lancer avant tout merge en production, avec
+  une base PostgreSQL réelle.

@@ -13,6 +13,12 @@
 - Sprint 6 : `LL-6001` → `LL-6011`
 - Sprint 7 : `LL-7001` → `LL-7009`
 - Sprint 8 : `LL-8001` → `LL-8009` (GO bêta conditionnel confirmé par Alex le 26/08/2026)
+- Sprint 10 : `LL-10001` → `LL-10010` — adresses/villes structurées, filtre et
+  tri par ville, vue liste. Fonctionnellement complet et documenté
+  (`docs/PROJECT_STATUS.md`, section Sprint 10), **non formellement clos** :
+  `mvn verify` n'a pu être exécuté dans aucune des sessions ayant traité ce
+  sprint (Maven Central hors des domaines réseau autorisés en sandbox) — à
+  faire par Alex avant d'ouvrir le Sprint Mobile.
 
 ## Sprint actuel / prochain sprint
 
@@ -27,6 +33,12 @@
 **Détail :** `docs/05_Sprints/SPRINT_9.md`. Sprint ouvert au fil de l'eau :
 chaque correctif identifié par Alex devient un ticket autonome, traité un
 par un.
+
+⚠️ Cette entrée reste incomplète par rapport à `docs/PROJECT_STATUS.md`, qui
+documente déjà `LL-9002` à `LL-9006` ainsi que le Sprint Évol-Fix
+(`LL-EF-001` à `LL-EF-008`, `docs/05_Sprints/SPRINT_EVOL_FIX.md`) menés en
+parallèle — écart de documentation antérieur au traitement du Sprint 10, non
+rattrapé ici (hors périmètre de `LL-10010`, qui porte sur le Sprint 10).
 
 Les évolutions produit de Phase 3 restent volontairement non engagées. Elles
 seront priorisées à partir des retours de la bêta et des besoins réellement

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.9 — 2026-09-09
+
+### Sprint 10 / LL-10010 — Tests et documentation du sprint (clôture)
+- Ticket de clôture de sprint : `docs/PROJECT_STATUS.md` complété d'une section « Sprint 10 » couvrant `LL-10001` à `LL-10010` (chacun avec décision et source documentées) ; `docs/01_Product/BACKLOG.md` mis à jour ; `README.md` complété d'une section « Sprint 10 » ; statut de `docs/05_Sprints/SPRINT_10.md` mis à jour.
+- Nouvelle entrée de dette technique (`docs/DETTE_TECHNIQUE.md`) documentant, une fois pour toutes plutôt qu'à chaque ticket, l'impossibilité récurrente d'exécuter `mvn verify` dans les sessions sandbox (Maven Central hors des domaines réseau autorisés).
+- **Sprint fonctionnellement complet et documenté, non formellement clos** : `mvn verify` (critère explicite de ce ticket) n'a pu être exécuté dans aucune session ayant traité ce sprint — bloquant pour une clôture définitive, à faire par Alex. Le build frontend (`npm run build`), en revanche, a été vérifié à plusieurs reprises et passe.
+
 ## 0.9.8 — 2026-09-09
 
 ### Sprint 10 / LL-10009 — Valider le parcours carte / liste / détail
