@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.8 — 2026-09-09
+
+### Sprint 10 / LL-10009 — Valider le parcours carte / liste / détail
+- Ticket de validation (pas de nouveau code fonctionnel) : revue de code exhaustive du parcours en 10 étapes défini par le ticket, tracée jusqu'aux lignes de `App.tsx` concernées — voir `docs/02_Architecture/LL-10009_VALIDATION_CARTE_LISTE_DETAIL.md`.
+- Les 5 critères d'acceptation sont validés par le code : source de données unique (`visibleActivities`) partagée entre carte et liste, adresse/ville affichées sans transformation par rapport à l'API, aucune dépendance de l'effet de récupération des activités à `selectedCity`/`sortOrder`/`viewMode` (donc aucune régression sur `/nearby`/`/within-bounds`).
+- ⚠️ Comme pour le protocole MVP (LL-7001), cette session sandbox n'a ni base PostgreSQL réelle ni navigateur pour un clic réel : la validation ci-dessus est une revue de code, pas une exécution. Une passe réelle par Alex reste nécessaire avant clôture définitive.
+
 ## 0.9.7 — 2026-09-09
 
 ### Sprint 10 / LL-10008 — Ajouter les contrôles de filtre et de tri par ville

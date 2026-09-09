@@ -240,6 +240,21 @@ Prochain ticket du Sprint 10, sauf arbitrage contraire d'Alex :
 bout en bout couvrant filtre ville, tri par date, ouverture d'une
 activité, retour carte/liste).
 
+`LL-10009` traité par cette session — voir `CHANGELOG.md` (version
+0.9.8) et `docs/02_Architecture/LL-10009_VALIDATION_CARTE_LISTE_DETAIL.md`.
+Ticket de validation : revue de code exhaustive (pas d'exécution réelle
+possible en sandbox, ni base réelle ni navigateur), les 5 critères
+d'acceptation et les 10 étapes du scénario sont cohérents avec le code
+à ce jour. ⚠️ **Une exécution réelle par Alex reste nécessaire avant
+de considérer LL-10009 définitivement clos** — même limite déjà
+rencontrée pour le protocole MVP (LL-7001). Point d'attention mineur
+signalé (non bloquant) : la modale de détail affiche l'adresse sous le
+libellé « Lieu », pas « Adresse ».
+
+Prochain ticket du Sprint 10, sauf arbitrage contraire d'Alex :
+`LL-10010` (tests et documentation du sprint — dernier ticket de
+Sprint 10, dépend de LL-10009).
+
 ## Règles
 
 - Ne pas élargir le MVP avant les premiers retours de bêta.
