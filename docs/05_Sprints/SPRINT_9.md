@@ -393,6 +393,8 @@ LL-9007 — Activer et vérifier l'alimentation automatique Avignon en bêta
 
 Priorité : Haute
 
+Statut : ✅ Terminé
+
 Dépendance : "LL-9003"
 
 Objectif
@@ -416,6 +418,8 @@ Critères d'acceptation
 LL-9008 — Valider le parcours complet depuis Internet
 
 Priorité : Haute
+
+Statut : ✅ Terminé
 
 Dépendance : "LL-9005", "LL-9006", "LL-9007"
 
