@@ -334,6 +334,7 @@ function App() {
     const [availableCategories, setAvailableCategories] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
     const [selectedDate, setSelectedDate] = useState(NO_DATE_FILTER);
+    const [selectedDateEnd, setSelectedDateEnd] = useState<string | undefined>(undefined);
     const [currentUser, setCurrentUser] = useState(() => getPayload());
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -459,6 +460,9 @@ function App() {
             }
             if (selectedDate !== NO_DATE_FILTER) {
                 params.set("date", selectedDate);
+            }
+            if (selectedDateEnd !== undefined && selectedDateEnd !== NO_DATE_FILTER) {
+                params.set("dateEnd", selectedDateEnd);
             }
 
             try {
@@ -834,38 +838,47 @@ function App() {
                         const period = event.target.value;
                         if (period === "") {
                             setSelectedDate(NO_DATE_FILTER);
+                            setSelectedDateEnd(undefined);
                         } else {
                             const today = new Date();
                             today.setHours(0, 0, 0, 0);
+                            let startDate: Date;
+                            let endDate: Date;
 
                             switch (period) {
                                 case "this-weekend": {
                                     const daysToSaturday = 6 - today.getDay();
-                                    const saturday = new Date(today);
-                                    saturday.setDate(today.getDate() + daysToSaturday);
-                                    setSelectedDate(saturday.toISOString().split("T")[0]);
+                                    startDate = new Date(today);
+                                    startDate.setDate(today.getDate() + daysToSaturday);
+                                    endDate = new Date(startDate);
+                                    endDate.setDate(endDate.getDate() + 1);
                                     break;
                                 }
                                 case "this-week": {
                                     const daysToMonday = today.getDay() === 0 ? -6 : 1 - today.getDay();
-                                    const monday = new Date(today);
-                                    monday.setDate(today.getDate() + daysToMonday);
-                                    setSelectedDate(monday.toISOString().split("T")[0]);
+                                    startDate = new Date(today);
+                                    startDate.setDate(today.getDate() + daysToMonday);
+                                    endDate = new Date(startDate);
+                                    endDate.setDate(endDate.getDate() + 6);
                                     break;
                                 }
                                 case "this-month": {
-                                    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                                    setSelectedDate(firstOfMonth.toISOString().split("T")[0]);
+                                    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                                    endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
                                     break;
                                 }
                                 case "next-month": {
-                                    const firstOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-                                    setSelectedDate(firstOfNextMonth.toISOString().split("T")[0]);
+                                    startDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                                    endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0);
                                     break;
                                 }
                                 default:
-                                    setSelectedDate(today.toISOString().split("T")[0]);
+                                    startDate = today;
+                                    endDate = today;
                             }
+
+                            setSelectedDate(startDate.toISOString().split("T")[0]);
+                            setSelectedDateEnd(endDate.toISOString().split("T")[0]);
                         }
                     }}
                     value=""
