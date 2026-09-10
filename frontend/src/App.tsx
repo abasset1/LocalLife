@@ -836,37 +836,36 @@ function App() {
                             setSelectedDate(NO_DATE_FILTER);
                         } else {
                             const today = new Date();
-                            let startDate: Date;
+                            today.setHours(0, 0, 0, 0);
 
                             switch (period) {
                                 case "this-weekend": {
-                                    startDate = new Date(today);
                                     const daysToSaturday = 6 - today.getDay();
-                                    startDate.setDate(today.getDate() + daysToSaturday);
-                                    if (startDate < today) {
-                                        startDate.setDate(startDate.getDate() + 7);
-                                    }
+                                    const saturday = new Date(today);
+                                    saturday.setDate(today.getDate() + daysToSaturday);
+                                    setSelectedDate(saturday.toISOString().split("T")[0]);
                                     break;
                                 }
                                 case "this-week": {
-                                    startDate = new Date(today);
                                     const daysToMonday = today.getDay() === 0 ? -6 : 1 - today.getDay();
-                                    startDate.setDate(today.getDate() + daysToMonday);
+                                    const monday = new Date(today);
+                                    monday.setDate(today.getDate() + daysToMonday);
+                                    setSelectedDate(monday.toISOString().split("T")[0]);
                                     break;
                                 }
                                 case "this-month": {
-                                    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                                    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                                    setSelectedDate(firstOfMonth.toISOString().split("T")[0]);
                                     break;
                                 }
                                 case "next-month": {
-                                    startDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                                    const firstOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                                    setSelectedDate(firstOfNextMonth.toISOString().split("T")[0]);
                                     break;
                                 }
                                 default:
-                                    startDate = today;
+                                    setSelectedDate(today.toISOString().split("T")[0]);
                             }
-
-                            setSelectedDate(startDate.toISOString().split("T")[0]);
                         }
                     }}
                     value=""
