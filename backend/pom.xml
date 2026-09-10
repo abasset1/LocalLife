@@ -100,6 +100,15 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- LL-11003 : parsing/validation/calcul RRULE (RFC 5545), voir
+             docs/02_Architecture/ADR-0003-recurrence-ical4j.md — le ticket demande
+             explicitement un standard de calendrier plutôt qu'un moteur propriétaire. -->
+        <dependency>
+            <groupId>org.mnode.ical4j</groupId>
+            <artifactId>ical4j</artifactId>
+            <version>3.0.24</version>
+        </dependency>
+
     </dependencies>
 
     <build>
