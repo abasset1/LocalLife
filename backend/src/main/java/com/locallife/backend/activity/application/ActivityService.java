@@ -562,6 +562,10 @@ public class ActivityService {
             String startDate, String endDate) {
         validateTitle(title);
         validateCategory(category);
+        LocalDateTime resolvedStartDate = parseFlexibleDate("startDate", startDate)
+                .orElseGet(LocalDateTime::now);
+        LocalDateTime resolvedEndDate = parseFlexibleDate("endDate", endDate)
+                .orElseGet(() -> resolvedStartDate.toLocalDate().atStartOfDay());
         Coordinates coordinates = geocodingService.geocode(address);
         validateLatitude("latitude", coordinates.latitude());
         validateLongitude("longitude", coordinates.longitude());
@@ -569,10 +573,6 @@ public class ActivityService {
                 .map(Source::id)
                 .orElseThrow(() -> new IllegalStateException(
                         "Source MANUAL introuvable — migration V8__create_source_table.sql manquante ?"));
-        LocalDateTime resolvedStartDate = parseFlexibleDate("startDate", startDate)
-                .orElseGet(LocalDateTime::now);
-        LocalDateTime resolvedEndDate = parseFlexibleDate("endDate", endDate)
-                .orElseGet(() -> resolvedStartDate.toLocalDate().atStartOfDay());
         Activity activity = new Activity(
                 null, title, description, category,
                 coordinates.latitude(), coordinates.longitude(), resolvedStartDate, resolvedEndDate, "PENDING",
