@@ -197,7 +197,7 @@ public class ActivityController {
             HttpServletRequest httpRequest) {
         try {
             List<Activity> activities = activityService.findWithinBounds(
-                    swLatitude, swLongitude, neLatitude, neLongitude, category, date);
+                    swLatitude, swLongitude, neLatitude, neLongitude, category, date, dateEnd);
             return ResponseEntity.ok(withSourceNames(activities));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
