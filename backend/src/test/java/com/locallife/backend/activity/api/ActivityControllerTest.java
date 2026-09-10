@@ -218,13 +218,13 @@ class ActivityControllerTest {
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
-        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
+        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
         when(sourceService.getAllSources()).thenReturn(List.of(source));
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "concert", "2026-09-05", httpRequest);
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, httpRequest);
 
         // Then
         // LL-8006 : sourceId (technique) est résolu en sourceName (lisible) dans la réponse.
@@ -237,13 +237,13 @@ class ActivityControllerTest {
         // Given : sourceId référencé par l'activité absent des sources connues (cas défensif LL-8006).
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 99L, null, null, null, null, null);
-        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
+        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
         when(sourceService.getAllSources()).thenReturn(List.of());
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "concert", "2026-09-05", httpRequest);
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -261,13 +261,13 @@ class ActivityControllerTest {
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null,
                 "Quai du Port", "Marseille", "13002");
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
-        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
+        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
         when(sourceService.getAllSources()).thenReturn(List.of(source));
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "concert", "2026-09-05", httpRequest);
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -290,7 +290,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                null, "5.3739", "5", null, null, httpRequest);
+                null, "5.3739", "5", null, null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -307,7 +307,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", null, "05/09/2026", httpRequest);
+                "43.2951", "5.3739", "5", null, "05/09/2026", null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -320,14 +320,12 @@ class ActivityControllerTest {
         Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
-        when(activityService.findWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05"))
+        when(activityService.findWithinBounds("43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null))
                 .thenReturn(List.of(inBounds));
         when(sourceService.getAllSources()).thenReturn(List.of(source));
 
         // When
-        ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", httpRequest);
+        ResponseEntity<Object> response = activityController.getActivitiesWithinBounds("43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null, null, httpRequest);
 
         // Then
         // LL-8006 : sourceId (technique) est résolu en sourceName (lisible) dans la réponse.
@@ -343,14 +341,12 @@ class ActivityControllerTest {
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null,
                 "Quai du Port", "Marseille", "13002");
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
-        when(activityService.findWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05"))
+        when(activityService.findWithinBounds("43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null))
                 .thenReturn(List.of(inBounds));
         when(sourceService.getAllSources()).thenReturn(List.of(source));
 
         // When
-        ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", httpRequest);
+        ResponseEntity<Object> response = activityController.getActivitiesWithinBounds("43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -371,7 +367,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                null, "5.35", "43.31", "5.40", null, null, httpRequest);
+                null, "5.35", "43.31", "5.40", null, null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -388,7 +384,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                "43.31", "5.35", "43.31", "5.40", null, null, httpRequest);
+                "43.31", "5.35", "43.31", "5.40", null, null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
