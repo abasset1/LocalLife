@@ -820,20 +820,70 @@ function App() {
                         </option>
                     ))}
                 </select>
-                <label htmlFor="date-filter">Filtrer par date</label>
+                <label htmlFor="start-date-filter">À partir de</label>
                 <input
-                    id="date-filter"
+                    id="start-date-filter"
                     onChange={(event) => setSelectedDate(event.target.value)}
                     type="date"
                     value={selectedDate}
                 />
+                <label htmlFor="period-filter">Période</label>
+                <select
+                    id="period-filter"
+                    onChange={(event) => {
+                        const period = event.target.value;
+                        if (period === "") {
+                            setSelectedDate(NO_DATE_FILTER);
+                        } else {
+                            const today = new Date();
+                            let startDate: Date;
+
+                            switch (period) {
+                                case "this-weekend": {
+                                    startDate = new Date(today);
+                                    const daysToSaturday = 6 - today.getDay();
+                                    startDate.setDate(today.getDate() + daysToSaturday);
+                                    if (startDate < today) {
+                                        startDate.setDate(startDate.getDate() + 7);
+                                    }
+                                    break;
+                                }
+                                case "this-week": {
+                                    startDate = new Date(today);
+                                    const daysToMonday = today.getDay() === 0 ? -6 : 1 - today.getDay();
+                                    startDate.setDate(today.getDate() + daysToMonday);
+                                    break;
+                                }
+                                case "this-month": {
+                                    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                                    break;
+                                }
+                                case "next-month": {
+                                    startDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                                    break;
+                                }
+                                default:
+                                    startDate = today;
+                            }
+
+                            setSelectedDate(startDate.toISOString().split("T")[0]);
+                        }
+                    }}
+                    value=""
+                >
+                    <option value="">Toutes les périodes</option>
+                    <option value="this-weekend">Ce weekend</option>
+                    <option value="this-week">Cette semaine</option>
+                    <option value="this-month">Ce mois-ci</option>
+                    <option value="next-month">Prochain mois</option>
+                </select>
                 {selectedDate !== NO_DATE_FILTER && (
                     <button
-                        aria-label="Effacer le filtre par date"
+                        aria-label="Effacer le filtre de période"
                         onClick={() => setSelectedDate(NO_DATE_FILTER)}
                         type="button"
                     >
-                        ✕
+                        ×
                     </button>
                 )}
                 {/*
