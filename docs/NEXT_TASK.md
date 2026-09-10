@@ -172,6 +172,18 @@ d'ADR nécessaire.
 Prochain ticket de ce sprint, sauf arbitrage contraire d'Alex :
 `LL-EF-007` (réinitialisation du mot de passe).
 
+## Correctif hors sprint — Marqueurs d'activité cassés en production
+
+Signalé par Alex (icônes de marqueur invisibles sur la carte, en
+production uniquement) et traité hors ordre du sprint courant. Voir
+`CHANGELOG.md` (version 0.9.12) pour le détail : bug classique
+react-leaflet/Vite — `L.Icon.Default` ne peut pas déduire le chemin de
+ses images une fois le script buildé par Vite (renommé, plus de
+`leaflet.js` dans le DOM). Corrigé par import explicite des images
+d'icône comme modules ES et reconfiguration de `L.Icon.Default` dans
+`App.tsx`. N'affecte pas les marqueurs food truck (déjà en `divIcon`).
+Vérifié avec `npm run build` + inspection du bundle produit.
+
 ## Décision hors sprint — Retrait des contrôles filtre ville / tri
 
 Décision explicite d'Alex, traitée hors ordre du sprint courant : les

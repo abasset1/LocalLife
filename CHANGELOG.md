@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.12 — 2026-09-10
+
+### Correctif prod — Marqueurs d'activité cassés sur la carte
+- Bug signalé par Alex : en production, les icônes des marqueurs indiquant l'emplacement des activités sur la carte ne s'affichaient plus (visible uniquement en prod, pas en local).
+- Cause : icône par défaut de Leaflet (`L.Icon.Default`), utilisée telle quelle pour les marqueurs d'activité (les food trucks ont leur propre `divIcon`, non concernés). Cette icône résout ses images via `L.Icon.Default.prototype._getIconUrl`, qui déduit le dossier d'images en inspectant les balises `<script src="...leaflet...">` de la page — une détection qui échoue avec un bundler comme Vite, dont le script buildé n'a jamais ce nom. Résultat : requêtes d'image relatives à la racine (`/marker-icon.png`) en 404 une fois en production. Bug classique et documenté de l'écosystème react-leaflet + bundler moderne, invisible en dev (Vite sert par coïncidence les fichiers de `node_modules`).
+- Correction : import explicite des trois images d'icône (`marker-icon.png`, `marker-icon-2x.png`, `marker-shadow.png`) comme modules ES (`frontend/src/App.tsx`), puis reconfiguration de `L.Icon.Default` via `mergeOptions` avec ces imports — fix standard react-leaflet/Vite. Vite les inline désormais en base64 dans le bundle JS (images < 4 Ko), donc plus aucune requête réseau séparée ni risque de 404.
+- `frontend/src/vite-env.d.ts` : ajout de `/// <reference types="vite/client" />`, nécessaire pour que TypeScript reconnaisse les imports `*.png` comme des modules valides (seul `*.css` était déclaré jusqu'ici).
+- Aucun changement backend, aucun changement pour les marqueurs food truck (déjà en `divIcon`, jamais concernés par ce bug).
+- Vérifié avec `npx tsc --noEmit && npm run build`, plus inspection du bundle produit (`dist/assets/*.js`) confirmant que les trois images sont bien inlinées en `data:image/png;base64,...`.
+
 ## 0.9.11 — 2026-09-09
 
 ### Décision Alex — Retrait des contrôles « Filtrer par ville » et « Trier par »

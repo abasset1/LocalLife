@@ -2,11 +2,42 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { LatLngExpression } from "leaflet";
 import L from "leaflet";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
+
+/**
+ * Correctif prod : icône par défaut de Leaflet pour les marqueurs
+ * d'activité (celle documentée plus bas comme « utilisée telle quelle,
+ * sans configuration particulière » — voir la javadoc de
+ * `FOOD_TRUCK_MARKER_ICON`, qui explique pourquoi les food trucks
+ * l'évitent délibérément). En réalité cette icône par défaut se résout
+ * via `L.Icon.Default.prototype._getIconUrl`, qui déduit le dossier des
+ * images en inspectant les balises `<script src="...leaflet...">` de la
+ * page — une détection qui échoue avec un bundler comme Vite (le script
+ * réel s'appelle `index-XXXX.js`, jamais `leaflet.js`), donnant des
+ * requêtes d'image relatives à la racine (`/marker-icon.png`) qui
+ * renvoient 404 une fois buildé en production, alors qu'en dev le
+ * serveur Vite les sert par coïncidence via `node_modules` (d'où le bug
+ * invisible en local, signalé par Alex seulement une fois en prod). Fix
+ * standard react-leaflet/Vite : importer les images comme modules (Vite
+ * les copie alors dans `dist/assets` avec une URL correcte, incluse dans
+ * le bundle par `vite build`) et reconfigurer `L.Icon.Default` pour les
+ * utiliser, une fois au chargement du module plutôt que dans un
+ * composant — ces icônes ne changent jamais pendant la vie de l'app.
+ */
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: markerIcon2x,
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow,
+});
+
 
 /**
  * `sourceName` ajouté en LL-8006 : jusqu'ici le backend n'exposait que
@@ -179,11 +210,13 @@ const NO_DATE_FILTER = "";
  * Icône dédiée au marqueur food truck (LL-6009, critère « distinction
  * visuelle [...] suffisante avec une activité ») : `divIcon` (HTML/CSS,
  * classe `.food-truck-marker` dans `styles.css`) plutôt qu'une image
- * externe — évite tout problème de résolution d'assets Leaflet avec Vite
- * (icône par défaut de `react-leaflet` déjà utilisée telle quelle pour
- * les activités, sans configuration particulière ; ajouter une deuxième
- * image nécessiterait de résoudre ce problème pour un seul marqueur,
- * disproportionné pour ce ticket).
+ * externe — l'icône par défaut de `react-leaflet` utilisée pour les
+ * activités nécessite déjà une reconfiguration explicite pour survivre
+ * au build Vite (voir le correctif en tête de fichier, juste après les
+ * imports) ; lui ajouter une deuxième image distincte pour les food
+ * trucks aurait dupliqué ce problème pour un seul marqueur, disproportionné
+ * pour ce ticket — un `divIcon` HTML n'a par construction aucune image à
+ * résoudre.
  *
  * --- Ajouter un nouveau type de point sur la carte ---
  * `FoodTruck` est pensé comme un patron reproductible pour un futur
