@@ -339,6 +339,19 @@ function App() {
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState("");
     const [address, setAddress] = useState("");
+    /**
+     * Demande Alex : dates de début/fin optionnelles pour la saisie
+     * manuelle d'une activité (`<input type="date">`, jamais d'heure —
+     * cohérent avec « trunc(date de début) » du backend : une chaîne
+     * `yyyy-MM-dd` vaut minuit une fois interprétée côté serveur, voir
+     * `ActivityService#createActivity`). Laissés vides par défaut :
+     * `handleSubmit` n'envoie alors ni `startDate` ni `endDate`, et le
+     * backend applique ses propres valeurs par défaut (maintenant / début
+     * de journée de `startDate`) plutôt qu'une valeur calculée ici, pour
+     * n'avoir qu'une seule définition de ces règles.
+     */
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
     const [submitError, setSubmitError] = useState<string | null>(null);
     /**
@@ -646,7 +659,18 @@ function App() {
             const response = await apiFetch("/api/v1/activities", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title, description, category, address }),
+                // startDate/endDate : chaîne vide -> `undefined`, absent du JSON envoyé,
+                // pour laisser le backend appliquer ses propres valeurs par défaut
+                // (voir la javadoc de `startDate`/`endDate` ci-dessus) plutôt que d'en
+                // envoyer une calculée ici.
+                body: JSON.stringify({
+                    title,
+                    description,
+                    category,
+                    address,
+                    startDate: startDate || undefined,
+                    endDate: endDate || undefined,
+                }),
             });
 
             if (!response.ok) {
@@ -667,6 +691,8 @@ function App() {
             setDescription("");
             setCategory("");
             setAddress("");
+            setStartDate("");
+            setEndDate("");
             setIsContributionModalOpen(false);
         } catch {
             setSubmitError("Impossible de contacter le serveur, réessaie plus tard.");
@@ -910,6 +936,31 @@ function App() {
                                     required
                                     type="text"
                                     value={address}
+                                />
+                            </div>
+                            {/*
+                              Demande Alex : dates optionnelles. Non « required » — un
+                              contributeur qui laisse ces champs vides obtient les
+                              valeurs par défaut du backend (maintenant / même jour que
+                              le début), voir la javadoc de `startDate`/`endDate` plus
+                              haut et `ActivityService#createActivity` côté backend.
+                            */}
+                            <div className="form-field">
+                                <label htmlFor="activity-start-date">Date de début</label>
+                                <input
+                                    id="activity-start-date"
+                                    onChange={(event) => setStartDate(event.target.value)}
+                                    type="date"
+                                    value={startDate}
+                                />
+                            </div>
+                            <div className="form-field">
+                                <label htmlFor="activity-end-date">Date de fin</label>
+                                <input
+                                    id="activity-end-date"
+                                    onChange={(event) => setEndDate(event.target.value)}
+                                    type="date"
+                                    value={endDate}
                                 />
                             </div>
                             <div className="modal-actions">

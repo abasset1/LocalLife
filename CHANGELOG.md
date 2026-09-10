@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.13 — 2026-09-10
+
+### Évolution — Dates de début/fin à la saisie manuelle d'une activité
+- Demande Alex : pouvoir saisir une date de début et une date de fin sur le formulaire « Proposer une activité » (jusqu'ici, seules `title`/`description`/`category`/`address` étaient demandées ; `startDate` valait toujours l'instant de soumission et `endDate` restait toujours `null`).
+- `POST /api/v1/activities` : `CreateActivityRequest` accepte désormais deux champs optionnels `startDate`/`endDate` (chaîne ISO-8601, `yyyy-MM-dd` ou `yyyy-MM-ddTHH:mm[:ss]`).
+- Valeurs par défaut, comme demandé — « date de début = sysdate » : `startDate` absent → `LocalDateTime.now()`, comportement historique inchangé. « date de fin = trunc(date de début) » : `endDate` absent → début de journée (minuit) de `startDate` résolu, au sens SQL du terme.
+  - ⚠️ Point à noter, pas ajusté sans confirmation : quand `startDate` est lui-même absent (donc « maintenant », heure comprise), `endDate` par défaut (minuit ce jour-là) tombe chronologiquement **avant** `startDate`. C'est la traduction littérale de la règle donnée ; aucun garde-fou `endDate ≥ startDate` n'a été ajouté, un tel garde-fou aurait justement empêché ce cas par défaut.
+- Une valeur fournie mais illisible (ni date, ni date-heure ISO-8601) renvoie `400 Bad Request` plutôt que d'être silencieusement ignorée.
+- Frontend (`App.tsx`) : deux champs `<input type="date">` optionnels (« Date de début », « Date de fin ») ajoutés au formulaire de contribution, sous le champ Adresse. Laissés vides, ils ne sont pas envoyés dans la requête (`undefined`), ce qui laisse le backend appliquer ses propres valeurs par défaut — une seule définition de la règle, côté serveur.
+- Tests ajoutés : `ActivityServiceTest` (défauts, troncature, formats date/date-heure acceptés, erreurs de format) et `ActivityControllerTest` (transmission de `startDate`/`endDate` au service). Tests d'intégration existants (`AuthenticationFlowIntegrationTest`, `AdminActivityControllerIntegrationTest`, `NonRegressionIntegrationTest`) mis à jour pour la nouvelle signature, sans changement de comportement.
+- Vérifié côté frontend avec `npx tsc --noEmit && npm run build` (compile sans erreur). ⚠️ Backend non compilable dans cette session (`mvn` indisponible dans le sandbox) : relecture manuelle attentive (équilibre accolades/parenthèses sur tous les fichiers touchés) effectuée à la place, mais **`mvn verify` reste à lancer avant tout merge**.
+
 ## 0.9.12 — 2026-09-10
 
 ### Correctif prod — Marqueurs d'activité cassés sur la carte

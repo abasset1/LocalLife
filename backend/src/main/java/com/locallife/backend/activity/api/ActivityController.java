@@ -232,7 +232,8 @@ public class ActivityController {
             @RequestBody CreateActivityRequest request, HttpServletRequest httpRequest) {
         try {
             Activity activity = activityService.createActivity(
-                    request.title(), request.description(), request.category(), request.address());
+                    request.title(), request.description(), request.category(), request.address(),
+                    request.startDate(), request.endDate());
             return ResponseEntity.status(HttpStatus.CREATED).body(activity);
         } catch (IllegalArgumentException | AddressNotFoundException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -252,9 +253,18 @@ public class ActivityController {
      * Depuis LL-3012, le client envoie une {@code address} (texte libre) au
      * lieu de latitude/longitude : le backend géocode l'adresse côté serveur
      * et ne conserve que les coordonnées obtenues, pas l'adresse elle-même.
-     * id, dates et statut sont gérés côté serveur.
+     * {@code id} et {@code status} restent gérés côté serveur.
+     *
+     * {@code startDate}/{@code endDate} (demande Alex) : chaînes ISO-8601
+     * optionnelles ({@code yyyy-MM-dd} ou {@code yyyy-MM-ddTHH:mm}),
+     * {@code null}/absentes acceptées — voir {@code ActivityService
+     * #createActivity} pour les valeurs par défaut appliquées dans ce cas
+     * ({@code startDate} → maintenant, {@code endDate} → début de journée
+     * de {@code startDate}).
      */
-    public record CreateActivityRequest(String title, String description, String category, String address) {
+    public record CreateActivityRequest(
+            String title, String description, String category, String address,
+            String startDate, String endDate) {
     }
 
 }

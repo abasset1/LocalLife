@@ -714,7 +714,7 @@ class ActivityServiceTest {
     @Test
     void createActivity_ShouldThrow_WhenTitleIsNull() {
         assertThatThrownBy(() -> activityService()
-                .createActivity(null, "description", "loisir", "1 rue de la Paix, Marseille"))
+                .createActivity(null, "description", "loisir", "1 rue de la Paix, Marseille", null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("title");
 
@@ -724,7 +724,7 @@ class ActivityServiceTest {
     @Test
     void createActivity_ShouldThrow_WhenTitleIsBlank() {
         assertThatThrownBy(() -> activityService()
-                .createActivity("   ", "description", "loisir", "1 rue de la Paix, Marseille"))
+                .createActivity("   ", "description", "loisir", "1 rue de la Paix, Marseille", null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("title");
 
@@ -736,7 +736,7 @@ class ActivityServiceTest {
         String tooLong = "T".repeat(256);
 
         assertThatThrownBy(() -> activityService()
-                .createActivity(tooLong, "description", "loisir", "1 rue de la Paix, Marseille"))
+                .createActivity(tooLong, "description", "loisir", "1 rue de la Paix, Marseille", null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("title");
 
@@ -746,7 +746,7 @@ class ActivityServiceTest {
     @Test
     void createActivity_ShouldThrow_WhenCategoryIsBlankButNotNull() {
         assertThatThrownBy(() -> activityService()
-                .createActivity("Pique-nique", "description", "   ", "1 rue de la Paix, Marseille"))
+                .createActivity("Pique-nique", "description", "   ", "1 rue de la Paix, Marseille", null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("category");
 
@@ -761,7 +761,7 @@ class ActivityServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         Activity result = activityService()
-                .createActivity("Pique-nique", "description", null, "1 rue de la Paix, Marseille");
+                .createActivity("Pique-nique", "description", null, "1 rue de la Paix, Marseille", null, null);
 
         assertThat(result.title()).isEqualTo("Pique-nique");
         assertThat(result.category()).isNull();
@@ -776,7 +776,7 @@ class ActivityServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         Activity result = activityService()
-                .createActivity("Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille");
+                .createActivity("Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null);
 
         assertThat(result.title()).isEqualTo("Pique-nique");
         assertThat(result.category()).isEqualTo("loisir");
@@ -798,11 +798,82 @@ class ActivityServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         Activity result = activityService()
-                .createActivity("Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille");
+                .createActivity(
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null);
 
         assertThat(result.address()).isEqualTo("1 rue de la Paix, Marseille");
         assertThat(result.city()).isEqualTo("Marseille");
         assertThat(result.postalCode()).isEqualTo("13001");
+    }
+
+    // --- createActivity : dates (demande Alex, saisie manuelle) ---
+
+    @Test
+    void createActivity_ShouldDefaultStartDateToNow_WhenNotProvided() {
+        when(geocodingService.geocode(any())).thenReturn(new Coordinates(43.29, 5.37, null, null));
+        when(sourceService.findByType("MANUAL")).thenReturn(Optional.of(manualSource()));
+        when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LocalDateTime before = LocalDateTime.now();
+        Activity result = activityService()
+                .createActivity("Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", null, null);
+        LocalDateTime after = LocalDateTime.now();
+
+        assertThat(result.startDate()).isBetween(before, after);
+    }
+
+    @Test
+    void createActivity_ShouldDefaultEndDateToStartOfStartDateDay_WhenNotProvided() {
+        // « trunc(date de début) » : même jour que startDate, heure remise à
+        // minuit — y compris lorsque startDate est elle-même explicite.
+        when(geocodingService.geocode(any())).thenReturn(new Coordinates(43.29, 5.37, null, null));
+        when(sourceService.findByType("MANUAL")).thenReturn(Optional.of(manualSource()));
+        when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Activity result = activityService()
+                .createActivity(
+                        "Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille",
+                        "2026-09-20T14:30:00", null);
+
+        assertThat(result.startDate()).isEqualTo(LocalDateTime.of(2026, 9, 20, 14, 30));
+        assertThat(result.endDate()).isEqualTo(LocalDateTime.of(2026, 9, 20, 0, 0));
+    }
+
+    @Test
+    void createActivity_ShouldAcceptDateOnlyStrings_ForStartAndEndDate() {
+        when(geocodingService.geocode(any())).thenReturn(new Coordinates(43.29, 5.37, null, null));
+        when(sourceService.findByType("MANUAL")).thenReturn(Optional.of(manualSource()));
+        when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Activity result = activityService()
+                .createActivity(
+                        "Festival", "desc", "loisir", "1 rue de la Paix, Marseille",
+                        "2026-09-20", "2026-09-22");
+
+        assertThat(result.startDate()).isEqualTo(LocalDateTime.of(2026, 9, 20, 0, 0));
+        assertThat(result.endDate()).isEqualTo(LocalDateTime.of(2026, 9, 22, 0, 0));
+    }
+
+    @Test
+    void createActivity_ShouldThrow_WhenStartDateIsNotParsable() {
+        assertThatThrownBy(() -> activityService()
+                .createActivity(
+                        "Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", "pas une date", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("startDate");
+
+        verifyNoInteractions(geocodingService, activityRepository);
+    }
+
+    @Test
+    void createActivity_ShouldThrow_WhenEndDateIsNotParsable() {
+        assertThatThrownBy(() -> activityService()
+                .createActivity(
+                        "Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", null, "pas une date"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("endDate");
+
+        verifyNoInteractions(geocodingService, activityRepository);
     }
 
 }

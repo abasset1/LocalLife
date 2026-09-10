@@ -135,13 +135,13 @@ class ActivityControllerTest {
         Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
                 LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null);
         when(activityService.createActivity(
-                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille"))
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null))
                 .thenReturn(created);
 
         // When
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
-                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille"),
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null),
                 httpRequest);
 
         // Then
@@ -152,16 +152,39 @@ class ActivityControllerTest {
     }
 
     @Test
+    void createActivity_ShouldPassStartAndEndDate_WhenProvided() {
+        // Given : demande Alex — startDate/endDate saisis manuellement transmis tels quels au service.
+        Activity created = new Activity(1L, "Festival", "desc", "loisir", 43.29, 5.37,
+                LocalDateTime.of(2026, 9, 20, 0, 0), LocalDateTime.of(2026, 9, 22, 0, 0),
+                "PENDING", 1L, null, null, null, null, null);
+        when(activityService.createActivity(
+                "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22"))
+                .thenReturn(created);
+
+        // When
+        ResponseEntity<Object> response = activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22"),
+                httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        verify(activityService).createActivity(
+                "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22");
+    }
+
+    @Test
     void createActivity_ShouldReturnBadRequest_WhenAddressNotFound() {
         // Given
-        when(activityService.createActivity("Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue"))
+        when(activityService.createActivity(
+                "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue", null, null))
                 .thenThrow(new AddressNotFoundException("adresse inconnue"));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities");
 
         // When
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
-                        "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue"),
+                        "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue", null, null),
                 httpRequest);
 
         // Then
@@ -172,14 +195,15 @@ class ActivityControllerTest {
     @Test
     void createActivity_ShouldReturnServiceUnavailable_WhenGeocodingFails() {
         // Given
-        when(activityService.createActivity("Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix"))
+        when(activityService.createActivity(
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix", null, null))
                 .thenThrow(new GeocodingUnavailableException(new RuntimeException("timeout")));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities");
 
         // When
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
-                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix"),
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix", null, null),
                 httpRequest);
 
         // Then

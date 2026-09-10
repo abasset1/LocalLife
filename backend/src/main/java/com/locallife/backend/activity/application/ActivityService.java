@@ -215,12 +215,13 @@ public class ActivityService {
      * incluses, comparaison au jour près — l'heure de {@code
      * startDate}/{@code endDate} n'entre pas en jeu). Couvre à la fois
      * les activités d'une seule journée et celles s'étalant sur
-     * plusieurs jours. {@code endDate} peut être absent en base
-     * (activités créées via le formulaire de contribution, voir
-     * {@code createActivity} ci-dessous, qui ne renseigne pas de date de
-     * fin) : dans ce cas l'activité est traitée comme ne durant que la
-     * journée de {@code startDate}, voir
-     * {@link ActivityRepository#findWithinRadius} pour le détail SQL.
+     * plusieurs jours. {@code endDate} peut être absent en base (import
+     * OpenAgenda sans date de fin renseignée sur l'événement source —
+     * depuis l'ajout des dates à la saisie manuelle, {@code
+     * createActivity} ci-dessous ne laisse elle-même plus jamais {@code
+     * endDate} à {@code null}, voir sa javadoc) : dans ce cas l'activité
+     * est traitée comme ne durant que la journée de {@code startDate},
+     * voir {@link ActivityRepository#findWithinRadius} pour le détail SQL.
      *
      * Si {@code date} n'est pas fourni, les recherches publiques retournent
      * toutes les activités encore en cours ou à venir : leur fin (ou leur
@@ -498,10 +499,7 @@ public class ActivityService {
      * {@code addressdetails=1}) : aucun appel réseau supplémentaire
      * n'est nécessaire. Statut par défaut : {@code PENDING} (en attente de modération —
      * l'une des trois valeurs formalisées en LL-6003, voir
-     * {@link Activity#status()}). Aucune date de
-     * début/fin n'est demandée par le formulaire de contribution ; la date
-     * de soumission est utilisée comme {@code startDate} en attendant un
-     * futur ticket sur ce point. {@code url} toujours {@code null} : le
+     * {@link Activity#status()}). {@code url} toujours {@code null} : le
      * formulaire de contribution ne demande pas d'URL (LL-6002, hors
      * périmètre — voir {@code DATA_QUALITY_AUDIT.md}).
      *
@@ -524,11 +522,44 @@ public class ActivityService {
      * par défense en profondeur, bien qu'improbable en pratique
      * (Nominatim ne renvoie que des coordonnées réelles).
      *
+     * <b>{@code startDate}/{@code endDate}</b> (LL-2012 initialement ne
+     * demandait aucune date de fin/début explicite — la date de
+     * soumission servait de {@code startDate}, {@code endDate} restait
+     * {@code null} ; ajoutés comme paramètres du formulaire à la demande
+     * d'Alex, chacun optionnel (chaîne vide ou {@code null} acceptée)) :
+     * <ul>
+     *   <li>{@code startDate} absent → valeur par défaut {@link
+     *       LocalDateTime#now()} (« sysdate »), comportement historique
+     *       inchangé pour un appelant qui ne fournit rien ;</li>
+     *   <li>{@code endDate} absent → valeur par défaut le début de la
+     *       journée de {@code startDate} (« trunc(date de début) », au
+     *       sens SQL du terme : même jour, heure remise à minuit) — pas
+     *       {@code null} comme avant cette évolution, décision explicite
+     *       d'Alex. ⚠️ Cas particulier à noter : si {@code startDate}
+     *       est <em>lui aussi</em> absent (donc égal à « maintenant »,
+     *       heure comprise), {@code endDate} par défaut (minuit ce
+     *       jour-là) tombe alors chronologiquement <strong>avant</strong>
+     *       {@code startDate} — id est, la formule de troncature
+     *       s'applique à l'heure près, dans son sens SQL littéral, sans
+     *       garde-fou {@code endDate ≥ startDate} ajouté ici (non demandé,
+     *       aurait empêché ce cas par défaut précisément).</li>
+     * </ul>
+     * Les deux paramètres acceptent soit une date seule ({@code
+     * yyyy-MM-dd}, minuit implicite — cas attendu d'un simple sélecteur
+     * de date côté formulaire), soit une date-heure ISO-8601 complète
+     * ({@code yyyy-MM-ddTHH:mm[:ss]}), voir {@link #parseFlexibleDate}.
+     * Une valeur fournie mais illisible lève {@link
+     * IllegalArgumentException} (→ {@code 400}, même convention que
+     * {@link #validateTitle}), plutôt que d'être silencieusement ignorée.
+     *
      * @throws IllegalArgumentException si {@code title} est manquant, vide
-     *         ou trop long, ou si {@code category} est fournie mais
-     *         vide/blanche.
+     *         ou trop long, si {@code category} est fournie mais
+     *         vide/blanche, ou si {@code startDate}/{@code endDate} est
+     *         fournie mais illisible.
      */
-    public Activity createActivity(String title, String description, String category, String address) {
+    public Activity createActivity(
+            String title, String description, String category, String address,
+            String startDate, String endDate) {
         validateTitle(title);
         validateCategory(category);
         Coordinates coordinates = geocodingService.geocode(address);
@@ -538,12 +569,39 @@ public class ActivityService {
                 .map(Source::id)
                 .orElseThrow(() -> new IllegalStateException(
                         "Source MANUAL introuvable — migration V8__create_source_table.sql manquante ?"));
+        LocalDateTime resolvedStartDate = parseFlexibleDate("startDate", startDate)
+                .orElseGet(LocalDateTime::now);
+        LocalDateTime resolvedEndDate = parseFlexibleDate("endDate", endDate)
+                .orElseGet(() -> resolvedStartDate.toLocalDate().atStartOfDay());
         Activity activity = new Activity(
                 null, title, description, category,
-                coordinates.latitude(), coordinates.longitude(), LocalDateTime.now(), null, "PENDING",
+                coordinates.latitude(), coordinates.longitude(), resolvedStartDate, resolvedEndDate, "PENDING",
                 manualSourceId, null, null,
                 address, coordinates.city(), coordinates.postalCode());
         return activityRepository.save(activity);
+    }
+
+    /**
+     * Voir la javadoc de {@link #createActivity} pour le contrat exact.
+     * {@code null}/vide → {@link Optional#empty()} (valeur par défaut à
+     * appliquer par l'appelant), pas d'exception — distinct d'une valeur
+     * fournie mais illisible, qui lève {@link IllegalArgumentException}.
+     */
+    private Optional<LocalDateTime> parseFlexibleDate(String fieldName, String value) {
+        if (value == null || value.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(LocalDateTime.parse(value));
+        } catch (DateTimeParseException firstAttempt) {
+            try {
+                return Optional.of(LocalDate.parse(value).atStartOfDay());
+            } catch (DateTimeParseException secondAttempt) {
+                throw new IllegalArgumentException(
+                        "Le champ '" + fieldName + "' doit être une date (yyyy-MM-dd) ou une date-heure "
+                                + "ISO-8601 (yyyy-MM-ddTHH:mm) valide.");
+            }
+        }
     }
 
     private void validateTitle(String title) {

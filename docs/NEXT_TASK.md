@@ -1,5 +1,17 @@
 # NEXT_TASK.md
 
+## Évolution hors sprint — Dates de début/fin à la saisie manuelle
+
+Demande d'Alex, traitée hors ordre du sprint courant : le formulaire
+« Proposer une activité » permet désormais de saisir une date de début
+et une date de fin (`POST /api/v1/activities`, champs optionnels
+`startDate`/`endDate`). Voir `CHANGELOG.md` (version 0.9.13) pour le
+détail des valeurs par défaut (« sysdate » / « trunc(date de début) »)
+et du cas particulier à noter (endDate par défaut avant startDate par
+défaut, lorsque les deux sont omis). Vérifié côté frontend avec `npm
+run build`. ⚠️ `mvn verify` non exécutable dans cette session (`mvn`
+indisponible dans le sandbox) — à lancer avant tout merge.
+
 ## État actuel
 
 Sprint 7 (MVP validé bout en bout) et Sprint 8 (préparation de la
