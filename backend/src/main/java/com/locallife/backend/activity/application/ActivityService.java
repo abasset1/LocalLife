@@ -242,7 +242,8 @@ public class ActivityService {
      *         ISO-8601 ({@code yyyy-MM-dd}).
      */
     public List<Activity> findNearby(
-            String latitudeRaw, String longitudeRaw, String radiusRaw, String category, String dateRaw) {
+            String latitudeRaw, String longitudeRaw, String radiusRaw, String category,
+            String dateRaw, String dateEndRaw) {
         double latitude = parseRequiredDouble("latitude", latitudeRaw);
         double longitude = parseRequiredDouble("longitude", longitudeRaw);
         double radiusKm = parseRequiredDouble("radius", radiusRaw);
@@ -255,11 +256,12 @@ public class ActivityService {
                             + " km.");
         }
         LocalDate date = parseOptionalDate(dateRaw);
+        LocalDate dateEnd = parseOptionalDate(dateEndRaw);
 
         double radiusMeters = radiusKm * 1000;
         String categoriesCsv = normalizeCategories(category);
         return activityRepository.findWithinRadius(
-                latitude, longitude, radiusMeters, PUBLIC_STATUS, categoriesCsv, date);
+                latitude, longitude, radiusMeters, PUBLIC_STATUS, categoriesCsv, date, dateEnd);
     }
 
     /**
@@ -293,7 +295,7 @@ public class ActivityService {
      */
     public List<Activity> findWithinBounds(
             String swLatitudeRaw, String swLongitudeRaw, String neLatitudeRaw, String neLongitudeRaw,
-            String category, String dateRaw) {
+            String category, String dateRaw, String dateEndRaw) {
         double swLatitude = parseRequiredDouble("swLatitude", swLatitudeRaw);
         double swLongitude = parseRequiredDouble("swLongitude", swLongitudeRaw);
         double neLatitude = parseRequiredDouble("neLatitude", neLatitudeRaw);
@@ -314,10 +316,11 @@ public class ActivityService {
                             + "(la traversée de l'antiméridien n'est pas supportée).");
         }
         LocalDate date = parseOptionalDate(dateRaw);
+        LocalDate dateEnd = parseOptionalDate(dateEndRaw);
 
         String categoriesCsv = normalizeCategories(category);
         return activityRepository.findWithinBounds(
-                swLatitude, swLongitude, neLatitude, neLongitude, PUBLIC_STATUS, categoriesCsv, date);
+                swLatitude, swLongitude, neLatitude, neLongitude, PUBLIC_STATUS, categoriesCsv, date, dateEnd);
     }
 
     /**

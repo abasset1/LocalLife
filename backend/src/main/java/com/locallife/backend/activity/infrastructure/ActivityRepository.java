@@ -135,12 +135,14 @@ public interface ActivityRepository extends Repository<Activity, Long> {
               AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
               AND (:status IS NULL OR status = :status)
               AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
-              AND ((:date::date IS NULL
+              AND ((:date::date IS NULL AND :dateEnd::date IS NULL
                     AND (start_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' OR
                          COALESCE(end_date, start_date)::date BETWEEN CURRENT_DATE
                          AND CURRENT_DATE + INTERVAL '7 days'))
-                   OR (:date::date IS NOT NULL
-                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date))
+                   OR (:date::date IS NOT NULL AND :dateEnd::date IS NULL
+                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
+                   OR (:date::date IS NOT NULL AND :dateEnd::date IS NOT NULL
+                       AND (start_date::date <= :dateEnd::date AND end_date::date >= :date::date)))
             ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography)
             """)
     List<Activity> findWithinRadius(
@@ -149,7 +151,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
             @Param("radiusMeters") double radiusMeters,
             @Param("status") String status,
             @Param("categoriesCsv") String categoriesCsv,
-            @Param("date") LocalDate date);
+            @Param("date") LocalDate date,
+            @Param("dateEnd") LocalDate dateEnd);
 
     /**
      * Recherche par zone cartographique PostGIS (LL-4007), conformément au
@@ -180,12 +183,14 @@ public interface ActivityRepository extends Repository<Activity, Long> {
               AND location && ST_MakeEnvelope(:swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography
               AND (:status IS NULL OR status = :status)
               AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
-              AND ((:date::date IS NULL
+              AND ((:date::date IS NULL AND :dateEnd::date IS NULL
                     AND (start_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' OR
                          COALESCE(end_date, start_date)::date BETWEEN CURRENT_DATE
                          AND CURRENT_DATE + INTERVAL '7 days'))
-                   OR (:date::date IS NOT NULL
-                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date))
+                   OR (:date::date IS NOT NULL AND :dateEnd::date IS NULL
+                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
+                   OR (:date::date IS NOT NULL AND :dateEnd::date IS NOT NULL
+                       AND (start_date::date <= :dateEnd::date AND end_date::date >= :date::date)))
             ORDER BY id
             """)
     List<Activity> findWithinBounds(
@@ -195,7 +200,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
             @Param("neLongitude") double neLongitude,
             @Param("status") String status,
             @Param("categoriesCsv") String categoriesCsv,
-            @Param("date") LocalDate date);
+            @Param("date") LocalDate date,
+            @Param("dateEnd") LocalDate dateEnd);
 
     /**
      * Recherche par source et clé de déduplication (LL-5008) : retrouve
