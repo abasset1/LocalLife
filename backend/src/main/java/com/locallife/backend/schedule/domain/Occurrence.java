@@ -2,6 +2,7 @@ package com.locallife.backend.schedule.domain;
 
 import java.time.Instant;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
 
 /**
  * Entité de domaine Occurrence (LL-11004/LL-11005, Sprint 11) : une
@@ -64,5 +65,5 @@ public record Occurrence(
         Instant endAt,
         Long locationId,
         String status,
-        boolean exceptional) {
+        @Column("is_exception") boolean exceptional) {
 }
