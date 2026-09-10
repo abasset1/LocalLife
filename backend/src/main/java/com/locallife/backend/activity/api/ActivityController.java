@@ -140,9 +140,10 @@ public class ActivityController {
             @Parameter(description = "Filtre optionnel sur une date (format ISO-8601 yyyy-MM-dd). Une activité "
                     + "est retenue quand cette date tombe dans sa période [startDate, endDate].")
             @RequestParam(required = false) String date,
+            @RequestParam(required = false) String dateEnd,
             HttpServletRequest httpRequest) {
         try {
-            List<Activity> activities = activityService.findNearby(latitude, longitude, radius, category, date);
+            List<Activity> activities = activityService.findNearby(latitude, longitude, radius, category, date, dateEnd);
             return ResponseEntity.ok(withSourceNames(activities));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -192,6 +193,7 @@ public class ActivityController {
             @Parameter(description = "Filtre optionnel sur une date (format ISO-8601 yyyy-MM-dd). Une activité "
                     + "est retenue quand cette date tombe dans sa période [startDate, endDate].")
             @RequestParam(required = false) String date,
+            @RequestParam(required = false) String dateEnd,
             HttpServletRequest httpRequest) {
         try {
             List<Activity> activities = activityService.findWithinBounds(
