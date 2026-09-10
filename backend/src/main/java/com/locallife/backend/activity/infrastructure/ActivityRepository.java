@@ -137,7 +137,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
               AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
               AND ((:date::date IS NULL
                     AND (start_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' OR
-                         COALESCE(end_date, start_date)::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'))
+                         COALESCE(end_date, start_date)::date BETWEEN CURRENT_DATE
+                         AND CURRENT_DATE + INTERVAL '7 days'))
                    OR (:date::date IS NOT NULL
                        AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date))
             ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography)
@@ -181,7 +182,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
               AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
               AND ((:date::date IS NULL
                     AND (start_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' OR
-                         COALESCE(end_date, start_date)::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'))
+                         COALESCE(end_date, start_date)::date BETWEEN CURRENT_DATE
+                         AND CURRENT_DATE + INTERVAL '7 days'))
                    OR (:date::date IS NOT NULL
                        AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date))
             ORDER BY id
