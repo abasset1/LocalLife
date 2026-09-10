@@ -280,7 +280,7 @@ class ActivityRepositoryIntegrationTest {
                 today.plusDays(5).atTime(20, 0), today.plusDays(5).atTime(23, 0));
         Activity futureWithoutEndDate = activityAt(
                 MARSEILLE_LAT + 0.004, MARSEILLE_LON, "PUBLISHED", "concert",
-                today.plusDays(10).atTime(20, 0), null);
+                today.plusDays(3).atTime(20, 0), null);
 
         List<Long> resultIds = activityRepository
                 .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null)
