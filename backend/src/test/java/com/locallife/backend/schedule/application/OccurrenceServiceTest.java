@@ -1,12 +1,15 @@
 package com.locallife.backend.schedule.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.locallife.backend.schedule.domain.Occurrence;
 import com.locallife.backend.schedule.infrastructure.OccurrenceRepository;
 import java.time.Instant;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,8 +19,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Couvre la délégation de {@link OccurrenceService} vers
- * {@link OccurrenceRepository} (LL-11004) — pas de garde-fou applicatif
- * à tester ici, voir la javadoc de {@link OccurrenceService}.
+ * {@link OccurrenceRepository} (LL-11004), ainsi que {@link
+ * OccurrenceService#update}/{@link OccurrenceService#cancel}/{@link
+ * OccurrenceService#findEffectiveByScheduleId} (LL-11005).
  */
 @ExtendWith(MockitoExtension.class)
 class OccurrenceServiceTest {
@@ -33,7 +37,7 @@ class OccurrenceServiceTest {
     }
 
     private Occurrence occurrence(Long id, Long scheduleId, Instant startAt) {
-        return new Occurrence(id, scheduleId, startAt, startAt.plusSeconds(9000), 10L, "SCHEDULED");
+        return new Occurrence(id, scheduleId, startAt, startAt.plusSeconds(9000), 10L, "SCHEDULED", false);
     }
 
     @Test
@@ -68,6 +72,63 @@ class OccurrenceServiceTest {
         List<Occurrence> result = occurrenceService.findByScheduleId(42L);
 
         assertThat(result).containsExactly(first, second);
+    }
+
+    @Test
+    void findEffectiveByScheduleId_ShouldExcludeCancelledOccurrences() {
+        // Critère d'acceptation LL-11005 « les recherches utilisent l'état effectif de l'occurrence ».
+        Occurrence scheduled = occurrence(1L, 42L, Instant.parse("2026-09-08T09:30:00Z"));
+        when(occurrenceRepository.findByScheduleIdAndStatusNot(42L, OccurrenceService.STATUS_CANCELLED))
+                .thenReturn(List.of(scheduled));
+
+        List<Occurrence> result = occurrenceService.findEffectiveByScheduleId(42L);
+
+        assertThat(result).containsExactly(scheduled);
+    }
+
+    @Test
+    void update_ShouldDelegateToRepository_WhenIdIsPresent() {
+        // LL-11005 : modification d'horaire / déplacement / changement de lieu — simple changement
+        // de champs sur l'occurrence, jamais sur le schedule (voir la javadoc de la méthode).
+        Occurrence moved = new Occurrence(
+                1L, 42L, Instant.parse("2026-09-22T10:00:00Z"), Instant.parse("2026-09-22T12:30:00Z"),
+                99L, "SCHEDULED", true);
+        when(occurrenceRepository.save(moved)).thenReturn(moved);
+
+        Occurrence result = occurrenceService.update(moved);
+
+        assertThat(result).isEqualTo(moved);
+    }
+
+    @Test
+    void update_ShouldThrow_WhenIdIsAbsent() {
+        Occurrence withoutId = occurrence(null, 42L, Instant.parse("2026-09-08T09:30:00Z"));
+
+        assertThatThrownBy(() -> occurrenceService.update(withoutId)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void cancel_ShouldSetCancelledStatusAndExceptionalFlag_KeepingOtherFields() {
+        // LL-11005, « 15 septembre → annulé » : le statut et le drapeau d'exception changent,
+        // mais l'horaire/lieu d'origine restent lisibles (voir la javadoc de la méthode).
+        Instant startAt = Instant.parse("2026-09-15T09:30:00Z");
+        Occurrence existing = occurrence(1L, 42L, startAt);
+        when(occurrenceRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(occurrenceRepository.save(any())).thenAnswer(call -> call.getArgument(0));
+
+        Occurrence result = occurrenceService.cancel(1L);
+
+        assertThat(result.status()).isEqualTo(OccurrenceService.STATUS_CANCELLED);
+        assertThat(result.exceptional()).isTrue();
+        assertThat(result.startAt()).isEqualTo(startAt);
+        assertThat(result.locationId()).isEqualTo(existing.locationId());
+    }
+
+    @Test
+    void cancel_ShouldThrow_WhenOccurrenceDoesNotExist() {
+        when(occurrenceRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> occurrenceService.cancel(999L)).isInstanceOf(NoSuchElementException.class);
     }
 
     @Test

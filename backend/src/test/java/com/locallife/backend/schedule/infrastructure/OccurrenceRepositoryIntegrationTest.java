@@ -25,14 +25,15 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Tests d'intégration contre la base réelle (LL-11004), même patron que
- * {@code ScheduleRepositoryIntegrationTest} : chaque test est englobé
- * dans une transaction annulée à la fin. Couvre la persistance de base
- * (dont {@code start_at}/{@code end_at} en {@code TIMESTAMPTZ}, voir la
- * javadoc de {@code Occurrence}), le lien vers un schedule pouvant avoir
- * plusieurs occurrences, une occurrence avec un lieu effectif distinct
- * du lieu du schedule, et la contrainte FOREIGN KEY sur
- * {@code schedule_id} (V19__create_occurrence_table.sql).
+ * Tests d'intégration contre la base réelle (LL-11004/LL-11005), même
+ * patron que {@code ScheduleRepositoryIntegrationTest} : chaque test est
+ * englobé dans une transaction annulée à la fin. Couvre la persistance
+ * de base (dont {@code start_at}/{@code end_at} en {@code TIMESTAMPTZ},
+ * voir la javadoc de {@code Occurrence}), le lien vers un schedule
+ * pouvant avoir plusieurs occurrences, une occurrence avec un lieu
+ * effectif distinct du lieu du schedule, la contrainte FOREIGN KEY sur
+ * {@code schedule_id} (V19), et le drapeau {@code is_exception}
+ * (V20/LL-11005).
  */
 @SpringBootTest
 @Transactional
@@ -76,7 +77,7 @@ class OccurrenceRepositoryIntegrationTest {
     }
 
     private Occurrence occurrenceFor(Long scheduleId, Long locationId, Instant startAt) {
-        return new Occurrence(null, scheduleId, startAt, startAt.plusSeconds(9000), locationId, "SCHEDULED");
+        return new Occurrence(null, scheduleId, startAt, startAt.plusSeconds(9000), locationId, "SCHEDULED", false);
     }
 
     @Test
@@ -153,5 +154,68 @@ class OccurrenceRepositoryIntegrationTest {
     @Test
     void findById_ShouldReturnEmpty_WhenOccurrenceDoesNotExist() {
         assertThat(occurrenceRepository.findById(-1L)).isEmpty();
+    }
+
+    @Test
+    void save_ShouldPersistExceptionalFlag_WhenOccurrenceIsCancelled() {
+        // LL-11005, « une exception est identifiable » + « 15 septembre → annulé ».
+        Schedule schedule = testSchedule(null);
+        Occurrence cancelled = new Occurrence(
+                null, schedule.id(), Instant.parse("2026-09-15T09:30:00Z"),
+                Instant.parse("2026-09-15T12:00:00Z"), null, "CANCELLED", true);
+
+        Occurrence saved = occurrenceRepository.save(cancelled);
+        Optional<Occurrence> found = occurrenceRepository.findById(saved.id());
+
+        assertThat(found).isPresent();
+        assertThat(found.get().status()).isEqualTo("CANCELLED");
+        assertThat(found.get().exceptional()).isTrue();
+    }
+
+    @Test
+    void save_ShouldDefaultToNonExceptional_ForNormallyMaterializedOccurrence() {
+        // LL-11005, « 29 septembre → normal » : une occurrence sans particularité n'est pas une
+        // exception.
+        Schedule schedule = testSchedule(null);
+
+        Occurrence saved = occurrenceRepository.save(
+                occurrenceFor(schedule.id(), null, Instant.parse("2026-09-29T09:30:00Z")));
+
+        assertThat(saved.exceptional()).isFalse();
+    }
+
+    @Test
+    void save_ExceptionalOccurrence_ShouldNotModifySchedule() {
+        // Critère d'acceptation LL-11005 « elle ne détruit pas la règle générale » : modifier une
+        // occurrence (ici, la déplacer et changer son lieu) ne touche jamais le schedule associé.
+        Location originalLocation = testLocation();
+        Location relocatedLocation = testLocation();
+        Schedule schedule = testSchedule(originalLocation.id());
+
+        occurrenceRepository.save(new Occurrence(
+                null, schedule.id(), Instant.parse("2026-09-22T10:00:00Z"),
+                Instant.parse("2026-09-22T12:30:00Z"), relocatedLocation.id(), "SCHEDULED", true));
+
+        Optional<Schedule> unchangedSchedule = scheduleRepository.findById(schedule.id());
+        assertThat(unchangedSchedule).isPresent();
+        assertThat(unchangedSchedule.get().locationId()).isEqualTo(originalLocation.id());
+        assertThat(unchangedSchedule.get().recurrenceRule()).isEqualTo(schedule.recurrenceRule());
+    }
+
+    @Test
+    void findByScheduleIdAndStatusNot_ShouldExcludeCancelledOccurrences() {
+        // Critère d'acceptation LL-11005 « les recherches utilisent l'état effectif de
+        // l'occurrence ».
+        Schedule schedule = testSchedule(null);
+        Occurrence scheduled = occurrenceRepository.save(
+                occurrenceFor(schedule.id(), null, Instant.parse("2026-09-08T09:30:00Z")));
+        Occurrence cancelled = occurrenceRepository.save(new Occurrence(
+                null, schedule.id(), Instant.parse("2026-09-15T09:30:00Z"),
+                Instant.parse("2026-09-15T12:00:00Z"), null, "CANCELLED", true));
+
+        List<Occurrence> effective = occurrenceRepository.findByScheduleIdAndStatusNot(schedule.id(), "CANCELLED");
+
+        assertThat(effective).extracting(Occurrence::id).contains(scheduled.id());
+        assertThat(effective).extracting(Occurrence::id).doesNotContain(cancelled.id());
     }
 }
