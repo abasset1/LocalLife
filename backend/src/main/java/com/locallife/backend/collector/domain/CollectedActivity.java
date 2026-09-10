@@ -24,6 +24,12 @@ import java.time.LocalDateTime;
  * {@code sourceUrl} (LL-6002) — voir {@code Activity} pour le détail de
  * leur usage après normalisation. Tous trois optionnels : une source peut
  * ne pas les fournir (ex. lieu imprécis).
+ *
+ * {@code longDescription}/{@code conditions}/{@code ageMin}/{@code
+ * ageMax} ajoutés en LL-11006 : même principe, repris tels quels côté
+ * collecteur (une seule langue déjà retenue, comme {@code description}) —
+ * voir {@code Activity} pour la justification du choix d'une forme
+ * générique plutôt que calquée sur OpenAgenda.
  */
 public record CollectedActivity(
         String title,
@@ -38,5 +44,9 @@ public record CollectedActivity(
         String source,
         String address,
         String city,
-        String postalCode) {
+        String postalCode,
+        String longDescription,
+        String conditions,
+        Integer ageMin,
+        Integer ageMax) {
 }

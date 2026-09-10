@@ -60,7 +60,7 @@ class ActivityServiceTest {
         // Given
         Activity expected = new Activity(
                 1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null))
                 .thenReturn(List.of(expected));
 
@@ -357,7 +357,7 @@ class ActivityServiceTest {
         // Given
         Activity expected = new Activity(
                 1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null))
                 .thenReturn(List.of(expected));
 
@@ -561,7 +561,7 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findByStatus("PENDING")).thenReturn(List.of(pending));
 
         // When
@@ -615,7 +615,7 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -635,7 +635,7 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 2L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findById(2L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -678,7 +678,7 @@ class ActivityServiceTest {
         // Given : transition non prévue par LL-6003 (seul PENDING → PUBLISHED existe).
         Activity published = new Activity(
                 3L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findById(3L)).thenReturn(Optional.of(published));
 
         // When / Then
@@ -694,7 +694,7 @@ class ActivityServiceTest {
         // Given : transition non prévue par LL-6003 (seul PENDING → REJECTED existe).
         Activity rejected = new Activity(
                 4L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "REJECTED", 1L, null,
-                null, null, null, null);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findById(4L)).thenReturn(Optional.of(rejected));
 
         // When / Then

@@ -179,7 +179,11 @@ public class SourceService {
                 activity.url(),
                 activity.address(),
                 activity.city(),
-                activity.postalCode());
+                activity.postalCode(),
+                activity.longDescription(),
+                activity.conditions(),
+                activity.ageMin(),
+                activity.ageMax());
     }
 
     private void validate(String name, String type) {

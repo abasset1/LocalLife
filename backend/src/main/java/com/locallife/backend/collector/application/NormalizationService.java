@@ -99,7 +99,14 @@ public class NormalizationService {
                 // CollectedActivity et OpenAgendaCollector).
                 collected.address(),
                 collected.city(),
-                collected.postalCode());
+                collected.postalCode(),
+                // longDescription/conditions/ageMin/ageMax (LL-11006) : même
+                // principe, repris tels quels de la donnée collectée (voir
+                // CollectedActivity et OpenAgendaCollector).
+                collected.longDescription(),
+                collected.conditions(),
+                collected.ageMin(),
+                collected.ageMax());
         return Optional.of(activity);
     }
 

@@ -437,7 +437,8 @@ public class ActivityService {
                 activity.id(), activity.title(), activity.description(), activity.category(),
                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
                 status, activity.sourceId(), activity.importKey(), activity.url(),
-                activity.address(), activity.city(), activity.postalCode());
+                activity.address(), activity.city(), activity.postalCode(),
+                activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax());
     }
 
     private void validateLatitude(String paramName, double latitude) {
@@ -577,7 +578,7 @@ public class ActivityService {
                 null, title, description, category,
                 coordinates.latitude(), coordinates.longitude(), resolvedStartDate, resolvedEndDate, "PENDING",
                 manualSourceId, null, null,
-                address, coordinates.city(), coordinates.postalCode());
+                address, coordinates.city(), coordinates.postalCode(), null, null, null, null);
         return activityRepository.save(activity);
     }
 

@@ -73,6 +73,37 @@ import org.springframework.data.annotation.Id;
  * ré-importées, ou source ne fournissant pas cette donnée) : aucune
  * activité ne doit être rejetée pour leur absence, voir
  * {@code NormalizationService#isValid}, qui ne les valide pas.
+ *
+ * {@code longDescription}/{@code conditions}/{@code ageMin}/{@code ageMax}
+ * ajoutés en LL-11006 (Sprint 11, section 9 — « fiche événementielle
+ * riche ») : permettent de construire une fiche complète, au-delà du
+ * strict nécessaire pour l'affichage sur la carte/liste (déjà couvert par
+ * {@code description}, LL-8006/LL-EF-008). Conception volontairement
+ * générique (texte libre, sans structure ni notion de langue) plutôt que
+ * calquée sur le schéma OpenAgenda — critère d'acceptation explicite
+ * « aucune dépendance au modèle OpenAgenda dans le domaine » : OpenAgenda
+ * expose par exemple {@code longDescription}/{@code conditions} comme des
+ * champs multilingues ({@code {fr: ..., en: ...}}) et {@code age} comme un
+ * objet {@code {min, max}} (voir {@code OpenAgendaCollector}) — c'est au
+ * collecteur de réduire cela à la forme générique attendue ici (une seule
+ * langue retenue, comme {@code description}/{@code title} le font déjà),
+ * pas au domaine de connaître cette structure.
+ * <ul>
+ *   <li>{@code longDescription} : description détaillée, distincte de
+ *       {@code description} (qui reste le résumé court) — même
+ *       distinction que sur OpenAgenda ({@code description} ≤ ~200
+ *       caractères, {@code longDescription} jusqu'à 10000) ;</li>
+ *   <li>{@code conditions} : conditions de participation (tarifs,
+ *       gratuité, inscription requise...) ;</li>
+ *   <li>{@code ageMin}/{@code ageMax} : tranche d'âge ciblée, chacun
+ *       indépendamment nullable (une activité peut n'avoir qu'un
+ *       minimum, ex. « interdit aux moins de 18 ans » sans maximum, voir
+ *       la documentation OpenAgenda citée dans {@code OpenAgendaCollector}).</li>
+ * </ul>
+ * Les quatre champs nullables (contribution manuelle : jamais renseignés,
+ * le formulaire ne les demande pas encore ; import : présents seulement
+ * si la source les fournit) — critère d'acceptation « conservées lorsqu'
+ * elles existent », pas « toujours requises ».
  */
 public record Activity(
         @Id Long id,
@@ -89,5 +120,9 @@ public record Activity(
         String url,
         String address,
         String city,
-        String postalCode) {
+        String postalCode,
+        String longDescription,
+        String conditions,
+        Integer ageMin,
+        Integer ageMax) {
 }

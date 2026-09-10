@@ -258,7 +258,8 @@ public class ImportService {
                 id, activity.title(), activity.description(), activity.category(),
                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
                 activity.status(), sourceId, importKey, activity.url(),
-                activity.address(), activity.city(), activity.postalCode());
+                activity.address(), activity.city(), activity.postalCode(),
+                activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax());
     }
 
     private Activity withStatus(Activity activity, String status) {
@@ -266,7 +267,8 @@ public class ImportService {
                 activity.id(), activity.title(), activity.description(), activity.category(),
                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
                 status, activity.sourceId(), activity.importKey(), activity.url(),
-                activity.address(), activity.city(), activity.postalCode());
+                activity.address(), activity.city(), activity.postalCode(),
+                activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax());
     }
 
 }

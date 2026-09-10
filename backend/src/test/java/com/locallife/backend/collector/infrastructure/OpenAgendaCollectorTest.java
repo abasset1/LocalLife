@@ -130,6 +130,82 @@ class OpenAgendaCollectorTest {
     }
 
     @Test
+    void collect_ShouldReturnLongDescriptionConditionsAndAge_WhenPresent() {
+        // LL-11006 : longDescription/conditions/age (age.min/age.max) repris de l'événement
+        // OpenAgenda, au même titre que address/city/postalCode ci-dessus.
+        String eventJsonWithRichFields = """
+                {
+                  "slug": "marche-de-noel-2026",
+                  "title": {"fr": "Marché de Noël"},
+                  "description": {"fr": "Marché de Noël sur le Vieux-Port"},
+                  "longDescription": {"fr": "Description détaillée sur plusieurs lignes."},
+                  "conditions": {"fr": "Gratuit, réservation conseillée."},
+                  "age": {"min": 6, "max": 12},
+                  "keywords": {"fr": ["marché", "noël"]},
+                  "location": {"latitude": 43.2965, "longitude": 5.3698},
+                  "nextTiming": {"begin": "2026-12-01T10:00:00+0100", "end": "2026-12-24T20:00:00+0100"}
+                }
+                """;
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + eventJsonWithRichFields + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.size());
+        CollectedActivity activity = result.get(0);
+        assertEquals("Description détaillée sur plusieurs lignes.", activity.longDescription());
+        assertEquals("Gratuit, réservation conseillée.", activity.conditions());
+        assertEquals(6, activity.ageMin());
+        assertEquals(12, activity.ageMax());
+    }
+
+    @Test
+    void collect_ShouldReturnNullLongDescriptionConditionsAndAge_WhenAbsent() {
+        // « conservées lorsqu'elles existent » : leur absence de la source (cas de EVENT_JSON) ne
+        // doit rien inventer, y compris quand age est totalement absent (pas seulement min/max).
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess("{\"events\": [" + EVENT_JSON + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        CollectedActivity activity = result.get(0);
+        assertNull(activity.longDescription());
+        assertNull(activity.conditions());
+        assertNull(activity.ageMin());
+        assertNull(activity.ageMax());
+    }
+
+    @Test
+    void collect_ShouldReturnAgeMinWithoutMax_WhenOnlyMinimumIsSpecified() {
+        // La documentation OpenAgenda cite explicitement ce cas (ex. « interdit aux moins de 18
+        // ans » sans limite haute) — voir la javadoc de OpenAgendaAge.
+        String eventJsonWithAgeMinOnly = """
+                {
+                  "slug": "marche-de-noel-2026",
+                  "title": {"fr": "Marché de Noël"},
+                  "description": {"fr": "Marché de Noël sur le Vieux-Port"},
+                  "age": {"min": 18},
+                  "keywords": {"fr": ["marché", "noël"]},
+                  "location": {"latitude": 43.2965, "longitude": 5.3698},
+                  "nextTiming": {"begin": "2026-12-01T10:00:00+0100", "end": "2026-12-24T20:00:00+0100"}
+                }
+                """;
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + eventJsonWithAgeMinOnly + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        CollectedActivity activity = result.get(0);
+        assertEquals(18, activity.ageMin());
+        assertNull(activity.ageMax());
+    }
+
+    @Test
     void collect_ShouldSkipEvent_WhenLocationIsMissing() {
         OpenAgendaCollector collector = newCollector("key", "12345");
         String eventWithoutLocation = """

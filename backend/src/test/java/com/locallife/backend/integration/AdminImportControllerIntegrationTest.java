@@ -139,7 +139,8 @@ class AdminImportControllerIntegrationTest {
     private CollectedActivity validItem(String sourceName, String title) {
         return new CollectedActivity(
                 title, "description", LocalDateTime.now().plusDays(1), null,
-                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", sourceName, null, null, null);
+                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", sourceName,
+                null, null, null, null, null, null, null);
     }
 
     // --- Accès autorisé (rôle ADMIN) ---

@@ -26,7 +26,8 @@ class NormalizationServiceTest {
                 5.3698,
                 "https://example.com/evenement/123",
                 "ext-123",
-                "OpenAgenda Marseille", null, null, null);
+                "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
     }
 
     @Test
@@ -70,7 +71,7 @@ class NormalizationServiceTest {
                 "OpenAgenda Marseille",
                 "Quai du Port",
                 "Marseille",
-                "13002");
+                "13002", null, null, null, null);
 
         Optional<Activity> result = normalizationService.normalize(collected);
 
@@ -98,7 +99,8 @@ class NormalizationServiceTest {
     void normalize_ShouldRejectData_WhenTitleIsBlank() {
         CollectedActivity collected = new CollectedActivity(
                 "   ", "description", LocalDateTime.now(), null, "marché",
-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertFalse(normalizationService.normalize(collected).isPresent());
     }
@@ -107,7 +109,8 @@ class NormalizationServiceTest {
     void normalize_ShouldRejectData_WhenTitleIsNull() {
         CollectedActivity collected = new CollectedActivity(
                 null, "description", LocalDateTime.now(), null, "marché",
-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertFalse(normalizationService.normalize(collected).isPresent());
     }
@@ -116,7 +119,8 @@ class NormalizationServiceTest {
     void normalize_ShouldRejectData_WhenStartDateIsNull() {
         CollectedActivity collected = new CollectedActivity(
                 "Titre", "description", null, null, "marché",
-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertFalse(normalizationService.normalize(collected).isPresent());
     }
@@ -125,7 +129,8 @@ class NormalizationServiceTest {
     void normalize_ShouldRejectData_WhenLatitudeOutOfRange() {
         CollectedActivity collected = new CollectedActivity(
                 "Titre", "description", LocalDateTime.now(), null, "marché",
-                91, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+                91, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertFalse(normalizationService.normalize(collected).isPresent());
     }
@@ -134,7 +139,8 @@ class NormalizationServiceTest {
     void normalize_ShouldRejectData_WhenLongitudeOutOfRange() {
         CollectedActivity collected = new CollectedActivity(
                 "Titre", "description", LocalDateTime.now(), null, "marché",
-                43.2965, 181, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+                43.2965, 181, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertFalse(normalizationService.normalize(collected).isPresent());
     }
@@ -143,7 +149,8 @@ class NormalizationServiceTest {
     void normalize_ShouldAcceptData_WhenDescriptionAndCategoryAndEndDateAreNull() {
         CollectedActivity collected = new CollectedActivity(
                 "Titre", null, LocalDateTime.now(), null, null,
-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertTrue(normalizationService.normalize(collected).isPresent());
     }
@@ -154,7 +161,8 @@ class NormalizationServiceTest {
     void normalize_ShouldRejectData_WhenTitleExceedsMaxLength() {
         CollectedActivity collected = new CollectedActivity(
                 "T".repeat(256), "description", LocalDateTime.now(), null, "marché",
-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertFalse(normalizationService.normalize(collected).isPresent());
     }
@@ -163,7 +171,8 @@ class NormalizationServiceTest {
     void normalize_ShouldAcceptData_WhenTitleIsExactlyMaxLength() {
         CollectedActivity collected = new CollectedActivity(
                 "T".repeat(255), "description", LocalDateTime.now(), null, "marché",
-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertTrue(normalizationService.normalize(collected).isPresent());
     }
@@ -173,7 +182,8 @@ class NormalizationServiceTest {
         CollectedActivity collected = new CollectedActivity(
                 "Titre", "description",
                 LocalDateTime.of(2026, 12, 24, 20, 0), LocalDateTime.of(2026, 12, 1, 10, 0),
-                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertFalse(normalizationService.normalize(collected).isPresent());
     }
@@ -183,7 +193,8 @@ class NormalizationServiceTest {
         LocalDateTime sameInstant = LocalDateTime.of(2026, 12, 1, 10, 0);
         CollectedActivity collected = new CollectedActivity(
                 "Titre", "description", sameInstant, sameInstant,
-                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertTrue(normalizationService.normalize(collected).isPresent());
     }
@@ -192,7 +203,8 @@ class NormalizationServiceTest {
     void normalize_ShouldRejectData_WhenCategoryIsBlankButNotNull() {
         CollectedActivity collected = new CollectedActivity(
                 "Titre", "description", LocalDateTime.now(), null, "   ",
-                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille", null, null, null);
+                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertFalse(normalizationService.normalize(collected).isPresent());
     }
@@ -201,7 +213,8 @@ class NormalizationServiceTest {
     void normalize_ShouldRejectData_WhenUrlIsMalformed() {
         CollectedActivity collected = new CollectedActivity(
                 "Titre", "description", LocalDateTime.now(), null, "marché",
-                43.2965, 5.3698, "pas une url", "ext-1", "OpenAgenda Marseille", null, null, null);
+                43.2965, 5.3698, "pas une url", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertFalse(normalizationService.normalize(collected).isPresent());
     }
@@ -210,7 +223,8 @@ class NormalizationServiceTest {
     void normalize_ShouldRejectData_WhenUrlSchemeIsNotHttpOrHttps() {
         CollectedActivity collected = new CollectedActivity(
                 "Titre", "description", LocalDateTime.now(), null, "marché",
-                43.2965, 5.3698, "ftp://example.com/fichier", "ext-1", "OpenAgenda Marseille", null, null, null);
+                43.2965, 5.3698, "ftp://example.com/fichier", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertFalse(normalizationService.normalize(collected).isPresent());
     }
@@ -219,7 +233,8 @@ class NormalizationServiceTest {
     void normalize_ShouldAcceptData_WhenUrlIsNull() {
         CollectedActivity collected = new CollectedActivity(
                 "Titre", "description", LocalDateTime.now(), null, "marché",
-                43.2965, 5.3698, null, "ext-1", "OpenAgenda Marseille", null, null, null);
+                43.2965, 5.3698, null, "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, null, null, null);
 
         assertTrue(normalizationService.normalize(collected).isPresent());
     }
@@ -232,6 +247,39 @@ class NormalizationServiceTest {
 
         assertTrue(result.isPresent());
         assertEquals("https://example.com/evenement/123", result.get().url());
+    }
+
+    @Test
+    void normalize_ShouldCarryRichFieldsThrough_ToNormalizedActivity() {
+        // LL-11006 : longDescription/conditions/ageMin/ageMax doivent être conservés lorsqu'ils
+        // existent dans la donnée collectée, sans transformation.
+        CollectedActivity collected = new CollectedActivity(
+                "Titre", "description", LocalDateTime.now(), null, "marché",
+                43.2965, 5.3698, "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, "Description détaillée sur plusieurs lignes.",
+                "Gratuit, réservation conseillée.", 6, 12);
+
+        Optional<Activity> result = normalizationService.normalize(collected);
+
+        assertTrue(result.isPresent());
+        assertEquals("Description détaillée sur plusieurs lignes.", result.get().longDescription());
+        assertEquals("Gratuit, réservation conseillée.", result.get().conditions());
+        assertEquals(6, result.get().ageMin());
+        assertEquals(12, result.get().ageMax());
+    }
+
+    @Test
+    void normalize_ShouldAccept_WhenRichFieldsAreAbsent() {
+        // « conservées lorsqu'elles existent » : leur absence ne doit pas faire rejeter l'activité.
+        CollectedActivity collected = validCollectedActivity();
+
+        Optional<Activity> result = normalizationService.normalize(collected);
+
+        assertTrue(result.isPresent());
+        assertNull(result.get().longDescription());
+        assertNull(result.get().conditions());
+        assertNull(result.get().ageMin());
+        assertNull(result.get().ageMax());
     }
 
 }

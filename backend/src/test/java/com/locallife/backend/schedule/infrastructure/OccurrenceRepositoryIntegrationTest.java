@@ -70,7 +70,7 @@ class OccurrenceRepositoryIntegrationTest {
         Activity activity = activityRepository.save(new Activity(
                 null, "test-activity-" + UUID.randomUUID(), "description", "sport",
                 43.9493, 4.8055, LocalDateTime.now(), null, "PUBLISHED", manualSourceId(), null, null,
-                null, null, null));
+                null, null, null, null, null, null, null));
         return scheduleRepository.save(new Schedule(
                 null, activity.id(), locationId, LocalTime.of(11, 30), LocalTime.of(14, 0),
                 LocalDate.of(2026, 9, 8), null, "Europe/Paris", "FREQ=WEEKLY;BYDAY=TU"));

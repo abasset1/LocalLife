@@ -79,7 +79,14 @@ import org.springframework.web.client.RestClientException;
  *   <li>URL source reconstruite ({@code
  *       https://openagenda.com/agendas/{agendaUid}/events/{slug}}) : la
  *       documentation OpenAgenda ne fournit pas d'URL canonique directe
- *       dans la réponse de lecture des événements.</li>
+ *       dans la réponse de lecture des événements ;</li>
+ *   <li>{@code longDescription}/{@code conditions}/{@code age} (LL-11006,
+ *       « fiche événementielle riche ») : mêmes champs français ({@code
+ *       .fr}) que {@code title}/{@code description} pour les deux
+ *       premiers (multilingues sur OpenAgenda, voir
+ *       {@code developers.openagenda.com/evenements/structure/}) ;
+ *       {@code age.min}/{@code age.max} repris tels quels (non
+ *       multilingue).</li>
  * </ul>
  *
  * <b>Multi-agenda (LL-8004/LL-8009)</b> : cette classe n'est plus un
@@ -217,6 +224,7 @@ public class OpenAgendaCollector implements Collector {
 
     private CollectedActivity toCollectedActivity(OpenAgendaEvent event) {
         OpenAgendaTiming timing = event.nextTiming() != null ? event.nextTiming() : event.lastTiming();
+        OpenAgendaAge age = event.age();
         return new CollectedActivity(
                 text(event.title()),
                 text(event.description()),
@@ -230,7 +238,11 @@ public class OpenAgendaCollector implements Collector {
                 sourceName,
                 event.location().address(),
                 event.location().city(),
-                event.location().postalCode());
+                event.location().postalCode(),
+                text(event.longDescription()),
+                text(event.conditions()),
+                age == null ? null : age.min(),
+                age == null ? null : age.max());
     }
 
     private boolean isBlank(String value) {
@@ -275,7 +287,10 @@ public class OpenAgendaCollector implements Collector {
             Map<String, List<String>> keywords,
             OpenAgendaLocation location,
             OpenAgendaTiming nextTiming,
-            OpenAgendaTiming lastTiming) {
+            OpenAgendaTiming lastTiming,
+            Map<String, String> longDescription,
+            Map<String, String> conditions,
+            OpenAgendaAge age) {
     }
 
     /**
@@ -290,6 +305,19 @@ public class OpenAgendaCollector implements Collector {
     }
 
     private record OpenAgendaTiming(String begin, String end) {
+    }
+
+    /**
+     * LL-11006 : {@code age}, champ optionnel de la réponse OpenAgenda
+     * (« âge du public ciblé (par défaut : null). Si défini, objet
+     * {@code {min, max}} », developers.openagenda.com/evenements/structure/
+     * — non vérifié contre l'API réelle en sandbox, comme le reste de
+     * cette classe, voir sa javadoc). {@code min}/{@code max}
+     * indépendamment nullables — OpenAgenda documente explicitement le
+     * cas d'un âge minimum sans maximum (ex. « interdit aux moins de 18
+     * ans »).
+     */
+    private record OpenAgendaAge(Integer min, Integer max) {
     }
 
 }
