@@ -23,7 +23,8 @@ conventions de nommage, même format de réponse, mêmes codes d'erreur.
 | `longitude` | double | oui          | entre -180 et 180                                | Longitude du point de recherche.          |
 | `radius`    | double | oui          | strictement positif, **en kilomètres**, max `50` | Rayon de recherche autour du point.       |
 | `category`  | string | non          | une ou plusieurs valeurs séparées par des virgules (ex. `concert,marché`) | Filtre les résultats sur la/les catégorie(s) données (correspondance exacte, `OU` entre les valeurs). Absent → aucun filtrage. Catégorie ne correspondant à aucune activité → liste vide, **pas** une erreur 400 (voir décision ci-dessous). |
-| `date`      | string | non          | format ISO-8601 `yyyy-MM-dd` | Filtre les résultats sur une date donnée : une activité est retenue quand cette date tombe dans sa période `[startDate, endDate]` (bornes incluses, comparaison au jour près). Absent → aucun filtrage. Voir décision LL-4005 ci-dessous. |
+| `date`      | string | non          | format ISO-8601 `yyyy-MM-dd` | Filtre les résultats sur une date donnée : une activité est retenue quand cette date tombe dans sa période `[startDate, endDate]` (bornes incluses, comparaison au jour près). Absent → aucun filtrage. Voir décision LL-4005 ci-dessous. Borne de début de la période quand `dateTo` est également fourni — voir décision LL-11003 ci-dessous. |
+| `dateTo`    | string | non          | format ISO-8601 `yyyy-MM-dd`, doit être ≥ `date` | Borne de fin optionnelle de la période, n'a de sens qu'accompagnée de `date`. Voir décision LL-11003 ci-dessous. |
 
 ⚠️ **Mise à jour LL-6004 (Sprint 6)** : le paramètre `status`, documenté
 ci-dessous jusqu'à LL-4003/LL-4004 (« filtre les résultats sur ce statut,
@@ -47,6 +48,12 @@ Exemple :
 GET /api/v1/activities/nearby?latitude=43.2965&longitude=5.3698&radius=5&category=concert,marché&date=2026-09-05
 ```
 
+Exemple avec période (LL-11003) :
+
+```text
+GET /api/v1/activities/nearby?latitude=43.2965&longitude=5.3698&radius=5&date=2026-09-05&dateTo=2026-09-10
+```
+
 ## Réponse
 
 `200 OK` — tableau JSON d'objets `Activity`, **même format que
@@ -66,6 +73,9 @@ Même format standardisé que le reste de l'API (`ErrorResponse` — voir
 | Paramètre hors contraintes (latitude/longitude hors plage, rayon ≤ 0 ou > 50 km) | `400 Bad Request` |
 | Paramètre non numérique                            | `400 Bad Request` |
 | `date` fournie mais pas au format ISO-8601 (`yyyy-MM-dd`)     | `400 Bad Request` |
+| `dateTo` fournie mais pas au format ISO-8601 (`yyyy-MM-dd`)   | `400 Bad Request` |
+| `dateTo` fournie sans `date`                                  | `400 Bad Request` |
+| `dateTo` antérieure à `date`                                  | `400 Bad Request` |
 
 ## Implémentation attendue
 
@@ -124,6 +134,38 @@ journée, celle de `startDate` (équivalent à `COALESCE(endDate, startDate)`
 côté SQL). Alternative écartée : exclure ces activités de tout filtre par
 date, ce qui les rendrait invisibles dès qu'un utilisateur filtre par date —
 contraire à l'objectif du Sprint 4 (carte réellement exploitable).
+
+## Décision LL-11003 : filtre par période via `dateTo`
+
+Signalé par toi (retour utilisateur) : le filtre « Période » du frontend
+(ce weekend/cette semaine/ce mois-ci/prochain mois, LL-11002) n'envoyait
+que la date de **début** de la période. Avec la sémantique LL-4005 (une
+activité est retenue quand `date` tombe dans `[startDate, endDate]`), une
+activité qui commence un autre jour de la période mais reste visible
+pendant celle-ci — ou qui a commencé avant la période mais se termine
+dedans — n'était pas retournée : seule la correspondance exacte avec le
+premier jour de la période comptait.
+
+Décision : ajout du paramètre optionnel `dateTo`, qui n'a de sens
+qu'accompagné de `date` (borne de début). Quand les deux sont fournis, une
+activité est retenue dès que sa période `[startDate, endDate]` **chevauche**
+`[date, dateTo]` (bornes incluses des deux côtés, comparaison au jour près,
+même règle `COALESCE(endDate, startDate)` que LL-4005 pour les activités
+sans date de fin) — et non plus seulement lorsque sa période couvre
+exactement `date`.
+
+`dateTo` fourni sans `date` est rejeté (`400 Bad Request`) plutôt
+qu'ignoré silencieusement : une période « allant de quand à `dateTo` ? »
+serait ambiguë, et un rejet explicite évite qu'un appelant ne se rende pas
+compte que son paramètre est sans effet. De même, `dateTo` antérieure à
+`date` (période inversée) ne correspond à aucun cas d'usage identifié et
+signale plus probablement une erreur côté appelant qu'une intention
+réelle — rejeté plutôt qu'interprété silencieusement (ex. en inversant les
+bornes).
+
+Absence de `dateTo` → comportement strictement inchangé (correspondance
+sur la seule date `date`, LL-4005), pour rester rétrocompatible avec les
+appelants existants qui ne fourniraient que `date`.
 
 ## Points laissés ouverts pour LL-4002/LL-4003 (à valider à ce moment-là)
 

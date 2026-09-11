@@ -222,13 +222,13 @@ class ActivityControllerTest {
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
-        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
+        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
         when(sourceService.getAllSources()).thenReturn(List.of(source));
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "concert", "2026-09-05", httpRequest);
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, httpRequest);
 
         // Then
         // LL-8006 : sourceId (technique) est résolu en sourceName (lisible) dans la réponse.
@@ -241,13 +241,13 @@ class ActivityControllerTest {
         // Given : sourceId référencé par l'activité absent des sources connues (cas défensif LL-8006).
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 99L, null, null, null, null, null, null, null, null, null);
-        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
+        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
         when(sourceService.getAllSources()).thenReturn(List.of());
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "concert", "2026-09-05", httpRequest);
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -265,13 +265,13 @@ class ActivityControllerTest {
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null,
                 "Quai du Port", "Marseille", "13002", null, null, null, null);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
-        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05"))
+        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
         when(sourceService.getAllSources()).thenReturn(List.of(source));
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "concert", "2026-09-05", httpRequest);
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -288,13 +288,13 @@ class ActivityControllerTest {
     @Test
     void getNearbyActivities_ShouldReturnBadRequest_WhenParamsInvalid() {
         // Given
-        when(activityService.findNearby(null, "5.3739", "5", null, null))
+        when(activityService.findNearby(null, "5.3739", "5", null, null, null))
                 .thenThrow(new IllegalArgumentException("Le paramètre 'latitude' est obligatoire."));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/nearby");
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                null, "5.3739", "5", null, null, httpRequest);
+                null, "5.3739", "5", null, null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -304,14 +304,49 @@ class ActivityControllerTest {
     @Test
     void getNearbyActivities_ShouldReturnBadRequest_WhenDateFormatInvalid() {
         // Given
-        when(activityService.findNearby("43.2951", "5.3739", "5", null, "05/09/2026"))
+        when(activityService.findNearby("43.2951", "5.3739", "5", null, "05/09/2026", null))
                 .thenThrow(new IllegalArgumentException(
                         "Le paramètre 'date' doit être au format ISO-8601 (yyyy-MM-dd)."));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/nearby");
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", null, "05/09/2026", httpRequest);
+                "43.2951", "5.3739", "5", null, "05/09/2026", null, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST.value(), ((ErrorResponse) response.getBody()).status());
+    }
+
+    @Test
+    void getNearbyActivities_ShouldPassDateToToService_WhenProvided() {
+        // LL-11003 : le contrôleur transmet simplement dateTo au service, qui porte
+        // toute la validation (voir ActivityServiceTest pour le détail des cas).
+        Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null);
+        Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
+        when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", "2026-09-10"))
+                .thenReturn(List.of(nearby));
+        when(sourceService.getAllSources()).thenReturn(List.of(source));
+
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", "2026-09-10", httpRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(List.of(ActivityResponse.from(nearby, "OpenAgenda — Avignon")), response.getBody());
+    }
+
+    @Test
+    void getNearbyActivities_ShouldReturnBadRequest_WhenDateToBeforeDate() {
+        // Given
+        when(activityService.findNearby("43.2951", "5.3739", "5", null, "2026-09-10", "2026-09-05"))
+                .thenThrow(new IllegalArgumentException(
+                        "Le paramètre 'dateTo' doit être postérieure ou égale à 'date'."));
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/nearby");
+
+        // When
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                "43.2951", "5.3739", "5", null, "2026-09-10", "2026-09-05", httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -325,13 +360,13 @@ class ActivityControllerTest {
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05"))
+                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null))
                 .thenReturn(List.of(inBounds));
         when(sourceService.getAllSources()).thenReturn(List.of(source));
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", httpRequest);
+                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null, httpRequest);
 
         // Then
         // LL-8006 : sourceId (technique) est résolu en sourceName (lisible) dans la réponse.
@@ -348,13 +383,13 @@ class ActivityControllerTest {
                 "Quai du Port", "Marseille", "13002", null, null, null, null);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05"))
+                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null))
                 .thenReturn(List.of(inBounds));
         when(sourceService.getAllSources()).thenReturn(List.of(source));
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", httpRequest);
+                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -369,13 +404,13 @@ class ActivityControllerTest {
     @Test
     void getActivitiesWithinBounds_ShouldReturnBadRequest_WhenParamsInvalid() {
         // Given
-        when(activityService.findWithinBounds(null, "5.35", "43.31", "5.40", null, null))
+        when(activityService.findWithinBounds(null, "5.35", "43.31", "5.40", null, null, null))
                 .thenThrow(new IllegalArgumentException("Le paramètre 'swLatitude' est obligatoire."));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/within-bounds");
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                null, "5.35", "43.31", "5.40", null, null, httpRequest);
+                null, "5.35", "43.31", "5.40", null, null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -385,14 +420,14 @@ class ActivityControllerTest {
     @Test
     void getActivitiesWithinBounds_ShouldReturnBadRequest_WhenSwLatitudeNotLessThanNeLatitude() {
         // Given
-        when(activityService.findWithinBounds("43.31", "5.35", "43.31", "5.40", null, null))
+        when(activityService.findWithinBounds("43.31", "5.35", "43.31", "5.40", null, null, null))
                 .thenThrow(new IllegalArgumentException(
                         "Le paramètre 'swLatitude' doit être strictement inférieur à 'neLatitude'."));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/within-bounds");
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                "43.31", "5.35", "43.31", "5.40", null, null, httpRequest);
+                "43.31", "5.35", "43.31", "5.40", null, null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());

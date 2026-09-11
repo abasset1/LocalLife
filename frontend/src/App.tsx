@@ -202,9 +202,21 @@ const ALL_CATEGORIES = "";
  * date du jour est appliquée par défaut (voir
  * {@code ActivityService#findNearby} côté backend) — pour voir les
  * activités passées ou futures, l'utilisateur doit choisir une date
- * explicitement via ce filtre.
+ * explicitement via ce filtre. Également utilisée pour `selectedDateTo`
+ * (LL-11003, voir sa déclaration) — même sémantique de « pas de borne de
+ * fin de période ».
  */
 const NO_DATE_FILTER = "";
+
+// Formate une date en YYYY-MM-DD en utilisant les composants locaux (jour/mois/annee)
+// plutot que Date.toISOString(), qui convertit en UTC et peut decaler la date
+// d'un jour pour les fuseaux horaires en avance sur UTC (ex: Europe/Paris).
+function toLocalDateString(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
 
 /**
  * Icône dédiée au marqueur food truck (LL-6009, critère « distinction
@@ -334,6 +346,14 @@ function App() {
     const [availableCategories, setAvailableCategories] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
     const [selectedDate, setSelectedDate] = useState(NO_DATE_FILTER);
+    /**
+     * LL-11003 : borne de fin optionnelle de la période sélectionnée via le filtre
+     * "Période" (ce weekend/cette semaine/ce mois-ci/prochain mois) — voir le
+     * gestionnaire du <select id="period-filter"> plus bas. Reste à NO_DATE_FILTER
+     * pour le filtre "À partir de" (date unique, comportement LL-4005 inchangé) et
+     * pour "Toutes les périodes"/"aujourd'hui" (une seule journée, dateTo inutile).
+     */
+    const [selectedDateTo, setSelectedDateTo] = useState(NO_DATE_FILTER);
     const [currentUser, setCurrentUser] = useState(() => getPayload());
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -394,6 +414,7 @@ function App() {
     const previousSearchDepsRef = useRef<{
         selectedCategory: string;
         selectedDate: string;
+        selectedDateTo: string;
         refreshKey: number;
         userPosition: UserPosition | null;
     } | null>(null);
@@ -414,9 +435,10 @@ function App() {
         const isMapOnlyReload = previousDeps !== null
             && previousDeps.selectedCategory === selectedCategory
             && previousDeps.selectedDate === selectedDate
+            && previousDeps.selectedDateTo === selectedDateTo
             && previousDeps.refreshKey === refreshKey
             && previousDeps.userPosition === userPosition;
-        previousSearchDepsRef.current = { selectedCategory, selectedDate, refreshKey, userPosition };
+        previousSearchDepsRef.current = { selectedCategory, selectedDate, selectedDateTo, refreshKey, userPosition };
 
         if (!isMapOnlyReload) {
             setIsLoadingActivities(true);
@@ -459,6 +481,9 @@ function App() {
             }
             if (selectedDate !== NO_DATE_FILTER) {
                 params.set("date", selectedDate);
+                if (selectedDateTo !== NO_DATE_FILTER) {
+                    params.set("dateTo", selectedDateTo);
+                }
             }
 
             try {
@@ -514,7 +539,7 @@ function App() {
         void loadActivities();
 
         return () => abortController.abort();
-    }, [selectedCategory, selectedDate, refreshKey, userPosition, mapBounds]);
+    }, [selectedCategory, selectedDate, selectedDateTo, refreshKey, userPosition, mapBounds]);
 
     /**
      * Récupération des food trucks (LL-6009), isolée de celle des
@@ -823,7 +848,12 @@ function App() {
                 <label htmlFor="start-date-filter">À partir de</label>
                 <input
                     id="start-date-filter"
-                    onChange={(event) => setSelectedDate(event.target.value)}
+                    onChange={(event) => {
+                        // Filtre par date unique (comportement LL-4005 inchangé, pas de borne de
+                        // fin) : toute sélection manuelle efface une éventuelle période active.
+                        setSelectedDate(event.target.value);
+                        setSelectedDateTo(NO_DATE_FILTER);
+                    }}
                     type="date"
                     value={selectedDate}
                 />
@@ -834,37 +864,55 @@ function App() {
                         const period = event.target.value;
                         if (period === "") {
                             setSelectedDate(NO_DATE_FILTER);
+                            setSelectedDateTo(NO_DATE_FILTER);
                         } else {
                             const today = new Date();
                             today.setHours(0, 0, 0, 0);
 
                             switch (period) {
                                 case "this-weekend": {
+                                    // Ce weekend = samedi et dimanche de la semaine en cours (LL-11003 :
+                                    // la période complète, pas seulement son premier jour).
                                     const daysToSaturday = 6 - today.getDay();
                                     const saturday = new Date(today);
                                     saturday.setDate(today.getDate() + daysToSaturday);
-                                    setSelectedDate(saturday.toISOString().split("T")[0]);
+                                    const sunday = new Date(saturday);
+                                    sunday.setDate(saturday.getDate() + 1);
+                                    setSelectedDate(toLocalDateString(saturday));
+                                    setSelectedDateTo(toLocalDateString(sunday));
                                     break;
                                 }
                                 case "this-week": {
+                                    // Cette semaine = lundi à dimanche de la semaine en cours.
                                     const daysToMonday = today.getDay() === 0 ? -6 : 1 - today.getDay();
                                     const monday = new Date(today);
                                     monday.setDate(today.getDate() + daysToMonday);
-                                    setSelectedDate(monday.toISOString().split("T")[0]);
+                                    const sunday = new Date(monday);
+                                    sunday.setDate(monday.getDate() + 6);
+                                    setSelectedDate(toLocalDateString(monday));
+                                    setSelectedDateTo(toLocalDateString(sunday));
                                     break;
                                 }
                                 case "this-month": {
+                                    // Ce mois-ci = 1er au dernier jour du mois en cours. Le jour 0 du
+                                    // mois suivant est le dernier jour du mois en cours (arithmétique
+                                    // standard de l'objet Date).
                                     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                                    setSelectedDate(firstOfMonth.toISOString().split("T")[0]);
+                                    const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                                    setSelectedDate(toLocalDateString(firstOfMonth));
+                                    setSelectedDateTo(toLocalDateString(lastOfMonth));
                                     break;
                                 }
                                 case "next-month": {
                                     const firstOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-                                    setSelectedDate(firstOfNextMonth.toISOString().split("T")[0]);
+                                    const lastOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+                                    setSelectedDate(toLocalDateString(firstOfNextMonth));
+                                    setSelectedDateTo(toLocalDateString(lastOfNextMonth));
                                     break;
                                 }
                                 default:
-                                    setSelectedDate(today.toISOString().split("T")[0]);
+                                    setSelectedDate(toLocalDateString(today));
+                                    setSelectedDateTo(NO_DATE_FILTER);
                             }
                         }
                     }}
@@ -879,7 +927,10 @@ function App() {
                 {selectedDate !== NO_DATE_FILTER && (
                     <button
                         aria-label="Effacer le filtre de période"
-                        onClick={() => setSelectedDate(NO_DATE_FILTER)}
+                        onClick={() => {
+                            setSelectedDate(NO_DATE_FILTER);
+                            setSelectedDateTo(NO_DATE_FILTER);
+                        }}
                         type="button"
                     >
                         ×

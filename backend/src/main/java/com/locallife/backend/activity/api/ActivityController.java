@@ -138,11 +138,17 @@ public class ActivityController {
                     + "(ex. concert,marché). Catégorie inconnue → résultat vide, pas d'erreur.")
             @RequestParam(required = false) String category,
             @Parameter(description = "Filtre optionnel sur une date (format ISO-8601 yyyy-MM-dd). Une activité "
-                    + "est retenue quand cette date tombe dans sa période [startDate, endDate].")
+                    + "est retenue quand cette date tombe dans sa période [startDate, endDate]. Borne de début de "
+                    + "la période quand 'dateTo' est également fourni.")
             @RequestParam(required = false) String date,
+            @Parameter(description = "Borne de fin optionnelle de la période (format ISO-8601 yyyy-MM-dd), "
+                    + "n'a de sens qu'accompagnée de 'date'. Quand les deux sont fournis, une activité est "
+                    + "retenue dès que sa période [startDate, endDate] chevauche [date, dateTo].")
+            @RequestParam(required = false) String dateTo,
             HttpServletRequest httpRequest) {
         try {
-            List<Activity> activities = activityService.findNearby(latitude, longitude, radius, category, date);
+            List<Activity> activities = activityService.findNearby(
+                    latitude, longitude, radius, category, date, dateTo);
             return ResponseEntity.ok(withSourceNames(activities));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -190,12 +196,17 @@ public class ActivityController {
                     + "(ex. concert,marché). Catégorie inconnue → résultat vide, pas d'erreur.")
             @RequestParam(required = false) String category,
             @Parameter(description = "Filtre optionnel sur une date (format ISO-8601 yyyy-MM-dd). Une activité "
-                    + "est retenue quand cette date tombe dans sa période [startDate, endDate].")
+                    + "est retenue quand cette date tombe dans sa période [startDate, endDate]. Borne de début de "
+                    + "la période quand 'dateTo' est également fourni.")
             @RequestParam(required = false) String date,
+            @Parameter(description = "Borne de fin optionnelle de la période (format ISO-8601 yyyy-MM-dd), "
+                    + "n'a de sens qu'accompagnée de 'date'. Quand les deux sont fournis, une activité est "
+                    + "retenue dès que sa période [startDate, endDate] chevauche [date, dateTo].")
+            @RequestParam(required = false) String dateTo,
             HttpServletRequest httpRequest) {
         try {
             List<Activity> activities = activityService.findWithinBounds(
-                    swLatitude, swLongitude, neLatitude, neLongitude, category, date);
+                    swLatitude, swLongitude, neLatitude, neLongitude, category, date, dateTo);
             return ResponseEntity.ok(withSourceNames(activities));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);

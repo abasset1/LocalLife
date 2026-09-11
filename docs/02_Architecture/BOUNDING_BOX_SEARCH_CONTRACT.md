@@ -46,7 +46,8 @@ traduction nécessaire côté frontend en LL-4012.
 | `neLatitude`  | double | oui          | entre -90 et 90, `> swLatitude`  | Latitude du coin nord-est de la zone.             |
 | `neLongitude` | double | oui          | entre -180 et 180, `> swLongitude` | Longitude du coin nord-est de la zone.          |
 | `category`    | string | non          | une ou plusieurs valeurs séparées par des virgules | Filtre sur la/les catégorie(s). Identique au contrat `/nearby` (LL-4004). |
-| `date`        | string | non          | format ISO-8601 `yyyy-MM-dd`     | Filtre sur une date donnée. Identique au contrat `/nearby` (LL-4005). |
+| `date`        | string | non          | format ISO-8601 `yyyy-MM-dd`     | Filtre sur une date donnée. Identique au contrat `/nearby` (LL-4005). Borne de début de la période quand `dateTo` est également fourni (LL-11003). |
+| `dateTo`      | string | non          | format ISO-8601 `yyyy-MM-dd`, doit être ≥ `date` | Borne de fin optionnelle de la période. Identique au contrat `/nearby` (LL-11003). |
 
 ⚠️ **Mise à jour LL-6004 (Sprint 6)** : le paramètre `status`,
 documenté ci-dessous jusqu'à LL-4007 (« identique au contrat `/nearby` »),
@@ -92,6 +93,9 @@ Même format standardisé que le reste de l'API (`ErrorResponse`) :
 | Latitude/longitude hors plage (-90/90, -180/180)                    | `400 Bad Request` |
 | `swLatitude >= neLatitude` ou `swLongitude >= neLongitude`          | `400 Bad Request` |
 | `date` fournie mais pas au format ISO-8601                          | `400 Bad Request` |
+| `dateTo` fournie mais pas au format ISO-8601                        | `400 Bad Request` |
+| `dateTo` fournie sans `date`                                        | `400 Bad Request` |
+| `dateTo` antérieure à `date`                                        | `400 Bad Request` |
 
 ## Implémentation (LL-4007)
 
@@ -102,12 +106,13 @@ Même format standardisé que le reste de l'API (`ErrorResponse`) :
   l'index spatial) plutôt que `ST_Within`/`ST_Contains`, suffisant
   puisque la zone de recherche est elle-même un rectangle — voir la
   javadoc de `ActivityRepository#findWithinBounds`.
-* Réutilisation des mêmes filtres optionnels `category`/`date`
+* Réutilisation des mêmes filtres optionnels `category`/`date`/`dateTo`
   que `findNearby` (même logique de validation et de normalisation),
   pour rester cohérent entre les deux modes de recherche et permettre la
   combinaison de filtres exigée par LL-4014 (tests d'intégration). Le
   statut `PUBLISHED` est fixé côté service pour les deux (LL-6004),
-  plutôt que réutilisé comme filtre optionnel.
+  plutôt que réutilisé comme filtre optionnel. Voir la décision LL-11003
+  dans `GEO_SEARCH_CONTRACT.md` pour la sémantique de `dateTo`.
 * Aucun nouveau moteur de recherche — explicitement exclu du périmètre du
   Sprint 4 (voir `SPRINT_4.md`).
 

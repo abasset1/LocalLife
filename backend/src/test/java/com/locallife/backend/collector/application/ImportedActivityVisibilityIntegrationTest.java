@@ -105,7 +105,7 @@ class ImportedActivityVisibilityIntegrationTest {
 
         // When : recherche géographique (LL-4002/LL-4003), rayon 5 km autour du point exact.
         List<Activity> results = activityService.findNearby(
-                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", null, null);
+                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", null, null, null);
 
         // Then
         assertThat(results).anySatisfy(activity -> assertThat(activity.title()).isEqualTo("Marché de Noël"));
@@ -118,7 +118,7 @@ class ImportedActivityVisibilityIntegrationTest {
 
         // When : recherche par zone cartographique (LL-4006/LL-4007), zone englobant Marseille.
         List<Activity> results = activityService.findWithinBounds(
-                "43.20", "5.30", "43.40", "5.50", null, null);
+                "43.20", "5.30", "43.40", "5.50", null, null, null);
 
         // Then
         assertThat(results).anySatisfy(activity -> assertThat(activity.title()).isEqualTo("Marché de Noël"));
@@ -131,12 +131,12 @@ class ImportedActivityVisibilityIntegrationTest {
 
         // When / Then : filtre catégorie correspondant (LL-4004).
         List<Activity> matching = activityService.findNearby(
-                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", "marché", null);
+                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", "marché", null, null);
         assertThat(matching).anySatisfy(activity -> assertThat(activity.title()).isEqualTo("Marché de Noël"));
 
         // Filtre catégorie non correspondant : exclue, comme une activité manuelle le serait.
         List<Activity> nonMatching = activityService.findNearby(
-                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", "sport", null);
+                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", "sport", null, null);
         assertThat(nonMatching).noneMatch(activity -> activity.title().equals("Marché de Noël"));
     }
 
@@ -148,12 +148,12 @@ class ImportedActivityVisibilityIntegrationTest {
 
         // When / Then : filtre date correspondant (LL-4005).
         List<Activity> matching = activityService.findNearby(
-                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", null, "2026-12-01");
+                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", null, "2026-12-01", null);
         assertThat(matching).anySatisfy(activity -> assertThat(activity.title()).isEqualTo("Marché de Noël"));
 
         // Date ne correspondant pas à la période de l'activité : exclue.
         List<Activity> nonMatching = activityService.findNearby(
-                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", null, "2026-12-25");
+                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", null, "2026-12-25", null);
         assertThat(nonMatching).noneMatch(activity -> activity.title().equals("Marché de Noël"));
     }
 
@@ -168,7 +168,7 @@ class ImportedActivityVisibilityIntegrationTest {
 
         // When / Then
         List<Activity> matching = activityService.findNearby(
-                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", null, null);
+                String.valueOf(LATITUDE), String.valueOf(LONGITUDE), "5", null, null, null);
         assertThat(matching).anySatisfy(activity -> assertThat(activity.title()).isEqualTo("Marché de Noël"));
     }
 

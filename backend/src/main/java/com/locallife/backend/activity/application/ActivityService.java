@@ -235,14 +235,31 @@ public class ActivityService {
      * {@link #findByStatus} (consultation administrative, LL-6005) n'est
      * pas concernée.
      *
+     * {@code dateTo} (LL-11003) : borne de fin optionnelle de la période,
+     * au même format que {@code date} — n'a de sens qu'accompagnée de
+     * {@code date} (borne de début), voir {@link #validateDateRange}.
+     * Quand les deux sont fournies, une activité est retenue dès lors que
+     * sa période {@code [startDate, endDate]} chevauche {@code [date,
+     * dateTo]} (bornes incluses des deux côtés, comparaison au jour près) —
+     * et non plus seulement lorsque sa période couvre exactement
+     * {@code date}. Sert notamment aux filtres « cette semaine »/« ce
+     * mois-ci » du frontend (LL-11002/LL-11003) : sans {@code dateTo}, une
+     * activité commençant un jour de la période mais visible seulement en
+     * fin de période (ou inversement) n'était pas retournée. Absence de
+     * {@code dateTo} → comportement inchangé (correspondance sur une seule
+     * date), pour rester rétrocompatible avec les appelants existants.
+     *
      * @throws IllegalArgumentException si un paramètre obligatoire est
      *         manquant/non numérique, hors des contraintes du contrat
      *         LL-4001 (latitude/longitude hors plage, rayon ≤ 0 ou
-     *         &gt; 50 km), ou si {@code date} n'est pas au format
-     *         ISO-8601 ({@code yyyy-MM-dd}).
+     *         &gt; 50 km), si {@code date}/{@code dateTo} n'est pas au
+     *         format ISO-8601 ({@code yyyy-MM-dd}), si {@code dateTo} est
+     *         fournie sans {@code date}, ou si {@code dateTo} est
+     *         antérieure à {@code date}.
      */
     public List<Activity> findNearby(
-            String latitudeRaw, String longitudeRaw, String radiusRaw, String category, String dateRaw) {
+            String latitudeRaw, String longitudeRaw, String radiusRaw, String category, String dateRaw,
+            String dateToRaw) {
         double latitude = parseRequiredDouble("latitude", latitudeRaw);
         double longitude = parseRequiredDouble("longitude", longitudeRaw);
         double radiusKm = parseRequiredDouble("radius", radiusRaw);
@@ -254,12 +271,14 @@ public class ActivityService {
                     "Le paramètre 'radius' doit être strictement positif et ne pas dépasser " + (int) MAX_RADIUS_KM
                             + " km.");
         }
-        LocalDate date = parseOptionalDate(dateRaw);
+        LocalDate date = parseOptionalDate("date", dateRaw);
+        LocalDate dateTo = parseOptionalDate("dateTo", dateToRaw);
+        validateDateRange(date, dateTo);
 
         double radiusMeters = radiusKm * 1000;
         String categoriesCsv = normalizeCategories(category);
         return activityRepository.findWithinRadius(
-                latitude, longitude, radiusMeters, PUBLIC_STATUS, categoriesCsv, date);
+                latitude, longitude, radiusMeters, PUBLIC_STATUS, categoriesCsv, date, dateTo);
     }
 
     /**
@@ -283,17 +302,23 @@ public class ActivityService {
      * résultats triés par {@code id} croissant, voir
      * {@link ActivityRepository#findWithinBounds}.
      *
+     * {@code dateTo} (LL-11003) : même sémantique que sur {@link
+     * #findNearby} (borne de fin optionnelle de la période, n'a de sens
+     * qu'accompagnée de {@code date}) — voir sa javadoc pour le détail.
+     *
      * @throws IllegalArgumentException si un paramètre obligatoire est
      *         manquant/non numérique, si une latitude/longitude est hors
      *         plage (-90/90, -180/180), si {@code swLatitude >=
      *         neLatitude} ou {@code swLongitude >= neLongitude} (contrat
      *         LL-4006 : la traversée de l'antiméridien n'est pas
-     *         supportée), ou si {@code date} n'est pas au format
-     *         ISO-8601.
+     *         supportée), si {@code date}/{@code dateTo} n'est pas au
+     *         format ISO-8601, si {@code dateTo} est fournie sans
+     *         {@code date}, ou si {@code dateTo} est antérieure à
+     *         {@code date}.
      */
     public List<Activity> findWithinBounds(
             String swLatitudeRaw, String swLongitudeRaw, String neLatitudeRaw, String neLongitudeRaw,
-            String category, String dateRaw) {
+            String category, String dateRaw, String dateToRaw) {
         double swLatitude = parseRequiredDouble("swLatitude", swLatitudeRaw);
         double swLongitude = parseRequiredDouble("swLongitude", swLongitudeRaw);
         double neLatitude = parseRequiredDouble("neLatitude", neLatitudeRaw);
@@ -313,11 +338,13 @@ public class ActivityService {
                     "Le paramètre 'swLongitude' doit être strictement inférieur à 'neLongitude' "
                             + "(la traversée de l'antiméridien n'est pas supportée).");
         }
-        LocalDate date = parseOptionalDate(dateRaw);
+        LocalDate date = parseOptionalDate("date", dateRaw);
+        LocalDate dateTo = parseOptionalDate("dateTo", dateToRaw);
+        validateDateRange(date, dateTo);
 
         String categoriesCsv = normalizeCategories(category);
         return activityRepository.findWithinBounds(
-                swLatitude, swLongitude, neLatitude, neLongitude, PUBLIC_STATUS, categoriesCsv, date);
+                swLatitude, swLongitude, neLatitude, neLongitude, PUBLIC_STATUS, categoriesCsv, date, dateTo);
     }
 
     /**
@@ -454,7 +481,7 @@ public class ActivityService {
         }
     }
 
-    private LocalDate parseOptionalDate(String dateRaw) {
+    private LocalDate parseOptionalDate(String paramName, String dateRaw) {
         if (dateRaw == null || dateRaw.isBlank()) {
             return null;
         }
@@ -462,7 +489,30 @@ public class ActivityService {
             return LocalDate.parse(dateRaw);
         } catch (DateTimeParseException exception) {
             throw new IllegalArgumentException(
-                    "Le paramètre 'date' doit être au format ISO-8601 (yyyy-MM-dd).");
+                    "Le paramètre '" + paramName + "' doit être au format ISO-8601 (yyyy-MM-dd).");
+        }
+    }
+
+    /**
+     * Valide la cohérence de la paire {@code date}/{@code dateTo} (LL-11003 :
+     * filtre par période, plutôt qu'une unique date, pour les recherches
+     * publiques — voir {@link #findNearby}/{@link #findWithinBounds}).
+     * {@code dateTo} n'a de sens qu'accompagné de {@code date} (borne de
+     * début de la période) : le fournir seul serait ambigu (période allant
+     * de quand à {@code dateTo} ?), donc rejeté explicitement plutôt que
+     * silencieusement ignoré. Quand les deux sont fournis, {@code dateTo}
+     * doit être postérieure ou égale à {@code date} — une période inversée
+     * ne correspond à aucun cas d'usage et masquerait probablement une
+     * erreur côté appelant.
+     */
+    private void validateDateRange(LocalDate date, LocalDate dateTo) {
+        if (dateTo != null && date == null) {
+            throw new IllegalArgumentException(
+                    "Le paramètre 'dateTo' ne peut être fourni sans 'date' (borne de début de la période).");
+        }
+        if (date != null && dateTo != null && dateTo.isBefore(date)) {
+            throw new IllegalArgumentException(
+                    "Le paramètre 'dateTo' doit être postérieure ou égale à 'date'.");
         }
     }
 

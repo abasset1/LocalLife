@@ -86,7 +86,7 @@ class ActivityRepositoryIntegrationTest {
         Activity far = activityAt(PARIS_LAT, PARIS_LON);
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(near.id());
@@ -99,7 +99,7 @@ class ActivityRepositoryIntegrationTest {
         Activity justOutside = activityAt(MARSEILLE_LAT - 0.05, MARSEILLE_LON);
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 1_000, null, null, null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 1_000, null, null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).doesNotContain(justOutside.id());
@@ -111,7 +111,7 @@ class ActivityRepositoryIntegrationTest {
         Activity farther = activityAt(MARSEILLE_LAT + 0.02, MARSEILLE_LON);
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(closer.id(), farther.id());
@@ -124,7 +124,7 @@ class ActivityRepositoryIntegrationTest {
         Activity pending = activityAt(MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PENDING");
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, "PUBLISHED", null, null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, "PUBLISHED", null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(published.id());
@@ -137,7 +137,7 @@ class ActivityRepositoryIntegrationTest {
         Activity pending = activityAt(MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PENDING");
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(published.id(), pending.id());
@@ -149,7 +149,7 @@ class ActivityRepositoryIntegrationTest {
         Activity sport = activityAt(MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PUBLISHED", "sport");
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, "concert", null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, "concert", null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(concert.id());
@@ -163,7 +163,7 @@ class ActivityRepositoryIntegrationTest {
         Activity sport = activityAt(MARSEILLE_LAT + 0.003, MARSEILLE_LON, "PUBLISHED", "sport");
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, "concert,marché", null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, "concert,marché", null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(concert.id(), marche.id());
@@ -175,7 +175,7 @@ class ActivityRepositoryIntegrationTest {
         activityAt(MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED", "concert");
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, "catégorie-inexistante-xyz", null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, "catégorie-inexistante-xyz", null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).isEmpty();
@@ -187,7 +187,7 @@ class ActivityRepositoryIntegrationTest {
         Activity sport = activityAt(MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PUBLISHED", "sport");
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(concert.id(), sport.id());
@@ -201,7 +201,7 @@ class ActivityRepositoryIntegrationTest {
                 LocalDateTime.of(2026, 9, 5, 20, 0), LocalDateTime.of(2026, 9, 5, 23, 0));
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 5))
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 5), null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(oneDayActivity.id());
@@ -214,7 +214,7 @@ class ActivityRepositoryIntegrationTest {
                 LocalDateTime.of(2026, 9, 5, 20, 0), LocalDateTime.of(2026, 9, 5, 23, 0));
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 6))
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 6), null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).doesNotContain(oneDayActivity.id());
@@ -228,16 +228,16 @@ class ActivityRepositoryIntegrationTest {
                 LocalDateTime.of(2026, 9, 1, 10, 0), LocalDateTime.of(2026, 9, 10, 18, 0));
 
         List<Long> firstDay = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 1))
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 1), null)
                 .stream().map(Activity::id).toList();
         List<Long> middleDay = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 5))
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 5), null)
                 .stream().map(Activity::id).toList();
         List<Long> lastDay = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 10))
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 10), null)
                 .stream().map(Activity::id).toList();
         List<Long> dayAfter = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 11))
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 11), null)
                 .stream().map(Activity::id).toList();
 
         assertThat(firstDay).contains(multiDayActivity.id());
@@ -255,10 +255,10 @@ class ActivityRepositoryIntegrationTest {
                 LocalDateTime.of(2026, 9, 5, 14, 0), null);
 
         List<Long> sameDay = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 5))
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 5), null)
                 .stream().map(Activity::id).toList();
         List<Long> nextDay = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 6))
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, LocalDate.of(2026, 9, 6), null)
                 .stream().map(Activity::id).toList();
 
         assertThat(sameDay).contains(noEndDate.id());
@@ -283,11 +283,92 @@ class ActivityRepositoryIntegrationTest {
                 today.plusDays(3).atTime(20, 0), null);
 
         List<Long> resultIds = activityRepository
-                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null)
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).doesNotContain(past.id());
         assertThat(resultIds).contains(current.id(), future.id(), futureWithoutEndDate.id());
+    }
+
+    // --- Filtre par période via dateTo (LL-11003) ---
+    // Les tests ci-dessus couvrent date seule (LL-4005, dateTo absent → comportement
+    // inchangé). Ceux qui suivent vérifient le chevauchement [date, dateTo].
+
+    @Test
+    void findWithinRadius_ShouldIncludeActivity_WhenItsPeriodOverlapsRequestedRange() {
+        // Chevauchement partiel : l'activité commence avant la période demandée et se
+        // termine dedans (2026-09-03 au 2026-09-06, période demandée 2026-09-05 au 2026-09-10).
+        Activity overlapsStart = activityAt(
+                MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED", "concert",
+                LocalDateTime.of(2026, 9, 3, 10, 0), LocalDateTime.of(2026, 9, 6, 18, 0));
+        // Entièrement contenue dans la période demandée.
+        Activity insideRange = activityAt(
+                MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PUBLISHED", "concert",
+                LocalDateTime.of(2026, 9, 6, 10, 0), LocalDateTime.of(2026, 9, 7, 18, 0));
+        // Chevauchement partiel : commence dans la période demandée et se termine après.
+        Activity overlapsEnd = activityAt(
+                MARSEILLE_LAT + 0.003, MARSEILLE_LON, "PUBLISHED", "concert",
+                LocalDateTime.of(2026, 9, 9, 10, 0), LocalDateTime.of(2026, 9, 15, 18, 0));
+        // Entièrement avant la période demandée : ne doit pas être retenue.
+        Activity beforeRange = activityAt(
+                MARSEILLE_LAT + 0.004, MARSEILLE_LON, "PUBLISHED", "concert",
+                LocalDateTime.of(2026, 9, 1, 10, 0), LocalDateTime.of(2026, 9, 4, 18, 0));
+        // Entièrement après la période demandée : ne doit pas être retenue.
+        Activity afterRange = activityAt(
+                MARSEILLE_LAT + 0.005, MARSEILLE_LON, "PUBLISHED", "concert",
+                LocalDateTime.of(2026, 9, 11, 10, 0), LocalDateTime.of(2026, 9, 12, 18, 0));
+
+        List<Long> resultIds = activityRepository
+                .findWithinRadius(
+                        MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null,
+                        LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 10))
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(overlapsStart.id(), insideRange.id(), overlapsEnd.id());
+        assertThat(resultIds).doesNotContain(beforeRange.id(), afterRange.id());
+    }
+
+    @Test
+    void findWithinRadius_ShouldTreatMissingEndDate_AsSameDayAsStartDate_WhenRangeProvided() {
+        // endDate absente : traitée comme ne durant que la journée de startDate (LL-4005),
+        // même règle appliquée au chevauchement de plage (LL-11003).
+        Activity withinRange = activityAt(
+                MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PENDING", "loisir",
+                LocalDateTime.of(2026, 9, 7, 14, 0), null);
+        Activity outsideRange = activityAt(
+                MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PENDING", "loisir",
+                LocalDateTime.of(2026, 9, 20, 14, 0), null);
+
+        List<Long> resultIds = activityRepository
+                .findWithinRadius(
+                        MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null,
+                        LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 10))
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(withinRange.id());
+        assertThat(resultIds).doesNotContain(outsideRange.id());
+    }
+
+    @Test
+    void findWithinBounds_ShouldIncludeActivity_WhenItsPeriodOverlapsRequestedRange() {
+        Activity insideRange = activityAt(
+                MARSEILLE_LAT, MARSEILLE_LON, "PUBLISHED", "concert",
+                LocalDateTime.of(2026, 9, 6, 10, 0), LocalDateTime.of(2026, 9, 7, 18, 0));
+        Activity beforeRange = activityAt(
+                MARSEILLE_LAT + 0.001, MARSEILLE_LON, "PUBLISHED", "concert",
+                LocalDateTime.of(2026, 9, 1, 10, 0), LocalDateTime.of(2026, 9, 4, 18, 0));
+        Activity afterRange = activityAt(
+                MARSEILLE_LAT + 0.002, MARSEILLE_LON, "PUBLISHED", "concert",
+                LocalDateTime.of(2026, 9, 11, 10, 0), LocalDateTime.of(2026, 9, 12, 18, 0));
+
+        List<Long> resultIds = activityRepository
+                .findWithinBounds(
+                        BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, null,
+                        LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 10))
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(insideRange.id());
+        assertThat(resultIds).doesNotContain(beforeRange.id(), afterRange.id());
     }
 
     // --- findWithinBounds (LL-4006/LL-4007) ---
@@ -305,7 +386,7 @@ class ActivityRepositoryIntegrationTest {
         Activity outside = activityAt(PARIS_LAT, PARIS_LON);
 
         List<Long> resultIds = activityRepository
-                .findWithinBounds(BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, null, null)
+                .findWithinBounds(BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(inside.id());
@@ -318,7 +399,7 @@ class ActivityRepositoryIntegrationTest {
         Activity justOutside = activityAt(BOUNDS_NE_LAT + 0.01, MARSEILLE_LON);
 
         List<Long> resultIds = activityRepository
-                .findWithinBounds(BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, null, null)
+                .findWithinBounds(BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).doesNotContain(justOutside.id());
@@ -331,7 +412,7 @@ class ActivityRepositoryIntegrationTest {
 
         List<Long> resultIds = activityRepository
                 .findWithinBounds(
-                        BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, "PUBLISHED", null, null)
+                        BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, "PUBLISHED", null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(published.id());
@@ -345,7 +426,7 @@ class ActivityRepositoryIntegrationTest {
 
         List<Long> resultIds = activityRepository
                 .findWithinBounds(
-                        BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, "concert", null)
+                        BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, "concert", null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(concert.id());
@@ -364,7 +445,7 @@ class ActivityRepositoryIntegrationTest {
         List<Long> resultIds = activityRepository
                 .findWithinBounds(
                         BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON,
-                        null, null, LocalDate.of(2026, 9, 5))
+                        null, null, LocalDate.of(2026, 9, 5), null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(onDate.id());
@@ -379,7 +460,7 @@ class ActivityRepositoryIntegrationTest {
         Activity farFromCenter = activityAt(BOUNDS_SW_LAT + 0.01, BOUNDS_SW_LON + 0.01);
 
         List<Long> resultIds = activityRepository
-                .findWithinBounds(BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, null, null)
+                .findWithinBounds(BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON, null, null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(closeToCenter.id(), farFromCenter.id());
@@ -412,7 +493,7 @@ class ActivityRepositoryIntegrationTest {
 
         List<Long> resultIds = activityRepository
                 .findWithinRadius(
-                        MARSEILLE_LAT, MARSEILLE_LON, 5_000, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5))
+                        MARSEILLE_LAT, MARSEILLE_LON, 5_000, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5), null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(matchesAll.id());
@@ -439,7 +520,7 @@ class ActivityRepositoryIntegrationTest {
         List<Long> resultIds = activityRepository
                 .findWithinBounds(
                         BOUNDS_SW_LAT, BOUNDS_SW_LON, BOUNDS_NE_LAT, BOUNDS_NE_LON,
-                        "PUBLISHED", "concert", LocalDate.of(2026, 9, 5))
+                        "PUBLISHED", "concert", LocalDate.of(2026, 9, 5), null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(matchesAll.id());

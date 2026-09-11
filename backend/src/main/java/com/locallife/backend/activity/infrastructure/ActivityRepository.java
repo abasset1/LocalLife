@@ -127,7 +127,18 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      * ({@code BadSqlGrammarException} côté Spring) dès qu'une requête est
      * exécutée avec {@code date == null}. Bug introduit en LL-4005,
      * non détecté avant faute d'accès à une vraie base PostgreSQL en
-     * sandbox de développement.
+     * sandbox de développement. Même raison pour {@code :dateTo::date}
+     * ci-dessous.
+     *
+     * Filtre par période ajouté en LL-11003 : {@code dateTo} peut être
+     * {@code null} (comportement LL-4005 inchangé : correspondance sur la
+     * seule date {@code date}) ; lorsque {@code dateTo} est fourni (toujours
+     * accompagné de {@code date}, validé en amont par {@code
+     * ActivityService#validateDateRange}), une activité est retenue dès
+     * que sa période {@code [start_date, end_date]} chevauche {@code
+     * [date, dateTo]} — {@code start_date::date <= dateTo::date AND
+     * COALESCE(end_date, start_date)::date >= date::date} — plutôt que de
+     * ne correspondre qu'à une unique journée.
      */
     @Query("""
             SELECT * FROM activity
@@ -139,8 +150,11 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                     AND (start_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' OR
                          COALESCE(end_date, start_date)::date BETWEEN CURRENT_DATE
                          AND CURRENT_DATE + INTERVAL '7 days'))
-                   OR (:date::date IS NOT NULL
-                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date))
+                   OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
+                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
+                   OR (:date::date IS NOT NULL AND :dateTo::date IS NOT NULL
+                       AND start_date::date <= :dateTo::date
+                       AND COALESCE(end_date, start_date)::date >= :date::date))
             ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography)
             """)
     List<Activity> findWithinRadius(
@@ -149,7 +163,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
             @Param("radiusMeters") double radiusMeters,
             @Param("status") String status,
             @Param("categoriesCsv") String categoriesCsv,
-            @Param("date") LocalDate date);
+            @Param("date") LocalDate date,
+            @Param("dateTo") LocalDate dateTo);
 
     /**
      * Recherche par zone cartographique PostGIS (LL-4007), conformément au
@@ -165,11 +180,12 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      * puisque la zone de recherche est elle-même un rectangle (pas de
      * polygone arbitraire à ce stade), et moins coûteux.
      *
-     * Filtres optionnels {@code status}/{@code categoriesCsv}/{@code date}
-     * : mêmes sémantiques que {@link #findWithinRadius}, voir les
-     * javadocs correspondantes ci-dessus (LL-4003/LL-4004/LL-4005), y
-     * compris le correctif {@code :date::date} contre
-     * {@code BadSqlGrammarException} sur paramètre {@code null}.
+     * Filtres optionnels {@code status}/{@code categoriesCsv}/{@code date}/
+     * {@code dateTo} : mêmes sémantiques que {@link #findWithinRadius},
+     * voir les javadocs correspondantes ci-dessus (LL-4003/LL-4004/
+     * LL-4005/LL-11003), y compris le correctif {@code :date::date}/
+     * {@code :dateTo::date} contre {@code BadSqlGrammarException} sur
+     * paramètre {@code null}.
      *
      * Pas de point de référence unique pour une distance : résultats
      * triés par {@code id} croissant (décision du contrat LL-4006).
@@ -184,8 +200,11 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                     AND (start_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' OR
                          COALESCE(end_date, start_date)::date BETWEEN CURRENT_DATE
                          AND CURRENT_DATE + INTERVAL '7 days'))
-                   OR (:date::date IS NOT NULL
-                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date))
+                   OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
+                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
+                   OR (:date::date IS NOT NULL AND :dateTo::date IS NOT NULL
+                       AND start_date::date <= :dateTo::date
+                       AND COALESCE(end_date, start_date)::date >= :date::date))
             ORDER BY id
             """)
     List<Activity> findWithinBounds(
@@ -195,7 +214,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
             @Param("neLongitude") double neLongitude,
             @Param("status") String status,
             @Param("categoriesCsv") String categoriesCsv,
-            @Param("date") LocalDate date);
+            @Param("date") LocalDate date,
+            @Param("dateTo") LocalDate dateTo);
 
     /**
      * Recherche par source et clé de déduplication (LL-5008) : retrouve

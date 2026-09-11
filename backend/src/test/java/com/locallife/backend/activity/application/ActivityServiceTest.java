@@ -61,15 +61,15 @@ class ActivityServiceTest {
         Activity expected = new Activity(
                 1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
                 null, null, null, null, null, null, null, null);
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null, null))
                 .thenReturn(List.of(expected));
 
         // When : radius exprimé en km ("5") doit être converti en mètres (5000) pour le repository.
-        List<Activity> result = activityService().findNearby("43.2951", "5.3739", "5", null, null);
+        List<Activity> result = activityService().findNearby("43.2951", "5.3739", "5", null, null, null);
 
         // Then : date non fournie -> le repository applique la règle "en cours + à venir".
         verify(activityRepository)
-                .findWithinRadius(eq(43.2951), eq(5.3739), eq(5_000.0), eq("PUBLISHED"), isNull(), isNull());
+                .findWithinRadius(eq(43.2951), eq(5.3739), eq(5_000.0), eq("PUBLISHED"), isNull(), isNull(), isNull());
         assertThat(result).containsExactly(expected);
     }
 
@@ -78,14 +78,14 @@ class ActivityServiceTest {
         // Given : endpoint public (LL-6004) — quels que soient les autres filtres, le statut demandé
         // au repository est toujours PUBLISHED, jamais laissé au choix de l'appelant (contrairement au
         // comportement pré-LL-6003/LL-6004, où un paramètre status existait sur cette méthode).
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null, null))
                 .thenReturn(List.of());
 
         // When
-        activityService().findNearby("43.2951", "5.3739", "5", "concert", null);
+        activityService().findNearby("43.2951", "5.3739", "5", "concert", null, null);
 
         // Then
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null);
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null, null);
     }
 
     @ParameterizedTest
@@ -95,7 +95,7 @@ class ActivityServiceTest {
         String longitude = missingParam.equals("longitude") ? null : "5.3739";
         String radius = missingParam.equals("radius") ? null : "5";
 
-        assertThatThrownBy(() -> activityService().findNearby(latitude, longitude, radius, null, null))
+        assertThatThrownBy(() -> activityService().findNearby(latitude, longitude, radius, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(missingParam);
 
@@ -104,7 +104,7 @@ class ActivityServiceTest {
 
     @Test
     void findNearby_ShouldThrow_WhenParamIsNotNumeric() {
-        assertThatThrownBy(() -> activityService().findNearby("abc", "5.3739", "5", null, null))
+        assertThatThrownBy(() -> activityService().findNearby("abc", "5.3739", "5", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verifyNoInteractions(activityRepository);
@@ -112,109 +112,109 @@ class ActivityServiceTest {
 
     @Test
     void findNearby_ShouldThrow_WhenLatitudeOutOfRange() {
-        assertThatThrownBy(() -> activityService().findNearby("120", "5.3739", "5", null, null))
+        assertThatThrownBy(() -> activityService().findNearby("120", "5.3739", "5", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void findNearby_ShouldThrow_WhenLongitudeOutOfRange() {
-        assertThatThrownBy(() -> activityService().findNearby("43.2951", "220", "5", null, null))
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "220", "5", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void findNearby_ShouldThrow_WhenRadiusIsZeroOrNegative() {
-        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "0", null, null))
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "0", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "-1", null, null))
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "-1", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void findNearby_ShouldThrow_WhenRadiusExceedsFiftyKilometers() {
-        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "50.01", null, null))
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "50.01", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("50");
     }
 
     @Test
     void findNearby_ShouldAccept_WhenRadiusIsExactlyFiftyKilometers() {
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 50_000, "PUBLISHED", null, null))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 50_000, "PUBLISHED", null, null, null))
                 .thenReturn(List.of());
 
-        activityService().findNearby("43.2951", "5.3739", "50", null, null);
+        activityService().findNearby("43.2951", "5.3739", "50", null, null, null);
 
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 50_000, "PUBLISHED", null, null);
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 50_000, "PUBLISHED", null, null, null);
     }
 
     @Test
     void findNearby_ShouldPassCategoryThrough_Unchanged_WhenSingleValue() {
         // Given
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null, null))
                 .thenReturn(List.of());
 
         // When
-        activityService().findNearby("43.2951", "5.3739", "5", "concert", null);
+        activityService().findNearby("43.2951", "5.3739", "5", "concert", null, null);
 
         // Then
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null);
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", null, null);
     }
 
     @Test
     void findNearby_ShouldTrimAndDropEmptyValues_WhenMultipleCategoriesWithSpaces() {
         // Given : la normalisation doit retirer les espaces et les segments vides.
         when(activityRepository.findWithinRadius(
-                43.2951, 5.3739, 5_000, "PUBLISHED", "concert,marché", null))
+                43.2951, 5.3739, 5_000, "PUBLISHED", "concert,marché", null, null))
                 .thenReturn(List.of());
 
         // When
-        activityService().findNearby("43.2951", "5.3739", "5", " concert , marché ,, ", null);
+        activityService().findNearby("43.2951", "5.3739", "5", " concert , marché ,, ", null, null);
 
         // Then
         verify(activityRepository)
-                .findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert,marché", null);
+                .findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert,marché", null, null);
     }
 
     @Test
     void findNearby_ShouldPassNullCategory_WhenOnlyBlankValuesProvided() {
         // Given : "  , , " ne contient que des segments vides après nettoyage → équivalent à "pas de filtre".
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null, null))
                 .thenReturn(List.of());
 
         // When
-        activityService().findNearby("43.2951", "5.3739", "5", "  , , ", null);
+        activityService().findNearby("43.2951", "5.3739", "5", "  , , ", null, null);
 
         // Then
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null);
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null, null);
     }
 
     @Test
     void findNearby_ShouldParseAndPassDateThrough_WhenValidIsoDateProvided() {
         // Given
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, LocalDate.of(2026, 9, 5)))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, LocalDate.of(2026, 9, 5), null))
                 .thenReturn(List.of());
 
         // When
-        activityService().findNearby("43.2951", "5.3739", "5", null, "2026-09-05");
+        activityService().findNearby("43.2951", "5.3739", "5", null, "2026-09-05", null);
 
         // Then
         verify(activityRepository)
-                .findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, LocalDate.of(2026, 9, 5));
+                .findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, LocalDate.of(2026, 9, 5), null);
     }
 
     @Test
     void findNearby_ShouldLeaveDateNull_WhenDateNotProvided() {
-        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null))
+        when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null, null))
                 .thenReturn(List.of());
 
-        activityService().findNearby("43.2951", "5.3739", "5", null, null);
+        activityService().findNearby("43.2951", "5.3739", "5", null, null, null);
 
-        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null);
+        verify(activityRepository).findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null, null);
     }
 
     @Test
     void findNearby_ShouldThrow_WhenDateIsNotIsoFormat() {
-        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "5", null, "05/09/2026"))
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "5", null, "05/09/2026", null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("date");
 
@@ -223,8 +223,72 @@ class ActivityServiceTest {
 
     @Test
     void findNearby_ShouldThrow_WhenDateDoesNotExist() {
-        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "5", null, "2026-02-30"))
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "5", null, "2026-02-30", null))
                 .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    // --- Filtre par période via dateTo (LL-11003) ---
+
+    @Test
+    void findNearby_ShouldPassDateRangeThrough_WhenDateAndDateToBothProvided() {
+        // Given
+        when(activityRepository.findWithinRadius(
+                43.2951, 5.3739, 5_000, "PUBLISHED", null,
+                LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 10)))
+                .thenReturn(List.of());
+
+        // When
+        activityService().findNearby("43.2951", "5.3739", "5", null, "2026-09-05", "2026-09-10");
+
+        // Then
+        verify(activityRepository).findWithinRadius(
+                43.2951, 5.3739, 5_000, "PUBLISHED", null,
+                LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 10));
+    }
+
+    @Test
+    void findNearby_ShouldAccept_WhenDateToEqualsDate() {
+        // Une période d'un seul jour exprimée via date == dateTo est un cas limite valide,
+        // pas une période "inversée".
+        when(activityRepository.findWithinRadius(
+                43.2951, 5.3739, 5_000, "PUBLISHED", null,
+                LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 5)))
+                .thenReturn(List.of());
+
+        activityService().findNearby("43.2951", "5.3739", "5", null, "2026-09-05", "2026-09-05");
+
+        verify(activityRepository).findWithinRadius(
+                43.2951, 5.3739, 5_000, "PUBLISHED", null,
+                LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 5));
+    }
+
+    @Test
+    void findNearby_ShouldThrow_WhenDateToProvidedWithoutDate() {
+        assertThatThrownBy(() -> activityService().findNearby("43.2951", "5.3739", "5", null, null, "2026-09-10"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dateTo");
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findNearby_ShouldThrow_WhenDateToBeforeDate() {
+        assertThatThrownBy(() -> activityService()
+                .findNearby("43.2951", "5.3739", "5", null, "2026-09-10", "2026-09-05"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dateTo");
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findNearby_ShouldThrow_WhenDateToIsNotIsoFormat() {
+        assertThatThrownBy(() -> activityService()
+                .findNearby("43.2951", "5.3739", "5", null, "2026-09-05", "10/09/2026"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dateTo");
 
         verifyNoInteractions(activityRepository);
     }
@@ -358,30 +422,30 @@ class ActivityServiceTest {
         Activity expected = new Activity(
                 1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
                 null, null, null, null, null, null, null, null);
-        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null))
+        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null, null))
                 .thenReturn(List.of(expected));
 
         // When
         List<Activity> result = activityService()
-                .findWithinBounds("43.28", "5.35", "43.31", "5.40", null, null);
+                .findWithinBounds("43.28", "5.35", "43.31", "5.40", null, null, null);
 
         // Then : date non fournie -> le repository applique la règle "en cours + à venir".
-        verify(activityRepository).findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null);
+        verify(activityRepository).findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null, null);
         assertThat(result).containsExactly(expected);
     }
 
     @Test
     void findWithinBounds_ShouldOnlyEverRequestPublishedStatus_SinceLL6004() {
         // Given : même règle que findNearby (LL-6004) — voir findNearby_ShouldOnlyEverRequestPublishedStatus_SinceLL6004.
-        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null))
+        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null, null))
                 .thenReturn(List.of());
 
         // When
-        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", "concert", null);
+        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", "concert", null, null);
 
         // Then
         verify(activityRepository)
-                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null);
+                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null, null);
     }
 
     @ParameterizedTest
@@ -393,7 +457,7 @@ class ActivityServiceTest {
         String neLongitude = missingParam.equals("neLongitude") ? null : "5.40";
 
         assertThatThrownBy(() -> activityService()
-                .findWithinBounds(swLatitude, swLongitude, neLatitude, neLongitude, null, null))
+                .findWithinBounds(swLatitude, swLongitude, neLatitude, neLongitude, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(missingParam);
 
@@ -403,7 +467,7 @@ class ActivityServiceTest {
     @Test
     void findWithinBounds_ShouldThrow_WhenParamIsNotNumeric() {
         assertThatThrownBy(() -> activityService()
-                .findWithinBounds("abc", "5.35", "43.31", "5.40", null, null))
+                .findWithinBounds("abc", "5.35", "43.31", "5.40", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verifyNoInteractions(activityRepository);
@@ -416,7 +480,7 @@ class ActivityServiceTest {
         String neLatitude = paramName.equals("neLatitude") ? "120" : "43.31";
 
         assertThatThrownBy(() -> activityService()
-                .findWithinBounds(swLatitude, "5.35", neLatitude, "5.40", null, null))
+                .findWithinBounds(swLatitude, "5.35", neLatitude, "5.40", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verifyNoInteractions(activityRepository);
@@ -429,7 +493,7 @@ class ActivityServiceTest {
         String neLongitude = paramName.equals("neLongitude") ? "220" : "5.40";
 
         assertThatThrownBy(() -> activityService()
-                .findWithinBounds("43.28", swLongitude, "43.31", neLongitude, null, null))
+                .findWithinBounds("43.28", swLongitude, "43.31", neLongitude, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verifyNoInteractions(activityRepository);
@@ -438,12 +502,12 @@ class ActivityServiceTest {
     @Test
     void findWithinBounds_ShouldThrow_WhenSwLatitudeIsNotStrictlyLessThanNeLatitude() {
         assertThatThrownBy(() -> activityService()
-                .findWithinBounds("43.31", "5.35", "43.31", "5.40", null, null))
+                .findWithinBounds("43.31", "5.35", "43.31", "5.40", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("swLatitude");
 
         assertThatThrownBy(() -> activityService()
-                .findWithinBounds("43.35", "5.35", "43.31", "5.40", null, null))
+                .findWithinBounds("43.35", "5.35", "43.31", "5.40", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("swLatitude");
 
@@ -453,12 +517,12 @@ class ActivityServiceTest {
     @Test
     void findWithinBounds_ShouldThrow_WhenSwLongitudeIsNotStrictlyLessThanNeLongitude() {
         assertThatThrownBy(() -> activityService()
-                .findWithinBounds("43.28", "5.40", "43.31", "5.40", null, null))
+                .findWithinBounds("43.28", "5.40", "43.31", "5.40", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("swLongitude");
 
         assertThatThrownBy(() -> activityService()
-                .findWithinBounds("43.28", "5.45", "43.31", "5.40", null, null))
+                .findWithinBounds("43.28", "5.45", "43.31", "5.40", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("swLongitude");
 
@@ -468,38 +532,77 @@ class ActivityServiceTest {
     @Test
     void findWithinBounds_ShouldPassCategoryThrough_WhenProvided() {
         // Given
-        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null))
+        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null, null))
                 .thenReturn(List.of());
 
         // When
-        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", "concert", null);
+        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", "concert", null, null);
 
         // Then
         verify(activityRepository)
-                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null);
+                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", null, null);
     }
 
     @Test
     void findWithinBounds_ShouldParseAndPassDateThrough_WhenValidIsoDateProvided() {
         // Given
         when(activityRepository
-                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, LocalDate.of(2026, 9, 5)))
+                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, LocalDate.of(2026, 9, 5), null))
                 .thenReturn(List.of());
 
         // When
-        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", null, "2026-09-05");
+        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", null, "2026-09-05", null);
 
         // Then
         verify(activityRepository)
-                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, LocalDate.of(2026, 9, 5));
+                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, LocalDate.of(2026, 9, 5), null);
     }
 
     @Test
     void findWithinBounds_ShouldThrow_WhenDateIsNotIsoFormat() {
         assertThatThrownBy(() -> activityService()
-                .findWithinBounds("43.28", "5.35", "43.31", "5.40", null, "05/09/2026"))
+                .findWithinBounds("43.28", "5.35", "43.31", "5.40", null, "05/09/2026", null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("date");
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    // --- Filtre par période via dateTo (LL-11003) ---
+
+    @Test
+    void findWithinBounds_ShouldPassDateRangeThrough_WhenDateAndDateToBothProvided() {
+        // Given
+        when(activityRepository.findWithinBounds(
+                43.28, 5.35, 43.31, 5.40, "PUBLISHED", null,
+                LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 10)))
+                .thenReturn(List.of());
+
+        // When
+        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", null, "2026-09-05", "2026-09-10");
+
+        // Then
+        verify(activityRepository).findWithinBounds(
+                43.28, 5.35, 43.31, 5.40, "PUBLISHED", null,
+                LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 10));
+    }
+
+    @Test
+    void findWithinBounds_ShouldThrow_WhenDateToProvidedWithoutDate() {
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds("43.28", "5.35", "43.31", "5.40", null, null, "2026-09-10"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dateTo");
+
+        verifyNoInteractions(activityRepository);
+    }
+
+    @Test
+    void findWithinBounds_ShouldThrow_WhenDateToBeforeDate() {
+        assertThatThrownBy(() -> activityService()
+                .findWithinBounds("43.28", "5.35", "43.31", "5.40", null, "2026-09-10", "2026-09-05"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dateTo");
 
         verifyNoInteractions(activityRepository);
     }
@@ -507,14 +610,14 @@ class ActivityServiceTest {
     @Test
     void findWithinBounds_ShouldLeaveDateNull_WhenDateNotProvided() {
         // La règle "en cours + à venir" est appliquée par le repository quand date == null.
-        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null))
+        when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null, null))
                 .thenReturn(List.of());
 
         // When
-        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", null, null);
+        activityService().findWithinBounds("43.28", "5.35", "43.31", "5.40", null, null, null);
 
         // Then
-        verify(activityRepository).findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null);
+        verify(activityRepository).findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null, null);
     }
 
     // --- Combinaison de filtres (LL-4014) ---
@@ -527,31 +630,31 @@ class ActivityServiceTest {
     void findNearby_ShouldPassBothOptionalFiltersThrough_WhenProvidedTogether() {
         // Given
         when(activityRepository.findWithinRadius(
-                43.2951, 5.3739, 5_000, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5)))
+                43.2951, 5.3739, 5_000, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5), null))
                 .thenReturn(List.of());
 
         // When
-        activityService().findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05");
+        activityService().findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null);
 
         // Then
         verify(activityRepository)
-                .findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5));
+                .findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5), null);
     }
 
     @Test
     void findWithinBounds_ShouldPassBothOptionalFiltersThrough_WhenProvidedTogether() {
         // Given
         when(activityRepository.findWithinBounds(
-                43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5)))
+                43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5), null))
                 .thenReturn(List.of());
 
         // When
         activityService().findWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05");
+                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null);
 
         // Then
         verify(activityRepository)
-                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5));
+                .findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", "concert", LocalDate.of(2026, 9, 5), null);
     }
 
     // --- findByStatus : consultation administrative (LL-6005) ---
