@@ -35,7 +35,10 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
+            <!-- LL-11009 : scope compile (plus "runtime") requis pour référencer
+                 org.postgresql.util.PGobject dans les convertisseurs JSONB
+                 (StringToJsonbConverter/JsonbToStringConverter) — voir
+                 docs/02_Architecture/ADR-0004-metadata-jsonb.md. -->
         </dependency>
 
         <dependency>
