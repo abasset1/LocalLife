@@ -207,10 +207,25 @@ Statut recommandé :
 
 "CANCELLED"
 
-Une activité annulée ne doit plus apparaître dans les résultats actifs de la carte ou de la liste.
+ ### Droits
+ 
+- [x] Seul le créateur peut annuler son activité.
+- [x] Un administrateur peut également annuler une activité.
+- [x] Un autre utilisateur ne peut pas annuler l'activité.
+- [x] Les contrôles de permission sont effectués côté backend.
 
-La relation avec l'utilisateur doit utiliser une référence vers l'utilisateur et non son nom/email.
+### Critères d'acceptation
 
+- [x] Une activité saisie manuellement possède une référence vers son créateur.
+- [x] Le créateur est identifiable depuis le détail de l'activité.
+- [x] Le créateur peut annuler son activité.
+- [x] Une confirmation est demandée avant l'annulation.
+- [x] Une activité annulée n'est plus affichée comme activité active sur la carte.
+- [x] Une activité annulée n'apparaît plus dans la liste des activités actives.
+- [x] L'activité reste conservée en base.
+- [x] Un administrateur peut annuler une activité.
+- [x] Un utilisateur quelconque ne peut pas annuler l'activité d'un autre utilisateur.
+- [x] Les activités provenant des collectors ne sont pas concernées par cette fonctionnalité.
 ---
 
 LL-EF-011 — Créer un compte via Google
