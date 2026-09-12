@@ -2,6 +2,7 @@ package com.locallife.backend.metadata.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.locallife.backend.metadata.domain.JsonbData;
 import org.junit.jupiter.api.Test;
 import org.postgresql.util.PGobject;
 
@@ -15,7 +16,7 @@ class JsonbConvertersTest {
 
     @Test
     void stringToJsonbConverter_ShouldProduceJsonbTypedPGobject() {
-        PGobject result = new StringToJsonbConverter().convert("{\"a\":1}");
+        PGobject result = new StringToJsonbConverter().convert(new JsonbData("{\"a\":1}"));
 
         assertThat(result.getType()).isEqualTo("jsonb");
         assertThat(result.getValue()).isEqualTo("{\"a\":1}");
@@ -27,8 +28,8 @@ class JsonbConvertersTest {
         source.setType("jsonb");
         source.setValue("{\"a\":1}");
 
-        String result = new JsonbToStringConverter().convert(source);
+        JsonbData result = new JsonbToStringConverter().convert(source);
 
-        assertThat(result).isEqualTo("{\"a\":1}");
+        assertThat(result.value()).isEqualTo("{\"a\":1}");
     }
 }

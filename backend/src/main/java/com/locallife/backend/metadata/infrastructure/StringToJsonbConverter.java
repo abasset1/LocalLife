@@ -1,5 +1,6 @@
 package com.locallife.backend.metadata.infrastructure;
 
+import com.locallife.backend.metadata.domain.JsonbData;
 import java.sql.SQLException;
 import org.postgresql.util.PGobject;
 import org.springframework.core.convert.converter.Converter;
@@ -15,18 +16,18 @@ import org.springframework.data.convert.WritingConverter;
  * colonne {@code jsonb} (erreur de type au niveau SQL).
  */
 @WritingConverter
-public class StringToJsonbConverter implements Converter<String, PGobject> {
+public class StringToJsonbConverter implements Converter<JsonbData, PGobject> {
 
     @Override
-    public PGobject convert(String source) {
+    public PGobject convert(JsonbData source) {
         PGobject jsonObject = new PGobject();
         jsonObject.setType("jsonb");
         try {
-            jsonObject.setValue(source);
+            jsonObject.setValue(source.value());
         } catch (SQLException exception) {
             // Ne peut arriver en pratique : ActivityMetadataService#create valide déjà que
             // `source` est un JSON syntaxiquement correct avant d'atteindre ce convertisseur.
-            throw new IllegalStateException("JSON invalide pour une colonne jsonb : " + source, exception);
+            throw new IllegalStateException("JSON invalide pour une colonne jsonb : " + source.value(), exception);
         }
         return jsonObject;
     }

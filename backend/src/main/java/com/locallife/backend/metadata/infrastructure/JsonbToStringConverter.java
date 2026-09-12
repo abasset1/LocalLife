@@ -1,5 +1,6 @@
 package com.locallife.backend.metadata.infrastructure;
 
+import com.locallife.backend.metadata.domain.JsonbData;
 import org.postgresql.util.PGobject;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.ReadingConverter;
@@ -10,10 +11,10 @@ import org.springframework.data.convert.ReadingConverter;
  * {@code docs/02_Architecture/ADR-0004-metadata-jsonb.md}.
  */
 @ReadingConverter
-public class JsonbToStringConverter implements Converter<PGobject, String> {
+public class JsonbToStringConverter implements Converter<PGobject, JsonbData> {
 
     @Override
-    public String convert(PGobject source) {
-        return source.getValue();
+    public JsonbData convert(PGobject source) {
+        return new JsonbData(source.getValue());
     }
 }

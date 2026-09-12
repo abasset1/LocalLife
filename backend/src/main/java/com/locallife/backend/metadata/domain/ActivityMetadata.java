@@ -30,5 +30,9 @@ import org.springframework.data.annotation.Id;
 public record ActivityMetadata(
         @Id Long id,
         Long activityId,
-        String data) {
+        JsonbData data) {
+
+    public ActivityMetadata(Long id, Long activityId, String data) {
+        this(id, activityId, new JsonbData(data));
+    }
 }

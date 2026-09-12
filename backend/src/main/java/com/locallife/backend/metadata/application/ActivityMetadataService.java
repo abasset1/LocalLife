@@ -37,7 +37,7 @@ public class ActivityMetadataService {
      * @throws IllegalArgumentException si {@code activityMetadata.data()} n'est pas un JSON valide
      */
     public ActivityMetadata create(ActivityMetadata activityMetadata) {
-        validateJson(activityMetadata.data());
+        validateJson(activityMetadata.data().value());
         return activityMetadataRepository.save(activityMetadata);
     }
 

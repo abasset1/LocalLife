@@ -72,7 +72,7 @@ class ActivityMetadataRepositoryIntegrationTest {
         Optional<ActivityMetadata> found = activityMetadataRepository.findByActivityId(activity.id());
 
         assertThat(found).isPresent();
-        assertThat(found.get().data()).isEqualTo(json);
+        assertThat(found.get().data().value()).isEqualTo(json);
     }
 
     @Test

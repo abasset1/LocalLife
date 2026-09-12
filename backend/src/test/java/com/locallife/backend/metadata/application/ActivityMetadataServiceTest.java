@@ -67,7 +67,7 @@ class ActivityMetadataServiceTest {
 
     @Test
     void create_ShouldThrow_WhenDataIsAbsent() {
-        ActivityMetadata withoutData = new ActivityMetadata(null, 1L, null);
+        ActivityMetadata withoutData = new ActivityMetadata(null, 1L, (String) null);
 
         assertThatThrownBy(() -> activityMetadataService.create(withoutData))
                 .isInstanceOf(IllegalArgumentException.class);
