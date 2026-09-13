@@ -71,7 +71,10 @@ public class ExternalActivityService {
                 externalActivity.externalUrl(),
                 externalActivity.sourceUpdatedAt(),
                 LocalDateTime.now(),
-                computeHash(externalActivity.rawPayload()),
+                // LL-11011 (commit "Fix: Scope JSONB JDBC conversions") : rawPayload est
+                // désormais un JsonbData plutôt qu'un String — computeHash reste inchangé
+                // (String), donc déballé ici via .value().
+                computeHash(externalActivity.rawPayload().value()),
                 externalActivity.rawPayload());
         return externalActivityRepository.save(toSave);
     }

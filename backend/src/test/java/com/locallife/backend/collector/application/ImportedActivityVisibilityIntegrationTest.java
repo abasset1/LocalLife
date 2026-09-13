@@ -7,6 +7,8 @@ import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
+import com.locallife.backend.collector.domain.CollectedLocation;
+import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
 import com.locallife.backend.source.domain.Source;
@@ -88,9 +90,11 @@ class ImportedActivityVisibilityIntegrationTest {
         sourceRepository.save(
                 new Source(null, sourceName, "API", null, "ACTIVE", null, "agenda-uid-" + UUID.randomUUID(), null));
         when(collector.collect()).thenReturn(List.of(new CollectedActivity(
-                "Marché de Noël", "Marché de Noël sur le Vieux-Port", startDate, null,
-                category, LATITUDE, LONGITUDE, "https://example.com", "ext-1", sourceName,
-                null, null, null, null, null, null, null)));
+                "Marché de Noël", "Marché de Noël sur le Vieux-Port", category, "https://example.com", "ext-1",
+                sourceName, null, null, null, null,
+                new CollectedLocation(null, null, null, null, null, null, LATITUDE, LONGITUDE, null),
+                List.of(new CollectedTiming(startDate, null)),
+                null, List.of(), List.of(), null, List.of(), null)));
         importService.importAll();
 
         Long sourceId = sourceRepository.findByName(sourceName).map(Source::id).orElseThrow();

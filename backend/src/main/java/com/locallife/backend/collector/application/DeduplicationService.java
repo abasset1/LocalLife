@@ -1,6 +1,8 @@
 package com.locallife.backend.collector.application;
 
 import com.locallife.backend.collector.domain.CollectedActivity;
+import com.locallife.backend.collector.domain.CollectedLocation;
+import com.locallife.backend.collector.domain.CollectedTiming;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -44,13 +46,30 @@ public class DeduplicationService {
         return COMPOSITE_PREFIX + sha256(compositeFields(collected));
     }
 
+    /**
+     * Adapté par LL-11011 : {@code startDate}/{@code latitude}/{@code
+     * longitude} ne sont plus des champs plats de {@code
+     * CollectedActivity} (voir sa javadoc) — repris ici du premier
+     * {@link CollectedTiming} (première date, cohérent avec {@code
+     * NormalizationService}, qui retient elle aussi la plus ancienne
+     * date de {@code timings} comme {@code Activity.startDate}) et de
+     * {@link CollectedLocation}.
+     */
     private String compositeFields(CollectedActivity collected) {
+        CollectedLocation location = collected.location();
         return String.join("|",
                 nullToEmpty(collected.source()),
                 nullToEmpty(collected.title()),
-                nullToEmpty(dateKey(collected.startDate())),
-                String.valueOf(collected.latitude()),
-                String.valueOf(collected.longitude()));
+                nullToEmpty(dateKey(firstBegin(collected))),
+                String.valueOf(location == null ? null : location.latitude()),
+                String.valueOf(location == null ? null : location.longitude()));
+    }
+
+    private LocalDateTime firstBegin(CollectedActivity collected) {
+        if (collected.timings() == null || collected.timings().isEmpty()) {
+            return null;
+        }
+        return collected.timings().get(0).begin();
     }
 
     private String dateKey(LocalDateTime startDate) {

@@ -5,7 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.locallife.backend.collector.domain.CollectedActivity;
+import com.locallife.backend.collector.domain.CollectedLocation;
+import com.locallife.backend.collector.domain.CollectedTiming;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class DeduplicationServiceTest {
@@ -13,17 +16,21 @@ class DeduplicationServiceTest {
     private final DeduplicationService deduplicationService = new DeduplicationService();
 
     private CollectedActivity withExternalId(String externalId) {
-        return new CollectedActivity(
-                "Marché de Noël", "description", LocalDateTime.of(2026, 12, 1, 10, 0), null,
-                "marché", 43.2965, 5.3698, "https://example.com", externalId, "OpenAgenda Marseille",
-                null, null, null, null, null, null, null);
+        return withoutExternalId(externalId, "Marché de Noël", LocalDateTime.of(2026, 12, 1, 10, 0), 43.2965, 5.3698);
     }
 
     private CollectedActivity withoutExternalId(String title, LocalDateTime startDate, double lat, double lon) {
+        return withoutExternalId(null, title, startDate, lat, lon);
+    }
+
+    private CollectedActivity withoutExternalId(
+            String externalId, String title, LocalDateTime startDate, double lat, double lon) {
         return new CollectedActivity(
-                title, "description", startDate, null,
-                "marché", lat, lon, "https://example.com", null, "OpenAgenda Marseille",
-                null, null, null, null, null, null, null);
+                title, "description", "marché", "https://example.com", externalId, "OpenAgenda Marseille",
+                null, null, null, null,
+                new CollectedLocation(null, null, null, null, null, null, lat, lon, null),
+                List.of(new CollectedTiming(startDate, null)),
+                null, List.of(), List.of(), null, List.of(), null);
     }
 
     @Test

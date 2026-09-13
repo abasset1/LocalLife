@@ -47,4 +47,14 @@ public class ScheduleService {
         }
         return scheduleRepository.save(schedule);
     }
+
+    /**
+     * Supprime les schedules d'une activité (LL-11011) : voir la javadoc
+     * de {@code ScheduleRepository#deleteByActivityId} — les {@code
+     * Occurrence} associées doivent être supprimées avant l'appel
+     * (responsabilité de l'appelant, {@code ImportService}).
+     */
+    public void deleteByActivityId(Long activityId) {
+        scheduleRepository.deleteByActivityId(activityId);
+    }
 }

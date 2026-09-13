@@ -17,4 +17,10 @@ public interface ActivityTagRepository extends Repository<ActivityTag, Long> {
     Optional<ActivityTag> findById(Long id);
 
     ActivityTag save(ActivityTag activityTag);
+
+    /**
+     * Supprime les tags d'une activité (LL-11011) : utilisé par
+     * {@code ImportService} avant de les reconstruire à chaque réimport.
+     */
+    void deleteByActivityId(Long activityId);
 }

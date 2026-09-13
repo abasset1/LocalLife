@@ -10,6 +10,8 @@ import com.locallife.backend.auth.api.LoginResponse;
 import com.locallife.backend.auth.api.RegisterRequest;
 import com.locallife.backend.collector.application.ImportResult;
 import com.locallife.backend.collector.domain.CollectedActivity;
+import com.locallife.backend.collector.domain.CollectedLocation;
+import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
 import com.locallife.backend.source.domain.Source;
@@ -138,9 +140,11 @@ class AdminImportControllerIntegrationTest {
 
     private CollectedActivity validItem(String sourceName, String title) {
         return new CollectedActivity(
-                title, "description", LocalDateTime.now().plusDays(1), null,
-                "marché", 43.2965, 5.3698, "https://example.com", "ext-1", sourceName,
-                null, null, null, null, null, null, null);
+                title, "description", "marché", "https://example.com", "ext-1", sourceName,
+                null, null, null, null,
+                new CollectedLocation(null, null, null, null, null, null, 43.2965, 5.3698, null),
+                List.of(new CollectedTiming(LocalDateTime.now().plusDays(1), null)),
+                null, List.of(), List.of(), null, List.of(), null);
     }
 
     // --- Accès autorisé (rôle ADMIN) ---

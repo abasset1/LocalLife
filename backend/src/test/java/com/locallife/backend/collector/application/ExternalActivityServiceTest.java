@@ -61,7 +61,7 @@ class ExternalActivityServiceTest {
         ExternalActivity result = externalActivityService.upsert(toUpsert);
 
         assertThat(result.id()).isNull();
-        assertThat(result.payloadHash()).isEqualTo(externalActivityService.computeHash(toUpsert.rawPayload()));
+        assertThat(result.payloadHash()).isEqualTo(externalActivityService.computeHash(toUpsert.rawPayload().value()));
         assertThat(result.lastSeenAt()).isNotNull();
     }
 
@@ -83,7 +83,7 @@ class ExternalActivityServiceTest {
 
         assertThat(result.id()).isEqualTo(5L);
         assertThat(result.payloadHash()).isNotEqualTo(existing.payloadHash());
-        assertThat(result.rawPayload()).isEqualTo("{\"title\":\"Nouveau titre\"}");
+        assertThat(result.rawPayload().value()).isEqualTo("{\"title\":\"Nouveau titre\"}");
     }
 
     @Test

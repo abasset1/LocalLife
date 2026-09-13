@@ -33,4 +33,12 @@ public class ActivityTagService {
         }
         return activityTagRepository.save(activityTag);
     }
+
+    /**
+     * Supprime les tags d'une activité (LL-11011) : voir la javadoc de
+     * {@code ActivityTagRepository#deleteByActivityId}.
+     */
+    public void deleteByActivityId(Long activityId) {
+        activityTagRepository.deleteByActivityId(activityId);
+    }
 }

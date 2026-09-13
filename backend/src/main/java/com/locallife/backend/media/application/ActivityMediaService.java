@@ -33,4 +33,12 @@ public class ActivityMediaService {
     public ActivityMedia attach(ActivityMedia activityMedia) {
         return activityMediaRepository.save(activityMedia);
     }
+
+    /**
+     * Détache tous les médias d'une activité (LL-11011) : voir la
+     * javadoc de {@code ActivityMediaRepository#deleteByActivityId}.
+     */
+    public void deleteByActivityId(Long activityId) {
+        activityMediaRepository.deleteByActivityId(activityId);
+    }
 }

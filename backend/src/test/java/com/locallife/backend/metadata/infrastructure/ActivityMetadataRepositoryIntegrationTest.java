@@ -3,6 +3,7 @@ package com.locallife.backend.metadata.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.metadata.domain.ActivityMetadata;
@@ -61,8 +62,21 @@ class ActivityMetadataRepositoryIntegrationTest {
         assertThat(saved.id()).isNotNull();
     }
 
+    /**
+     * Bug corrigé (pré-existant, non lié à LL-11011) : {@code jsonb} ne
+     * garantit pas de préserver l'ordre des clés d'un objet JSON (il
+     * réencode la valeur dans une forme canonique à l'écriture) —
+     * comparer {@code data()} comme une chaîne brute échoue donc dès
+     * qu'un objet imbriqué existe, alors même que les convertisseurs
+     * (ADR-0004) fonctionnent correctement. Comparaison structurelle via
+     * Jackson à la place (insensible à l'ordre des clés d'un objet ;
+     * l'ordre des éléments d'un tableau reste, lui, significatif et
+     * vérifié).
+     */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     @Test
-    void findByActivityId_ShouldReturnDataUnchanged_AfterRoundTripThroughJsonbColumn() {
+    void findByActivityId_ShouldReturnDataUnchanged_AfterRoundTripThroughJsonbColumn() throws Exception {
         // Le test le plus important de ce ticket : si les convertisseurs (ADR-0004) ou leur
         // enregistrement (JdbcConfig) sont mal configurés, c'est ici que ça échouera.
         Activity activity = testActivity();
@@ -72,7 +86,7 @@ class ActivityMetadataRepositoryIntegrationTest {
         Optional<ActivityMetadata> found = activityMetadataRepository.findByActivityId(activity.id());
 
         assertThat(found).isPresent();
-        assertThat(found.get().data().value()).isEqualTo(json);
+        assertThat(OBJECT_MAPPER.readTree(found.get().data().value())).isEqualTo(OBJECT_MAPPER.readTree(json));
     }
 
     @Test

@@ -6,6 +6,8 @@ import static org.mockito.Mockito.when;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
+import com.locallife.backend.collector.domain.CollectedLocation;
+import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
@@ -102,17 +104,21 @@ class ImportServiceIntegrationTest {
 
     private CollectedActivity validItem(String sourceName, String externalId, String title) {
         return new CollectedActivity(
-                title, "description", LocalDateTime.now().plusDays(1), null,
-                "marché", 43.2965, 5.3698, "https://example.com", externalId, sourceName,
-                null, null, null, null, null, null, null);
+                title, "description", "marché", "https://example.com", externalId, sourceName,
+                null, null, null, null,
+                new CollectedLocation(null, null, null, null, null, null, 43.2965, 5.3698, null),
+                List.of(new CollectedTiming(LocalDateTime.now().plusDays(1), null)),
+                null, List.of(), List.of(), null, List.of(), null);
     }
 
     private CollectedActivity invalidItem(String sourceName) {
         // Titre vide : rejeté par NormalizationService (LL-5005).
         return new CollectedActivity(
-                "   ", "description", LocalDateTime.now().plusDays(1), null,
-                "marché", 43.2965, 5.3698, "https://example.com", "ext-invalid", sourceName,
-                null, null, null, null, null, null, null);
+                "   ", "description", "marché", "https://example.com", "ext-invalid", sourceName,
+                null, null, null, null,
+                new CollectedLocation(null, null, null, null, null, null, 43.2965, 5.3698, null),
+                List.of(new CollectedTiming(LocalDateTime.now().plusDays(1), null)),
+                null, List.of(), List.of(), null, List.of(), null);
     }
 
     private Long sourceIdFor(String sourceName) {

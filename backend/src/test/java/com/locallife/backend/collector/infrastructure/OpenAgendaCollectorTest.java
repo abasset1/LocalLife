@@ -69,8 +69,8 @@ class OpenAgendaCollectorTest {
         assertEquals("Marché de Noël", activity.title());
         assertEquals("Marché de Noël sur le Vieux-Port", activity.description());
         assertEquals("marché", activity.category());
-        assertEquals(43.2965, activity.latitude());
-        assertEquals(5.3698, activity.longitude());
+        assertEquals(43.2965, activity.location().latitude());
+        assertEquals(5.3698, activity.location().longitude());
         assertEquals("marche-de-noel-2026", activity.externalId());
         assertEquals("OpenAgenda Marseille", activity.source());
         assertTrue(activity.sourceUrl().contains("marche-de-noel-2026"));
@@ -107,9 +107,9 @@ class OpenAgendaCollectorTest {
 
         assertEquals(1, result.size());
         CollectedActivity activity = result.get(0);
-        assertEquals("Quai du Port", activity.address());
-        assertEquals("Marseille", activity.city());
-        assertEquals("13002", activity.postalCode());
+        assertEquals("Quai du Port", activity.location().address());
+        assertEquals("Marseille", activity.location().city());
+        assertEquals("13002", activity.location().postalCode());
     }
 
     @Test
@@ -124,9 +124,9 @@ class OpenAgendaCollectorTest {
         List<CollectedActivity> result = collector.collect();
 
         CollectedActivity activity = result.get(0);
-        assertNull(activity.address());
-        assertNull(activity.city());
-        assertNull(activity.postalCode());
+        assertNull(activity.location().address());
+        assertNull(activity.location().city());
+        assertNull(activity.location().postalCode());
     }
 
     @Test
@@ -279,7 +279,7 @@ class OpenAgendaCollectorTest {
         List<CollectedActivity> result = collector.collect();
 
         assertEquals(1, result.size());
-        assertEquals(LocalDateTime.of(2026, 12, 1, 10, 0), result.get(0).startDate());
+        assertEquals(LocalDateTime.of(2026, 12, 1, 10, 0), result.get(0).timings().get(0).begin());
     }
 
     // --- filtre région temporaire (OPENAGENDA_REGION_FILTER) ---
@@ -417,6 +417,157 @@ class OpenAgendaCollectorTest {
 
         assertEquals(1, result.size());
         mockServer.verify();
+    }
+
+    // --- LL-11011 : enrichissement (timings multiples, médias, liens, accessibilité, tags, inscription) ---
+
+    @Test
+    void collect_ShouldReturnAllTimings_WhenTimingsArrayIsPresent() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        String eventWithMultipleTimings = """
+                {
+                  "slug": "atelier-recurrent",
+                  "title": {"fr": "Atelier"},
+                  "description": {"fr": "Atelier hebdomadaire"},
+                  "keywords": {"fr": ["atelier"]},
+                  "location": {"latitude": 43.2965, "longitude": 5.3698},
+                  "timings": [
+                    {"begin": "2026-12-01T10:00:00+0100", "end": "2026-12-01T12:00:00+0100"},
+                    {"begin": "2026-12-08T10:00:00+0100", "end": "2026-12-08T12:00:00+0100"}
+                  ]
+                }
+                """;
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + eventWithMultipleTimings + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.size());
+        assertEquals(2, result.get(0).timings().size());
+        assertEquals(LocalDateTime.of(2026, 12, 8, 10, 0), result.get(0).timings().get(1).begin());
+        assertNull(result.get(0).recurrenceRule());
+    }
+
+    @Test
+    void collect_ShouldFallBackToNextTiming_WhenTimingsArrayIsAbsent() {
+        // Compatibilité : EVENT_JSON ne fournit que "nextTiming" (pas de "timings").
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess("{\"events\": [" + EVENT_JSON + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.get(0).timings().size());
+    }
+
+    @Test
+    void collect_ShouldReturnMedia_WhenImagePresent() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        String eventWithImage = """
+                {
+                  "slug": "marche-de-noel-2026",
+                  "title": {"fr": "Marché de Noël"},
+                  "description": {"fr": "Description"},
+                  "keywords": {"fr": ["marché"]},
+                  "location": {"latitude": 43.2965, "longitude": 5.3698},
+                  "nextTiming": {"begin": "2026-12-01T10:00:00+0100", "end": null},
+                  "image": {
+                    "base": "https://cdn.openagenda.com/",
+                    "filename": "marche.jpg",
+                    "credit": "Ville de Marseille",
+                    "size": {"width": 800, "height": 600}
+                  }
+                }
+                """;
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess("{\"events\": [" + eventWithImage + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.get(0).media().size());
+        assertEquals("https://cdn.openagenda.com/marche.jpg", result.get(0).media().get(0).url());
+        assertEquals("Ville de Marseille", result.get(0).media().get(0).credit());
+    }
+
+    @Test
+    void collect_ShouldReturnEmptyMedia_WhenImageAbsent() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess("{\"events\": [" + EVENT_JSON + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertTrue(result.get(0).media().isEmpty());
+    }
+
+    @Test
+    void collect_ShouldReturnLinksAndRegistrationLinks_WhenPresent() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        String eventWithLinksAndRegistration = """
+                {
+                  "slug": "marche-de-noel-2026",
+                  "title": {"fr": "Marché de Noël"},
+                  "description": {"fr": "Description"},
+                  "keywords": {"fr": ["marché"]},
+                  "location": {"latitude": 43.2965, "longitude": 5.3698},
+                  "nextTiming": {"begin": "2026-12-01T10:00:00+0100", "end": null},
+                  "links": [{"label": "Site officiel", "link": "https://example.com/site"}],
+                  "registration": {
+                    "email": "contact@example.com",
+                    "phone": "04 91 00 00 00",
+                    "link": "https://example.com/inscription",
+                    "description": {"fr": "Inscription obligatoire avant le 1er décembre."}
+                  }
+                }
+                """;
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + eventWithLinksAndRegistration + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        CollectedActivity activity = result.get(0);
+        assertEquals(4, activity.links().size());
+        assertEquals("Inscription obligatoire avant le 1er décembre.", activity.registrationInfo());
+    }
+
+    @Test
+    void collect_ShouldReturnAccessibility_WhenPresent() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        String eventWithAccessibility = """
+                {
+                  "slug": "marche-de-noel-2026",
+                  "title": {"fr": "Marché de Noël"},
+                  "description": {"fr": "Description"},
+                  "keywords": {"fr": ["marché"]},
+                  "location": {"latitude": 43.2965, "longitude": 5.3698},
+                  "nextTiming": {"begin": "2026-12-01T10:00:00+0100", "end": null},
+                  "accessibility": {"mi": true, "hi": false, "vi": null, "pi": null, "ii": null}
+                }
+                """;
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + eventWithAccessibility + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(Boolean.TRUE, result.get(0).accessibility().motorImpairment());
+        assertEquals(Boolean.FALSE, result.get(0).accessibility().hearingImpairment());
+    }
+
+    @Test
+    void collect_ShouldReturnAllKeywordsAsTags_KeepingFirstAsCategory() {
+        // EVENT_JSON : keywords.fr = ["marché", "noël"] — "marché" reste la catégorie (comportement
+        // historique inchangé), mais les deux doivent désormais apparaître dans tags().
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess("{\"events\": [" + EVENT_JSON + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals("marché", result.get(0).category());
+        assertEquals(List.of("marché", "noël"), result.get(0).tags());
     }
 
 }

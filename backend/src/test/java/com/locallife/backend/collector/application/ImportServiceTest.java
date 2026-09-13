@@ -10,14 +10,25 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
+import com.locallife.backend.collector.domain.CollectedLocation;
+import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
+import com.locallife.backend.link.application.ActivityLinkService;
+import com.locallife.backend.media.application.ActivityMediaService;
+import com.locallife.backend.media.application.MediaService;
+import com.locallife.backend.metadata.application.ActivityMetadataService;
+import com.locallife.backend.place.application.LocationService;
+import com.locallife.backend.schedule.application.OccurrenceService;
+import com.locallife.backend.schedule.application.ScheduleService;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
+import com.locallife.backend.tag.application.ActivityTagService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -61,10 +72,44 @@ class ImportServiceTest {
     @Mock
     private ActivityRepository activityRepository;
 
+    // LL-11011 : nouvelles dépendances, voir la javadoc de ImportService (enrichActivity).
+    // Aucun stub explicite nécessaire dans les tests ci-dessous : NormalizationService étant lui
+    // aussi mocké, ses méthodes normalizeXxx renvoient par défaut Optional.empty()/List.of()
+    // (comportement par défaut de Mockito), donc ces services ne sont jamais réellement invoqués
+    // au-delà de clearEnrichment (méthodes void, sans effet sur un mock non stubbé).
+    @Mock
+    private LocationService locationService;
+
+    @Mock
+    private ScheduleService scheduleService;
+
+    @Mock
+    private OccurrenceService occurrenceService;
+
+    @Mock
+    private MediaService mediaService;
+
+    @Mock
+    private ActivityMediaService activityMediaService;
+
+    @Mock
+    private ActivityLinkService activityLinkService;
+
+    @Mock
+    private AccessibilityService accessibilityService;
+
+    @Mock
+    private ActivityTagService activityTagService;
+
+    @Mock
+    private ActivityMetadataService activityMetadataService;
+
     private ImportService importService() {
         return new ImportService(
                 sourceService, openAgendaCollectorFactory, normalizationService, deduplicationService,
-                activityRepository);
+                activityRepository, locationService, scheduleService, occurrenceService, mediaService,
+                activityMediaService, activityLinkService, accessibilityService, activityTagService,
+                activityMetadataService);
     }
 
     private static final Source SOURCE = new Source(
@@ -78,9 +123,11 @@ class ImportServiceTest {
 
     private CollectedActivity collectedActivity(String externalId) {
         return new CollectedActivity(
-                "Marché de Noël", "description", LocalDateTime.of(2026, 12, 1, 10, 0), null,
-                "marché", 43.2965, 5.3698, "https://example.com", externalId, "OpenAgenda Marseille",
-                null, null, null, null, null, null, null);
+                "Marché de Noël", "description", "marché", "https://example.com", externalId,
+                "OpenAgenda Marseille", null, null, null, null,
+                new CollectedLocation(null, null, null, null, null, null, 43.2965, 5.3698, null),
+                List.of(new CollectedTiming(LocalDateTime.of(2026, 12, 1, 10, 0), null)),
+                null, List.of(), List.of(), null, List.of(), null);
     }
 
     private Activity normalizedActivity() {
@@ -101,6 +148,7 @@ class ImportServiceTest {
         when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
                 .thenReturn(Optional.empty());
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        givenSaveAssignsId();
 
         // When
         List<ImportResult> results = importService().importAll();
@@ -117,6 +165,29 @@ class ImportServiceTest {
         assertEquals(0, result.archived());
         assertFalse(result.startedAt().isAfter(result.endedAt()));
         verify(activityRepository).save(argThatMatchesNewActivity());
+    }
+
+    /**
+     * LL-11011 : {@code ImportService} lit désormais l'id de l'activité
+     * sauvegardée pour persister le reste du modèle événementiel riche
+     * ({@code enrichActivity}) — sans ce stub, l'id resterait {@code
+     * null} (comportement par défaut d'un mock) et l'appel échouerait
+     * (NullPointerException). Conserve l'id déjà présent sur l'activité
+     * passée en argument (cas d'une mise à jour, voir {@code
+     * ImportService#withSourceAndKey}) ou en assigne un nouveau (cas
+     * d'une création).
+     */
+    private void givenSaveAssignsId() {
+        when(activityRepository.save(any())).thenAnswer(invocation -> {
+            Activity toSave = invocation.getArgument(0);
+            Long id = toSave.id() != null ? toSave.id() : 99L;
+            return new Activity(
+                    id, toSave.title(), toSave.description(), toSave.category(),
+                    toSave.latitude(), toSave.longitude(), toSave.startDate(), toSave.endDate(),
+                    toSave.status(), toSave.sourceId(), toSave.importKey(), toSave.url(),
+                    toSave.address(), toSave.city(), toSave.postalCode(),
+                    toSave.longDescription(), toSave.conditions(), toSave.ageMin(), toSave.ageMax());
+        });
     }
 
     private Activity argThatMatchesNewActivity() {
@@ -142,6 +213,7 @@ class ImportServiceTest {
         when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
                 .thenReturn(Optional.of(existing));
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of(existing));
+        givenSaveAssignsId();
 
         // When
         List<ImportResult> results = importService().importAll();

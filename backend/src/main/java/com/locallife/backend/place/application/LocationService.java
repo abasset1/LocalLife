@@ -54,4 +54,37 @@ public class LocationService {
         }
         return locationRepository.save(location);
     }
+
+    /**
+     * Réutilise un lieu déjà connu plutôt que d'en créer un nouveau
+     * (LL-11011) : {@code Location} est explicitement partageable (voir
+     * sa javadoc, « un même lieu peut être partagé par plusieurs
+     * activités ») — sans ce garde-fou, {@code ImportService}
+     * dupliquerait une ligne {@code location} à chaque réimport d'une
+     * même activité. Cherche d'abord par adresse complète ({@code
+     * address}/{@code city}/{@code postalCode} tous renseignés), puis
+     * par coordonnées exactes ; à défaut de correspondance, délègue à
+     * {@link #create}.
+     */
+    public Location findOrCreate(Location candidate) {
+        return findMatching(candidate).orElseGet(() -> create(candidate));
+    }
+
+    private Optional<Location> findMatching(Location candidate) {
+        boolean hasFullAddress = hasText(candidate.address())
+                && hasText(candidate.city())
+                && hasText(candidate.postalCode());
+        if (hasFullAddress) {
+            return locationRepository.findByAddressAndCityAndPostalCode(
+                    candidate.address(), candidate.city(), candidate.postalCode());
+        }
+        if (candidate.latitude() != null && candidate.longitude() != null) {
+            return locationRepository.findByLatitudeAndLongitude(candidate.latitude(), candidate.longitude());
+        }
+        return Optional.empty();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
 }

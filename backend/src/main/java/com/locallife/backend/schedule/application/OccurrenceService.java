@@ -64,6 +64,14 @@ public class OccurrenceService {
     }
 
     /**
+     * Supprime les occurrences d'un schedule (LL-11011) : voir la
+     * javadoc de {@code OccurrenceRepository#deleteByScheduleId}.
+     */
+    public void deleteByScheduleId(Long scheduleId) {
+        occurrenceRepository.deleteByScheduleId(scheduleId);
+    }
+
+    /**
      * Modifie une occurrence existante (LL-11005 : modification
      * d'horaire, déplacement, changement de lieu — tous représentés par
      * des valeurs de champs différentes, voir la javadoc de {@code

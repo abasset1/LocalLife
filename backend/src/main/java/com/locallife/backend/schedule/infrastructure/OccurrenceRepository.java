@@ -30,4 +30,12 @@ public interface OccurrenceRepository extends Repository<Occurrence, Long> {
     List<Occurrence> findByScheduleIdAndStatusNot(Long scheduleId, String status);
 
     Occurrence save(Occurrence occurrence);
+
+    /**
+     * Supprime les occurrences d'un schedule (LL-11011) : utilisé par
+     * {@code ImportService} avant {@code ScheduleRepository#deleteByActivityId}
+     * lors d'un réimport (contrainte {@code FOREIGN KEY schedule_id},
+     * voir sa javadoc).
+     */
+    void deleteByScheduleId(Long scheduleId);
 }

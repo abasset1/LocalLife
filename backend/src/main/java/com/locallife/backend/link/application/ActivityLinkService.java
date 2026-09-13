@@ -63,6 +63,14 @@ public class ActivityLinkService {
         return activityLinkRepository.save(activityLink);
     }
 
+    /**
+     * Supprime les liens d'une activité (LL-11011) : voir la javadoc de
+     * {@code ActivityLinkRepository#deleteByActivityId}.
+     */
+    public void deleteByActivityId(Long activityId) {
+        activityLinkRepository.deleteByActivityId(activityId);
+    }
+
     private void validate(String type, String value) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("Un lien/contact doit avoir une valeur (value).");

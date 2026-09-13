@@ -41,6 +41,14 @@ public class ActivityMetadataService {
         return activityMetadataRepository.save(activityMetadata);
     }
 
+    /**
+     * Supprime la metadata d'une activité (LL-11011) : voir la javadoc
+     * de {@code ActivityMetadataRepository#deleteByActivityId}.
+     */
+    public void deleteByActivityId(Long activityId) {
+        activityMetadataRepository.deleteByActivityId(activityId);
+    }
+
     private void validateJson(String data) {
         if (data == null || data.isBlank()) {
             throw new IllegalArgumentException("La donnée metadata ne peut pas être vide.");

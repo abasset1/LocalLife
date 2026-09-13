@@ -15,4 +15,10 @@ public interface ActivityMetadataRepository extends Repository<ActivityMetadata,
     Optional<ActivityMetadata> findById(Long id);
 
     ActivityMetadata save(ActivityMetadata activityMetadata);
+
+    /**
+     * Supprime la metadata d'une activité (LL-11011) : utilisé par
+     * {@code ImportService} avant de la reconstruire à chaque réimport.
+     */
+    void deleteByActivityId(Long activityId);
 }

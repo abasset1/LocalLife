@@ -3,6 +3,7 @@ package com.locallife.backend.collector.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.locallife.backend.collector.domain.ExternalActivity;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
@@ -50,8 +51,11 @@ class ExternalActivityRepositoryIntegrationTest {
         assertThat(saved.id()).isNotNull();
     }
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     @Test
-    void findBySourceIdAndExternalId_ShouldReturnRawPayloadUnchanged_AfterRoundTripThroughJsonbColumn() {
+    void findBySourceIdAndExternalId_ShouldReturnRawPayloadUnchanged_AfterRoundTripThroughJsonbColumn()
+            throws Exception {
         Long sourceId = testSourceId();
         String rawPayload = "{\"nested\": {\"array\": [1, 2, 3]}, \"text\": \"accents éàç\"}";
 
@@ -61,7 +65,11 @@ class ExternalActivityRepositoryIntegrationTest {
                 sourceId, "ext-123");
 
         assertThat(found).isPresent();
-        assertThat(found.get().rawPayload()).isEqualTo(rawPayload);
+        // Bug corrigé (pré-existant, non lié à LL-11011, même cause que
+        // ActivityMetadataRepositoryIntegrationTest) : jsonb ne préserve pas l'ordre des clés
+        // d'un objet — comparaison structurelle plutôt que chaîne brute.
+        assertThat(OBJECT_MAPPER.readTree(found.get().rawPayload().value()))
+                .isEqualTo(OBJECT_MAPPER.readTree(rawPayload));
     }
 
     @Test

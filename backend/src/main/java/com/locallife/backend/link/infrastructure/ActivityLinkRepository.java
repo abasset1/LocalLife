@@ -19,4 +19,11 @@ public interface ActivityLinkRepository extends Repository<ActivityLink, Long> {
     Optional<ActivityLink> findById(Long id);
 
     ActivityLink save(ActivityLink activityLink);
+
+    /**
+     * Supprime les liens d'une activité (LL-11011) : utilisé par
+     * {@code ImportService} avant de reconstruire les liens à chaque
+     * réimport.
+     */
+    void deleteByActivityId(Long activityId);
 }

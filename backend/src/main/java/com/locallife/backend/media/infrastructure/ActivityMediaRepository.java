@@ -20,4 +20,13 @@ public interface ActivityMediaRepository extends Repository<ActivityMedia, Long>
     Optional<ActivityMedia> findById(Long id);
 
     ActivityMedia save(ActivityMedia activityMedia);
+
+    /**
+     * Détache tous les médias d'une activité (LL-11011), sans toucher
+     * aux lignes {@code media} elles-mêmes (potentiellement partagées,
+     * voir la javadoc de {@code Media}) — utilisé par {@code
+     * ImportService} avant de reconstruire les associations à chaque
+     * réimport.
+     */
+    void deleteByActivityId(Long activityId);
 }

@@ -18,4 +18,11 @@ public interface AccessibilityRepository extends Repository<Accessibility, Long>
     Optional<Accessibility> findById(Long id);
 
     Accessibility save(Accessibility accessibility);
+
+    /**
+     * Supprime la fiche d'accessibilité d'une activité (LL-11011) :
+     * utilisé par {@code ImportService} avant de la reconstruire à
+     * chaque réimport.
+     */
+    void deleteByActivityId(Long activityId);
 }

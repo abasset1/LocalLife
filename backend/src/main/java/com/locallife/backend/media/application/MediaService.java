@@ -41,4 +41,15 @@ public class MediaService {
         }
         return mediaRepository.save(media);
     }
+
+    /**
+     * Réutilise un média déjà connu par url plutôt que d'en créer un
+     * nouveau (LL-11011) : {@code Media} est explicitement réutilisable
+     * (voir sa javadoc) — sans ce garde-fou, {@code ImportService}
+     * dupliquerait une ligne {@code media} à chaque réimport d'une même
+     * activité.
+     */
+    public Media findOrCreate(Media candidate) {
+        return mediaRepository.findByUrl(candidate.url()).orElseGet(() -> create(candidate));
+    }
 }

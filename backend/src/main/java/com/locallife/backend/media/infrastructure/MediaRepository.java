@@ -17,5 +17,12 @@ public interface MediaRepository extends Repository<Media, Long> {
 
     Optional<Media> findById(Long id);
 
+    /**
+     * Retrouve un média déjà connu par son url (LL-11011) : sert
+     * {@code MediaService#findOrCreate}, pour ne pas dupliquer un média
+     * réutilisé d'un réimport à l'autre (voir sa javadoc).
+     */
+    Optional<Media> findByUrl(String url);
+
     Media save(Media media);
 }

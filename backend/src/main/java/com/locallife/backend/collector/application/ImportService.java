@@ -1,12 +1,25 @@
 package com.locallife.backend.collector.application;
 
+import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
+import com.locallife.backend.link.application.ActivityLinkService;
+import com.locallife.backend.media.application.ActivityMediaService;
+import com.locallife.backend.media.application.MediaService;
+import com.locallife.backend.media.domain.ActivityMedia;
+import com.locallife.backend.media.domain.Media;
+import com.locallife.backend.metadata.application.ActivityMetadataService;
+import com.locallife.backend.place.application.LocationService;
+import com.locallife.backend.place.domain.Location;
+import com.locallife.backend.schedule.application.OccurrenceService;
+import com.locallife.backend.schedule.application.ScheduleService;
+import com.locallife.backend.schedule.domain.Schedule;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
+import com.locallife.backend.tag.application.ActivityTagService;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -61,7 +74,11 @@ import org.springframework.stereotype.Service;
  *       LL-4002) ne filtre pas {@code status} par défaut — une activité
  *       {@code ARCHIVED} continuera donc d'apparaître tant qu'un filtre
  *       explicite n'est pas ajouté côté requête/frontend (hors périmètre
- *       de ce ticket) ;</li>
+ *       de ce ticket). ⚠️ LL-11011 : les entités enrichies (Location
+ *       partagée exceptée, voir {@link #enrichActivity}) d'une activité
+ *       archivée ne sont ni recalculées ni supprimées à l'archivage — elles
+ *       restent telles que laissées par le dernier import réussi, cohérent
+ *       avec « conserve un historique exploitable » ci-dessus ;</li>
  *   <li><b>création manuelle non affectée</b> : le balayage d'archivage
  *       est scopé à {@code source.id()} de la source en cours d'import —
  *       les activités manuelles (source {@code MANUAL}) ont un
@@ -114,6 +131,21 @@ import org.springframework.stereotype.Service;
  * ({@code ERROR}) et traduit en un {@code ImportResult} dégradé
  * ({@code fetched=0}, {@code errors=1}) plutôt que de faire échouer
  * {@code importAll()} pour les autres sources.
+ *
+ * <b>Refonte LL-11011 (« adapter le pipeline d'import »)</b> : jusqu'ici
+ * seule l'{@code Activity} (cœur du modèle) était persistée par élément
+ * collecté. {@link #importFrom(Source)} persiste désormais, pour chaque
+ * élément accepté par {@code NormalizationService}, l'ensemble du modèle
+ * événementiel riche du Sprint 11 — voir {@link #enrichActivity} pour le
+ * détail. {@code Location}/{@code Media} exceptés (entités explicitement
+ * partageables, voir leurs javadoc, réutilisées via {@code findOrCreate}
+ * plutôt que dupliquées), toutes les entités liées à une activité sont
+ * <b>remplacées</b> (supprimées puis reconstruites) à chaque réimport
+ * plutôt que fusionnées avec les données déjà en base — plus simple et
+ * plus sûr qu'une comparaison champ à champ (une occurrence disparue de
+ * la source, par exemple, disparaît alors elle aussi de la base, ce qui
+ * ne serait pas le cas avec un simple « upsert » par id). ⚠️ Décision à
+ * valider, comme le reste de la stratégie de mise à jour ci-dessus.
  */
 @Service
 public class ImportService {
@@ -136,18 +168,45 @@ public class ImportService {
     private final NormalizationService normalizationService;
     private final DeduplicationService deduplicationService;
     private final ActivityRepository activityRepository;
+    private final LocationService locationService;
+    private final ScheduleService scheduleService;
+    private final OccurrenceService occurrenceService;
+    private final MediaService mediaService;
+    private final ActivityMediaService activityMediaService;
+    private final ActivityLinkService activityLinkService;
+    private final AccessibilityService accessibilityService;
+    private final ActivityTagService activityTagService;
+    private final ActivityMetadataService activityMetadataService;
 
     public ImportService(
             SourceService sourceService,
             OpenAgendaCollectorFactory openAgendaCollectorFactory,
             NormalizationService normalizationService,
             DeduplicationService deduplicationService,
-            ActivityRepository activityRepository) {
+            ActivityRepository activityRepository,
+            LocationService locationService,
+            ScheduleService scheduleService,
+            OccurrenceService occurrenceService,
+            MediaService mediaService,
+            ActivityMediaService activityMediaService,
+            ActivityLinkService activityLinkService,
+            AccessibilityService accessibilityService,
+            ActivityTagService activityTagService,
+            ActivityMetadataService activityMetadataService) {
         this.sourceService = sourceService;
         this.openAgendaCollectorFactory = openAgendaCollectorFactory;
         this.normalizationService = normalizationService;
         this.deduplicationService = deduplicationService;
         this.activityRepository = activityRepository;
+        this.locationService = locationService;
+        this.scheduleService = scheduleService;
+        this.occurrenceService = occurrenceService;
+        this.mediaService = mediaService;
+        this.activityMediaService = activityMediaService;
+        this.activityLinkService = activityLinkService;
+        this.accessibilityService = accessibilityService;
+        this.activityTagService = activityTagService;
+        this.activityMetadataService = activityMetadataService;
     }
 
     /**
@@ -210,7 +269,9 @@ public class ImportService {
                 Optional<Activity> existing = activityRepository.findBySourceIdAndImportKey(source.id(), key);
                 Activity toSave = withSourceAndKey(
                         normalized.get(), existing.map(Activity::id).orElse(null), source.id(), key);
-                activityRepository.save(toSave);
+                Activity saved = activityRepository.save(toSave);
+
+                enrichActivity(saved.id(), item);
 
                 if (existing.isPresent()) {
                     updated++;
@@ -238,6 +299,79 @@ public class ImportService {
         LOGGER.info("Import terminé pour la source '{}' : {}", source.name(), result);
 
         return result;
+    }
+
+    /**
+     * Persiste le reste du modèle événementiel riche pour l'activité
+     * {@code activityId} (LL-11011), une fois l'{@code Activity}
+     * elle-même sauvegardée. Voir la javadoc de la classe pour la
+     * stratégie de remplacement retenue ({@link #clearEnrichment}
+     * d'abord, reconstruction ensuite).
+     *
+     * L'échec d'une étape individuelle (ex. {@code recurrenceRule}
+     * rejetée par {@code ScheduleService}, lien mal formé) se propage
+     * comme une {@code RuntimeException} normale : capturé par le
+     * {@code try/catch} au niveau de l'appelant ({@link
+     * #importFrom(Source)}), qui compte l'élément entier en erreur —
+     * cohérent avec « aucune logique spécifique à un collecteur dans
+     * ActivityService » et la gestion d'erreur déjà en place pour
+     * {@code normalize()}, voir la javadoc de la classe.
+     */
+    private void enrichActivity(Long activityId, CollectedActivity item) {
+        clearEnrichment(activityId);
+
+        Long locationId = normalizationService.normalizeLocation(item)
+                .map(locationService::findOrCreate)
+                .map(Location::id)
+                .orElse(null);
+
+        Optional<Schedule> schedule = normalizationService.normalizeSchedule(item, activityId, locationId);
+        if (schedule.isPresent()) {
+            Schedule savedSchedule = scheduleService.create(schedule.get());
+            for (var occurrence : normalizationService.normalizeOccurrences(item, savedSchedule.id(), locationId)) {
+                occurrenceService.create(occurrence);
+            }
+        }
+
+        int position = 0;
+        for (Media media : normalizationService.normalizeMedia(item)) {
+            Media savedMedia = mediaService.findOrCreate(media);
+            activityMediaService.attach(new ActivityMedia(null, activityId, savedMedia.id(), position));
+            position++;
+        }
+
+        for (var link : normalizationService.normalizeLinks(item, activityId)) {
+            activityLinkService.create(link);
+        }
+
+        normalizationService.normalizeAccessibility(item, activityId).ifPresent(accessibilityService::create);
+
+        for (var tag : normalizationService.normalizeTags(item, activityId)) {
+            activityTagService.create(tag);
+        }
+
+        normalizationService.normalizeMetadata(item, activityId).ifPresent(activityMetadataService::create);
+    }
+
+    /**
+     * Supprime les entités enrichies déjà en base pour une activité
+     * avant de les reconstruire (LL-11011) — voir la javadoc de la
+     * classe. {@code Location}/{@code Media} volontairement exclues
+     * (partageables, jamais supprimées ici : voir {@link
+     * #enrichActivity}). Les occurrences d'un schedule sont supprimées
+     * avant le schedule lui-même (contrainte {@code FOREIGN KEY}, voir
+     * la javadoc de {@code ScheduleRepository#deleteByActivityId}).
+     */
+    private void clearEnrichment(Long activityId) {
+        for (Schedule schedule : scheduleService.findByActivityId(activityId)) {
+            occurrenceService.deleteByScheduleId(schedule.id());
+        }
+        scheduleService.deleteByActivityId(activityId);
+        activityMediaService.deleteByActivityId(activityId);
+        activityLinkService.deleteByActivityId(activityId);
+        accessibilityService.deleteByActivityId(activityId);
+        activityTagService.deleteByActivityId(activityId);
+        activityMetadataService.deleteByActivityId(activityId);
     }
 
     private int archiveActivitiesNoLongerInSource(Long sourceId, Set<String> seenImportKeys) {

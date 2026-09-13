@@ -1,6 +1,11 @@
 package com.locallife.backend.collector.infrastructure;
 
+import com.locallife.backend.collector.domain.CollectedAccessibility;
 import com.locallife.backend.collector.domain.CollectedActivity;
+import com.locallife.backend.collector.domain.CollectedLink;
+import com.locallife.backend.collector.domain.CollectedLocation;
+import com.locallife.backend.collector.domain.CollectedMedia;
+import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -64,12 +69,59 @@ import org.springframework.web.client.RestClientException;
  * format exact des valeurs {@code after} (types, nombre d'éléments) est à
  * confirmer avec une clé réelle.
  *
+ * <b>Refonte LL-11011 (« adapter le pipeline d'import »)</b> : ce
+ * collecteur exploitait jusqu'ici une fraction seulement des données
+ * disponibles côté OpenAgenda (un seul horaire via {@code nextTiming},
+ * pas de médias/liens/accessibilité/tags/inscription). {@link #collect()}
+ * exploite désormais :
+ * <ul>
+ *   <li><b>{@code timings}</b> (tableau, tous les créneaux de
+ *       l'événement) plutôt que {@code nextTiming}/{@code lastTiming}
+ *       seuls — un événement récurrent sur OpenAgenda est déjà « à
+ *       plat » (chaque répétition listée individuellement), c'est donc
+ *       {@code timings} qui porte la « récurrence » au sens de
+ *       {@code SPRINT_11.md} pour cette source, pas un RRULE : {@link
+ *       CollectedActivity#recurrenceRule()} reste toujours {@code null}
+ *       pour ce collecteur (aucun champ RRULE documenté côté OpenAgenda
+ *       à notre connaissance — voir la javadoc de {@code
+ *       CollectedActivity} pour la raison pour laquelle ce champ existe
+ *       malgré tout, en prévision d'une source future qui en fournirait
+ *       un réellement). Repli sur {@code nextTiming}/{@code lastTiming}
+ *       (comportement historique) si {@code timings} est absent ou
+ *       vide, pour tolérer une réponse partielle ;</li>
+ *   <li><b>{@code image}</b> : un média principal ({@code base +
+ *       filename}, {@code credit}, dimensions) — OpenAgenda ne documente
+ *       qu'une seule image par événement à notre connaissance, d'où une
+ *       liste à au plus un élément ;</li>
+ *   <li><b>{@code links}</b> : liens complémentaires ({@code label} +
+ *       {@code link}), repris avec le type générique {@code WEBSITE}
+ *       (validé comme une URL par {@code ActivityLinkService}) ;</li>
+ *   <li><b>{@code registration}</b> : informations d'inscription — champ
+ *       texte le plus riche disponible retenu (email si présent, sinon
+ *       téléphone, sinon lien) devient un {@link CollectedLink}
+ *       ({@code EMAIL}/{@code PHONE}/{@code WEBSITE} selon le cas) ; une
+ *       valeur textuelle brute (ex. instructions non structurées) est en
+ *       plus reprise telle quelle dans {@link
+ *       CollectedActivity#registrationInfo()} ;</li>
+ *   <li><b>{@code accessibility}</b> : reprise des cinq indicateurs
+ *       (codes courts {@code mi}/{@code hi}/{@code vi}/{@code pi}/
+ *       {@code ii}, voir la javadoc d'{@code Accessibility}) ;</li>
+ *   <li><b>{@code keywords.fr}</b> : le premier mot clé reste utilisé
+ *       comme {@code category} (comportement historique inchangé, voir
+ *       {@code firstKeyword}), et l'ensemble des mots clés devient
+ *       désormais {@link CollectedActivity#tags()} (auparavant les
+ *       mots clés suivant le premier étaient silencieusement perdus).</li>
+ * </ul>
+ * ⚠️ Comme le reste de cette classe (voir les décisions déjà signalées
+ * ci-dessus), ces structures ({@code image}/{@code links}/{@code
+ * registration}/{@code accessibility}) ne sont pas vérifiées contre
+ * l'API réelle en sandbox (pas d'accès réseau à api.openagenda.com) —
+ * noms de champs déduits de la documentation publique
+ * (developers.openagenda.com/evenements/structure/), à confirmer avec
+ * une clé réelle.
+ *
  * ⚠️ Décisions prises pour ce premier collecteur, à valider :
  * <ul>
- *   <li>un seul événement par occurrence à venir ({@code nextTiming}),
- *       pas une entrée par créneau de {@code timings} — un événement
- *       récurrent produit donc une seule {@code CollectedActivity} (sa
- *       prochaine occurrence), pas une par répétition ;</li>
  *   <li>catégorie dérivée du premier mot clé français ({@code
  *       keywords.fr[0]}) — OpenAgenda n'a pas de champ « catégorie »
  *       dédié sur les événements ;</li>
@@ -113,6 +165,11 @@ public class OpenAgendaCollector implements Collector {
      * voir Javadoc de la classe.
      */
     private static final int MAX_PAGES = 500;
+
+    /** Type de lien générique (LL-11011) — voir {@code ActivityLinkService}. */
+    private static final String LINK_TYPE_WEBSITE = "WEBSITE";
+    private static final String LINK_TYPE_EMAIL = "EMAIL";
+    private static final String LINK_TYPE_PHONE = "PHONE";
 
     private final RestClient restClient;
     private final String apiKey;
@@ -209,10 +266,10 @@ public class OpenAgendaCollector implements Collector {
     }
 
     /**
-     * Filtre temporaire par région (LL non planifié, demande explicite,
-     * voir Javadoc de la classe). Comparaison insensible à la casse et aux
-     * espaces superflus ; un événement sans champ {@code region} renseigné
-     * est exclu dès qu'un filtre est actif, plutôt que retenu par défaut.
+     * Filtre temporaire par région (LL non planifié, demande explicite, voir Javadoc de la
+     * classe). Comparaison insensible à la casse et aux espaces superflus ; un événement sans
+     * champ {@code region} renseigné est exclu dès qu'un filtre est actif, plutôt que retenu par
+     * défaut.
      */
     private boolean matchesRegionFilter(OpenAgendaEvent event) {
         if (regionFilter.isEmpty()) {
@@ -223,26 +280,105 @@ public class OpenAgendaCollector implements Collector {
     }
 
     private CollectedActivity toCollectedActivity(OpenAgendaEvent event) {
-        OpenAgendaTiming timing = event.nextTiming() != null ? event.nextTiming() : event.lastTiming();
         OpenAgendaAge age = event.age();
         return new CollectedActivity(
                 text(event.title()),
                 text(event.description()),
-                toLocalDateTime(timing == null ? null : timing.begin()),
-                toLocalDateTime(timing == null ? null : timing.end()),
                 firstKeyword(event.keywords()),
-                event.location().latitude(),
-                event.location().longitude(),
                 "https://openagenda.com/agendas/" + agendaUid + "/events/" + event.slug(),
                 event.slug(),
                 sourceName,
-                event.location().address(),
-                event.location().city(),
-                event.location().postalCode(),
                 text(event.longDescription()),
                 text(event.conditions()),
                 age == null ? null : age.min(),
-                age == null ? null : age.max());
+                age == null ? null : age.max(),
+                toCollectedLocation(event.location()),
+                toCollectedTimings(event),
+                // Aucun RRULE côté OpenAgenda (timings déjà "à plat") — voir la javadoc de
+                // la classe.
+                null,
+                toCollectedMedia(event.image()),
+                toCollectedLinks(event),
+                toCollectedAccessibility(event.accessibility()),
+                allKeywords(event.keywords()),
+                registrationText(event.registration()));
+    }
+
+    private CollectedLocation toCollectedLocation(OpenAgendaLocation location) {
+        return new CollectedLocation(
+                location.name(),
+                location.address(),
+                location.city(),
+                location.postalCode(),
+                location.region(),
+                null,
+                location.latitude(),
+                location.longitude(),
+                location.timezone());
+    }
+
+    /**
+     * {@code timings} (tous les créneaux) plutôt que {@code nextTiming}/{@code lastTiming} seuls
+     * — voir la javadoc de la classe (LL-11011, « plusieurs horaires supportés »). Repli sur
+     * {@code nextTiming}/{@code lastTiming} si {@code timings} est absent ou vide (réponse
+     * partielle, ou compatibilité avec l'ancien format de test).
+     */
+    private List<CollectedTiming> toCollectedTimings(OpenAgendaEvent event) {
+        if (event.timings() != null && !event.timings().isEmpty()) {
+            return event.timings().stream()
+                    .map(timing -> new CollectedTiming(toLocalDateTime(timing.begin()), toLocalDateTime(timing.end())))
+                    .toList();
+        }
+        OpenAgendaTiming fallback = event.nextTiming() != null ? event.nextTiming() : event.lastTiming();
+        if (fallback == null) {
+            return List.of();
+        }
+        return List.of(new CollectedTiming(toLocalDateTime(fallback.begin()), toLocalDateTime(fallback.end())));
+    }
+
+    private List<CollectedMedia> toCollectedMedia(OpenAgendaImage image) {
+        if (image == null || isBlank(image.base()) || isBlank(image.filename())) {
+            return List.of();
+        }
+        Integer width = image.size() == null ? null : image.size().width();
+        Integer height = image.size() == null ? null : image.size().height();
+        return List.of(new CollectedMedia(image.base() + image.filename(), null, image.credit(), width, height));
+    }
+
+    private List<CollectedLink> toCollectedLinks(OpenAgendaEvent event) {
+        List<CollectedLink> links = new ArrayList<>();
+        if (event.links() != null) {
+            for (OpenAgendaLink link : event.links()) {
+                if (!isBlank(link.link())) {
+                    links.add(new CollectedLink(LINK_TYPE_WEBSITE, link.label(), link.link()));
+                }
+            }
+        }
+        OpenAgendaRegistration registration = event.registration();
+        if (registration != null) {
+            if (!isBlank(registration.email())) {
+                links.add(new CollectedLink(LINK_TYPE_EMAIL, "Inscription", registration.email()));
+            }
+            if (!isBlank(registration.phone())) {
+                links.add(new CollectedLink(LINK_TYPE_PHONE, "Inscription", registration.phone()));
+            }
+            if (!isBlank(registration.link())) {
+                links.add(new CollectedLink(LINK_TYPE_WEBSITE, "Inscription", registration.link()));
+            }
+        }
+        return links;
+    }
+
+    private String registrationText(OpenAgendaRegistration registration) {
+        return registration == null ? null : text(registration.description());
+    }
+
+    private CollectedAccessibility toCollectedAccessibility(OpenAgendaAccessibility accessibility) {
+        if (accessibility == null) {
+            return null;
+        }
+        return new CollectedAccessibility(
+                accessibility.mi(), accessibility.hi(), accessibility.vi(), accessibility.pi(), accessibility.ii());
     }
 
     private boolean isBlank(String value) {
@@ -254,11 +390,21 @@ public class OpenAgendaCollector implements Collector {
     }
 
     private String firstKeyword(Map<String, List<String>> keywords) {
+        List<String> frenchKeywords = frenchKeywords(keywords);
+        return frenchKeywords.isEmpty() ? null : frenchKeywords.get(0);
+    }
+
+    /** LL-11011 : tous les mots clés français, désormais conservés (voir la javadoc de la classe). */
+    private List<String> allKeywords(Map<String, List<String>> keywords) {
+        return frenchKeywords(keywords);
+    }
+
+    private List<String> frenchKeywords(Map<String, List<String>> keywords) {
         if (keywords == null) {
-            return null;
+            return List.of();
         }
         List<String> frenchKeywords = keywords.get("fr");
-        return (frenchKeywords == null || frenchKeywords.isEmpty()) ? null : frenchKeywords.get(0);
+        return frenchKeywords == null ? List.of() : frenchKeywords;
     }
 
     /**
@@ -286,11 +432,16 @@ public class OpenAgendaCollector implements Collector {
             Map<String, String> description,
             Map<String, List<String>> keywords,
             OpenAgendaLocation location,
+            List<OpenAgendaTiming> timings,
             OpenAgendaTiming nextTiming,
             OpenAgendaTiming lastTiming,
             Map<String, String> longDescription,
             Map<String, String> conditions,
-            OpenAgendaAge age) {
+            OpenAgendaAge age,
+            OpenAgendaImage image,
+            List<OpenAgendaLink> links,
+            OpenAgendaRegistration registration,
+            OpenAgendaAccessibility accessibility) {
     }
 
     /**
@@ -298,10 +449,18 @@ public class OpenAgendaCollector implements Collector {
      * champs documentés de l'objet {@code location} OpenAgenda (voir
      * developers.openagenda.com/en/lieux/), au même titre que
      * {@code region} — non vérifiés contre l'API réelle en sandbox, comme
-     * le reste de cette classe (voir sa javadoc).
+     * le reste de cette classe (voir sa javadoc). {@code timezone} ajouté
+     * en LL-11011, même principe.
      */
     private record OpenAgendaLocation(
-            double latitude, double longitude, String region, String address, String city, String postalCode) {
+            String name,
+            double latitude,
+            double longitude,
+            String region,
+            String address,
+            String city,
+            String postalCode,
+            String timezone) {
     }
 
     private record OpenAgendaTiming(String begin, String end) {
@@ -318,6 +477,41 @@ public class OpenAgendaCollector implements Collector {
      * ans »).
      */
     private record OpenAgendaAge(Integer min, Integer max) {
+    }
+
+    /**
+     * LL-11011 : image principale de l'événement — {@code base + filename}
+     * forme l'URL complète (convention OpenAgenda pour les images
+     * hébergées par leur CDN), non vérifiée contre l'API réelle en
+     * sandbox (voir la javadoc de la classe).
+     */
+    private record OpenAgendaImage(String base, String filename, String credit, OpenAgendaImageSize size) {
+    }
+
+    private record OpenAgendaImageSize(Integer width, Integer height) {
+    }
+
+    /** LL-11011 : lien complémentaire ({@code label} + {@code link}), non vérifié en sandbox. */
+    private record OpenAgendaLink(String label, String link) {
+    }
+
+    /**
+     * LL-11011 : informations d'inscription — {@code email}/{@code
+     * phone}/{@code link} structurés, {@code description} en texte libre
+     * (repris tel quel dans {@code CollectedActivity#registrationInfo()}).
+     * Non vérifié contre l'API réelle en sandbox (voir la javadoc de la
+     * classe).
+     */
+    private record OpenAgendaRegistration(String email, String phone, String link, Map<String, String> description) {
+    }
+
+    /**
+     * LL-11011 : accessibilité, codes courts OpenAgenda (voir la javadoc
+     * d'{@code Accessibility} pour la correspondance moteur/auditif/
+     * visuel/psychique/intellectuel) — non vérifié contre l'API réelle
+     * en sandbox (voir la javadoc de la classe).
+     */
+    private record OpenAgendaAccessibility(Boolean mi, Boolean hi, Boolean vi, Boolean pi, Boolean ii) {
     }
 
 }

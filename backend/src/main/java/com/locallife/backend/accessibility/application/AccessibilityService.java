@@ -28,4 +28,12 @@ public class AccessibilityService {
     public Accessibility create(Accessibility accessibility) {
         return accessibilityRepository.save(accessibility);
     }
+
+    /**
+     * Supprime la fiche d'accessibilité d'une activité (LL-11011) : voir
+     * la javadoc de {@code AccessibilityRepository#deleteByActivityId}.
+     */
+    public void deleteByActivityId(Long activityId) {
+        accessibilityRepository.deleteByActivityId(activityId);
+    }
 }

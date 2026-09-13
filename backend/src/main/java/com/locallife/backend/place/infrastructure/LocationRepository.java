@@ -22,5 +22,27 @@ public interface LocationRepository extends Repository<Location, Long> {
 
     Optional<Location> findById(Long id);
 
+    /**
+     * Retrouve un lieu déjà connu par adresse complète (LL-11011) : sert
+     * {@code LocationService#findOrCreate}, pour éviter de dupliquer un
+     * lieu partagé (voir la javadoc de {@code Location}) d'un réimport à
+     * l'autre. Volontairement restreinte au cas où les trois champs sont
+     * renseignés (comparaison d'égalité stricte, y compris sur {@code
+     * city}/{@code postalCode} potentiellement {@code null} — une
+     * colonne {@code NULL} ne correspond jamais à un paramètre {@code
+     * NULL} en SQL, cette méthode n'est donc appelée par {@code
+     * findOrCreate} que lorsque les trois valeurs sont non nulles).
+     */
+    Optional<Location> findByAddressAndCityAndPostalCode(String address, String city, String postalCode);
+
+    /**
+     * Retrouve un lieu déjà connu par coordonnées exactes (LL-11011),
+     * repli de {@code findOrCreate} quand aucune adresse complète n'est
+     * disponible — comparaison d'égalité stricte, suffisante pour
+     * reconnaître un même lieu réimporté depuis la même source (mêmes
+     * coordonnées à chaque collecte).
+     */
+    Optional<Location> findByLatitudeAndLongitude(Double latitude, Double longitude);
+
     Location save(Location location);
 }
