@@ -63,9 +63,28 @@ interface Activity {
     latitude: number;
     longitude: number;
     startDate: string;
+    status: string;
     sourceName: string;
     address: string | null;
     city: string | null;
+    /**
+     * LL-EF-010 : id du créateur pour une activité créée manuellement,
+     * `null` pour une activité importée ou une contribution manuelle
+     * antérieure à ce ticket (créateur non identifiable a posteriori,
+     * voir `V24__add_created_by_to_activity.sql` côté backend). Comparé à
+     * `currentUser.userId` pour décider d'afficher le bouton "Annuler"
+     * (voir le détail d'activité plus bas).
+     */
+    createdBy: number | null;
+    /** Nom affiché ("Créée par : ..."), résolu côté backend depuis `createdBy` (LL-8006 même principe que sourceName). */
+    createdByUsername: string | null;
+    /**
+     * LS-002 : indique si l'utilisateur connecté a déjà liké cette
+     * activité — permet d'afficher l'état initial du bouton "J'aime"
+     * sans requête supplémentaire. Toujours `false` pour un visiteur non
+     * connecté (voir le détail d'activité plus bas).
+     */
+    likedByCurrentUser: boolean;
 }
 
 /**
@@ -404,6 +423,26 @@ function App() {
      */
     const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
     /**
+     * LL-EF-010 : état de la requête d'annulation en cours (désactive le
+     * bouton "Annuler" pendant l'appel, évite un double-clic), et message
+     * d'erreur éventuel affiché dans le détail d'activité. Séparé de
+     * `submitError`/`submitStatus` (formulaire de contribution) : action
+     * différente, contexte différent (modal de détail plutôt que modal de
+     * contribution).
+     */
+    const [isCancellingActivity, setIsCancellingActivity] = useState(false);
+    const [cancelActivityError, setCancelActivityError] = useState<string | null>(null);
+    /**
+     * LS-002 : évite un double-clic sur le bouton "J'aime" pendant
+     * l'appel réseau (voir handleToggleLike) — pas de message d'erreur
+     * dédié pour cette action, contrairement à cancelActivityError
+     * ci-dessus : un like qui échoue silencieusement (mise à jour
+     * optimiste annulée, voir handleToggleLike) est une action mineure et
+     * réversible d'un simple nouveau clic, pas la peine d'un message
+     * bloquant comme pour une annulation d'activité.
+     */
+    const [isTogglingLike, setIsTogglingLike] = useState(false);
+    /**
      * LL-EF-003 : mémorise les dépendances de la recherche précédente pour
      * distinguer, au sein du même effet, un déplacement/zoom pur de la
      * carte (seul `mapBounds` a changé) d'un changement « actif »
@@ -625,6 +664,11 @@ function App() {
             return;
         }
 
+        // Efface l'erreur d'annulation éventuelle d'une activité précédemment
+        // consultée (LL-EF-010) : sans ça, ouvrir le détail d'une autre activité
+        // après un échec d'annulation afficherait à tort le message d'erreur.
+        setCancelActivityError(null);
+
         function handleKeyDown(event: KeyboardEvent) {
             if (event.key === "Escape") {
                 setSelectedActivity(null);
@@ -726,6 +770,83 @@ function App() {
     }
 
     /**
+     * Annule une activité créée manuellement (LL-EF-010), après
+     * confirmation de l'utilisateur — même pattern que
+     * `AdminPage#handleDeleteSource`. Le bouton n'est affiché (voir le
+     * détail d'activité plus bas) que si `currentUser` est soit le
+     * créateur, soit administrateur : cette fonction ne revérifie pas ces
+     * conditions, la seule vérification qui compte reste celle du backend
+     * (`ActivityService#cancel`) — l'affichage conditionnel du bouton
+     * n'est qu'une commodité d'UI, pas une mesure de sécurité.
+     */
+    async function handleCancelActivity(activity: Activity) {
+        const confirmed = window.confirm(
+            `Annuler « ${activity.title} » ? Cette activité ne sera plus visible sur la carte.`,
+        );
+        if (!confirmed) {
+            return;
+        }
+
+        setIsCancellingActivity(true);
+        setCancelActivityError(null);
+
+        try {
+            const response = await apiFetch(`/api/v1/activities/${activity.id}/cancel`, { method: "PATCH" });
+
+            if (!response.ok) {
+                const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+                setCancelActivityError(body?.message ?? "Impossible d'annuler cette activité, réessaie.");
+                return;
+            }
+
+            // Même repli qu'après création (voir handleSubmit ci-dessus) : un refetch simple
+            // plutôt qu'un retrait local, pour rester cohérent avec l'état réel du serveur.
+            setRefreshKey((current) => current + 1);
+            setSelectedActivity(null);
+        } catch {
+            setCancelActivityError("Impossible de contacter le serveur, réessaie plus tard.");
+        } finally {
+            setIsCancellingActivity(false);
+        }
+    }
+
+    /**
+     * Like/délike une activité (LS-002). Mise à jour optimiste : l'état
+     * local (`activities` et `selectedActivity`, s'il s'agit de la même
+     * activité) est modifié avant même la réponse du serveur, pour un
+     * bouton "J'aime" réactif — contrairement à `handleCancelActivity`
+     * ci-dessus, dont l'effet (confirmation, disparition de la carte)
+     * justifie d'attendre la réponse. En cas d'échec, l'état local est
+     * annulé silencieusement (voir le commentaire sur `isTogglingLike`) :
+     * un simple nouveau clic permet de réessayer.
+     */
+    async function handleToggleLike(activity: Activity) {
+        const newLikedState = !activity.likedByCurrentUser;
+        setIsTogglingLike(true);
+        applyLikedState(activity.id, newLikedState);
+
+        try {
+            const response = await apiFetch(`/api/v1/activities/${activity.id}/like`, {
+                method: newLikedState ? "POST" : "DELETE",
+            });
+            if (!response.ok) {
+                applyLikedState(activity.id, !newLikedState);
+            }
+        } catch {
+            applyLikedState(activity.id, !newLikedState);
+        } finally {
+            setIsTogglingLike(false);
+        }
+    }
+
+    function applyLikedState(activityId: number, liked: boolean) {
+        setActivities((current) =>
+            current.map((item) => (item.id === activityId ? { ...item, likedByCurrentUser: liked } : item)));
+        setSelectedActivity((current) =>
+            current && current.id === activityId ? { ...current, likedByCurrentUser: liked } : current);
+    }
+
+    /**
      * Une ligne de la vue liste (LL-EF-008/LL-10007). La ville n'est pas
      * répétée sur chaque ligne : elle est déjà portée par l'en-tête de
      * groupe (`activity-list-city`, voir `groupActivitiesByCity`), la
@@ -807,6 +928,13 @@ function App() {
                             */}
                             <Link className="header-profile-link" to="/profile">
                                 Mon profil
+                            </Link>
+                            {/*
+                              LS-002 : accès à la liste des favoris, pour tout utilisateur
+                              connecté — même posture que le lien "Mon profil" ci-dessus.
+                            */}
+                            <Link className="header-favorites-link" to="/favorites">
+                                Mes favoris
                             </Link>
                             {/*
                               LL-EF-004 : lien affiché uniquement pour un utilisateur avec le
@@ -1093,7 +1221,31 @@ function App() {
                         role="dialog"
                     >
                         <div className="modal-header">
-                            <h2 id="activity-detail-title">{selectedActivity.title}</h2>
+                            <div className="modal-header-title">
+                                <h2 id="activity-detail-title">{selectedActivity.title}</h2>
+                                {/*
+                                  LS-002 : visible pour tout utilisateur connecté (contrairement
+                                  au bouton "Annuler" plus bas, réservé au créateur/administrateur)
+                                  — critère d'acceptation "un utilisateur non connecté ne peut pas
+                                  enregistrer de favoris", donc pas de bouton du tout pour lui.
+                                */}
+                                {currentUser && (
+                                    <button
+                                        aria-label={
+                                            selectedActivity.likedByCurrentUser
+                                                ? "Retirer des favoris"
+                                                : "Ajouter aux favoris"
+                                        }
+                                        aria-pressed={selectedActivity.likedByCurrentUser}
+                                        className="like-button"
+                                        disabled={isTogglingLike}
+                                        onClick={() => void handleToggleLike(selectedActivity)}
+                                        type="button"
+                                    >
+                                        {selectedActivity.likedByCurrentUser ? "♥" : "♡"}
+                                    </button>
+                                )}
+                            </div>
                             <button
                                 aria-label="Fermer"
                                 className="modal-close-button"
@@ -1122,6 +1274,44 @@ function App() {
                             <p className="activity-detail-row">
                                 <strong>Source :</strong> {selectedActivity.sourceName}
                             </p>
+                            {/*
+                              LL-EF-010 : uniquement pour une activité créée manuellement
+                              (createdByUsername null pour une activité importée, ou une
+                              contribution manuelle antérieure à ce ticket — voir sa
+                              déclaration sur l'interface Activity plus haut).
+                            */}
+                            {selectedActivity.createdByUsername && (
+                                <p className="activity-detail-row">
+                                    <strong>Créée par :</strong> {selectedActivity.createdByUsername}
+                                </p>
+                            )}
+                            {/*
+                              Bouton "Annuler" affiché uniquement au créateur de l'activité ou à
+                              un administrateur — vérification d'UI seulement, la vérification
+                              qui compte reste celle du backend (voir handleCancelActivity).
+                              createdBy non-null nécessaire : une activité importée n'a pas de
+                              créateur, donc jamais de bouton "Annuler" pour elle, même pour un
+                              administrateur (hors périmètre du ticket).
+                            */}
+                            {currentUser && selectedActivity.createdBy !== null
+                                && (currentUser.userId === selectedActivity.createdBy
+                                    || currentUser.role === "ADMIN") && (
+                                <div className="activity-detail-actions">
+                                    {cancelActivityError && (
+                                        <p className="activity-detail-error" role="alert">
+                                            {cancelActivityError}
+                                        </p>
+                                    )}
+                                    <button
+                                        className="cancel-activity-button"
+                                        disabled={isCancellingActivity}
+                                        onClick={() => handleCancelActivity(selectedActivity)}
+                                        type="button"
+                                    >
+                                        {isCancellingActivity ? "Annulation…" : "Annuler cette activité"}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -16,7 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Contrôleur REST pour les endpoints d'authentification.
  * Fournit POST /api/v1/auth/register (inscription), POST /api/v1/auth/login
- * (connexion) et, depuis LL-EF-007, POST /api/v1/auth/forgot-password et
+ * (connexion), POST /api/v1/auth/google (LL-EF-011, connexion/inscription
+ * via Google) et, depuis LL-EF-007, POST /api/v1/auth/forgot-password et
  * POST /api/v1/auth/reset-password (réinitialisation de mot de passe).
  */
 @RestController
@@ -60,6 +61,36 @@ public class AuthController {
     public ResponseEntity<Object> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         try {
             LoginResponse response = authService.login(request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException exception) {
+            return unauthorized(exception, httpRequest);
+        }
+    }
+
+    /**
+     * Endpoint pour la connexion ou l'inscription via Google (LL-EF-011).
+     *
+     * <p>Le corps de la requête ne contient que le token brut retourné par
+     * Google côté frontend ({@code idToken}) — jamais un email ou un nom
+     * fourni séparément : ces informations ne sont lues qu'une fois le
+     * token vérifié côté serveur (voir {@code GoogleAuthService}), jamais
+     * transmises telles quelles par le frontend (exigence explicite du
+     * ticket : « ne jamais considérer une simple adresse e-mail fournie
+     * par le frontend comme une preuve d'identité »).
+     *
+     * <p>401 plutôt que 400 en cas d'échec, même posture que
+     * {@link #login} ci-dessus : un token Google invalide/expiré est
+     * fonctionnellement un échec d'authentification, pas une erreur de
+     * saisie.
+     *
+     * @param request la requête contenant l'ID token Google
+     * @return une réponse contenant le token JWT LocalLife si l'authentification réussit
+     */
+    @PostMapping("/google")
+    public ResponseEntity<Object> loginWithGoogle(
+            @RequestBody GoogleLoginRequest request, HttpServletRequest httpRequest) {
+        try {
+            LoginResponse response = authService.loginOrRegisterWithGoogle(request.idToken());
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException exception) {
             return unauthorized(exception, httpRequest);

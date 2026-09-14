@@ -68,6 +68,23 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   que {@code POST /api/v1/users} ci-dessus : cet endpoint n'est
  *   consommé par aucun client (frontend ni mobile), un usage
  *   d'administration/support est la seule justification restante.
+ * Endpoint protégé (LL-EF-010) :
+ * - PATCH /api/v1/activities/{id}/cancel : utilisateur connecté (JWT
+ *   valide requis) — même posture que POST /api/v1/activities ci-dessus,
+ *   voir {@code ActivityController}. Pas de restriction de rôle statique
+ *   ici (contrairement aux endpoints d'administration ci-dessus) :
+ *   l'autorisation (créateur de l'activité ou administrateur) dépend de
+ *   la donnée et est vérifiée dans {@code ActivityService#cancel}, pas
+ *   exprimable par une règle {@code hasRole(...)} statique.
+ * Endpoints protégés (LS-002) :
+ * - POST/DELETE /api/v1/activities/{id}/like : utilisateur connecté (JWT
+ *   valide requis), même posture que POST /api/v1/activities ci-dessus —
+ *   voir {@code ActivityController}. Contrairement à PATCH .../cancel
+ *   ci-dessus, aucune règle métier dépendante des données ici (un
+ *   utilisateur connecté peut liker n'importe quelle activité), une
+ *   règle statique {@code authenticated()} suffit entièrement.
+ * - GET /api/v1/users/me/likes : utilisateur connecté, même principe que
+ *   GET /api/v1/users/me (LL-EF-006) — voir {@code LikeController}.
  * Tous les autres endpoints restent accessibles sans JWT (consultation
  * publique des activités/catégories, inscription/connexion).
  */
@@ -88,6 +105,10 @@ public class SecurityConfig {
                 .addFilterBefore(new JwtFilter(jwtSecret), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/activities").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/activities/*/cancel").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/activities/*/like").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/activities/*/like").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/likes").authenticated()
                         // LL-EF-006 : règles /me déclarées avant la règle générale
                         // GET /api/v1/users/{id} ci-dessous (voir la javadoc de
                         // cette classe) — l'ordre conditionne quelle règle

@@ -36,10 +36,40 @@ import java.time.LocalDateTime;
  * {@code city} : présent quand la donnée d'origine (géocodage ou source
  * importée) le fournit, {@code null} sinon, jamais déduit.
  *
+ * {@code createdBy}/{@code createdByUsername} ajoutés en LL-EF-010, même
+ * principe de résolution que {@code sourceId} → {@code sourceName}
+ * ci-dessus : {@code createdBy} (id technique, déjà sur {@link Activity})
+ * reste exposé pour que le frontend puisse comparer à l'utilisateur
+ * connecté (bouton « Annuler » affiché uniquement au créateur ou à un
+ * administrateur, voir {@code ActivityController#cancelActivity}) ;
+ * {@code createdByUsername} est le nom affiché (« Créée par : ... »,
+ * critère d'acceptation explicite du ticket). Tous deux {@code null} pour
+ * une activité importée (pas de créateur, périmètre du ticket) ou une
+ * contribution manuelle antérieure à LL-EF-010 (créateur non identifiable
+ * a posteriori) — {@code createdByUsername} peut aussi être {@code null}
+ * alors que {@code createdBy} ne l'est pas si le compte a depuis été
+ * supprimé ({@code ON DELETE SET NULL}, voir
+ * {@code V26__add_created_by_to_activity.sql} : dans ce cas précis
+ * {@code createdBy} lui-même redevient {@code null} en base, donc ce cas
+ * ne devrait pas se présenter en pratique — {@code createdByUsername}
+ * reste néanmoins nullable indépendamment, par défense en profondeur).
+ *
+ * {@code likedByCurrentUser} ajouté en LS-002 : indique si l'appelant
+ * (déduit du JWT quand présent — voir {@code ActivityController}, ces
+ * deux endpoints restant accessibles sans authentification, LL-4001)
+ * like actuellement cette activité, pour que le frontend puisse afficher
+ * l'état initial du bouton « J'aime » sans requête supplémentaire
+ * (critère d'acceptation explicite : « l'état du bouton indique si
+ * l'utilisateur a déjà liké l'événement »). Toujours {@code false} pour
+ * un appelant non authentifié — cohérent avec l'impossibilité pour un
+ * visiteur non connecté d'enregistrer un like (autre critère explicite du
+ * ticket).
+ *
  * Uniquement utilisée par {@code getNearbyActivities}/
  * {@code getActivitiesWithinBounds} (les deux endpoints qui alimentent la
- * carte) : {@code getAllActivities}/{@code getActivityById} continuent de
- * renvoyer {@link Activity} tel quel, hors périmètre de ce ticket
+ * carte) et par {@code LikeController#getLikedActivities} (LS-002) :
+ * {@code getAllActivities}/{@code getActivityById} continuent de
+ * renvoyer {@link Activity} tel quel, hors périmètre de ces tickets
  * (aucun consommateur actuel n'a besoin de {@code sourceName} sur ces
  * deux endpoints).
  */
@@ -57,9 +87,21 @@ public record ActivityResponse(
         String url,
         String address,
         String city,
-        String postalCode) {
+        String postalCode,
+        Long createdBy,
+        String createdByUsername,
+        boolean likedByCurrentUser) {
 
     public static ActivityResponse from(Activity activity, String sourceName) {
+        return from(activity, sourceName, null, false);
+    }
+
+    public static ActivityResponse from(Activity activity, String sourceName, String createdByUsername) {
+        return from(activity, sourceName, createdByUsername, false);
+    }
+
+    public static ActivityResponse from(
+            Activity activity, String sourceName, String createdByUsername, boolean likedByCurrentUser) {
         return new ActivityResponse(
                 activity.id(),
                 activity.title(),
@@ -74,6 +116,9 @@ public record ActivityResponse(
                 activity.url(),
                 activity.address(),
                 activity.city(),
-                activity.postalCode());
+                activity.postalCode(),
+                activity.createdBy(),
+                createdByUsername,
+                likedByCurrentUser);
     }
 }

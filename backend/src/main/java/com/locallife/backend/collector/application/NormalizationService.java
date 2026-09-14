@@ -140,7 +140,11 @@ public class NormalizationService {
                 collected.longDescription(),
                 collected.conditions(),
                 collected.ageMin(),
-                collected.ageMax());
+                collected.ageMax(),
+                // createdBy (LL-EF-010) : toujours null pour une activité importée —
+                // seules les contributions manuelles ont un créateur identifié, voir
+                // ActivityService#createActivity et Activity#createdBy.
+                null);
         return Optional.of(activity);
     }
 

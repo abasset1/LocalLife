@@ -72,6 +72,19 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
+        <!-- LL-EF-011 : vérification des ID tokens Google (JWT signés RS256,
+             clés publiques Google récupérées via JWKS). NimbusJwtDecoder
+             (apporté par ce starter) est l'approche officiellement recommandée
+             par Spring Security pour valider un JWT émis par un tiers (OIDC),
+             plutôt que de réimplémenter la vérification de signature/JWKS à la
+             main comme le fait JwtService pour nos propres tokens (HMAC, pas
+             de rotation de clé à gérer) — deux besoins différents, deux
+             mécanismes différents. Version gérée par spring-boot-starter-parent. -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+        </dependency>
+
         <!-- LL-EF-007 : envoi de l'email de réinitialisation de mot de passe -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -134,7 +134,7 @@ class ImportServiceTest {
         return new Activity(
                 null, "Marché de Noël", "description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED", null, null,
-                "https://example.com", null, null, null, null, null, null, null);
+                "https://example.com", null, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -186,7 +186,8 @@ class ImportServiceTest {
                     toSave.latitude(), toSave.longitude(), toSave.startDate(), toSave.endDate(),
                     toSave.status(), toSave.sourceId(), toSave.importKey(), toSave.url(),
                     toSave.address(), toSave.city(), toSave.postalCode(),
-                    toSave.longDescription(), toSave.conditions(), toSave.ageMin(), toSave.ageMax());
+                    toSave.longDescription(), toSave.conditions(), toSave.ageMin(), toSave.ageMax(),
+                    toSave.createdBy());
         });
     }
 
@@ -209,7 +210,7 @@ class ImportServiceTest {
                 42L, "Marché de Noël", "old description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED",
                 10L, "external:OpenAgenda Marseille:ext-1", "https://example.com/old",
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
                 .thenReturn(Optional.of(existing));
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of(existing));
@@ -324,7 +325,7 @@ class ImportServiceTest {
                 42L, "Marché de Noël", "description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED",
                 10L, "external:OpenAgenda Marseille:ext-1", "https://example.com",
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of(previouslyImported));
 
         // When
@@ -346,7 +347,7 @@ class ImportServiceTest {
                 42L, "Marché de Noël", "description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "ARCHIVED",
                 10L, "external:OpenAgenda Marseille:ext-1", "https://example.com",
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of(alreadyArchived));
 
         // When

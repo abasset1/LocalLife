@@ -285,4 +285,241 @@ class NonRegressionIntegrationTest {
         assertThat(filteredBody).contains(title);
     }
 
+    // --- 10. créateur affiché sur une activité créée manuellement (LL-EF-010) ---
+
+    @Test
+    void manuallyCreatedActivity_ShouldExposeCreatorUsername_InPublicSearch() {
+        // Given : une activité créée par "alice" (voir registerAndLoginAsUser), publiée par un administrateur.
+        String userToken = registerAndLoginAsUser(uniqueEmail());
+        String title = "Atelier peinture " + UUID.randomUUID();
+        Activity created = createPendingActivity(title, userToken);
+
+        restTestClient().patch().uri("/api/v1/admin/activities/" + created.id() + "/publish")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isOk();
+
+        // Then : createdByUsername ("alice", voir registerAndLoginAsUser) exposé dans la réponse publique.
+        String body = restTestClient().get()
+                .uri("/api/v1/activities/nearby?latitude=" + LATITUDE + "&longitude=" + LONGITUDE + "&radius=5")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .returnResult()
+                .getResponseBody();
+        assertThat(body).contains(title).contains("\"createdByUsername\":\"alice\"");
+    }
+
+    // --- 11. annulation par le créateur (LL-EF-010) ---
+
+    @Test
+    void creator_ShouldBeAbleToCancelTheirOwnPublishedActivity() {
+        // Given : une activité créée par "alice", publiée, donc visible publiquement.
+        String userToken = registerAndLoginAsUser(uniqueEmail());
+        String title = "Randonnée " + UUID.randomUUID();
+        Activity created = createPendingActivity(title, userToken);
+        restTestClient().patch().uri("/api/v1/admin/activities/" + created.id() + "/publish")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isOk();
+        assertThat(appearsInNearbySearch(title)).isTrue();
+
+        // When : le créateur annule son activité.
+        restTestClient().patch().uri("/api/v1/activities/" + created.id() + "/cancel")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("CANCELLED");
+
+        // Then : n'apparaît plus dans la recherche publique (statut CANCELLED, même traitement
+        // que PENDING/REJECTED — seul PUBLISHED est retourné, voir LL-6004).
+        assertThat(appearsInNearbySearch(title)).isFalse();
+    }
+
+    // --- 12. annulation refusée à un tiers (LL-EF-010) ---
+
+    @Test
+    void otherUser_ShouldBeDeniedCancellingSomeoneElsesActivity() {
+        // Given : une activité créée par "alice" (userToken), publiée.
+        String userToken = registerAndLoginAsUser(uniqueEmail());
+        String title = "Marché aux fleurs " + UUID.randomUUID();
+        Activity created = createPendingActivity(title, userToken);
+        restTestClient().patch().uri("/api/v1/admin/activities/" + created.id() + "/publish")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isOk();
+
+        // When : un second utilisateur, ni créateur ni administrateur, tente d'annuler.
+        String otherUserToken = registerAndLoginAsUser(uniqueEmail());
+        restTestClient().patch().uri("/api/v1/activities/" + created.id() + "/cancel")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherUserToken)
+                .exchange()
+                .expectStatus().isForbidden();
+
+        // Then : reste visible publiquement, inchangée.
+        assertThat(appearsInNearbySearch(title)).isTrue();
+    }
+
+    // --- 13. annulation par un administrateur, même sans être le créateur (LL-EF-010) ---
+
+    @Test
+    void admin_ShouldBeAbleToCancelAnyonesActivity() {
+        // Given : une activité créée par "alice", publiée.
+        String userToken = registerAndLoginAsUser(uniqueEmail());
+        String title = "Salon du livre " + UUID.randomUUID();
+        Activity created = createPendingActivity(title, userToken);
+        restTestClient().patch().uri("/api/v1/admin/activities/" + created.id() + "/publish")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isOk();
+
+        // When : un administrateur (pas le créateur) annule.
+        restTestClient().patch().uri("/api/v1/activities/" + created.id() + "/cancel")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("CANCELLED");
+
+        // Then
+        assertThat(appearsInNearbySearch(title)).isFalse();
+    }
+
+    // --- 14. liker/déliker une activité (LS-002) ---
+
+    @Test
+    void user_ShouldBeAbleToLikeAndUnlikeAPublishedActivity() {
+        // Given : une activité publiée, visible publiquement.
+        String creatorToken = registerAndLoginAsUser(uniqueEmail());
+        String title = "Exposition photo " + UUID.randomUUID();
+        Activity created = createPendingActivity(title, creatorToken);
+        restTestClient().patch().uri("/api/v1/admin/activities/" + created.id() + "/publish")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isOk();
+
+        // When : un second utilisateur like l'activité.
+        String likerToken = registerAndLoginAsUser(uniqueEmail());
+        restTestClient().post().uri("/api/v1/activities/" + created.id() + "/like")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + likerToken)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.liked").isEqualTo(true);
+
+        // Then : apparaît dans ses favoris.
+        String favoritesBody = restTestClient().get().uri("/api/v1/users/me/likes")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + likerToken)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .returnResult()
+                .getResponseBody();
+        assertThat(favoritesBody).contains(title).contains("\"likedByCurrentUser\":true");
+
+        // When : il retire son like.
+        restTestClient().delete().uri("/api/v1/activities/" + created.id() + "/like")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + likerToken)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.liked").isEqualTo(false);
+
+        // Then : ne figure plus dans ses favoris.
+        String favoritesAfterUnlike = restTestClient().get().uri("/api/v1/users/me/likes")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + likerToken)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .returnResult()
+                .getResponseBody();
+        assertThat(favoritesAfterUnlike).doesNotContain(title);
+    }
+
+    @Test
+    void like_ShouldReturnNotFound_WhenActivityDoesNotExist() {
+        String userToken = registerAndLoginAsUser(uniqueEmail());
+
+        restTestClient().post().uri("/api/v1/activities/999999999/like")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void like_ShouldReturnUnauthorized_WhenNotAuthenticated() {
+        restTestClient().post().uri("/api/v1/activities/1/like")
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void like_ShouldBeIdempotent_WhenCalledTwice() {
+        // Given
+        String creatorToken = registerAndLoginAsUser(uniqueEmail());
+        String title = "Brocante " + UUID.randomUUID();
+        Activity created = createPendingActivity(title, creatorToken);
+        restTestClient().patch().uri("/api/v1/admin/activities/" + created.id() + "/publish")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isOk();
+        String likerToken = registerAndLoginAsUser(uniqueEmail());
+
+        // When : deux appels successifs.
+        restTestClient().post().uri("/api/v1/activities/" + created.id() + "/like")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + likerToken)
+                .exchange()
+                .expectStatus().isOk();
+        restTestClient().post().uri("/api/v1/activities/" + created.id() + "/like")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + likerToken)
+                .exchange()
+                .expectStatus().isOk();
+
+        // Then : un seul favori, pas d'erreur ni de doublon.
+        String favoritesBody = restTestClient().get().uri("/api/v1/users/me/likes")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + likerToken)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .returnResult()
+                .getResponseBody();
+        long occurrences = favoritesBody.split(java.util.regex.Pattern.quote(title), -1).length - 1;
+        assertThat(occurrences).isEqualTo(1);
+    }
+
+    @Test
+    void likedActivity_ShouldDisappearFromFavorites_WhenCancelledByCreator() {
+        // Given : "alice" like sa propre activité, qu'elle annule ensuite (LL-EF-010).
+        String userToken = registerAndLoginAsUser(uniqueEmail());
+        String title = "Vide-grenier " + UUID.randomUUID();
+        Activity created = createPendingActivity(title, userToken);
+        restTestClient().patch().uri("/api/v1/admin/activities/" + created.id() + "/publish")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isOk();
+        restTestClient().post().uri("/api/v1/activities/" + created.id() + "/like")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
+                .exchange()
+                .expectStatus().isOk();
+
+        // When : l'activité est annulée.
+        restTestClient().patch().uri("/api/v1/activities/" + created.id() + "/cancel")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
+                .exchange()
+                .expectStatus().isOk();
+
+        // Then : ne figure plus dans les favoris (critère d'acceptation explicite du
+        // ticket), bien que le like lui-même reste en base (voir
+        // ActivityRepository#findLikedByUserId).
+        String favoritesBody = restTestClient().get().uri("/api/v1/users/me/likes")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .returnResult()
+                .getResponseBody();
+        assertThat(favoritesBody).doesNotContain(title);
+    }
+
 }

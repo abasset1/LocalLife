@@ -84,4 +84,36 @@ class AuthControllerTest {
         assertEquals("Email ou mot de passe incorrect", body.message());
     }
 
+    // --- loginWithGoogle (LL-EF-011) ---
+
+    @Test
+    void loginWithGoogle_ShouldReturnOk_WithToken() {
+        when(authService.loginOrRegisterWithGoogle("valid-id-token"))
+                .thenReturn(new LoginResponse("un.jwt.token"));
+
+        ResponseEntity<Object> response = authController.loginWithGoogle(
+                new GoogleLoginRequest("valid-id-token"), httpServletRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        LoginResponse body = assertInstanceOf(LoginResponse.class, response.getBody());
+        assertEquals("un.jwt.token", body.token());
+    }
+
+    @Test
+    void loginWithGoogle_ShouldReturnUnauthorized_WhenTokenIsInvalid() {
+        // Même posture que login() classique : un token Google invalide est un échec
+        // d'authentification (401), pas une erreur de saisie (voir la javadoc du
+        // contrôleur pour le détail de ce choix).
+        when(authService.loginOrRegisterWithGoogle("bad-token"))
+                .thenThrow(new IllegalArgumentException("Token Google invalide ou expiré."));
+        when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/auth/google");
+
+        ResponseEntity<Object> response = authController.loginWithGoogle(
+                new GoogleLoginRequest("bad-token"), httpServletRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        ErrorResponse body = assertInstanceOf(ErrorResponse.class, response.getBody());
+        assertEquals("Token Google invalide ou expiré.", body.message());
+    }
+
 }

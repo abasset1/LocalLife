@@ -251,4 +251,32 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      */
     List<Activity> findByStatus(String status);
 
+    /**
+     * Activités likées par un utilisateur (LS-002), les plus
+     * récemment likées en premier. Vit ici plutôt que sur
+     * {@code ActivityLikeRepository} (module {@code like}) : la sortie
+     * est une {@link Activity} complète (le module {@code like} ne
+     * dépend d'aucun autre module au niveau du domaine, voir la javadoc
+     * de {@code ActivityLike}) — cette requête est un besoin de lecture
+     * côté {@code activity}, pas une opération sur la relation de like
+     * elle-même.
+     *
+     * Filtre {@code status = 'PUBLISHED'} : répond au critère
+     * d'acceptation « si un événement liké est annulé [...] il ne doit
+     * plus apparaître comme événement actif » (voir aussi
+     * {@code V29__create_activity_likes_table.sql}) — le like lui-même
+     * n'est pas supprimé quand l'activité passe {@code CANCELLED} (ou
+     * tout statut non {@code PUBLISHED}), simplement filtré ici à la
+     * lecture ; il réapparaîtrait naturellement si l'activité était de
+     * nouveau publiée (aucune fonctionnalité de ce type n'existe
+     * actuellement, mais rien n'empêche cette requête de le refléter).
+     */
+    @Query("""
+            SELECT a.* FROM activity a
+            JOIN activity_likes l ON l.activity_id = a.id
+            WHERE l.user_id = :userId AND a.status = 'PUBLISHED'
+            ORDER BY l.created_at DESC
+            """)
+    List<Activity> findLikedByUserId(@Param("userId") Long userId);
+
 }

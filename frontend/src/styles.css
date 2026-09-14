@@ -196,9 +196,31 @@ body {
     border-bottom: 1px solid #e2e8f0;
 }
 
+.modal-header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
 .modal-header h2 {
     margin: 0;
     font-size: 1.1rem;
+}
+
+/* LS-002 : bouton "J'aime" dans l'en-tête du détail d'activité. */
+.like-button {
+    border: none;
+    background: none;
+    font-size: 1.3rem;
+    line-height: 1;
+    color: #dc2626;
+    cursor: pointer;
+    padding: 0.1rem 0.25rem;
+}
+
+.like-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .modal-close-button {
@@ -403,6 +425,42 @@ body {
     color: #1e293b;
 }
 
+/* LL-EF-010 : bouton d'annulation et message d'erreur associé, dans le détail d'activité ci-dessus. */
+.activity-detail-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.activity-detail-error {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #dc2626;
+}
+
+.cancel-activity-button {
+    align-self: flex-start;
+    padding: 0.5rem 1rem;
+    border: 1px solid #dc2626;
+    border-radius: 0.4rem;
+    background: #fff;
+    color: #dc2626;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.cancel-activity-button:hover {
+    background: #fef2f2;
+}
+
+.cancel-activity-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .auth-shell {
     display: flex;
     align-items: center;
@@ -454,15 +512,40 @@ body {
     color: #64748b;
 }
 
+/* LL-EF-011 : séparateur entre le formulaire classique et GoogleSignInButton. */
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.4rem 0;
+    color: #94a3b8;
+    font-size: 0.8rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background-color: #e2e8f0;
+}
+
+.google-signin-button {
+    display: flex;
+    justify-content: center;
+}
+
 .header-admin-link,
-.header-profile-link {
+.header-profile-link,
+.header-favorites-link {
     font-size: 0.9rem;
     color: #2563eb;
     text-decoration: none;
 }
 
 .header-admin-link:hover,
-.header-profile-link:hover {
+.header-profile-link:hover,
+.header-favorites-link:hover {
     text-decoration: underline;
 }
 
@@ -736,5 +819,69 @@ body {
 .admin-approve-button:disabled,
 .admin-reject-button:disabled {
     opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* LS-002 : page "Mes favoris". */
+.favorites-content {
+    padding: 1.25rem 1.5rem;
+    max-width: 640px;
+}
+
+.favorites-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.favorites-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.favorites-list-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+    border: none;
+    background: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+}
+
+.favorites-list-item-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.favorites-list-item-meta {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.favorites-list-item-remove {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    font-size: 1.2rem;
+    color: #dc2626;
+    cursor: pointer;
+    padding: 0.25rem;
+}
+
+.favorites-list-item-remove:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
 }

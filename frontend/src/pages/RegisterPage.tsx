@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 
 interface ApiErrorBody {
     message: string;
@@ -78,6 +79,10 @@ function RegisterPage() {
                     Créer mon compte
                 </button>
                 {error && <span className="form-message form-message-error">{error}</span>}
+                <div className="auth-divider">
+                    <span>ou</span>
+                </div>
+                <GoogleSignInButton onError={setError} />
                 <p className="auth-switch">
                     Déjà un compte ? <Link to="/login">Se connecter</Link>
                 </p>

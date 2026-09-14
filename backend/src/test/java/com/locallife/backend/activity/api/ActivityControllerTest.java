@@ -1,12 +1,18 @@
 package com.locallife.backend.activity.api;
 
+import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.geocoding.application.AddressNotFoundException;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
+import com.locallife.backend.like.application.LikeService;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
+import com.locallife.backend.user.application.UserService;
+import com.locallife.backend.user.domain.Role;
+import com.locallife.backend.user.domain.User;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,6 +27,7 @@ import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,10 +40,29 @@ class ActivityControllerTest {
     private SourceService sourceService;
 
     @Mock
+    private UserService userService;
+
+    @Mock
+    private LikeService likeService;
+
+    @Mock
     private HttpServletRequest httpRequest;
 
     @InjectMocks
     private ActivityController activityController;
+
+    /**
+     * Instance réelle plutôt qu'un mock Mockito (même pattern que
+     * {@code UserControllerTest}) : {@link JwtAuthentication} est un
+     * simple porte-valeurs, pas la peine de le mocker. Utilisateur non-admin
+     * par défaut ; voir {@link #adminAuthentication} pour les tests LL-EF-010
+     * nécessitant un administrateur.
+     */
+    private final JwtAuthentication authentication =
+            new JwtAuthentication(7L, "contributor@example.com", Role.USER);
+
+    private final JwtAuthentication adminAuthentication =
+            new JwtAuthentication(99L, "admin@example.com", Role.ADMIN);
 
     @Test
     void getAllActivities_ShouldReturnListOfActivities() {
@@ -44,10 +70,10 @@ class ActivityControllerTest {
         List<Activity> activities = List.of(
                 new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
                         LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
-                        null, null, null, null),
+                        null, null, null, null, null),
                 new Activity(2L, "Another Activity", "Another Description", "Another Category", 1.0, 1.0,
                         LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
-                        null, null, null, null)
+                        null, null, null, null, null)
         );
         when(activityService.findAll(null, null)).thenReturn(activities);
 
@@ -78,7 +104,7 @@ class ActivityControllerTest {
         // qui porte toute la logique de normalisation/validation (même approche que getNearbyActivities).
         Activity activity = new Activity(1L, "Marché", "Description", "marché", 43.9493, 4.8055,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, "Place Pie", "Avignon", "84000",
-                null, null, null, null);
+                null, null, null, null, null);
         when(activityService.findAll("Avignon", "city,date")).thenReturn(List.of(activity));
 
         // When
@@ -110,7 +136,7 @@ class ActivityControllerTest {
         // Given
         Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
                 LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
-                null, null, null, null);
+                null, null, null, null, null);
         when(activityService.findById(1L)).thenReturn(Optional.of(activity));
 
         // When
@@ -138,16 +164,16 @@ class ActivityControllerTest {
     void createActivity_ShouldReturnCreated_WithActivity() {
         // Given
         Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
-                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null);
+                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
         when(activityService.createActivity(
-                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null))
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
                 .thenReturn(created);
 
         // When
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null),
-                httpRequest);
+                authentication, httpRequest);
 
         // Then
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
@@ -157,32 +183,52 @@ class ActivityControllerTest {
     }
 
     @Test
+    void createActivity_ShouldPassCreatedByFromAuthentication_ToService() {
+        // LL-EF-010 : createdBy provient exclusivement du JWT (JwtAuthentication),
+        // jamais d'un champ du corps de requête — même principe que UserController
+        // pour userId (voir sa javadoc).
+        Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
+                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
+        when(activityService.createActivity(
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
+                .thenReturn(created);
+
+        activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null),
+                authentication, httpRequest);
+
+        verify(activityService).createActivity(
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L);
+    }
+
+    @Test
     void createActivity_ShouldPassStartAndEndDate_WhenProvided() {
         // Given : demande Alex — startDate/endDate saisis manuellement transmis tels quels au service.
         Activity created = new Activity(1L, "Festival", "desc", "loisir", 43.29, 5.37,
                 LocalDateTime.of(2026, 9, 20, 0, 0), LocalDateTime.of(2026, 9, 22, 0, 0),
-                "PENDING", 1L, null, null, null, null, null, null, null, null, null);
+                "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
         when(activityService.createActivity(
-                "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22"))
+                "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22", 7L))
                 .thenReturn(created);
 
         // When
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22"),
-                httpRequest);
+                authentication, httpRequest);
 
         // Then
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         verify(activityService).createActivity(
-                "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22");
+                "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22", 7L);
     }
 
     @Test
     void createActivity_ShouldReturnBadRequest_WhenAddressNotFound() {
         // Given
         when(activityService.createActivity(
-                "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue", null, null))
+                "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue", null, null, 7L))
                 .thenThrow(new AddressNotFoundException("adresse inconnue"));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities");
 
@@ -190,7 +236,7 @@ class ActivityControllerTest {
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue", null, null),
-                httpRequest);
+                authentication, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -201,7 +247,7 @@ class ActivityControllerTest {
     void createActivity_ShouldReturnServiceUnavailable_WhenGeocodingFails() {
         // Given
         when(activityService.createActivity(
-                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix", null, null))
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix", null, null, 7L))
                 .thenThrow(new GeocodingUnavailableException(new RuntimeException("timeout")));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities");
 
@@ -209,7 +255,7 @@ class ActivityControllerTest {
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix", null, null),
-                httpRequest);
+                authentication, httpRequest);
 
         // Then
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
@@ -220,7 +266,7 @@ class ActivityControllerTest {
     void getNearbyActivities_ShouldReturnOk_WithActivities() {
         // Given
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null);
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
@@ -228,7 +274,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, httpRequest);
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, null, httpRequest);
 
         // Then
         // LL-8006 : sourceId (technique) est résolu en sourceName (lisible) dans la réponse.
@@ -237,17 +283,65 @@ class ActivityControllerTest {
     }
 
     @Test
+    void getNearbyActivities_ShouldResolveCreatedByUsername_WhenActivityWasManuallyCreated() {
+        // LL-EF-010 : createdBy (id technique) résolu en createdByUsername (nom affiché,
+        // « Créée par : ... »), même principe que sourceId -> sourceName (LL-8006).
+        Activity nearby = new Activity(1L, "Pique-nique", "Description", "loisir", 43.29, 5.37,
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null,
+                42L);
+        Source source = new Source(1L, "MANUAL", "MANUAL", null, "ACTIVE", null, null, null);
+        User creator = new User(42L, "jean.dupont", "jean@example.com", null, Role.USER, null);
+        when(activityService.findNearby("43.2951", "5.3739", "5", "loisir", "2026-09-05", null))
+                .thenReturn(List.of(nearby));
+        when(sourceService.getAllSources()).thenReturn(List.of(source));
+        when(userService.getUserById(42L)).thenReturn(Optional.of(creator));
+
+        // When
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                "43.2951", "5.3739", "5", "loisir", "2026-09-05", null, null, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(
+                List.of(ActivityResponse.from(nearby, "MANUAL", "jean.dupont")),
+                response.getBody());
+    }
+
+    @Test
+    void getNearbyActivities_ShouldLeaveCreatedByUsernameNull_WhenActivityHasNoCreator() {
+        // Activité importée (createdBy null, hors périmètre LL-EF-010) : pas d'appel
+        // inutile à userService pour un id qui n'existe pas.
+        Activity imported = new Activity(1L, "Marché", "Description", "marché", 43.29, 5.37,
+                LocalDateTime.now(), null, "PUBLISHED", 2L, "external:key", null, null, null, null, null, null,
+                null, null, null);
+        Source source = new Source(2L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null,
+                null, null);
+        when(activityService.findNearby("43.2951", "5.3739", "5", "marché", "2026-09-05", null))
+                .thenReturn(List.of(imported));
+        when(sourceService.getAllSources()).thenReturn(List.of(source));
+
+        // When
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                "43.2951", "5.3739", "5", "marché", "2026-09-05", null, null, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(List.of(ActivityResponse.from(imported, "OpenAgenda — Avignon")), response.getBody());
+        verifyNoInteractions(userService);
+    }
+
+    @Test
     void getNearbyActivities_ShouldReturnUnknownSourceName_WhenSourceNotFound() {
         // Given : sourceId référencé par l'activité absent des sources connues (cas défensif LL-8006).
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED", 99L, null, null, null, null, null, null, null, null, null);
+                LocalDateTime.now(), null, "PUBLISHED", 99L, null, null, null, null, null, null, null, null, null, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
         when(sourceService.getAllSources()).thenReturn(List.of());
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, httpRequest);
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -263,7 +357,7 @@ class ActivityControllerTest {
         // démontrait pas la propagation d'une valeur réelle.
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null,
-                "Quai du Port", "Marseille", "13002", null, null, null, null);
+                "Quai du Port", "Marseille", "13002", null, null, null, null, null);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
@@ -271,7 +365,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, httpRequest);
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -294,7 +388,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                null, "5.3739", "5", null, null, null, httpRequest);
+                null, "5.3739", "5", null, null, null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -311,7 +405,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", null, "05/09/2026", null, httpRequest);
+                "43.2951", "5.3739", "5", null, "05/09/2026", null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -323,14 +417,14 @@ class ActivityControllerTest {
         // LL-11003 : le contrôleur transmet simplement dateTo au service, qui porte
         // toute la validation (voir ActivityServiceTest pour le détail des cas).
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null);
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", "2026-09-10"))
                 .thenReturn(List.of(nearby));
         when(sourceService.getAllSources()).thenReturn(List.of(source));
 
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", "concert", "2026-09-05", "2026-09-10", httpRequest);
+                "43.2951", "5.3739", "5", "concert", "2026-09-05", "2026-09-10", null, httpRequest);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(List.of(ActivityResponse.from(nearby, "OpenAgenda — Avignon")), response.getBody());
@@ -346,7 +440,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getNearbyActivities(
-                "43.2951", "5.3739", "5", null, "2026-09-10", "2026-09-05", httpRequest);
+                "43.2951", "5.3739", "5", null, "2026-09-10", "2026-09-05", null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -357,7 +451,7 @@ class ActivityControllerTest {
     void getActivitiesWithinBounds_ShouldReturnOk_WithActivities() {
         // Given
         Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null);
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findWithinBounds(
                 "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null))
@@ -366,7 +460,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null, httpRequest);
+                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null, null, httpRequest);
 
         // Then
         // LL-8006 : sourceId (technique) est résolu en sourceName (lisible) dans la réponse.
@@ -380,7 +474,7 @@ class ActivityControllerTest {
         // pour le second endpoint concerné par le contrat LOCATION_CONTRACT.md.
         Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null,
-                "Quai du Port", "Marseille", "13002", null, null, null, null);
+                "Quai du Port", "Marseille", "13002", null, null, null, null, null);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findWithinBounds(
                 "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null))
@@ -389,7 +483,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null, httpRequest);
+                "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -410,7 +504,7 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                null, "5.35", "43.31", "5.40", null, null, null, httpRequest);
+                null, "5.35", "43.31", "5.40", null, null, null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -427,10 +521,177 @@ class ActivityControllerTest {
 
         // When
         ResponseEntity<Object> response = activityController.getActivitiesWithinBounds(
-                "43.31", "5.35", "43.31", "5.40", null, null, null, httpRequest);
+                "43.31", "5.35", "43.31", "5.40", null, null, null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals(HttpStatus.BAD_REQUEST.value(), ((ErrorResponse) response.getBody()).status());
+    }
+
+    // --- cancelActivity (LL-EF-010) ---
+
+    @Test
+    void cancelActivity_ShouldReturnOk_WhenRequestedByCreator() {
+        // Given
+        Activity cancelled = new Activity(1L, "Pique-nique", "desc", "loisir", 43.29, 5.37,
+                LocalDateTime.now(), null, "CANCELLED", 1L, null, null, null, null, null, null, null, null, null,
+                7L);
+        when(activityService.cancel(1L, 7L, false)).thenReturn(Optional.of(cancelled));
+
+        // When
+        ResponseEntity<Object> response = activityController.cancelActivity(1L, authentication, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("CANCELLED", ((Activity) response.getBody()).status());
+    }
+
+    @Test
+    void cancelActivity_ShouldPassIsAdminTrue_WhenRequesterIsAdmin() {
+        // LL-EF-010 : un administrateur peut annuler même sans être le créateur —
+        // le contrôleur transmet isAdmin=true au service, qui porte la vérification.
+        Activity cancelled = new Activity(1L, "Pique-nique", "desc", "loisir", 43.29, 5.37,
+                LocalDateTime.now(), null, "CANCELLED", 1L, null, null, null, null, null, null, null, null, null,
+                7L);
+        when(activityService.cancel(1L, 99L, true)).thenReturn(Optional.of(cancelled));
+
+        // When
+        ResponseEntity<Object> response = activityController.cancelActivity(1L, adminAuthentication, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(activityService).cancel(1L, 99L, true);
+    }
+
+    @Test
+    void cancelActivity_ShouldReturnNotFound_WhenActivityDoesNotExist() {
+        // Given
+        when(activityService.cancel(99L, 7L, false)).thenReturn(Optional.empty());
+
+        // When
+        ResponseEntity<Object> response = activityController.cancelActivity(99L, authentication, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    }
+
+    @Test
+    void cancelActivity_ShouldReturnBadRequest_WhenActivityHasNoCreator() {
+        // Given
+        when(activityService.cancel(1L, 7L, false))
+                .thenThrow(new IllegalArgumentException("L'activité 1 n'a pas de créateur identifié."));
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/1/cancel");
+
+        // When
+        ResponseEntity<Object> response = activityController.cancelActivity(1L, authentication, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST.value(), ((ErrorResponse) response.getBody()).status());
+    }
+
+    @Test
+    void cancelActivity_ShouldReturnForbidden_WhenRequesterIsNeitherCreatorNorAdmin() {
+        // Given
+        when(activityService.cancel(1L, 7L, false))
+                .thenThrow(new ActivityAccessDeniedException(
+                        "Seul le créateur de l'activité 1 ou un administrateur peut l'annuler."));
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/1/cancel");
+
+        // When
+        ResponseEntity<Object> response = activityController.cancelActivity(1L, authentication, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals(HttpStatus.FORBIDDEN.value(), ((ErrorResponse) response.getBody()).status());
+    }
+
+    // --- likedByCurrentUser sur /nearby (LS-002) ---
+
+    @Test
+    void getNearbyActivities_ShouldSetLikedByCurrentUserTrue_WhenAuthenticatedAndActivityIsLiked() {
+        // Given
+        Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null,
+                null);
+        Source source = new Source(1L, "MANUAL", "MANUAL", null, "ACTIVE", null, null, null);
+        when(activityService.findNearby("43.2951", "5.3739", "5", null, null, null))
+                .thenReturn(List.of(nearby));
+        when(sourceService.getAllSources()).thenReturn(List.of(source));
+        when(likeService.findLikedActivityIds(7L, List.of(1L))).thenReturn(List.of(1L));
+
+        // When : authentication (userId=7L) plutôt que null, contrairement aux autres tests
+        // getNearbyActivities_* ci-dessus qui simulent un appelant anonyme.
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                "43.2951", "5.3739", "5", null, null, null, authentication, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        @SuppressWarnings("unchecked")
+        List<ActivityResponse> body = (List<ActivityResponse>) response.getBody();
+        assertEquals(true, body.get(0).likedByCurrentUser());
+    }
+
+    @Test
+    void getNearbyActivities_ShouldSetLikedByCurrentUserFalse_WhenAnonymous() {
+        // Given : appelant anonyme (authentication == null dans ce test unitaire — un
+        // AnonymousAuthenticationToken en conditions réelles, voir la javadoc de
+        // ActivityController#withSourceNames) : ne doit jamais appeler likeService.
+        Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null,
+                null);
+        Source source = new Source(1L, "MANUAL", "MANUAL", null, "ACTIVE", null, null, null);
+        when(activityService.findNearby("43.2951", "5.3739", "5", null, null, null))
+                .thenReturn(List.of(nearby));
+        when(sourceService.getAllSources()).thenReturn(List.of(source));
+
+        // When
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                "43.2951", "5.3739", "5", null, null, null, null, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        @SuppressWarnings("unchecked")
+        List<ActivityResponse> body = (List<ActivityResponse>) response.getBody();
+        assertEquals(false, body.get(0).likedByCurrentUser());
+        verifyNoInteractions(likeService);
+    }
+
+    // --- likeActivity / unlikeActivity (LS-002) ---
+
+    @Test
+    void likeActivity_ShouldReturnOkWithLikedTrue_WhenSuccessful() {
+        // Given
+        when(likeService.like(7L, 1L)).thenReturn(true);
+
+        // When
+        ResponseEntity<Object> response = activityController.likeActivity(1L, authentication);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(new ActivityController.LikeStatusResponse(true), response.getBody());
+    }
+
+    @Test
+    void likeActivity_ShouldReturnNotFound_WhenActivityDoesNotExist() {
+        // Given
+        when(likeService.like(7L, 99L)).thenReturn(false);
+
+        // When
+        ResponseEntity<Object> response = activityController.likeActivity(99L, authentication);
+
+        // Then
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    }
+
+    @Test
+    void unlikeActivity_ShouldReturnOkWithLikedFalse() {
+        // When
+        ResponseEntity<Object> response = activityController.unlikeActivity(1L, authentication);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(new ActivityController.LikeStatusResponse(false), response.getBody());
+        verify(likeService).unlike(7L, 1L);
     }
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { saveToken } from "../auth/authStorage";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 
 interface ApiErrorBody {
     message: string;
@@ -68,6 +69,10 @@ function LoginPage() {
                     Se connecter
                 </button>
                 {error && <span className="form-message form-message-error">{error}</span>}
+                <div className="auth-divider">
+                    <span>ou</span>
+                </div>
+                <GoogleSignInButton onError={setError} />
                 <p className="auth-switch">
                     <Link to="/forgot-password">Mot de passe oublié ?</Link>
                 </p>

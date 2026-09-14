@@ -3,8 +3,11 @@ package com.locallife.backend.auth.application;
 import com.locallife.backend.auth.api.LoginRequest;
 import com.locallife.backend.auth.api.LoginResponse;
 import com.locallife.backend.user.application.PasswordHashingService;
+import com.locallife.backend.user.domain.AuthProvider;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
+import com.locallife.backend.user.domain.UserIdentity;
+import com.locallife.backend.user.infrastructure.UserIdentityRepository;
 import com.locallife.backend.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -22,16 +25,22 @@ public class AuthService {
     private static final int MIN_PASSWORD_LENGTH = 8;
 
     private final UserRepository userRepository;
+    private final UserIdentityRepository userIdentityRepository;
     private final JwtService jwtService;
     private final PasswordHashingService passwordHashingService;
+    private final GoogleAuthService googleAuthService;
 
     public AuthService(
             UserRepository userRepository,
+            UserIdentityRepository userIdentityRepository,
             JwtService jwtService,
-            PasswordHashingService passwordHashingService) {
+            PasswordHashingService passwordHashingService,
+            GoogleAuthService googleAuthService) {
         this.userRepository = userRepository;
+        this.userIdentityRepository = userIdentityRepository;
         this.jwtService = jwtService;
         this.passwordHashingService = passwordHashingService;
+        this.googleAuthService = googleAuthService;
     }
 
     /**
@@ -107,12 +116,88 @@ public class AuthService {
 
         User user = userOptional.get();
 
-        if (user.passwordHash() == null
+        // isBlank() (LL-EF-011), pas seulement == null : un compte créé exclusivement via
+        // Google (voir #loginOrRegisterWithGoogle) a passwordHash = "" (jamais null, la
+        // colonne reste NOT NULL — voir V6__add_password_hash_and_role_to_users.sql, aucune
+        // migration nécessaire pour ce ticket) puisqu'aucun mot de passe LocalLife ne lui a
+        // jamais été demandé (exigence explicite du ticket). Sans cette garde,
+        // passwordHashingService.matches(...) lèverait une IllegalArgumentException interne
+        // à BCrypt ("Invalid salt version", chaîne "" n'étant pas un hash BCrypt valide) au
+        // lieu du rejet propre attendu ici — un 500 plutôt qu'un 401 pour toute tentative de
+        // login classique sur un compte Google-only.
+        if (user.passwordHash() == null || user.passwordHash().isBlank()
                 || !passwordHashingService.matches(request.password(), user.passwordHash())) {
             throw new IllegalArgumentException("Email ou mot de passe incorrect");
         }
 
-        String token = jwtService.generateToken(user.id(), user.email(), user.role());
-        return new LoginResponse(token);
+        return new LoginResponse(issueToken(user));
+    }
+
+    /**
+     * Authentifie ou inscrit un utilisateur via Google (LL-EF-011,
+     * OpenID Connect) : vérifie le token auprès de {@link GoogleAuthService}
+     * (signature, émetteur, audience, email vérifié — voir sa javadoc),
+     * puis :
+     * <ol>
+     *   <li>si une {@link UserIdentity} {@code GOOGLE} existe déjà pour ce
+     *       compte Google précis (son {@code sub}), authentifie l'utilisateur
+     *       associé ;</li>
+     *   <li>sinon, si un compte LocalLife existe déjà pour l'email Google
+     *       vérifié (inscription classique préalable), associe cette
+     *       nouvelle identité à ce compte plutôt que d'en créer un
+     *       second — critère d'acceptation explicite du ticket (« si un
+     *       compte existe déjà et peut être associé de manière fiable,
+     *       l'utilisateur est connecté à celui-ci »), fiable ici
+     *       précisément parce que l'email a été vérifié par Google, pas
+     *       simplement fourni par le frontend ;</li>
+     *   <li>sinon, crée un nouveau compte {@code USER} — {@code
+     *       passwordHash} vide (voir {@link #login} ci-dessus pour la
+     *       garde associée), aucun mot de passe LocalLife n'étant demandé
+     *       pour ce compte (exigence explicite du ticket) — puis
+     *       l'{@link UserIdentity} correspondante.</li>
+     * </ol>
+     *
+     * Nom d'utilisateur d'un compte nouvellement créé : repli sur la
+     * partie locale de l'email si Google n'a pas fourni de nom affiché
+     * (claim {@code name} absent) — {@code username} restant {@code NOT
+     * NULL} sur {@code users} (voir {@code V4__create_users_table.sql})
+     * sans être encore garanti unique à ce stade du projet (LL-EF-017 non
+     * traité), aucune vérification d'unicité n'est donc faite ici, à
+     * l'identique de {@link #register} ci-dessus.
+     *
+     * @throws IllegalArgumentException si {@link GoogleAuthService#verify}
+     *         rejette le token (voir sa javadoc pour le détail des cas).
+     */
+    public LoginResponse loginOrRegisterWithGoogle(String idToken) {
+        GoogleAuthService.GoogleIdentity identity = googleAuthService.verify(idToken);
+
+        Optional<UserIdentity> existingIdentity =
+                userIdentityRepository.findByProviderAndProviderUserId(AuthProvider.GOOGLE, identity.sub());
+        if (existingIdentity.isPresent()) {
+            User user = userRepository.findById(existingIdentity.get().userId())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "UserIdentity " + existingIdentity.get().id() + " référence un utilisateur inexistant "
+                                    + "(" + existingIdentity.get().userId() + ") — cohérence référentielle "
+                                    + "violée malgré la contrainte ON DELETE CASCADE."));
+            return new LoginResponse(issueToken(user));
+        }
+
+        User user = userRepository.findByEmail(identity.email())
+                .orElseGet(() -> userRepository.save(new User(
+                        null,
+                        identity.name() != null ? identity.name() : identity.email().split("@")[0],
+                        identity.email(),
+                        "",
+                        Role.USER,
+                        LocalDateTime.now())));
+
+        userIdentityRepository.save(new UserIdentity(null, user.id(), AuthProvider.GOOGLE, identity.sub(),
+                LocalDateTime.now()));
+
+        return new LoginResponse(issueToken(user));
+    }
+
+    private String issueToken(User user) {
+        return jwtService.generateToken(user.id(), user.email(), user.role());
     }
 }

@@ -104,6 +104,27 @@ import org.springframework.data.annotation.Id;
  * le formulaire ne les demande pas encore ; import : présents seulement
  * si la source les fournit) — critère d'acceptation « conservées lorsqu'
  * elles existent », pas « toujours requises ».
+ *
+ * {@code createdBy} ajouté en LL-EF-010 (référence vers {@code users.id},
+ * relation plutôt que copie du nom/email — voir la section « Architecture »
+ * du ticket, et {@code V26__add_created_by_to_activity.sql} pour le détail
+ * de cette décision) : identifie le créateur d'une activité saisie
+ * manuellement, à la fois pour l'afficher (« Créée par : ... ») et pour
+ * autoriser son créateur — ou un administrateur — à l'annuler, voir
+ * {@code ActivityService#cancel}. {@code null} pour toute activité
+ * importée (périmètre du ticket, seules les créations manuelles sont
+ * concernées) ainsi que pour les activités manuelles créées avant ce
+ * ticket (créateur non identifiable a posteriori). {@code CANCELLED}
+ * ajouté à la même occasion aux statuts possibles ci-dessus (transition
+ * {@code PENDING → CANCELLED} ou {@code PUBLISHED → CANCELLED}, voir
+ * {@code ActivityService#cancel}) : contrairement à {@code REJECTED}
+ * (décision d'un administrateur pendant la modération), {@code CANCELLED}
+ * reflète une décision du créateur lui-même (ou d'un administrateur en son
+ * nom) après publication ou pendant la modération — l'activité annulée
+ * est conservée en base (pas de suppression, critère d'acceptation
+ * explicite) mais n'est plus considérée comme active : exclue des
+ * recherches publiques au même titre que {@code PENDING}/{@code REJECTED}
+ * (statut {@code PUBLISHED} uniquement, LL-6004).
  */
 public record Activity(
         @Id Long id,
@@ -124,5 +145,6 @@ public record Activity(
         String longDescription,
         String conditions,
         Integer ageMin,
-        Integer ageMax) {
+        Integer ageMax,
+        Long createdBy) {
 }

@@ -183,7 +183,8 @@ public class SourceService {
                 activity.longDescription(),
                 activity.conditions(),
                 activity.ageMin(),
-                activity.ageMax());
+                activity.ageMax(),
+                activity.createdBy());
     }
 
     private void validate(String name, String type) {

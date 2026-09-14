@@ -43,9 +43,13 @@ public class ActivityService {
      * champ {@code status} d'{@link Activity} reste une simple chaîne,
      * comme partout ailleurs dans le projet) : cette liste sert à valider
      * le paramètre {@code status} de {@link #findByStatus} (LL-6005,
-     * consultation administrative par statut).
+     * consultation administrative par statut). {@code ARCHIVED} ajouté en
+     * LL-7007 (V13, ré-import faisant disparaître une activité de sa
+     * source) manquait initialement ici — corrigé au passage.
+     * {@code CANCELLED} ajouté en LL-EF-010 (voir {@link #cancel}).
      */
-    private static final Set<String> KNOWN_STATUSES = Set.of("PENDING", "PUBLISHED", "REJECTED");
+    private static final Set<String> KNOWN_STATUSES =
+            Set.of("PENDING", "PUBLISHED", "REJECTED", "ARCHIVED", "CANCELLED");
 
     /**
      * Clés de tri connues du paramètre {@code sort} (LL-10006), voir
@@ -465,7 +469,101 @@ public class ActivityService {
                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
                 status, activity.sourceId(), activity.importKey(), activity.url(),
                 activity.address(), activity.city(), activity.postalCode(),
-                activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax());
+                activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax(),
+                activity.createdBy());
+    }
+
+    /**
+     * Statuts depuis lesquels une activité manuelle peut être annulée
+     * (LL-EF-010) : {@code PENDING} (encore en attente de modération) ou
+     * {@code PUBLISHED} (déjà visible publiquement — cas principal visé
+     * par le ticket, annuler un événement qui n'aura finalement pas lieu).
+     * {@code REJECTED}/{@code CANCELLED} volontairement exclus : une
+     * activité déjà rejetée ou déjà annulée n'a pas de raison d'être
+     * annulée à nouveau — voir {@link #cancel} pour le message d'erreur
+     * associé.
+     */
+    private static final Set<String> CANCELLABLE_STATUSES = Set.of(PENDING_STATUS, "PUBLISHED");
+
+    /**
+     * Annule une activité créée manuellement (LL-EF-010) : transition
+     * {@code PENDING → CANCELLED} ou {@code PUBLISHED → CANCELLED} (voir
+     * {@link #CANCELLABLE_STATUSES}), réservée à son créateur ou à un
+     * administrateur (critère d'acceptation explicite du ticket, section
+     * « Droits »). Contrairement à {@link #publish}/{@link #reject}
+     * (réservés au rôle {@code ADMIN}, vérifié au niveau
+     * {@code SecurityConfig}), l'autorisation ici dépend des <em>données</em>
+     * (le créateur de <em>cette</em> activité précisément) et ne peut donc
+     * pas être exprimée par une règle statique {@code SecurityConfig} —
+     * elle est vérifiée ici, dans le service, à partir de l'identité du
+     * demandeur transmise par le contrôleur (extraite du JWT, voir
+     * {@code ActivityController#cancelActivity}).
+     *
+     * {@code requestingUserIsAdmin} plutôt qu'un import du type
+     * {@code Role} du module {@code user} : le domaine/service
+     * {@code activity} ne doit pas dépendre d'un autre module autrement
+     * que par référence d'id (voir {@code ARCHITECTURE.md}, déjà le cas
+     * pour {@code Activity#sourceId}/{@code createdBy}) — un simple
+     * booléen, décidé par l'appelant à partir de
+     * {@code JwtAuthentication#getRole()}, suffit ici et évite cette
+     * dépendance.
+     *
+     * Vérifications, dans l'ordre :
+     * <ol>
+     *   <li>l'activité existe ({@link Optional#empty()} sinon, → {@code 404}
+     *       côté contrôleur, même convention que {@link #transitionStatus}) ;</li>
+     *   <li>l'activité a un créateur identifié ({@code createdBy != null}) —
+     *       sinon elle provient d'un import (hors périmètre du ticket) ou
+     *       est une contribution manuelle antérieure à LL-EF-010 (créateur
+     *       non identifiable a posteriori, voir
+     *       {@code V26__add_created_by_to_activity.sql}) : dans les deux
+     *       cas, aucune annulation n'est possible faute de créateur à
+     *       autoriser — {@link IllegalArgumentException} (→ {@code 400}) ;</li>
+     *   <li>le demandeur est autorisé (créateur de l'activité, ou
+     *       administrateur) — sinon {@link ActivityAccessDeniedException}
+     *       (→ {@code 403} côté contrôleur), distincte d'{@link
+     *       IllegalArgumentException} : il ne s'agit pas d'une donnée
+     *       invalide mais d'un refus d'autorisation, une distinction déjà
+     *       établie par {@code SecurityConfig} pour les règles statiques
+     *       (401/403) que ce cas-ci ne peut pas exprimer de la même
+     *       façon (voir plus haut) ;</li>
+     *   <li>l'activité est dans un statut annulable ({@link
+     *       #CANCELLABLE_STATUSES}) — sinon {@link IllegalArgumentException},
+     *       même convention que {@link #transitionStatus} pour une
+     *       transition invalide.</li>
+     * </ol>
+     *
+     * @return {@link Optional#empty()} si aucune activité ne correspond à
+     *         {@code id} ; sinon l'activité mise à jour.
+     * @throws IllegalArgumentException si l'activité n'a pas de créateur
+     *         identifié, ou si elle n'est pas actuellement dans un statut
+     *         annulable ({@code PENDING}/{@code PUBLISHED}).
+     * @throws ActivityAccessDeniedException si le demandeur n'est ni le
+     *         créateur de l'activité ni un administrateur.
+     */
+    public Optional<Activity> cancel(Long id, Long requestingUserId, boolean requestingUserIsAdmin) {
+        Optional<Activity> existing = activityRepository.findById(id);
+        if (existing.isEmpty()) {
+            return Optional.empty();
+        }
+        Activity activity = existing.get();
+        if (activity.createdBy() == null) {
+            throw new IllegalArgumentException(
+                    "L'activité " + id + " n'a pas de créateur identifié (activité importée, ou contribution "
+                            + "manuelle antérieure à l'introduction de cette fonctionnalité) : impossible de "
+                            + "l'annuler.");
+        }
+        if (!requestingUserIsAdmin && !activity.createdBy().equals(requestingUserId)) {
+            throw new ActivityAccessDeniedException(
+                    "Seul le créateur de l'activité " + id + " ou un administrateur peut l'annuler.");
+        }
+        if (!CANCELLABLE_STATUSES.contains(activity.status())) {
+            throw new IllegalArgumentException(
+                    "L'activité " + id + " n'est pas dans un statut annulable (statut actuel : "
+                            + activity.status() + "), aucune annulation possible depuis ce statut.");
+        }
+        Activity updated = withStatus(activity, "CANCELLED");
+        return Optional.of(activityRepository.save(updated));
     }
 
     private void validateLatitude(String paramName, double latitude) {
@@ -603,6 +701,16 @@ public class ActivityService {
      * IllegalArgumentException} (→ {@code 400}, même convention que
      * {@link #validateTitle}), plutôt que d'être silencieusement ignorée.
      *
+     * <b>{@code createdBy}</b> ajouté en LL-EF-010 : id de l'utilisateur
+     * authentifié à l'origine de la contribution (extrait du JWT par
+     * {@code ActivityController#createActivity}, cet endpoint exigeant
+     * déjà une authentification — voir {@code SecurityConfig} — mais sans
+     * jusqu'ici exploiter l'identité de l'appelant). Permet d'afficher le
+     * créateur et de l'autoriser à annuler son activité, voir
+     * {@link #cancel}. Paramètre simple plutôt que réextrait ici depuis un
+     * {@code Authentication} : ce service ne dépend pas de Spring
+     * Security, cohérent avec le reste de la classe (voir {@link #findByStatus}).
+     *
      * @throws IllegalArgumentException si {@code title} est manquant, vide
      *         ou trop long, si {@code category} est fournie mais
      *         vide/blanche, ou si {@code startDate}/{@code endDate} est
@@ -610,7 +718,7 @@ public class ActivityService {
      */
     public Activity createActivity(
             String title, String description, String category, String address,
-            String startDate, String endDate) {
+            String startDate, String endDate, Long createdBy) {
         validateTitle(title);
         validateCategory(category);
         LocalDateTime resolvedStartDate = parseFlexibleDate("startDate", startDate)
@@ -628,7 +736,7 @@ public class ActivityService {
                 null, title, description, category,
                 coordinates.latitude(), coordinates.longitude(), resolvedStartDate, resolvedEndDate, "PENDING",
                 manualSourceId, null, null,
-                address, coordinates.city(), coordinates.postalCode(), null, null, null, null);
+                address, coordinates.city(), coordinates.postalCode(), null, null, null, null, createdBy);
         return activityRepository.save(activity);
     }
 

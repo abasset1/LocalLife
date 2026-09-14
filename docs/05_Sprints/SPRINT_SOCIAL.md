@@ -81,6 +81,12 @@ Fonctionnalités :
 
 Gérer correctement les événements annulés ou supprimés.
 
+Statut : Terminé (backend + frontend). Voir ADR-0002 pour l'architecture
+d'authentification associée (Google) réutilisée pour identifier
+l'utilisateur connecté ici. Les likes sont conservés même si l'activité
+est annulée (LL-EF-010), simplement exclus de la liste des favoris tant
+qu'elle n'est pas PUBLISHED.
+
 ---
 
 LS-003 — Participer à un événement

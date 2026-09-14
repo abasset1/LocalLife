@@ -1,0 +1,23 @@
+-- LL-EF-010 : identifier le créateur d'une activité saisie manuellement,
+-- pour pouvoir l'afficher ("Créée par : ...") et l'autoriser à l'annuler
+-- (voir ActivityService#cancel).
+--
+-- Nullable, sans valeur par défaut : les activités importées (collectors)
+-- ne sont pas concernées par cette fonctionnalité (périmètre explicite du
+-- ticket) et n'auront donc jamais de created_by renseigné ; les activités
+-- manuelles existantes, créées avant ce ticket, n'ont aucun créateur
+-- identifiable a posteriori (createActivity ne demandait jusqu'ici aucune
+-- authentification pour être appelé côté service, seul le endpoint HTTP
+-- l'exigeait déjà — voir SecurityConfig) et resteront donc elles aussi à
+-- NULL plutôt que rattachées arbitrairement à un utilisateur.
+--
+-- Référence vers users(id) plutôt que simple copie du nom/email (décision
+-- explicite du ticket, section "Architecture") : permet de refléter les
+-- changements ultérieurs du compte (ex. renommage) sans dénormalisation à
+-- resynchroniser. ON DELETE SET NULL plutôt que CASCADE/RESTRICT :
+-- supprimer un compte utilisateur ne doit pas supprimer ses activités déjà
+-- publiées/en cours (elles doivent rester consultables, seul le lien vers
+-- un créateur désormais absent est perdu) — cohérent avec la conservation
+-- de l'activité en base après annulation (voir V27, même logique de
+-- préservation de l'historique).
+ALTER TABLE activity ADD COLUMN created_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
