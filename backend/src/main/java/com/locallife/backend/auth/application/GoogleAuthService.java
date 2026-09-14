@@ -1,6 +1,7 @@
 package com.locallife.backend.auth.application;
 
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -57,6 +58,7 @@ public class GoogleAuthService {
 
     private final JwtDecoder jwtDecoder;
 
+    @Autowired
     public GoogleAuthService(@Value("${google.client-id}") String googleClientId) {
         this(buildJwtDecoder(googleClientId));
     }
