@@ -320,7 +320,7 @@ public class ActivityController {
      * pour le détail des règles (statuts annulables, activités importées
      * exclues). Endpoint authentifié (voir {@code SecurityConfig},
      * {@code .requestMatchers(HttpMethod.PATCH,
-     * "/api/v1/activities/*/cancel").authenticated()}) mais sans
+     * "/api/v1/activities/*&#47;cancel").authenticated()}) mais sans
      * restriction de rôle statique : contrairement à {@code
      * AdminActivityController#publishActivity}/{@code #rejectActivity}
      * (réservés {@code ADMIN} au niveau {@code SecurityConfig}),
