@@ -3,10 +3,17 @@ package com.locallife.backend.activity.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.place.domain.Location;
+import com.locallife.backend.place.infrastructure.LocationRepository;
+import com.locallife.backend.schedule.domain.Occurrence;
+import com.locallife.backend.schedule.domain.Schedule;
+import com.locallife.backend.schedule.infrastructure.OccurrenceRepository;
+import com.locallife.backend.schedule.infrastructure.ScheduleRepository;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -42,6 +49,15 @@ class ActivityRepositoryIntegrationTest {
 
     @Autowired
     private SourceRepository sourceRepository;
+
+    @Autowired
+    private LocationRepository locationRepository;
+
+    @Autowired
+    private ScheduleRepository scheduleRepository;
+
+    @Autowired
+    private OccurrenceRepository occurrenceRepository;
 
     /**
      * Toute {@code Activity} requiert désormais un {@code sourceId}
@@ -544,7 +560,7 @@ class ActivityRepositoryIntegrationTest {
         Activity avignon = activityWithCityAndDate("Avignon", LocalDateTime.now());
         Activity marseille = activityWithCityAndDate("Marseille", LocalDateTime.now());
 
-        List<Long> resultIds = activityRepository.findAllFiltered("avignon", null, null)
+        List<Long> resultIds = activityRepository.findAllFiltered("avignon", null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(avignon.id());
@@ -555,7 +571,7 @@ class ActivityRepositoryIntegrationTest {
     void findAllFiltered_ShouldReturnEmpty_WhenCityMatchesNoActivity() {
         activityWithCityAndDate("Avignon", LocalDateTime.now());
 
-        List<Long> resultIds = activityRepository.findAllFiltered("ville-inexistante-xyz", null, null)
+        List<Long> resultIds = activityRepository.findAllFiltered("ville-inexistante-xyz", null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).isEmpty();
@@ -566,7 +582,7 @@ class ActivityRepositoryIntegrationTest {
         Activity withCity = activityWithCityAndDate("Avignon", LocalDateTime.now());
         Activity withoutCity = activityWithCityAndDate(null, LocalDateTime.now());
 
-        List<Long> resultIds = activityRepository.findAllFiltered("Avignon", null, null)
+        List<Long> resultIds = activityRepository.findAllFiltered("Avignon", null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(withCity.id());
@@ -578,7 +594,7 @@ class ActivityRepositoryIntegrationTest {
         Activity avignon = activityWithCityAndDate("Avignon", LocalDateTime.now());
         Activity marseille = activityWithCityAndDate("Marseille", LocalDateTime.now());
 
-        List<Long> resultIds = activityRepository.findAllFiltered(null, null, null)
+        List<Long> resultIds = activityRepository.findAllFiltered(null, null, null, null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds).contains(avignon.id(), marseille.id());
@@ -589,7 +605,7 @@ class ActivityRepositoryIntegrationTest {
         Activity marseille = activityWithCityAndDate("Marseille", LocalDateTime.now());
         Activity avignon = activityWithCityAndDate("Avignon", LocalDateTime.now());
 
-        List<Long> resultIds = activityRepository.findAllFiltered(null, "city", null)
+        List<Long> resultIds = activityRepository.findAllFiltered(null, null, "city", null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds.indexOf(avignon.id())).isLessThan(resultIds.indexOf(marseille.id()));
@@ -600,7 +616,7 @@ class ActivityRepositoryIntegrationTest {
         Activity later = activityWithCityAndDate("Avignon", LocalDateTime.of(2026, 9, 10, 20, 0));
         Activity earlier = activityWithCityAndDate("Avignon", LocalDateTime.of(2026, 9, 5, 20, 0));
 
-        List<Long> resultIds = activityRepository.findAllFiltered(null, "date", null)
+        List<Long> resultIds = activityRepository.findAllFiltered(null, null, "date", null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds.indexOf(earlier.id())).isLessThan(resultIds.indexOf(later.id()));
@@ -613,7 +629,7 @@ class ActivityRepositoryIntegrationTest {
         Activity avignonEarlier = activityWithCityAndDate("Avignon", LocalDateTime.of(2026, 9, 5, 20, 0));
         Activity marseille = activityWithCityAndDate("Marseille", LocalDateTime.of(2026, 9, 1, 20, 0));
 
-        List<Long> resultIds = activityRepository.findAllFiltered(null, "city", "date")
+        List<Long> resultIds = activityRepository.findAllFiltered(null, null, "city", "date")
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds.indexOf(avignonEarlier.id())).isLessThan(resultIds.indexOf(avignonLater.id()));
@@ -628,7 +644,7 @@ class ActivityRepositoryIntegrationTest {
         Activity avignonSameDate = activityWithCityAndDate("Avignon", sameDate);
         Activity avignonLaterDate = activityWithCityAndDate("Avignon", LocalDateTime.of(2026, 9, 20, 20, 0));
 
-        List<Long> resultIds = activityRepository.findAllFiltered(null, "date", "city")
+        List<Long> resultIds = activityRepository.findAllFiltered(null, null, "date", "city")
                 .stream().map(Activity::id).toList();
 
         // À date égale, tri par ville : Avignon avant Marseille.
@@ -642,10 +658,192 @@ class ActivityRepositoryIntegrationTest {
         Activity withoutCity = activityWithCityAndDate(null, LocalDateTime.now());
         Activity withCity = activityWithCityAndDate("Avignon", LocalDateTime.now());
 
-        List<Long> resultIds = activityRepository.findAllFiltered(null, "city", null)
+        List<Long> resultIds = activityRepository.findAllFiltered(null, null, "city", null)
                 .stream().map(Activity::id).toList();
 
         assertThat(resultIds.indexOf(withCity.id())).isLessThan(resultIds.indexOf(withoutCity.id()));
+    }
+
+    // --- LL-11012 : recherche occurrence-aware (schedule/occurrence/location) ---
+
+    private Location locationAt(String city, double latitude, double longitude) {
+        return locationRepository.save(new Location(
+                null, "Lieu " + UUID.randomUUID(), null, null, city, null, null, null, null,
+                latitude, longitude, null, null, null, null));
+    }
+
+    /**
+     * Une activité "coquille" sans programmation propre (mêmes valeurs plates que le point de
+     * référence Marseille — sans importance pour ces tests, seule compte la correspondance via
+     * schedule/occurrence) : simule une activité importée dont {@code Activity.city}/{@code
+     * start_date} ne reflètent plus forcément la réalité (plusieurs schedules/villes, voir
+     * ImportService#enrichActivity, ADR-0005).
+     */
+    private Activity activityWithSchedule() {
+        return activityAt(MARSEILLE_LAT, MARSEILLE_LON, "PUBLISHED", "sport",
+                LocalDateTime.now(), null);
+    }
+
+    private Schedule scheduleFor(Long activityId, Long locationId) {
+        return scheduleRepository.save(new Schedule(
+                null, activityId, locationId, null, null, null, null, null, null));
+    }
+
+    private Occurrence occurrenceAt(Long scheduleId, LocalDateTime startAt, Long locationId, String status) {
+        return occurrenceRepository.save(new Occurrence(
+                null, scheduleId, startAt.toInstant(ZoneOffset.UTC), null, locationId, status, false));
+    }
+
+    @Test
+    void findAllFiltered_ShouldMatchByCity_ViaOccurrenceLocation_EvenWhenActivityCityDiffers() {
+        // Activity.city n'est jamais renseignée ici (null) : seule la ville de l'occurrence compte.
+        Activity activity = activityWithSchedule();
+        Location avignon = locationAt("Avignon", 43.9493, 4.8055);
+        Schedule schedule = scheduleFor(activity.id(), avignon.id());
+        occurrenceAt(schedule.id(), LocalDateTime.now(), avignon.id(), "SCHEDULED");
+
+        List<Long> resultIds = activityRepository.findAllFiltered("Avignon", null, null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(activity.id());
+    }
+
+    @Test
+    void findAllFiltered_ShouldMatchCityAndDateTogether_ForRecurringActivity() {
+        // Activité récurrente (LL-11012, "activité récurrente") : plusieurs occurrences du même
+        // schedule, une seule tombe sur la date recherchée.
+        Activity activity = activityWithSchedule();
+        Location avignon = locationAt("Avignon", 43.9493, 4.8055);
+        Schedule schedule = scheduleFor(activity.id(), avignon.id());
+        LocalDateTime targetDate = LocalDateTime.now().plusDays(10);
+        occurrenceAt(schedule.id(), targetDate.minusDays(7), avignon.id(), "SCHEDULED");
+        occurrenceAt(schedule.id(), targetDate, avignon.id(), "SCHEDULED");
+        occurrenceAt(schedule.id(), targetDate.plusDays(7), avignon.id(), "SCHEDULED");
+
+        List<Long> matching = activityRepository
+                .findAllFiltered("Avignon", targetDate.toLocalDate(), null, null)
+                .stream().map(Activity::id).toList();
+        List<Long> nonMatchingDate = activityRepository
+                .findAllFiltered("Avignon", targetDate.toLocalDate().plusDays(1), null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(matching).contains(activity.id());
+        assertThat(nonMatchingDate).doesNotContain(activity.id());
+    }
+
+    @Test
+    void findAllFiltered_ShouldExcludeCancelledOccurrence_ForThatDate() {
+        // LL-11012, "exceptions prises en compte" : une occurrence annulée d'une série récurrente
+        // ne doit pas rendre l'activité visible à cette date précise.
+        Activity activity = activityWithSchedule();
+        Location avignon = locationAt("Avignon", 43.9493, 4.8055);
+        Schedule schedule = scheduleFor(activity.id(), avignon.id());
+        LocalDateTime cancelledDate = LocalDateTime.now().plusDays(3);
+        occurrenceAt(schedule.id(), cancelledDate, avignon.id(), "CANCELLED");
+
+        List<Long> resultIds = activityRepository
+                .findAllFiltered("Avignon", cancelledDate.toLocalDate(), null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).doesNotContain(activity.id());
+    }
+
+    @Test
+    void findAllFiltered_ShouldMatchByOccurrenceLocation_WhenExceptionallyDifferentFromSchedule() {
+        // LL-11012, "changement exceptionnel de lieu" : le lieu de l'occurrence prévaut sur celui
+        // par défaut du schedule.
+        Activity activity = activityWithSchedule();
+        Location marseille = locationAt("Marseille", MARSEILLE_LAT, MARSEILLE_LON);
+        Location avignon = locationAt("Avignon", 43.9493, 4.8055);
+        Schedule schedule = scheduleFor(activity.id(), marseille.id());
+        LocalDateTime date = LocalDateTime.now().plusDays(2);
+        occurrenceAt(schedule.id(), date, avignon.id(), "SCHEDULED");
+
+        List<Long> matchesAvignon = activityRepository
+                .findAllFiltered("Avignon", date.toLocalDate(), null, null)
+                .stream().map(Activity::id).toList();
+        List<Long> matchesMarseille = activityRepository
+                .findAllFiltered("Marseille", date.toLocalDate(), null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(matchesAvignon).contains(activity.id());
+        assertThat(matchesMarseille).doesNotContain(activity.id());
+    }
+
+    @Test
+    void findAllFiltered_ShouldMatchSeveralCities_ForActivityWithMultipleSchedules() {
+        // LL-11012, "plusieurs schedules" / "plusieurs villes" : une même activité (ex. tournée)
+        // doit être trouvée dans chacune de ses villes.
+        Activity activity = activityWithSchedule();
+        Location avignon = locationAt("Avignon", 43.9493, 4.8055);
+        Location arles = locationAt("Arles", 43.6768, 4.6280);
+        Schedule scheduleAvignon = scheduleFor(activity.id(), avignon.id());
+        Schedule scheduleArles = scheduleFor(activity.id(), arles.id());
+        occurrenceAt(scheduleAvignon.id(), LocalDateTime.now(), avignon.id(), "SCHEDULED");
+        occurrenceAt(scheduleArles.id(), LocalDateTime.now(), arles.id(), "SCHEDULED");
+
+        assertThat(activityRepository.findAllFiltered("Avignon", null, null, null)
+                .stream().map(Activity::id)).contains(activity.id());
+        assertThat(activityRepository.findAllFiltered("Arles", null, null, null)
+                .stream().map(Activity::id)).contains(activity.id());
+    }
+
+    @Test
+    void findAllFiltered_ShouldStillMatch_ManualActivityWithoutAnySchedule() {
+        // Compatibilité (ADR-0006) : une contribution manuelle (LL-2012/LL-3012) sans Location ni
+        // Schedule doit continuer à être trouvée via les colonnes plates historiques.
+        Activity manual = activityWithCityAndDate("Avignon", LocalDateTime.now());
+
+        List<Long> resultIds = activityRepository
+                .findAllFiltered("Avignon", LocalDate.now(), null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(manual.id());
+    }
+
+    @Test
+    void findWithinRadius_ShouldMatchViaOccurrenceLocation_NotActivityOwnCoordinates() {
+        // Activity elle-même géocodée loin (Paris) ; seule son occurrence est à Marseille.
+        Activity activity = activityAt(PARIS_LAT, PARIS_LON, "PUBLISHED", "sport", LocalDateTime.now(), null);
+        Location marseille = locationAt("Marseille", MARSEILLE_LAT, MARSEILLE_LON);
+        Schedule schedule = scheduleFor(activity.id(), marseille.id());
+        occurrenceAt(schedule.id(), LocalDateTime.now(), marseille.id(), "SCHEDULED");
+
+        List<Long> resultIds = activityRepository
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(activity.id());
+    }
+
+    @Test
+    void findWithinRadius_ShouldExcludeCancelledOccurrence() {
+        Activity activity = activityAt(PARIS_LAT, PARIS_LON, "PUBLISHED", "sport", LocalDateTime.now(), null);
+        Location marseille = locationAt("Marseille", MARSEILLE_LAT, MARSEILLE_LON);
+        Schedule schedule = scheduleFor(activity.id(), marseille.id());
+        occurrenceAt(schedule.id(), LocalDateTime.now(), marseille.id(), "CANCELLED");
+
+        List<Long> resultIds = activityRepository
+                .findWithinRadius(MARSEILLE_LAT, MARSEILLE_LON, 5_000, null, null, null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).doesNotContain(activity.id());
+    }
+
+    @Test
+    void findWithinBounds_ShouldMatchViaOccurrenceLocation_NotActivityOwnCoordinates() {
+        Activity activity = activityAt(PARIS_LAT, PARIS_LON, "PUBLISHED", "sport", LocalDateTime.now(), null);
+        Location marseille = locationAt("Marseille", MARSEILLE_LAT, MARSEILLE_LON);
+        Schedule schedule = scheduleFor(activity.id(), marseille.id());
+        occurrenceAt(schedule.id(), LocalDateTime.now(), marseille.id(), "SCHEDULED");
+
+        List<Long> resultIds = activityRepository
+                .findWithinBounds(
+                        MARSEILLE_LAT - 0.5, MARSEILLE_LON - 0.5, MARSEILLE_LAT + 0.5, MARSEILLE_LON + 0.5,
+                        null, null, null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(activity.id());
     }
 
 }

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LocalLife — Maquette accueil</title>
+<style>
+:root{
+  --green:#173F35; --green2:#245447; --coral:#E86A4A;
+  --sand:#F3EBDD; --paper:#FCFBF7; --ink:#17201D; --muted:#68736e;
+  --line:#e7e3d9; --white:#fff;
+}
+*{box-sizing:border-box} body{margin:0;background:var(--paper);color:var(--ink);
+font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+a{text-decoration:none;color:inherit}.wrap{max-width:1180px;margin:auto;padding:0 28px}
+header{height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:21px;letter-spacing:-.6px}
+.logo-mark{width:34px;height:34px;border-radius:12px;background:var(--green);display:grid;place-items:center;color:white;font-weight:900}
+nav{display:flex;align-items:center;gap:28px;font-size:14px;color:#46504c}
+.nav-cta{background:var(--green);color:#fff;padding:11px 17px;border-radius:999px;font-weight:700}
+.hero{padding:74px 0 66px;display:grid;grid-template-columns:1.02fr .98fr;gap:60px;align-items:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;color:var(--green);font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:1.2px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--coral)}
+h1{font-size:64px;line-height:.98;letter-spacing:-3.7px;margin:18px 0 22px;max-width:650px}
+h1 span{color:var(--coral)}.lead{font-size:19px;line-height:1.55;color:var(--muted);max-width:540px}
+.actions{display:flex;gap:12px;margin-top:30px}.btn{padding:14px 20px;border-radius:14px;font-weight:800;font-size:15px;border:1px solid transparent}
+.primary{background:var(--green);color:#fff}.secondary{background:#fff;border-color:var(--line)}
+.hero-visual{height:440px;border-radius:30px;background:var(--green);padding:18px;position:relative;overflow:hidden;box-shadow:0 20px 55px rgba(23,63,53,.16)}
+.scene{height:100%;border-radius:22px;background:linear-gradient(145deg,#d9c7a8,#f0dfc1 48%,#b8c6b4);position:relative;overflow:hidden}
+.sun{position:absolute;width:100px;height:100px;border-radius:50%;background:#f4b56c;right:55px;top:42px}
+.hill1,.hill2{position:absolute;bottom:0;border-radius:50% 50% 0 0}
+.hill1{width:520px;height:220px;left:-90px;background:#77917c}.hill2{width:500px;height:190px;right:-120px;background:#5e7a68}
+.house{position:absolute;left:90px;bottom:96px;width:130px;height:105px;background:#f7f1df;border:5px solid #3d5148;border-bottom:0}
+.roof{position:absolute;left:67px;bottom:196px;width:175px;height:70px;background:#9b6249;transform:rotate(45deg);border:5px solid #3d5148}
+.pin{position:absolute;right:95px;bottom:135px;width:44px;height:56px;background:var(--coral);border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 9px 20px rgba(0,0,0,.18)}
+.pin:after{content:"";position:absolute;width:14px;height:14px;background:white;border-radius:50%;top:14px;left:15px}
+.floating{position:absolute;background:white;border-radius:17px;padding:13px 15px;box-shadow:0 15px 35px rgba(0,0,0,.14);font-size:12px}
+.f1{left:28px;top:25px}.f2{right:22px;bottom:25px}.f2 b{font-size:14px}
+.section{padding:72px 0}.section.sand{background:var(--sand)}
+.section-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:28px}
+h2{font-size:38px;letter-spacing:-1.7px;margin:0}.section-head p{color:var(--muted);margin:0;max-width:430px;line-height:1.5}
+.categories{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.cat{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px 14px;text-align:center;font-weight:750;transition:.2s}
+.cat:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(23,63,53,.08)}
+.icon{font-size:27px;display:block;margin-bottom:11px}
+.events{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.card{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden}
+.photo{height:190px;position:relative;background:linear-gradient(135deg,#8e7a60,#d6c3a3)}
+.photo.two{background:linear-gradient(135deg,#4d685d,#d09a73)}.photo.three{background:linear-gradient(135deg,#c46e4f,#f0c28d)}
+.badge{position:absolute;top:14px;left:14px;background:white;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:850}
+.cardbody{padding:19px}.date{font-size:12px;color:var(--coral);font-weight:850;text-transform:uppercase;letter-spacing:.7px}
+.card h3{font-size:20px;margin:7px 0 12px}.meta{font-size:13px;color:var(--muted);line-height:1.7}
+.cardfoot{display:flex;justify-content:space-between;align-items:center;margin-top:17px;font-size:13px;font-weight:750}
+.like{color:var(--coral)}
+.features{display:grid;grid-template-columns:repeat(4,1fr);gap:22px}.feature{padding:24px 0}.feature-num{font-size:13px;color:var(--coral);font-weight:900}.feature h3{font-size:18px;margin:10px 0 7px}.feature p{color:var(--muted);font-size:14px;line-height:1.6}
+.cta{margin:70px 0;background:var(--green);color:white;border-radius:28px;padding:55px;display:flex;justify-content:space-between;align-items:center;gap:30px}
+.cta h2{max-width:650px}.cta p{color:#c8d7d1;margin:10px 0 0}.cta .btn{background:var(--coral);color:white}
+footer{padding:28px 0 45px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between}
+@media(max-width:850px){
+ .hero{grid-template-columns:1fr;gap:35px;padding-top:48px}.hero-visual{height:330px}h1{font-size:48px}
+ .categories{grid-template-columns:repeat(3,1fr)}.events{grid-template-columns:1fr}.features{grid-template-columns:1fr 1fr}
+ nav a:not(.nav-cta){display:none}.cta{padding:35px;display:block}.cta .btn{margin-top:22px}
+}
+@media(max-width:520px){
+ .wrap{padding:0 18px}header{height:68px}.hero{padding:38px 0}h1{font-size:42px;letter-spacing:-2.4px}
+ .categories{grid-template-columns:repeat(2,1fr)}.features{grid-template-columns:1fr}.section{padding:52px 0}
+ .section-head{display:block}.section-head p{margin-top:12px}.cta{margin:45px 0}.hero-visual{height:290px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="logo" href="#"><span class="logo-mark">L</span>LocalLife</a>
+  <nav><a href="#">Découvrir</a><a href="#">Activités</a><a href="#">À propos</a><a class="nav-cta" href="#">Se connecter</a></nav>
+</header>
+
+<section class="hero">
+  <div>
+    <div class="eyebrow"><span class="dot"></span> La vie locale, simplement</div>
+    <h1>Découvrez ce qui se passe <span>près de chez vous.</span></h1>
+    <p class="lead">Activités, événements, food trucks et bons plans locaux réunis au même endroit.</p>
+    <div class="actions"><a class="btn primary" href="#">Explorer les activités →</a><a class="btn secondary" href="#">⌖ Autour de moi</a></div>
+  </div>
+  <div class="hero-visual">
+    <div class="scene">
+      <div class="sun"></div><div class="hill1"></div><div class="hill2"></div><div class="roof"></div><div class="house"></div><div class="pin"></div>
+      <div class="floating f1"><b>Aujourd'hui</b><br>12 activités autour de vous</div>
+      <div class="floating f2">❤️ <b>3 amis</b> aiment<br>Marché des créateurs</div>
+    </div>
+  </div>
+</section>
+</div>
+
+<section class="section sand">
+<div class="wrap">
+  <div class="section-head"><h2>Qu'est-ce qui vous tente ?</h2><p>Un accès rapide aux univers qui font vivre votre territoire.</p></div>
+  <div class="categories">
+    <div class="cat"><span class="icon">🎭</span>Culture</div><div class="cat"><span class="icon">🍴</span>Gastronomie</div>
+    <div class="cat"><span class="icon">🎵</span>Musique</div><div class="cat"><span class="icon">⚽</span>Sport</div>
+    <div class="cat"><span class="icon">🎉</span>Sorties</div><div class="cat"><span class="icon">🚚</span>Food trucks</div>
+  </div>
+</div>
+</section>
+
+<section class="section">
+<div class="wrap">
+  <div class="section-head"><h2>À découvrir près de vous</h2><p>Des idées pour sortir, rencontrer, partager et profiter de ce qui se passe localement.</p></div>
+  <div class="events">
+    <article class="card"><div class="photo"><span class="badge">CULTURE</span></div><div class="cardbody"><div class="date">Sam. 20 septembre · 20h00</div><h3>Jazz au village</h3><div class="meta">📍 Aubagne<br>🎟 Concert en plein air</div><div class="cardfoot"><span class="like">♥ 24 personnes</span><span>Voir →</span></div></div></article>
+    <article class="card"><div class="photo two"><span class="badge">GASTRONOMIE</span></div><div class="cardbody"><div class="date">Aujourd'hui · 18h30</div><h3>Marché des créateurs</h3><div class="meta">📍 Centre-ville<br>🛍 Artisans & producteurs locaux</div><div class="cardfoot"><span class="like">♥ 31 personnes</span><span>Voir →</span></div></div></article>
+    <article class="card"><div class="photo three"><span class="badge">FOOD TRUCK</span></div><div class="cardbody"><div class="date">Mardi · 19h00</div><h3>Le camion gourmand</h3><div class="meta">📍 Quartier des Défensions<br>🍔 Présent tous les mardis</div><div class="cardfoot"><span class="like">♥ 18 personnes</span><span>Voir →</span></div></div></article>
+  </div>
+</div>
+</section>
+
+<section class="section sand">
+<div class="wrap">
+  <div class="section-head"><h2>LocalLife, c'est local.</h2><p>Une expérience pensée pour rapprocher les personnes de ce qui se passe autour d'elles.</p></div>
+  <div class="features">
+    <div class="feature"><div class="feature-num">01 — PROXIMITÉ</div><h3>Près de chez vous</h3><p>Découvrez les activités autour de votre position, sans chercher pendant des heures.</p></div>
+    <div class="feature"><div class="feature-num">02 — DÉCOUVERTE</div><h3>Une seule place</h3><p>Événements, activités et initiatives locales réunis dans une expérience simple.</p></div>
+    <div class="feature"><div class="feature-num">03 — COMMUNAUTÉ</div><h3>Avec les autres</h3><p>Aimez, participez et découvrez ce que votre communauté apprécie.</p></div>
+    <div class="feature"><div class="feature-num">04 — LOCAL</div><h3>La vie du territoire</h3><p>Des sources locales aux contributions des utilisateurs, le contenu reste proche du terrain.</p></div>
+  </div>
+</div>
+</section>
+
+<div class="wrap">
+<section class="cta"><div><h2>Il se passe toujours quelque chose près de chez vous.</h2><p>Ouvrez LocalLife et découvrez votre territoire autrement.</p></div><a class="btn" href="#">Explorer LocalLife →</a></section>
+<footer><span>© LocalLife</span><span>Découvrir · Activités · Communauté</span></footer>
+</div>
+</body>
+</html>

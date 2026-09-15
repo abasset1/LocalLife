@@ -81,13 +81,14 @@ public class ActivityController {
     @Operation(
             summary = "Liste les activités",
             description = "Retourne toutes les activités, avec filtre optionnel par ville ('city', comparaison "
-                    + "exacte insensible à la casse) et tri optionnel ('sort', une ou plusieurs clés parmi "
-                    + "'city'/'date' séparées par une virgule, ex. 'city,date').")
+                    + "exacte insensible à la casse), filtre optionnel par date ('date', ISO-8601 yyyy-MM-dd) et "
+                    + "tri optionnel ('sort', une ou plusieurs clés parmi 'city'/'date' séparées par une virgule, "
+                    + "ex. 'city,date').")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Recherche effectuée avec succès."),
         @ApiResponse(responseCode = "400",
                 description = "Le paramètre 'sort' contient une valeur inconnue (autre que 'city'/'date') ou une "
-                        + "clé en double.",
+                        + "clé en double, ou 'date' n'est pas au format ISO-8601 (yyyy-MM-dd).",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping
@@ -95,13 +96,19 @@ public class ActivityController {
             @Parameter(description = "Filtre optionnel sur la ville (correspondance exacte, insensible à la "
                     + "casse). Absent → aucun filtrage. Ville ne correspondant à aucune activité → liste vide.")
             @RequestParam(required = false) String city,
+            @Parameter(description = "Filtre optionnel sur une date (format ISO-8601 yyyy-MM-dd) : ne retient "
+                    + "qu'une activité effectivement présente à cette date (LL-11012 — occurrence non annulée "
+                    + "dont la période couvre cette date, ou période [startDate, endDate] pour une activité "
+                    + "sans programmation détaillée). Absent → aucun filtrage (pas de fenêtre par défaut, "
+                    + "contrairement à 'nearby'/'within-bounds').")
+            @RequestParam(required = false) String date,
             @Parameter(description = "Tri optionnel : une ou plusieurs clés séparées par une virgule, parmi "
                     + "'city' et 'date' (ex. 'city', 'date', 'city,date'). Absent → ordre non garanti "
                     + "(comportement historique inchangé).")
             @RequestParam(required = false) String sort,
             HttpServletRequest httpRequest) {
         try {
-            List<Activity> activities = activityService.findAll(city, sort);
+            List<Activity> activities = activityService.findAll(city, sort, date);
             return ResponseEntity.ok(activities);
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);

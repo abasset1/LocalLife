@@ -152,8 +152,9 @@ restent inchangés — hors périmètre de LL-10006.
 
 | Paramètre | Type   | Obligatoire | Description |
 | --------- | ------ | ------------ | ------------ |
-| `city`    | string | non | Filtre les résultats sur cette ville. Comparaison **exacte, insensible à la casse** (`LOWER(city) = LOWER(:city)`) — pas de recherche partielle, pas de normalisation des accents. Absent → aucun filtrage. Ville ne correspondant à aucune activité → liste vide (`200 OK`), pas d'erreur (même décision que `category` sur `/nearby`, voir `GEO_SEARCH_CONTRACT.md`). Une activité dont `city` est `null` en base ne correspond jamais à un `city` donné explicitement (rien à comparer). |
-| `sort`    | string | non | Une ou plusieurs clés de tri séparées par une virgule, parmi **exactement** `city` et `date` (ex. `city`, `date`, `city,date`, `date,city`) — l'ordre des clés fixe la priorité du tri (`sort=city,date` trie d'abord par ville, puis par date à ville égale). `date` trie sur `startDate`. Tri **croissant uniquement** (pas de suffixe `-`/`desc` : non demandé par le ticket, non implémenté). Absent → comportement historique inchangé (aucun `ORDER BY` explicite ajouté, ordre non garanti). Valeur inconnue (ni `city` ni `date`) ou clé dupliquée → `400 Bad Request`. |
+| `city`    | string | non | Filtre les résultats sur cette ville. Comparaison **exacte, insensible à la casse** (`LOWER(city) = LOWER(:city)`) — pas de recherche partielle, pas de normalisation des accents. Absent → aucun filtrage. Ville ne correspondant à aucune activité → liste vide (`200 OK`), pas d'erreur (même décision que `category` sur `/nearby`, voir `GEO_SEARCH_CONTRACT.md`). Une activité dont `city` est `null` en base ne correspond jamais à un `city` donné explicitement (rien à comparer). Depuis LL-11012, occurrence-aware : voir `docs/ADR-0006-recherche-occurrences.md`. |
+| `date`    | string | non | Ajouté en LL-11012. Format ISO-8601 (`yyyy-MM-dd`). Ne retient qu'une activité effectivement présente à cette date : une occurrence non annulée dont la période couvre cette date (modèle riche du Sprint 11), ou repli sur `[startDate, endDate]` pour une activité sans programmation détaillée (voir `docs/ADR-0006-recherche-occurrences.md`). Absent → aucun filtrage, **sans** la fenêtre par défaut des 7 prochains jours appliquée par `/nearby`/`/within-bounds` (cet endpoint reste une liste brute). |
+| `sort`    | string | non | Une ou plusieurs clés de tri séparées par une virgule, parmi **exactement** `city` et `date` (ex. `city`, `date`, `city,date`, `date,city`) — l'ordre des clés fixe la priorité du tri (`sort=city,date` trie d'abord par ville, puis par date à ville égale). `date` trie sur `startDate`. Tri **croissant uniquement** (pas de suffixe `-`/`desc` : non demandé par le ticket, non implémenté). Absent → comportement historique inchangé (aucun `ORDER BY` explicite ajouté, ordre non garanti). Valeur inconnue (ni `city` ni `date`) ou clé dupliquée → `400 Bad Request`. Trie toujours sur les colonnes propres de l'activité, y compris pour une correspondance trouvée via une occurrence (voir ADR-0006, décision « à valider »). |
 
 Exemples :
 
@@ -162,6 +163,7 @@ GET /api/v1/activities?city=Avignon
 GET /api/v1/activities?city=avignon        (identique au précédent, comparaison insensible à la casse)
 GET /api/v1/activities?city=Avignon&sort=date
 GET /api/v1/activities?sort=city,date
+GET /api/v1/activities?city=Avignon&date=2026-09-15     (LL-11012)
 ```
 
 ### Décision : déterminisme de la comparaison/du tri

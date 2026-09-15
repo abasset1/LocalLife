@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.15 — 2026-09-15
+
+### LL-11012 — Adapter la recherche au modèle événementiel riche
+- Ticket du Sprint 11 (`docs/05_Sprints/SPRINT_11.md`) : la recherche (`GET /api/v1/activities`, `/nearby`, `/within-bounds`) ne prenait en compte que les colonnes plates historiques d'`Activity` (`latitude`/`longitude`/`city`/`start_date`/`end_date`), ignorant le modèle événementiel riche introduit par le Sprint 11 (`Location`/`Schedule`/`Occurrence`) et alimenté par LL-11011 pour les activités importées.
+- `ActivityRepository#findAllFiltered`/`findWithinRadius`/`findWithinBounds` réécrites : une activité correspond désormais via ses occurrences non annulées (« exceptions prises en compte ») et leur lieu effectif (`COALESCE(occurrence.location_id, schedule.location_id)`, « changement exceptionnel de lieu ») quand elle a au moins un `schedule` ; repli intégral sur les colonnes plates historiques sinon (contributions manuelles LL-2012/LL-3012, qui ne créent encore ni `Location` ni `Schedule`) — voir `docs/ADR-0006-recherche-occurrences.md` pour le détail de cette décision et la couverture de chaque cas demandé par le ticket (ponctuelle, récurrente, plusieurs schedules/villes, exceptions, changement exceptionnel de lieu).
+- `GET /api/v1/activities` accepte un nouveau paramètre `date` (ISO-8601, sans fenêtre par défaut) combinable avec `city`, conformément à l'exemple du ticket (`?city=Avignon&date=2026-09-15`). `ActivityService#findAll`/`ActivityController#getAllActivities` mis à jour en conséquence.
+- Recherche géographique PostGIS (`/nearby`, `/within-bounds`) préservée : tri par distance croissante toujours correct via une sous-requête corrélée (`LEAST`/`COALESCE` entre la meilleure distance occurrence et celle du repli), sans toucher à la forme du `SELECT` principal (voir « Alternative écartée » dans l'ADR).
+- Fuseau horaire d'une occurrence résolu via `COALESCE(location.timezone, 'Europe/Paris')`, cohérent avec `NormalizationService#resolveZone` (LL-11011) à l'écriture.
+- `docs/02_Architecture/LOCATION_CONTRACT.md` (paramètre `date`), `GEO_SEARCH_CONTRACT.md` et `BOUNDING_BOX_SEARCH_CONTRACT.md` mis à jour pour pointer vers l'ADR-0006.
+- Tests d'intégration ajoutés à `ActivityRepositoryIntegrationTest` couvrant chaque cas du tableau de l'ADR-0006 (ville via occurrence, ville+date pour une activité récurrente, occurrence annulée exclue, changement exceptionnel de lieu, plusieurs schedules/villes, compatibilité activité sans schedule, recherche géographique par rayon/zone via occurrence).
+- ⚠️ Backend non compilable/testable dans cette session (pas d'accès réseau à Maven Central ni à une base PostgreSQL/PostGIS réelle depuis le sandbox) : requêtes SQL vérifiées par relecture manuelle attentive uniquement (voir ADR-0006), **`mvn verify` reste à lancer par Alex avant tout merge**.
+
 ## 0.9.14 — 2026-09-13
 
 ### LL-11011 — Adapter le pipeline d'import au modèle événementiel riche

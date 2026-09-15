@@ -75,10 +75,10 @@ class ActivityControllerTest {
                         LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
                         null, null, null, null, null)
         );
-        when(activityService.findAll(null, null)).thenReturn(activities);
+        when(activityService.findAll(null, null, null)).thenReturn(activities);
 
         // When
-        ResponseEntity<Object> response = activityController.getAllActivities(null, null, httpRequest);
+        ResponseEntity<Object> response = activityController.getAllActivities(null, null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -88,10 +88,10 @@ class ActivityControllerTest {
     @Test
     void getAllActivities_ShouldReturnEmptyList_WhenNoActivities() {
         // Given
-        when(activityService.findAll(null, null)).thenReturn(List.of());
+        when(activityService.findAll(null, null, null)).thenReturn(List.of());
 
         // When
-        ResponseEntity<Object> response = activityController.getAllActivities(null, null, httpRequest);
+        ResponseEntity<Object> response = activityController.getAllActivities(null, null, null, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -105,10 +105,11 @@ class ActivityControllerTest {
         Activity activity = new Activity(1L, "Marché", "Description", "marché", 43.9493, 4.8055,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, "Place Pie", "Avignon", "84000",
                 null, null, null, null, null);
-        when(activityService.findAll("Avignon", "city,date")).thenReturn(List.of(activity));
+        when(activityService.findAll("Avignon", "city,date", null)).thenReturn(List.of(activity));
 
         // When
-        ResponseEntity<Object> response = activityController.getAllActivities("Avignon", "city,date", httpRequest);
+        ResponseEntity<Object> response =
+                activityController.getAllActivities("Avignon", null, "city,date", httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -118,13 +119,13 @@ class ActivityControllerTest {
     @Test
     void getAllActivities_ShouldReturnBadRequest_WhenSortInvalid() {
         // Given
-        when(activityService.findAll(null, "unknown"))
+        when(activityService.findAll(null, "unknown", null))
                 .thenThrow(new IllegalArgumentException(
                         "Le paramètre 'sort' ne peut contenir que 'city' et/ou 'date' (valeur reçue : 'unknown')."));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities");
 
         // When
-        ResponseEntity<Object> response = activityController.getAllActivities(null, "unknown", httpRequest);
+        ResponseEntity<Object> response = activityController.getAllActivities(null, null, "unknown", httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());

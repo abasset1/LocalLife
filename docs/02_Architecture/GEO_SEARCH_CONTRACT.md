@@ -4,6 +4,14 @@ Définit le contrat utilisé par le backend pour la recherche d'activités
 autour d'une position. Sert de base à l'implémentation PostGIS (LL-4002)
 et à l'endpoint (LL-4003) — pas de code à ce stade, uniquement le contrat.
 
+> **LL-11012** : le « lieu » d'une activité pris en compte par cette
+> recherche n'est plus uniquement `activity.latitude`/`longitude` — voir
+> `docs/ADR-0006-recherche-occurrences.md` pour la prise en compte du
+> modèle événementiel riche du Sprint 11 (occurrences, exceptions,
+> changement exceptionnel de lieu). Les paramètres et leur sémantique
+> décrits ci-dessous restent inchangés ; seule la donnée sous-jacente
+> évaluée par le backend évolue.
+
 ---
 
 ## Endpoint

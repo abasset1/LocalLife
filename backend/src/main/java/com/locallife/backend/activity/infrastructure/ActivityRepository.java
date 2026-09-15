@@ -16,65 +16,115 @@ import org.springframework.data.repository.query.Param;
  * sont disponibles. {@code save} a été ajouté hors périmètre initial du
  * Sprint 2, à la demande d'Alex, pour débloquer LL-2012 (formulaire de
  * contribution).
+ *
+ * <b>LL-11012 (« recherche sur les occurrences »)</b> : {@link
+ * #findAllFiltered}/{@link #findWithinRadius}/{@link #findWithinBounds}
+ * filtrent désormais au niveau du modèle événementiel riche du Sprint 11
+ * ({@code schedule}/{@code occurrence}/{@code location}) plutôt qu'au
+ * seul niveau des colonnes plates d'{@code activity} — voir
+ * {@code docs/ADR-0006-recherche-occurrences.md} pour la décision de
+ * conception détaillée (bloc SQL {@code EXISTS} occurrence-aware,
+ * repli sur les colonnes d'{@code activity} pour les activités sans
+ * {@code schedule} — contributions manuelles, LL-2012/LL-3012).
  */
 public interface ActivityRepository extends Repository<Activity, Long> {
 
     List<Activity> findAll();
 
     /**
-     * Liste des activités avec filtre optionnel par ville et tri optionnel
-     * (LL-10006), conformément au contrat défini dans
+     * Liste des activités avec filtres optionnels par ville et par date, et
+     * tri optionnel (LL-10006, filtre {@code date} ajouté en LL-11012),
+     * conformément au contrat défini dans
      * {@code docs/02_Architecture/LOCATION_CONTRACT.md} (section « Filtre
-     * `city` et tri `sort` »). Utilisé uniquement par
+     * `city` et tri `sort` ») et à {@code docs/ADR-0006-recherche-occurrences.md}
+     * pour {@code date}. Utilisée uniquement par
      * {@code GET /api/v1/activities} — {@code findWithinRadius}/
-     * {@code findWithinBounds} ci-dessous ne sont pas concernées par ce
-     * ticket (leurs propres contrats géographiques restent inchangés).
+     * {@code findWithinBounds} ci-dessous ont leurs propres contrats
+     * géographiques, adaptés séparément par ce même ticket.
      *
-     * {@code city} : {@code null} pour ne pas filtrer, sinon comparaison
-     * exacte insensible à la casse ({@code LOWER()} des deux côtés) — voir
-     * {@code ActivityService#findAll(String, String)} pour la validation
-     * en amont. Cast explicite ({@code :city::text IS NULL}) par prudence,
-     * même raison que {@code :date::date IS NULL} sur
-     * {@link #findWithinRadius} (déjà rencontré sur ce projet :
-     * PostgreSQL ne peut pas toujours déterminer le type d'un paramètre à
-     * partir d'un simple {@code IS NULL} sans contexte).
+     * {@code city}/{@code date} : {@code null} chacun pour ne pas filtrer
+     * (indépendamment l'un de l'autre, comme {@code category}/{@code date}
+     * sur {@link #findWithinRadius}). Une activité correspond si :
+     * <ul>
+     *   <li>elle a au moins un {@code schedule} (LL-11002) : le filtre est
+     *       évalué sur ses occurrences non annulées ({@code status <>
+     *       'CANCELLED'}, « exceptions prises en compte »), en résolvant le
+     *       lieu effectif de chacune ({@code COALESCE(occurrence.location_id,
+     *       schedule.location_id)}, « changement exceptionnel de lieu ») —
+     *       couvre nativement activité ponctuelle/récurrente, plusieurs
+     *       schedules, plusieurs villes (LL-11012, « le système doit
+     *       gérer ») ;</li>
+     *   <li>sinon (aucun {@code schedule}, ex. contribution manuelle
+     *       LL-2012/LL-3012, dont le formulaire ne crée encore ni
+     *       {@code Location} ni {@code Schedule}) : repli sur les colonnes
+     *       plates historiques {@code activity.city}/{@code
+     *       activity.start_date}/{@code activity.end_date} — garantit
+     *       qu'aucune contribution manuelle existante ne disparaît des
+     *       résultats (compatibilité, même principe que {@code
+     *       ImportService#enrichActivity}, ADR-0005).</li>
+     * </ul>
+     * {@code date} n'a, volontairement, aucune fenêtre par défaut quand il
+     * est absent (contrairement à {@link #findWithinRadius}/{@link
+     * #findWithinBounds}, qui restreignent aux 7 prochains jours en
+     * l'absence de {@code date} — comportement spécifique aux recherches
+     * publiques LL-4005/LL-6004, non repris ici) : cet endpoint reste une
+     * liste brute, sans restriction implicite, cohérent avec son
+     * comportement historique en l'absence de tout filtre.
      *
-     * {@code primarySort}/{@code secondarySort} : chacun {@code null},
-     * {@code "city"} ou {@code "date"} (jamais une autre valeur — validées
-     * en amont par le service, liste fermée du contrat LL-10006), désigne
-     * respectivement la première et la seconde clé de tri demandées via
-     * le paramètre {@code sort} (ex. {@code sort=city,date} →
-     * {@code primarySort="city"}, {@code secondarySort="date"}). Une seule
-     * requête couvre toutes les combinaisons possibles (aucune, une seule
-     * clé, ou les deux dans n'importe quel ordre) via des expressions
-     * {@code CASE WHEN} : quand une clé ne correspond pas au paramètre
-     * fourni, la branche {@code CASE} vaut {@code NULL} et n'a donc aucun
-     * effet sur le tri à cette position. {@code id} croissant est toujours
-     * ajouté en dernier critère pour un résultat déterministe même à
-     * égalité parfaite sur {@code city}/{@code date} (voir la décision
-     * correspondante dans {@code LOCATION_CONTRACT.md}).
+     * Fuseau horaire d'une occurrence : {@code COALESCE(location.timezone,
+     * 'Europe/Paris')} — même résolution qu'à l'écriture ({@code
+     * NormalizationService#resolveZone}), pour comparer {@code
+     * occurrence.start_at}/{@code end_at} (instants, {@code TIMESTAMPTZ}) à
+     * {@code date} (un jour civil) dans le bon fuseau plutôt que celui, non
+     * garanti, du serveur PostgreSQL.
      *
-     * Volontairement distincte de {@link #findAll()} plutôt que de la
-     * remplacer : {@code findAll()} reste appelée telle quelle par
-     * {@code ActivityService#findAll(String, String)} quand ni
-     * {@code city} ni {@code sort} ne sont fournis, pour ne strictement
-     * rien changer au comportement observable historique de
-     * {@code GET /api/v1/activities} dans ce cas (aucun {@code ORDER BY}
-     * ajouté), conformément au critère d'acceptation « les filtres
-     * existants restent fonctionnels ».
+     * {@code primarySort}/{@code secondarySort} : voir la javadoc
+     * ci-dessous, inchangée par ce ticket — trie toujours sur les colonnes
+     * propres d'{@code activity} ({@code city}/{@code start_date}), y
+     * compris pour une activité dont la correspondance provient d'une
+     * occurrence dans une ville différente de sa {@code city} par défaut
+     * (⚠️ décision à valider : un tri exact par « la ville/la date de
+     * l'occurrence effectivement trouvée » demanderait de désigner cette
+     * occurrence dans le résultat, hors périmètre — {@code activity.city}/
+     * {@code activity.start_date} restent une valeur pertinente dans
+     * l'immense majorité des cas, la première/l'unique location connue à
+     * l'import, voir {@code NormalizationService#normalize}).
      */
     @Query("""
-            SELECT * FROM activity
-            WHERE (:city::text IS NULL OR LOWER(city) = LOWER(:city::text))
+            SELECT a.* FROM activity a
+            WHERE (:city::text IS NULL OR
+                   EXISTS (
+                       SELECT 1 FROM schedule s
+                       JOIN occurrence o ON o.schedule_id = s.id
+                       JOIN location l ON l.id = COALESCE(o.location_id, s.location_id)
+                       WHERE s.activity_id = a.id AND o.status <> 'CANCELLED'
+                         AND LOWER(l.city) = LOWER(:city::text)
+                   )
+                   OR (NOT EXISTS (SELECT 1 FROM schedule s2 WHERE s2.activity_id = a.id)
+                       AND LOWER(a.city) = LOWER(:city::text)))
+              AND (:date::date IS NULL OR
+                   EXISTS (
+                       SELECT 1 FROM schedule s
+                       JOIN occurrence o ON o.schedule_id = s.id
+                       JOIN location l ON l.id = COALESCE(o.location_id, s.location_id)
+                       WHERE s.activity_id = a.id AND o.status <> 'CANCELLED'
+                         AND :date::date BETWEEN
+                             (o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date
+                             AND (COALESCE(o.end_at, o.start_at) AT TIME ZONE COALESCE(l.timezone,
+                                 'Europe/Paris'))::date
+                   )
+                   OR (NOT EXISTS (SELECT 1 FROM schedule s3 WHERE s3.activity_id = a.id)
+                       AND :date::date BETWEEN a.start_date::date AND COALESCE(a.end_date, a.start_date)::date))
             ORDER BY
-              CASE WHEN :primarySort = 'city' THEN city END ASC,
-              CASE WHEN :primarySort = 'date' THEN start_date END ASC,
-              CASE WHEN :secondarySort = 'city' THEN city END ASC,
-              CASE WHEN :secondarySort = 'date' THEN start_date END ASC,
-              id ASC
+              CASE WHEN :primarySort = 'city' THEN a.city END ASC,
+              CASE WHEN :primarySort = 'date' THEN a.start_date END ASC,
+              CASE WHEN :secondarySort = 'city' THEN a.city END ASC,
+              CASE WHEN :secondarySort = 'date' THEN a.start_date END ASC,
+              a.id ASC
             """)
     List<Activity> findAllFiltered(
             @Param("city") String city,
+            @Param("date") LocalDate date,
             @Param("primarySort") String primarySort,
             @Param("secondarySort") String secondarySort);
 
@@ -83,79 +133,104 @@ public interface ActivityRepository extends Repository<Activity, Long> {
     Activity save(Activity activity);
 
     /**
-     * Recherche géographique PostGIS (LL-4002) : activités dont la colonne
-     * {@code location} (alimentée automatiquement depuis latitude/longitude
-     * par un trigger, voir {@code V7__add_postgis_location_to_activity.sql})
-     * se trouve à moins de {@code radiusMeters} mètres du point donné.
-     * Distance calculée côté base ({@code ST_DWithin} sur type {@code
-     * geography}, donc en mètres), résultats triés par distance croissante.
-     * La conversion km → mètres (contrat LL-4001 : {@code radius} exprimé
-     * en km côté API) est à la charge de l'appelant, voir
-     * {@code ActivityService#findNearby}.
+     * Recherche géographique PostGIS (LL-4002), rendue occurrence-aware par
+     * LL-11012 : activités dont un lieu effectif (voir {@code
+     * docs/ADR-0006-recherche-occurrences.md}) se trouve à moins de {@code
+     * radiusMeters} mètres du point donné. Distance calculée côté base,
+     * résultats triés par distance croissante.
      *
-     * Filtre optionnel par statut ajouté en LL-4003 : {@code status} peut
-     * être {@code null}, auquel cas aucun filtrage n'est appliqué (même
-     * comportement que {@code findAll()}, qui ne filtre pas non plus).
+     * Comme {@link #findAllFiltered}, une activité correspond via ses
+     * occurrences non annulées (lieu effectif {@code
+     * COALESCE(occurrence.location_id, schedule.location_id)}) quand elle a
+     * au moins un {@code schedule}, sinon via ses colonnes plates
+     * historiques ({@code activity.location}, alimentée par le trigger
+     * PostGIS existant, {@code V7__add_postgis_location_to_activity.sql}) —
+     * voir la javadoc de {@link #findAllFiltered} pour le détail de cette
+     * double condition, strictement le même principe ici.
      *
-     * Filtre optionnel par catégorie ajouté en LL-4004 : {@code categoriesCsv}
-     * est une liste de catégories séparées par des virgules (ou {@code null}
-     * pour ne pas filtrer), comparée à la colonne {@code category}
-     * (chaîne libre, voir {@code ActivityService#findNearby} pour le détail
-     * de cette décision). Utilise {@code string_to_array}/{@code ANY} côté
-     * SQL plutôt qu'un binding de collection Java, pour rester sur le même
-     * pattern « paramètre nullable unique » que {@code status} ci-dessus.
+     * Filtres {@code status}/{@code categoriesCsv} inchangés (LL-4003/
+     * LL-4004, colonnes propres d'{@code activity}, non concernées par ce
+     * ticket). Filtre {@code date}/{@code dateTo} (LL-4005/LL-11003) :
+     * même sémantique que jusqu'ici (voir la version précédente de cette
+     * javadoc, conservée pour le repli sans {@code schedule}), désormais
+     * évaluée sur {@code occurrence.start_at}/{@code end_at} (fuseau
+     * horaire du lieu, voir {@link #findAllFiltered}) pour la branche
+     * occurrence-aware — y compris la fenêtre par défaut des 7 prochains
+     * jours en l'absence de {@code date} (LL-4005/LL-6004, préservée à
+     * l'identique dans les deux branches).
      *
-     * Filtre optionnel par date ajouté en LL-4005 : {@code date} peut être
-     * {@code null}; dans ce cas, seules les activités encore en cours ou à
-     * venir sont retenues. Lorsque {@code date} est fourni, une activité est
-     * retenue quand {@code date} tombe dans sa période
-     * {@code [start_date, end_date]}
-     * (bornes incluses, comparaison au jour près via {@code ::date}, donc
-     * l'heure de {@code start_date}/{@code end_date} n'entre pas en jeu).
-     * {@code end_date} peut être {@code NULL} en base (activités créées via
-     * le formulaire de contribution, voir {@code ActivityService#createActivity})
-     * : dans ce cas {@code COALESCE(end_date, start_date)} traite
-     * l'activité comme ne durant qu'une seule journée, celle de
-     * {@code start_date}.
-     *
-     * ⚠️ Correctif (post-LL-4007, signalé par Alex via {@code mvn verify}) :
-     * {@code :date} doit être casté explicitement (
-     * {@code :date::date}), y compris dans le test {@code IS NULL} —
-     * sinon PostgreSQL ne peut pas déterminer le type du paramètre à
-     * partir d'un simple {@code ? IS NULL} sans contexte de type, ce qui
-     * lève {@code could not determine data type of parameter}
-     * ({@code BadSqlGrammarException} côté Spring) dès qu'une requête est
-     * exécutée avec {@code date == null}. Bug introduit en LL-4005,
-     * non détecté avant faute d'accès à une vraie base PostgreSQL en
-     * sandbox de développement. Même raison pour {@code :dateTo::date}
-     * ci-dessous.
-     *
-     * Filtre par période ajouté en LL-11003 : {@code dateTo} peut être
-     * {@code null} (comportement LL-4005 inchangé : correspondance sur la
-     * seule date {@code date}) ; lorsque {@code dateTo} est fourni (toujours
-     * accompagné de {@code date}, validé en amont par {@code
-     * ActivityService#validateDateRange}), une activité est retenue dès
-     * que sa période {@code [start_date, end_date]} chevauche {@code
-     * [date, dateTo]} — {@code start_date::date <= dateTo::date AND
-     * COALESCE(end_date, start_date)::date >= date::date} — plutôt que de
-     * ne correspondre qu'à une unique journée.
+     * Tri par distance : la distance retenue pour une activité est la plus
+     * petite parmi celles de ses occurrences correspondantes (au cas où
+     * plusieurs occurrences d'une même activité, dans des lieux
+     * différents, seraient toutes dans le rayon — « plusieurs villes »,
+     * LL-11012) et celle de sa localisation historique propre le cas
+     * échéant (repli) — {@code LEAST}/{@code COALESCE} avec {@code
+     * 'Infinity'} en absence de correspondance sur une branche, pour ne
+     * jamais faire échouer le calcul quand une seule des deux branches
+     * s'applique à une activité donnée.
      */
     @Query("""
-            SELECT * FROM activity
-            WHERE location IS NOT NULL
-              AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
-              AND (:status IS NULL OR status = :status)
-              AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
-              AND ((:date::date IS NULL
-                    AND (start_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' OR
-                         COALESCE(end_date, start_date)::date BETWEEN CURRENT_DATE
-                         AND CURRENT_DATE + INTERVAL '7 days'))
-                   OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
-                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
-                   OR (:date::date IS NOT NULL AND :dateTo::date IS NOT NULL
-                       AND start_date::date <= :dateTo::date
-                       AND COALESCE(end_date, start_date)::date >= :date::date))
-            ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography)
+            SELECT a.* FROM activity a
+            WHERE (:status IS NULL OR a.status = :status)
+              AND (:categoriesCsv IS NULL OR a.category = ANY(string_to_array(:categoriesCsv, ',')))
+              AND (
+                EXISTS (
+                    SELECT 1 FROM schedule s
+                    JOIN occurrence o ON o.schedule_id = s.id
+                    JOIN location l ON l.id = COALESCE(o.location_id, s.location_id)
+                    WHERE s.activity_id = a.id AND o.status <> 'CANCELLED'
+                      AND l.geo_location IS NOT NULL
+                      AND ST_DWithin(l.geo_location,
+                            ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
+                      AND ((:date::date IS NULL
+                            AND ((o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date
+                                   BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+                                 OR (COALESCE(o.end_at, o.start_at) AT TIME ZONE COALESCE(l.timezone,
+                                     'Europe/Paris'))::date
+                                   BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'))
+                           OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
+                               AND :date::date BETWEEN
+                                   (o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date
+                                   AND (COALESCE(o.end_at, o.start_at) AT TIME ZONE COALESCE(l.timezone,
+                                       'Europe/Paris'))::date)
+                           OR (:date::date IS NOT NULL AND :dateTo::date IS NOT NULL
+                               AND (o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date <= :dateTo::date
+                               AND (COALESCE(o.end_at, o.start_at) AT TIME ZONE COALESCE(l.timezone,
+                                   'Europe/Paris'))::date
+                                   >= :date::date))
+                )
+                OR (
+                    NOT EXISTS (SELECT 1 FROM schedule s2 WHERE s2.activity_id = a.id)
+                    AND a.location IS NOT NULL
+                    AND ST_DWithin(a.location,
+                          ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
+                    AND ((:date::date IS NULL
+                          AND (a.start_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' OR
+                               COALESCE(a.end_date, a.start_date)::date
+                                 BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'))
+                         OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
+                             AND :date::date BETWEEN a.start_date::date AND COALESCE(a.end_date, a.start_date)::date)
+                         OR (:date::date IS NOT NULL AND :dateTo::date IS NOT NULL
+                             AND a.start_date::date <= :dateTo::date
+                             AND COALESCE(a.end_date, a.start_date)::date >= :date::date))
+                )
+              )
+            ORDER BY LEAST(
+                COALESCE((
+                    SELECT MIN(ST_Distance(l.geo_location,
+                                ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography))
+                    FROM schedule s JOIN occurrence o ON o.schedule_id = s.id
+                    JOIN location l ON l.id = COALESCE(o.location_id, s.location_id)
+                    WHERE s.activity_id = a.id AND o.status <> 'CANCELLED'
+                      AND l.geo_location IS NOT NULL
+                      AND ST_DWithin(l.geo_location,
+                            ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
+                ), 'Infinity'::float8),
+                COALESCE(
+                    CASE WHEN a.location IS NOT NULL
+                         THEN ST_Distance(a.location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography)
+                    END, 'Infinity'::float8)
+            )
             """)
     List<Activity> findWithinRadius(
             @Param("latitude") double latitude,
@@ -167,45 +242,63 @@ public interface ActivityRepository extends Repository<Activity, Long> {
             @Param("dateTo") LocalDate dateTo);
 
     /**
-     * Recherche par zone cartographique PostGIS (LL-4007), conformément au
-     * contrat défini en LL-4006
-     * ({@code docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md}) :
-     * activités dont la colonne {@code location} se trouve à l'intérieur
-     * du rectangle défini par les coins sud-ouest
-     * ({@code swLongitude}/{@code swLatitude}) et nord-est
-     * ({@code neLongitude}/{@code neLatitude}). Utilise
-     * {@code ST_MakeEnvelope} (SRID 4326) et l'opérateur {@code &&}
-     * (comparaison de bounding box, exploitant l'index spatial existant)
-     * plutôt que {@code ST_Within}/{@code ST_Contains} : suffisant ici
-     * puisque la zone de recherche est elle-même un rectangle (pas de
-     * polygone arbitraire à ce stade), et moins coûteux.
+     * Recherche par zone cartographique PostGIS (LL-4007), rendue
+     * occurrence-aware par LL-11012 selon exactement le même principe que
+     * {@link #findWithinRadius} (voir sa javadoc pour le détail des deux
+     * branches occurrence/repli) — seul le test géographique change
+     * ({@code &&}/{@code ST_MakeEnvelope} plutôt que {@code ST_DWithin}
+     * sur un point+rayon, comme avant ce ticket).
      *
-     * Filtres optionnels {@code status}/{@code categoriesCsv}/{@code date}/
-     * {@code dateTo} : mêmes sémantiques que {@link #findWithinRadius},
-     * voir les javadocs correspondantes ci-dessus (LL-4003/LL-4004/
-     * LL-4005/LL-11003), y compris le correctif {@code :date::date}/
-     * {@code :dateTo::date} contre {@code BadSqlGrammarException} sur
-     * paramètre {@code null}.
-     *
-     * Pas de point de référence unique pour une distance : résultats
-     * triés par {@code id} croissant (décision du contrat LL-4006).
+     * Pas de tri par distance (pas de point de référence unique pour une
+     * zone) : résultats triés par {@code id} croissant, inchangé.
      */
     @Query("""
-            SELECT * FROM activity
-            WHERE location IS NOT NULL
-              AND location && ST_MakeEnvelope(:swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography
-              AND (:status IS NULL OR status = :status)
-              AND (:categoriesCsv IS NULL OR category = ANY(string_to_array(:categoriesCsv, ',')))
-              AND ((:date::date IS NULL
-                    AND (start_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' OR
-                         COALESCE(end_date, start_date)::date BETWEEN CURRENT_DATE
-                         AND CURRENT_DATE + INTERVAL '7 days'))
-                   OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
-                       AND :date::date BETWEEN start_date::date AND COALESCE(end_date, start_date)::date)
-                   OR (:date::date IS NOT NULL AND :dateTo::date IS NOT NULL
-                       AND start_date::date <= :dateTo::date
-                       AND COALESCE(end_date, start_date)::date >= :date::date))
-            ORDER BY id
+            SELECT a.* FROM activity a
+            WHERE (:status IS NULL OR a.status = :status)
+              AND (:categoriesCsv IS NULL OR a.category = ANY(string_to_array(:categoriesCsv, ',')))
+              AND (
+                EXISTS (
+                    SELECT 1 FROM schedule s
+                    JOIN occurrence o ON o.schedule_id = s.id
+                    JOIN location l ON l.id = COALESCE(o.location_id, s.location_id)
+                    WHERE s.activity_id = a.id AND o.status <> 'CANCELLED'
+                      AND l.geo_location IS NOT NULL
+                      AND l.geo_location && ST_MakeEnvelope(
+                            :swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography
+                      AND ((:date::date IS NULL
+                            AND ((o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date
+                                   BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+                                 OR (COALESCE(o.end_at, o.start_at) AT TIME ZONE COALESCE(l.timezone,
+                                     'Europe/Paris'))::date
+                                   BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'))
+                           OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
+                               AND :date::date BETWEEN
+                                   (o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date
+                                   AND (COALESCE(o.end_at, o.start_at) AT TIME ZONE COALESCE(l.timezone,
+                                       'Europe/Paris'))::date)
+                           OR (:date::date IS NOT NULL AND :dateTo::date IS NOT NULL
+                               AND (o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date <= :dateTo::date
+                               AND (COALESCE(o.end_at, o.start_at) AT TIME ZONE COALESCE(l.timezone,
+                                   'Europe/Paris'))::date
+                                   >= :date::date))
+                )
+                OR (
+                    NOT EXISTS (SELECT 1 FROM schedule s2 WHERE s2.activity_id = a.id)
+                    AND a.location IS NOT NULL
+                    AND a.location && ST_MakeEnvelope(
+                          :swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography
+                    AND ((:date::date IS NULL
+                          AND (a.start_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' OR
+                               COALESCE(a.end_date, a.start_date)::date
+                                 BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'))
+                         OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
+                             AND :date::date BETWEEN a.start_date::date AND COALESCE(a.end_date, a.start_date)::date)
+                         OR (:date::date IS NOT NULL AND :dateTo::date IS NOT NULL
+                             AND a.start_date::date <= :dateTo::date
+                             AND COALESCE(a.end_date, a.start_date)::date >= :date::date))
+                )
+              )
+            ORDER BY a.id
             """)
     List<Activity> findWithinBounds(
             @Param("swLatitude") double swLatitude,

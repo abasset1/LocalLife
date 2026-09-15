@@ -83,15 +83,18 @@ public class ActivityService {
     }
 
     /**
-     * Liste des activités avec filtre optionnel par ville et tri optionnel
-     * (LL-10006), pour {@code GET /api/v1/activities}. Voir le contrat
-     * détaillé dans {@code docs/02_Architecture/LOCATION_CONTRACT.md}
-     * (section « Filtre `city` et tri `sort` »).
+     * Liste des activités avec filtres optionnels par ville et par date, et
+     * tri optionnel (LL-10006, filtre {@code date} ajouté en LL-11012),
+     * pour {@code GET /api/v1/activities}. Voir le contrat détaillé dans
+     * {@code docs/02_Architecture/LOCATION_CONTRACT.md} (section « Filtre
+     * `city` et tri `sort` ») et {@code docs/ADR-0006-recherche-occurrences.md}
+     * pour {@code date}.
      *
-     * Ni {@code city} ni {@code sort} fournis : délègue à {@link #findAll()}
-     * sans passer par {@link ActivityRepository#findAllFiltered}, pour ne
-     * strictement rien changer au comportement historique de cet endpoint
-     * dans ce cas (critère d'acceptation « les filtres existants restent
+     * Ni {@code city}, ni {@code sort}, ni {@code date} fournis : délègue à
+     * {@link #findAll()} sans passer par {@link
+     * ActivityRepository#findAllFiltered}, pour ne strictement rien
+     * changer au comportement historique de cet endpoint dans ce cas
+     * (critère d'acceptation « les filtres existants restent
      * fonctionnels »).
      *
      * {@code city} : comparé tel quel (après nettoyage des espaces en
@@ -99,6 +102,12 @@ public class ActivityService {
      * (voir {@link ActivityRepository#findAllFiltered}). Une valeur
      * vide/blanche équivaut à une absence de filtre (même convention que
      * {@code category} sur {@link #findNearby}).
+     *
+     * {@code date} (LL-11012) : date unique au format ISO-8601 ({@code
+     * yyyy-MM-dd}), même format/validation que {@link #findNearby} (voir
+     * {@link #parseOptionalDate}) — mais sans {@code dateTo} ni fenêtre par
+     * défaut (voir {@link ActivityRepository#findAllFiltered}, qui reste
+     * une simple liste sans restriction implicite en l'absence de filtre).
      *
      * {@code sort} : liste de clés séparées par des virgules, parmi
      * exactement {@code "city"}/{@code "date"} (voir {@link #parseSort}).
@@ -108,19 +117,20 @@ public class ActivityService {
      *
      * @throws IllegalArgumentException si {@code sort} contient une valeur
      *         inconnue (autre que {@code city}/{@code date}) ou une clé en
-     *         double.
+     *         double, ou si {@code date} n'est pas au format ISO-8601.
      */
-    public List<Activity> findAll(String city, String sortRaw) {
+    public List<Activity> findAll(String city, String sortRaw, String dateRaw) {
         String normalizedCity = normalizeCity(city);
         List<String> sortKeys = parseSort(sortRaw);
+        LocalDate date = parseOptionalDate("date", dateRaw);
 
-        if (normalizedCity == null && sortKeys.isEmpty()) {
+        if (normalizedCity == null && sortKeys.isEmpty() && date == null) {
             return activityRepository.findAll();
         }
 
         String primarySort = sortKeys.size() > 0 ? sortKeys.get(0) : null;
         String secondarySort = sortKeys.size() > 1 ? sortKeys.get(1) : null;
-        return activityRepository.findAllFiltered(normalizedCity, primarySort, secondarySort);
+        return activityRepository.findAllFiltered(normalizedCity, date, primarySort, secondarySort);
     }
 
     private String normalizeCity(String cityRaw) {

@@ -303,12 +303,12 @@ class ActivityServiceTest {
         when(activityRepository.findAll()).thenReturn(expected);
 
         // When
-        List<Activity> result = activityService().findAll(null, null);
+        List<Activity> result = activityService().findAll(null, null, null);
 
         // Then
         assertThat(result).isEqualTo(expected);
         verify(activityRepository).findAll();
-        verify(activityRepository, never()).findAllFiltered(any(), any(), any());
+        verify(activityRepository, never()).findAllFiltered(any(), any(), any(), any());
     }
 
     @Test
@@ -317,76 +317,76 @@ class ActivityServiceTest {
         when(activityRepository.findAll()).thenReturn(List.of());
 
         // When
-        activityService().findAll("   ", "   ");
+        activityService().findAll("   ", "   ", null);
 
         // Then
         verify(activityRepository).findAll();
-        verify(activityRepository, never()).findAllFiltered(any(), any(), any());
+        verify(activityRepository, never()).findAllFiltered(any(), any(), any(), any());
     }
 
     @Test
     void findAll_ShouldPassCityThrough_Trimmed() {
         // Given
-        when(activityRepository.findAllFiltered("Avignon", null, null)).thenReturn(List.of());
+        when(activityRepository.findAllFiltered("Avignon", null, null, null)).thenReturn(List.of());
 
         // When
-        activityService().findAll("  Avignon  ", null);
+        activityService().findAll("  Avignon  ", null, null);
 
         // Then
-        verify(activityRepository).findAllFiltered("Avignon", null, null);
+        verify(activityRepository).findAllFiltered("Avignon", null, null, null);
     }
 
     @Test
     void findAll_ShouldPassSingleSortKeyThrough_AsPrimarySort() {
         // Given
-        when(activityRepository.findAllFiltered(null, "city", null)).thenReturn(List.of());
+        when(activityRepository.findAllFiltered(null, null, "city", null)).thenReturn(List.of());
 
         // When
-        activityService().findAll(null, "city");
+        activityService().findAll(null, "city", null);
 
         // Then
-        verify(activityRepository).findAllFiltered(null, "city", null);
+        verify(activityRepository).findAllFiltered(null, null, "city", null);
     }
 
     @Test
     void findAll_ShouldPassCombinedSortKeys_InOrder() {
         // Given
-        when(activityRepository.findAllFiltered("Avignon", "city", "date")).thenReturn(List.of());
+        when(activityRepository.findAllFiltered("Avignon", null, "city", "date")).thenReturn(List.of());
 
         // When
-        activityService().findAll("Avignon", "city,date");
+        activityService().findAll("Avignon", "city,date", null);
 
         // Then
-        verify(activityRepository).findAllFiltered("Avignon", "city", "date");
+        verify(activityRepository).findAllFiltered("Avignon", null, "city", "date");
     }
 
     @Test
     void findAll_ShouldPreserveSortKeyOrder_WhenReversed() {
         // Given : l'ordre des clés dans 'sort' fixe la priorité du tri, quel que soit l'ordre choisi.
-        when(activityRepository.findAllFiltered(null, "date", "city")).thenReturn(List.of());
+        when(activityRepository.findAllFiltered(null, null, "date", "city")).thenReturn(List.of());
 
         // When
-        activityService().findAll(null, "date,city");
+        activityService().findAll(null, "date,city", null);
 
         // Then
-        verify(activityRepository).findAllFiltered(null, "date", "city");
+        verify(activityRepository).findAllFiltered(null, null, "date", "city");
     }
 
     @Test
     void findAll_ShouldTrimSortKeys_AndIgnoreBlankSegments() {
         // Given : mêmes règles de nettoyage que normalizeCategories.
-        when(activityRepository.findAllFiltered(null, "city", "date")).thenReturn(List.of());
+        when(activityRepository.findAllFiltered(null, null, "city", "date")).thenReturn(List.of());
 
         // When
-        activityService().findAll(null, " city , date ,, ");
+        activityService().findAll(null, " city , date ,, ", null);
 
         // Then
-        verify(activityRepository).findAllFiltered(null, "city", "date");
+        verify(activityRepository).findAllFiltered(null, null, "city", "date");
     }
 
     @Test
     void findAll_ShouldThrow_WhenSortContainsUnknownKey() {
-        assertThatThrownBy(() -> activityService().findAll(null, "unknown"))
+        assertThatThrownBy(() -> activityService().findAll(null, "unknown", null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("sort");
 
@@ -395,7 +395,7 @@ class ActivityServiceTest {
 
     @Test
     void findAll_ShouldThrow_WhenSortContainsDuplicateKey() {
-        assertThatThrownBy(() -> activityService().findAll(null, "city,city"))
+        assertThatThrownBy(() -> activityService().findAll(null, "city,city", null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("sort");
 
@@ -405,10 +405,10 @@ class ActivityServiceTest {
     @Test
     void findAll_ShouldReturnEmptyList_WhenCityMatchesNothing() {
         // Given : cohérent avec la décision LL-4004 pour 'category' — pas d'erreur pour un filtre sans résultat.
-        when(activityRepository.findAllFiltered("Ville-Inexistante", null, null)).thenReturn(List.of());
+        when(activityRepository.findAllFiltered("Ville-Inexistante", null, null, null)).thenReturn(List.of());
 
         // When
-        List<Activity> result = activityService().findAll("Ville-Inexistante", null);
+        List<Activity> result = activityService().findAll("Ville-Inexistante", null, null);
 
         // Then
         assertThat(result).isEmpty();

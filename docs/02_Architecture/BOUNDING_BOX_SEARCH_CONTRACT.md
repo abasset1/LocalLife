@@ -13,6 +13,12 @@ Ce contrat complète `GEO_SEARCH_CONTRACT.md` (recherche par rayon,
 recherche géographique distincts, chacun avec son propre endpoint. Aucun
 des deux ne remplace l'autre — voir décision ci-dessous.
 
+> **LL-11012** : voir la même note dans `GEO_SEARCH_CONTRACT.md` et
+> `docs/ADR-0006-recherche-occurrences.md` — le « lieu » d'une activité
+> pris en compte par cette recherche inclut désormais le modèle
+> événementiel riche du Sprint 11, sans changement des paramètres
+> décrits ci-dessous.
+
 ---
 
 ## Endpoint
