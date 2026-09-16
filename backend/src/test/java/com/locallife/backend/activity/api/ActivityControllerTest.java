@@ -1,5 +1,6 @@
 package com.locallife.backend.activity.api;
 
+import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.domain.Activity;
@@ -8,8 +9,16 @@ import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.geocoding.application.AddressNotFoundException;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
 import com.locallife.backend.like.application.LikeService;
+import com.locallife.backend.link.application.ActivityLinkService;
+import com.locallife.backend.media.application.ActivityMediaService;
+import com.locallife.backend.media.application.MediaService;
+import com.locallife.backend.metadata.application.ActivityMetadataService;
+import com.locallife.backend.place.application.LocationService;
+import com.locallife.backend.schedule.application.OccurrenceService;
+import com.locallife.backend.schedule.application.ScheduleService;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
+import com.locallife.backend.tag.application.ActivityTagService;
 import com.locallife.backend.user.application.UserService;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
@@ -44,6 +53,33 @@ class ActivityControllerTest {
 
     @Mock
     private LikeService likeService;
+
+    @Mock
+    private ScheduleService scheduleService;
+
+    @Mock
+    private OccurrenceService occurrenceService;
+
+    @Mock
+    private LocationService locationService;
+
+    @Mock
+    private MediaService mediaService;
+
+    @Mock
+    private ActivityMediaService activityMediaService;
+
+    @Mock
+    private ActivityLinkService activityLinkService;
+
+    @Mock
+    private AccessibilityService accessibilityService;
+
+    @Mock
+    private ActivityTagService activityTagService;
+
+    @Mock
+    private ActivityMetadataService activityMetadataService;
 
     @Mock
     private HttpServletRequest httpRequest;
@@ -113,7 +149,9 @@ class ActivityControllerTest {
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(List.of(activity), response.getBody());
+        // LL-11013 : GET /api/v1/activities retourne désormais ActivitySummaryResponse (mainImageUrl
+        // null ici : activityMediaService non stubbé, renvoie une liste vide par défaut).
+        assertEquals(List.of(ActivitySummaryResponse.from(activity, null)), response.getBody());
     }
 
     @Test
@@ -141,7 +179,7 @@ class ActivityControllerTest {
         when(activityService.findById(1L)).thenReturn(Optional.of(activity));
 
         // When
-        ResponseEntity<Activity> response = activityController.getActivityById(1L);
+        ResponseEntity<ActivityDetailResponse> response = activityController.getActivityById(1L);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -155,7 +193,7 @@ class ActivityControllerTest {
         when(activityService.findById(999L)).thenReturn(Optional.empty());
 
         // When
-        ResponseEntity<Activity> response = activityController.getActivityById(999L);
+        ResponseEntity<ActivityDetailResponse> response = activityController.getActivityById(999L);
 
         // Then
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());

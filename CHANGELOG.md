@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.16 — 2026-09-16
+
+### LL-11013 — Séparer les DTO résumé/détail d'activité
+- Ticket du Sprint 11 (`docs/05_Sprints/SPRINT_11.md`) : `GET /api/v1/activities` et `GET /api/v1/activities/{id}` exposaient directement l'entité de domaine `Activity`, sans distinction entre les besoins d'une carte/liste et ceux d'une fiche détaillée, et sans exposer le modèle événementiel riche du Sprint 11 (LL-11001 à LL-11010).
+- Nouveau DTO `ActivitySummaryResponse` pour `GET /api/v1/activities` : exactement les champs listés par le ticket (id, title, category, date, city, address, latitude, longitude, mainImageUrl) — plus léger que l'entité `Activity` complète, aucune donnée interne (sourceId, importKey, status, etc.) exposée.
+- Nouveau DTO `ActivityDetailResponse` pour `GET /api/v1/activities/{id}` : description, longDescription, schedules, occurrences pertinentes (non annulées), locations (dédoublonnées), media, links, accessibility, tags, informations complémentaires — voir `docs/ADR-0007-dto-resume-detail-activite.md` pour le détail des décisions de conception (records imbriqués dédiés plutôt qu'exposition directe des entités de domaine, interprétation d'« occurrences pertinentes », dédoublonnage des locations).
+- `ActivityResponse` (utilisé par `/nearby`/`/within-bounds`/les activités likées) volontairement non modifié — hors périmètre de ce ticket, aucun endpoint existant cassé.
+- `ActivityController` : 9 nouvelles dépendances injectées pour assembler la fiche détaillée (ScheduleService, OccurrenceService, LocationService, MediaService, ActivityMediaService, ActivityLinkService, AccessibilityService, ActivityTagService, ActivityMetadataService).
+- OpenAPI mis à jour automatiquement via les annotations Springdoc déjà en place sur ces deux endpoints.
+- Tests mis à jour (`ActivityControllerTest`, `ActivityControllerIntegrationTest`) et nouveaux tests ajoutés vérifiant l'absence de champs sensibles et la présence de l'arborescence riche dans la fiche détaillée.
+- ⚠️ Backend non compilable/testable dans cette session (pas d'accès réseau à Maven Central ni à une base PostgreSQL réelle) : vérifié par relecture manuelle attentive uniquement (correspondance des champs entre chaque record de domaine et les DTO), **`mvn verify` reste à lancer par Alex avant tout merge**.
+
 ## 0.9.15 — 2026-09-15
 
 ### LL-11012 — Adapter la recherche au modèle événementiel riche

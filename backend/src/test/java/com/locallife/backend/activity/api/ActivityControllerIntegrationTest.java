@@ -1,6 +1,5 @@
 package com.locallife.backend.activity.api;
 
-import com.locallife.backend.activity.domain.Activity;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -74,10 +73,11 @@ class ActivityControllerIntegrationTest {
      */
     @Test
     void getActivityById_ShouldReturnOk_WhenExists() {
-        Activity[] activities = restTestClient().get().uri("/api/v1/activities")
+        // LL-11013 : GET /api/v1/activities retourne désormais ActivitySummaryResponse, pas Activity.
+        ActivitySummaryResponse[] activities = restTestClient().get().uri("/api/v1/activities")
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(Activity[].class)
+                .expectBody(ActivitySummaryResponse[].class)
                 .returnResult()
                 .getResponseBody();
 
@@ -103,6 +103,66 @@ class ActivityControllerIntegrationTest {
     void getActivityById_ShouldReturnNotFound_WhenNotExists() {
         restTestClient().get().uri("/api/v1/activities/" + (Long.MAX_VALUE - 1))
                 .exchange().expectStatus().isNotFound();
+    }
+
+    /**
+     * LL-11013, critère « DTO résumé » / « aucune donnée sensible
+     * exposée » : {@code GET /api/v1/activities} ne doit exposer que les
+     * champs listés par le ticket (voir {@link ActivitySummaryResponse}),
+     * jamais les champs internes (ex. {@code sourceId}/{@code importKey},
+     * absents du DTO — {@code status}/{@code createdBy} aussi, non
+     * repris par ce DTO volontairement allégé, voir sa javadoc).
+     */
+    @Test
+    void getAllActivities_ShouldExposeOnlySummaryFields() {
+        restTestClient().get().uri("/api/v1/activities")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$[0].id").exists()
+                .jsonPath("$[0].title").exists()
+                .jsonPath("$[0].category").exists()
+                .jsonPath("$[0].date").exists()
+                .jsonPath("$[0].latitude").exists()
+                .jsonPath("$[0].longitude").exists()
+                .jsonPath("$[0].sourceId").doesNotExist()
+                .jsonPath("$[0].importKey").doesNotExist()
+                .jsonPath("$[0].status").doesNotExist();
+    }
+
+    /**
+     * LL-11013, critère « DTO détail » : {@code GET
+     * /api/v1/activities/{id}} doit exposer l'arborescence riche du
+     * ticket (voir {@link ActivityDetailResponse}) — présente même
+     * vide (listes vides plutôt qu'absentes, pour une activité sans
+     * schedule/média/lien/tag, ex. une activité de démonstration
+     * V3__insert_demo_activities.sql).
+     */
+    @Test
+    void getActivityById_ShouldExposeDetailFields() {
+        ActivitySummaryResponse[] activities = restTestClient().get().uri("/api/v1/activities")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(ActivitySummaryResponse[].class)
+                .returnResult()
+                .getResponseBody();
+        assertNotNull(activities);
+        assertTrue(activities.length > 0);
+
+        restTestClient().get().uri("/api/v1/activities/" + activities[0].id())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.id").exists()
+                .jsonPath("$.title").exists()
+                .jsonPath("$.schedules").isArray()
+                .jsonPath("$.occurrences").isArray()
+                .jsonPath("$.locations").isArray()
+                .jsonPath("$.media").isArray()
+                .jsonPath("$.links").isArray()
+                .jsonPath("$.tags").isArray()
+                .jsonPath("$.sourceId").doesNotExist()
+                .jsonPath("$.importKey").doesNotExist();
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.locallife.backend.activity.api;
 
+import com.locallife.backend.accessibility.application.AccessibilityService;
+import com.locallife.backend.accessibility.domain.Accessibility;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.domain.Activity;
@@ -8,8 +10,23 @@ import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.geocoding.application.AddressNotFoundException;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
 import com.locallife.backend.like.application.LikeService;
+import com.locallife.backend.link.application.ActivityLinkService;
+import com.locallife.backend.link.domain.ActivityLink;
+import com.locallife.backend.media.application.ActivityMediaService;
+import com.locallife.backend.media.application.MediaService;
+import com.locallife.backend.media.domain.ActivityMedia;
+import com.locallife.backend.media.domain.Media;
+import com.locallife.backend.metadata.application.ActivityMetadataService;
+import com.locallife.backend.place.application.LocationService;
+import com.locallife.backend.place.domain.Location;
+import com.locallife.backend.schedule.application.OccurrenceService;
+import com.locallife.backend.schedule.application.ScheduleService;
+import com.locallife.backend.schedule.domain.Occurrence;
+import com.locallife.backend.schedule.domain.Schedule;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
+import com.locallife.backend.tag.application.ActivityTagService;
+import com.locallife.backend.tag.domain.ActivityTag;
 import com.locallife.backend.user.application.UserService;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
@@ -21,6 +38,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -60,30 +79,58 @@ public class ActivityController {
     private final SourceService sourceService;
     private final UserService userService;
     private final LikeService likeService;
+    private final ScheduleService scheduleService;
+    private final OccurrenceService occurrenceService;
+    private final LocationService locationService;
+    private final MediaService mediaService;
+    private final ActivityMediaService activityMediaService;
+    private final ActivityLinkService activityLinkService;
+    private final AccessibilityService accessibilityService;
+    private final ActivityTagService activityTagService;
+    private final ActivityMetadataService activityMetadataService;
 
     public ActivityController(
             ActivityService activityService, SourceService sourceService, UserService userService,
-            LikeService likeService) {
+            LikeService likeService, ScheduleService scheduleService, OccurrenceService occurrenceService,
+            LocationService locationService, MediaService mediaService, ActivityMediaService activityMediaService,
+            ActivityLinkService activityLinkService, AccessibilityService accessibilityService,
+            ActivityTagService activityTagService, ActivityMetadataService activityMetadataService) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
         this.likeService = likeService;
+        this.scheduleService = scheduleService;
+        this.occurrenceService = occurrenceService;
+        this.locationService = locationService;
+        this.mediaService = mediaService;
+        this.activityMediaService = activityMediaService;
+        this.activityLinkService = activityLinkService;
+        this.accessibilityService = accessibilityService;
+        this.activityTagService = activityTagService;
+        this.activityMetadataService = activityMetadataService;
     }
 
     /**
      * Liste des activités (LL-10006 : filtre optionnel par ville et tri
-     * optionnel). Voir le contrat détaillé dans
-     * {@code docs/02_Architecture/LOCATION_CONTRACT.md} (section « Filtre
-     * `city` et tri `sort` »). Endpoint historiquement sans paramètre :
-     * {@code city}/{@code sort} absents préservent le comportement
-     * précédent (voir {@link ActivityService#findAll(String, String)}).
+     * optionnel ; LL-11012 : filtre optionnel par date). Voir le contrat
+     * détaillé dans {@code docs/02_Architecture/LOCATION_CONTRACT.md}
+     * (section « Filtre `city` et tri `sort` »). Endpoint historiquement
+     * sans paramètre : {@code city}/{@code sort}/{@code date} absents
+     * préservent le comportement précédent (voir {@link
+     * ActivityService#findAll}).
+     *
+     * <b>LL-11013</b> (« séparer les données nécessaires à la carte/liste
+     * de celles nécessaires à la fiche détaillée ») : retourne désormais
+     * {@link ActivitySummaryResponse} plutôt que {@link Activity}
+     * directement — voir sa javadoc pour le détail des champs exposés et
+     * la raison de ne pas réutiliser {@link ActivityResponse}.
      */
     @Operation(
             summary = "Liste les activités",
-            description = "Retourne toutes les activités, avec filtre optionnel par ville ('city', comparaison "
-                    + "exacte insensible à la casse), filtre optionnel par date ('date', ISO-8601 yyyy-MM-dd) et "
-                    + "tri optionnel ('sort', une ou plusieurs clés parmi 'city'/'date' séparées par une virgule, "
-                    + "ex. 'city,date').")
+            description = "Retourne toutes les activités (représentation allégée, voir ActivitySummaryResponse), "
+                    + "avec filtre optionnel par ville ('city', comparaison exacte insensible à la casse), "
+                    + "filtre optionnel par date ('date', ISO-8601 yyyy-MM-dd) et tri optionnel ('sort', une ou "
+                    + "plusieurs clés parmi 'city'/'date' séparées par une virgule, ex. 'city,date').")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Recherche effectuée avec succès."),
         @ApiResponse(responseCode = "400",
@@ -109,7 +156,10 @@ public class ActivityController {
             HttpServletRequest httpRequest) {
         try {
             List<Activity> activities = activityService.findAll(city, sort, date);
-            return ResponseEntity.ok(activities);
+            List<ActivitySummaryResponse> summaries = activities.stream()
+                    .map(activity -> ActivitySummaryResponse.from(activity, resolveMainImageUrl(activity.id())))
+                    .toList();
+            return ResponseEntity.ok(summaries);
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
         }
@@ -295,11 +345,105 @@ public class ActivityController {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Fiche détaillée d'une activité (LL-11013). Retourne désormais
+     * {@link ActivityDetailResponse} plutôt qu'{@link Activity}
+     * directement — voir sa javadoc pour le détail des champs exposés
+     * (et ceux volontairement absents, décision à valider).
+     */
+    @Operation(
+            summary = "Détail d'une activité",
+            description = "Retourne la fiche détaillée d'une activité : description, programmation (schedules), "
+                    + "occurrences non annulées, lieux, médias, liens, accessibilité, tags et informations "
+                    + "complémentaires (voir ActivityDetailResponse).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Activité trouvée."),
+        @ApiResponse(responseCode = "404", description = "Aucune activité ne correspond à cet id.")
+    })
     @GetMapping("/{id}")
-    public ResponseEntity<Activity> getActivityById(@PathVariable Long id) {
-        Optional<Activity> activity = activityService.findById(id);
-        return activity.map(ResponseEntity::ok)
+    public ResponseEntity<ActivityDetailResponse> getActivityById(
+            @Parameter(description = "Identifiant de l'activité.", required = true) @PathVariable Long id) {
+        return activityService.findById(id)
+                .map(activity -> ResponseEntity.ok(toDetailResponse(activity)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    }
+
+    /**
+     * Url du premier média attaché à une activité (position 0, voir
+     * {@code ActivityMediaService#findByActivityId}), ou {@code null} si
+     * aucun média n'est attaché — utilisé par {@link #getAllActivities}
+     * pour construire {@link ActivitySummaryResponse#mainImageUrl}.
+     *
+     * ⚠️ Une requête par activité (ni mise en cache ni résolution en
+     * lot) : même limitation assumée que {@link #withSourceNames}/la
+     * résolution des noms d'utilisateur ci-dessus (voir leur javadoc),
+     * suffisant à l'échelle d'une bêta.
+     */
+    private String resolveMainImageUrl(Long activityId) {
+        return activityMediaService.findByActivityId(activityId).stream()
+                .findFirst()
+                .map(ActivityMedia::mediaId)
+                .flatMap(mediaService::findById)
+                .map(Media::url)
+                .orElse(null);
+    }
+
+    /**
+     * Assemble la fiche détaillée d'une activité (LL-11013) à partir de
+     * l'ensemble des services du modèle événementiel riche du Sprint 11.
+     *
+     * {@code locations} : dédoublonnées (un même lieu peut être
+     * référencé par plusieurs schedules/occurrences, voir la javadoc de
+     * {@code Location}) — collectées dans un {@link LinkedHashMap} (clé
+     * {@code id}) plutôt qu'une simple {@link List}, pour ne jamais
+     * renvoyer deux fois le même lieu dans la fiche détaillée, tout en
+     * conservant l'ordre de première rencontre (schedules d'abord, puis
+     * occurrences).
+     *
+     * {@code occurrences} : « pertinentes » interprété comme « non
+     * annulées » ({@code OccurrenceService#findEffectiveByScheduleId}),
+     * across tous les schedules de l'activité — voir la javadoc
+     * d'{@code ActivityDetailResponse.OccurrenceSummary} pour la
+     * décision à valider.
+     */
+    private ActivityDetailResponse toDetailResponse(Activity activity) {
+        List<Schedule> schedules = scheduleService.findByActivityId(activity.id());
+
+        List<Occurrence> occurrences = new ArrayList<>();
+        Map<Long, Location> locationsById = new LinkedHashMap<>();
+        for (Schedule schedule : schedules) {
+            if (schedule.locationId() != null) {
+                locationService.findById(schedule.locationId()).ifPresent(
+                        location -> locationsById.put(location.id(), location));
+            }
+            List<Occurrence> effectiveOccurrences = occurrenceService.findEffectiveByScheduleId(schedule.id());
+            occurrences.addAll(effectiveOccurrences);
+            for (Occurrence occurrence : effectiveOccurrences) {
+                if (occurrence.locationId() != null) {
+                    locationService.findById(occurrence.locationId()).ifPresent(
+                            location -> locationsById.put(location.id(), location));
+                }
+            }
+        }
+
+        List<Media> media = activityMediaService.findByActivityId(activity.id()).stream()
+                .map(ActivityMedia::mediaId)
+                .map(mediaService::findById)
+                .flatMap(Optional::stream)
+                .toList();
+
+        List<ActivityLink> links = activityLinkService.findByActivityId(activity.id());
+        Accessibility accessibility = accessibilityService.findByActivityId(activity.id()).orElse(null);
+        List<String> tags = activityTagService.findByActivityId(activity.id()).stream()
+                .map(ActivityTag::tag)
+                .toList();
+        String additionalInfo = activityMetadataService.findByActivityId(activity.id())
+                .map(metadata -> metadata.data().value())
+                .orElse(null);
+
+        return ActivityDetailResponse.from(
+                activity, schedules, occurrences, List.copyOf(locationsById.values()), media, links,
+                accessibility, tags, additionalInfo);
     }
 
     @PostMapping
