@@ -165,6 +165,30 @@ class ActivityControllerIntegrationTest {
                 .jsonPath("$.importKey").doesNotExist();
     }
 
+    /**
+     * LL-11014 : {@code StubPremiumAccessPolicy} accorde l'accès complet à
+     * tout le monde (voir sa javadoc) — un appelant anonyme continue donc
+     * de recevoir la fiche détaillée aujourd'hui, non-régression par
+     * rapport à LL-11013 tant qu'un vrai système Premium n'existe pas.
+     */
+    @Test
+    void getActivityById_ShouldReturnDetailedFiche_ForAnonymousCaller_WithStubPolicy() {
+        ActivitySummaryResponse[] activities = restTestClient().get().uri("/api/v1/activities")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(ActivitySummaryResponse[].class)
+                .returnResult()
+                .getResponseBody();
+        assertNotNull(activities);
+        assertTrue(activities.length > 0);
+
+        restTestClient().get().uri("/api/v1/activities/" + activities[0].id())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.schedules").exists();
+    }
+
     @Test
     void getNearbyActivities_ShouldReturnOk_WhenParamsValid() {
         restTestClient().get()

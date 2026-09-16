@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.17 — 2026-09-16
+
+### LL-11014 — Préparer la fiche Premium
+- Ticket du Sprint 11 (`docs/05_Sprints/SPRINT_11.md`) : préparer l'architecture pour qu'une future offre Premium puisse réserver la fiche détaillée (LL-11013) aux utilisateurs qui y ont droit, sans jamais faire connaître au domaine la notion de forfait (règle fondamentale explicite du ticket).
+- Nouveau module `com.locallife.backend.premium` : interface `PremiumAccessPolicy` (`hasPremiumAccess(Authentication)`), seul point de décision — délibérément séparé du module `activity`, aucune entité de domaine modifiée.
+- `GET /api/v1/activities/{id}` (`ActivityController#getActivityById`) retourne désormais `ActivityDetailResponse` ou `ActivitySummaryResponse` selon `PremiumAccessPolicy#hasPremiumAccess`, au lieu de toujours renvoyer la fiche détaillée.
+- `StubPremiumAccessPolicy` (implémentation actuelle) accorde l'accès complet à tout le monde — aucun système Premium n'existe encore (hors périmètre du ticket), ce choix préserve le comportement observable de LL-11013 sans régression. Voir `docs/ADR-0008-preparation-premium.md` pour le détail de cette décision et l'alternative écartée (champ `premium` sur `User`).
+- Tests ajoutés : `StubPremiumAccessPolicyTest`, deux nouveaux cas dans `ActivityControllerTest` (accès accordé → détail, refusé → résumé), test d'intégration confirmant la non-régression pour un appelant anonyme.
+- ⚠️ Backend non compilable/testable dans cette session (pas d'accès réseau à Maven Central ni à une base PostgreSQL réelle) : vérifié par relecture manuelle attentive uniquement, **`mvn verify` reste à lancer par Alex avant tout merge**.
+
 ## 0.9.16 — 2026-09-16
 
 ### LL-11013 — Séparer les DTO résumé/détail d'activité
