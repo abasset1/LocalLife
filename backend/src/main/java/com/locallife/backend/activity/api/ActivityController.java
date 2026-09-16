@@ -19,6 +19,7 @@ import com.locallife.backend.media.domain.Media;
 import com.locallife.backend.metadata.application.ActivityMetadataService;
 import com.locallife.backend.place.application.LocationService;
 import com.locallife.backend.place.domain.Location;
+import com.locallife.backend.premium.application.PremiumAccessPolicy;
 import com.locallife.backend.schedule.application.OccurrenceService;
 import com.locallife.backend.schedule.application.ScheduleService;
 import com.locallife.backend.schedule.domain.Occurrence;
@@ -88,13 +89,15 @@ public class ActivityController {
     private final AccessibilityService accessibilityService;
     private final ActivityTagService activityTagService;
     private final ActivityMetadataService activityMetadataService;
+    private final PremiumAccessPolicy premiumAccessPolicy;
 
     public ActivityController(
             ActivityService activityService, SourceService sourceService, UserService userService,
             LikeService likeService, ScheduleService scheduleService, OccurrenceService occurrenceService,
             LocationService locationService, MediaService mediaService, ActivityMediaService activityMediaService,
             ActivityLinkService activityLinkService, AccessibilityService accessibilityService,
-            ActivityTagService activityTagService, ActivityMetadataService activityMetadataService) {
+            ActivityTagService activityTagService, ActivityMetadataService activityMetadataService,
+            PremiumAccessPolicy premiumAccessPolicy) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -108,6 +111,7 @@ public class ActivityController {
         this.accessibilityService = accessibilityService;
         this.activityTagService = activityTagService;
         this.activityMetadataService = activityMetadataService;
+        this.premiumAccessPolicy = premiumAccessPolicy;
     }
 
     /**
@@ -346,25 +350,38 @@ public class ActivityController {
     }
 
     /**
-     * Fiche détaillée d'une activité (LL-11013). Retourne désormais
-     * {@link ActivityDetailResponse} plutôt qu'{@link Activity}
-     * directement — voir sa javadoc pour le détail des champs exposés
-     * (et ceux volontairement absents, décision à valider).
+     * Fiche d'une activité (LL-11013 puis LL-11014). Retourne {@link
+     * ActivityDetailResponse} (fiche détaillée) ou {@link
+     * ActivitySummaryResponse} (résumé) selon que l'appelant a ou non
+     * accès à la fiche détaillée, décidé exclusivement par {@link
+     * #premiumAccessPolicy} — voir sa javadoc et {@code
+     * docs/ADR-0008-preparation-premium.md} : aucune notion de Premium
+     * ici, dans {@link ActivityService} ni dans le domaine, uniquement
+     * à cette unique frontière API.
+     *
+     * {@code authentication} jamais {@code null} (endpoint public, voir
+     * la javadoc de {@link #withSourceNames}) — transmis tel quel à
+     * {@link PremiumAccessPolicy#hasPremiumAccess}, qui gère lui-même le
+     * cas d'un appelant non connecté.
      */
     @Operation(
             summary = "Détail d'une activité",
-            description = "Retourne la fiche détaillée d'une activité : description, programmation (schedules), "
-                    + "occurrences non annulées, lieux, médias, liens, accessibilité, tags et informations "
-                    + "complémentaires (voir ActivityDetailResponse).")
+            description = "Retourne la fiche d'une activité : la fiche détaillée (description, programmation, "
+                    + "occurrences non annulées, lieux, médias, liens, accessibilité, tags, informations "
+                    + "complémentaires — voir ActivityDetailResponse) si l'appelant y a accès, sinon un résumé "
+                    + "(voir ActivitySummaryResponse).")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Activité trouvée."),
         @ApiResponse(responseCode = "404", description = "Aucune activité ne correspond à cet id.")
     })
     @GetMapping("/{id}")
-    public ResponseEntity<ActivityDetailResponse> getActivityById(
-            @Parameter(description = "Identifiant de l'activité.", required = true) @PathVariable Long id) {
+    public ResponseEntity<Object> getActivityById(
+            @Parameter(description = "Identifiant de l'activité.", required = true) @PathVariable Long id,
+            Authentication authentication) {
         return activityService.findById(id)
-                .map(activity -> ResponseEntity.ok(toDetailResponse(activity)))
+                .map(activity -> ResponseEntity.ok(premiumAccessPolicy.hasPremiumAccess(authentication)
+                        ? toDetailResponse(activity)
+                        : (Object) ActivitySummaryResponse.from(activity, resolveMainImageUrl(activity.id()))))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 

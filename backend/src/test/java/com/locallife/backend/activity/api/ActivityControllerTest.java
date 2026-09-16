@@ -14,6 +14,7 @@ import com.locallife.backend.media.application.ActivityMediaService;
 import com.locallife.backend.media.application.MediaService;
 import com.locallife.backend.metadata.application.ActivityMetadataService;
 import com.locallife.backend.place.application.LocationService;
+import com.locallife.backend.premium.application.PremiumAccessPolicy;
 import com.locallife.backend.schedule.application.OccurrenceService;
 import com.locallife.backend.schedule.application.ScheduleService;
 import com.locallife.backend.source.application.SourceService;
@@ -35,6 +36,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -80,6 +82,9 @@ class ActivityControllerTest {
 
     @Mock
     private ActivityMetadataService activityMetadataService;
+
+    @Mock
+    private PremiumAccessPolicy premiumAccessPolicy;
 
     @Mock
     private HttpServletRequest httpRequest;
@@ -171,20 +176,42 @@ class ActivityControllerTest {
     }
 
     @Test
-    void getActivityById_ShouldReturnActivity_WhenFound() {
+    void getActivityById_ShouldReturnDetailedActivity_WhenPremiumAccessGranted() {
         // Given
         Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
                 LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
                 null, null, null, null, null);
         when(activityService.findById(1L)).thenReturn(Optional.of(activity));
+        when(premiumAccessPolicy.hasPremiumAccess(authentication)).thenReturn(true);
 
         // When
-        ResponseEntity<ActivityDetailResponse> response = activityController.getActivityById(1L);
+        ResponseEntity<Object> response = activityController.getActivityById(1L, authentication);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("Test Activity", response.getBody().title());
-        assertEquals("Description", response.getBody().description());
+        assertTrue(response.getBody() instanceof ActivityDetailResponse);
+        ActivityDetailResponse body = (ActivityDetailResponse) response.getBody();
+        assertEquals("Test Activity", body.title());
+        assertEquals("Description", body.description());
+    }
+
+    @Test
+    void getActivityById_ShouldReturnSummary_WhenPremiumAccessDenied() {
+        // LL-11014 : un appelant sans accès Premium reçoit le résumé, jamais la fiche détaillée —
+        // la décision revient exclusivement à PremiumAccessPolicy, jamais au domaine.
+        Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
+                LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
+                null, null, null, null, null);
+        when(activityService.findById(1L)).thenReturn(Optional.of(activity));
+        when(premiumAccessPolicy.hasPremiumAccess(authentication)).thenReturn(false);
+
+        // When
+        ResponseEntity<Object> response = activityController.getActivityById(1L, authentication);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody() instanceof ActivitySummaryResponse);
+        assertEquals("Test Activity", ((ActivitySummaryResponse) response.getBody()).title());
     }
 
     @Test
@@ -193,7 +220,7 @@ class ActivityControllerTest {
         when(activityService.findById(999L)).thenReturn(Optional.empty());
 
         // When
-        ResponseEntity<ActivityDetailResponse> response = activityController.getActivityById(999L);
+        ResponseEntity<Object> response = activityController.getActivityById(999L, authentication);
 
         // Then
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
