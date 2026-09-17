@@ -215,7 +215,8 @@ class RealSchedulingScenariosIntegrationTest {
         persistOccurrence(schedule.id(), LocalDateTime.of(2026, 9, 29, 18, 0), null,
                 avignon.id(), OccurrenceService.STATUS_SCHEDULED);
 
-        List<Occurrence> occurrences = restTestClient().get().uri("/api/v1/activities/" + activity.id())
+        List<ActivityDetailResponse.OccurrenceSummary> occurrences = restTestClient().get()
+                .uri("/api/v1/activities/" + activity.id())
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(ActivityDetailResponse.class)
