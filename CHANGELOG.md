@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.18 — 2026-09-16
+
+### LL-11015 — Exploiter le nouveau modèle dans le frontend
+- Ticket du Sprint 11 (`docs/05_Sprints/SPRINT_11.md`) : le frontend n'affichait toujours que les champs plats (titre, date, ville, adresse), sans exploiter le modèle événementiel riche exposé par LL-11013 (`GET /api/v1/activities/{id}`).
+- Fiche détaillée d'une activité (carte et liste) : galerie d'images, description longue, horaires détaillés (récurrence traduite en français, jamais la chaîne RRULE brute — voir `frontend/src/utils/recurrence.ts`), lieux, liens/contacts (mailto/tel/http selon le type), accessibilité, tags, informations complémentaires — chargés à la demande (`GET /api/v1/activities/{id}`) à l'ouverture du détail, avec état de chargement/erreur explicite.
+- Image principale désormais visible sur la carte (popups), la liste et les favoris : `ActivityResponse` (backend) gagne un champ `mainImageUrl` (nouvelle variante de `from()`, les précédentes préservées à l'identique — aucun endpoint existant cassé), résolu aussi dans `LikeController` (favoris).
+- « Food truck multi-lieux » (plusieurs schedules pointant vers des lieux différents) affiché naturellement, une ligne par schedule dans les horaires — aucun traitement spécifique nécessaire.
+- Voir `docs/ADR-0009-frontend-modele-riche.md` pour le détail des décisions de conception, notamment ce qui reste hors périmètre (occurrences annulées, changement exceptionnel de lieu par occurrence — à reconsidérer pour LL-11016).
+- Vérifié par une compilation et un build frontend réels dans cette session (`npx tsc --noEmit`, `npm run build`, npm accessible contrairement à Maven) : aucune erreur. ⚠️ Le backend (`ActivityResponse`/`ActivityController`/`LikeController`) reste non vérifiable ici (pas d'accès à Maven Central ni à une base PostgreSQL réelle) : **`mvn verify` reste à lancer par Alex avant tout merge**.
+
 ## 0.9.17 — 2026-09-16
 
 ### LL-11014 — Préparer la fiche Premium

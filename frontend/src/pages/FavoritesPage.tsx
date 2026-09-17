@@ -19,6 +19,8 @@ interface FavoriteActivity {
     city: string | null;
     sourceName: string;
     likedByCurrentUser: boolean;
+    /** LL-11015 : voir `Activity.mainImageUrl` dans `App.tsx`, même origine (`ActivityResponse.mainImageUrl`). */
+    mainImageUrl: string | null;
 }
 
 interface ApiErrorBody {
@@ -143,6 +145,15 @@ function FavoritesPage() {
                                     onClick={() => setSelectedFavorite(activity)}
                                     type="button"
                                 >
+                                    {/* LL-11015, critère d'acceptation « images visibles ». */}
+                                    {activity.mainImageUrl && (
+                                        <img
+                                            alt=""
+                                            className="favorites-list-item-thumbnail"
+                                            loading="lazy"
+                                            src={activity.mainImageUrl}
+                                        />
+                                    )}
                                     <span className="favorites-list-item-title">{activity.title}</span>
                                     <span className="favorites-list-item-meta">
                                         {new Date(activity.startDate).toLocaleDateString("fr-FR", {

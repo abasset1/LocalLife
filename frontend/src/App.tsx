@@ -10,6 +10,7 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
+import { formatRecurrenceRule, formatTimeRange } from "./utils/recurrence";
 
 /**
  * Correctif prod : icône par défaut de Leaflet pour les marqueurs
@@ -85,6 +86,81 @@ interface Activity {
      * connecté (voir le détail d'activité plus bas).
      */
     likedByCurrentUser: boolean;
+    /**
+     * LL-11015 : url du premier média attaché à l'activité (voir
+     * `ActivityResponse#mainImageUrl` côté backend), ou `null` si aucun
+     * média n'est attaché — critère d'acceptation « images visibles ».
+     */
+    mainImageUrl: string | null;
+}
+
+/**
+ * Fiche détaillée d'une activité (LL-11015), miroir de
+ * `ActivityDetailResponse` côté backend (LL-11013) — chargée à la demande
+ * (voir `useEffect` sur `selectedActivity` plus bas), séparément du résumé
+ * déjà disponible dans `Activity` ci-dessus (carte/liste), pour ne pas
+ * alourdir ces dernières avec des données qui ne leur servent pas (même
+ * séparation que côté backend, voir ADR-0007).
+ */
+interface ActivityDetail {
+    id: number;
+    description: string | null;
+    longDescription: string | null;
+    conditions: string | null;
+    ageMin: number | null;
+    ageMax: number | null;
+    schedules: ScheduleSummary[];
+    locations: LocationSummary[];
+    media: MediaSummary[];
+    links: LinkSummary[];
+    accessibility: AccessibilitySummary | null;
+    tags: string[];
+    additionalInfo: string | null;
+}
+
+interface ScheduleSummary {
+    id: number;
+    locationId: number | null;
+    startTime: string | null;
+    endTime: string | null;
+    recurrenceRule: string | null;
+}
+
+interface LocationSummary {
+    id: number;
+    name: string | null;
+    address: string | null;
+    city: string | null;
+    postalCode: string | null;
+}
+
+interface MediaSummary {
+    id: number;
+    url: string;
+    altText: string | null;
+    credit: string | null;
+}
+
+interface LinkSummary {
+    type: string;
+    label: string | null;
+    value: string;
+}
+
+/**
+ * LL-11015 : les cinq catégories d'accessibilité du backend (LL-11009,
+ * codes courts source `mi`/`hi`/`vi`/`pi`/`ii`) traduites en labels
+ * affichables — voir `ACCESSIBILITY_LABELS` plus bas. Chaque champ reste
+ * indépendamment `null`/`true`/`false` (« non renseigné » distinct de
+ * « non accessible », voir `Accessibility` côté backend) : seuls les
+ * champs non-`null` sont affichés (voir `renderAccessibility`).
+ */
+interface AccessibilitySummary {
+    motorImpairment: boolean | null;
+    hearingImpairment: boolean | null;
+    visualImpairment: boolean | null;
+    psychicImpairment: boolean | null;
+    intellectualImpairment: boolean | null;
 }
 
 /**
@@ -423,6 +499,17 @@ function App() {
      */
     const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
     /**
+     * LL-11015 : fiche détaillée (LL-11013) chargée à l'ouverture du
+     * détail d'une activité — `null` tant qu'elle n'est pas encore
+     * arrivée, ou si le chargement a échoué (voir `activityDetailError`
+     * ci-dessous, « absence de données correctement gérée » : le résumé
+     * déjà disponible dans `selectedActivity` reste affiché dans ce cas,
+     * seules les sections enrichies restent masquées).
+     */
+    const [activityDetail, setActivityDetail] = useState<ActivityDetail | null>(null);
+    const [isLoadingActivityDetail, setIsLoadingActivityDetail] = useState(false);
+    const [activityDetailError, setActivityDetailError] = useState<string | null>(null);
+    /**
      * LL-EF-010 : état de la requête d'annulation en cours (désactive le
      * bouton "Annuler" pendant l'appel, évite un double-clic), et message
      * d'erreur éventuel affiché dans le détail d'activité. Séparé de
@@ -680,6 +767,56 @@ function App() {
     }, [selectedActivity]);
 
     /**
+     * LL-11015 : charge la fiche détaillée (LL-11013) à l'ouverture du
+     * détail d'une activité — `GET /api/v1/activities/{id}`, un endpoint
+     * public (pas d'authentification requise, voir `SecurityConfig` côté
+     * backend), donc `fetch` directement plutôt que `apiFetch` (même
+     * convention que le chargement de la carte, voir sa javadoc plus haut
+     * dans ce fichier). `AbortController` : évite d'appliquer la réponse
+     * d'une requête devenue obsolète si l'utilisateur enchaîne l'ouverture
+     * de plusieurs activités rapidement.
+     */
+    useEffect(() => {
+        if (!selectedActivity) {
+            setActivityDetail(null);
+            setActivityDetailError(null);
+            return;
+        }
+
+        const abortController = new AbortController();
+        setActivityDetail(null);
+        setActivityDetailError(null);
+        setIsLoadingActivityDetail(true);
+
+        (async () => {
+            try {
+                const response = await fetch(`/api/v1/activities/${selectedActivity.id}`, {
+                    signal: abortController.signal,
+                });
+                if (!response.ok) {
+                    throw new Error("Le détail de cette activité n'a pas pu être chargé.");
+                }
+                const body: unknown = await response.json();
+                // LL-11014 : la réponse peut aussi être un résumé (accès Premium non accordé) —
+                // seule la présence de `schedules` distingue une fiche détaillée exploitable ici.
+                if (body && typeof body === "object" && "schedules" in body) {
+                    setActivityDetail(body as ActivityDetail);
+                }
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === "AbortError")) {
+                    setActivityDetailError("Le détail de cette activité n'a pas pu être chargé.");
+                }
+            } finally {
+                if (!abortController.signal.aborted) {
+                    setIsLoadingActivityDetail(false);
+                }
+            }
+        })();
+
+        return () => abortController.abort();
+    }, [selectedActivity]);
+
+    /**
      * LL-EF-002 : la géolocalisation est désormais demandée automatiquement
      * au chargement de la page (plus de bandeau « Utiliser la
      * localisation » ni de clic explicite requis, voir critère
@@ -847,6 +984,139 @@ function App() {
     }
 
     /**
+     * LL-11015 : libellés affichés pour les cinq catégories d'accessibilité
+     * (LL-11009) — un seul objet par activité (`AccessibilitySummary`),
+     * pas par lieu individuel : simplification assumée, l'accessibilité
+     * étant une caractéristique de l'activité elle-même dans ce projet
+     * (voir `Accessibility` côté backend, une ligne par activité, pas par
+     * `Location`).
+     */
+    const ACCESSIBILITY_LABELS: Record<keyof AccessibilitySummary, string> = {
+        motorImpairment: "Accessible aux personnes à mobilité réduite",
+        hearingImpairment: "Accessible aux personnes malentendantes",
+        visualImpairment: "Accessible aux personnes malvoyantes",
+        psychicImpairment: "Accessible aux personnes avec un handicap psychique",
+        intellectualImpairment: "Accessible aux personnes avec un handicap intellectuel",
+    };
+
+    /**
+     * LL-11015, critère d'acceptation « absence de données correctement
+     * gérée » : chaque section (galerie, description longue, horaires,
+     * lieux, liens, accessibilité, tags, informations complémentaires) ne
+     * s'affiche que si elle a effectivement un contenu — jamais un titre
+     * de section suivi de rien, jamais une valeur inventée ou déduite.
+     */
+    function renderActivityDetailSections(detail: ActivityDetail) {
+        const locationsById = new Map(detail.locations.map((location) => [location.id, location]));
+
+        return (
+            <>
+                {detail.media.length > 0 && (
+                    <div className="activity-detail-gallery">
+                        {detail.media.map((mediaItem) => (
+                            <img
+                                alt={mediaItem.altText ?? ""}
+                                key={mediaItem.id}
+                                loading="lazy"
+                                src={mediaItem.url}
+                            />
+                        ))}
+                    </div>
+                )}
+                {detail.longDescription && (
+                    <p className="activity-detail-row activity-detail-long-description">
+                        {detail.longDescription}
+                    </p>
+                )}
+                {detail.schedules.length > 0 && (
+                    <div className="activity-detail-row">
+                        <strong>Horaires :</strong>
+                        <ul className="activity-detail-schedules">
+                            {detail.schedules.map((schedule) => {
+                                const location = schedule.locationId !== null
+                                    ? locationsById.get(schedule.locationId)
+                                    : undefined;
+                                const recurrenceLabel = formatRecurrenceRule(schedule.recurrenceRule);
+                                const timeRangeLabel = formatTimeRange(schedule.startTime, schedule.endTime);
+                                const locationLabel = location?.city ?? location?.name ?? null;
+                                return (
+                                    <li key={schedule.id}>
+                                        {[recurrenceLabel, timeRangeLabel, locationLabel]
+                                            .filter((part): part is string => Boolean(part))
+                                            .join(" · ")}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
+                {detail.locations.length > 0 && (
+                    <div className="activity-detail-row">
+                        <strong>{detail.locations.length > 1 ? "Lieux :" : "Lieu :"}</strong>
+                        <ul>
+                            {detail.locations.map((location) => (
+                                <li key={location.id}>
+                                    {[location.name, location.address, location.city, location.postalCode]
+                                        .filter((part): part is string => Boolean(part))
+                                        .join(", ")}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                {detail.links.length > 0 && (
+                    <div className="activity-detail-row">
+                        <strong>Liens et contacts :</strong>
+                        <ul>
+                            {detail.links.map((link, index) => (
+                                // Pas d'id sur ActivityLink exposé ici (voir LinkSummary côté backend) :
+                                // index acceptable, cette liste n'est jamais réordonnée/filtrée dynamiquement.
+                                <li key={`${link.type}-${index}`}>
+                                    {link.type === "EMAIL" ? (
+                                        <a href={`mailto:${link.value}`}>{link.label ?? link.value}</a>
+                                    ) : link.type === "PHONE" ? (
+                                        <a href={`tel:${link.value}`}>{link.label ?? link.value}</a>
+                                    ) : (
+                                        <a href={link.value} rel="noreferrer" target="_blank">
+                                            {link.label ?? link.value}
+                                        </a>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                {detail.accessibility && (
+                    <div className="activity-detail-row">
+                        <strong>Accessibilité :</strong>
+                        <ul>
+                            {(Object.keys(ACCESSIBILITY_LABELS) as (keyof AccessibilitySummary)[])
+                                .filter((key) => detail.accessibility?.[key] === true)
+                                .map((key) => (
+                                    <li key={key}>{ACCESSIBILITY_LABELS[key]}</li>
+                                ))}
+                        </ul>
+                    </div>
+                )}
+                {detail.tags.length > 0 && (
+                    <div className="activity-detail-row activity-detail-tags">
+                        {detail.tags.map((tag) => (
+                            <span className="activity-detail-tag" key={tag}>
+                                {tag}
+                            </span>
+                        ))}
+                    </div>
+                )}
+                {detail.additionalInfo && (
+                    <p className="activity-detail-row">
+                        <strong>Informations complémentaires :</strong> {detail.additionalInfo}
+                    </p>
+                )}
+            </>
+        );
+    }
+
+    /**
      * Une ligne de la vue liste (LL-EF-008/LL-10007). La ville n'est pas
      * répétée sur chaque ligne : elle est déjà portée par l'en-tête de
      * groupe (`activity-list-city`, voir `groupActivitiesByCity`), la
@@ -866,6 +1136,15 @@ function App() {
                     onClick={() => setSelectedActivity(activity)}
                     type="button"
                 >
+                    {/* LL-11015, critère d'acceptation « images visibles ». */}
+                    {activity.mainImageUrl && (
+                        <img
+                            alt=""
+                            className="activity-list-item-thumbnail"
+                            loading="lazy"
+                            src={activity.mainImageUrl}
+                        />
+                    )}
                     <span className="activity-list-item-title">{activity.title}</span>
                     {/*
                       LL-10007 : critère d'acceptation explicite « l'adresse est
@@ -1286,6 +1565,22 @@ function App() {
                                 </p>
                             )}
                             {/*
+                              LL-11015 : sections enrichies (LL-11013), chargées à l'ouverture (voir
+                              le useEffect dédié plus haut) — état de chargement/erreur explicite
+                              plutôt qu'un simple vide silencieux (« absence de données correctement
+                              gérée ») ; en cas d'échec, le résumé déjà affiché ci-dessus reste
+                              utilisable, seules ces sections manquent.
+                            */}
+                            {isLoadingActivityDetail && (
+                                <p className="activity-detail-row activity-detail-loading">Chargement du détail…</p>
+                            )}
+                            {activityDetailError && (
+                                <p className="activity-detail-row activity-detail-error" role="alert">
+                                    {activityDetailError}
+                                </p>
+                            )}
+                            {activityDetail && renderActivityDetailSections(activityDetail)}
+                            {/*
                               Bouton "Annuler" affiché uniquement au créateur de l'activité ou à
                               un administrateur — vérification d'UI seulement, la vérification
                               qui compte reste celle du backend (voir handleCancelActivity).
@@ -1366,6 +1661,15 @@ function App() {
                                     position={[activity.latitude, activity.longitude]}
                                 >
                                     <Popup>
+                                        {/* LL-11015, critère d'acceptation « images visibles ». */}
+                                        {activity.mainImageUrl && (
+                                            <img
+                                                alt=""
+                                                className="activity-popup-thumbnail"
+                                                loading="lazy"
+                                                src={activity.mainImageUrl}
+                                            />
+                                        )}
                                         <strong>{activity.title}</strong>
                                         <br />
                                         {activity.category}

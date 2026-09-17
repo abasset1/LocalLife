@@ -90,18 +90,38 @@ public record ActivityResponse(
         String postalCode,
         Long createdBy,
         String createdByUsername,
-        boolean likedByCurrentUser) {
+        boolean likedByCurrentUser,
+        String mainImageUrl) {
 
     public static ActivityResponse from(Activity activity, String sourceName) {
-        return from(activity, sourceName, null, false);
+        return from(activity, sourceName, null, false, null);
     }
 
     public static ActivityResponse from(Activity activity, String sourceName, String createdByUsername) {
-        return from(activity, sourceName, createdByUsername, false);
+        return from(activity, sourceName, createdByUsername, false, null);
     }
 
     public static ActivityResponse from(
             Activity activity, String sourceName, String createdByUsername, boolean likedByCurrentUser) {
+        return from(activity, sourceName, createdByUsername, likedByCurrentUser, null);
+    }
+
+    /**
+     * Ajouté en LL-11015 (« exploiter le nouveau modèle dans le
+     * frontend ») : {@code mainImageUrl}, url du premier média attaché à
+     * l'activité (voir {@code ActivityController#resolveMainImageUrl},
+     * réutilisée ici et dans {@code LikeController}) — critère
+     * d'acceptation LL-11015 « images visibles », y compris sur la carte
+     * et la liste (jusqu'ici seule la fiche détaillée, LL-11013, exposait
+     * les médias). Seule cette variante à 5 arguments résout
+     * effectivement une image ; les variantes ci-dessus (préservées pour
+     * ne pas casser leurs appelants existants) valent {@code null} —
+     * choix délibéré pour ne rien changer au comportement déjà couvert
+     * par leurs tests respectifs.
+     */
+    public static ActivityResponse from(
+            Activity activity, String sourceName, String createdByUsername, boolean likedByCurrentUser,
+            String mainImageUrl) {
         return new ActivityResponse(
                 activity.id(),
                 activity.title(),
@@ -119,6 +139,7 @@ public record ActivityResponse(
                 activity.postalCode(),
                 activity.createdBy(),
                 createdByUsername,
-                likedByCurrentUser);
+                likedByCurrentUser,
+                mainImageUrl);
     }
 }
