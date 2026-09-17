@@ -345,7 +345,8 @@ public class ActivityController {
                 .map(activity -> ActivityResponse.from(
                         activity, sourceNamesById.getOrDefault(activity.sourceId(), UNKNOWN_SOURCE_NAME),
                         usernamesByCreatedBy.get(activity.createdBy()),
-                        likedActivityIdsSet.contains(activity.id())))
+                        likedActivityIdsSet.contains(activity.id()),
+                        resolveMainImageUrl(activity.id())))
                 .collect(Collectors.toList());
     }
 

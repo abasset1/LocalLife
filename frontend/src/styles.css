@@ -400,6 +400,14 @@ body {
     color: #1e293b;
 }
 
+/* LL-11015 : vignette de l'activité, au-dessus du titre (voir le critère « images visibles »). */
+.activity-list-item-thumbnail {
+    width: 100%;
+    max-height: 96px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
 /* LL-10007 : adresse de l'activité, entre le titre et la ligne date/catégorie. */
 .activity-list-item-address {
     font-size: 0.85rem;
@@ -423,6 +431,58 @@ body {
     margin: 0;
     font-size: 0.95rem;
     color: #1e293b;
+}
+
+/* LL-11015 : galerie d'images de la fiche détaillée (LL-11013). */
+.activity-detail-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.activity-detail-gallery img {
+    width: 120px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.activity-detail-long-description {
+    white-space: pre-wrap;
+}
+
+.activity-detail-schedules {
+    margin: 0.2rem 0 0;
+    padding-left: 1.2rem;
+}
+
+.activity-detail-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.activity-detail-tag {
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.8rem;
+}
+
+.activity-detail-loading {
+    color: #64748b;
+    font-style: italic;
+}
+
+/* LL-11015 : vignette dans le popup Leaflet d'un marqueur (voir le critère « images visibles »). */
+.activity-popup-thumbnail {
+    display: block;
+    width: 100%;
+    max-height: 100px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 0.4rem;
 }
 
 /* LL-EF-010 : bouton d'annulation et message d'erreur associé, dans le détail d'activité ci-dessus. */
@@ -864,6 +924,15 @@ body {
     font-size: 0.95rem;
     font-weight: 600;
     color: #1e293b;
+}
+
+/* LL-11015 : même principe que .activity-list-item-thumbnail (carte principale). */
+.favorites-list-item-thumbnail {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 4px;
+    align-self: flex-start;
 }
 
 .favorites-list-item-meta {

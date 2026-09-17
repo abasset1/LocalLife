@@ -7,6 +7,8 @@ import com.locallife.backend.activity.api.ActivityResponse;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.like.application.LikeService;
+import com.locallife.backend.media.application.ActivityMediaService;
+import com.locallife.backend.media.application.MediaService;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.user.domain.Role;
@@ -26,6 +28,12 @@ class LikeControllerTest {
 
     @Mock
     private SourceService sourceService;
+
+    @Mock
+    private ActivityMediaService activityMediaService;
+
+    @Mock
+    private MediaService mediaService;
 
     @InjectMocks
     private LikeController likeController;
