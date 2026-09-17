@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.19 — 2026-09-17
+
+### LL-11016 — Tester les cas réels de programmation
+- Ticket du Sprint 11 (`docs/05_Sprints/SPRINT_11.md`) : vérifier que cinq scénarios concrets (événement ponctuel, récurrent, food truck multi-lieux, exception, fiche riche) sont effectivement représentables par le modèle événementiel riche du Sprint 11.
+- **Bug corrigé** (révélé en construisant le « Cas 4 — Exception ») : `ActivityController#toDetailResponse` (LL-11013) excluait les occurrences annulées de la fiche détaillée (« occurrences pertinentes » interprété à tort comme « non annulées », voir ADR-0007) — une occurrence `CANCELLED` doit au contraire rester visible (« 15/09 → annulé »). Utilise désormais `OccurrenceService#findByScheduleId` (toutes les occurrences) plutôt que `findEffectiveByScheduleId` (non annulées) pour cette fiche — cette dernière reste utilisée telle quelle pour la recherche (LL-11012), où l'exclusion des occurrences annulées est en revanche correcte. Voir `docs/ADR-0010-cas-reels-programmation.md`.
+- Nouveau test d'intégration `RealSchedulingScenariosIntegrationTest` : cinq scénarios construits directement via le modèle riche (Location/Schedule/Occurrence/Media/ActivityLink/Accessibility/ActivityTag) et vérifiés via une vraie requête HTTP sur `GET /api/v1/activities/{id}`.
+- Frontend : les exceptions (occurrence annulée ou déplacée) s'affichent désormais sous la ligne d'horaire concernée dans la fiche détaillée (`ActivityDetail.occurrences`, `formatDateOfDay`) — vérifié par une compilation et un build réels (`npx tsc --noEmit`, `npm run build`).
+- ⚠️ Backend non vérifiable dans cette session (pas d'accès à Maven Central ni à une base PostgreSQL réelle) : les cinq scénarios ont été construits et relus manuellement avec attention, mais **`mvn verify` reste à lancer par Alex avant tout merge**.
+
 ## 0.9.18 — 2026-09-16
 
 ### LL-11015 — Exploiter le nouveau modèle dans le frontend

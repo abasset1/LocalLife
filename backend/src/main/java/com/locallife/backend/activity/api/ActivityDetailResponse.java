@@ -122,11 +122,12 @@ public record ActivityDetailResponse(
     }
 
     /**
-     * Une occurrence concrète — voir {@link Occurrence}. « Pertinentes »
-     * (terme du ticket) interprété ici comme « non annulées »
-     * ({@code OccurrenceService#findEffectiveByScheduleId}), sans autre
-     * restriction (ex. fenêtre temporelle) : ⚠️ décision à valider,
-     * voir la javadoc d'{@code ActivityController#toDetailResponse}.
+     * Une occurrence concrète — voir {@link Occurrence}. Toutes les
+     * occurrences d'un schedule sont incluses, {@code CANCELLED}
+     * comprises (revu en LL-11016, « Cas 4 — Exception » : une
+     * occurrence annulée doit rester visible, pas être filtrée) —
+     * {@code status} distingue une occurrence normale d'une annulée,
+     * voir {@code ActivityController#toDetailResponse}.
      */
     public record OccurrenceSummary(
             Long id, Long scheduleId, Instant startAt, Instant endAt, Long locationId, String status) {
