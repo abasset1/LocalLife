@@ -187,12 +187,31 @@ public class SourceService {
                 activity.createdBy());
     }
 
+    /**
+     * @throws IllegalArgumentException si {@code name}/{@code type} est
+     *     absent, ou si {@code type} vaut {@code MANUAL} — réservé à la
+     *     source unique créée par {@code V8__create_source_table.sql},
+     *     jamais attribuable via cette API (LL-11016 : cette validation
+     *     manquait, ce qui permettait de créer/transformer n'importe
+     *     quelle source en une seconde source {@code MANUAL}, cassant
+     *     l'hypothèse d'unicité que {@code SourceRepository#findByType}
+     *     fait partout ailleurs dans le projet — {@code
+     *     IncorrectResultSizeDataAccessException} dès qu'une deuxième
+     *     ligne apparaît. Voir {@code V30__enforce_single_manual_source.sql}
+     *     pour la contrainte correspondante côté base, en défense
+     *     supplémentaire).
+     */
     private void validate(String name, String type) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Le nom de la source est obligatoire.");
         }
         if (type == null || type.isBlank()) {
             throw new IllegalArgumentException("Le type de la source est obligatoire.");
+        }
+        if (RESERVED_MANUAL_TYPE.equalsIgnoreCase(type)) {
+            throw new IllegalArgumentException(
+                    "Le type 'MANUAL' est réservé à la source de saisie manuelle et ne peut pas être attribué "
+                            + "via cette API.");
         }
     }
 

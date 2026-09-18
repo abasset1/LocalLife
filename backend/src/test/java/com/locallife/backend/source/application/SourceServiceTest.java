@@ -70,6 +70,28 @@ class SourceServiceTest {
         verify(sourceRepository, never()).save(any());
     }
 
+    /**
+     * LL-11016 : bug corrigé — cette validation manquait, ce qui
+     * permettait de créer une seconde source de type {@code MANUAL} via
+     * l'API, cassant l'hypothèse d'unicité que {@code
+     * SourceRepository#findByType("MANUAL")} fait partout ailleurs dans
+     * le projet (voir aussi {@code V30__enforce_single_manual_source.sql}
+     * pour la contrainte correspondante côté base).
+     */
+    @Test
+    void createSource_ShouldThrow_WhenTypeIsManual() {
+        assertThrows(IllegalArgumentException.class,
+                () -> sourceService.createSource("Nom", "MANUAL", null, null, null));
+        verify(sourceRepository, never()).save(any());
+    }
+
+    @Test
+    void updateSource_ShouldThrow_WhenTypeIsManual() {
+        assertThrows(IllegalArgumentException.class,
+                () -> sourceService.updateSource(1L, "Nom", "MANUAL", null, "ACTIVE", null, null));
+        verify(sourceRepository, never()).save(any());
+    }
+
     @Test
     void getAllSources_ShouldReturnAllSourcesFromRepository() {
         // Given

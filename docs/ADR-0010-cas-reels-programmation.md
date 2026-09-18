@@ -71,3 +71,32 @@ affichée).
   correspondance entre les champs de chaque entité et les assertions
   JSON, mais **`mvn verify` reste à exécuter par Alex avant tout merge**
   pour confirmer qu'ils passent réellement.
+
+## Addendum — bug de validation révélé par le premier vrai run CI
+
+Le premier run CI réel de la PR de ce ticket (GitHub Actions,
+`mvn verify` contre une base PostgreSQL fraîche) a révélé un deuxième
+bug, sans rapport avec les occurrences annulées : `source.type =
+'MANUAL'` comptait 6 lignes au lieu d'une, faisant échouer
+`SourceRepository#findByType("MANUAL")`
+(`IncorrectResultSizeDataAccessException`, cette méthode attend
+exactement une ligne) dans des dizaines de tests par ricochet
+(`ActivityService#createActivity`, `SourceService#deleteSource`, et
+tout test appelant `manualSourceId()`).
+
+Aucune migration ni aucun code applicatif n'insère jamais de seconde
+ligne `MANUAL` intentionnellement — seule `V8__create_source_table.sql`
+le fait, une fois. Mais `SourceService#createSource`/`updateSource`
+(LL-EF-005) ne rejetaient `type` que s'il était vide, jamais
+spécifiquement `MANUAL` : n'importe quel appel à `POST`/`PUT
+/api/v1/sources` avec ce type était silencieusement accepté, créant ou
+transformant une source en une seconde source « réservée ». Le chemin de
+code exact qui a produit les 6 lignes lors de ce run CI précis n'a pas
+pu être identifié avec certitude par relecture statique seule (aucun
+test du dépôt ne le fait explicitement avec la chaîne littérale
+`"MANUAL"`) — corrigé à la source (validation rejetant ce type dans les
+deux méthodes) et en défense supplémentaire au niveau base
+(`V30__enforce_single_manual_source.sql`, index unique partiel
+`WHERE type = 'MANUAL'`), qui transformera toute prochaine tentative en
+une erreur explicite au point d'insertion plutôt qu'en une pollution
+silencieuse.

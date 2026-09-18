@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.20 — 2026-09-17
+
+### Correctif CI sur la PR LL-11016 — validation du type de source
+- Le premier run CI réel (GitHub Actions, base PostgreSQL fraîche) de la PR #14 a révélé que `source.type = 'MANUAL'` comptait 6 lignes au lieu d'une, faisant échouer `SourceRepository#findByType("MANUAL")` en cascade dans des dizaines de tests (`ActivityService#createActivity`, `SourceService#deleteSource`, tout appel à `manualSourceId()`).
+- `SourceService#createSource`/`updateSource` ne rejetaient `type` que s'il était vide, jamais spécifiquement `MANUAL` — n'importe quel appel à `POST`/`PUT /api/v1/sources` avec ce type était accepté, créant ou transformant une source en une seconde source « réservée ». Corrigé : `validate()` rejette désormais explicitement ce type.
+- Nouvelle migration `V30__enforce_single_manual_source.sql` (index unique partiel `WHERE type = 'MANUAL'`) en défense supplémentaire côté base.
+- Tests ajoutés : `SourceServiceTest` (2 cas), `SourceControllerIntegrationTest` (1 cas HTTP). Voir l'addendum de `docs/ADR-0010-cas-reels-programmation.md`.
+- Le chemin de code exact ayant produit les 6 lignes lors de ce run précis n'a pas pu être identifié avec certitude par relecture statique seule.
+
 ## 0.9.19 — 2026-09-17
 
 ### LL-11016 — Tester les cas réels de programmation
