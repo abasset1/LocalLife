@@ -3008,3 +3008,96 @@ avant tout merge sur `origin/main` et avant d'ouvrir le Sprint Mobile.
 
 **Statut : 🟡 Terminé côté code et documentation, en attente de
 `mvn verify` (Alex) pour clôture formelle.**
+
+## LL-11017 — Documenter le nouveau modèle 🟡
+
+Ticket de clôture du Sprint 11 (modèle événementiel riche —
+`Location`/`Schedule`/`Occurrence`, résumé vs détail, préparation
+Premium). Documentation mise à jour :
+
+* `docs/02_Architecture/ARCHITECTURE.md` — nouvelle section « Modèle
+  événementiel » (diagramme Activity → Schedule → Recurrence →
+  Occurrence → Location, exceptions, sources externes/conservation du
+  payload brut, résumé vs détail, future distinction Basic/Premium),
+  section « Pipeline d'import » mise à jour, liste des modules complétée
+  (`place`/`schedule`/`media`/`link`/`accessibility`/`tag`/`metadata`/
+  `premium`/`like`).
+* `docs/02_Architecture/COLLECTOR_CONTRACT.md` — mise à jour LL-11010
+  (conservation du payload brut, `ExternalActivity`) et LL-11011
+  (`CollectedActivity` restructuré en sous-modèles).
+* `docs/02_Architecture/FOOD_TRUCK_CONTRACT.md` — clarification entre le
+  module `foodtruck` (lieu fixe unique, inchangé par ce sprint) et une
+  `Activity` à plusieurs `Schedule` (le « food truck multi-lieux » testé
+  par LL-11016).
+* Contrats de recherche géographique (`GEO_SEARCH_CONTRACT.md`,
+  `BOUNDING_BOX_SEARCH_CONTRACT.md`) et `LOCATION_CONTRACT.md` déjà mis à
+  jour au fil des tickets du sprint (LL-11012/LL-11013), pointent vers
+  `docs/ADR-0006-recherche-occurrences.md`.
+* `docs/01_Product/BACKLOG.md` et `docs/04_Project/ROADMAP.md` — voir
+  leurs entrées dédiées.
+* `CHANGELOG.md` — tenu à jour à chaque ticket du sprint (versions
+  0.9.11 à 0.9.21).
+
+### Récapitulatif du Sprint 11
+
+| Ticket | Objet | État |
+| --- | --- | --- |
+| LL-11001 | Modèle `Location` | ✅ |
+| LL-11002 | Modèle `Schedule` | ✅ |
+| LL-11003 | Récurrence (RRULE, `RecurrenceRuleService`) | ✅ |
+| LL-11004 | Modèle `Occurrence` | ✅ |
+| LL-11005 | Exceptions (occurrence annulée/déplacée) | ✅ |
+| LL-11006 | Fiche événementielle riche (`Activity` : longDescription/conditions/age) | ✅ |
+| LL-11007 | Médias (`Media`/`ActivityMedia`) | ✅ |
+| LL-11008 | Liens/contacts (`ActivityLink`) | ✅ |
+| LL-11009 | Accessibilité, tags, informations complémentaires (`Accessibility`/`ActivityTag`/`ActivityMetadata`, `jsonb`) | ✅ |
+| LL-11010 | Conservation du payload brut (`ExternalActivity`) | ✅ |
+| LL-11011 | Adapter le pipeline d'import au modèle riche | ✅ (PR mergée directement par Alex) |
+| LL-11012 | Adapter la recherche aux occurrences | ✅ (PR mergée directement par Alex) |
+| LL-11013 | Séparer les DTO résumé/détail | ✅ PR #12 mergée |
+| LL-11014 | Préparer la fiche Premium | ✅ PR #12 mergée avec LL-11013 |
+| LL-11015 | Exploiter le nouveau modèle dans le frontend | ✅ PR #13 mergée |
+| LL-11016 | Tester les cas réels de programmation | ✅ PR #14 mergée (après plusieurs allers-retours CI, voir ci-dessous) |
+| LL-11017 | Documenter le nouveau modèle | Cette entrée |
+
+### Bugs découverts et corrigés grâce au premier vrai run CI (LL-11016)
+
+Ce sprint est le premier où le code a été réellement exécuté par
+`mvn verify` en CI (GitHub Actions) plutôt que seulement relu
+manuellement (limite sandbox habituelle, voir les entrées précédentes de
+ce journal). Deux bugs réels ont été découverts et corrigés en
+conséquence, tous deux documentés dans `docs/ADR-0010-cas-reels-programmation.md` :
+
+1. **Occurrences annulées exclues de la fiche détaillée** —
+   `ActivityController#toDetailResponse` (LL-11013) filtrait à tort les
+   occurrences `CANCELLED`, rendant le « Cas 4 — Exception » (LL-11016)
+   irreprésentable. Corrigé.
+2. **`ImportService` : compteur `created`/`updated` incorrect en cas
+   d'échec de l'enrichissement** — incrémenté après `enrichActivity(...)`
+   plutôt qu'après la sauvegarde de l'`Activity` elle-même. Corrigé
+   (`enrichActivitySafely`).
+
+Un troisième problème, une pollution de la table `source` (6 lignes
+`type = 'MANUAL'` au lieu d'une) a également été corrigé : la cause
+réelle était un test ajouté par ce même sprint
+(`RealSchedulingScenariosIntegrationTest`, non `@Transactional` par
+nécessité) qui créait sa source de test avec le type réservé — corrigé
+(`type = "API"`), avec en complément une validation applicative
+(`SourceService`) et une contrainte base (`V30`) manquantes, révélées à
+cette occasion.
+
+### Limite d'environnement (sandbox)
+
+Comme pour chaque sprint précédent, cette session n'a ni accès à Maven
+Central ni à une base PostgreSQL/PostGIS réelle — tout le travail de ce
+sprint a été vérifié par relecture manuelle attentive côté backend
+(sauf le frontend, où `npm`/`node` restent accessibles : `npx tsc
+--noEmit`/`npm run build` exécutés réellement à plusieurs reprises).
+Contrairement aux sprints précédents cependant, Alex a cette fois
+exécuté `mvn verify` en conditions réelles (CI GitHub Actions) sur les
+PR de ce sprint, ce qui a permis de détecter et corriger les trois bugs
+ci-dessus — la dernière confirmation d'un run CI entièrement vert
+n'a pas encore été obtenue au moment de la rédaction de cette entrée.
+
+**Statut : 🟡 Sprint fonctionnellement complet et documenté, dernière
+confirmation `mvn verify` entièrement vert en attente (Alex).**

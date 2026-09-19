@@ -116,3 +116,40 @@ sprint ») :
 - aucun code Java créé par ce ticket (voir remarque en tête de
   document) ;
 - aucune modification de `Source` ou `Activity`.
+
+## Mise à jour LL-11010 — conservation du payload brut
+
+`ExternalActivity` (`com.locallife.backend.collector.domain.ExternalActivity`)
+conserve, pour chaque élément collecté d'une source externe, sa charge
+JSON brute (`raw_payload`, colonne `jsonb`) et une empreinte
+(`payload_hash`) permettant de détecter si elle a changé depuis la
+dernière collecte, en plus de l'`Activity` normalisée qu'elle produit.
+Persisté par `ExternalActivityService`, indépendamment du reste du
+pipeline (`NormalizationService`/`ImportService`) — ne remplace ni
+n'affecte l'interface `Collector`/`CollectedActivity` ci-dessus, un
+niveau de traçabilité supplémentaire, pas une nouvelle étape du contrat.
+
+## Mise à jour LL-11011 — `CollectedActivity` restructuré en sous-modèles
+
+`CollectedActivity` portait jusqu'ici des champs plats (`latitude`/
+`longitude`/`address`/`city`/`postalCode`, `startDate`/`endDate`,
+ajoutés en LL-EF-008/LL-5004). Le modèle événementiel riche du Sprint 11
+(voir `ARCHITECTURE.md`, section « Modèle événementiel ») a nécessité de
+regrouper ces informations en sous-modèles dédiés plutôt que d'ajouter
+encore des champs plats :
+
+- `CollectedLocation location` remplace les champs de localisation plats ;
+- `List<CollectedTiming> timings` remplace l'unique couple
+  `startDate`/`endDate` — plusieurs horaires désormais possibles pour un
+  même événement ;
+- `String recurrenceRule`, `List<CollectedMedia> media`,
+  `List<CollectedLink> links`, `CollectedAccessibility accessibility`,
+  `List<String> tags`, `String registrationInfo` : couvrent le reste du
+  modèle événementiel riche.
+
+`getSourceName()`/`collect()` restent inchangées dans leur forme (la
+signature `List<CollectedActivity> collect()` demeure valide) — seule la
+richesse interne de `CollectedActivity` évolue. Voir
+`docs/ADR-0005-import-pipeline-enrichment.md` pour le détail de cette
+décision et de la persistance qui en découle
+(`NormalizationService`/`ImportService`).

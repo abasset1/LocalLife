@@ -139,3 +139,26 @@ responsabilité) :
   LL-6009, mentionné ici par anticipation pour éviter toute ambiguïté
   sur le périmètre du modèle lui-même : aucun champ lié à un panier, une
   commande ou un paiement n'a été inclus ci-dessus).
+
+---
+
+## Mise à jour Sprint 11 — distinction avec une activité multi-lieux
+
+Le Sprint 11 introduit un modèle événementiel riche pour `Activity`
+(voir `ARCHITECTURE.md`, section « Modèle événementiel ») permettant à
+une même activité d'avoir plusieurs `Schedule`, chacun avec son propre
+lieu et sa propre récurrence — un « food truck qui change de lieu chaque
+jour de la semaine » (cas testé explicitement par
+`docs/05_Sprints/SPRINT_11.md`, LL-11016, « Cas 3 ») est modélisé de
+cette façon : une `Activity` ordinaire avec plusieurs `Schedule`, **pas**
+une instance du module `foodtruck` décrit dans ce contrat.
+
+Le module `foodtruck` (ce document) reste ce qu'il a toujours été : un
+point d'intérêt à lieu fixe unique, sans date, indépendant de `source`
+(voir « Compatibilité avec la carte existante » ci-dessus et le
+raisonnement du début de ce document). Il n'a reçu aucune modification
+par le Sprint 11 — « aucun système complexe de tournée Food Truck »
+reste explicitement hors périmètre (`SPRINT_11.md`, section « Hors
+périmètre »). Un food truck à lieu fixe continue d'utiliser ce module ;
+un food truck dont la tournée doit être recherchable/affichée avec ses
+horaires par ville utilise une `Activity` à plusieurs `Schedule`.

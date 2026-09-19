@@ -19,6 +19,16 @@
   `mvn verify` n'a pu être exécuté dans aucune des sessions ayant traité ce
   sprint (Maven Central hors des domaines réseau autorisés en sandbox) — à
   faire par Alex avant d'ouvrir le Sprint Mobile.
+- Sprint 11 : `LL-11001` → `LL-11017` — modèle événementiel riche
+  (`Location`/`Schedule`/`Occurrence`, récurrence RFC 5545, exceptions,
+  médias/liens/accessibilité/tags, conservation du payload brut, DTO
+  résumé/détail, préparation Premium, adaptation du pipeline d'import, de
+  la recherche et du frontend). Détail complet et récapitulatif ticket
+  par ticket : `docs/PROJECT_STATUS.md`, section LL-11017 ; décisions de
+  conception : `docs/ADR-0005-import-pipeline-enrichment.md` à
+  `docs/ADR-0010-cas-reels-programmation.md`. Fonctionnellement complet,
+  PR #12/#13/#14 mergées — dernière confirmation `mvn verify` entièrement
+  vert en attente (Alex), voir `docs/PROJECT_STATUS.md`.
 
 ## Sprint actuel / prochain sprint
 
