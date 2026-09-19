@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.22 — 2026-09-18
+
+### LL-11017 — Documenter le nouveau modèle (clôture Sprint 11)
+- `docs/02_Architecture/ARCHITECTURE.md` : nouvelle section « Modèle événementiel » (diagramme Activity → Schedule → Recurrence → Occurrence → Location, exceptions, sources externes, résumé/détail, future distinction Basic/Premium), section « Pipeline d'import » et liste des modules mises à jour.
+- `docs/02_Architecture/COLLECTOR_CONTRACT.md` : mises à jour LL-11010 (`ExternalActivity`) et LL-11011 (`CollectedActivity` restructuré).
+- `docs/02_Architecture/FOOD_TRUCK_CONTRACT.md` : clarification entre le module `foodtruck` (inchangé) et une activité à plusieurs schedules (« food truck multi-lieux »).
+- `docs/PROJECT_STATUS.md`, `docs/01_Product/BACKLOG.md`, `docs/04_Project/ROADMAP.md` : clôture du Sprint 11, récapitulatif ticket par ticket (LL-11001 à LL-11017).
+- Voir `docs/PROJECT_STATUS.md` (section LL-11017) pour le récapitulatif complet du sprint, y compris les trois bugs découverts et corrigés grâce au premier vrai run `mvn verify` en CI (occurrences annulées exclues de la fiche détaillée, compteur `created`/`updated` d'`ImportService`, pollution de la table `source`).
+
 ## 0.9.21 — 2026-09-17
 
 ### Correctifs CI sur la PR LL-11016 (suite)

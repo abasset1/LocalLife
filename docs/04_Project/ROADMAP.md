@@ -87,16 +87,57 @@ figé à l'avance.
 ---
 
 ## Phase 3 — Évolution après bêta
-**Statut : ⏳ Non démarrée**
+**Statut : 🟡 En cours — Sprint 11**
 
-Cette phase sera planifiée à partir des retours utilisateurs et des besoins
-réellement observés. Les pistes restent ouvertes :
+Cette phase est planifiée à partir des retours utilisateurs et des besoins
+réellement observés. Pistes encore ouvertes, non engagées :
 
-- amélioration des sources et collecteurs ;
 - nouveaux types de lieux ;
 - amélioration des contributions ;
 - fonctionnalités communautaires ;
 - application mobile éventuelle.
+
+### Sprint 11 — Modèle événementiel riche
+**Statut : 🟡 Fonctionnellement complet, dernière confirmation `mvn verify`
+entièrement vert en attente (Alex)**
+
+Objectif : dépasser le modèle plat hérité du MVP (une date, un lieu par
+activité) pour représenter fidèlement des programmations réelles —
+récurrence, plusieurs horaires/lieux pour une même activité, exceptions
+(annulation, déplacement), fiche événementielle riche (médias, liens,
+accessibilité, tags), tout en préparant (sans l'implémenter) une future
+distinction d'accès Basic/Premium.
+
+| Ticket | Objectif | Statut |
+|---|---|---|
+| LL-11001 | Modèle `Location` | ✅ |
+| LL-11002 | Modèle `Schedule` | ✅ |
+| LL-11003 | Récurrence (RRULE) | ✅ |
+| LL-11004 | Modèle `Occurrence` | ✅ |
+| LL-11005 | Exceptions (occurrence annulée/déplacée) | ✅ |
+| LL-11006 | Fiche événementielle riche (description longue, conditions, âge) | ✅ |
+| LL-11007 | Médias | ✅ |
+| LL-11008 | Liens/contacts | ✅ |
+| LL-11009 | Accessibilité, tags, informations complémentaires | ✅ |
+| LL-11010 | Conservation du payload brut | ✅ |
+| LL-11011 | Adapter le pipeline d'import | ✅ |
+| LL-11012 | Adapter la recherche aux occurrences | ✅ |
+| LL-11013 | Séparer les DTO résumé/détail | ✅ |
+| LL-11014 | Préparer la fiche Premium | ✅ |
+| LL-11015 | Exploiter le nouveau modèle dans le frontend | ✅ |
+| LL-11016 | Tester les cas réels de programmation | ✅ |
+| LL-11017 | Documenter le nouveau modèle | Cette entrée |
+
+**Référence :** `docs/05_Sprints/SPRINT_11.md`. Détail ticket par ticket,
+décisions de conception et bugs corrigés grâce au premier vrai run
+`mvn verify` en CI : `docs/PROJECT_STATUS.md` (section LL-11017) et
+`docs/ADR-0005-import-pipeline-enrichment.md` à
+`docs/ADR-0010-cas-reels-programmation.md`.
+
+Pistes encore ouvertes après ce sprint, non engagées :
+
+- application mobile éventuelle ;
+- amélioration des sources et collecteurs.
 
 Aucune de ces pistes n'est actuellement un engagement de développement.
 
