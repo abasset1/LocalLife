@@ -95,9 +95,19 @@ class RealSchedulingScenariosIntegrationTest {
                 .build();
     }
 
+    /**
+     * Type {@code "API"} plutôt que {@code "MANUAL"} : ce dernier est
+     * réservé à l'unique source créée par {@code
+     * V8__create_source_table.sql} (contrainte {@code
+     * V30__enforce_single_manual_source.sql}, bug corrigé après le
+     * premier run CI de ce ticket, voir l'addendum de
+     * {@code docs/ADR-0010-cas-reels-programmation.md}) — une source de
+     * test ordinaire, quel que soit son usage réel dans le test, doit
+     * utiliser un type non réservé.
+     */
     private Long testSourceId() {
         Source source = new Source(
-                null, "Source test LL-11016-" + UUID.randomUUID(), "MANUAL", null, "ACTIVE", null, null, null);
+                null, "Source test LL-11016-" + UUID.randomUUID(), "API", null, "ACTIVE", null, null, null);
         return sourceRepository.save(source).id();
     }
 
