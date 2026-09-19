@@ -418,11 +418,17 @@ public class ActivityController {
      * conservant l'ordre de première rencontre (schedules d'abord, puis
      * occurrences).
      *
-     * {@code occurrences} : « pertinentes » interprété comme « non
-     * annulées » ({@code OccurrenceService#findEffectiveByScheduleId}),
-     * across tous les schedules de l'activité — voir la javadoc
-     * d'{@code ActivityDetailResponse.OccurrenceSummary} pour la
-     * décision à valider.
+     * {@code occurrences} : LL-11016 (« Cas 4 — Exception ») a révélé
+     * que l'interprétation initiale de LL-11013 (« pertinentes » = non
+     * annulées, {@code OccurrenceService#findEffectiveByScheduleId})
+     * empêchait justement de représenter une exception — « 15/09 →
+     * annulé » doit apparaître dans la fiche, pas en être absent.
+     * Corrigé : toutes les occurrences d'un schedule ({@code
+     * OccurrenceService#findByScheduleId}, {@code CANCELLED} incluses),
+     * across tous les schedules de l'activité — {@code
+     * OccurrenceSummary#status} (déjà exposé depuis LL-11013) permet au
+     * frontend de distinguer une occurrence annulée d'une occurrence
+     * normale (voir {@code docs/ADR-0010-cas-reels-programmation.md}).
      */
     private ActivityDetailResponse toDetailResponse(Activity activity) {
         List<Schedule> schedules = scheduleService.findByActivityId(activity.id());
@@ -434,9 +440,9 @@ public class ActivityController {
                 locationService.findById(schedule.locationId()).ifPresent(
                         location -> locationsById.put(location.id(), location));
             }
-            List<Occurrence> effectiveOccurrences = occurrenceService.findEffectiveByScheduleId(schedule.id());
-            occurrences.addAll(effectiveOccurrences);
-            for (Occurrence occurrence : effectiveOccurrences) {
+            List<Occurrence> scheduleOccurrences = occurrenceService.findByScheduleId(schedule.id());
+            occurrences.addAll(scheduleOccurrences);
+            for (Occurrence occurrence : scheduleOccurrences) {
                 if (occurrence.locationId() != null) {
                     locationService.findById(occurrence.locationId()).ifPresent(
                             location -> locationsById.put(location.id(), location));

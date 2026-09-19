@@ -92,3 +92,11 @@ export function formatTimeRange(startTime: string | null, endTime: string | null
     }
     return end ? `${start} → ${end}` : start;
 }
+
+/** `"2026-09-15T18:00:00Z"` → `"15/09"` (format court, pour la liste d'exceptions, Cas 4 LL-11016). */
+export function formatDateOfDay(isoInstant: string): string {
+    const date = new Date(isoInstant);
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `${day}/${month}`;
+}

@@ -1,0 +1,11 @@
+-- LL-11016 : diagnostic d'un bug révélé par `mvn verify` (CI) — la base de test
+-- contenait 6 lignes `source.type = 'MANUAL'` au lieu d'une seule, faisant
+-- échouer `SourceRepository#findByType("MANUAL")` (IncorrectResultSizeDataAccessException)
+-- dans des dizaines de tests, en cascade (voir SourceService#createSource/updateSource,
+-- qui ne rejetaient pas ce type — corrigé dans le même commit). Cette migration ajoute
+-- une contrainte en base, en défense supplémentaire : au plus une ligne `MANUAL`
+-- possible, quel que soit le chemin de code qui tenterait d'en créer une seconde
+-- (celui déjà identifié ci-dessus, ou un autre non encore repéré) — un index unique
+-- partiel plutôt qu'une contrainte UNIQUE(type) classique, puisque d'autres types
+-- (API, RSS) doivent eux rester libres d'avoir plusieurs lignes.
+CREATE UNIQUE INDEX uq_source_single_manual_type ON source (type) WHERE type = 'MANUAL';

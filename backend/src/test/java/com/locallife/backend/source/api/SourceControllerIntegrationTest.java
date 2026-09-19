@@ -118,6 +118,25 @@ class SourceControllerIntegrationTest {
                 .expectStatus().isBadRequest();
     }
 
+    /**
+     * LL-11016 : bug corrigé — cette requête réussissait auparavant
+     * (aucune validation ne rejetait le type {@code MANUAL}), créant une
+     * seconde source réservée et cassant {@code
+     * SourceRepository#findByType("MANUAL")} partout ailleurs dans le
+     * projet.
+     */
+    @Test
+    void createSource_ShouldReturnBadRequest_WhenTypeIsManual() {
+        CreateSourceRequest request = new CreateSourceRequest(uniqueName(), "MANUAL", null, null, null);
+
+        restTestClient().post().uri("/api/v1/sources")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
     @Test
     void createSource_ShouldBeRefused_WhenNoTokenProvided() {
         CreateSourceRequest request = new CreateSourceRequest(uniqueName(), "API", null, null, null);

@@ -456,6 +456,14 @@ body {
     padding-left: 1.2rem;
 }
 
+/* LL-11016, « Cas 4 — Exception » : occurrences déviant du planning normal d'un schedule. */
+.activity-detail-exceptions {
+    margin: 0.15rem 0 0.3rem;
+    padding-left: 1.2rem;
+    font-size: 0.85rem;
+    color: #b45309;
+}
+
 .activity-detail-tags {
     display: flex;
     flex-wrap: wrap;

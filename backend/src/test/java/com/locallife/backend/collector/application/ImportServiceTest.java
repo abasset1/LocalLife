@@ -26,6 +26,7 @@ import com.locallife.backend.metadata.application.ActivityMetadataService;
 import com.locallife.backend.place.application.LocationService;
 import com.locallife.backend.schedule.application.OccurrenceService;
 import com.locallife.backend.schedule.application.ScheduleService;
+import com.locallife.backend.schedule.domain.Schedule;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.tag.application.ActivityTagService;
@@ -196,6 +197,43 @@ class ImportServiceTest {
                 activity.id() == null
                         && activity.sourceId().equals(10L)
                         && "external:OpenAgenda Marseille:ext-1".equals(activity.importKey()));
+    }
+
+    /**
+     * LL-11016 (bug révélé par {@code mvn verify} en CI) : {@code
+     * created}/{@code updated} s'incrémentaient auparavant après
+     * l'enrichissement ({@code enrichActivity}) — une exception dans
+     * cette étape (ici {@code scheduleService.create}) faisait compter
+     * l'élément entier en erreur, alors que l'{@code Activity} elle-même
+     * venait d'être sauvegardée avec succès. Voir {@code
+     * ImportService#enrichActivitySafely}.
+     */
+    @Test
+    void importAll_ShouldStillCountCreated_WhenEnrichmentFailsAfterActivitySaved() {
+        // Given
+        givenOneCollectibleSource();
+        CollectedActivity item = collectedActivity("ext-1");
+        when(collector.collect()).thenReturn(List.of(item));
+        when(deduplicationService.computeDeduplicationKey(item)).thenReturn("external:OpenAgenda Marseille:ext-1");
+        when(normalizationService.normalize(item)).thenReturn(Optional.of(normalizedActivity()));
+        when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
+                .thenReturn(Optional.empty());
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        givenSaveAssignsId();
+        when(normalizationService.normalizeSchedule(eq(item), any(), any()))
+                .thenReturn(Optional.of(new Schedule(null, 99L, null, null, null, null, null, null, null)));
+        when(scheduleService.create(any())).thenThrow(new RuntimeException("boom-schedule"));
+
+        // When
+        List<ImportResult> results = importService().importAll();
+
+        // Then : l'activité compte bien comme créée, l'échec de l'enrichissement
+        // n'est pas comptabilisé comme une erreur de l'élément (voir la javadoc
+        // d'ImportService#enrichActivitySafely).
+        ImportResult result = results.get(0);
+        assertEquals(1, result.created());
+        assertEquals(0, result.errors());
+        verify(activityRepository).save(argThatMatchesNewActivity());
     }
 
     @Test

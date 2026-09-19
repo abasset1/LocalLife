@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.21 — 2026-09-17
+
+### Correctifs CI sur la PR LL-11016 (suite)
+- `RealSchedulingScenariosIntegrationTest` utilisait `type="MANUAL"` pour sa propre source de test — cause réelle des 6 lignes `MANUAL` observées en CI (1 de la migration V8 + 5 committées par les 5 méthodes de ce test, non `@Transactional` par nécessité — même style que `ActivityControllerIntegrationTest`, requêtes HTTP réelles via un thread serveur séparé). Corrigé : `type="API"`.
+- `ImportService#importFrom` : `created`/`updated` s'incrémentaient après `enrichActivity(...)` — une exception dans l'enrichissement faisait compter l'élément entier en erreur alors que l'`Activity` venait d'être sauvegardée avec succès. Corrigé : compteur incrémenté immédiatement après la sauvegarde, enrichissement isolé (`enrichActivitySafely`), son échec journalisé sans incrémenter `errors`. Voir l'addendum 2 de `docs/ADR-0010-cas-reels-programmation.md`.
+- Test ajouté : `ImportServiceTest.importAll_ShouldStillCountCreated_WhenEnrichmentFailsAfterActivitySaved`.
+
+## 0.9.20 — 2026-09-17
+
+### Correctif CI sur la PR LL-11016 — validation du type de source
+- Le premier run CI réel (GitHub Actions, base PostgreSQL fraîche) de la PR #14 a révélé que `source.type = 'MANUAL'` comptait 6 lignes au lieu d'une, faisant échouer `SourceRepository#findByType("MANUAL")` en cascade dans des dizaines de tests (`ActivityService#createActivity`, `SourceService#deleteSource`, tout appel à `manualSourceId()`).
+- `SourceService#createSource`/`updateSource` ne rejetaient `type` que s'il était vide, jamais spécifiquement `MANUAL` — n'importe quel appel à `POST`/`PUT /api/v1/sources` avec ce type était accepté, créant ou transformant une source en une seconde source « réservée ». Corrigé : `validate()` rejette désormais explicitement ce type.
+- Nouvelle migration `V30__enforce_single_manual_source.sql` (index unique partiel `WHERE type = 'MANUAL'`) en défense supplémentaire côté base.
+- Tests ajoutés : `SourceServiceTest` (2 cas), `SourceControllerIntegrationTest` (1 cas HTTP). Voir l'addendum de `docs/ADR-0010-cas-reels-programmation.md`.
+- Le chemin de code exact ayant produit les 6 lignes lors de ce run précis n'a pas pu être identifié avec certitude par relecture statique seule.
+
+## 0.9.19 — 2026-09-17
+
+### LL-11016 — Tester les cas réels de programmation
+- Ticket du Sprint 11 (`docs/05_Sprints/SPRINT_11.md`) : vérifier que cinq scénarios concrets (événement ponctuel, récurrent, food truck multi-lieux, exception, fiche riche) sont effectivement représentables par le modèle événementiel riche du Sprint 11.
+- **Bug corrigé** (révélé en construisant le « Cas 4 — Exception ») : `ActivityController#toDetailResponse` (LL-11013) excluait les occurrences annulées de la fiche détaillée (« occurrences pertinentes » interprété à tort comme « non annulées », voir ADR-0007) — une occurrence `CANCELLED` doit au contraire rester visible (« 15/09 → annulé »). Utilise désormais `OccurrenceService#findByScheduleId` (toutes les occurrences) plutôt que `findEffectiveByScheduleId` (non annulées) pour cette fiche — cette dernière reste utilisée telle quelle pour la recherche (LL-11012), où l'exclusion des occurrences annulées est en revanche correcte. Voir `docs/ADR-0010-cas-reels-programmation.md`.
+- Nouveau test d'intégration `RealSchedulingScenariosIntegrationTest` : cinq scénarios construits directement via le modèle riche (Location/Schedule/Occurrence/Media/ActivityLink/Accessibility/ActivityTag) et vérifiés via une vraie requête HTTP sur `GET /api/v1/activities/{id}`.
+- Frontend : les exceptions (occurrence annulée ou déplacée) s'affichent désormais sous la ligne d'horaire concernée dans la fiche détaillée (`ActivityDetail.occurrences`, `formatDateOfDay`) — vérifié par une compilation et un build réels (`npx tsc --noEmit`, `npm run build`).
+- ⚠️ Backend non vérifiable dans cette session (pas d'accès à Maven Central ni à une base PostgreSQL réelle) : les cinq scénarios ont été construits et relus manuellement avec attention, mais **`mvn verify` reste à lancer par Alex avant tout merge**.
+
 ## 0.9.18 — 2026-09-16
 
 ### LL-11015 — Exploiter le nouveau modèle dans le frontend

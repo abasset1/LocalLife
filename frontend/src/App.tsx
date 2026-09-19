@@ -10,7 +10,7 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
-import { formatRecurrenceRule, formatTimeRange } from "./utils/recurrence";
+import { formatDateOfDay, formatRecurrenceRule, formatTimeRange } from "./utils/recurrence";
 
 /**
  * Correctif prod : icône par défaut de Leaflet pour les marqueurs
@@ -110,6 +110,13 @@ interface ActivityDetail {
     ageMin: number | null;
     ageMax: number | null;
     schedules: ScheduleSummary[];
+    /**
+     * LL-11016 (« Cas 4 — Exception ») : toutes les occurrences,
+     * annulées comprises (voir `ActivityController#toDetailResponse`
+     * côté backend, corrigé par ce même ticket) — `status` distingue
+     * une occurrence annulée d'une normale, voir `renderActivitySchedules`.
+     */
+    occurrences: OccurrenceSummary[];
     locations: LocationSummary[];
     media: MediaSummary[];
     links: LinkSummary[];
@@ -124,6 +131,14 @@ interface ScheduleSummary {
     startTime: string | null;
     endTime: string | null;
     recurrenceRule: string | null;
+}
+
+interface OccurrenceSummary {
+    id: number;
+    scheduleId: number;
+    startAt: string;
+    locationId: number | null;
+    status: string;
 }
 
 interface LocationSummary {
@@ -1039,11 +1054,34 @@ function App() {
                                 const recurrenceLabel = formatRecurrenceRule(schedule.recurrenceRule);
                                 const timeRangeLabel = formatTimeRange(schedule.startTime, schedule.endTime);
                                 const locationLabel = location?.city ?? location?.name ?? null;
+                                // LL-11016, « Cas 4 — Exception » : occurrences de ce schedule qui
+                                // dévient du planning normal (annulée, ou déplacée vers un autre lieu)
+                                // — les occurrences qui se déroulent normalement ne sont pas listées
+                                // individuellement (potentiellement très nombreuses pour une série
+                                // hebdomadaire), seules leurs exceptions le sont.
+                                const exceptions = detail.occurrences.filter((occurrence) =>
+                                    occurrence.scheduleId === schedule.id
+                                    && (occurrence.status === "CANCELLED"
+                                        || (occurrence.locationId !== null
+                                            && occurrence.locationId !== schedule.locationId)));
                                 return (
                                     <li key={schedule.id}>
                                         {[recurrenceLabel, timeRangeLabel, locationLabel]
                                             .filter((part): part is string => Boolean(part))
                                             .join(" · ")}
+                                        {exceptions.length > 0 && (
+                                            <ul className="activity-detail-exceptions">
+                                                {exceptions.map((occurrence) => (
+                                                    <li key={occurrence.id}>
+                                                        {formatDateOfDay(occurrence.startAt)} →{" "}
+                                                        {occurrence.status === "CANCELLED"
+                                                            ? "annulé"
+                                                            : locationsById.get(occurrence.locationId ?? -1)?.city
+                                                                ?? "lieu modifié"}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
                                     </li>
                                 );
                             })}
