@@ -271,13 +271,21 @@ public class ImportService {
                         normalized.get(), existing.map(Activity::id).orElse(null), source.id(), key);
                 Activity saved = activityRepository.save(toSave);
 
-                enrichActivity(saved.id(), item);
-
+                // Bug corrigé (LL-11016, révélé par mvn verify en CI) : created/updated
+                // s'incrémentaient après enrichActivity(...) — une exception dans
+                // l'enrichissement (Location/Schedule/Occurrence/Media/...) faisait donc
+                // compter l'élément entier en erreur, alors que l'Activity elle-même venait
+                // d'être sauvegardée avec succès juste au-dessus. Compté ici, avant
+                // l'enrichissement : reflète fidèlement que l'import de l'activité a réussi,
+                // même si son enrichissement (secondaire) échoue ensuite — voir
+                // enrichActivitySafely ci-dessous pour l'isolation de cette étape.
                 if (existing.isPresent()) {
                     updated++;
                 } else {
                     created++;
                 }
+
+                enrichActivitySafely(source, saved, item);
             } catch (RuntimeException exception) {
                 errors++;
                 LOGGER.warn("Échec du traitement d'un élément collecté pour la source '{}' : {}",
@@ -317,6 +325,30 @@ public class ImportService {
      * ActivityService » et la gestion d'erreur déjà en place pour
      * {@code normalize()}, voir la javadoc de la classe.
      */
+    /**
+     * Isole l'enrichissement (LL-11016) : une exception ici ne doit pas
+     * remettre en cause l'import de l'{@code Activity} elle-même, déjà
+     * comptée (voir {@code created}/{@code updated} dans {@link
+     * #importFrom}) — seule l'enrichissement (secondaire) échoue,
+     * journalisé en avertissement, sans incrémenter {@code errors} (qui
+     * resterait sinon trompeur : l'élément collecté a bien été importé,
+     * seule sa Location/Schedule/Occurrence/Media/... est éventuellement
+     * incomplète). L'activité reste alors "nue" (sans ses entités liées)
+     * jusqu'au prochain import réussi de ce même élément, qui retentera
+     * l'enrichissement en entier (voir {@code clearEnrichment}/{@code
+     * enrichActivity}, aucun état partiel à nettoyer entre-temps).
+     */
+    private void enrichActivitySafely(Source source, Activity saved, CollectedActivity item) {
+        try {
+            enrichActivity(saved.id(), item);
+        } catch (RuntimeException exception) {
+            LOGGER.warn(
+                    "Échec de l'enrichissement (Location/Schedule/Occurrence/...) de l'activité importée "
+                            + "'{}' (id {}) pour la source '{}' : {}",
+                    saved.title(), saved.id(), source.name(), exception.getMessage(), exception);
+        }
+    }
+
     private void enrichActivity(Long activityId, CollectedActivity item) {
         clearEnrichment(activityId);
 

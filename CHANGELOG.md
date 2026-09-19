@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.21 — 2026-09-17
+
+### Correctifs CI sur la PR LL-11016 (suite)
+- `RealSchedulingScenariosIntegrationTest` utilisait `type="MANUAL"` pour sa propre source de test — cause réelle des 6 lignes `MANUAL` observées en CI (1 de la migration V8 + 5 committées par les 5 méthodes de ce test, non `@Transactional` par nécessité — même style que `ActivityControllerIntegrationTest`, requêtes HTTP réelles via un thread serveur séparé). Corrigé : `type="API"`.
+- `ImportService#importFrom` : `created`/`updated` s'incrémentaient après `enrichActivity(...)` — une exception dans l'enrichissement faisait compter l'élément entier en erreur alors que l'`Activity` venait d'être sauvegardée avec succès. Corrigé : compteur incrémenté immédiatement après la sauvegarde, enrichissement isolé (`enrichActivitySafely`), son échec journalisé sans incrémenter `errors`. Voir l'addendum 2 de `docs/ADR-0010-cas-reels-programmation.md`.
+- Test ajouté : `ImportServiceTest.importAll_ShouldStillCountCreated_WhenEnrichmentFailsAfterActivitySaved`.
+
 ## 0.9.20 — 2026-09-17
 
 ### Correctif CI sur la PR LL-11016 — validation du type de source

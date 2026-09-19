@@ -100,3 +100,23 @@ deux méthodes) et en défense supplémentaire au niveau base
 `WHERE type = 'MANUAL'`), qui transformera toute prochaine tentative en
 une erreur explicite au point d'insertion plutôt qu'en une pollution
 silencieuse.
+
+## Addendum 2 — `ImportServiceIntegrationTest` : compteur `created`/`updated` corrigé
+
+`ImportService#importFrom` incrémentait `created`/`updated` **après**
+l'appel à `enrichActivity(...)` — si cette étape (construction de
+`Location`/`Schedule`/`Occurrence`/...) levait une exception, capturée
+par le `catch` englobant, l'élément entier était compté en erreur alors
+que l'`Activity` elle-même venait d'être sauvegardée avec succès juste
+avant. Corrigé : le compteur s'incrémente désormais immédiatement après
+`activityRepository.save(...)`, et l'enrichissement est isolé dans sa
+propre étape (`enrichActivitySafely`) dont l'échec est journalisé en
+avertissement, sans incrémenter `errors` — l'activité reste alors « nue »
+(sans ses entités liées) jusqu'au prochain import réussi de ce même
+élément, qui retente l'enrichissement en entier.
+
+La cause exacte de l'échec initial d'`enrichActivity` (pourquoi elle
+levait une exception en CI) n'a pas pu être identifiée avec certitude
+par relecture statique seule — ce correctif rend le système robuste à
+n'importe quelle cause sous-jacente plutôt que de la cibler
+spécifiquement.
