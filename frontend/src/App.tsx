@@ -12,6 +12,7 @@ import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
 import { formatDateOfDay, formatRecurrenceRule, formatTimeRange } from "./utils/recurrence";
 import { buildGoogleCalendarUrl } from "./utils/googleCalendar";
+import { buildDirectionsUrl } from "./utils/directions";
 
 /**
  * Correctif prod : icône par défaut de Leaflet pour les marqueurs
@@ -1650,6 +1651,25 @@ function App() {
                                     target="_blank"
                                 >
                                     Ajouter à Google Agenda
+                                </a>
+                                {/*
+                                  LL-EF-015 : "Y aller" — coordonnées GPS en priorité, adresse en
+                                  secours (voir buildDirectionsUrl) ; ouvre l'application de
+                                  navigation compatible de l'utilisateur, LocalLife n'implémente
+                                  aucun système de navigation propre.
+                                */}
+                                <a
+                                    className="get-directions-button"
+                                    href={buildDirectionsUrl({
+                                        latitude: selectedActivity.latitude,
+                                        longitude: selectedActivity.longitude,
+                                        address: selectedActivity.address,
+                                        city: selectedActivity.city,
+                                    })}
+                                    rel="noreferrer"
+                                    target="_blank"
+                                >
+                                    Y aller
                                 </a>
                             </div>
                             {/*

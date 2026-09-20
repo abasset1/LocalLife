@@ -547,6 +547,24 @@ body {
     background: #eff6ff;
 }
 
+/* LL-EF-015 : lien "Y aller" (itinéraire), dans le détail d'une activité. */
+.get-directions-button {
+    align-self: flex-start;
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border: 1px solid #16a34a;
+    border-radius: 0.4rem;
+    background: #fff;
+    color: #16a34a;
+    font-size: 0.9rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.get-directions-button:hover {
+    background: #f0fdf4;
+}
+
 .auth-shell {
     display: flex;
     align-items: center;
