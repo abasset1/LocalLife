@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.23 — 2026-09-18
+
+### LL-EF-013 — Ajouter un événement à Google Agenda
+- Bouton « Ajouter à Google Agenda » dans le détail d'une activité (frontend uniquement, aucun changement backend).
+- Préremplit titre, description, date/heure de début et de fin, adresse (repli sur les coordonnées GPS si aucune adresse), via l'url de modèle d'événement publique de Google (`calendar.google.com/calendar/render?action=TEMPLATE`) — aucun identifiant Google stocké côté serveur, aucune authentification requise (critère d'acceptation explicite du ticket).
+- Date/heure de début et de fin tirées de la première occurrence non annulée quand la fiche détaillée est chargée (`frontend/src/utils/googleCalendar.ts`), avec repli sur `Activity.startDate` (+ 2h par défaut) sinon.
+- L'utilisateur reste libre de modifier chaque champ avant d'enregistrer : c'est le formulaire de Google Agenda lui-même qui s'ouvre, LocalLife ne fait que le pré-remplir.
+- Vérifié par une compilation et un build réels (`npx tsc --noEmit`, `npm run build`).
+
 ## 0.9.22 — 2026-09-18
 
 ### LL-11017 — Documenter le nouveau modèle (clôture Sprint 11)

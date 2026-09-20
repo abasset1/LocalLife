@@ -11,6 +11,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
 import { formatDateOfDay, formatRecurrenceRule, formatTimeRange } from "./utils/recurrence";
+import { buildGoogleCalendarUrl } from "./utils/googleCalendar";
 
 /**
  * Correctif prod : icône par défaut de Leaflet pour les marqueurs
@@ -137,6 +138,8 @@ interface OccurrenceSummary {
     id: number;
     scheduleId: number;
     startAt: string;
+    /** LL-EF-013 : nécessaire pour préremplir l'heure de fin de l'événement Google Agenda. */
+    endAt: string | null;
     locationId: number | null;
     status: string;
 }
@@ -1618,6 +1621,37 @@ function App() {
                                 </p>
                             )}
                             {activityDetail && renderActivityDetailSections(activityDetail)}
+                            {/*
+                              LL-EF-013 : "Ajouter à Google Agenda" — url de modèle d'événement
+                              pré-rempli (voir buildGoogleCalendarUrl), jamais d'identifiant Google
+                              stocké côté serveur. Disponible dès l'ouverture du détail (n'attend
+                              pas activityDetail : utilise les occurrences si déjà chargées, sinon
+                              se replie sur selectedActivity.startDate, voir la javadoc du fichier).
+                            */}
+                            <div className="activity-detail-actions">
+                                <a
+                                    className="add-to-google-calendar-button"
+                                    href={buildGoogleCalendarUrl({
+                                        title: selectedActivity.title,
+                                        description: activityDetail?.description ?? null,
+                                        address: selectedActivity.address,
+                                        city: selectedActivity.city,
+                                        latitude: selectedActivity.latitude,
+                                        longitude: selectedActivity.longitude,
+                                        occurrenceStartAt: activityDetail?.occurrences
+                                            .find((occurrence) => occurrence.status !== "CANCELLED")?.startAt
+                                            ?? null,
+                                        occurrenceEndAt: activityDetail?.occurrences
+                                            .find((occurrence) => occurrence.status !== "CANCELLED")?.endAt
+                                            ?? null,
+                                        fallbackStartDate: selectedActivity.startDate,
+                                    })}
+                                    rel="noreferrer"
+                                    target="_blank"
+                                >
+                                    Ajouter à Google Agenda
+                                </a>
+                            </div>
                             {/*
                               Bouton "Annuler" affiché uniquement au créateur de l'activité ou à
                               un administrateur — vérification d'UI seulement, la vérification

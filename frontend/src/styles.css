@@ -529,6 +529,24 @@ body {
     cursor: not-allowed;
 }
 
+/* LL-EF-013 : lien "Ajouter à Google Agenda", dans le détail d'une activité. */
+.add-to-google-calendar-button {
+    align-self: flex-start;
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border: 1px solid #2563eb;
+    border-radius: 0.4rem;
+    background: #fff;
+    color: #2563eb;
+    font-size: 0.9rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.add-to-google-calendar-button:hover {
+    background: #eff6ff;
+}
+
 .auth-shell {
     display: flex;
     align-items: center;
