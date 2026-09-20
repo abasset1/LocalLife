@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.24 — 2026-09-18
+
+### LL-EF-015 — « Y aller » vers un événement
+- Bouton « Y aller » dans le détail d'une activité (frontend uniquement, aucun changement backend), à côté du bouton « Ajouter à Google Agenda » (LL-EF-013).
+- `frontend/src/utils/directions.ts` : url universelle Google Maps (`google.com/maps/dir/?api=1&destination=...`) — coordonnées GPS en priorité, adresse en secours, conformément au ticket. Ouvre l'application de navigation compatible de l'utilisateur ; LocalLife n'implémente aucun système de navigation propre.
+- Vérifié par une compilation et un build réels (`npx tsc --noEmit`, `npm run build`).
+
 ## 0.9.23 — 2026-09-18
 
 ### LL-EF-013 — Ajouter un événement à Google Agenda
