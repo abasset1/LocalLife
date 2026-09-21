@@ -118,7 +118,9 @@ class AdminActivityControllerIntegrationTest {
         return restTestClient().post().uri("/api/v1/activities")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(new CreateActivityRequest(title, "description", "loisir", "1 rue de la Paix, Marseille", null, null))
+                .body(new CreateActivityRequest(
+                        title, "description", "loisir", "1 rue de la Paix, Marseille",
+                        null, null, null, null, null))
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody(Activity.class)

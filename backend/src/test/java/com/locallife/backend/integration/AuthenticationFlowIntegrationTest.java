@@ -127,7 +127,8 @@ class AuthenticationFlowIntegrationTest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new CreateActivityRequest(
-                        "Pétanque entre voisins", "Partie amicale", "sport", "1 rue de la Paix, Marseille", null, null))
+                        "Pétanque entre voisins", "Partie amicale", "sport", "1 rue de la Paix, Marseille",
+                        null, null, null, null, null))
                 .exchange()
                 .expectStatus().isCreated();
     }
@@ -144,7 +145,7 @@ class AuthenticationFlowIntegrationTest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new CreateActivityRequest(
-                        "Rassemblement", "Description", "sport", "Vieux-Port, Marseille", null, null))
+                        "Rassemblement", "Description", "sport", "Vieux-Port, Marseille", null, null, null, null, null))
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody()
@@ -183,7 +184,8 @@ class AuthenticationFlowIntegrationTest {
     void createActivity_ShouldBeRefused_WhenNoTokenProvided() {
         restTestClient().post().uri("/api/v1/activities")
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(new CreateActivityRequest("Titre", "Description", "sport", "Une adresse", null, null))
+                .body(new CreateActivityRequest(
+                        "Titre", "Description", "sport", "Une adresse", null, null, null, null, null))
                 .exchange()
                 .expectStatus().isUnauthorized();
     }
@@ -193,7 +195,8 @@ class AuthenticationFlowIntegrationTest {
         restTestClient().post().uri("/api/v1/activities")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken())
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(new CreateActivityRequest("Titre", "Description", "sport", "Une adresse", null, null))
+                .body(new CreateActivityRequest(
+                        "Titre", "Description", "sport", "Une adresse", null, null, null, null, null))
                 .exchange()
                 .expectStatus().isUnauthorized();
     }
@@ -203,7 +206,8 @@ class AuthenticationFlowIntegrationTest {
         restTestClient().post().uri("/api/v1/activities")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + unsupportedToken())
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(new CreateActivityRequest("Titre", "Description", "sport", "Une adresse", null, null))
+                .body(new CreateActivityRequest(
+                        "Titre", "Description", "sport", "Une adresse", null, null, null, null, null))
                 .exchange()
                 .expectStatus().isUnauthorized();
     }

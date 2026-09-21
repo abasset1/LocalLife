@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.25 — 2026-09-18
+
+### LL-EF-016 — Ajouter un lien web et un contact à un événement
+- Réutilise intégralement le modèle `ActivityLink`/`ActivityLinkService` déjà construit par LL-11008 (Sprint 11) — aucune nouvelle table, aucun nouveau mécanisme de validation (URL/email/téléphone déjà couverts).
+- `CreateActivityRequest` (backend) gagne trois champs optionnels `url`/`phone`/`email`. Validés **avant** la création de l'activité (`ActivityLinkService#validateBeforeCreate`, nouvelle méthode publique) pour éviter une activité orpheline en cas de contact invalide, puis attachés comme `ActivityLink` (types `WEBSITE`/`PHONE`/`EMAIL`) une fois l'activité créée.
+- Formulaire de contribution (frontend) : trois nouveaux champs facultatifs (site web, téléphone, email).
+- L'affichage dans le détail d'une activité existait déjà (LL-11015) : liens sécurisés (`rel="noreferrer" target="_blank"`), appel téléphonique (`tel:`) et ouverture du client email (`mailto:`) — aucun changement nécessaire côté affichage.
+- Tests ajoutés : `ActivityControllerTest` (attache les liens, aucun lien si absents, 400 + aucune activité créée si contact invalide), `ActivityLinkServiceTest` (`validateBeforeCreate`).
+- Vérifié par une compilation et un build frontend réels (`npx tsc --noEmit`, `npm run build`). ⚠️ Backend non vérifiable dans cette session (pas d'accès à Maven Central ni à une base PostgreSQL réelle) : **`mvn verify` reste à lancer par Alex avant tout merge**.
+
 ## 0.9.24 — 2026-09-18
 
 ### LL-EF-015 — « Y aller » vers un événement

@@ -111,6 +111,28 @@ class ActivityLinkServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    /**
+     * LL-EF-016 : mêmes règles que {@link ActivityLinkService#create},
+     * sans effet de bord (voir sa javadoc) — utilisé par {@code
+     * ActivityController#createActivity} pour valider un lien/contact
+     * avant même de créer l'activité.
+     */
+    @Test
+    void validateBeforeCreate_ShouldNotThrow_WhenValueIsValid() {
+        activityLinkService.validateBeforeCreate("WEBSITE", "https://example.com");
+
+        verify(activityLinkRepository, never()).save(any());
+    }
+
+    @Test
+    void validateBeforeCreate_ShouldThrow_WhenValueIsInvalid() {
+        assertThatThrownBy(
+                () -> activityLinkService.validateBeforeCreate(ActivityLinkService.TYPE_EMAIL, "pas-un-email"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(activityLinkRepository, never()).save(any());
+    }
+
     @Test
     void findByActivityId_ShouldReturnAllLinksForActivity() {
         // Critère d'acceptation « plusieurs liens possibles ».

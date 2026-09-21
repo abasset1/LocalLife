@@ -10,6 +10,7 @@ import com.locallife.backend.geocoding.application.AddressNotFoundException;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
 import com.locallife.backend.like.application.LikeService;
 import com.locallife.backend.link.application.ActivityLinkService;
+import com.locallife.backend.link.domain.ActivityLink;
 import com.locallife.backend.media.application.ActivityMediaService;
 import com.locallife.backend.media.application.MediaService;
 import com.locallife.backend.metadata.application.ActivityMetadataService;
@@ -38,6 +39,7 @@ import org.springframework.http.ResponseEntity;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -238,7 +240,8 @@ class ActivityControllerTest {
         // When
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
-                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null),
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille",
+                        null, null, null, null, null),
                 authentication, httpRequest);
 
         // Then
@@ -261,7 +264,8 @@ class ActivityControllerTest {
 
         activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
-                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null),
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille",
+                        null, null, null, null, null),
                 authentication, httpRequest);
 
         verify(activityService).createActivity(
@@ -281,7 +285,8 @@ class ActivityControllerTest {
         // When
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
-                        "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22"),
+                        "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22",
+                        null, null, null),
                 authentication, httpRequest);
 
         // Then
@@ -301,7 +306,8 @@ class ActivityControllerTest {
         // When
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
-                        "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue", null, null),
+                        "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue",
+                        null, null, null, null, null),
                 authentication, httpRequest);
 
         // Then
@@ -320,12 +326,91 @@ class ActivityControllerTest {
         // When
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
-                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix", null, null),
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix",
+                        null, null, null, null, null),
                 authentication, httpRequest);
 
         // Then
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), ((ErrorResponse) response.getBody()).status());
+    }
+
+    /**
+     * LL-EF-016 : url/téléphone/email optionnels d'une contribution
+     * manuelle deviennent chacun un {@code ActivityLink} attaché à
+     * l'activité créée.
+     */
+    @Test
+    void createActivity_ShouldAttachContactLinks_WhenUrlPhoneEmailProvided() {
+        // Given
+        Activity created = new Activity(42L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
+                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
+        when(activityService.createActivity(
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
+                .thenReturn(created);
+
+        // When
+        ResponseEntity<Object> response = activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille",
+                        null, null, "https://example.com", "06 12 34 56 78", "contact@example.com"),
+                authentication, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        verify(activityLinkService).validateBeforeCreate("WEBSITE", "https://example.com");
+        verify(activityLinkService).validateBeforeCreate(ActivityLinkService.TYPE_PHONE, "06 12 34 56 78");
+        verify(activityLinkService).validateBeforeCreate(ActivityLinkService.TYPE_EMAIL, "contact@example.com");
+        verify(activityLinkService).create(new ActivityLink(null, 42L, "WEBSITE", null, "https://example.com"));
+        verify(activityLinkService).create(
+                new ActivityLink(null, 42L, ActivityLinkService.TYPE_PHONE, null, "06 12 34 56 78"));
+        verify(activityLinkService).create(
+                new ActivityLink(null, 42L, ActivityLinkService.TYPE_EMAIL, null, "contact@example.com"));
+    }
+
+    @Test
+    void createActivity_ShouldNotAttachAnyLink_WhenUrlPhoneEmailAbsent() {
+        // Given
+        Activity created = new Activity(42L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
+                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
+        when(activityService.createActivity(
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
+                .thenReturn(created);
+
+        // When
+        activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille",
+                        null, null, null, null, null),
+                authentication, httpRequest);
+
+        // Then
+        verifyNoInteractions(activityLinkService);
+    }
+
+    /**
+     * LL-EF-016 : un lien/contact invalide doit être rejeté **avant** la
+     * création de l'activité elle-même (voir la javadoc de {@code
+     * ActivityController#createActivity}) — pas d'activité orpheline
+     * sans son contact en cas d'échec de validation.
+     */
+    @Test
+    void createActivity_ShouldReturnBadRequest_AndNeverCreateActivity_WhenEmailInvalid() {
+        // Given
+        doThrow(new IllegalArgumentException("Adresse email invalide : pas-un-email"))
+                .when(activityLinkService).validateBeforeCreate(ActivityLinkService.TYPE_EMAIL, "pas-un-email");
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities");
+
+        // When
+        ResponseEntity<Object> response = activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille",
+                        null, null, null, null, "pas-un-email"),
+                authentication, httpRequest);
+
+        // Then
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verifyNoInteractions(activityService);
     }
 
     @Test
