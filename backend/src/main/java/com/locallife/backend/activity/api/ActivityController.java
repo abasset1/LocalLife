@@ -76,6 +76,15 @@ public class ActivityController {
      */
     private static final String UNKNOWN_SOURCE_NAME = "Source inconnue";
 
+    /**
+     * Type générique de lien (LL-EF-016), même convention que {@code
+     * OpenAgendaCollector} pour un lien web ordinaire — {@code
+     * ActivityLinkService} ne l'exige pas comme constante (validé comme
+     * n'importe quelle URL, contrairement à {@code TYPE_PHONE}/{@code
+     * TYPE_EMAIL}).
+     */
+    private static final String LINK_TYPE_WEBSITE = "WEBSITE";
+
     private final ActivityService activityService;
     private final SourceService sourceService;
     private final UserService userService;
@@ -475,18 +484,59 @@ public class ActivityController {
             @RequestBody CreateActivityRequest request, Authentication authentication,
             HttpServletRequest httpRequest) {
         try {
+            // LL-EF-016 : validés avant même la création de l'activité (voir la javadoc de
+            // CreateActivityRequest et ActivityLinkService#validateBeforeCreate).
+            if (hasText(request.url())) {
+                activityLinkService.validateBeforeCreate(LINK_TYPE_WEBSITE, request.url());
+            }
+            if (hasText(request.phone())) {
+                activityLinkService.validateBeforeCreate(ActivityLinkService.TYPE_PHONE, request.phone());
+            }
+            if (hasText(request.email())) {
+                activityLinkService.validateBeforeCreate(ActivityLinkService.TYPE_EMAIL, request.email());
+            }
+
             // authentication non-null garanti : POST /api/v1/activities exige un JWT valide
             // (voir SecurityConfig), JwtFilter ne laisse passer que des JwtAuthentication.
             Long createdBy = ((JwtAuthentication) authentication).getUserId();
             Activity activity = activityService.createActivity(
                     request.title(), request.description(), request.category(), request.address(),
                     request.startDate(), request.endDate(), createdBy);
+
+            attachContactLinks(activity.id(), request);
+
             return ResponseEntity.status(HttpStatus.CREATED).body(activity);
         } catch (IllegalArgumentException | AddressNotFoundException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
         } catch (GeocodingUnavailableException exception) {
             return errorResponse(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), httpRequest);
         }
+    }
+
+    /**
+     * Attache les liens/contacts optionnels d'une contribution manuelle
+     * (LL-EF-016) — appelée après {@link ActivityService#createActivity},
+     * une fois l'activité déjà persistée et son id connu ; ne revalide
+     * pas {@code url}/{@code phone}/{@code email} (déjà fait par {@link
+     * #createActivity} avant la création de l'activité, voir sa
+     * javadoc).
+     */
+    private void attachContactLinks(Long activityId, CreateActivityRequest request) {
+        if (hasText(request.url())) {
+            activityLinkService.create(new ActivityLink(null, activityId, LINK_TYPE_WEBSITE, null, request.url()));
+        }
+        if (hasText(request.phone())) {
+            activityLinkService.create(
+                    new ActivityLink(null, activityId, ActivityLinkService.TYPE_PHONE, null, request.phone()));
+        }
+        if (hasText(request.email())) {
+            activityLinkService.create(
+                    new ActivityLink(null, activityId, ActivityLinkService.TYPE_EMAIL, null, request.email()));
+        }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     /**
@@ -632,9 +682,22 @@ public class ActivityController {
      * ({@code startDate} → maintenant, {@code endDate} → début de journée
      * de {@code startDate}).
      */
+    /**
+     * {@code url}/{@code phone}/{@code email} ajoutés en LL-EF-016 :
+     * chacun optionnel (peut être {@code null} ou absent du JSON), et
+     * validé — voir {@link ActivityLinkService} — avant même que
+     * l'activité ne soit créée (voir {@link #createActivity}). Devient,
+     * si renseigné, un {@link ActivityLink} attaché à l'activité créée
+     * (types {@code WEBSITE}/{@code PHONE}/{@code EMAIL}) — même modèle
+     * que celui déjà exposé en lecture par {@link ActivityDetailResponse}
+     * (LL-11008/LL-11013), pas une structure dédiée : une activité peut
+     * déjà porter plusieurs liens/contacts, sans changement nécessaire
+     * pour ce ticket (critère d'acceptation « structure suffisamment
+     * propre pour permettre plusieurs contacts ultérieurement »).
+     */
     public record CreateActivityRequest(
             String title, String description, String category, String address,
-            String startDate, String endDate) {
+            String startDate, String endDate, String url, String phone, String email) {
     }
 
 }

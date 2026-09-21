@@ -64,6 +64,23 @@ public class ActivityLinkService {
     }
 
     /**
+     * Expose {@link #validate} (LL-EF-016) : permet à un appelant
+     * (typiquement {@code ActivityController#createActivity}) de valider
+     * un lien/contact **avant** de créer l'activité elle-même — évite de
+     * se retrouver avec une activité déjà persistée mais un contact
+     * invalide, l'appelant n'ayant alors aucun moyen simple d'annuler la
+     * création de l'activité (ce module n'expose pas de transaction
+     * couvrant plusieurs services). Mêmes règles que {@link #create},
+     * sans effet de bord.
+     *
+     * @throws IllegalArgumentException si {@code value} n'est pas valide pour {@code type}
+     *     (voir la javadoc de la classe)
+     */
+    public void validateBeforeCreate(String type, String value) {
+        validate(type, value);
+    }
+
+    /**
      * Supprime les liens d'une activité (LL-11011) : voir la javadoc de
      * {@code ActivityLinkRepository#deleteByActivityId}.
      */

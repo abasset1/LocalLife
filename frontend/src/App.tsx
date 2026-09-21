@@ -474,6 +474,16 @@ function App() {
     const [category, setCategory] = useState("");
     const [address, setAddress] = useState("");
     /**
+     * LL-EF-016 : url/téléphone/email optionnels d'une contribution
+     * manuelle — chaîne vide envoyée comme `undefined` (voir
+     * `handleSubmit`), même convention que `startDate`/`endDate`
+     * ci-dessous, pour laisser le backend valider chaque champ
+     * réellement renseigné plutôt que d'en envoyer une chaîne vide.
+     */
+    const [url, setUrl] = useState("");
+    const [phone, setPhone] = useState("");
+    const [email, setEmail] = useState("");
+    /**
      * Demande Alex : dates de début/fin optionnelles pour la saisie
      * manuelle d'une activité (`<input type="date">`, jamais d'heure —
      * cohérent avec « trunc(date de début) » du backend : une chaîne
@@ -895,6 +905,9 @@ function App() {
                     address,
                     startDate: startDate || undefined,
                     endDate: endDate || undefined,
+                    url: url || undefined,
+                    phone: phone || undefined,
+                    email: email || undefined,
                 }),
             });
 
@@ -918,6 +931,9 @@ function App() {
             setAddress("");
             setStartDate("");
             setEndDate("");
+            setUrl("");
+            setPhone("");
+            setEmail("");
             setIsContributionModalOpen(false);
         } catch {
             setSubmitError("Impossible de contacter le serveur, réessaie plus tard.");
@@ -1510,6 +1526,39 @@ function App() {
                                     onChange={(event) => setEndDate(event.target.value)}
                                     type="date"
                                     value={endDate}
+                                />
+                            </div>
+                            {/*
+                              LL-EF-016 : url/téléphone/email optionnels — validés côté backend
+                              (ActivityLinkService), pas ici : un format encore incomplet pendant
+                              la saisie ne doit pas bloquer le formulaire avant l'envoi.
+                            */}
+                            <div className="form-field">
+                                <label htmlFor="activity-url">Site web (facultatif)</label>
+                                <input
+                                    id="activity-url"
+                                    onChange={(event) => setUrl(event.target.value)}
+                                    placeholder="https://…"
+                                    type="text"
+                                    value={url}
+                                />
+                            </div>
+                            <div className="form-field">
+                                <label htmlFor="activity-phone">Téléphone (facultatif)</label>
+                                <input
+                                    id="activity-phone"
+                                    onChange={(event) => setPhone(event.target.value)}
+                                    type="tel"
+                                    value={phone}
+                                />
+                            </div>
+                            <div className="form-field">
+                                <label htmlFor="activity-email">Email (facultatif)</label>
+                                <input
+                                    id="activity-email"
+                                    onChange={(event) => setEmail(event.target.value)}
+                                    type="email"
+                                    value={email}
                                 />
                             </div>
                             <div className="modal-actions">
