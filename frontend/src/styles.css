@@ -1355,6 +1355,13 @@ body {
     position: relative;
     flex: 1;
     min-width: 0;
+    /* Les panneaux internes de Leaflet (marqueurs, popups, contrôles) montent
+       jusqu'à z-index 1000 ; sans contexte d'empilement propre ici, ces
+       valeurs "fuient" au-delà de ce conteneur et passent au-dessus du
+       bandeau recherche/filtres et du menu (z-index 20/50). `isolation`
+       confine tout le contenu de la carte dans son propre contexte
+       d'empilement, sans changer le rendu interne de Leaflet. */
+    isolation: isolate;
 }
 
 .explorer-map {
@@ -1420,7 +1427,9 @@ body {
     top: 0.75rem;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 15;
+    /* Au-dessus du z-index maximum utilisé en interne par Leaflet (1000,
+       contrôles), dans le contexte d'empilement isolé de .explorer-map-wrapper. */
+    z-index: 1100;
     background-color: #ffffff;
     border: 1px solid var(--ll-line);
     border-radius: 999px;
@@ -1447,7 +1456,8 @@ body {
 
 .explorer-preview {
     position: absolute;
-    z-index: 30;
+    /* Même raison que .explorer-status-floating ci-dessus. */
+    z-index: 1100;
     background-color: #ffffff;
     box-shadow: 0 16px 40px rgba(23, 63, 53, 0.2);
     overflow: hidden;
