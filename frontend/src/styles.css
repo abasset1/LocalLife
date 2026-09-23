@@ -1239,12 +1239,41 @@ body {
     padding: 0 1rem 0.75rem;
 }
 
-.explorer-category-chips {
+.explorer-category-row {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    overflow-x: auto;
-    padding-bottom: 0.1rem;
+    gap: 0.5rem;
+}
+
+.explorer-category-select-wrapper {
+    flex-shrink: 0;
+}
+
+.explorer-category-select {
+    padding: 0.45rem 0.8rem;
+    border: 1px solid var(--ll-line);
+    border-radius: 999px;
+    background-color: #ffffff;
+    color: var(--ll-ink);
+    font-size: 0.85rem;
+    font-weight: 650;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+/* Utilitaire : accessible aux lecteurs d'écran, invisible à l'affichage
+   (le <select> catégorie porte déjà un aria-label, ce libellé complète
+   le <label> qui l'englobe). */
+.explorer-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .explorer-filters-secondary {

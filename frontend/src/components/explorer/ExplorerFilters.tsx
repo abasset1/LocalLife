@@ -17,11 +17,12 @@ interface ExplorerFiltersProps {
 
 /**
  * LL-EF-017, section 6 : les filtres restent directement accessibles (pas
- * relégués au menu). Catégories affichées en boutons/chips (demande
- * explicite du ticket, remplace le `<select>` catégorie précédent) ; le
- * filtre de date/période — plus dense — reste dans un panneau replié par
- * défaut (`.explorer-dates-panel`) pour ne pas surcharger le bandeau, sans
- * rien retirer de la fonctionnalité existante (LL-4005/LL-11003, critère de
+ * relégués au menu). Catégories affichées en liste déroulante (demande
+ * d'Alex — remplace les chips d'une catégorie par ligne, trop nombreuses
+ * une fois toutes les catégories réelles chargées) ; le filtre de
+ * date/période — plus dense — reste dans un panneau replié par défaut
+ * (`.explorer-dates-panel`) pour ne pas surcharger le bandeau, sans rien
+ * retirer de la fonctionnalité existante (LL-4005/LL-11003, critère de
  * régression CA-12).
  *
  * Le bouton Carte/Liste (LL-EF-008) est conservé pour la même raison, mais
@@ -46,30 +47,23 @@ function ExplorerFilters({
 
     return (
         <div className="explorer-filters">
-            <div className="explorer-category-chips" role="group" aria-label="Filtrer par catégorie">
-                <button
-                    aria-pressed={selectedCategory === ALL_CATEGORIES}
-                    className={
-                        selectedCategory === ALL_CATEGORIES
-                            ? "explorer-chip explorer-chip-active"
-                            : "explorer-chip"
-                    }
-                    onClick={() => onSelectCategory(ALL_CATEGORIES)}
-                    type="button"
-                >
-                    Toutes
-                </button>
-                {categories.map((category) => (
-                    <button
-                        aria-pressed={selectedCategory === category}
-                        className={selectedCategory === category ? "explorer-chip explorer-chip-active" : "explorer-chip"}
-                        key={category}
-                        onClick={() => onSelectCategory(category)}
-                        type="button"
+            <div className="explorer-category-row">
+                <label className="explorer-category-select-wrapper">
+                    <span className="explorer-sr-only">Filtrer par catégorie</span>
+                    <select
+                        aria-label="Filtrer par catégorie"
+                        className="explorer-category-select"
+                        onChange={(event) => onSelectCategory(event.target.value)}
+                        value={selectedCategory}
                     >
-                        {category}
-                    </button>
-                ))}
+                        <option value={ALL_CATEGORIES}>Toutes les catégories</option>
+                        {categories.map((category) => (
+                            <option key={category} value={category}>
+                                {category}
+                            </option>
+                        ))}
+                    </select>
+                </label>
                 <button className="explorer-chip explorer-chip-location" onClick={onUseMyLocation} type="button">
                     ⌖ Autour de moi
                 </button>
