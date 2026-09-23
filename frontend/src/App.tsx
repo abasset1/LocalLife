@@ -497,7 +497,7 @@ function App() {
                 onOpenContributionForm={handleOpenContributionForm}
             />
 
-            <div className="explorer-main">
+            <div className="explorer-main" data-mobile-view={viewMode}>
                 <div className="explorer-controls">
                     <div className="explorer-topbar">
                         <button
@@ -532,7 +532,7 @@ function App() {
                     />
                 </div>
 
-                <div className="explorer-content" data-mobile-view={viewMode}>
+                <div className="explorer-content">
                     <div className="explorer-map-wrapper">
                         {isLoadingActivities && <p className="explorer-status explorer-status-floating">Chargement des activités…</p>}
                         {!isLoadingActivities && searchError && (

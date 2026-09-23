@@ -1408,10 +1408,10 @@ body {
 }
 
 @media (max-width: 959px) {
-    /* Mobile : la carte occupe tout l'écran ; le bandeau recherche/filtres
-       flotte par-dessus (section 4 du ticket) ; seule une des deux vues
-       (carte ou liste) est visible à la fois, selon `viewMode` (LL-EF-008). */
-    .explorer-controls {
+    /* Mobile, mode Carte (par défaut) : la carte occupe tout l'écran ; le
+       bandeau recherche/filtres flotte par-dessus (section 4 du ticket) —
+       la carte, plein écran, reste visible tout autour/en dessous. */
+    .explorer-main[data-mobile-view="map"] .explorer-controls {
         position: absolute;
         top: 0;
         left: 0;
@@ -1421,15 +1421,20 @@ body {
         border-bottom: none;
     }
 
-    .explorer-content {
+    .explorer-main[data-mobile-view="map"] .explorer-content {
         padding-top: 0;
     }
 
-    .explorer-content[data-mobile-view="map"] .explorer-list-panel {
+    .explorer-main[data-mobile-view="map"] .explorer-list-panel {
         display: none;
     }
 
-    .explorer-content[data-mobile-view="list"] .explorer-map-wrapper {
+    /* Mobile, mode Liste (LL-EF-008) : le bandeau redevient un bloc normal
+       qui pousse le contenu, au lieu de flotter par-dessus — sans quoi les
+       premières activités de la liste se retrouvaient rendues sous le
+       bandeau (opaque à 94 %), invisibles, donnant l'impression d'une
+       liste vide alors qu'elle contenait bien des activités. */
+    .explorer-main[data-mobile-view="list"] .explorer-map-wrapper {
         display: none;
     }
 
