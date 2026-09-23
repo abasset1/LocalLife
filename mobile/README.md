@@ -71,6 +71,7 @@ mobile/
 │   │   │   ├── contribution.tsx # Contribution
 │   │   │   └── compte.tsx       # Compte
 │   │   └── activite/[id].tsx  # détail d'une activité (écran empilé)
+│   ├── api/              # client API LocalLife (LL-MOB-0003)
 │   ├── components/       # composants UI réutilisables
 │   ├── constants/        # constantes (thème, etc.)
 │   ├── config/           # configuration applicative (env.ts)
@@ -80,7 +81,7 @@ mobile/
 
 Cette structure sera enrichie au fil des tickets du sprint mobile
 (`docs/05_Sprints/SPRINT_MOBILE.md`), notamment `src/features/` pour le
-découpage par fonctionnalité, et un client API dédié en LL-MOB-0003.
+découpage par fonctionnalité.
 
 ## Navigation (LL-MOB-0002)
 
@@ -99,9 +100,44 @@ Les écrans des 3 onglets et le détail d'activité sont pour l'instant des
 LL-MOB-0005 carte, LL-MOB-0007 filtres, LL-MOB-0008 détail d'activité,
 LL-MOB-0010 contribution).
 
+## Client API (LL-MOB-0003)
+
+Toute communication avec le backend passe par `src/api/`, importé
+uniquement via `@/api`. Les écrans ne construisent jamais d'URL ni
+n'appellent `fetch` directement ; l'URL de base vient de
+`src/config/env.ts` (voir plus haut).
+
+| Module | Endpoints |
+| --- | --- |
+| `activities.ts` | `GET /activities`, `/activities/nearby`, `/activities/within-bounds`, `/activities/{id}`, `POST /activities` (contribution) |
+| `categories.ts` | `GET /categories` |
+| `foodTrucks.ts` | `GET /foodtrucks` |
+| `auth.ts` | `POST /auth/register`, `POST /auth/login` |
+
+- **Réponses typées** : `src/api/types.ts` reprend les DTO du backend.
+  `GET /activities/{id}` renvoie la fiche détaillée ou un résumé selon
+  les droits de l'appelant : utiliser `isActivityDetail()` pour les
+  distinguer.
+- **JWT** : le client ne stocke rien. La couche d'authentification
+  (LL-MOB-0004) l'alimente via `configureApiClient({ getToken,
+  onUnauthorized })`. Le token n'est joint qu'aux appels protégés
+  (`createActivity`) ; il n'est **jamais** envoyé sur les endpoints
+  publics, car le `JwtFilter` du backend renvoie 401 sur un token
+  expiré même sur une route publique (même règle que
+  `frontend/src/api/apiClient.ts`).
+- **Erreurs** (`src/api/errors.ts`), toutes des `ApiError` : `NetworkError`
+  (serveur injoignable), `TimeoutError` (15 s par défaut),
+  `RequestAbortedError` (annulation par l'appelant via `signal`, à
+  ignorer), `HttpError` (statut + `message` du backend, avec
+  `isUnauthorized` / `isForbidden` / `isNotFound` / `isBadRequest`),
+  `ResponseFormatError`. Au login, 401 = identifiants refusés et 403 =
+  e-mail non vérifié.
+- Chaque fonction accepte `{ signal }` (`AbortController`) pour annuler
+  une requête, par exemple lors d'un déplacement de carte.
+
 ## État actuel
 
 - [x] Projet Expo + TypeScript initialisé, versionné dans le dépôt (LL-MOB-0001)
 - [x] Navigation par onglets + écran de détail empilé (LL-MOB-0002)
-- [ ] Client API centralisé (LL-MOB-0003)
+- [x] Client API centralisé (LL-MOB-0003)
 - [ ] Authentification (LL-MOB-0004)
