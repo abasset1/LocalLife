@@ -48,7 +48,7 @@ class AdminBootstrapRunnerTest {
     void run_ShouldCallBootstrap_WhenEmailAndPasswordAreProvided() {
         AdminBootstrapRunner runner =
                 new AdminBootstrapRunner(authService, "admin", "admin@example.com", "motDePasseAdmin1");
-        User admin = new User(1L, "admin", "admin@example.com", "hash", Role.ADMIN, LocalDateTime.now());
+        User admin = new User(1L, "admin", "admin@example.com", "hash", Role.ADMIN, LocalDateTime.now(), true);
         when(authService.bootstrapFirstAdmin("admin", "admin@example.com", "motDePasseAdmin1"))
                 .thenReturn(Optional.of(admin));
 

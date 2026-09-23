@@ -8,10 +8,12 @@ import com.locallife.backend.auth.api.RegisterRequest;
 import com.locallife.backend.foodtruck.api.FoodTruckController;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
@@ -33,6 +35,14 @@ class FoodTruckControllerIntegrationTest {
     @LocalServerPort
     private int port;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    /** Simule le clic sur le lien de confirmation reçu par email (voir EmailVerificationService). */
+    private void markEmailVerified(String email) {
+        jdbcTemplate.update("UPDATE users SET email_verified = TRUE WHERE email = ?", email);
+    }
+
     private RestTestClient restTestClient() {
         return RestTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
     }
@@ -48,6 +58,7 @@ class FoodTruckControllerIntegrationTest {
                 .body(new RegisterRequest("alice", email, PASSWORD))
                 .exchange()
                 .expectStatus().isCreated();
+        markEmailVerified(email);
 
         LoginResponse login = restTestClient().post().uri("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)

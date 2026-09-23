@@ -54,7 +54,7 @@ class ActivityLikeRepositoryIntegrationTest {
     private User newUser() {
         return userRepository.save(new User(
                 null, "user-" + UUID.randomUUID(), UUID.randomUUID() + "@example.com", "hash", Role.USER,
-                LocalDateTime.now()));
+                LocalDateTime.now(), true));
     }
 
     private Activity newActivity(String status) {

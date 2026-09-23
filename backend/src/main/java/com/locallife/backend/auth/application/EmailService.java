@@ -17,4 +17,14 @@ public interface EmailService {
      */
     void sendPasswordResetEmail(String to, String resetLink);
 
+    /**
+     * Envoie l'email de confirmation d'adresse à l'inscription.
+     *
+     * @param to               adresse email du destinataire
+     * @param verificationLink lien complet (frontend) contenant le token en
+     *                         clair — ne doit jamais être loggé par
+     *                         l'implémentation (voir {@code SmtpEmailService})
+     */
+    void sendEmailVerificationEmail(String to, String verificationLink);
+
 }

@@ -441,7 +441,7 @@ class ActivityControllerTest {
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null,
                 42L);
         Source source = new Source(1L, "MANUAL", "MANUAL", null, "ACTIVE", null, null, null);
-        User creator = new User(42L, "jean.dupont", "jean@example.com", null, Role.USER, null);
+        User creator = new User(42L, "jean.dupont", "jean@example.com", null, Role.USER, null, true);
         when(activityService.findNearby("43.2951", "5.3739", "5", "loisir", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
         when(sourceService.getAllSources()).thenReturn(List.of(source));

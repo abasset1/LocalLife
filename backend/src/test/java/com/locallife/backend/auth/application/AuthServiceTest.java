@@ -1,8 +1,10 @@
 package com.locallife.backend.auth.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
@@ -22,6 +24,8 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -44,6 +48,9 @@ class AuthServiceTest {
     @Mock
     private GoogleAuthService googleAuthService;
 
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
     @InjectMocks
     private AuthService authService;
 
@@ -61,11 +68,43 @@ class AuthServiceTest {
         assertEquals("alice@example.com", created.email());
         assertEquals("hashed", created.passwordHash());
         assertEquals(Role.USER, created.role());
+        assertFalse(created.emailVerified());
+        verify(emailVerificationService).sendVerification(created);
+    }
+
+    @Test
+    void register_ShouldTrimEmail_BeforeValidationAndSave() {
+        when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.empty());
+        when(passwordHashingService.hash("motDePasse123")).thenReturn("hashed");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User created = authService.register("alice", "  alice@example.com  ", "motDePasse123");
+
+        assertEquals("alice@example.com", created.email());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"a@b.c", "a@.com", "a@b..com", "a@b.com.", "@example.com", "a@@example.com",
+            "alice@exa mple.com", "alice"})
+    void register_ShouldThrow_WhenEmailFormatIsInvalid(String email) {
+        assertThrows(IllegalArgumentException.class,
+                () -> authService.register("alice", email, "motDePasse123"));
+        verify(userRepository, never()).save(any());
+        verify(emailVerificationService, never()).sendVerification(any());
+    }
+
+    @Test
+    void register_ShouldThrow_WhenEmailIsLongerThan254Characters() {
+        String tooLong = "a".repeat(64) + "@" + ("b".repeat(60) + ".").repeat(4) + "com";
+
+        assertThrows(IllegalArgumentException.class,
+                () -> authService.register("alice", tooLong, "motDePasse123"));
+        verify(userRepository, never()).save(any());
     }
 
     @Test
     void register_ShouldThrow_WhenEmailAlreadyUsed() {
-        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now());
+        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(existing));
 
         assertThrows(IllegalArgumentException.class,
@@ -108,6 +147,8 @@ class AuthServiceTest {
         assertEquals(true, created.isPresent());
         assertEquals(Role.ADMIN, created.get().role());
         assertEquals("hashed", created.get().passwordHash());
+        assertTrue(created.get().emailVerified());
+        verify(emailVerificationService, never()).sendVerification(any());
     }
 
     @Test
@@ -134,7 +175,7 @@ class AuthServiceTest {
 
     @Test
     void login_ShouldReturnToken_WhenCredentialsAreCorrect() {
-        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now());
+        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userRepository.findByEmail("bob@example.com")).thenReturn(Optional.of(user));
         when(passwordHashingService.matches("motDePasse123", "hash")).thenReturn(true);
         when(jwtService.generateToken(1L, "bob@example.com", Role.USER)).thenReturn("un.jwt.token");
@@ -143,6 +184,28 @@ class AuthServiceTest {
 
         assertNotNull(response.token());
         assertEquals("un.jwt.token", response.token());
+    }
+
+    @Test
+    void login_ShouldThrowEmailNotVerified_WhenCredentialsAreCorrectButEmailNotVerified() {
+        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now(), false);
+        when(userRepository.findByEmail("bob@example.com")).thenReturn(Optional.of(user));
+        when(passwordHashingService.matches("motDePasse123", "hash")).thenReturn(true);
+
+        assertThrows(EmailNotVerifiedException.class,
+                () -> authService.login(new LoginRequest("bob@example.com", "motDePasse123")));
+        verify(jwtService, never()).generateToken(any(), any(), any());
+    }
+
+    @Test
+    void login_ShouldThrowGenericError_WhenPasswordIsIncorrectOnUnverifiedAccount() {
+        // Ne doit pas révéler qu'un compte non vérifié existe pour cet email.
+        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now(), false);
+        when(userRepository.findByEmail("bob@example.com")).thenReturn(Optional.of(user));
+        when(passwordHashingService.matches("mauvais", "hash")).thenReturn(false);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> authService.login(new LoginRequest("bob@example.com", "mauvais")));
     }
 
     @Test
@@ -155,7 +218,7 @@ class AuthServiceTest {
 
     @Test
     void login_ShouldThrow_WhenPasswordIsIncorrect() {
-        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now());
+        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userRepository.findByEmail("bob@example.com")).thenReturn(Optional.of(user));
         when(passwordHashingService.matches("mauvaisMotDePasse", "hash")).thenReturn(false);
 
@@ -169,7 +232,7 @@ class AuthServiceTest {
         // créé exclusivement via Google — voir ADR-0002. Sans cette garde,
         // BCryptPasswordEncoder#matches lèverait une exception sur "" (pas un hash BCrypt
         // valide) au lieu du rejet propre attendu ici.
-        User googleOnlyUser = new User(1L, "Jean Dupont", "jean@gmail.com", "", Role.USER, LocalDateTime.now());
+        User googleOnlyUser = new User(1L, "Jean Dupont", "jean@gmail.com", "", Role.USER, LocalDateTime.now(), true);
         when(userRepository.findByEmail("jean@gmail.com")).thenReturn(Optional.of(googleOnlyUser));
 
         assertThrows(IllegalArgumentException.class,
@@ -182,7 +245,7 @@ class AuthServiceTest {
     @Test
     void loginOrRegisterWithGoogle_ShouldAuthenticateExistingUser_WhenIdentityAlreadyLinked() {
         // Given : une UserIdentity GOOGLE existe déjà pour ce sub (connexions précédentes).
-        User user = new User(1L, "Jean Dupont", "jean@gmail.com", "", Role.USER, LocalDateTime.now());
+        User user = new User(1L, "Jean Dupont", "jean@gmail.com", "", Role.USER, LocalDateTime.now(), true);
         UserIdentity existingIdentity = new UserIdentity(10L, 1L, AuthProvider.GOOGLE, "google-sub-123",
                 LocalDateTime.now());
         when(googleAuthService.verify("id-token"))
@@ -206,7 +269,7 @@ class AuthServiceTest {
         // Given : "jean" s'est déjà inscrit classiquement avec cet email, se connecte
         // maintenant via Google pour la première fois — critère d'acceptation explicite
         // du ticket (associer plutôt que doublonner).
-        User existingLocalUser = new User(1L, "jean", "jean@gmail.com", "hash", Role.USER, LocalDateTime.now());
+        User existingLocalUser = new User(1L, "jean", "jean@gmail.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(googleAuthService.verify("id-token"))
                 .thenReturn(new GoogleAuthService.GoogleIdentity("google-sub-123", "jean@gmail.com", "Jean Dupont"));
         when(userIdentityRepository.findByProviderAndProviderUserId(AuthProvider.GOOGLE, "google-sub-123"))
@@ -228,6 +291,29 @@ class AuthServiceTest {
     }
 
     @Test
+    void loginOrRegisterWithGoogle_ShouldConfirmEmailAndClearPassword_WhenLinkingUnverifiedLocalAccount() {
+        // Given : compte classique jamais confirmé (potentiellement créé par un tiers avec l'email
+        // de la victime) ; Google prouve que l'utilisateur contrôle l'adresse.
+        User unverified = new User(1L, "jean", "jean@gmail.com", "hash-choisi-par-un-tiers", Role.USER,
+                LocalDateTime.now(), false);
+        when(googleAuthService.verify("id-token"))
+                .thenReturn(new GoogleAuthService.GoogleIdentity("google-sub-123", "jean@gmail.com", "Jean Dupont"));
+        when(userIdentityRepository.findByProviderAndProviderUserId(AuthProvider.GOOGLE, "google-sub-123"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmail("jean@gmail.com")).thenReturn(Optional.of(unverified));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtService.generateToken(1L, "jean@gmail.com", Role.USER)).thenReturn("un.jwt.token");
+
+        // When
+        LoginResponse response = authService.loginOrRegisterWithGoogle("id-token");
+
+        // Then
+        assertEquals("un.jwt.token", response.token());
+        verify(userRepository).save(argThat(user ->
+                user.id().equals(1L) && user.emailVerified() && user.passwordHash().isEmpty()));
+    }
+
+    @Test
     void loginOrRegisterWithGoogle_ShouldCreateNewUser_WhenNoIdentityAndNoMatchingEmail() {
         // Given : première connexion Google, aucun compte LocalLife préexistant pour cet email.
         when(googleAuthService.verify("id-token"))
@@ -238,7 +324,7 @@ class AuthServiceTest {
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User toSave = invocation.getArgument(0);
             return new User(2L, toSave.username(), toSave.email(), toSave.passwordHash(), toSave.role(),
-                    toSave.createdAt());
+                    toSave.createdAt(), toSave.emailVerified());
         });
         when(jwtService.generateToken(2L, "nouveau@gmail.com", Role.USER)).thenReturn("un.jwt.token");
 
@@ -253,6 +339,7 @@ class AuthServiceTest {
                         // Jamais null (colonne NOT NULL) ni un vrai hash BCrypt : aucun mot de
                         // passe LocalLife n'est demandé pour ce compte (exigence du ticket).
                         && user.passwordHash().isEmpty()
+                        && user.emailVerified()
                         && user.role() == Role.USER));
         verify(userIdentityRepository).save(argThat(userIdentity ->
                 userIdentity.id() == null
@@ -273,7 +360,7 @@ class AuthServiceTest {
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User toSave = invocation.getArgument(0);
             return new User(2L, toSave.username(), toSave.email(), toSave.passwordHash(), toSave.role(),
-                    toSave.createdAt());
+                    toSave.createdAt(), toSave.emailVerified());
         });
         when(jwtService.generateToken(2L, "nouveau@gmail.com", Role.USER)).thenReturn("un.jwt.token");
 

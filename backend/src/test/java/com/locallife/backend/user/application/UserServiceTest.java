@@ -31,7 +31,7 @@ class UserServiceTest {
     @Test
     void createUser_ShouldSaveAndReturnUser() {
         // Given
-        User saved = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now());
+        User saved = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userRepository.save(any(User.class))).thenReturn(saved);
 
         // When
@@ -47,7 +47,7 @@ class UserServiceTest {
     @Test
     void getUserById_ShouldReturnUser_WhenFound() {
         // Given
-        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now());
+        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         // When
@@ -73,7 +73,7 @@ class UserServiceTest {
     @Test
     void updateProfile_ShouldSaveAndReturnUpdatedUser_WhenValid() {
         // Given
-        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now());
+        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(userRepository.findByEmail("alice2@example.com")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -96,7 +96,7 @@ class UserServiceTest {
         // Given : l'email n'a pas changé — ne doit pas être rejeté comme
         // "déjà utilisé" simplement parce qu'il appartient à l'utilisateur
         // lui-même (voir UserService#validateProfileUpdate).
-        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now());
+        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(existing));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -111,8 +111,8 @@ class UserServiceTest {
     @Test
     void updateProfile_ShouldThrow_WhenEmailAlreadyUsedByAnotherUser() {
         // Given
-        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now());
-        User otherUser = new User(2L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now());
+        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
+        User otherUser = new User(2L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(userRepository.findByEmail("bob@example.com")).thenReturn(Optional.of(otherUser));
 
@@ -125,7 +125,7 @@ class UserServiceTest {
     @Test
     void updateProfile_ShouldThrow_WhenUsernameBlank() {
         // Given
-        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now());
+        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
 
         // When / Then
@@ -137,7 +137,7 @@ class UserServiceTest {
     @Test
     void updateProfile_ShouldThrow_WhenEmailInvalid() {
         // Given
-        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now());
+        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
 
         // When / Then

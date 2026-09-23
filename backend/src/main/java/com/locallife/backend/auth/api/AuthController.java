@@ -1,6 +1,8 @@
 package com.locallife.backend.auth.api;
 
 import com.locallife.backend.auth.application.AuthService;
+import com.locallife.backend.auth.application.EmailNotVerifiedException;
+import com.locallife.backend.auth.application.EmailVerificationService;
 import com.locallife.backend.auth.application.PasswordResetService;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.user.domain.User;
@@ -18,7 +20,9 @@ import org.springframework.web.bind.annotation.RestController;
  * Fournit POST /api/v1/auth/register (inscription), POST /api/v1/auth/login
  * (connexion), POST /api/v1/auth/google (LL-EF-011, connexion/inscription
  * via Google) et, depuis LL-EF-007, POST /api/v1/auth/forgot-password et
- * POST /api/v1/auth/reset-password (réinitialisation de mot de passe).
+ * POST /api/v1/auth/reset-password (réinitialisation de mot de passe), puis
+ * POST /api/v1/auth/verify-email et POST /api/v1/auth/resend-verification
+ * (confirmation de l'adresse email après inscription).
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -28,15 +32,27 @@ public class AuthController {
             "Si un compte existe pour cette adresse, un email de réinitialisation vient d'être envoyé.";
 
     private final AuthService authService;
-    private final PasswordResetService passwordResetService;
+    private static final String GENERIC_RESEND_VERIFICATION_MESSAGE =
+            "Si un compte non confirmé existe pour cette adresse, un nouvel email de confirmation vient d'être envoyé.";
 
-    public AuthController(AuthService authService, PasswordResetService passwordResetService) {
+    private final PasswordResetService passwordResetService;
+    private final EmailVerificationService emailVerificationService;
+
+    public AuthController(
+            AuthService authService,
+            PasswordResetService passwordResetService,
+            EmailVerificationService emailVerificationService) {
         this.authService = authService;
         this.passwordResetService = passwordResetService;
+        this.emailVerificationService = emailVerificationService;
     }
 
     /**
      * Endpoint pour l'inscription d'un nouvel utilisateur.
+     *
+     * <p>Le compte est créé avec une adresse non vérifiée et un email de
+     * confirmation est envoyé : la connexion reste refusée (403) tant que le
+     * lien n'a pas été suivi.
      *
      * @param request la requête d'inscription (username, email, password)
      * @return l'utilisateur créé (sans passwordHash) si l'inscription réussit
@@ -55,7 +71,9 @@ public class AuthController {
      * Endpoint pour la connexion d'un utilisateur.
      *
      * @param request la requête de login contenant email et password
-     * @return une réponse contenant le token JWT si l'authentification réussit
+     * @return une réponse contenant le token JWT si l'authentification réussit ;
+     *         401 si les identifiants sont incorrects ; 403 si les identifiants
+     *         sont corrects mais que l'adresse email n'est pas encore confirmée
      */
     @PostMapping("/login")
     public ResponseEntity<Object> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
@@ -64,6 +82,12 @@ public class AuthController {
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException exception) {
             return unauthorized(exception, httpRequest);
+        } catch (EmailNotVerifiedException exception) {
+            HttpStatus status = HttpStatus.FORBIDDEN;
+            ErrorResponse body = new ErrorResponse(
+                    Instant.now(), status.value(), status.getReasonPhrase(),
+                    exception.getMessage(), httpRequest.getRequestURI());
+            return ResponseEntity.status(status).body(body);
         }
     }
 
@@ -132,6 +156,44 @@ public class AuthController {
         try {
             passwordResetService.resetPassword(request.token(), request.newPassword());
             return ResponseEntity.ok(new MessageResponse("Mot de passe mis à jour avec succès."));
+        } catch (IllegalArgumentException exception) {
+            return badRequest(exception, httpRequest);
+        }
+    }
+
+    /**
+     * Endpoint pour confirmer l'adresse email à partir du token reçu par email.
+     *
+     * @param request la requête contenant le token
+     * @return un message de confirmation, ou 400 si le token est invalide, expiré ou déjà utilisé
+     */
+    @PostMapping("/verify-email")
+    public ResponseEntity<Object> verifyEmail(
+            @RequestBody VerifyEmailRequest request, HttpServletRequest httpRequest) {
+        try {
+            emailVerificationService.verify(request.token());
+            return ResponseEntity.ok(new MessageResponse("Adresse email confirmée. Vous pouvez vous connecter."));
+        } catch (IllegalArgumentException exception) {
+            return badRequest(exception, httpRequest);
+        }
+    }
+
+    /**
+     * Endpoint pour renvoyer le lien de confirmation d'adresse email.
+     *
+     * <p>Renvoie systématiquement 200 avec le même message générique, que
+     * l'email corresponde ou non à un compte non confirmé (pas d'énumération
+     * des comptes, même posture que {@link #forgotPassword}).
+     *
+     * @param request la requête contenant l'email
+     * @return un message générique de confirmation
+     */
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Object> resendVerification(
+            @RequestBody ResendVerificationRequest request, HttpServletRequest httpRequest) {
+        try {
+            emailVerificationService.resend(request.email());
+            return ResponseEntity.ok(new MessageResponse(GENERIC_RESEND_VERIFICATION_MESSAGE));
         } catch (IllegalArgumentException exception) {
             return badRequest(exception, httpRequest);
         }

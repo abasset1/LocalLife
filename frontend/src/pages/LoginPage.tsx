@@ -14,10 +14,14 @@ function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [needsVerification, setNeedsVerification] = useState(false);
+    const [resendMessage, setResendMessage] = useState<string | null>(null);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         setError(null);
+        setNeedsVerification(false);
+        setResendMessage(null);
         setIsSubmitting(true);
 
         try {
@@ -30,6 +34,8 @@ function LoginPage() {
             if (!response.ok) {
                 const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
                 setError(body?.message ?? "Email ou mot de passe incorrect.");
+                // 403 : identifiants corrects mais adresse email pas encore confirmée.
+                setNeedsVerification(response.status === 403);
                 return;
             }
 
@@ -40,6 +46,26 @@ function LoginPage() {
             setError("Impossible de contacter le serveur, réessaie plus tard.");
         } finally {
             setIsSubmitting(false);
+        }
+    }
+
+    async function handleResendVerification() {
+        setResendMessage(null);
+        try {
+            const response = await fetch("/api/v1/auth/resend-verification", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
+            });
+            const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+            setResendMessage(
+                body?.message ??
+                    (response.ok
+                        ? "Un nouvel email de confirmation vient d'être envoyé."
+                        : "Impossible de renvoyer l'email pour le moment.")
+            );
+        } catch {
+            setResendMessage("Impossible de contacter le serveur, réessaie plus tard.");
         }
     }
 
@@ -69,6 +95,12 @@ function LoginPage() {
                     Se connecter
                 </button>
                 {error && <span className="form-message form-message-error">{error}</span>}
+                {needsVerification && (
+                    <button onClick={() => void handleResendVerification()} type="button">
+                        Renvoyer l'email de confirmation
+                    </button>
+                )}
+                {resendMessage && <span className="form-message form-message-success">{resendMessage}</span>}
                 <div className="auth-divider">
                     <span>ou</span>
                 </div>

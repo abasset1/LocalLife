@@ -1,12 +1,16 @@
 package com.locallife.backend.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.locallife.backend.activity.api.ActivityController.CreateActivityRequest;
 import com.locallife.backend.auth.api.LoginRequest;
 import com.locallife.backend.auth.api.LoginResponse;
 import com.locallife.backend.auth.api.RegisterRequest;
+import com.locallife.backend.auth.api.VerifyEmailRequest;
+import com.locallife.backend.auth.application.EmailService;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
 import io.jsonwebtoken.Jwts;
@@ -17,11 +21,14 @@ import java.util.Date;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
@@ -56,6 +63,18 @@ class AuthenticationFlowIntegrationTest {
     @MockitoBean
     private GeocodingService geocodingService;
 
+    /** Évite tout envoi SMTP réel et permet de récupérer le lien de confirmation envoyé. */
+    @MockitoBean
+    private EmailService emailService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    /** Simule le clic sur le lien de confirmation reçu par email (voir EmailVerificationService). */
+    private void markEmailVerified(String email) {
+        jdbcTemplate.update("UPDATE users SET email_verified = TRUE WHERE email = ?", email);
+    }
+
     private RestTestClient restTestClient() {
         return RestTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
     }
@@ -71,6 +90,7 @@ class AuthenticationFlowIntegrationTest {
                 .body(new RegisterRequest("alice", email, PASSWORD))
                 .exchange()
                 .expectStatus().isCreated();
+        markEmailVerified(email);
 
         LoginResponse login = restTestClient().post().uri("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -113,6 +133,67 @@ class AuthenticationFlowIntegrationTest {
                 .claim("email", "unsupported@example.com")
                 .claim("role", "USER")
                 .compact();
+    }
+
+    // --- Confirmation d'adresse email ---
+
+    @Test
+    void login_ShouldBeRefusedUntilEmailIsConfirmedThroughTheEmailedLink() {
+        String email = uniqueEmail();
+        restTestClient().post().uri("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new RegisterRequest("alice", email, PASSWORD))
+                .exchange()
+                .expectStatus().isCreated();
+
+        // Identifiants corrects mais adresse non confirmée -> 403 (pas 401).
+        restTestClient().post().uri("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new LoginRequest(email, PASSWORD))
+                .exchange()
+                .expectStatus().isForbidden();
+
+        ArgumentCaptor<String> link = ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendEmailVerificationEmail(eq(email), link.capture());
+        String token = link.getValue().substring(link.getValue().indexOf("token=") + "token=".length());
+
+        restTestClient().post().uri("/api/v1/auth/verify-email")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new VerifyEmailRequest(token))
+                .exchange()
+                .expectStatus().isOk();
+
+        restTestClient().post().uri("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new LoginRequest(email, PASSWORD))
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    void verifyEmail_ShouldReturnBadRequest_WhenTokenIsUnknown() {
+        restTestClient().post().uri("/api/v1/auth/verify-email")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new VerifyEmailRequest("token-inconnu"))
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void login_ShouldReturnUnauthorized_WhenPasswordIsWrongOnUnconfirmedAccount() {
+        // Ne doit pas révéler l'existence d'un compte non confirmé : 401 comme pour tout mauvais mot de passe.
+        String email = uniqueEmail();
+        restTestClient().post().uri("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new RegisterRequest("alice", email, PASSWORD))
+                .exchange()
+                .expectStatus().isCreated();
+
+        restTestClient().post().uri("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new LoginRequest(email, "mauvaisMotDePasse"))
+                .exchange()
+                .expectStatus().isUnauthorized();
     }
 
     // --- Inscription -> connexion -> accès protégé (succès) ---

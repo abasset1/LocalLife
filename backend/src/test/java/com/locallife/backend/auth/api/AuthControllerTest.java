@@ -2,9 +2,13 @@ package com.locallife.backend.auth.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.locallife.backend.auth.application.AuthService;
+import com.locallife.backend.auth.application.EmailNotVerifiedException;
+import com.locallife.backend.auth.application.EmailVerificationService;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
@@ -25,6 +29,9 @@ class AuthControllerTest {
     private AuthService authService;
 
     @Mock
+    private EmailVerificationService emailVerificationService;
+
+    @Mock
     private HttpServletRequest httpServletRequest;
 
     @InjectMocks
@@ -32,7 +39,7 @@ class AuthControllerTest {
 
     @Test
     void register_ShouldReturnCreated_WithUserWithoutPasswordHash() {
-        User created = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now());
+        User created = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(authService.register("alice", "alice@example.com", "motDePasse123")).thenReturn(created);
 
         ResponseEntity<Object> response = authController.register(
@@ -82,6 +89,64 @@ class AuthControllerTest {
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
         ErrorResponse body = assertInstanceOf(ErrorResponse.class, response.getBody());
         assertEquals("Email ou mot de passe incorrect", body.message());
+    }
+
+    @Test
+    void login_ShouldReturnForbidden_WhenEmailIsNotVerified() {
+        when(authService.login(new LoginRequest("bob@example.com", "motDePasse123")))
+                .thenThrow(new EmailNotVerifiedException());
+        when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/auth/login");
+
+        ResponseEntity<Object> response = authController.login(
+                new LoginRequest("bob@example.com", "motDePasse123"), httpServletRequest);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertInstanceOf(ErrorResponse.class, response.getBody());
+    }
+
+    // --- verifyEmail / resendVerification ---
+
+    @Test
+    void verifyEmail_ShouldReturnOk_WhenTokenIsValid() {
+        ResponseEntity<Object> response = authController.verifyEmail(
+                new VerifyEmailRequest("un-token"), httpServletRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(emailVerificationService).verify("un-token");
+    }
+
+    @Test
+    void verifyEmail_ShouldReturnBadRequest_WhenTokenIsInvalid() {
+        doThrow(new IllegalArgumentException("Ce lien de confirmation est invalide, expiré, ou a déjà été utilisé."))
+                .when(emailVerificationService).verify("mauvais");
+        when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/auth/verify-email");
+
+        ResponseEntity<Object> response = authController.verifyEmail(
+                new VerifyEmailRequest("mauvais"), httpServletRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertInstanceOf(ErrorResponse.class, response.getBody());
+    }
+
+    @Test
+    void resendVerification_ShouldReturnGenericOk() {
+        ResponseEntity<Object> response = authController.resendVerification(
+                new ResendVerificationRequest("bob@example.com"), httpServletRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(emailVerificationService).resend("bob@example.com");
+    }
+
+    @Test
+    void resendVerification_ShouldReturnBadRequest_WhenEmailMissing() {
+        doThrow(new IllegalArgumentException("L'adresse email est requise."))
+                .when(emailVerificationService).resend(null);
+        when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/auth/resend-verification");
+
+        ResponseEntity<Object> response = authController.resendVerification(
+                new ResendVerificationRequest(null), httpServletRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     // --- loginWithGoogle (LL-EF-011) ---

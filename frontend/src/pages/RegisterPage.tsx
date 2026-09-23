@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 
 interface ApiErrorBody {
@@ -8,12 +8,12 @@ interface ApiErrorBody {
 }
 
 function RegisterPage() {
-    const navigate = useNavigate();
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -33,14 +33,32 @@ function RegisterPage() {
                 return;
             }
 
-            // Le backend ne renvoie pas de JWT à l'inscription (LL-3007) :
-            // on redirige vers la connexion plutôt que vers / directement.
-            navigate("/login");
+            // Le backend ne renvoie pas de JWT à l'inscription (LL-3007) et le compte n'est
+            // utilisable qu'après confirmation de l'adresse : on affiche la consigne plutôt
+            // que de rediriger vers une connexion qui serait refusée.
+            setRegisteredEmail(email.trim());
         } catch {
             setError("Impossible de contacter le serveur, réessaie plus tard.");
         } finally {
             setIsSubmitting(false);
         }
+    }
+
+    if (registeredEmail) {
+        return (
+            <main className="auth-shell">
+                <div className="auth-form">
+                    <h1>Vérifie ta boîte mail</h1>
+                    <span className="form-message form-message-success">
+                        Compte créé. Un email de confirmation a été envoyé à {registeredEmail} : clique sur le
+                        lien qu'il contient (valable 24 h) pour activer ton compte.
+                    </span>
+                    <p className="auth-switch">
+                        <Link to="/login">Aller à la connexion</Link>
+                    </p>
+                </div>
+            </main>
+        );
     }
 
     return (

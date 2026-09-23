@@ -22,9 +22,21 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
 
 * Inscription : `POST /api/v1/auth/register` (`username`, `email`,
   `password`) → `201 Created`, retourne l'utilisateur créé (sans le mot de
-  passe). Le rôle `USER` est attribué par défaut.
+  passe). Le rôle `USER` est attribué par défaut. L'email est validé
+  (format, 254 caractères max, espaces autour retirés) et le compte est
+  créé **non confirmé** : un lien de confirmation (valable 24 h) est
+  envoyé à l'adresse indiquée.
+* Confirmation de l'adresse : `POST /api/v1/auth/verify-email` (`token`,
+  reçu dans le lien `/verify-email?token=...`) → `200 OK`, ou `400` si le
+  lien est invalide, expiré ou déjà utilisé. Le renvoi d'un lien se fait
+  via `POST /api/v1/auth/resend-verification` (`email`) : réponse `200`
+  identique que le compte existe ou non, un lien par minute au plus.
 * Connexion : `POST /api/v1/auth/login` (`email`, `password`) →
   `200 OK`, retourne un token JWT (`{ "token": "..." }`), valable 24h.
+  `403 Forbidden` si les identifiants sont corrects mais que l'adresse
+  email n'est pas encore confirmée. Les comptes existants avant la
+  migration `V31`, le compte administrateur initial et les comptes
+  Google sont considérés comme confirmés.
 * Le token doit être envoyé dans l'en-tête `Authorization: Bearer <token>`
   pour accéder aux endpoints protégés :
   * `POST /api/v1/activities` — tout utilisateur authentifié.

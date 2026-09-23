@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.26 — 2026-09-23
+
+### Vérification de l'adresse email à l'inscription
+- Migration `V31` : colonne `users.email_verified` (les comptes existants sont marqués vérifiés) et table `email_verification_token` (même patron que `password_reset_token`, seule l'empreinte SHA-256 du token est stockée).
+- `EmailVerificationService` : émission d'un token à usage unique valable 24 h à l'inscription, confirmation idempotente, renvoi sans énumération de comptes (un lien par minute au plus). Un échec d'envoi SMTP n'annule pas l'inscription (journalisé, lien renvoyable).
+- `AuthService` : email nettoyé (`trim`), format renforcé (partie locale ≤ 64, domaine sans point initial/final ni points consécutifs, extension ≥ 2, longueur ≤ 254). Connexion refusée en `403` tant que l'adresse n'est pas confirmée (après vérification du mot de passe, donc sans fuite d'existence du compte).
+- Comptes considérés comme vérifiés d'emblée : administrateur initial (`bootstrapFirstAdmin`), comptes créés via Google, comptes ayant réinitialisé leur mot de passe via le lien reçu par email. Un compte classique non vérifié rattaché ensuite à Google est confirmé **et son mot de passe effacé** (empêche de garder l'accès d'un tiers ayant créé le compte avec l'adresse d'autrui).
+- Nouveaux endpoints `POST /api/v1/auth/verify-email` et `POST /api/v1/auth/resend-verification`.
+- Frontend : page `/verify-email`, message de consigne après inscription, bouton « Renvoyer l'email de confirmation » sur la page de connexion en cas de `403`.
+- Tests : `EmailVerificationServiceTest` (nouveau), `AuthServiceTest`, `AuthControllerTest`, `AuthenticationFlowIntegrationTest` (parcours inscription → 403 → lien → connexion) ; les helpers d'inscription des autres tests d'intégration confirment l'adresse directement en base.
+- Vérifié : `npx tsc --noEmit` et `npm run build` (frontend). ⚠️ Backend non compilé dans cette session (pas d'accès à Maven Central) : **`mvn verify` reste à lancer par Alex avant tout merge**.
+
 ## 0.9.25 — 2026-09-18
 
 ### LL-EF-016 — Ajouter un lien web et un contact à un événement

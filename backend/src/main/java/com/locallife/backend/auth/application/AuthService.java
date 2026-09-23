@@ -21,7 +21,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class AuthService {
 
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    // Partie locale limitée à 64 caractères (RFC 5321), domaine sans point initial/final ni points
+    // consécutifs, extension d'au moins 2 caractères. Volontairement permissif sur les caractères
+    // (pas de liste blanche ASCII) pour ne pas rejeter d'adresses internationalisées valides : la
+    // vraie preuve de validité est la confirmation par lien (voir EmailVerificationService).
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("^[^@\\s]{1,64}@[^@\\s.]+(\\.[^@\\s.]+)*\\.[^@\\s.]{2,}$");
+    private static final int MAX_EMAIL_LENGTH = 254;
     private static final int MIN_PASSWORD_LENGTH = 8;
 
     private final UserRepository userRepository;
@@ -29,18 +35,21 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordHashingService passwordHashingService;
     private final GoogleAuthService googleAuthService;
+    private final EmailVerificationService emailVerificationService;
 
     public AuthService(
             UserRepository userRepository,
             UserIdentityRepository userIdentityRepository,
             JwtService jwtService,
             PasswordHashingService passwordHashingService,
-            GoogleAuthService googleAuthService) {
+            GoogleAuthService googleAuthService,
+            EmailVerificationService emailVerificationService) {
         this.userRepository = userRepository;
         this.userIdentityRepository = userIdentityRepository;
         this.jwtService = jwtService;
         this.passwordHashingService = passwordHashingService;
         this.googleAuthService = googleAuthService;
+        this.emailVerificationService = emailVerificationService;
     }
 
     /**
@@ -48,14 +57,23 @@ public class AuthService {
      * passe (jamais stocké en clair) et crée le compte avec le rôle
      * {@code USER} par défaut.
      *
+     * <p>Le compte est créé avec une adresse email non vérifiée ({@code
+     * emailVerified = false}) : un lien de confirmation est envoyé à cette
+     * adresse et la connexion reste refusée tant qu'il n'a pas été suivi
+     * (voir {@link #login} et {@link EmailVerificationService}). Les espaces
+     * autour de l'email sont retirés avant validation et enregistrement.
+     *
      * @throws IllegalArgumentException si les entrées sont invalides ou si l'email est déjà utilisé
      */
     public User register(String username, String email, String password) {
-        validateCredentials(username, email, password);
+        String normalizedEmail = email == null ? null : email.trim();
+        validateCredentials(username, normalizedEmail, password);
 
         String passwordHash = passwordHashingService.hash(password);
-        User user = new User(null, username, email, passwordHash, Role.USER, LocalDateTime.now());
-        return userRepository.save(user);
+        User user = new User(null, username, normalizedEmail, passwordHash, Role.USER, LocalDateTime.now(), false);
+        User saved = userRepository.save(user);
+        emailVerificationService.sendVerification(saved);
+        return saved;
     }
 
     /**
@@ -68,7 +86,10 @@ public class AuthService {
      * administrateur. Elle est destinée à être appelée uniquement au
      * démarrage de l'application, à partir d'identifiants fournis de façon
      * opérationnelle (variables d'environnement), jamais depuis un endpoint
-     * HTTP accessible publiquement.
+     * HTTP accessible publiquement. L'adresse email de ce compte est
+     * marquée vérifiée d'emblée : ses identifiants sont fournis
+     * opérationnellement, sans passer par un lien de confirmation (l'adresse
+     * peut d'ailleurs ne pas être une vraie boîte mail).
      *
      * @throws IllegalArgumentException si les entrées sont invalides ou si l'email est déjà utilisé
      */
@@ -80,7 +101,7 @@ public class AuthService {
         validateCredentials(username, email, password);
 
         String passwordHash = passwordHashingService.hash(password);
-        User admin = new User(null, username, email, passwordHash, Role.ADMIN, LocalDateTime.now());
+        User admin = new User(null, username, email, passwordHash, Role.ADMIN, LocalDateTime.now(), true);
         return Optional.of(userRepository.save(admin));
     }
 
@@ -88,7 +109,7 @@ public class AuthService {
         if (username == null || username.isBlank()) {
             throw new IllegalArgumentException("Le nom d'utilisateur est requis.");
         }
-        if (email == null || !EMAIL_PATTERN.matcher(email).matches()) {
+        if (email == null || email.length() > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.matcher(email).matches()) {
             throw new IllegalArgumentException("L'adresse email n'est pas valide.");
         }
         if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
@@ -106,6 +127,9 @@ public class AuthService {
      * @param request la requête de login contenant email et password
      * @return un LoginResponse contenant le token JWT si l'authentification réussit
      * @throws IllegalArgumentException si l'email ou le mot de passe est invalide
+     * @throws EmailNotVerifiedException si les identifiants sont corrects mais que l'adresse
+     *         email du compte n'a pas encore été confirmée — levée uniquement après
+     *         vérification du mot de passe, pour ne pas révéler l'existence d'un compte
      */
     public LoginResponse login(LoginRequest request) {
         Optional<User> userOptional = userRepository.findByEmail(request.email());
@@ -128,6 +152,10 @@ public class AuthService {
         if (user.passwordHash() == null || user.passwordHash().isBlank()
                 || !passwordHashingService.matches(request.password(), user.passwordHash())) {
             throw new IllegalArgumentException("Email ou mot de passe incorrect");
+        }
+
+        if (!user.emailVerified()) {
+            throw new EmailNotVerifiedException();
         }
 
         return new LoginResponse(issueToken(user));
@@ -183,18 +211,39 @@ public class AuthService {
         }
 
         User user = userRepository.findByEmail(identity.email())
+                .map(this::confirmEmailViaGoogle)
                 .orElseGet(() -> userRepository.save(new User(
                         null,
                         identity.name() != null ? identity.name() : identity.email().split("@")[0],
                         identity.email(),
                         "",
                         Role.USER,
-                        LocalDateTime.now())));
+                        LocalDateTime.now(),
+                        true)));
 
         userIdentityRepository.save(new UserIdentity(null, user.id(), AuthProvider.GOOGLE, identity.sub(),
                 LocalDateTime.now()));
 
         return new LoginResponse(issueToken(user));
+    }
+
+    /**
+     * L'email vérifié par Google prouve que l'utilisateur contrôle cette
+     * adresse : un compte classique encore non vérifié est donc confirmé.
+     *
+     * <p>Son mot de passe est alors effacé : tant que l'adresse n'était pas
+     * vérifiée, n'importe qui a pu créer ce compte avec l'adresse d'autrui et
+     * choisir le mot de passe. Le conserver laisserait ce tiers se connecter
+     * à un compte désormais confirmé. Le vrai propriétaire se connecte via
+     * Google, ou définit un mot de passe via « mot de passe oublié ».
+     */
+    private User confirmEmailViaGoogle(User existing) {
+        if (existing.emailVerified()) {
+            return existing;
+        }
+        return userRepository.save(new User(
+                existing.id(), existing.username(), existing.email(), "", existing.role(),
+                existing.createdAt(), true));
     }
 
     private String issueToken(User user) {

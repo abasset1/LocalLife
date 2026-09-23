@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
  * dans {@code application.properties} (préfixe {@code spring.mail.*}),
  * fournie par variables d'environnement en production.
  *
- * <p>⚠️ Ne jamais logger {@code resetLink} (contient le token en clair) —
+ * <p>⚠️ Ne jamais logger {@code resetLink} ni {@code verificationLink} (contiennent le token en clair) —
  * un seul log au niveau INFO confirmant l'envoi, sans son contenu, pour
  * respecter l'exigence de non-fuite du token dans les logs.
  */
@@ -50,6 +50,25 @@ public class SmtpEmailService implements EmailService {
 
         mailSender.send(message);
         log.info("Email de réinitialisation de mot de passe envoyé à {}", to);
+    }
+
+    @Override
+    public void sendEmailVerificationEmail(String to, String verificationLink) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(to);
+        message.setSubject("Confirmez votre adresse email LocalLife");
+        message.setText(
+                "Bonjour,\n\n"
+                        + "Bienvenue sur LocalLife ! Pour activer votre compte, confirmez votre adresse email "
+                        + "en cliquant sur le lien suivant (valable 24 heures) :\n"
+                        + verificationLink + "\n\n"
+                        + "Si vous n'êtes pas à l'origine de cette inscription, vous pouvez ignorer cet email : "
+                        + "aucun compte ne sera activé.\n\n"
+                        + "L'équipe LocalLife");
+
+        mailSender.send(message);
+        log.info("Email de confirmation d'adresse envoyé à {}", to);
     }
 
 }

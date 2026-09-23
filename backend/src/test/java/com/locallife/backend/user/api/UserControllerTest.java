@@ -43,7 +43,7 @@ class UserControllerTest {
     @Test
     void createUser_ShouldReturnCreated_WithUserResponse() {
         // Given
-        User created = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now());
+        User created = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userService.createUser("alice", "alice@example.com")).thenReturn(created);
 
         // When
@@ -59,7 +59,7 @@ class UserControllerTest {
     @Test
     void getUserById_ShouldReturnUserResponse_WhenFound() {
         // Given
-        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now());
+        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userService.getUserById(1L)).thenReturn(Optional.of(user));
 
         // When
@@ -86,7 +86,7 @@ class UserControllerTest {
     void getCurrentUser_ShouldReturnOwnProfile_FromJwtUserId() {
         // Given : userId provient exclusivement du JWT (JwtAuthentication), jamais
         // d'un paramètre de requête — voir la javadoc de UserController#getCurrentUser.
-        User user = new User(7L, "carol", "carol@example.com", "hash", Role.USER, LocalDateTime.now());
+        User user = new User(7L, "carol", "carol@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userService.getUserById(7L)).thenReturn(Optional.of(user));
         JwtAuthentication authentication = new JwtAuthentication(7L, "carol@example.com", Role.USER);
 
@@ -101,7 +101,7 @@ class UserControllerTest {
     @Test
     void updateCurrentUser_ShouldReturnUpdatedProfile_WhenValid() {
         // Given
-        User updated = new User(7L, "carol2", "carol2@example.com", "hash", Role.USER, LocalDateTime.now());
+        User updated = new User(7L, "carol2", "carol2@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userService.updateProfile(7L, "carol2", "carol2@example.com")).thenReturn(updated);
         JwtAuthentication authentication = new JwtAuthentication(7L, "carol@example.com", Role.USER);
 

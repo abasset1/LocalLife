@@ -32,7 +32,7 @@ public class UserService {
      * qui gérera le hachage du mot de passe (LL-3003).
      */
     public User createUser(String username, String email) {
-        User user = new User(null, username, email, null, Role.USER, LocalDateTime.now());
+        User user = new User(null, username, email, null, Role.USER, LocalDateTime.now(), false);
         return userRepository.save(user);
     }
 
@@ -61,7 +61,8 @@ public class UserService {
         User existing = userRepository.findById(id).orElseThrow();
         validateProfileUpdate(username, email, id);
         User updated = new User(
-                existing.id(), username, email, existing.passwordHash(), existing.role(), existing.createdAt());
+                existing.id(), username, email, existing.passwordHash(), existing.role(), existing.createdAt(),
+                existing.emailVerified());
         return userRepository.save(updated);
     }
 

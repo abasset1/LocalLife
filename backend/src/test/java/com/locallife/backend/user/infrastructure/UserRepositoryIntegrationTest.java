@@ -28,7 +28,7 @@ class UserRepositoryIntegrationTest {
     @Test
     void save_ShouldPersistUser_AndFindById_ShouldReturnIt() {
         User saved = userRepository.save(
-                new User(null, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now()));
+                new User(null, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true));
 
         assertThat(saved.id()).isNotNull();
 
@@ -48,7 +48,7 @@ class UserRepositoryIntegrationTest {
 
     @Test
     void findByEmail_ShouldReturnUser_WhenExists() {
-        userRepository.save(new User(null, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now()));
+        userRepository.save(new User(null, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now(), true));
 
         Optional<User> found = userRepository.findByEmail("bob@example.com");
 

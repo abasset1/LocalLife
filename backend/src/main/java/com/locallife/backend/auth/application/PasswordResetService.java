@@ -128,8 +128,11 @@ public class PasswordResetService {
                 .orElseThrow(() -> new IllegalArgumentException(GENERIC_INVALID_TOKEN_MESSAGE));
 
         String newPasswordHash = passwordHashingService.hash(newPassword);
+        // Suivre le lien reçu par email prouve que l'utilisateur contrôle cette adresse : le compte
+        // est donc confirmé, sans quoi un compte non vérifié ne pourrait pas se connecter après
+        // sa réinitialisation.
         User updatedUser = new User(
-                user.id(), user.username(), user.email(), newPasswordHash, user.role(), user.createdAt());
+                user.id(), user.username(), user.email(), newPasswordHash, user.role(), user.createdAt(), true);
         userRepository.save(updatedUser);
 
         tokenRepository.save(new PasswordResetToken(
