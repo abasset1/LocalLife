@@ -72,6 +72,7 @@ mobile/
 │   │   │   └── compte.tsx       # Compte
 │   │   └── activite/[id].tsx  # détail d'une activité (écran empilé)
 │   ├── api/              # client API LocalLife (LL-MOB-0003)
+│   ├── auth/             # session, JWT, stockage sécurisé (LL-MOB-0004)
 │   ├── components/       # composants UI réutilisables
 │   ├── constants/        # constantes (thème, etc.)
 │   ├── config/           # configuration applicative (env.ts)
@@ -135,9 +136,36 @@ n'appellent `fetch` directement ; l'URL de base vient de
 - Chaque fonction accepte `{ signal }` (`AbortController`) pour annuler
   une requête, par exemple lors d'un déplacement de carte.
 
+## Authentification (LL-MOB-0004)
+
+Écran **Compte** : inscription, connexion, déconnexion. Les endpoints
+sont ceux du backend existant (`POST /auth/register`, `POST /auth/login`) ;
+les règles de validation (mot de passe, format d'e-mail…) restent côté
+backend, l'écran n'affiche que ses messages.
+
+- **Stockage** : le JWT est stocké dans le stockage sécurisé de l'OS
+  (Keystore / Keychain) via `expo-secure-store`, jamais dans
+  `AsyncStorage`. Le mot de passe n'est jamais stocké. Sur le web (hors
+  cible du sprint), le token reste en mémoire uniquement.
+- **Session** : `AuthProvider` (`src/auth/`) restaure le token au
+  démarrage, l'injecte dans le client API (`configureApiClient`) et expose
+  `useAuth()` (`state`, `login`, `register`, `logout`).
+- **Expiration / invalidation** : un token expiré (claim `exp`) est écarté
+  au démarrage, à chaque appel authentifié et au retour de l'app au premier
+  plan ; un 401 du backend sur un appel authentifié déconnecte
+  l'utilisateur. La lecture de `exp` côté client sert uniquement à éviter
+  des appels voués à l'échec : la vérification réelle reste côté backend.
+- **Inscription** : ne connecte pas. Le backend exige la confirmation de
+  l'adresse e-mail (lien reçu par e-mail) ; tant qu'elle n'est pas faite,
+  la connexion renvoie 403 et l'écran affiche le message du backend.
+  Le renvoi de l'e-mail de confirmation n'est pas encore proposé dans
+  l'application (disponible sur le web).
+- **Journalisation** : aucun `console.*` dans le code d'authentification ;
+  ni token, ni mot de passe, ni e-mail ne sont écrits dans les logs.
+
 ## État actuel
 
 - [x] Projet Expo + TypeScript initialisé, versionné dans le dépôt (LL-MOB-0001)
 - [x] Navigation par onglets + écran de détail empilé (LL-MOB-0002)
 - [x] Client API centralisé (LL-MOB-0003)
-- [ ] Authentification (LL-MOB-0004)
+- [x] Authentification (LL-MOB-0004)
