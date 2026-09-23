@@ -998,3 +998,854 @@ body {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* ===================================================================
+ * LL-EF-017 — Refonte de l'écran Explorer autour de la carte.
+ *
+ * Tout ce qui suit est scopé à l'écran Explorer (préfixe `explorer-`),
+ * volontairement disjoint des classes partagées avec AdminPage/
+ * FavoritesPage/ProfilePage plus haut dans ce fichier (`.modal-*`,
+ * `.contribution-form`, `.form-field`, `.activity-detail-*`,
+ * `.cancel-activity-button`, `.activities-status`, `.header-*`…) : les
+ * réutiliser ici aurait changé leur apparence sur ces autres écrans,
+ * hors périmètre de ce ticket (type "Evolution UX / Frontend" limité à
+ * l'écran Explorer).
+ *
+ * Palette reprise de la page d'accueil LocalLife (LocalLife_home_mockup.html,
+ * section 10 du ticket).
+ * =================================================================== */
+
+:root {
+    --ll-green: #173f35;
+    --ll-green2: #245447;
+    --ll-coral: #e86a4a;
+    --ll-sand: #f3ebdd;
+    --ll-paper: #fcfbf7;
+    --ll-ink: #17201d;
+    --ll-muted: #68736e;
+    --ll-line: #e7e3d9;
+}
+
+.explorer-shell {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--ll-paper);
+    color: var(--ll-ink);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* --- Menu (section 5) : colonne fixe en desktop, tiroir hors-écran en mobile. --- */
+
+.explorer-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(23, 32, 29, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 45;
+}
+
+.explorer-menu-backdrop--visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.explorer-menu {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 280px;
+    max-width: 82vw;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1.5rem 1.25rem 2rem;
+    background-color: var(--ll-green);
+    color: #ffffff;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 50;
+}
+
+.explorer-menu--open {
+    transform: translateX(0);
+}
+
+.explorer-menu-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 800;
+    font-size: 1.2rem;
+    letter-spacing: -0.03em;
+}
+
+.explorer-menu-brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background-color: var(--ll-coral);
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+}
+
+.explorer-menu-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.explorer-menu-section-title {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #a9c1b8;
+    margin-bottom: 0.15rem;
+}
+
+.explorer-menu-link {
+    display: block;
+    padding: 0.5rem 0.6rem;
+    border-radius: 10px;
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.explorer-menu-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.explorer-menu-link-active {
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.explorer-menu-link-button {
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+}
+
+.explorer-menu-user {
+    padding: 0.2rem 0.6rem;
+    font-size: 0.85rem;
+    color: #cfe0d9;
+}
+
+.explorer-menu-toggle {
+    border: 1px solid var(--ll-line);
+    background-color: #ffffff;
+    border-radius: 10px;
+    width: 2.4rem;
+    height: 2.4rem;
+    font-size: 1.1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+@media (min-width: 960px) {
+    .explorer-menu {
+        position: static;
+        transform: none;
+        width: 260px;
+        flex: 0 0 260px;
+        border-radius: 0;
+    }
+
+    .explorer-menu-backdrop {
+        display: none;
+    }
+
+    .explorer-menu-toggle {
+        display: none;
+    }
+}
+
+/* --- Colonne principale : bandeau (recherche/filtres) + carte/liste. --- */
+
+.explorer-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+}
+
+.explorer-controls {
+    background-color: var(--ll-paper);
+    border-bottom: 1px solid var(--ll-line);
+    z-index: 20;
+}
+
+.explorer-topbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem 0.5rem;
+}
+
+/* --- Recherche (section 7). --- */
+
+.explorer-search {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.8rem;
+    background-color: #ffffff;
+    border: 1px solid var(--ll-line);
+    border-radius: 999px;
+}
+
+.explorer-search-icon {
+    color: var(--ll-muted);
+}
+
+.explorer-search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 0.95rem;
+    background: none;
+    color: var(--ll-ink);
+    font-family: inherit;
+}
+
+.explorer-search-clear {
+    border: none;
+    background: none;
+    color: var(--ll-muted);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0.1rem 0.3rem;
+}
+
+/* --- Filtres (section 6). --- */
+
+.explorer-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0 1rem 0.75rem;
+}
+
+.explorer-category-chips {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    overflow-x: auto;
+    padding-bottom: 0.1rem;
+}
+
+.explorer-filters-secondary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.explorer-chip {
+    flex-shrink: 0;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--ll-line);
+    background-color: #ffffff;
+    color: var(--ll-ink);
+    font-size: 0.85rem;
+    font-weight: 650;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.explorer-chip:hover {
+    border-color: var(--ll-green2);
+}
+
+.explorer-chip-active {
+    background-color: var(--ll-green);
+    border-color: var(--ll-green);
+    color: #ffffff;
+}
+
+.explorer-chip-location {
+    color: var(--ll-green2);
+    border-color: var(--ll-green2);
+}
+
+.explorer-dates {
+    position: relative;
+}
+
+.explorer-dates-panel {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    width: 240px;
+    padding: 0.9rem;
+    background-color: #ffffff;
+    border: 1px solid var(--ll-line);
+    border-radius: 12px;
+    box-shadow: 0 12px 28px rgba(23, 63, 53, 0.14);
+}
+
+.explorer-dates-panel label {
+    font-size: 0.8rem;
+    font-weight: 650;
+    color: var(--ll-ink);
+}
+
+.explorer-dates-panel input,
+.explorer-dates-panel select {
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--ll-line);
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.explorer-dates-clear {
+    align-self: flex-start;
+    border: none;
+    background: none;
+    color: var(--ll-coral);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0.2rem 0;
+}
+
+.explorer-active-period-hint {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--ll-muted);
+}
+
+.explorer-view-toggle {
+    display: flex;
+    gap: 0.3rem;
+    margin-left: auto;
+}
+
+@media (min-width: 960px) {
+    .explorer-view-toggle {
+        display: none;
+    }
+}
+
+/* --- Zone carte + liste (section 3/4). --- */
+
+.explorer-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.explorer-map-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+.explorer-map {
+    width: 100%;
+    height: 100%;
+}
+
+.explorer-list-panel {
+    width: 380px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    background-color: var(--ll-sand);
+    border-left: 1px solid var(--ll-line);
+    padding: 1rem;
+}
+
+@media (max-width: 959px) {
+    /* Mobile : la carte occupe tout l'écran ; le bandeau recherche/filtres
+       flotte par-dessus (section 4 du ticket) ; seule une des deux vues
+       (carte ou liste) est visible à la fois, selon `viewMode` (LL-EF-008). */
+    .explorer-controls {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        background-color: rgba(252, 251, 247, 0.94);
+        backdrop-filter: blur(6px);
+        border-bottom: none;
+    }
+
+    .explorer-content {
+        padding-top: 0;
+    }
+
+    .explorer-content[data-mobile-view="map"] .explorer-list-panel {
+        display: none;
+    }
+
+    .explorer-content[data-mobile-view="list"] .explorer-map-wrapper {
+        display: none;
+    }
+
+    .explorer-list-panel {
+        width: 100%;
+    }
+}
+
+/* --- Statuts (chargement/erreur/vide), en léger flottant sur la carte. --- */
+
+.explorer-status {
+    margin: 0;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    color: var(--ll-muted);
+}
+
+.explorer-status-error {
+    color: #b3261e;
+}
+
+.explorer-status-floating {
+    position: absolute;
+    top: 0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+    background-color: #ffffff;
+    border: 1px solid var(--ll-line);
+    border-radius: 999px;
+    box-shadow: 0 8px 20px rgba(23, 63, 53, 0.12);
+    white-space: nowrap;
+}
+
+/* --- Food truck (LL-6009), icône dédiée. --- */
+
+.explorer-food-truck-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background-color: var(--ll-coral);
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    font-size: 1.1rem;
+}
+
+/* --- Aperçu (section 9) : carte flottante en desktop, bottom sheet en mobile. --- */
+
+.explorer-preview {
+    position: absolute;
+    z-index: 30;
+    background-color: #ffffff;
+    box-shadow: 0 16px 40px rgba(23, 63, 53, 0.2);
+    overflow: hidden;
+    top: 1rem;
+    left: 1rem;
+    width: 320px;
+    border-radius: 18px;
+}
+
+.explorer-preview-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 1;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    border: none;
+    background-color: rgba(255, 255, 255, 0.9);
+    color: var(--ll-ink);
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+
+.explorer-preview-thumbnail {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    display: block;
+}
+
+.explorer-preview-body {
+    padding: 0.9rem 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.explorer-preview-date {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ll-coral);
+}
+
+.explorer-preview-body h3 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.explorer-preview-meta {
+    margin: 0 0 0.4rem;
+    font-size: 0.85rem;
+    color: var(--ll-muted);
+}
+
+.explorer-preview-cta {
+    align-self: flex-start;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 999px;
+    background-color: var(--ll-green);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+
+.explorer-preview-cta:hover {
+    background-color: var(--ll-green2);
+}
+
+@media (max-width: 959px) {
+    .explorer-preview {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        border-radius: 20px 20px 0 0;
+    }
+}
+
+/* --- Liste (section 3/4), panneau ou vue plein écran mobile. --- */
+
+.explorer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.explorer-list-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.explorer-list-city {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--ll-green);
+    border-bottom: 1px solid var(--ll-line);
+    padding-bottom: 0.35rem;
+}
+
+.explorer-list-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.explorer-list-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--ll-line);
+    border-radius: 12px;
+    background-color: #ffffff;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+}
+
+.explorer-list-item:hover {
+    border-color: var(--ll-green2);
+}
+
+.explorer-list-item-thumbnail {
+    width: 100%;
+    max-height: 96px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.explorer-list-item-title {
+    font-weight: 700;
+    color: var(--ll-ink);
+}
+
+.explorer-list-item-address {
+    font-size: 0.82rem;
+    color: var(--ll-muted);
+}
+
+.explorer-list-item-meta {
+    font-size: 0.8rem;
+    color: var(--ll-muted);
+}
+
+/* --- Modales Explorer (formulaire de contribution + fiche complète). --- */
+
+.explorer-modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(23, 32, 29, 0.55);
+    padding: 1rem;
+    z-index: 1000;
+}
+
+.explorer-modal-dialog {
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background-color: var(--ll-paper);
+    border-radius: 18px;
+    box-shadow: 0 20px 55px rgba(23, 63, 53, 0.25);
+}
+
+.explorer-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.1rem 1.4rem;
+    background-color: var(--ll-green);
+    color: #ffffff;
+    border-radius: 18px 18px 0 0;
+}
+
+.explorer-modal-header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.explorer-modal-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.explorer-modal-close-button {
+    border: none;
+    background: none;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: #ffffff;
+    cursor: pointer;
+    padding: 0.25rem;
+    opacity: 0.85;
+}
+
+.explorer-modal-close-button:hover {
+    opacity: 1;
+}
+
+.explorer-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.explorer-like-button {
+    border: none;
+    background: none;
+    font-size: 1.3rem;
+    line-height: 1;
+    color: var(--ll-coral);
+    cursor: pointer;
+    padding: 0.1rem 0.25rem;
+}
+
+.explorer-like-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* --- Formulaire "Proposer une activité". --- */
+
+.explorer-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1.25rem 1.4rem;
+}
+
+.explorer-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.explorer-form-field label {
+    font-size: 0.85rem;
+    font-weight: 650;
+    color: var(--ll-ink);
+}
+
+.explorer-form input {
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--ll-line);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+}
+
+.explorer-form button[type="submit"] {
+    padding: 0.55rem 1.1rem;
+    border: none;
+    border-radius: 999px;
+    background-color: var(--ll-coral);
+    color: #ffffff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.explorer-form-message-success {
+    color: var(--ll-green2);
+}
+
+.explorer-form-message-error {
+    color: #b3261e;
+}
+
+/* --- Fiche complète d'activité (LL-11015 et suivants). --- */
+
+.explorer-detail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1.25rem 1.4rem;
+}
+
+.explorer-detail-row {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--ll-ink);
+}
+
+.explorer-detail-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.explorer-detail-gallery img {
+    width: 120px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.explorer-detail-long-description {
+    white-space: pre-wrap;
+}
+
+.explorer-detail-schedules {
+    margin: 0.2rem 0 0;
+    padding-left: 1.2rem;
+}
+
+.explorer-detail-exceptions {
+    margin: 0.15rem 0 0.3rem;
+    padding-left: 1.2rem;
+    font-size: 0.85rem;
+    color: #b45309;
+}
+
+.explorer-detail-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.explorer-detail-tag {
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background-color: var(--ll-sand);
+    color: var(--ll-green);
+    font-size: 0.8rem;
+}
+
+.explorer-detail-loading {
+    color: var(--ll-muted);
+    font-style: italic;
+}
+
+.explorer-detail-error {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #b3261e;
+}
+
+.explorer-detail-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--ll-line);
+}
+
+.explorer-detail-action-button {
+    align-self: flex-start;
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--ll-green2);
+    border-radius: 999px;
+    background-color: #ffffff;
+    color: var(--ll-green2);
+    font-size: 0.9rem;
+    font-weight: 650;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.explorer-detail-action-button:hover {
+    background-color: var(--ll-sand);
+}
+
+.explorer-detail-action-button-accent {
+    border-color: var(--ll-coral);
+    color: var(--ll-coral);
+}
+
+.explorer-cancel-button {
+    align-self: flex-start;
+    padding: 0.5rem 1rem;
+    border: 1px solid #b3261e;
+    border-radius: 999px;
+    background-color: #ffffff;
+    color: #b3261e;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.explorer-cancel-button:hover {
+    background-color: #fdf1f0;
+}
+
+.explorer-cancel-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

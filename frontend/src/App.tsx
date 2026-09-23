@@ -1,326 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import type { LatLngExpression } from "leaflet";
-import L from "leaflet";
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import MarkerClusterGroup from "react-leaflet-cluster";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload } from "./auth/authStorage";
-import { formatDateOfDay, formatRecurrenceRule, formatTimeRange } from "./utils/recurrence";
-import { buildGoogleCalendarUrl } from "./utils/googleCalendar";
-import { buildDirectionsUrl } from "./utils/directions";
-
-/**
- * Correctif prod : icône par défaut de Leaflet pour les marqueurs
- * d'activité (celle documentée plus bas comme « utilisée telle quelle,
- * sans configuration particulière » — voir la javadoc de
- * `FOOD_TRUCK_MARKER_ICON`, qui explique pourquoi les food trucks
- * l'évitent délibérément). En réalité cette icône par défaut se résout
- * via `L.Icon.Default.prototype._getIconUrl`, qui déduit le dossier des
- * images en inspectant les balises `<script src="...leaflet...">` de la
- * page — une détection qui échoue avec un bundler comme Vite (le script
- * réel s'appelle `index-XXXX.js`, jamais `leaflet.js`), donnant des
- * requêtes d'image relatives à la racine (`/marker-icon.png`) qui
- * renvoient 404 une fois buildé en production, alors qu'en dev le
- * serveur Vite les sert par coïncidence via `node_modules` (d'où le bug
- * invisible en local, signalé par Alex seulement une fois en prod). Fix
- * standard react-leaflet/Vite : importer les images comme modules (Vite
- * les copie alors dans `dist/assets` avec une URL correcte, incluse dans
- * le bundle par `vite build`) et reconfigurer `L.Icon.Default` pour les
- * utiliser, une fois au chargement du module plutôt que dans un
- * composant — ces icônes ne changent jamais pendant la vie de l'app.
- */
-delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: markerIcon2x,
-    iconUrl: markerIcon,
-    shadowUrl: markerShadow,
-});
-
-
-/**
- * `sourceName` ajouté en LL-8006 : jusqu'ici le backend n'exposait que
- * `sourceId` (identifiant technique, retiré de la réponse au profit de
- * `sourceName` — voir `ActivityResponse` côté backend), inexploitable
- * pour l'affichage demandé par le critère d'acceptation du ticket
- * (« titre, date, lieu, source correctement affichés »).
- *
- * `address`/`city` ajoutés en LL-EF-008 : afficher des coordonnées GPS
- * brutes à l'utilisateur final n'étant pas viable (demande d'Alex),
- * `latitude`/`longitude` ne servent plus désormais qu'au positionnement
- * du marqueur — voir `ActivityResponse` côté backend pour le détail de
- * leur résolution (géocodage à l'écriture, jamais à la lecture).
- * Toutes deux nullables : activités existantes non re-géocodées/
- * ré-importées, ou source ne fournissant pas cette donnée — voir
- * `formatActivityLocation`/`formatActivityCity` ci-dessous pour le repli
- * appliqué dans ce cas.
- */
-interface Activity {
-    id: number;
-    title: string;
-    category: string;
-    latitude: number;
-    longitude: number;
-    startDate: string;
-    status: string;
-    sourceName: string;
-    address: string | null;
-    city: string | null;
-    /**
-     * LL-EF-010 : id du créateur pour une activité créée manuellement,
-     * `null` pour une activité importée ou une contribution manuelle
-     * antérieure à ce ticket (créateur non identifiable a posteriori,
-     * voir `V24__add_created_by_to_activity.sql` côté backend). Comparé à
-     * `currentUser.userId` pour décider d'afficher le bouton "Annuler"
-     * (voir le détail d'activité plus bas).
-     */
-    createdBy: number | null;
-    /** Nom affiché ("Créée par : ..."), résolu côté backend depuis `createdBy` (LL-8006 même principe que sourceName). */
-    createdByUsername: string | null;
-    /**
-     * LS-002 : indique si l'utilisateur connecté a déjà liké cette
-     * activité — permet d'afficher l'état initial du bouton "J'aime"
-     * sans requête supplémentaire. Toujours `false` pour un visiteur non
-     * connecté (voir le détail d'activité plus bas).
-     */
-    likedByCurrentUser: boolean;
-    /**
-     * LL-11015 : url du premier média attaché à l'activité (voir
-     * `ActivityResponse#mainImageUrl` côté backend), ou `null` si aucun
-     * média n'est attaché — critère d'acceptation « images visibles ».
-     */
-    mainImageUrl: string | null;
-}
-
-/**
- * Fiche détaillée d'une activité (LL-11015), miroir de
- * `ActivityDetailResponse` côté backend (LL-11013) — chargée à la demande
- * (voir `useEffect` sur `selectedActivity` plus bas), séparément du résumé
- * déjà disponible dans `Activity` ci-dessus (carte/liste), pour ne pas
- * alourdir ces dernières avec des données qui ne leur servent pas (même
- * séparation que côté backend, voir ADR-0007).
- */
-interface ActivityDetail {
-    id: number;
-    description: string | null;
-    longDescription: string | null;
-    conditions: string | null;
-    ageMin: number | null;
-    ageMax: number | null;
-    schedules: ScheduleSummary[];
-    /**
-     * LL-11016 (« Cas 4 — Exception ») : toutes les occurrences,
-     * annulées comprises (voir `ActivityController#toDetailResponse`
-     * côté backend, corrigé par ce même ticket) — `status` distingue
-     * une occurrence annulée d'une normale, voir `renderActivitySchedules`.
-     */
-    occurrences: OccurrenceSummary[];
-    locations: LocationSummary[];
-    media: MediaSummary[];
-    links: LinkSummary[];
-    accessibility: AccessibilitySummary | null;
-    tags: string[];
-    additionalInfo: string | null;
-}
-
-interface ScheduleSummary {
-    id: number;
-    locationId: number | null;
-    startTime: string | null;
-    endTime: string | null;
-    recurrenceRule: string | null;
-}
-
-interface OccurrenceSummary {
-    id: number;
-    scheduleId: number;
-    startAt: string;
-    /** LL-EF-013 : nécessaire pour préremplir l'heure de fin de l'événement Google Agenda. */
-    endAt: string | null;
-    locationId: number | null;
-    status: string;
-}
-
-interface LocationSummary {
-    id: number;
-    name: string | null;
-    address: string | null;
-    city: string | null;
-    postalCode: string | null;
-}
-
-interface MediaSummary {
-    id: number;
-    url: string;
-    altText: string | null;
-    credit: string | null;
-}
-
-interface LinkSummary {
-    type: string;
-    label: string | null;
-    value: string;
-}
-
-/**
- * LL-11015 : les cinq catégories d'accessibilité du backend (LL-11009,
- * codes courts source `mi`/`hi`/`vi`/`pi`/`ii`) traduites en labels
- * affichables — voir `ACCESSIBILITY_LABELS` plus bas. Chaque champ reste
- * indépendamment `null`/`true`/`false` (« non renseigné » distinct de
- * « non accessible », voir `Accessibility` côté backend) : seuls les
- * champs non-`null` sont affichés (voir `renderAccessibility`).
- */
-interface AccessibilitySummary {
-    motorImpairment: boolean | null;
-    hearingImpairment: boolean | null;
-    visualImpairment: boolean | null;
-    psychicImpairment: boolean | null;
-    intellectualImpairment: boolean | null;
-}
-
-/**
- * Food truck (LL-6009) : deuxième type de marqueur affiché sur la même
- * carte qu'`Activity`, depuis un module backend séparé
- * (`docs/02_Architecture/FOOD_TRUCK_CONTRACT.md`). Volontairement plus
- * simple qu'`Activity` côté frontend aussi : pas de filtres, pas de date
- * — voir la section « Ajouter un nouveau type de point sur la carte »
- * plus bas pour le patron à suivre si un troisième type doit être ajouté.
- */
-interface FoodTruck {
-    id: number;
-    name: string;
-    category: string;
-    latitude: number;
-    longitude: number;
-}
-
-interface ApiErrorBody {
-    message: string;
-}
-
-interface UserPosition {
-    latitude: number;
-    longitude: number;
-}
-
-/**
- * Zone actuellement visible sur la carte (LL-4012), au format attendu par
- * le contrat LL-4006 (`docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md`).
- * `null` tant que l'utilisateur n'a pas encore déplacé/zoomé la carte —
- * dans ce cas la recherche reste pilotée par `/nearby` (LL-4008/LL-4011).
- */
-interface MapBounds {
-    swLatitude: number;
-    swLongitude: number;
-    neLatitude: number;
-    neLongitude: number;
-}
-
-/** Délai de neutralisation (ms) entre la fin d'un geste sur la carte et le déclenchement
- * effectif d'une nouvelle recherche — absorbe une rafale de `moveend` rapprochés (ex.
- * glisser/relâcher/glisser à nouveau rapidement), en plus du fait que `moveend`/`zoomend`
- * ne se déclenchent déjà qu'une fois à la fin du geste (pas en continu pendant le
- * déplacement/zoom, contrairement à `move`/`zoom`). */
-const MAP_BOUNDS_DEBOUNCE_MS = 400;
-
-/**
- * Composant enfant sans rendu visuel, monté à l'intérieur de
- * `<MapContainer>` : c'est la seule façon d'écouter les événements de la
- * carte avec react-leaflet — `useMapEvents` doit être appelé depuis un
- * descendant de `MapContainer`, qui n'expose pas de props
- * `onMoveEnd`/`onZoomEnd` directement.
- */
-function MapBoundsWatcher({ onBoundsChange }: { onBoundsChange: (bounds: MapBounds) => void }) {
-    const debounceTimer = useRef<number | null>(null);
-
-    const map = useMapEvents({
-        moveend: () => scheduleBoundsUpdate(),
-        zoomend: () => scheduleBoundsUpdate(),
-    });
-
-    function scheduleBoundsUpdate() {
-        if (debounceTimer.current !== null) {
-            window.clearTimeout(debounceTimer.current);
-        }
-        debounceTimer.current = window.setTimeout(() => {
-            const bounds = map.getBounds();
-            onBoundsChange({
-                swLatitude: bounds.getSouthWest().lat,
-                swLongitude: bounds.getSouthWest().lng,
-                neLatitude: bounds.getNorthEast().lat,
-                neLongitude: bounds.getNorthEast().lng,
-            });
-        }, MAP_BOUNDS_DEBOUNCE_MS);
-    }
-
-    useEffect(() => {
-        return () => {
-            if (debounceTimer.current !== null) {
-                window.clearTimeout(debounceTimer.current);
-            }
-        };
-    }, []);
-
-    return null;
-}
-
-/**
- * Composant enfant sans rendu visuel (LL-7007, même patron que
- * `MapBoundsWatcher` ci-dessus) : `MapContainer` ne respecte sa prop
- * `center` qu'au montage initial — un changement ultérieur de
- * `userPosition` (LL-4010) ne recentre donc jamais visuellement la
- * carte. `useMap()` (accessible uniquement depuis un descendant de
- * `MapContainer`) donne accès à l'instance Leaflet pour appeler
- * `setView` explicitement lorsqu'une position est obtenue.
- */
-function MapRecenterOnUserPosition({ position }: { position: UserPosition | null }) {
-    const map = useMap();
-
-    useEffect(() => {
-        if (position) {
-            map.setView([position.latitude, position.longitude], map.getZoom());
-        }
-    }, [position, map]);
-
-    return null;
-}
-
-const MARSEILLE_LATITUDE = 43.2965;
-const MARSEILLE_LONGITUDE = 5.3698;
-const MARSEILLE_COORDINATES: LatLngExpression = [MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE];
-
-/**
- * Rayon de recherche (LL-4001 : en kilomètres, max 50), utilisé pour la
- * recherche `/nearby` — repli par défaut tant que l'utilisateur n'a pas
- * interagi avec la carte (`mapBounds === null`, voir `MapBounds`
- * ci-dessus). Une fois que la carte a été déplacée/zoomée (LL-4012), ce
- * rayon fixe n'entre plus en jeu : la recherche passe sur
- * `/within-bounds`, pilotée par la zone réellement visible.
- */
-const DEFAULT_SEARCH_RADIUS_KM = 50;
-
-/** Valeur du filtre catégorie représentant « pas de filtre ». */
-const ALL_CATEGORIES = "";
-
-/**
- * Valeur du filtre date représentant « pas de filtre explicite ». Un
- * `<input type="date">` HTML renvoie nativement une chaîne vide quand il
- * est effacé, et sinon déjà au format ISO-8601 `yyyy-MM-dd` attendu par
- * le contrat LL-4005 — aucune conversion nécessaire avant de la passer
- * telle quelle en paramètre `date`. Depuis LL-9001, ne pas envoyer ce
- * paramètre ne veut plus dire "aucun filtre de date" côté backend : la
- * date du jour est appliquée par défaut (voir
- * {@code ActivityService#findNearby} côté backend) — pour voir les
- * activités passées ou futures, l'utilisateur doit choisir une date
- * explicitement via ce filtre. Également utilisée pour `selectedDateTo`
- * (LL-11003, voir sa déclaration) — même sémantique de « pas de borne de
- * fin de période ».
- */
-const NO_DATE_FILTER = "";
+import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
+import ActivityList from "./components/explorer/ActivityList";
+import ActivityPreview from "./components/explorer/ActivityPreview";
+import { buildCategoryOptions, matchesSearchQuery } from "./components/explorer/activityUtils";
+import { ALL_CATEGORIES, DEFAULT_SEARCH_RADIUS_KM, MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE, NO_DATE_FILTER } from "./components/explorer/constants";
+import ContributionModal from "./components/explorer/ContributionModal";
+import ExplorerFilters from "./components/explorer/ExplorerFilters";
+import ExplorerMap from "./components/explorer/ExplorerMap";
+import ExplorerMenu from "./components/explorer/ExplorerMenu";
+import ExplorerSearch from "./components/explorer/ExplorerSearch";
+import type { Activity, ActivityDetail, ApiErrorBody, FoodTruck, MapBounds, UserPosition } from "./components/explorer/types";
 
 // Formate une date en YYYY-MM-DD en utilisant les composants locaux (jour/mois/annee)
 // plutot que Date.toISOString(), qui convertit en UTC et peut decaler la date
@@ -333,176 +26,35 @@ function toLocalDateString(date: Date): string {
 }
 
 /**
- * Icône dédiée au marqueur food truck (LL-6009, critère « distinction
- * visuelle [...] suffisante avec une activité ») : `divIcon` (HTML/CSS,
- * classe `.food-truck-marker` dans `styles.css`) plutôt qu'une image
- * externe — l'icône par défaut de `react-leaflet` utilisée pour les
- * activités nécessite déjà une reconfiguration explicite pour survivre
- * au build Vite (voir le correctif en tête de fichier, juste après les
- * imports) ; lui ajouter une deuxième image distincte pour les food
- * trucks aurait dupliqué ce problème pour un seul marqueur, disproportionné
- * pour ce ticket — un `divIcon` HTML n'a par construction aucune image à
- * résoudre.
+ * LL-EF-017 — Refonte de l'écran Explorer autour de la carte.
  *
- * --- Ajouter un nouveau type de point sur la carte ---
- * `FoodTruck` est pensé comme un patron reproductible pour un futur
- * troisième type (décision Alex, LL-6009) : côté backend, un nouveau
- * module autonome (`domain`/`application`/`infrastructure`/`api`, voir
- * `docs/02_Architecture/FOOD_TRUCK_CONTRACT.md` pour le raisonnement
- * complet) plutôt qu'une extension d'un module existant. Côté frontend,
- * le patron est : (1) une interface TypeScript dédiée (voir `FoodTruck`
- * ci-dessus) — champs minimaux, pas de réutilisation forcée du type
- * `Activity` ; (2) un état + un `useEffect` de récupération isolé (voir
- * plus bas, indépendant de celui des activités — pas de filtres
- * partagés tant qu'aucun besoin réel ne l'exige) ; (3) une icône
- * `divIcon` dédiée, même schéma que `FOOD_TRUCK_MARKER_ICON` ; (4) un
- * bloc `{items.map(...)}` de marqueurs supplémentaire dans le même
- * `<MapContainer>` (jamais un second composant carte). Pas d'abstraction
- * générique (« couche de carte » configurable) construite par
- * anticipation ici : avec seulement deux types de points, une telle
- * abstraction ajouterait de la complexité sans bénéfice mesurable — à
- * réévaluer si un troisième type concret est effectivement demandé.
+ * `App.tsx` reste le point d'entrée de l'écran ("/", voir main.tsx) et
+ * conserve l'intégralité de la logique métier/réseau déjà en place (voir
+ * les effets de récupération des activités/food trucks ci-dessous,
+ * inchangés) — seule la présentation est déléguée aux composants de
+ * `components/explorer/`, selon la hiérarchie demandée en section 12 du
+ * ticket : ExplorerMenu, ExplorerSearch, ExplorerFilters, ExplorerMap,
+ * ActivityPreview, ActivityList, ActivityDetailModal, ContributionModal.
  */
-const FOOD_TRUCK_MARKER_ICON = L.divIcon({
-    className: "food-truck-marker",
-    html: "🚚",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-});
-
-function buildCategoryOptions(items: Activity[]): string[] {
-    // LL-7007 : des activités importées depuis OpenAgenda peuvent avoir une
-    // catégorie absente (`null`/vide) — sans ce filtre, `.localeCompare`
-    // plantait sur ces valeurs et cassait la vue par défaut (voir LL-7004).
-    const categories = items.map((item) => item.category).filter((category): category is string => Boolean(category));
-    return Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b, "fr"));
-}
-
-/** Repli affiché quand une activité n'a pas de ville résolue (LL-EF-008, voir Activity ci-dessus). */
-const UNKNOWN_CITY_LABEL = "Ville non renseignée";
-
-/**
- * Repli affiché quand une activité n'a pas d'adresse résolue (LL-10007,
- * critère d'acceptation « l'adresse est visible dans la liste ») — même
- * convention que {@link UNKNOWN_CITY_LABEL} : jamais de valeur déduite ou
- * approximative (règle explicite de `LOCATION_CONTRACT.md`), un texte de
- * repli honnête plutôt qu'un champ vide ou une valeur construite à partir
- * de `city`/des coordonnées.
- */
-const UNKNOWN_ADDRESS_LABEL = "Adresse non renseignée";
-
-/**
- * Compare deux villes pour un tri croissant, une ville absente
- * ({@link UNKNOWN_CITY_LABEL}) étant toujours placée en dernier — même
- * convention que le tri SQL `NULLS LAST` du contrat LL-10006
- * (`docs/02_Architecture/LOCATION_CONTRACT.md`).
- */
-function compareCities(cityA: string, cityB: string): number {
-    if (cityA === UNKNOWN_CITY_LABEL) {
-        return cityB === UNKNOWN_CITY_LABEL ? 0 : 1;
-    }
-    if (cityB === UNKNOWN_CITY_LABEL) {
-        return -1;
-    }
-    return cityA.localeCompare(cityB, "fr");
-}
-
-/**
- * Lieu affiché à l'utilisateur (LL-EF-008, demande d'Alex : des
- * coordonnées GPS brutes ne sont pas viables). Ordre de repli :
- * `address` (la plus précise et la plus lisible) puis `city` seule, puis
- * enfin les coordonnées — uniquement pour les activités antérieures à ce
- * ticket, jamais re-géocodées/ré-importées, qui n'ont ni l'une ni
- * l'autre.
- */
-function formatActivityLocation(activity: Activity): string {
-    if (activity.address) {
-        return activity.address;
-    }
-    if (activity.city) {
-        return activity.city;
-    }
-    return `${activity.latitude.toFixed(4)}, ${activity.longitude.toFixed(4)}`;
-}
-
-/**
- * Regroupe les activités par ville puis trie chaque groupe par date
- * (LL-EF-008, critères d'acceptation « triées par ville » / « à
- * l'intérieur d'une ville, triées par date »). Les groupes eux-mêmes sont
- * triés alphabétiquement (locale "fr", comme `buildCategoryOptions`
- * ci-dessus) ; les activités sans ville connue sont regroupées sous
- * `UNKNOWN_CITY_LABEL`, toujours affiché en dernier plutôt qu'intercalé
- * alphabétiquement (une ville non renseignée n'est pas une vraie ville).
- */
-function groupActivitiesByCity(items: Activity[]): Array<[string, Activity[]]> {
-    const groups = new Map<string, Activity[]>();
-    for (const activity of items) {
-        const city = activity.city ?? UNKNOWN_CITY_LABEL;
-        const group = groups.get(city);
-        if (group) {
-            group.push(activity);
-        } else {
-            groups.set(city, [activity]);
-        }
-    }
-
-    const sortByDate = (a: Activity, b: Activity) => a.startDate.localeCompare(b.startDate);
-    for (const group of groups.values()) {
-        group.sort(sortByDate);
-    }
-
-    return Array.from(groups.entries()).sort(([cityA], [cityB]) => compareCities(cityA, cityB));
-}
-
 function App() {
     const navigate = useNavigate();
     const [activities, setActivities] = useState<Activity[]>([]);
     const [availableCategories, setAvailableCategories] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
     const [selectedDate, setSelectedDate] = useState(NO_DATE_FILTER);
-    /**
-     * LL-11003 : borne de fin optionnelle de la période sélectionnée via le filtre
-     * "Période" (ce weekend/cette semaine/ce mois-ci/prochain mois) — voir le
-     * gestionnaire du <select id="period-filter"> plus bas. Reste à NO_DATE_FILTER
-     * pour le filtre "À partir de" (date unique, comportement LL-4005 inchangé) et
-     * pour "Toutes les périodes"/"aujourd'hui" (une seule journée, dateTo inutile).
-     */
     const [selectedDateTo, setSelectedDateTo] = useState(NO_DATE_FILTER);
     const [currentUser, setCurrentUser] = useState(() => getPayload());
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState("");
     const [address, setAddress] = useState("");
-    /**
-     * LL-EF-016 : url/téléphone/email optionnels d'une contribution
-     * manuelle — chaîne vide envoyée comme `undefined` (voir
-     * `handleSubmit`), même convention que `startDate`/`endDate`
-     * ci-dessous, pour laisser le backend valider chaque champ
-     * réellement renseigné plutôt que d'en envoyer une chaîne vide.
-     */
     const [url, setUrl] = useState("");
     const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
-    /**
-     * Demande Alex : dates de début/fin optionnelles pour la saisie
-     * manuelle d'une activité (`<input type="date">`, jamais d'heure —
-     * cohérent avec « trunc(date de début) » du backend : une chaîne
-     * `yyyy-MM-dd` vaut minuit une fois interprétée côté serveur, voir
-     * `ActivityService#createActivity`). Laissés vides par défaut :
-     * `handleSubmit` n'envoie alors ni `startDate` ni `endDate`, et le
-     * backend applique ses propres valeurs par défaut (maintenant / début
-     * de journée de `startDate`) plutôt qu'une valeur calculée ici, pour
-     * n'avoir qu'une seule définition de ces règles.
-     */
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
     const [submitError, setSubmitError] = useState<string | null>(null);
-    /**
-     * LL-EF-001 : le formulaire de saisie d'une activité passe d'un bandeau
-     * permanent (visible même pour un visiteur non connecté) à une fenêtre
-     * modale, ouverte explicitement via un bouton — voir `handleOpenContributionForm`.
-     */
     const [isContributionModalOpen, setIsContributionModalOpen] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
     const [isLoadingActivities, setIsLoadingActivities] = useState(true);
@@ -510,62 +62,25 @@ function App() {
     const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
     const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
-    /**
-     * LL-EF-008 : bascule Carte ↔ Liste, dans le même bandeau que le filtre
-     * catégorie (voir le rendu plus bas) — la liste est une seconde vue des
-     * mêmes activités déjà chargées/filtrées (`activities`), pas une
-     * requête séparée : les filtres catégorie/date s'appliquent donc
-     * naturellement aux deux vues (critère d'acceptation « les filtres par
-     * catégorie restent cohérents avec l'affichage en liste »).
-     */
     const [viewMode, setViewMode] = useState<"map" | "list">("map");
+    /** LL-EF-017 : recherche libre (titre/ville/adresse/catégorie), filtrage client — voir `matchesSearchQuery`. */
+    const [searchQuery, setSearchQuery] = useState("");
+    /** LL-EF-017 : tiroir de menu (mobile) — toujours visible en colonne fixe au-delà du point de rupture desktop (styles.css). */
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
     /**
-     * Activité dont le détail est actuellement consulté depuis la liste
-     * (LL-EF-008, critère d'acceptation « consulter le détail d'une
-     * activité depuis la liste ») — `null` quand aucun détail n'est
-     * ouvert. Réutilise le patron `modal-overlay`/`modal-dialog` déjà en
-     * place pour le formulaire de contribution (LL-EF-001).
+     * LL-EF-017 : aperçu léger (bottom sheet / carte flottante), ouvert par un
+     * clic sur un marqueur ou une ligne de liste — distinct de `detailActivity`
+     * (fiche complète), ouverte à la demande depuis cet aperçu.
      */
-    const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-    /**
-     * LL-11015 : fiche détaillée (LL-11013) chargée à l'ouverture du
-     * détail d'une activité — `null` tant qu'elle n'est pas encore
-     * arrivée, ou si le chargement a échoué (voir `activityDetailError`
-     * ci-dessous, « absence de données correctement gérée » : le résumé
-     * déjà disponible dans `selectedActivity` reste affiché dans ce cas,
-     * seules les sections enrichies restent masquées).
-     */
+    const [previewActivity, setPreviewActivity] = useState<Activity | null>(null);
+    const [detailActivity, setDetailActivity] = useState<Activity | null>(null);
     const [activityDetail, setActivityDetail] = useState<ActivityDetail | null>(null);
     const [isLoadingActivityDetail, setIsLoadingActivityDetail] = useState(false);
     const [activityDetailError, setActivityDetailError] = useState<string | null>(null);
-    /**
-     * LL-EF-010 : état de la requête d'annulation en cours (désactive le
-     * bouton "Annuler" pendant l'appel, évite un double-clic), et message
-     * d'erreur éventuel affiché dans le détail d'activité. Séparé de
-     * `submitError`/`submitStatus` (formulaire de contribution) : action
-     * différente, contexte différent (modal de détail plutôt que modal de
-     * contribution).
-     */
     const [isCancellingActivity, setIsCancellingActivity] = useState(false);
     const [cancelActivityError, setCancelActivityError] = useState<string | null>(null);
-    /**
-     * LS-002 : évite un double-clic sur le bouton "J'aime" pendant
-     * l'appel réseau (voir handleToggleLike) — pas de message d'erreur
-     * dédié pour cette action, contrairement à cancelActivityError
-     * ci-dessus : un like qui échoue silencieusement (mise à jour
-     * optimiste annulée, voir handleToggleLike) est une action mineure et
-     * réversible d'un simple nouveau clic, pas la peine d'un message
-     * bloquant comme pour une annulation d'activité.
-     */
     const [isTogglingLike, setIsTogglingLike] = useState(false);
-    /**
-     * LL-EF-003 : mémorise les dépendances de la recherche précédente pour
-     * distinguer, au sein du même effet, un déplacement/zoom pur de la
-     * carte (seul `mapBounds` a changé) d'un changement « actif »
-     * (filtre catégorie/date, position utilisateur obtenue, nouvelle
-     * activité proposée) — voir l'effet de récupération des activités
-     * plus bas pour l'utilisation.
-     */
+
     const previousSearchDepsRef = useRef<{
         selectedCategory: string;
         selectedDate: string;
@@ -577,15 +92,9 @@ function App() {
     useEffect(() => {
         const abortController = new AbortController();
 
-        // LL-EF-003 : un déplacement/zoom pur de la carte (seuls les bounds
-        // changent, tout le reste de la recherche est identique à l'appel
-        // précédent) ne doit pas provoquer de coupure visuelle — l'ancienne
-        // carte de LL-4012 supprimait systématiquement les marqueurs avant
-        // même d'avoir reçu la réponse, ce qui faisait disparaître puis
-        // réapparaître les marqueurs à chaque geste. On ne fait cela que
-        // pour un changement « actif » (filtre, position, nouvelle
-        // activité proposée) : dans ce cas l'utilisateur vient d'agir
-        // explicitement, un état de chargement clair reste approprié.
+        // LL-EF-003 : un déplacement/zoom pur de la carte ne doit pas provoquer
+        // de coupure visuelle — seul un changement "actif" (filtre, position,
+        // nouvelle activité proposée) déclenche l'état de chargement/la purge.
         const previousDeps = previousSearchDepsRef.current;
         const isMapOnlyReload = previousDeps !== null
             && previousDeps.selectedCategory === selectedCategory
@@ -598,11 +107,6 @@ function App() {
         if (!isMapOnlyReload) {
             setIsLoadingActivities(true);
             setSearchError(null);
-            // Suppression immédiate des anciens marqueurs (critère d'acceptation
-            // de LL-4012), conservée pour un changement actif (filtre, position,
-            // nouvelle activité) — seul le cas d'un déplacement/zoom pur de la
-            // carte (voir `isMapOnlyReload` ci-dessus) évite désormais cette
-            // coupure visuelle.
             setActivities([]);
         }
 
@@ -611,18 +115,14 @@ function App() {
             let endpoint: string;
 
             if (mapBounds) {
-                // LL-4012 : une fois que l'utilisateur a déplacé/zoomé la carte, la zone
-                // réellement visible devient la source de vérité pour la recherche —
-                // remplace le rayon fixe de LL-4008/LL-4011 — conformément au contrat
-                // LL-4006 (docs/02_Architecture/BOUNDING_BOX_SEARCH_CONTRACT.md).
+                // LL-4012 : la zone visible devient la source de vérité (contrat LL-4006).
                 endpoint = "/api/v1/activities/within-bounds";
                 params.set("swLatitude", String(mapBounds.swLatitude));
                 params.set("swLongitude", String(mapBounds.swLongitude));
                 params.set("neLatitude", String(mapBounds.neLatitude));
                 params.set("neLongitude", String(mapBounds.neLongitude));
             } else {
-                // Avant toute interaction avec la carte : comportement LL-4008/LL-4011
-                // inchangé (rayon fixe autour de la position utilisateur ou de Marseille).
+                // Avant toute interaction avec la carte : rayon fixe (LL-4008/LL-4011).
                 endpoint = "/api/v1/activities/nearby";
                 const latitude = userPosition?.latitude ?? MARSEILLE_LATITUDE;
                 const longitude = userPosition?.longitude ?? MARSEILLE_LONGITUDE;
@@ -648,30 +148,13 @@ function App() {
 
                 if (response.ok) {
                     const data: Activity[] = await response.json();
-                    // Que ce soit un rechargement silencieux (carte) ou actif (filtre) :
-                    // un seul remplacement de la liste, une fois les données prêtes —
-                    // c'est ce remplacement (pas une suppression préalable) qui met à
-                    // jour les marqueurs affichés.
                     setActivities(data);
-                    // La liste des catégories disponibles n'est reconstruite que quand
-                    // aucun filtre catégorie/date n'est actif : sinon elle se réduirait au
-                    // fil des sélections (une fois qu'un filtre est actif, la réponse ne
-                    // contient plus que ce qui correspond) et l'utilisateur ne pourrait
-                    // plus revenir en arrière.
-                    // Depuis LL-9001, l'absence de filtre date explicite ne veut plus dire
-                    // "réponse non filtrée" côté backend (qui applique désormais la date du
-                    // jour par défaut, voir ActivityService#findNearby) : cette liste ne
-                    // reflète donc que les catégories des activités en cours aujourd'hui,
-                    // pas l'historique complet. Effet de bord jugé cohérent avec l'objectif
-                    // du ticket (ne pas proposer un filtre qui ne renverrait rien) — à
-                    // confirmer avec Alex si un comportement différent est souhaité.
+                    // Reconstruite uniquement sans filtre catégorie/date actif (voir la
+                    // javadoc d'origine, App.tsx avant LL-EF-017, pour le raisonnement complet).
                     if (selectedCategory === ALL_CATEGORIES && selectedDate === NO_DATE_FILTER) {
                         setAvailableCategories(buildCategoryOptions(data));
                     }
                 } else {
-                    // LL-4013 : état « erreur » distinct de l'état « aucun résultat » —
-                    // un échec de la requête (ex. 400/500) ne doit pas être présenté comme
-                    // une recherche qui a simplement abouti à zéro activité.
                     const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
                     setSearchError(body?.message ?? "Impossible de charger les activités, réessaie.");
                     setActivities([]);
@@ -682,9 +165,6 @@ function App() {
                     setActivities([]);
                 }
             } finally {
-                // Ne pas repasser `isLoadingActivities` à false pour une requête déjà
-                // annulée : la requête suivante (déclenchée par le même changement de
-                // dépendance) l'a déjà remis à true, on ne veut pas l'écraser.
                 if (!abortController.signal.aborted) {
                     setIsLoadingActivities(false);
                 }
@@ -696,14 +176,7 @@ function App() {
         return () => abortController.abort();
     }, [selectedCategory, selectedDate, selectedDateTo, refreshKey, userPosition, mapBounds]);
 
-    /**
-     * Récupération des food trucks (LL-6009), isolée de celle des
-     * activités ci-dessus — pas de filtres, pas de zone géographique
-     * (critères d'acceptation du ticket : consultation simple), un seul
-     * appel au montage. Voir la javadoc de `FOOD_TRUCK_MARKER_ICON` pour
-     * le patron à suivre si un type de point supplémentaire est ajouté
-     * plus tard.
-     */
+    // Récupération des food trucks (LL-6009), isolée de celle des activités — inchangée.
     useEffect(() => {
         const abortController = new AbortController();
 
@@ -714,12 +187,8 @@ function App() {
                     const data: FoodTruck[] = await response.json();
                     setFoodTrucks(data);
                 }
-                // Pas de gestion d'erreur dédiée (contrairement à `searchError` pour les
-                // activités) : les food trucks restent un contenu secondaire de la carte,
-                // un échec ne doit pas bloquer l'affichage des activités.
             } catch {
-                // Requête annulée (démontage) ou serveur injoignable : la carte reste
-                // utilisable sans food trucks, même choix que ci-dessus.
+                // Requête annulée ou serveur injoignable : la carte reste utilisable sans food trucks.
             }
         }
 
@@ -728,16 +197,47 @@ function App() {
         return () => abortController.abort();
     }, []);
 
+    /**
+     * LL-EF-017 : recherche texte libre appliquée côté client sur les
+     * activités déjà chargées (voir la javadoc de `matchesSearchQuery`) —
+     * n'affecte ni les paramètres de requête backend ni la liste des
+     * catégories disponibles.
+     */
+    const filteredActivities = useMemo(
+        () => activities.filter((activity) => matchesSearchQuery(activity, searchQuery)),
+        [activities, searchQuery],
+    );
+
+    function requestGeolocation() {
+        if (!("geolocation" in navigator)) {
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setUserPosition({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                });
+            },
+            () => {
+                // Permission refusée, position indisponible ou timeout : repli silencieux
+                // sur MARSEILLE_LATITUDE/MARSEILLE_LONGITUDE (comportement LL-4008).
+            },
+        );
+    }
+
+    // LL-EF-002 : géolocalisation demandée automatiquement au chargement, sans action utilisateur.
+    // ⚠️ Aucune position utilisateur n'est envoyée au backend ni stockée ailleurs qu'en état React local.
+    useEffect(() => {
+        requestGeolocation();
+    }, []);
+
     function handleLogout() {
         clearToken();
         setCurrentUser(null);
     }
 
-    /**
-     * LL-EF-001 : point d'entrée unique du bouton « Proposer une activité »,
-     * toujours visible (décision Alex) — un visiteur non connecté est
-     * redirigé vers /login plutôt que de voir le formulaire.
-     */
+    // LL-EF-001 : un visiteur non connecté est redirigé vers /login plutôt que de voir le formulaire.
     function handleOpenContributionForm() {
         if (!currentUser) {
             navigate("/login");
@@ -748,69 +248,46 @@ function App() {
 
     function handleCloseContributionForm() {
         setIsContributionModalOpen(false);
-        // Un message d'un envoi précédent ne doit pas réapparaître à la
-        // prochaine ouverture de la fenêtre.
         setSubmitStatus("idle");
         setSubmitError(null);
     }
 
-    // Fermeture au clavier (Échap), en plus du bouton de fermeture et du
-    // clic sur l'arrière-plan (voir le rendu de la modale plus bas) —
-    // critère d'acceptation « la fermeture de la fenêtre fonctionne
-    // correctement ».
+    // Fermeture au clavier (Échap) : referme l'élément le plus "au-dessus" ouvert
+    // (fiche complète, puis aperçu, puis formulaire, puis menu mobile).
     useEffect(() => {
-        if (!isContributionModalOpen) {
-            return;
-        }
-
         function handleKeyDown(event: KeyboardEvent) {
-            if (event.key === "Escape") {
+            if (event.key !== "Escape") {
+                return;
+            }
+            if (detailActivity) {
+                setDetailActivity(null);
+            } else if (previewActivity) {
+                setPreviewActivity(null);
+            } else if (isContributionModalOpen) {
                 handleCloseContributionForm();
+            } else if (isMenuOpen) {
+                setIsMenuOpen(false);
             }
         }
 
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [isContributionModalOpen]);
-
-    // LL-EF-008 : même comportement de fermeture au clavier (Échap) que la
-    // modale de contribution ci-dessus, pour la modale de détail d'activité.
-    useEffect(() => {
-        if (!selectedActivity) {
-            return;
-        }
-
-        // Efface l'erreur d'annulation éventuelle d'une activité précédemment
-        // consultée (LL-EF-010) : sans ça, ouvrir le détail d'une autre activité
-        // après un échec d'annulation afficherait à tort le message d'erreur.
-        setCancelActivityError(null);
-
-        function handleKeyDown(event: KeyboardEvent) {
-            if (event.key === "Escape") {
-                setSelectedActivity(null);
-            }
-        }
-
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [selectedActivity]);
+    }, [detailActivity, previewActivity, isContributionModalOpen, isMenuOpen]);
 
     /**
-     * LL-11015 : charge la fiche détaillée (LL-11013) à l'ouverture du
-     * détail d'une activité — `GET /api/v1/activities/{id}`, un endpoint
-     * public (pas d'authentification requise, voir `SecurityConfig` côté
-     * backend), donc `fetch` directement plutôt que `apiFetch` (même
-     * convention que le chargement de la carte, voir sa javadoc plus haut
-     * dans ce fichier). `AbortController` : évite d'appliquer la réponse
-     * d'une requête devenue obsolète si l'utilisateur enchaîne l'ouverture
-     * de plusieurs activités rapidement.
+     * LL-11015 : charge la fiche détaillée (LL-11013) à l'ouverture de la
+     * fiche complète — `GET /api/v1/activities/{id}`, endpoint public,
+     * `fetch` directement (même convention que le chargement de la carte).
      */
     useEffect(() => {
-        if (!selectedActivity) {
+        if (!detailActivity) {
             setActivityDetail(null);
             setActivityDetailError(null);
             return;
         }
+
+        // Efface l'erreur d'annulation d'une activité précédemment consultée.
+        setCancelActivityError(null);
 
         const abortController = new AbortController();
         setActivityDetail(null);
@@ -819,15 +296,14 @@ function App() {
 
         (async () => {
             try {
-                const response = await fetch(`/api/v1/activities/${selectedActivity.id}`, {
+                const response = await fetch(`/api/v1/activities/${detailActivity.id}`, {
                     signal: abortController.signal,
                 });
                 if (!response.ok) {
                     throw new Error("Le détail de cette activité n'a pas pu être chargé.");
                 }
                 const body: unknown = await response.json();
-                // LL-11014 : la réponse peut aussi être un résumé (accès Premium non accordé) —
-                // seule la présence de `schedules` distingue une fiche détaillée exploitable ici.
+                // LL-11014 : la réponse peut aussi être un résumé (accès Premium non accordé).
                 if (body && typeof body === "object" && "schedules" in body) {
                     setActivityDetail(body as ActivityDetail);
                 }
@@ -843,47 +319,7 @@ function App() {
         })();
 
         return () => abortController.abort();
-    }, [selectedActivity]);
-
-    /**
-     * LL-EF-002 : la géolocalisation est désormais demandée automatiquement
-     * au chargement de la page (plus de bandeau « Utiliser la
-     * localisation » ni de clic explicite requis, voir critère
-     * d'acceptation « ne pas demander une action utilisateur inutile »).
-     * Ne s'exécute qu'une fois au montage (tableau de dépendances vide).
-     *
-     * Si la géolocalisation n'est pas disponible, si l'utilisateur refuse
-     * la permission, ou en cas d'erreur/timeout, `userPosition` reste
-     * `null` et la recherche continue de se rappuyer silencieusement sur
-     * `MARSEILLE_LATITUDE`/`MARSEILLE_LONGITUDE` (comportement de repli
-     * déjà en place depuis LL-4008) — plus aucun message n'est affiché à
-     * l'utilisateur dans ces cas, conformément à la suppression du
-     * bandeau.
-     *
-     * ⚠️ Aucune position utilisateur n'est envoyée au backend ni stockée
-     * ailleurs qu'en état React local (`userPosition`) — perdue à chaque
-     * rechargement de page, conformément au critère d'acceptation
-     * « aucune position utilisateur persistée en base » de LL-4010.
-     */
-    useEffect(() => {
-        if (!("geolocation" in navigator)) {
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                setUserPosition({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                });
-            },
-            () => {
-                // Permission refusée, position indisponible ou timeout : pas de
-                // message affiché (plus de bandeau), repli silencieux sur
-                // MARSEILLE_LATITUDE/MARSEILLE_LONGITUDE.
-            },
-        );
-    }, []);
+    }, [detailActivity]);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -894,10 +330,6 @@ function App() {
             const response = await apiFetch("/api/v1/activities", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                // startDate/endDate : chaîne vide -> `undefined`, absent du JSON envoyé,
-                // pour laisser le backend appliquer ses propres valeurs par défaut
-                // (voir la javadoc de `startDate`/`endDate` ci-dessus) plutôt que d'en
-                // envoyer une calculée ici.
                 body: JSON.stringify({
                     title,
                     description,
@@ -918,11 +350,6 @@ function App() {
                 return;
             }
 
-            // Ne pas se contenter d'ajouter `created` localement (comme avant LL-4008) :
-            // la liste affichée est désormais filtrée par zone/catégorie via /nearby, et
-            // l'activité créée pourrait ne pas correspondre au filtre actif (catégorie
-            // différente, hors du rayon de recherche) — un simple refetch reste la
-            // source de vérité la plus simple et la plus sûre ici.
             setRefreshKey((current) => current + 1);
             setSubmitStatus("success");
             setTitle("");
@@ -941,16 +368,6 @@ function App() {
         }
     }
 
-    /**
-     * Annule une activité créée manuellement (LL-EF-010), après
-     * confirmation de l'utilisateur — même pattern que
-     * `AdminPage#handleDeleteSource`. Le bouton n'est affiché (voir le
-     * détail d'activité plus bas) que si `currentUser` est soit le
-     * créateur, soit administrateur : cette fonction ne revérifie pas ces
-     * conditions, la seule vérification qui compte reste celle du backend
-     * (`ActivityService#cancel`) — l'affichage conditionnel du bouton
-     * n'est qu'une commodité d'UI, pas une mesure de sécurité.
-     */
     async function handleCancelActivity(activity: Activity) {
         const confirmed = window.confirm(
             `Annuler « ${activity.title} » ? Cette activité ne sera plus visible sur la carte.`,
@@ -971,10 +388,8 @@ function App() {
                 return;
             }
 
-            // Même repli qu'après création (voir handleSubmit ci-dessus) : un refetch simple
-            // plutôt qu'un retrait local, pour rester cohérent avec l'état réel du serveur.
             setRefreshKey((current) => current + 1);
-            setSelectedActivity(null);
+            setDetailActivity(null);
         } catch {
             setCancelActivityError("Impossible de contacter le serveur, réessaie plus tard.");
         } finally {
@@ -982,16 +397,6 @@ function App() {
         }
     }
 
-    /**
-     * Like/délike une activité (LS-002). Mise à jour optimiste : l'état
-     * local (`activities` et `selectedActivity`, s'il s'agit de la même
-     * activité) est modifié avant même la réponse du serveur, pour un
-     * bouton "J'aime" réactif — contrairement à `handleCancelActivity`
-     * ci-dessus, dont l'effet (confirmation, disparition de la carte)
-     * justifie d'attendre la réponse. En cas d'échec, l'état local est
-     * annulé silencieusement (voir le commentaire sur `isTogglingLike`) :
-     * un simple nouveau clic permet de réessayer.
-     */
     async function handleToggleLike(activity: Activity) {
         const newLikedState = !activity.likedByCurrentUser;
         setIsTogglingLike(true);
@@ -1014,876 +419,201 @@ function App() {
     function applyLikedState(activityId: number, liked: boolean) {
         setActivities((current) =>
             current.map((item) => (item.id === activityId ? { ...item, likedByCurrentUser: liked } : item)));
-        setSelectedActivity((current) =>
+        setDetailActivity((current) =>
+            current && current.id === activityId ? { ...current, likedByCurrentUser: liked } : current);
+        setPreviewActivity((current) =>
             current && current.id === activityId ? { ...current, likedByCurrentUser: liked } : current);
     }
 
-    /**
-     * LL-11015 : libellés affichés pour les cinq catégories d'accessibilité
-     * (LL-11009) — un seul objet par activité (`AccessibilitySummary`),
-     * pas par lieu individuel : simplification assumée, l'accessibilité
-     * étant une caractéristique de l'activité elle-même dans ce projet
-     * (voir `Accessibility` côté backend, une ligne par activité, pas par
-     * `Location`).
-     */
-    const ACCESSIBILITY_LABELS: Record<keyof AccessibilitySummary, string> = {
-        motorImpairment: "Accessible aux personnes à mobilité réduite",
-        hearingImpairment: "Accessible aux personnes malentendantes",
-        visualImpairment: "Accessible aux personnes malvoyantes",
-        psychicImpairment: "Accessible aux personnes avec un handicap psychique",
-        intellectualImpairment: "Accessible aux personnes avec un handicap intellectuel",
-    };
-
-    /**
-     * LL-11015, critère d'acceptation « absence de données correctement
-     * gérée » : chaque section (galerie, description longue, horaires,
-     * lieux, liens, accessibilité, tags, informations complémentaires) ne
-     * s'affiche que si elle a effectivement un contenu — jamais un titre
-     * de section suivi de rien, jamais une valeur inventée ou déduite.
-     */
-    function renderActivityDetailSections(detail: ActivityDetail) {
-        const locationsById = new Map(detail.locations.map((location) => [location.id, location]));
-
-        return (
-            <>
-                {detail.media.length > 0 && (
-                    <div className="activity-detail-gallery">
-                        {detail.media.map((mediaItem) => (
-                            <img
-                                alt={mediaItem.altText ?? ""}
-                                key={mediaItem.id}
-                                loading="lazy"
-                                src={mediaItem.url}
-                            />
-                        ))}
-                    </div>
-                )}
-                {detail.longDescription && (
-                    <p className="activity-detail-row activity-detail-long-description">
-                        {detail.longDescription}
-                    </p>
-                )}
-                {detail.schedules.length > 0 && (
-                    <div className="activity-detail-row">
-                        <strong>Horaires :</strong>
-                        <ul className="activity-detail-schedules">
-                            {detail.schedules.map((schedule) => {
-                                const location = schedule.locationId !== null
-                                    ? locationsById.get(schedule.locationId)
-                                    : undefined;
-                                const recurrenceLabel = formatRecurrenceRule(schedule.recurrenceRule);
-                                const timeRangeLabel = formatTimeRange(schedule.startTime, schedule.endTime);
-                                const locationLabel = location?.city ?? location?.name ?? null;
-                                // LL-11016, « Cas 4 — Exception » : occurrences de ce schedule qui
-                                // dévient du planning normal (annulée, ou déplacée vers un autre lieu)
-                                // — les occurrences qui se déroulent normalement ne sont pas listées
-                                // individuellement (potentiellement très nombreuses pour une série
-                                // hebdomadaire), seules leurs exceptions le sont.
-                                const exceptions = detail.occurrences.filter((occurrence) =>
-                                    occurrence.scheduleId === schedule.id
-                                    && (occurrence.status === "CANCELLED"
-                                        || (occurrence.locationId !== null
-                                            && occurrence.locationId !== schedule.locationId)));
-                                return (
-                                    <li key={schedule.id}>
-                                        {[recurrenceLabel, timeRangeLabel, locationLabel]
-                                            .filter((part): part is string => Boolean(part))
-                                            .join(" · ")}
-                                        {exceptions.length > 0 && (
-                                            <ul className="activity-detail-exceptions">
-                                                {exceptions.map((occurrence) => (
-                                                    <li key={occurrence.id}>
-                                                        {formatDateOfDay(occurrence.startAt)} →{" "}
-                                                        {occurrence.status === "CANCELLED"
-                                                            ? "annulé"
-                                                            : locationsById.get(occurrence.locationId ?? -1)?.city
-                                                                ?? "lieu modifié"}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    </div>
-                )}
-                {detail.locations.length > 0 && (
-                    <div className="activity-detail-row">
-                        <strong>{detail.locations.length > 1 ? "Lieux :" : "Lieu :"}</strong>
-                        <ul>
-                            {detail.locations.map((location) => (
-                                <li key={location.id}>
-                                    {[location.name, location.address, location.city, location.postalCode]
-                                        .filter((part): part is string => Boolean(part))
-                                        .join(", ")}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-                {detail.links.length > 0 && (
-                    <div className="activity-detail-row">
-                        <strong>Liens et contacts :</strong>
-                        <ul>
-                            {detail.links.map((link, index) => (
-                                // Pas d'id sur ActivityLink exposé ici (voir LinkSummary côté backend) :
-                                // index acceptable, cette liste n'est jamais réordonnée/filtrée dynamiquement.
-                                <li key={`${link.type}-${index}`}>
-                                    {link.type === "EMAIL" ? (
-                                        <a href={`mailto:${link.value}`}>{link.label ?? link.value}</a>
-                                    ) : link.type === "PHONE" ? (
-                                        <a href={`tel:${link.value}`}>{link.label ?? link.value}</a>
-                                    ) : (
-                                        <a href={link.value} rel="noreferrer" target="_blank">
-                                            {link.label ?? link.value}
-                                        </a>
-                                    )}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-                {detail.accessibility && (
-                    <div className="activity-detail-row">
-                        <strong>Accessibilité :</strong>
-                        <ul>
-                            {(Object.keys(ACCESSIBILITY_LABELS) as (keyof AccessibilitySummary)[])
-                                .filter((key) => detail.accessibility?.[key] === true)
-                                .map((key) => (
-                                    <li key={key}>{ACCESSIBILITY_LABELS[key]}</li>
-                                ))}
-                        </ul>
-                    </div>
-                )}
-                {detail.tags.length > 0 && (
-                    <div className="activity-detail-row activity-detail-tags">
-                        {detail.tags.map((tag) => (
-                            <span className="activity-detail-tag" key={tag}>
-                                {tag}
-                            </span>
-                        ))}
-                    </div>
-                )}
-                {detail.additionalInfo && (
-                    <p className="activity-detail-row">
-                        <strong>Informations complémentaires :</strong> {detail.additionalInfo}
-                    </p>
-                )}
-            </>
-        );
+    /** LL-EF-017, section 8 : sélection depuis un marqueur ou une ligne de liste → aperçu. */
+    function handleSelectActivity(activity: Activity) {
+        setPreviewActivity(activity);
     }
 
-    /**
-     * Une ligne de la vue liste (LL-EF-008/LL-10007). La ville n'est pas
-     * répétée sur chaque ligne : elle est déjà portée par l'en-tête de
-     * groupe (`activity-list-city`, voir `groupActivitiesByCity`), la
-     * liste étant toujours affichée regroupée par ville.
-     */
-    function renderActivityListItem(activity: Activity) {
-        return (
-            <li key={activity.id}>
-                {/*
-                  Critère d'acceptation « consulter le détail d'une activité
-                  depuis la liste » : chaque ligne est un bouton (pas un <li>
-                  cliquable directement, pour rester accessible au clavier)
-                  qui ouvre la modale de détail définie plus haut.
-                */}
-                <button
-                    className="activity-list-item"
-                    onClick={() => setSelectedActivity(activity)}
-                    type="button"
-                >
-                    {/* LL-11015, critère d'acceptation « images visibles ». */}
-                    {activity.mainImageUrl && (
-                        <img
-                            alt=""
-                            className="activity-list-item-thumbnail"
-                            loading="lazy"
-                            src={activity.mainImageUrl}
-                        />
-                    )}
-                    <span className="activity-list-item-title">{activity.title}</span>
-                    {/*
-                      LL-10007 : critère d'acceptation explicite « l'adresse est
-                      visible » dans la liste (jusqu'ici affichée uniquement dans
-                      la modale de détail, LL-EF-008). `activity.address` seul ici
-                      (jamais de repli sur `city`, contrairement à
-                      `formatActivityLocation` utilisée pour la carte/modale — la
-                      ville est déjà visible séparément, ci-dessus ou via l'en-tête
-                      de groupe).
-                    */}
-                    <span className="activity-list-item-address">
-                        {activity.address ?? UNKNOWN_ADDRESS_LABEL}
-                    </span>
-                    <span className="activity-list-item-meta">
-                        {new Date(activity.startDate).toLocaleDateString("fr-FR")}
-                        {/* Heure affichée seulement si elle est significative (voir
-                            critère d'acceptation « éventuellement l'heure ») : une
-                            activité créée sans heure précise (formulaire de
-                            contribution) reçoit minuit comme heure de soumission,
-                            qu'il serait trompeur d'afficher comme horaire réel. */}
-                        {new Date(activity.startDate).getHours() !== 0
-                            || new Date(activity.startDate).getMinutes() !== 0
-                            ? ` · ${new Date(activity.startDate).toLocaleTimeString("fr-FR", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            })}`
-                            : ""}
-                        {activity.category ? ` · ${activity.category}` : ""}
-                    </span>
-                </button>
-            </li>
-        );
+    /** LL-EF-017, section 9 : "Voir l'activité" → fiche complète, l'aperçu se referme. */
+    function handleOpenDetail(activity: Activity) {
+        setPreviewActivity(null);
+        setDetailActivity(activity);
+    }
+
+    function handlePeriodChange(period: string) {
+        if (period === "") {
+            setSelectedDate(NO_DATE_FILTER);
+            setSelectedDateTo(NO_DATE_FILTER);
+            return;
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        switch (period) {
+            case "this-weekend": {
+                const daysToSaturday = 6 - today.getDay();
+                const saturday = new Date(today);
+                saturday.setDate(today.getDate() + daysToSaturday);
+                const sunday = new Date(saturday);
+                sunday.setDate(saturday.getDate() + 1);
+                setSelectedDate(toLocalDateString(saturday));
+                setSelectedDateTo(toLocalDateString(sunday));
+                break;
+            }
+            case "this-week": {
+                const daysToMonday = today.getDay() === 0 ? -6 : 1 - today.getDay();
+                const monday = new Date(today);
+                monday.setDate(today.getDate() + daysToMonday);
+                const sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+                setSelectedDate(toLocalDateString(monday));
+                setSelectedDateTo(toLocalDateString(sunday));
+                break;
+            }
+            case "this-month": {
+                const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                setSelectedDate(toLocalDateString(firstOfMonth));
+                setSelectedDateTo(toLocalDateString(lastOfMonth));
+                break;
+            }
+            case "next-month": {
+                const firstOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                const lastOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+                setSelectedDate(toLocalDateString(firstOfNextMonth));
+                setSelectedDateTo(toLocalDateString(lastOfNextMonth));
+                break;
+            }
+            default:
+                setSelectedDate(toLocalDateString(today));
+                setSelectedDateTo(NO_DATE_FILTER);
+        }
     }
 
     return (
-        <main className="application-shell">
-            <header className="application-header">
-                <h1>LocalLife</h1>
-                <div className="header-actions">
-                    {/*
-                      LL-EF-001 : bouton toujours visible, y compris pour un visiteur non
-                      connecté (décision Alex) — voir `handleOpenContributionForm` pour la
-                      redirection vers /login dans ce cas.
-                    */}
-                    <button
-                        className="header-add-activity-button"
-                        onClick={handleOpenContributionForm}
-                        type="button"
-                    >
-                        Proposer une activité
-                    </button>
-                    {currentUser ? (
-                        <div className="header-user">
-                            <span>Bonjour, {currentUser.email}</span>
-                            {/*
-                              LL-EF-006 : accès au profil, pour tout utilisateur connecté
-                              (contrairement au lien Administration ci-dessous, réservé au
-                              rôle ADMIN) — critère d'acceptation « un utilisateur connecté
-                              peut accéder à son interface utilisateur ».
-                            */}
-                            <Link className="header-profile-link" to="/profile">
-                                Mon profil
-                            </Link>
-                            {/*
-                              LS-002 : accès à la liste des favoris, pour tout utilisateur
-                              connecté — même posture que le lien "Mon profil" ci-dessus.
-                            */}
-                            <Link className="header-favorites-link" to="/favorites">
-                                Mes favoris
-                            </Link>
-                            {/*
-                              LL-EF-004 : lien affiché uniquement pour un utilisateur avec le
-                              rôle ADMIN — confort de navigation, pas une protection : l'accès
-                              réel est vérifié à l'ouverture de /admin (AdminPage) et, de toute
-                              façon, déjà appliqué côté backend sur chaque appel
-                              (SecurityConfig, rôle ADMIN requis).
-                            */}
-                            {currentUser.role === "ADMIN" && (
-                                <Link className="header-admin-link" to="/admin">
-                                    Administration
-                                </Link>
-                            )}
-                            <button className="header-logout-button" onClick={handleLogout} type="button">
-                                Déconnexion
-                            </button>
-                        </div>
-                    ) : (
-                        <Link className="header-login-link" to="/login">
-                            Se connecter
-                        </Link>
-                    )}
-                </div>
-            </header>
-            <div className="activity-filters">
-                <label htmlFor="category-filter">Filtrer par catégorie</label>
-                <select
-                    id="category-filter"
-                    onChange={(event) => setSelectedCategory(event.target.value)}
-                    value={selectedCategory}
-                >
-                    <option value={ALL_CATEGORIES}>Toutes les catégories</option>
-                    {availableCategories.map((availableCategory) => (
-                        <option key={availableCategory} value={availableCategory}>
-                            {availableCategory}
-                        </option>
-                    ))}
-                </select>
-                <label htmlFor="start-date-filter">À partir de</label>
-                <input
-                    id="start-date-filter"
-                    onChange={(event) => {
-                        // Filtre par date unique (comportement LL-4005 inchangé, pas de borne de
-                        // fin) : toute sélection manuelle efface une éventuelle période active.
-                        setSelectedDate(event.target.value);
-                        setSelectedDateTo(NO_DATE_FILTER);
-                    }}
-                    type="date"
-                    value={selectedDate}
-                />
-                <label htmlFor="period-filter">Période</label>
-                <select
-                    id="period-filter"
-                    onChange={(event) => {
-                        const period = event.target.value;
-                        if (period === "") {
-                            setSelectedDate(NO_DATE_FILTER);
-                            setSelectedDateTo(NO_DATE_FILTER);
-                        } else {
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
+        <div className="explorer-shell">
+            <ExplorerMenu
+                currentUser={currentUser}
+                isOpen={isMenuOpen}
+                onClose={() => setIsMenuOpen(false)}
+                onLogout={handleLogout}
+                onOpenContributionForm={handleOpenContributionForm}
+            />
 
-                            switch (period) {
-                                case "this-weekend": {
-                                    // Ce weekend = samedi et dimanche de la semaine en cours (LL-11003 :
-                                    // la période complète, pas seulement son premier jour).
-                                    const daysToSaturday = 6 - today.getDay();
-                                    const saturday = new Date(today);
-                                    saturday.setDate(today.getDate() + daysToSaturday);
-                                    const sunday = new Date(saturday);
-                                    sunday.setDate(saturday.getDate() + 1);
-                                    setSelectedDate(toLocalDateString(saturday));
-                                    setSelectedDateTo(toLocalDateString(sunday));
-                                    break;
-                                }
-                                case "this-week": {
-                                    // Cette semaine = lundi à dimanche de la semaine en cours.
-                                    const daysToMonday = today.getDay() === 0 ? -6 : 1 - today.getDay();
-                                    const monday = new Date(today);
-                                    monday.setDate(today.getDate() + daysToMonday);
-                                    const sunday = new Date(monday);
-                                    sunday.setDate(monday.getDate() + 6);
-                                    setSelectedDate(toLocalDateString(monday));
-                                    setSelectedDateTo(toLocalDateString(sunday));
-                                    break;
-                                }
-                                case "this-month": {
-                                    // Ce mois-ci = 1er au dernier jour du mois en cours. Le jour 0 du
-                                    // mois suivant est le dernier jour du mois en cours (arithmétique
-                                    // standard de l'objet Date).
-                                    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                                    const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-                                    setSelectedDate(toLocalDateString(firstOfMonth));
-                                    setSelectedDateTo(toLocalDateString(lastOfMonth));
-                                    break;
-                                }
-                                case "next-month": {
-                                    const firstOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-                                    const lastOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
-                                    setSelectedDate(toLocalDateString(firstOfNextMonth));
-                                    setSelectedDateTo(toLocalDateString(lastOfNextMonth));
-                                    break;
-                                }
-                                default:
-                                    setSelectedDate(toLocalDateString(today));
-                                    setSelectedDateTo(NO_DATE_FILTER);
-                            }
-                        }
-                    }}
-                    value=""
-                >
-                    <option value="">Toutes les périodes</option>
-                    <option value="this-weekend">Ce weekend</option>
-                    <option value="this-week">Cette semaine</option>
-                    <option value="this-month">Ce mois-ci</option>
-                    <option value="next-month">Prochain mois</option>
-                </select>
-                {selectedDate !== NO_DATE_FILTER && (
-                    <button
-                        aria-label="Effacer le filtre de période"
-                        onClick={() => {
+            <div className="explorer-main">
+                <div className="explorer-controls">
+                    <div className="explorer-topbar">
+                        <button
+                            aria-label="Ouvrir le menu"
+                            className="explorer-menu-toggle"
+                            onClick={() => setIsMenuOpen(true)}
+                            type="button"
+                        >
+                            ☰
+                        </button>
+                        <ExplorerSearch onChange={setSearchQuery} value={searchQuery} />
+                    </div>
+
+                    <ExplorerFilters
+                        categories={availableCategories}
+                        onClearDate={() => {
                             setSelectedDate(NO_DATE_FILTER);
                             setSelectedDateTo(NO_DATE_FILTER);
                         }}
-                        type="button"
-                    >
-                        ×
-                    </button>
-                )}
-                {/*
-                  LL-EF-008 : bascule Carte ↔ Liste, dans le même bandeau que
-                  « Filtrer par catégorie » (critère d'acceptation explicite du
-                  ticket) — `margin-left: auto` (voir styles.css) la pousse en
-                  haut à droite du bandeau, comme demandé. `aria-pressed`
-                  identifie clairement la vue active (critère d'acceptation
-                  « l'état actif de la vue doit être clairement identifiable »).
-                */}
-                <div className="view-mode-toggle" role="group" aria-label="Choix de l'affichage">
-                    <button
-                        aria-pressed={viewMode === "map"}
-                        className={viewMode === "map" ? "view-mode-button view-mode-button-active" : "view-mode-button"}
-                        onClick={() => setViewMode("map")}
-                        type="button"
-                    >
-                        Carte
-                    </button>
-                    <button
-                        aria-pressed={viewMode === "list"}
-                        className={viewMode === "list" ? "view-mode-button view-mode-button-active" : "view-mode-button"}
-                        onClick={() => setViewMode("list")}
-                        type="button"
-                    >
-                        Liste
-                    </button>
+                        onDateChange={(date) => {
+                            setSelectedDate(date);
+                            setSelectedDateTo(NO_DATE_FILTER);
+                        }}
+                        onPeriodChange={handlePeriodChange}
+                        onSelectCategory={setSelectedCategory}
+                        onUseMyLocation={requestGeolocation}
+                        onViewModeChange={setViewMode}
+                        selectedCategory={selectedCategory}
+                        selectedDate={selectedDate}
+                        selectedDateTo={selectedDateTo}
+                        viewMode={viewMode}
+                    />
+                </div>
+
+                <div className="explorer-content" data-mobile-view={viewMode}>
+                    <div className="explorer-map-wrapper">
+                        {isLoadingActivities && <p className="explorer-status explorer-status-floating">Chargement des activités…</p>}
+                        {!isLoadingActivities && searchError && (
+                            <p className="explorer-status explorer-status-error explorer-status-floating" role="alert">
+                                {searchError}
+                            </p>
+                        )}
+                        {!isLoadingActivities && !searchError && filteredActivities.length === 0 && (
+                            <p className="explorer-status explorer-status-floating">Aucune activité trouvée dans cette zone.</p>
+                        )}
+                        <ExplorerMap
+                            activities={filteredActivities}
+                            foodTrucks={foodTrucks}
+                            onBoundsChange={setMapBounds}
+                            onSelectActivity={handleSelectActivity}
+                            selectedActivity={previewActivity}
+                            userPosition={userPosition}
+                        />
+                        {previewActivity && (
+                            <ActivityPreview
+                                activity={previewActivity}
+                                onClose={() => setPreviewActivity(null)}
+                                onOpenDetail={handleOpenDetail}
+                            />
+                        )}
+                    </div>
+
+                    <div className="explorer-list-panel">
+                        <ActivityList
+                            activities={filteredActivities}
+                            error={searchError}
+                            isLoading={isLoadingActivities}
+                            onSelectActivity={handleSelectActivity}
+                        />
+                    </div>
                 </div>
             </div>
-            {/*
-              LL-EF-001 : formulaire de saisie sous forme de fenêtre modale (overlay),
-              ouverte uniquement pour un utilisateur connecté (voir
-              `handleOpenContributionForm`) — remplace le bandeau permanent précédent.
-              Fermeture possible de trois façons : bouton ✕, clic sur l'arrière-plan
-              (`handleOverlayClick` ci-dessous, arrêté par `stopPropagation` sur la boîte
-              de dialogue elle-même pour ne pas se fermer au clic à l'intérieur), et
-              touche Échap (voir le `useEffect` plus haut).
-            */}
+
             {isContributionModalOpen && currentUser && (
-                <div
-                    className="modal-overlay"
-                    onClick={handleCloseContributionForm}
-                    role="presentation"
-                >
-                    <div
-                        aria-labelledby="contribution-modal-title"
-                        aria-modal="true"
-                        className="modal-dialog"
-                        onClick={(event) => event.stopPropagation()}
-                        role="dialog"
-                    >
-                        <div className="modal-header">
-                            <h2 id="contribution-modal-title">Proposer une activité</h2>
-                            <button
-                                aria-label="Fermer"
-                                className="modal-close-button"
-                                onClick={handleCloseContributionForm}
-                                type="button"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <form className="contribution-form" onSubmit={(event) => void handleSubmit(event)}>
-                            <div className="form-field">
-                                <label htmlFor="activity-title">Titre</label>
-                                <input
-                                    id="activity-title"
-                                    onChange={(event) => setTitle(event.target.value)}
-                                    required
-                                    type="text"
-                                    value={title}
-                                />
-                            </div>
-                            <div className="form-field">
-                                <label htmlFor="activity-description">Description</label>
-                                <input
-                                    id="activity-description"
-                                    onChange={(event) => setDescription(event.target.value)}
-                                    required
-                                    type="text"
-                                    value={description}
-                                />
-                            </div>
-                            <div className="form-field">
-                                <label htmlFor="activity-category">Catégorie</label>
-                                <input
-                                    id="activity-category"
-                                    onChange={(event) => setCategory(event.target.value)}
-                                    required
-                                    type="text"
-                                    value={category}
-                                />
-                            </div>
-                            <div className="form-field">
-                                <label htmlFor="activity-address">Adresse</label>
-                                <input
-                                    id="activity-address"
-                                    onChange={(event) => setAddress(event.target.value)}
-                                    placeholder="Ex : 10 rue de la République, Marseille"
-                                    required
-                                    type="text"
-                                    value={address}
-                                />
-                            </div>
-                            {/*
-                              Demande Alex : dates optionnelles. Non « required » — un
-                              contributeur qui laisse ces champs vides obtient les
-                              valeurs par défaut du backend (maintenant / même jour que
-                              le début), voir la javadoc de `startDate`/`endDate` plus
-                              haut et `ActivityService#createActivity` côté backend.
-                            */}
-                            <div className="form-field">
-                                <label htmlFor="activity-start-date">Date de début</label>
-                                <input
-                                    id="activity-start-date"
-                                    onChange={(event) => setStartDate(event.target.value)}
-                                    type="date"
-                                    value={startDate}
-                                />
-                            </div>
-                            <div className="form-field">
-                                <label htmlFor="activity-end-date">Date de fin</label>
-                                <input
-                                    id="activity-end-date"
-                                    onChange={(event) => setEndDate(event.target.value)}
-                                    type="date"
-                                    value={endDate}
-                                />
-                            </div>
-                            {/*
-                              LL-EF-016 : url/téléphone/email optionnels — validés côté backend
-                              (ActivityLinkService), pas ici : un format encore incomplet pendant
-                              la saisie ne doit pas bloquer le formulaire avant l'envoi.
-                            */}
-                            <div className="form-field">
-                                <label htmlFor="activity-url">Site web (facultatif)</label>
-                                <input
-                                    id="activity-url"
-                                    onChange={(event) => setUrl(event.target.value)}
-                                    placeholder="https://…"
-                                    type="text"
-                                    value={url}
-                                />
-                            </div>
-                            <div className="form-field">
-                                <label htmlFor="activity-phone">Téléphone (facultatif)</label>
-                                <input
-                                    id="activity-phone"
-                                    onChange={(event) => setPhone(event.target.value)}
-                                    type="tel"
-                                    value={phone}
-                                />
-                            </div>
-                            <div className="form-field">
-                                <label htmlFor="activity-email">Email (facultatif)</label>
-                                <input
-                                    id="activity-email"
-                                    onChange={(event) => setEmail(event.target.value)}
-                                    type="email"
-                                    value={email}
-                                />
-                            </div>
-                            <div className="modal-actions">
-                                <button type="submit">Proposer l'activité</button>
-                            </div>
-                            {submitStatus === "success" && <span className="form-message form-message-success">Activité proposée !</span>}
-                            {submitStatus === "error" && <span className="form-message form-message-error">{submitError}</span>}
-                        </form>
-                    </div>
-                </div>
+                <ContributionModal
+                    address={address}
+                    category={category}
+                    description={description}
+                    email={email}
+                    endDate={endDate}
+                    onAddressChange={setAddress}
+                    onCategoryChange={setCategory}
+                    onClose={handleCloseContributionForm}
+                    onDescriptionChange={setDescription}
+                    onEmailChange={setEmail}
+                    onEndDateChange={setEndDate}
+                    onPhoneChange={setPhone}
+                    onStartDateChange={setStartDate}
+                    onSubmit={(event) => void handleSubmit(event)}
+                    onTitleChange={setTitle}
+                    onUrlChange={setUrl}
+                    phone={phone}
+                    startDate={startDate}
+                    submitError={submitError}
+                    submitStatus={submitStatus}
+                    title={title}
+                    url={url}
+                />
             )}
-            {/*
-              LL-EF-008 : modale de détail d'une activité sélectionnée depuis la
-              liste (critère d'acceptation « consulter le détail d'une activité
-              depuis la liste ») — même patron que la modale de contribution
-              ci-dessus (overlay cliquable, stopPropagation sur la boîte de
-              dialogue, fermeture Échap déjà branchée plus haut).
-            */}
-            {selectedActivity && (
-                <div
-                    className="modal-overlay"
-                    onClick={() => setSelectedActivity(null)}
-                    role="presentation"
-                >
-                    <div
-                        aria-labelledby="activity-detail-title"
-                        aria-modal="true"
-                        className="modal-dialog"
-                        onClick={(event) => event.stopPropagation()}
-                        role="dialog"
-                    >
-                        <div className="modal-header">
-                            <div className="modal-header-title">
-                                <h2 id="activity-detail-title">{selectedActivity.title}</h2>
-                                {/*
-                                  LS-002 : visible pour tout utilisateur connecté (contrairement
-                                  au bouton "Annuler" plus bas, réservé au créateur/administrateur)
-                                  — critère d'acceptation "un utilisateur non connecté ne peut pas
-                                  enregistrer de favoris", donc pas de bouton du tout pour lui.
-                                */}
-                                {currentUser && (
-                                    <button
-                                        aria-label={
-                                            selectedActivity.likedByCurrentUser
-                                                ? "Retirer des favoris"
-                                                : "Ajouter aux favoris"
-                                        }
-                                        aria-pressed={selectedActivity.likedByCurrentUser}
-                                        className="like-button"
-                                        disabled={isTogglingLike}
-                                        onClick={() => void handleToggleLike(selectedActivity)}
-                                        type="button"
-                                    >
-                                        {selectedActivity.likedByCurrentUser ? "♥" : "♡"}
-                                    </button>
-                                )}
-                            </div>
-                            <button
-                                aria-label="Fermer"
-                                className="modal-close-button"
-                                onClick={() => setSelectedActivity(null)}
-                                type="button"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <div className="activity-detail-body">
-                            <p className="activity-detail-row">
-                                <strong>Lieu :</strong> {formatActivityLocation(selectedActivity)}
-                            </p>
-                            <p className="activity-detail-row">
-                                <strong>Date :</strong>{" "}
-                                {new Date(selectedActivity.startDate).toLocaleString("fr-FR", {
-                                    dateStyle: "long",
-                                    timeStyle: "short",
-                                })}
-                            </p>
-                            {selectedActivity.category && (
-                                <p className="activity-detail-row">
-                                    <strong>Catégorie :</strong> {selectedActivity.category}
-                                </p>
-                            )}
-                            <p className="activity-detail-row">
-                                <strong>Source :</strong> {selectedActivity.sourceName}
-                            </p>
-                            {/*
-                              LL-EF-010 : uniquement pour une activité créée manuellement
-                              (createdByUsername null pour une activité importée, ou une
-                              contribution manuelle antérieure à ce ticket — voir sa
-                              déclaration sur l'interface Activity plus haut).
-                            */}
-                            {selectedActivity.createdByUsername && (
-                                <p className="activity-detail-row">
-                                    <strong>Créée par :</strong> {selectedActivity.createdByUsername}
-                                </p>
-                            )}
-                            {/*
-                              LL-11015 : sections enrichies (LL-11013), chargées à l'ouverture (voir
-                              le useEffect dédié plus haut) — état de chargement/erreur explicite
-                              plutôt qu'un simple vide silencieux (« absence de données correctement
-                              gérée ») ; en cas d'échec, le résumé déjà affiché ci-dessus reste
-                              utilisable, seules ces sections manquent.
-                            */}
-                            {isLoadingActivityDetail && (
-                                <p className="activity-detail-row activity-detail-loading">Chargement du détail…</p>
-                            )}
-                            {activityDetailError && (
-                                <p className="activity-detail-row activity-detail-error" role="alert">
-                                    {activityDetailError}
-                                </p>
-                            )}
-                            {activityDetail && renderActivityDetailSections(activityDetail)}
-                            {/*
-                              LL-EF-013 : "Ajouter à Google Agenda" — url de modèle d'événement
-                              pré-rempli (voir buildGoogleCalendarUrl), jamais d'identifiant Google
-                              stocké côté serveur. Disponible dès l'ouverture du détail (n'attend
-                              pas activityDetail : utilise les occurrences si déjà chargées, sinon
-                              se replie sur selectedActivity.startDate, voir la javadoc du fichier).
-                            */}
-                            <div className="activity-detail-actions">
-                                <a
-                                    className="add-to-google-calendar-button"
-                                    href={buildGoogleCalendarUrl({
-                                        title: selectedActivity.title,
-                                        description: activityDetail?.description ?? null,
-                                        address: selectedActivity.address,
-                                        city: selectedActivity.city,
-                                        latitude: selectedActivity.latitude,
-                                        longitude: selectedActivity.longitude,
-                                        occurrenceStartAt: activityDetail?.occurrences
-                                            .find((occurrence) => occurrence.status !== "CANCELLED")?.startAt
-                                            ?? null,
-                                        occurrenceEndAt: activityDetail?.occurrences
-                                            .find((occurrence) => occurrence.status !== "CANCELLED")?.endAt
-                                            ?? null,
-                                        fallbackStartDate: selectedActivity.startDate,
-                                    })}
-                                    rel="noreferrer"
-                                    target="_blank"
-                                >
-                                    Ajouter à Google Agenda
-                                </a>
-                                {/*
-                                  LL-EF-015 : "Y aller" — coordonnées GPS en priorité, adresse en
-                                  secours (voir buildDirectionsUrl) ; ouvre l'application de
-                                  navigation compatible de l'utilisateur, LocalLife n'implémente
-                                  aucun système de navigation propre.
-                                */}
-                                <a
-                                    className="get-directions-button"
-                                    href={buildDirectionsUrl({
-                                        latitude: selectedActivity.latitude,
-                                        longitude: selectedActivity.longitude,
-                                        address: selectedActivity.address,
-                                        city: selectedActivity.city,
-                                    })}
-                                    rel="noreferrer"
-                                    target="_blank"
-                                >
-                                    Y aller
-                                </a>
-                            </div>
-                            {/*
-                              Bouton "Annuler" affiché uniquement au créateur de l'activité ou à
-                              un administrateur — vérification d'UI seulement, la vérification
-                              qui compte reste celle du backend (voir handleCancelActivity).
-                              createdBy non-null nécessaire : une activité importée n'a pas de
-                              créateur, donc jamais de bouton "Annuler" pour elle, même pour un
-                              administrateur (hors périmètre du ticket).
-                            */}
-                            {currentUser && selectedActivity.createdBy !== null
-                                && (currentUser.userId === selectedActivity.createdBy
-                                    || currentUser.role === "ADMIN") && (
-                                <div className="activity-detail-actions">
-                                    {cancelActivityError && (
-                                        <p className="activity-detail-error" role="alert">
-                                            {cancelActivityError}
-                                        </p>
-                                    )}
-                                    <button
-                                        className="cancel-activity-button"
-                                        disabled={isCancellingActivity}
-                                        onClick={() => handleCancelActivity(selectedActivity)}
-                                        type="button"
-                                    >
-                                        {isCancellingActivity ? "Annulation…" : "Annuler cette activité"}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
+
+            {detailActivity && (
+                <ActivityDetailModal
+                    activity={detailActivity}
+                    cancelError={cancelActivityError}
+                    currentUser={currentUser}
+                    detail={activityDetail}
+                    detailError={activityDetailError}
+                    isCancelling={isCancellingActivity}
+                    isLoadingDetail={isLoadingActivityDetail}
+                    isTogglingLike={isTogglingLike}
+                    onCancel={(activity) => void handleCancelActivity(activity)}
+                    onClose={() => setDetailActivity(null)}
+                    onToggleLike={(activity) => void handleToggleLike(activity)}
+                />
             )}
-            {/* LL-EF-008 : vue Carte, affichée uniquement quand viewMode === "map" (voir le bouton bascule du bandeau ci-dessus). */}
-            {viewMode === "map" && (
-                <div className="map-area">
-                    {/*
-                      LL-4013 : 4 états distincts, chacun visible et compréhensible séparément
-                      (chargement / résultats / aucun résultat / erreur) — l'état « résultats »
-                      n'a pas besoin de message dédié : les marqueurs sur la carte en tiennent
-                      lieu.
-                    */}
-                    {isLoadingActivities && <p className="activities-status">Chargement des activités…</p>}
-                    {!isLoadingActivities && searchError && (
-                        <p className="activities-status activities-status-error" role="alert">
-                            {searchError}
-                        </p>
-                    )}
-                    {!isLoadingActivities && !searchError && activities.length === 0 && (
-                        <p className="activities-status">Aucune activité trouvée dans cette zone.</p>
-                    )}
-                    <MapContainer
-                        center={MARSEILLE_COORDINATES}
-                        className="map"
-                        zoom={13}
-                        zoomControl
-                    >
-                        <TileLayer
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        />
-                        <MapBoundsWatcher onBoundsChange={setMapBounds} />
-                        <MapRecenterOnUserPosition position={userPosition} />
-                        {/*
-                          Clustering (demande explicite d'Alex, hors ticket de sprint) : au-delà
-                          d'un volume normal d'activités importées (LL-8009, pagination
-                          OpenAgenda), un marqueur par activité rendait la carte inutilisable.
-                          `MarkerClusterGroup` (react-leaflet-cluster, au-dessus de
-                          leaflet.markercluster) regroupe les marqueurs proches en un badge
-                          « +N » qui se sépare au zoom — solution standard avec Leaflet, aucun
-                          changement côté backend (le volume de données transmises reste le
-                          même, seul le rendu change). Seules les activités sont regroupées :
-                          les food trucks restent des marqueurs individuels, cohérent avec leur
-                          isolement déjà documenté (voir `FOOD_TRUCK_MARKER_ICON` ci-dessus) —
-                          leur volume n'a pas posé ce problème.
-                        */}
-                        <MarkerClusterGroup>
-                            {activities.map((activity) => (
-                                <Marker
-                                    key={activity.id}
-                                    position={[activity.latitude, activity.longitude]}
-                                >
-                                    <Popup>
-                                        {/* LL-11015, critère d'acceptation « images visibles ». */}
-                                        {activity.mainImageUrl && (
-                                            <img
-                                                alt=""
-                                                className="activity-popup-thumbnail"
-                                                loading="lazy"
-                                                src={activity.mainImageUrl}
-                                            />
-                                        )}
-                                        <strong>{activity.title}</strong>
-                                        <br />
-                                        {activity.category}
-                                        <br />
-                                        {new Date(activity.startDate).toLocaleDateString("fr-FR")}
-                                        <br />
-                                        {/* LL-8006/LL-EF-008 : lieu (adresse si disponible, repli sur la ville puis
-                                            les coordonnées — voir formatActivityLocation) et source (nom lisible
-                                            résolu depuis sourceId par ActivityResponse) — critère d'acceptation
-                                            « titre, date, lieu, source correctement affichés ». */}
-                                        Lieu : {formatActivityLocation(activity)}
-                                        <br />
-                                        Source : {activity.sourceName}
-                                    </Popup>
-                                </Marker>
-                            ))}
-                        </MarkerClusterGroup>
-                        {/*
-                          LL-6009 : food trucks, deuxième type de marqueur sur la même carte
-                          (« sans créer un second système cartographique »). Icône dédiée
-                          (FOOD_TRUCK_MARKER_ICON) pour la distinction visuelle avec une
-                          activité ; popup sans date (un food truck n'est pas un événement
-                          daté, voir FOOD_TRUCK_CONTRACT.md) — distinction fonctionnelle.
-                        */}
-                        {foodTrucks.map((foodTruck) => (
-                            <Marker
-                                icon={FOOD_TRUCK_MARKER_ICON}
-                                key={`food-truck-${foodTruck.id}`}
-                                position={[foodTruck.latitude, foodTruck.longitude]}
-                            >
-                                <Popup>
-                                    <strong>{foodTruck.name}</strong>
-                                    <br />
-                                    {foodTruck.category}
-                                </Popup>
-                            </Marker>
-                        ))}
-                    </MapContainer>
-                </div>
-            )}
-            {/*
-              LL-EF-008 : vue Liste — seconde vue des mêmes activités déjà chargées/
-              filtrées (voir la javadoc de `viewMode` plus haut), regroupées par ville
-              puis triées par date (`groupActivitiesByCity`). Les food trucks ne sont
-              pas des activités datées (voir FOOD_TRUCK_CONTRACT.md) et n'apparaissent
-              donc pas ici, cohérent avec leur périmètre déjà limité à la carte.
-            */}
-            {viewMode === "list" && (
-                <div className="list-area">
-                    {isLoadingActivities && <p className="activities-status">Chargement des activités…</p>}
-                    {!isLoadingActivities && searchError && (
-                        <p className="activities-status activities-status-error" role="alert">
-                            {searchError}
-                        </p>
-                    )}
-                    {!isLoadingActivities && !searchError && activities.length === 0 && (
-                        <p className="activities-status">Aucune activité trouvée dans cette zone.</p>
-                    )}
-                    {!isLoadingActivities && !searchError && activities.length > 0 && (
-                        <div className="activity-list">
-                            {groupActivitiesByCity(activities).map(([city, cityActivities]) => (
-                                <section className="activity-list-group" key={city}>
-                                    <h2 className="activity-list-city">{city}</h2>
-                                    <ul className="activity-list-items">
-                                        {cityActivities.map((activity) => renderActivityListItem(activity))}
-                                    </ul>
-                                </section>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-        </main>
+        </div>
     );
 }
 
