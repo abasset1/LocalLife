@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toLocalDateString } from "./activityUtils";
 import { ALL_CATEGORIES, NO_DATE_FILTER } from "./constants";
 
 interface ExplorerFiltersProps {
@@ -44,6 +45,16 @@ function ExplorerFilters({
 }: ExplorerFiltersProps) {
     const [isDatesPanelOpen, setIsDatesPanelOpen] = useState(false);
     const hasActiveDateFilter = selectedDate !== NO_DATE_FILTER;
+    const todayString = toLocalDateString(new Date());
+
+    // La date "À partir de" ne peut pas être antérieure à aujourd'hui.
+    // `min` empêche déjà le sélecteur natif de proposer une date passée,
+    // mais reste contournable (saisie manuelle sur certains navigateurs) —
+    // on retombe donc sur aujourd'hui si une valeur antérieure arrive
+    // malgré tout jusqu'ici.
+    function handleDateChange(value: string) {
+        onDateChange(value && value < todayString ? todayString : value);
+    }
 
     return (
         <div className="explorer-filters">
@@ -84,7 +95,8 @@ function ExplorerFilters({
                             <label htmlFor="explorer-start-date">À partir de</label>
                             <input
                                 id="explorer-start-date"
-                                onChange={(event) => onDateChange(event.target.value)}
+                                min={todayString}
+                                onChange={(event) => handleDateChange(event.target.value)}
                                 type="date"
                                 value={selectedDate}
                             />

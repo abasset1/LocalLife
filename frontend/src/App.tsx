@@ -6,7 +6,7 @@ import { clearToken, getPayload } from "./auth/authStorage";
 import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
 import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
-import { buildCategoryOptions, matchesSearchQuery } from "./components/explorer/activityUtils";
+import { buildCategoryOptions, matchesSearchQuery, toLocalDateString } from "./components/explorer/activityUtils";
 import { ALL_CATEGORIES, DEFAULT_SEARCH_RADIUS_KM, MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE, NO_DATE_FILTER } from "./components/explorer/constants";
 import ContributionModal from "./components/explorer/ContributionModal";
 import ExplorerFilters from "./components/explorer/ExplorerFilters";
@@ -14,16 +14,6 @@ import ExplorerMap from "./components/explorer/ExplorerMap";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
 import ExplorerSearch from "./components/explorer/ExplorerSearch";
 import type { Activity, ActivityDetail, ApiErrorBody, FoodTruck, MapBounds, UserPosition } from "./components/explorer/types";
-
-// Formate une date en YYYY-MM-DD en utilisant les composants locaux (jour/mois/annee)
-// plutot que Date.toISOString(), qui convertit en UTC et peut decaler la date
-// d'un jour pour les fuseaux horaires en avance sur UTC (ex: Europe/Paris).
-function toLocalDateString(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-}
 
 /**
  * LL-EF-017 — Refonte de l'écran Explorer autour de la carte.

@@ -1,5 +1,18 @@
 import type { Activity } from "./types";
 
+/**
+ * Formate une date en YYYY-MM-DD à partir de ses composants locaux
+ * (jour/mois/année) plutôt que via `Date.toISOString()`, qui convertit en
+ * UTC et peut décaler la date d'un jour pour les fuseaux horaires en
+ * avance sur UTC (ex : Europe/Paris).
+ */
+export function toLocalDateString(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
 /** Repli affiché quand une activité n'a pas de ville résolue (LL-EF-008). */
 export const UNKNOWN_CITY_LABEL = "Ville non renseignée";
 
