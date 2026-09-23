@@ -49,11 +49,31 @@ function MapBoundsWatcher({ onBoundsChange }: { onBoundsChange: (bounds: MapBoun
         }
         debounceTimer.current = window.setTimeout(() => {
             const bounds = map.getBounds();
+            const southWest = bounds.getSouthWest();
+            const northEast = bounds.getNorthEast();
+
+            // LL-EF-017 : un conteneur de taille nulle (carte masquée en
+            // display: none, bascule mobile Carte/Liste) produit des bounds
+            // dégénérés (SW = NE, voire inversés) — le backend rejette alors
+            // la requête ("swLatitude doit être strictement inférieur à
+            // neLatitude"). On ignore silencieusement ces bounds invalides
+            // plutôt que de les envoyer.
+            if (
+                !Number.isFinite(southWest.lat)
+                || !Number.isFinite(southWest.lng)
+                || !Number.isFinite(northEast.lat)
+                || !Number.isFinite(northEast.lng)
+                || southWest.lat >= northEast.lat
+                || southWest.lng >= northEast.lng
+            ) {
+                return;
+            }
+
             onBoundsChange({
-                swLatitude: bounds.getSouthWest().lat,
-                swLongitude: bounds.getSouthWest().lng,
-                neLatitude: bounds.getNorthEast().lat,
-                neLongitude: bounds.getNorthEast().lng,
+                swLatitude: southWest.lat,
+                swLongitude: southWest.lng,
+                neLatitude: northEast.lat,
+                neLongitude: northEast.lng,
             });
         }, MAP_BOUNDS_DEBOUNCE_MS);
     }
@@ -121,8 +141,17 @@ function MapInvalidateOnResize() {
 
     useEffect(() => {
         const container = map.getContainer();
-        const observer = new ResizeObserver(() => {
-            map.invalidateSize();
+        const observer = new ResizeObserver((entries) => {
+            const { width, height } = entries[0]?.contentRect ?? { width: 0, height: 0 };
+            // Le conteneur passe à une taille nulle quand la carte est masquée
+            // (display: none, bascule mobile Carte/Liste) — appeler
+            // invalidateSize() dans cet état produit des bounds dégénérés
+            // (voir MapBoundsWatcher.scheduleBoundsUpdate). On ne recalcule
+            // que sur une taille réelle, c'est-à-dire quand la carte redevient
+            // visible ou change effectivement de taille.
+            if (width > 0 && height > 0) {
+                map.invalidateSize();
+            }
         });
         observer.observe(container);
         return () => observer.disconnect();
