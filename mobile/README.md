@@ -231,6 +231,25 @@ l'aperçu d'un marqueur (`src/features/activity/`).
   « Activité indisponible » ; « Retour à la carte » dans tous les cas (en
   plus du retour système Android).
 
+## Food trucks (LL-MOB-0009)
+
+- **Données** : `GET /foodtrucks` (uniquement les food trucks `PUBLISHED`,
+  côté backend), chargés une fois avec la carte (LL-MOB-0005).
+- **Représentation distincte** : marqueur carré + pictogramme, jamais
+  regroupé dans les clusters d'activités.
+- **Fiche** : « Voir la fiche du food truck » dans l'aperçu ouvre
+  `src/app/foodtruck/[id].tsx` (nom, cuisine, description, contact). L'API
+  n'expose pas de lecture par identifiant : la fiche est retrouvée dans la
+  liste publiée (`src/features/foodtruck/useFoodTruck.ts`), donc un food
+  truck non publié n'est jamais affiché. États : chargement, erreur avec
+  « Réessayer », « Food truck indisponible ».
+- **Contact** (texte libre côté backend) : lien `http(s)` → navigateur,
+  numéro → appel, e-mail → messagerie, sinon affiché tel quel.
+- `FoodTruck.category` (type de cuisine) reste un texte descriptif, sans
+  lien avec le référentiel des catégories d'activités
+  (`docs/CATEGORIES_REFERENCE.md`) ; aucune logique métier food truck n'est
+  dupliquée dans le mobile.
+
 ## État actuel
 
 - [x] Projet Expo + TypeScript initialisé, versionné dans le dépôt (LL-MOB-0001)
@@ -240,3 +259,4 @@ l'aperçu d'un marqueur (`src/features/activity/`).
 - [x] Carte mobile (LL-MOB-0005)
 - [x] Géolocalisation utilisateur (LL-MOB-0006)
 - [x] Détail d'une activité (LL-MOB-0008)
+- [x] Food trucks (LL-MOB-0009)

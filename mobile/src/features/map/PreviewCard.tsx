@@ -63,20 +63,23 @@ export function PreviewCard({ selection, onClose }: { selection: Selection; onCl
           Contact : {contact}
         </ThemedText>
       ) : null}
-      {isActivity && (
-        <Button
-          label="Voir la fiche"
-          onPress={() =>
-            router.push({
-              pathname: '/activite/[id]',
-              params: {
-                id: String(selection.activity.id),
-                ...(selection.activity.sourceName ? { source: selection.activity.sourceName } : {}),
-              },
-            })
-          }
-        />
-      )}
+      <Button
+        label={isActivity ? 'Voir la fiche' : 'Voir la fiche du food truck'}
+        onPress={() =>
+          isActivity
+            ? router.push({
+                pathname: '/activite/[id]',
+                params: {
+                  id: String(selection.activity.id),
+                  ...(selection.activity.sourceName ? { source: selection.activity.sourceName } : {}),
+                },
+              })
+            : router.push({
+                pathname: '/foodtruck/[id]',
+                params: { id: String(selection.foodTruck.id) },
+              })
+        }
+      />
     </View>
   );
 }

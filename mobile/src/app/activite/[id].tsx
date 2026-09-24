@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { isActivityDetail } from '@/api';
 import { Button } from '@/components/button';
+import { Field } from '@/components/field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -98,17 +99,6 @@ export default function ActiviteDetailScreen() {
         })()}
       </SafeAreaView>
     </ThemedView>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.field} accessible accessibilityLabel={`${label} : ${value}`}>
-      <ThemedText type="smallBold" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-      <ThemedText>{value}</ThemedText>
-    </View>
   );
 }
 
