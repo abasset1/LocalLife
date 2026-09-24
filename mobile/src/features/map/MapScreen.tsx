@@ -14,6 +14,7 @@ import { Region, pointInBounds, regionForZoom, regionToBounds, zoomForRegion } f
 import { ActivityMarker, ClusterMarker, FoodTruckMarker } from './markers';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData } from './useMapData';
+import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
 
 /** Zone de départ : Marseille, périmètre du MVP (voir `BOUNDING_BOX_SEARCH_CONTRACT.md`). */
 const INITIAL_REGION: Region = {
@@ -22,6 +23,9 @@ const INITIAL_REGION: Region = {
   latitudeDelta: 0.12,
   longitudeDelta: 0.08,
 };
+
+/** Niveau de zoom après recentrage sur l'utilisateur (~ quartier, quelques centaines de mètres). */
+const USER_ZOOM = 14;
 
 /** Au-delà de ce zoom, plus de regroupement : chaque activité a son marqueur. */
 const CLUSTER_MAX_ZOOM = 17;
@@ -39,6 +43,8 @@ export default function MapScreen() {
   const [selection, setSelection] = useState<Selection | null>(null);
 
   const { activities, foodTrucks, loading, error, retry } = useMapData(region);
+  const location = useUserLocation();
+  const [showUser, setShowUser] = useState(false);
 
   const bounds = useMemo(() => regionToBounds(region), [region]);
   const zoom = zoomForRegion(region);
@@ -80,6 +86,24 @@ export default function MapScreen() {
     [index, region],
   );
 
+  // Recentre la carte sur l'utilisateur : la zone visible change, et
+  // `useMapData` recharge alors les activités autour de lui (within-bounds).
+  const centerOnUser = useCallback(async () => {
+    const position = await location.locate();
+    if (!position) return;
+    setShowUser(true);
+    setSelection(null);
+    mapRef.current?.animateToRegion(
+      regionForZoom(position.latitude, position.longitude, USER_ZOOM, region),
+      500,
+    );
+  }, [location, region]);
+
+  const locationProblem =
+    location.status === 'denied' || location.status === 'unavailable' || location.status === 'error'
+      ? location.status
+      : null;
+
   const isEmpty = !loading && !error && clusters.length === 0 && visibleFoodTrucks.length === 0;
 
   return (
@@ -90,6 +114,8 @@ export default function MapScreen() {
         initialRegion={INITIAL_REGION}
         onRegionChangeComplete={setRegion}
         onPress={() => setSelection(null)}
+        showsUserLocation={showUser}
+        showsMyLocationButton={false}
         toolbarEnabled={false}
         moveOnMarkerPress={false}
         rotateEnabled={false}
@@ -152,6 +178,22 @@ export default function MapScreen() {
               <Button label="Réessayer" onPress={retry} />
             </View>
           )}
+          {locationProblem && (
+            <View
+              accessibilityRole="alert"
+              style={[styles.banner, { backgroundColor: theme.backgroundElement }]}>
+              <ThemedText type="small">{LOCATION_MESSAGES[locationProblem]}</ThemedText>
+              <View style={styles.actions}>
+                {locationProblem === 'denied' && !location.canAskAgain && (
+                  <Button label="Ouvrir les réglages" onPress={location.openSettings} />
+                )}
+                {locationProblem === 'error' && (
+                  <Button label="Réessayer" onPress={centerOnUser} />
+                )}
+                <Button label="Fermer" variant="secondary" onPress={location.dismiss} />
+              </View>
+            </View>
+          )}
           {isEmpty && (
             <View
               accessibilityLiveRegion="polite"
@@ -161,11 +203,21 @@ export default function MapScreen() {
           )}
         </View>
 
-        {selection && (
-          <View style={styles.bottom} pointerEvents="box-none">
-            <PreviewCard selection={selection} onClose={() => setSelection(null)} />
-          </View>
-        )}
+        <View style={styles.bottom} pointerEvents="box-none">
+          {!selection && (
+            <View
+              style={[styles.locateWrapper, { backgroundColor: theme.background }]}
+              pointerEvents="box-none">
+              <Button
+                label="Ma position"
+                variant="secondary"
+                loading={location.status === 'locating'}
+                onPress={centerOnUser}
+              />
+            </View>
+          )}
+          {selection && <PreviewCard selection={selection} onClose={() => setSelection(null)} />}
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -187,6 +239,14 @@ const styles = StyleSheet.create({
   bottom: {
     justifyContent: 'flex-end',
     margin: Spacing.three,
+  },
+  locateWrapper: {
+    alignSelf: 'flex-end',
+    borderRadius: 8,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
   },
   chip: {
     flexDirection: 'row',

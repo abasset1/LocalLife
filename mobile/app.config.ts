@@ -51,6 +51,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     "expo-router",
     [
+      // LL-MOB-0006 : position au premier plan uniquement, demandée à la
+      // demande de l'utilisateur. Le message explique clairement l'usage.
+      "expo-location",
+      {
+        locationWhenInUsePermission:
+          "LocalLife utilise votre position pour centrer la carte sur vous et afficher les activités proches. Elle n'est pas enregistrée.",
+        isAndroidBackgroundLocationEnabled: false,
+        isIosBackgroundLocationEnabled: false,
+      },
+    ],
+    [
       "expo-splash-screen",
       {
         backgroundColor: "#208AEF",
