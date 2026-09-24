@@ -170,6 +170,8 @@ GROUP BY 1, 2, 3
 ORDER BY nb DESC;
 
 -- Variantes potentielles (casse / accents / espaces)
+-- (nécessite l'extension unaccent : CREATE EXTENSION IF NOT EXISTS unaccent;
+--  à défaut, remplacer unaccent(...) par la colonne seule)
 SELECT lower(unaccent(btrim(category))) AS normalise,
        array_agg(DISTINCT category)      AS variantes,
        COUNT(*)                          AS nb
@@ -177,7 +179,7 @@ FROM activity
 WHERE category IS NOT NULL
 GROUP BY 1
 HAVING COUNT(DISTINCT category) > 1
-ORDER BY nb DESC;   -- nécessite l'extension unaccent
+ORDER BY nb DESC;
 
 -- Activités sans catégorie
 SELECT COUNT(*) FILTER (WHERE category IS NULL OR btrim(category) = '') AS sans_categorie,
@@ -185,7 +187,7 @@ SELECT COUNT(*) FILTER (WHERE category IS NULL OR btrim(category) = '') AS sans_
 FROM activity;
 
 -- Mots-clés d'origine (pour CAT-002/004) : top des tags OpenAgenda
-SELECT lower(btrim(t.name)) AS tag, COUNT(*) AS nb   -- adapter le nom de colonne à activity_tag (V24)
+SELECT lower(btrim(t.tag)) AS tag, COUNT(*) AS nb   -- colonne `tag` de activity_tag (V24)
 FROM activity_tag t
 GROUP BY 1 ORDER BY nb DESC LIMIT 200;
 
