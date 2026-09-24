@@ -194,6 +194,26 @@ centrée au départ sur Marseille (périmètre du MVP).
   via la variable d'environnement `GOOGLE_MAPS_API_KEY` (voir
   `.env.example`), jamais dans le dépôt. Inutile avec Expo Go.
 
+## Géolocalisation (LL-MOB-0006)
+
+Bouton **« Ma position »** sur la carte (`src/features/map/useUserLocation.ts`,
+`expo-location`).
+
+- **Permission à la demande** : la permission de localisation (au premier
+  plan uniquement) n'est demandée qu'au toucher du bouton, avec un message
+  qui explique l'usage (`app.config.ts`). Aucune localisation en arrière-plan.
+- **Recherche autour de la position** : la carte est recentrée sur
+  l'utilisateur (zoom ~ quartier) ; la zone visible alimente alors la
+  recherche `within-bounds` habituelle (mêmes garde-fous : temporisation,
+  annulation). Aucun endpoint ni logique de recherche supplémentaire.
+- **Vie privée** : la position n'est ni stockée ni envoyée au serveur ;
+  seule la zone visible de la carte l'est, comme pour tout déplacement.
+- **Refus / indisponibilité / erreur** : message compréhensible en
+  bandeau (« Réessayer », « Ouvrir les réglages » si le refus est
+  définitif, « Fermer »). La carte reste pleinement utilisable.
+- Délai maximal d'obtention de la position : 15 s.
+- Sur le web (hors cible du sprint), la carte n'est pas supportée.
+
 ## État actuel
 
 - [x] Projet Expo + TypeScript initialisé, versionné dans le dépôt (LL-MOB-0001)
@@ -201,3 +221,4 @@ centrée au départ sur Marseille (périmètre du MVP).
 - [x] Client API centralisé (LL-MOB-0003)
 - [x] Authentification (LL-MOB-0004)
 - [x] Carte mobile (LL-MOB-0005)
+- [x] Géolocalisation utilisateur (LL-MOB-0006)
