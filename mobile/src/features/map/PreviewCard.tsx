@@ -67,7 +67,13 @@ export function PreviewCard({ selection, onClose }: { selection: Selection; onCl
         <Button
           label="Voir la fiche"
           onPress={() =>
-            router.push({ pathname: '/activite/[id]', params: { id: String(selection.activity.id) } })
+            router.push({
+              pathname: '/activite/[id]',
+              params: {
+                id: String(selection.activity.id),
+                ...(selection.activity.sourceName ? { source: selection.activity.sourceName } : {}),
+              },
+            })
           }
         />
       )}

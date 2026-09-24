@@ -214,6 +214,23 @@ Bouton **« Ma position »** sur la carte (`src/features/map/useUserLocation.ts`
 - Délai maximal d'obtention de la position : 15 s.
 - Sur le web (hors cible du sprint), la carte n'est pas supportée.
 
+## Détail d'une activité (LL-MOB-0008)
+
+Écran `src/app/activite/[id].tsx`, ouvert par « Voir la fiche » depuis
+l'aperçu d'un marqueur (`src/features/activity/`).
+
+- **Données** : `GET /activities/{id}` (titre, catégorie, date, lieu,
+  description, URL). Selon les droits de l'appelant, l'API renvoie la fiche
+  détaillée ou un résumé (`isActivityDetail`) : l'écran affiche ce qui est
+  fourni, sans rien inventer.
+- **Source** : absente de la réponse détaillée, elle est transmise par
+  l'aperçu (reçue de la recherche sur la carte) et affichée si disponible.
+- **URL** : ouverte dans le navigateur intégré, uniquement en `http(s)`.
+- **États** : chargement ; erreur réseau/serveur avec « Réessayer » ;
+  activité inexistante (404), identifiant invalide (400) ou non publiée →
+  « Activité indisponible » ; « Retour à la carte » dans tous les cas (en
+  plus du retour système Android).
+
 ## État actuel
 
 - [x] Projet Expo + TypeScript initialisé, versionné dans le dépôt (LL-MOB-0001)
@@ -222,3 +239,4 @@ Bouton **« Ma position »** sur la carte (`src/features/map/useUserLocation.ts`
 - [x] Authentification (LL-MOB-0004)
 - [x] Carte mobile (LL-MOB-0005)
 - [x] Géolocalisation utilisateur (LL-MOB-0006)
+- [x] Détail d'une activité (LL-MOB-0008)
