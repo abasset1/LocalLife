@@ -15,6 +15,13 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
  */
 const DEV_DEFAULT_API_URL = "http://localhost:8080";
 
+/**
+ * Clé Google Maps (Android uniquement, LL-MOB-0005). Fournie par
+ * l'environnement, jamais commitée. Inutile avec Expo Go ; requise pour
+ * un build autonome (APK/AAB) afin que la carte s'affiche sur Android.
+ */
+const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "LocalLife",
@@ -35,6 +42,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
     predictiveBackGestureEnabled: false,
+    ...(googleMapsApiKey ? { config: { googleMaps: { apiKey: googleMapsApiKey } } } : {}),
   },
   web: {
     output: "static",

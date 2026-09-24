@@ -75,6 +75,7 @@ mobile/
 │   ├── auth/             # session, JWT, stockage sécurisé (LL-MOB-0004)
 │   ├── components/       # composants UI réutilisables
 │   ├── constants/        # constantes (thème, etc.)
+│   ├── features/         # fonctionnalités (map/ : carte, LL-MOB-0005)
 │   ├── config/           # configuration applicative (env.ts)
 │   └── hooks/             # hooks React réutilisables
 └── assets/               # images, icônes, splash screen
@@ -82,7 +83,7 @@ mobile/
 
 Cette structure sera enrichie au fil des tickets du sprint mobile
 (`docs/05_Sprints/SPRINT_MOBILE.md`), notamment `src/features/` pour le
-découpage par fonctionnalité.
+découpage par fonctionnalité (première fonctionnalité : `map/`).
 
 ## Navigation (LL-MOB-0002)
 
@@ -163,9 +164,40 @@ backend, l'écran n'affiche que ses messages.
 - **Journalisation** : aucun `console.*` dans le code d'authentification ;
   ni token, ni mot de passe, ni e-mail ne sont écrits dans les logs.
 
+## Carte (LL-MOB-0005)
+
+L'onglet **Découvrir** affiche une carte interactive (`src/features/map/`),
+centrée au départ sur Marseille (périmètre du MVP).
+
+- **Bibliothèque** : `react-native-maps` (version imposée par le SDK Expo,
+  compatible Expo Go). Apple Plans sur iOS, Google Maps sur Android. Le
+  web n'est pas supporté (écran de repli explicatif).
+- **Données** : les activités de la zone visible viennent de
+  `GET /activities/within-bounds` (uniquement les activités `PUBLISHED`,
+  côté backend) ; les food trucks viennent de `GET /foodtrucks`, chargés
+  une fois. Les zones envoyées respectent le contrat : `sw < ne`, valeurs
+  bornées, pas de passage de l'antiméridien.
+- **Nombre d'appels** : la zone n'est relue qu'à la **fin** d'un geste
+  (`onRegionChangeComplete`), après une temporisation de 500 ms, avec
+  annulation de la requête précédente ; aucun appel si la nouvelle zone
+  est déjà couverte par les données chargées (zoom avant, par exemple).
+- **Lisibilité** : regroupement des activités en clusters
+  (`supercluster`, jusqu'au zoom 17) ; un toucher sur un cluster zoome
+  dessus. Les food trucks ne sont jamais regroupés et se distinguent par
+  leur forme (carré) et leur pictogramme, pas seulement par la couleur.
+- **Consultation rapide** : un toucher sur un marqueur ouvre une carte
+  d'aperçu (titre, catégorie, lieu, date) ; « Voir la fiche » ouvre
+  l'écran de détail existant (contenu réel en LL-MOB-0008).
+- **États** : chargement, erreur (avec « Réessayer ») et « Aucune activité
+  dans cette zone » sont affichés en surimpression.
+- **Clé Google Maps (Android, builds autonomes uniquement)** : à fournir
+  via la variable d'environnement `GOOGLE_MAPS_API_KEY` (voir
+  `.env.example`), jamais dans le dépôt. Inutile avec Expo Go.
+
 ## État actuel
 
 - [x] Projet Expo + TypeScript initialisé, versionné dans le dépôt (LL-MOB-0001)
 - [x] Navigation par onglets + écran de détail empilé (LL-MOB-0002)
 - [x] Client API centralisé (LL-MOB-0003)
 - [x] Authentification (LL-MOB-0004)
+- [x] Carte mobile (LL-MOB-0005)
