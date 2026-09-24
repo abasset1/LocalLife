@@ -99,6 +99,8 @@ Travail demandé
 
 À partir de l'audit CAT-000, définir le référentiel officiel.
 
+Le référentiel ne doit pas être conçu uniquement à partir des catégories actuellement présentes. Il doit représenter les catégories métier que LocalLife souhaite supporter, tout en restant justifié par les données observées.
+
 La proposition initiale à analyser est :
 
 Code	Libellé
@@ -111,7 +113,6 @@ MARKET	Marché & brocante
 FOOD	Gastronomie
 SPORT	Sport
 FAMILY	Famille & enfants
-WORKSHOP	Atelier & formation
 NATURE	Nature & plein air
 LOCAL_LIFE	Vie locale & associations
 PROFESSIONAL	Professionnel
