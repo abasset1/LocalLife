@@ -26,6 +26,7 @@ export default function RootLayout() {
             name="activite/[id]"
             options={{ title: "Détail de l'activité" }}
           />
+          <Stack.Screen name="foodtruck/[id]" options={{ title: 'Food truck' }} />
         </Stack>
       </AuthProvider>
     </ThemeProvider>
