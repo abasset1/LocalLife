@@ -5,6 +5,8 @@
 > `docs/CATEGORIES_FUNCTIONAL_MODEL.md` (référence fonctionnelle principale du sprint).
 >
 > Base analysée : `main` @ `3190a4b`.
+>
+> **Mise à jour 29/09/2026 :** extraction réelle `activity.category` fournie par Alex (1075 lignes) — analysée en §6.2/§6.2 bis. Voir aussi `docs/CATEGORIES_TOP200.md`.
 
 ## 0. Lecture à la lumière du nouveau modèle fonctionnel
 
@@ -28,11 +30,12 @@ actuelle : elle est absente du code (`Activity.status` ne porte que `PENDING`/`P
 qui est un statut de **modération**, distinct de la visibilité définie par le nouveau modèle — voir
 §7).
 
-## 0.1 Limites de cet audit (inchangées)
+## 0.1 Limites de cet audit (mise à jour)
 
-* **Inventaire des valeurs en base réelle : non réalisé ici.** Aucun accès aux bases dev/beta/prod
-  depuis l'environnement d'analyse. Les requêtes SQL du §6.2 (inchangées depuis la première version)
-  restent à exécuter et à joindre à ce document avant de figer CAT-001.
+* **Inventaire des valeurs en base réelle : partiellement réalisé.** Alex a fourni l'extraction
+  `activity.category × source_type` (§6.2, §6.2 bis) — analysée ci-dessous. Les extractions
+  complémentaires (par `source_name`, tags `activity_tag`, `food_truck.category`) restent à
+  fournir (§6.2 ter) avant de figer CAT-001.
 * Les tests n'ont pas pu être exécutés (pas de Maven Central en sandbox). Aucun fichier Java, SQL ou
   TypeScript n'est modifié : risque de régression nul ; `mvn verify` reste à lancer en CI/local.
 
@@ -213,9 +216,14 @@ volumes réels §6.2) :
 * **`food truck` (activité) vs `food_truck.category` (type de cuisine)** : collision de vocabulaire
   entre deux concepts différents — voir §7, point d'attention explicite pour CAT-001.
 
-### 6.2 Valeurs réelles en base (à extraire)
+### 6.2 Valeurs réelles en base
 
-Toujours **non exécuté** (pas d'accès aux bases depuis cet environnement). Requêtes inchangées :
+**Extraction fournie par Alex le 29/09/2026** (requête « comptes par valeur brute et par source »,
+1075 lignes, colonnes `source_type, category, nb`). Les autres requêtes (variantes, tags
+`activity_tag`, `food_truck.category`, répartition par source détaillée) restent à exécuter — voir
+§6.2 bis pour l'analyse et §6.2 ter pour ce qu'il reste à extraire.
+
+Requêtes originales (pour mémoire / ré-exécution) :
 
 ```sql
 -- Comptes par valeur brute et par source
@@ -259,14 +267,94 @@ FROM activity a LEFT JOIN source s ON s.id = a.source_id
 GROUP BY 1, 2 ORDER BY 1, nb DESC;
 ```
 
-### 6.3 Répartition par source (structure attendue)
+### 6.2 bis — Analyse de l'extraction réelle (résultat, 29/09/2026)
 
-| Source | Production de catégorie | Attendu en base |
+**Chiffres clés** (1075 lignes reçues, colonnes `source_type, category, nb`) :
+
+| Indicateur | Valeur |
+|---|---|
+| Total d'activités couvertes par l'extraction | **47 338** |
+| Activités **sans catégorie** (`category` NULL) | **41 696 — soit 88,1 %** |
+| Activités avec une catégorie renseignée | 5 642 (11,9 %) |
+| Valeurs distinctes après normalisation (casse/accents) | **959** |
+| `source_type` distinct dans l'extraction | **`API` uniquement** — la requête groupe par `source_type` (`API`/`RSS`/`MANUAL`), pas par `source_name` : elle ne permet donc **pas** de distinguer plusieurs agendas de type `API` entre eux (voir limite ci-dessous) |
+
+**Verdict principal — l'extraction invalide l'hypothèse de départ** : `activity.category` (premier
+mot-clé OpenAgenda) n'est **pas** une donnée de catégorie exploitable telle quelle.
+
+1. **88,1 % des activités n'ont aucune catégorie.** Toute classification basée uniquement sur ce
+   champ ignorerait la quasi-totalité des données. C'est, à lui seul, l'argument principal pour que
+   `PENDING` (nouveau modèle) soit le statut par défaut d'une grande partie du flux entrant, plutôt
+   qu'un cas marginal.
+2. **Fragmentation extrême sur les 11,9 % restants** : 959 valeurs distinctes pour 5 642 activités
+   (soit 5,9 activités par valeur en moyenne). **61 % des valeurs (582/959) n'apparaissent qu'une
+   seule fois.** Le top 10 des valeurs ne couvre que 34 % des activités catégorisées (4 % du total),
+   et il faut 200 valeurs pour couvrir 83 % des activités catégorisées (10 % du total). Une
+   normalisation casse/accents ne suffit donc pas à obtenir un référentiel exploitable : il faut un
+   véritable mapping sémantique (CAT-001/CAT-004), pas une simple déduplication.
+3. **Le contenu du champ n'est pas homogène avec une notion de « catégorie ».** Le premier mot-clé
+   OpenAgenda capture indifféremment (classification heuristique par mots-clés, indicative,
+   voir script d'extraction) :
+   * du **vocabulaire emploi/formation** (`Recrutement`, `Tour de l emploi`, `1 jeune  1 solution`,
+     `Aides à l'emploi`, `Découverte secteur / métier`, `#TousMobilisés`, `#TousEnImmersion`,
+     `QPV Ruralité...`) : ~1 240 activités sur des valeurs de ce type — signe qu'au moins une des
+     sources importées est un **agenda d'événements emploi/insertion** (type France Travail /
+     maison de l'emploi), un domaine que ni l'ancien référentiel ni le nouveau modèle fonctionnel
+     n'anticipaient explicitement ;
+   * du **vocabulaire culture/spectacle** exploitable (`théâtre`, `concert`, `danse`, `exposition`,
+     `cirque`, `musique`, `opéra`, `conte`, `marionnettes`, `cinéma`) : ~960 activités — c'est le
+     socle le plus proche de ce qu'attendait le référentiel initial ;
+   * du **vocabulaire patrimoine** (`patrimoine`, `visite (guidée/commentée)`, `archéologie`,
+     `architecture`, `Journées (Européennes) du Patrimoine`) : ~320 activités ;
+   * des **noms de lieux/salles** (`Cameo Commanderie`, `Cameo Saint Sébastien`, `Le Star`,
+     `Discobole`, `Le New Vox`, `Cines Palace`, `Tinqueux`, `La Comète`), des **acronymes de clubs
+     sportifs** (`MSB`, `MHB`), des **noms de personnes/auteurs/œuvres** (`Isabelle Lafon`,
+     `Shakespeare`, `Macbett`, `Ernest Pignon-Ernest`, `naïssamjalal`) et des **codes internes**
+     (`NDMBX26`) — regroupés en « autre/non classable » (~2 890 activités, 717 valeurs distinctes,
+     la majorité de la longue traîne). Ces valeurs ne sont **pas des catégories au sens du nouveau
+     modèle**, même en tant que type : ce sont des mots-clés d'identification (lieu, programmation,
+     artiste), à conserver en tags, jamais à mapper vers une catégorie/type.
+4. **Conséquence directe pour CAT-001/CAT-004** : le mapping « catégorie source → catégorie
+   LocalLife » ne peut pas se limiter à `activity.category` (premier mot-clé). Il devra s'appuyer
+   sur l'ensemble des mots-clés conservés dans `activity_tag` (tous les `keywords.fr`, pas
+   seulement le premier), éventuellement combinés au titre/à la description, pour espérer classifier
+   une part significative des 88 % d'activités actuellement sans catégorie. `NormalizationService`
+   ne récupère aujourd'hui que `keywords.fr[0]` comme `category`
+
+ — c'est cette troncature à un seul
+   mot-clé, plus que l'absence de mot-clé, qui explique une partie du volume de `null`.
+5. **Domaine emploi/insertion à traiter explicitement en CAT-001** : ce n'est ni du bruit, ni un cas
+   isolé (~1 240 activités, largement plus que `concert` ou `marché`) — il faut décider s'il s'agit
+   d'une catégorie principale à part entière (ex. `EMPLOI_FORMATION`), d'un type sous une catégorie
+   plus large (« Vie locale »), ou d'un contenu `PENDING`/`OPT_IN` par défaut le temps d'une
+   décision produit.
+
+**Limite de cette analyse** : la répartition « bucket » ci-dessus est une classification
+**heuristique par mots-clés**, faite pour cet audit, pas un mapping validé. Elle sert à qualifier
+l'ampleur des familles, pas à préjuger du référentiel final de CAT-001.
+
+**Top 200 valeurs normalisées** (regroupement casse/accents, triées par volume) : voir
+`docs/CATEGORIES_TOP200.md`, généré à partir de l'extraction fournie et joint à cette PR pour ne pas
+alourdir ce document.
+
+### 6.2 ter — Ce qu'il reste à extraire
+
+| Extraction | Statut |
+|---|---|
+| `activity.category` par valeur et `source_type` | ✅ Fournie (§6.2 bis) |
+| `activity.category` par valeur **et `source_name`** (pour distinguer les agendas `API` entre eux, notamment isoler l'agenda emploi des agendas culturels) | ❌ À fournir — la colonne `source_type` seule ne le permet pas |
+| Top des tags `activity_tag` (tous les mots-clés, pas seulement le premier) | ❌ À fournir — nécessaire pour évaluer le potentiel de classification au-delà du premier mot-clé (§6.2 bis point 4) |
+| `food_truck.category` | ❌ À fournir |
+| Variantes casse/accents (`unaccent`) | Reconstituée par normalisation côté audit (§6.2 bis) à partir des 1075 lignes ; la requête SQL originale reste utile pour une ré-extraction future |
+
+### 6.3 Répartition par source (constat réel, remplace l'« attendu » de la version précédente)
+
+| Source | Production de catégorie | Constat réel (§6.2 bis) |
 |---|---|---|
-| OpenAgenda (source `type` agenda, statut `PUBLISHED`) | 1er mot-clé `keywords.fr` brut, sinon `null` | Grande diversité de valeurs libres, nombreux `null`, variantes de casse/accents/pluriels — vocabulaire **spécifique à la source**, non mappé |
-| Manuelle (source réservée `MANUAL`) | Saisie libre du contributeur (statut `PENDING` = modération, pas classification) | Valeurs libres courtes |
-| Seed / tests | 5 valeurs V3 | `concert`, `marché`, `food truck`, `exposition`, `cinéma` |
-| Food trucks | Type de cuisine, hors `activity.category` | Valeurs libres, sémantique différente (§7) |
+| Import (source(s) `type = API`) | 1er mot-clé `keywords.fr` brut, sinon `null` | 88,1 % `null` ; 959 valeurs distinctes pour les 11,9 % restants ; mélange hétérogène (emploi/formation, culture, patrimoine, noms de lieux/personnes) ; **au moins deux agendas de nature différente sont probablement mélangés** sous le même `source_type = API` (culturel généraliste + emploi/insertion), à confirmer par `source_name` (§6.2 ter) |
+| Manuelle (source réservée `MANUAL`) | Saisie libre du contributeur (statut `PENDING` = modération, pas classification) | Aucune ligne `MANUAL` dans l'extraction reçue : soit aucune contribution manuelle n'existe encore en base, soit la requête n'en a pas retourné — à confirmer |
+| Seed / tests | 5 valeurs V3 | `concert`, `marché`, `food truck`, `exposition`, `cinéma` — non distinguable dans cette extraction (pas de filtre par source précis) |
+| Food trucks | Type de cuisine, hors `activity.category` | Non couvert par cette extraction (table séparée, §6.2 ter) |
 
 ## 7. Cas Foodtruck — analyse demandée par le nouveau modèle
 
@@ -366,37 +454,61 @@ CAT-001 (référentiel) et CAT-002 (modèle de données) — CAT-000 ne tranche 
 
 ## 10. Recommandations pour CAT-001
 
-1. Réaliser l'extraction §6.2 **avant** de figer le référentiel, en particulier le top des tags
-   OpenAgenda (candidats types) et la répartition par source (pour arbitrer `DEFAULT`/`OPT_IN`).
-2. Construire le référentiel en respectant explicitement la distinction catégorie/type/visibilité —
-   ne pas reproduire la liste plate `code/name/description` de la première itération de CAT-001.
-3. Traiter nommément les valeurs ambiguës identifiées en §6.1 (`loisir`, `food truck` en tant
-   qu'activité vs type de cuisine, `exposition`, `noël`) dans la section « cas ambigus » du
-   référentiel.
-4. Statuer explicitement sur le rattachement de `FoodTruck.category` (type GASTRONOMIE/OPT_IN
+1. **Concevoir le référentiel pour un flux majoritairement `PENDING` au départ** : avec 88,1 % des
+   activités sans catégorie source, `PENDING` ne peut pas être traité comme un cas résiduel — c'est
+   le statut par défaut tant qu'une classification (par tags/titre/description) n'a pas été mise en
+   œuvre (CAT-004/CAT-006). Fixer un objectif chiffré de réduction du volume `PENDING` serait
+   prématuré sans avoir testé un premier mapping.
+2. **Ne pas fonder le mapping source → LocalLife sur `activity.category` seul** : ce champ ne
+   capture que le premier mot-clé OpenAgenda et mélange noms de lieux, d'artistes, d'œuvres et
+   acronymes avec de vrais indices de catégorie (§6.2 bis point 3). CAT-004 devra s'appuyer sur
+   l'ensemble des tags (`activity_tag`) — non encore extraits (§6.2 ter) — voire sur titre/
+   description, plutôt que sur ce seul champ.
+3. **Statuer explicitement sur le domaine emploi/formation** (~1 240 activités identifiées, plus
+   volumineux que `concert` ou `marché` à eux seuls) : catégorie principale dédiée, type sous une
+   catégorie « Vie locale/institutionnel », ou `OPT_IN` par défaut en attendant une décision produit.
+   Ne pas le laisser retomber implicitement dans `OTHER`/`PENDING` sans décision explicite (§6.2 bis
+   point 5).
+4. Obtenir les extractions manquantes du §6.2 ter (`source_name`, tags, `food_truck.category`)
+   **avant** de figer la liste des catégories principales — en particulier `source_name` pour
+   vérifier si le domaine emploi/formation provient d'un agenda distinct (pouvant justifier une
+   politique de visibilité différenciée par source) plutôt que d'un mélange dans un agenda généraliste.
+5. Construire le référentiel en respectant explicitement la distinction catégorie/type/visibilité —
+   ne pas reproduire une liste plate `code/name/description`.
+6. Traiter nommément les valeurs ambiguës identifiées en §6.1/§6.2 bis (`loisir`, `food truck` en
+   tant qu'activité vs type de cuisine, domaine emploi/formation, noms de lieux/personnes conservés
+   en tags uniquement) dans la section « cas ambigus » du référentiel.
+7. Statuer explicitement sur le rattachement de `FoodTruck.category` (type GASTRONOMIE/OPT_IN
    proposé en §7) sans créer de référentiel séparé, sauf justification nouvelle.
-5. Nommer distinctement le `PENDING` de classification (nouveau) et le `PENDING` de modération
+8. Nommer distinctement le `PENDING` de classification (nouveau) et le `PENDING` de modération
    (existant sur `Activity.status`) pour éviter toute confusion dans CAT-002 et CAT-006.
-6. Définir la place de `PENDING`/`OTHER` pour les filtres de lecture avec une catégorie/type
+9. Définir la place de `PENDING`/`OTHER` pour les filtres de lecture avec une catégorie/type
    inconnu (§4, §8 point 7) — actuellement liste vide (LL-4004), à confronter au nouveau modèle en
    CAT-005/CAT-006.
-7. Décider de la conservation de la valeur d'origine (tags OpenAgenda déjà conservés ; prévoir une
-   trace équivalente pour les contributions manuelles avant reclassement).
+10. Décider de la conservation de la valeur d'origine (tags OpenAgenda déjà conservés ; prévoir une
+    trace équivalente pour les contributions manuelles avant reclassement).
 
 ## 11. Critères d'acceptation CAT-000 (repris du sprint réécrit)
 
-* [x] Catégories réelles inventoriées (dépôt) — §6.1 ; **volumes réels non extraits** (§6.2, accès
-  base indisponible)
-* [x] Types identifiés (candidats) — §6.1, distincts des catégories principales
-* [~] Fréquence : structure de requête prête (§6.2), résultats non disponibles
-* [x] Variantes orthographiques et synonymes documentés (§6.1, ex. `concert`/`Concert`,
-  `marché`/`marche`)
-* [x] Catégories trop fines / trop larges / inutilisables identifiées qualitativement (§6.1) ; à
-  confirmer par les volumes
-* [~] Catégories sans correspondance claire : aucune trouvée dans le dépôt à ce stade ; à confirmer
-  avec les données réelles
-* [x] Catégories spécifiques à une source identifiées (§3 : OpenAgenda vs saisie manuelle)
-* [~] Volume d'événements par catégorie : requête prête (§6.2), non exécutée
-* [x] Exemples représentatifs fournis (seed, tests, mots-clés OpenAgenda de test)
+* [x] Catégories réelles inventoriées — dépôt (§6.1) **et base réelle** (§6.2 bis, 959 valeurs
+  distinctes sur 47 338 activités)
+* [x] Types identifiés (candidats) — §6.1 et confirmés/enrichis par §6.2 bis (ex. domaine
+  emploi/formation, absent de l'hypothèse initiale)
+* [x] Fréquence : mesurée (§6.2 bis — distribution complète, top 200 dans `CATEGORIES_TOP200.md`)
+* [x] Variantes orthographiques et synonymes documentés (§6.1 et §6.2 bis, normalisation
+  casse/accents appliquée sur les 1075 lignes reçues)
+* [x] Catégories trop fines / trop larges / inutilisables identifiées, **confirmées par les
+  volumes** : 61 % des valeurs n'apparaissent qu'une fois (§6.2 bis point 2) ; noms de lieux,
+  d'artistes, acronymes largement majoritaires dans la longue traîne
+* [x] Catégories sans correspondance claire avec une catégorie/type LocalLife identifiées : ~2 890
+  activités sur des valeurs « autre/non classable » (lieux, personnes, codes internes — §6.2 bis
+  point 3)
+* [x] Catégories spécifiques à une source identifiées : domaine emploi/formation (~1 240 activités,
+  §6.2 bis point 5), vraisemblablement un agenda dédié, à confirmer par `source_name` (§6.2 ter)
+* [x] Volume d'événements par catégorie : mesuré (§6.2 bis, `CATEGORIES_TOP200.md`)
+* [x] Exemples représentatifs fournis (dépôt : seed/tests ; base réelle : top 200)
 * [x] Aucune suppression arbitraire effectuée
 * [x] Les données/le document servent de base à CAT-001
+
+**Restant avant de considérer CAT-000 totalement clos** : extractions complémentaires du §6.2 ter
+(`source_name`, tags `activity_tag`, `food_truck.category`).
