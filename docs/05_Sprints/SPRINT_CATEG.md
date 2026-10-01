@@ -1,92 +1,174 @@
 SPRINT CATEG — Référentiel canonique des activités V1
 
-Objectif du sprint
+1. Objectif du sprint
 
-Construire et intégrer le référentiel canonique des activités LocalLife V1.
+Mettre en place un référentiel canonique, stable, extensible et multilingue pour les activités LocalLife.
 
-Le référentiel doit permettre à LocalLife de gérer les activités actuelles et futures sans dépendre des catégories fournies par les sources externes et sans multiplier les catégories au fur et à mesure de l'évolution du produit.
+Le référentiel doit devenir la source unique de vérité pour :
 
-Le référentiel doit être cohérent sur l'ensemble de la chaîne :
+- les catégories ;
+- les types d’activités ;
+- les publics ;
+- les types d’organisateurs ;
+- les imports ;
+- le Seeder ;
+- la base de données ;
+- le backend ;
+- l’API ;
+- le frontend ;
+- les tests ;
+- les futures traductions.
 
-Base de données
-      ↓
-Backend / domaine
-      ↓
-API
-      ↓
-Frontend
-      ↓
-Seeder / imports
+L'objectif n'est pas simplement de remplacer quelques chaînes de caractères.
 
-Le contrat métier doit être identique à tous les niveaux.
+Il faut supprimer progressivement la dépendance actuelle aux catégories libres ou spécifiques aux sources et construire un modèle métier capable de représenter les activités futures de LocalLife.
+
+---
+
+2. Principe fondamental
+
+LocalLife distingue quatre dimensions différentes.
+
+CATEGORY
+
+Ce dont relève principalement l'activité.
+
+V1 :
+
+- CULTURE
+- GASTRONOMY
+- MARKETS
+- COMMERCE
+- SPORT
+- LEISURE
+- NATURE
+- TOURISM
+- CITIZEN
+
+ACTIVITY_TYPE
+
+Ce qui se passe concrètement.
+
+AUDIENCE
+
+À qui l'activité s'adresse.
+
+ORGANIZER_TYPE
+
+Qui organise l'activité.
+
+---
+
+3. Règle fondamentale d'identification
+
+Le système doit impérativement distinguer :
+
+ID     = identifiant technique interne
+CODE   = identité métier stable
+LABEL  = représentation utilisateur localisée
+
+Règle :
+
+DB interne        → ID
+Métier / API      → CODE
+Interface         → LABEL traduit
+
+Le "CODE" est la véritable identité métier.
+
+Le "LABEL" ne doit jamais servir d'identifiant.
+
+Le changement de langue ne doit jamais modifier le "CODE".
+
+Exemple :
+
+CODE = CULTURE
+
+fr-FR → Culture
+en-US → Culture
+de-DE → Kultur
+
+Le concept reste toujours :
+
+CULTURE
 
 ---
 
 CAT-000 — Audit de l'existant
 
-Priorité
-
-P0
-
-Complexité
-
-M
-
 Objectif
 
-Identifier précisément toutes les valeurs actuellement utilisées dans :
+Établir précisément l'état actuel du système avant toute modification.
 
-- la base de données ;
-- le Seeder ;
-- les fixtures ;
-- les tests ;
-- le backend ;
-- le frontend ;
-- les imports ;
-- les données historiques ;
-- les contrats API existants.
+À auditer
 
-Travail demandé
+Rechercher toutes les utilisations de :
 
-Rechercher toutes les valeurs actuellement utilisées pour :
+- catégories ;
+- types ;
+- publics ;
+- organisateurs ;
+- labels ;
+- IDs ;
+- chaînes de catégories ;
+- Seeder ;
+- fixtures ;
+- tests ;
+- migrations ;
+- modèles ;
+- API ;
+- frontend ;
+- imports ;
+- données historiques.
 
-- les catégories ;
-- les types d'activité ;
-- les publics ;
-- les organisateurs ;
-- les éventuelles valeurs codées en dur.
+Rechercher notamment :
 
-Critères d'acceptation
-
-- [ ] Toutes les valeurs actuellement utilisées sont identifiées.
-- [ ] Les occurrences dans le code sont identifiées.
-- [ ] Les valeurs présentes en base sont identifiées.
-- [ ] Les valeurs du Seeder sont identifiées.
-- [ ] Les fixtures/tests sont identifiés.
-- [ ] Les contrats API utilisant "category" sont identifiés.
-- [ ] Les valeurs inconnues ou ambiguës sont listées.
-- [ ] Une table de migration ancien → nouveau est produite.
-- [ ] Aucun changement de données n'est effectué automatiquement par ce ticket.
+- catégories sous forme de "String";
+- catégories libres ;
+- valeurs comme "sport", "culture", etc. ;
+- catégories propres à une source ;
+- dépendances frontend à des chaînes ;
+- tests dépendant de labels ;
+- IDs utilisés directement dans du code métier.
 
 Livrable
 
+Créer :
+
 docs/CATEGORY_MIGRATION_MAP.md
+
+Le document doit préciser :
+
+- situation actuelle ;
+- endroits concernés ;
+- anciennes valeurs ;
+- correspondances possibles ;
+- données ambiguës ;
+- risques ;
+- fichiers à modifier ;
+- migrations nécessaires.
+
+Règle
+
+Ne pas modifier massivement le projet avant d'avoir compris l'existant.
+
+Critères d'acceptation
+
+- [ ] Toutes les occurrences pertinentes ont été identifiées.
+- [ ] Le modèle actuel est documenté.
+- [ ] Seeder et imports sont audités.
+- [ ] Frontend et backend sont audités.
+- [ ] Les tests concernés sont identifiés.
+- [ ] Les données historiques sont prises en compte.
+- [ ] "CATEGORY_MIGRATION_MAP.md" est créé.
+- [ ] Les ambiguïtés sont explicitement listées.
 
 ---
 
-CAT-001 — Référentiel canonique des catégories V1
-
-Priorité
-
-P0
-
-Complexité
-
-M
+CAT-001 — Référentiel des catégories V1
 
 Objectif
 
-Créer la source de vérité unique des catégories LocalLife.
+Créer les catégories métier canoniques.
 
 Catégories V1
 
@@ -100,80 +182,53 @@ NATURE
 TOURISM
 CITIZEN
 
-Définitions
+Règles
+
+Les codes sont :
+
+- stables ;
+- uniques ;
+- indépendants de la langue ;
+- indépendants de la source ;
+- indépendants de l'ID DB ;
+- indépendants du label.
+
+Format :
+
+SCREAMING_SNAKE_CASE
+
+Exemple :
 
 CULTURE
 
-Arts, musique, spectacles, littérature, patrimoine, expositions et manifestations culturelles.
+et jamais :
 
-GASTRONOMY
+culture
+Culture
+culture_locale
 
-Cuisine, alimentation, gastronomie, dégustations, producteurs, restauration événementielle et foodtrucks.
+sauf lorsqu'il s'agit explicitement d'une donnée source ou d'un label.
 
-MARKETS
-
-Marchés, brocantes, vide-greniers, foires et manifestations principalement orientées vers la vente ou l'échange.
-
-COMMERCE
-
-Animations commerciales, commerces locaux, portes ouvertes commerciales et événements liés à la vie commerciale locale.
-
-SPORT
-
-Pratique sportive, compétitions, matchs, tournois et manifestations sportives.
-
-LEISURE
-
-Loisirs, jeux, hobbies, ateliers et activités récréatives ne relevant pas principalement d'une autre catégorie.
-
-NATURE
-
-Nature, environnement, jardins, plein air, découverte de la faune/flore et activités de découverte naturelle.
-
-TOURISM
-
-Tourisme, découverte du territoire, visites guidées, circuits et activités destinées à découvrir un lieu ou son patrimoine.
-
-CITIZEN
-
-Vie citoyenne, solidarité, actions collectives, sensibilisation et initiatives locales.
-
-Règles
-
-- Les codes sont immuables une fois utilisés.
-- Les libellés sont séparés des codes.
-- Une source externe ne peut jamais créer automatiquement une catégorie.
-- Une catégorie ne doit pas être créée simplement parce qu'un nouveau type d'activité apparaît.
-- Le référentiel est centralisé.
-- Aucun composant ne doit maintenir sa propre copie de la liste.
-
-Critères d'acceptation
+Critères
 
 - [ ] Les 9 catégories existent.
 - [ ] Chaque catégorie possède un code stable.
-- [ ] Chaque catégorie possède un libellé.
-- [ ] Chaque catégorie possède une description.
-- [ ] Les catégories sont uniques.
-- [ ] Les catégories sont accessibles au backend.
-- [ ] Tests présents.
+- [ ] Les codes sont uniques.
+- [ ] Aucune catégorie source n'est créée automatiquement.
+- [ ] Les labels sont gérés selon CAT-005.
+- [ ] Les descriptions suivent également la stratégie de traduction.
 
 ---
 
-CAT-002 — Référentiel des types d'activité
-
-Priorité
-
-P0
-
-Complexité
-
-M
+CAT-002 — Référentiel des types d'activités V1
 
 Objectif
 
-Définir ce qui se passe réellement lors d'une activité.
+Séparer clairement la nature de l'activité de sa catégorie.
 
 Types V1
+
+Culture / découverte
 
 CONCERT
 SPECTACLE
@@ -184,10 +239,14 @@ RENCONTRE
 VISITE
 VISITE_GUIDEE
 
+Transmission
+
 ATELIER
 INITIATION
 FORMATION
 STAGE
+
+Marchés / commerce
 
 MARCHE
 MARCHE_PRODUCTEURS
@@ -197,10 +256,14 @@ VIDE_GRENIER
 BROCANTE
 FOIRE
 
+Gastronomie
+
 FOODTRUCK
 DEGUSTATION
 REPAS
 ANIMATION_GASTRONOMIQUE
+
+Sport / nature
 
 COMPETITION
 TOURNOI
@@ -209,52 +272,47 @@ RANDONNEE
 BALADE
 SORTIE_NATURE
 
+Animation / citoyen
+
 FETE
 ANIMATION
 JEU
 ACTION_COLLECTIVE
 ACTION_SOLIDAIRE
 
+Professionnel / institutionnel
+
 PORTES_OUVERTES
 SALON
 FORUM
 VENTE
 
-Règle
+Règles
 
-Un type d'activité n'est pas une catégorie.
+Un type d'activité n'est jamais utilisé comme catégorie.
 
-Exemples :
+Exemple :
 
-FOODTRUCK ≠ CATEGORY
-RANDONNEE ≠ CATEGORY
-VIDE_GRENIER ≠ CATEGORY
+FESTIVAL
 
-Critères d'acceptation
+est un type.
 
-- [ ] Tous les types V1 sont définis.
+La catégorie peut être :
+
+CULTURE
+
+Critères
+
+- [ ] Tous les types sont référencés.
 - [ ] Chaque type possède un code stable.
-- [ ] Les types sont centralisés.
-- [ ] Les types ne dépendent d'aucune source externe.
-- [ ] Tests unitaires présents.
+- [ ] Aucun type n'est utilisé comme catégorie.
+- [ ] Les traductions suivent CAT-005.
 
 ---
 
 CAT-003 — Référentiel des publics
 
-Priorité
-
-P1
-
-Complexité
-
-S
-
-Objectif
-
-Définir les publics auxquels une activité peut s'adresser.
-
-Valeurs V1
+Publics V1
 
 ALL_PUBLIC
 FAMILY
@@ -266,35 +324,33 @@ PROFESSIONALS
 
 Règles
 
-"FAMILY" est un public et non une catégorie.
+"FAMILY" est un public.
 
-Une activité peut avoir plusieurs publics.
+Ce n'est jamais une catégorie.
 
-Critères d'acceptation
+Exemples :
 
-- [ ] Les valeurs sont centralisées.
-- [ ] Chaque valeur possède un code stable.
-- [ ] Une activité peut avoir plusieurs publics.
-- [ ] "FAMILY" n'est jamais utilisé comme catégorie.
-- [ ] Tests présents.
+Chasse au trésor enfant
+CATEGORY = LEISURE
+TYPE = JEU
+AUDIENCE = CHILDREN, FAMILY
+
+Atelier cuisine parent-enfant
+CATEGORY = GASTRONOMY
+TYPE = ATELIER
+AUDIENCE = FAMILY
+
+Critères
+
+- [ ] Les publics sont indépendants des catégories.
+- [ ] Les codes sont stables.
+- [ ] Les traductions suivent CAT-005.
 
 ---
 
 CAT-004 — Référentiel des organisateurs
 
-Priorité
-
-P1
-
-Complexité
-
-S
-
-Objectif
-
-Définir le type d'organisateur d'une activité.
-
-Valeurs V1
+Organisateurs V1
 
 MUNICIPALITY
 ASSOCIATION
@@ -308,252 +364,286 @@ INSTITUTION
 
 Règles
 
-L'organisateur ne détermine pas automatiquement la catégorie.
+Un organisateur n'est jamais une catégorie.
 
 Exemple :
 
-Association
-+
-Concert
-=
-CULTURE
-
-et non :
-
 ASSOCIATION
 
-comme catégorie.
+ne signifie pas que l'activité appartient à une catégorie "association".
 
-Critères d'acceptation
+Critères
 
-- [ ] Les valeurs sont centralisées.
-- [ ] Chaque valeur possède un code stable.
-- [ ] Une association n'est pas automatiquement une catégorie.
-- [ ] Un commerce n'impose pas automatiquement "COMMERCE".
-- [ ] Tests présents.
+- [ ] Les types sont référencés.
+- [ ] Les codes sont stables.
+- [ ] Les traductions suivent CAT-005.
+- [ ] Aucune logique métier ne dépend du label.
 
 ---
 
-CAT-005 — Harmoniser IDs, codes et libellés
-
-Priorité
-
-P0
-
-Complexité
-
-M
+CAT-005 — Harmoniser IDs, codes, labels et traductions
 
 Objectif
 
-Définir une convention unique pour les IDs techniques, codes métier et libellés affichés.
+Définir définitivement la séparation entre identité technique, identité métier et représentation utilisateur.
 
-Convention
+Règle fondamentale
 
 ID
-→ identifiant technique interne
+↓
+identifiant technique interne
 
 CODE
-→ identité métier stable
+↓
+identité métier stable
 
 LABEL
-→ représentation utilisateur
+↓
+texte affiché à l'utilisateur
 
-Exemple
+CODE
 
-id: 42
-code: CULTURE
-label: Culture
-description: Arts, spectacles, musique, patrimoine et manifestations culturelles
-active: true
+Le code :
 
-Règles ID
+- est obligatoire ;
+- est unique ;
+- est stable ;
+- est indépendant de la langue ;
+- est indépendant du label ;
+- est indépendant de la source ;
+- est indépendant de l'ID.
 
-- L'ID est uniquement technique.
-- Il ne porte aucune signification métier.
-- Il ne constitue pas un contrat API.
-- Il reste stable pendant la durée de vie de l'entité.
-- Il peut différer entre environnements.
-
-Règles CODE
-
-Les codes doivent être :
-
-- uniques ;
-- stables ;
-- en majuscules ;
-- en "SCREAMING_SNAKE_CASE" ;
-- sans accent ;
-- sans espace ;
-- indépendants du libellé ;
-- indépendants de la source ;
-- indépendants de l'ID technique.
-
-Exemples :
+Exemple :
 
 CULTURE
-GASTRONOMY
-VISITE_GUIDEE
-MARCHE_PRODUCTEURS
-ALL_PUBLIC
-ASSOCIATION
 
-Règles LABEL
+LABEL
 
-Le libellé :
+Le label est toujours lié à une locale.
 
-- est destiné à l'utilisateur ;
-- peut être traduit ;
-- peut évoluer ;
-- ne constitue jamais une clé métier ;
-- ne doit pas être utilisé dans les comparaisons métier.
+Exemple :
 
-Règle globale
+CULTURE
+├── fr-FR → Culture
+├── en-US → Culture
+└── de-DE → Kultur
 
-DATABASE → ID
-BUSINESS → CODE
-UI → LABEL
-API → CODE
+Le label ne doit jamais être utilisé comme clé métier.
+
+---
+
+Stratégie de traduction
+
+La traduction ne doit pas être stockée comme un unique label figé dans la table métier si cela empêche l'évolution multilingue.
+
+Modèle logique recommandé :
+
+CATEGORY
+- id
+- code
+- active
+- created_at
+- updated_at
+
+CATEGORY_TRANSLATION
+- id
+- category_id
+- locale
+- label
+- description
+
+Même principe pour :
+
+ACTIVITY_TYPE_TRANSLATION
+AUDIENCE_TRANSLATION
+ORGANIZER_TYPE_TRANSLATION
+
+Si le projet possède déjà un système i18n générique adapté, celui-ci doit être réutilisé plutôt que de créer quatre systèmes concurrents.
+
+Locale
+
+Le projet doit choisir une convention unique.
+
+V1 :
+
+fr-FR
+
+Les autres langues pourront être ajoutées ultérieurement.
+
+Ne jamais mélanger :
+
+fr
+fr-FR
+FR
+French
+
+sans règle explicite.
+
+---
+
+Fallback
+
+La résolution d'un label suit cet ordre :
+
+1. locale demandée
+2. langue de base correspondante
+3. fr-FR
+4. CODE
+
+Exemple :
+
+locale demandée = es-ES
+
+es-ES absent
+↓
+es absent
+↓
+fr-FR disponible
+↓
+"CULTURE" → "Culture"
+
+Le comportement doit être déterministe.
+
+---
 
 Seeder
 
-Le Seeder doit rechercher les entités par code et ne jamais supposer :
+Le Seeder doit travailler avec :
 
-CULTURE = ID 1
-SPORT = ID 5
+CODE
 
-API
+et jamais avec :
 
-Le contrat métier utilise les codes :
+ID fixe
+LABEL
+position dans la table
 
-{
-  "primaryCategory": "CULTURE",
-  "activityTypes": ["FESTIVAL"],
-  "audiences": ["FAMILY"],
-  "organizerType": "ASSOCIATION"
-}
+Exemple :
 
-et non les IDs techniques ou les libellés.
+CULTURE
 
-Critères d'acceptation
+permet de retrouver l'ID correspondant.
 
-- [ ] La distinction ID/code/label est documentée.
-- [ ] Une convention unique est adoptée.
-- [ ] Les codes sont uniques.
-- [ ] Les codes sont stables.
-- [ ] Les codes sont en "SCREAMING_SNAKE_CASE".
-- [ ] Les codes ne contiennent ni accents ni espaces.
-- [ ] Les libellés sont indépendants des codes.
-- [ ] Les IDs restent techniques.
-- [ ] Les IDs ne sont pas utilisés comme contrat métier API.
-- [ ] Le Seeder résout les IDs à partir des codes.
-- [ ] Les tests couvrent ID/code/label.
+Les traductions sont insérées séparément.
 
 ---
 
-CAT-006 — Évolution du modèle Activity
+Imports
 
-Priorité
+Les sources externes ne doivent jamais définir directement les labels LocalLife.
 
-P0
+Pipeline :
 
-Complexité
+SOURCE
+↓
+RAW DATA
+↓
+NORMALISATION
+↓
+CLASSIFICATION LOCALIFE
+↓
+VALIDATION
+↓
+DEDUPLICATION
+↓
+ACTIVITY
 
-L
+La classification produit des "CODE".
 
-Dépendances
+Les labels sont résolus ensuite selon la locale.
 
-CAT-001
-CAT-002
-CAT-003
-CAT-004
-CAT-005
+---
+
+Critères d'acceptation
+
+- [ ] ID, CODE et LABEL sont clairement séparés.
+- [ ] Le CODE est indépendant de la langue.
+- [ ] Le LABEL n'est jamais utilisé comme identifiant.
+- [ ] Les traductions sont stockées séparément ou via le système i18n existant.
+- [ ] "fr-FR" est obligatoire en V1.
+- [ ] La convention de locale est unique.
+- [ ] Le fallback est déterministe.
+- [ ] Les traductions supplémentaires ne nécessitent pas de migration métier.
+- [ ] Le Seeder utilise uniquement les codes.
+- [ ] Les imports utilisent uniquement les codes.
+- [ ] La documentation est mise à jour.
+
+---
+
+CAT-006 — Nouveau modèle métier Activity
 
 Objectif
 
-Faire évoluer "Activity" afin d'intégrer le nouveau référentiel.
+Faire évoluer Activity vers le nouveau référentiel.
 
-Modèle cible
+Le modèle cible doit permettre :
 
-Activity
-├── primaryCategory
-├── secondaryCategories[]
-├── activityTypes[]
-├── audiences[]
-├── organizerType
-└── ...
+primaryCategory
+secondaryCategories[]
+activityTypes[]
+audiences[]
+organizerType
 
-Contraintes
+Règles
+
+Une activité possède :
 
 1 catégorie principale
 0..N catégories secondaires
-0..N types d'activité
+0..N types
 0..N publics
 0..1 type d'organisateur
 
 Exemple
 
-title: "Festival médiéval"
+Festival communal :
 
-primaryCategory: CULTURE
+primaryCategory = CULTURE
 
-secondaryCategories:
-  - TOURISM
-  - MARKETS
+secondaryCategories =
+[
+  MARKETS,
+  GASTRONOMY,
+  LEISURE
+]
 
-activityTypes:
-  - FESTIVAL
+activityTypes =
+[
+  FESTIVAL,
+  CONCERT,
+  MARCHE,
+  FOODTRUCK,
+  ANIMATION
+]
 
-audiences:
-  - ALL_PUBLIC
-  - FAMILY
+audiences =
+[
+  ALL_PUBLIC,
+  FAMILY
+]
 
-organizerType: ASSOCIATION
+organizerType =
+MUNICIPALITY
 
-Critères d'acceptation
+Critères
 
-- [ ] Une catégorie principale est obligatoire pour une activité classifiée.
-- [ ] Les catégories secondaires sont supportées.
-- [ ] Les types d'activité sont supportés.
-- [ ] Les publics sont supportés.
-- [ ] L'organisateur est supporté.
-- [ ] Les contraintes d'intégrité sont définies.
-- [ ] Les tests existants sont adaptés.
-- [ ] Aucun nouveau code métier ne dépend d'une catégorie libre.
+- [ ] Le modèle supporte toutes les dimensions.
+- [ ] La catégorie principale est obligatoire.
+- [ ] Les secondaires sont facultatives.
+- [ ] Les types sont séparés des catégories.
+- [ ] Les publics sont séparés des catégories.
+- [ ] L'organisateur est séparé des catégories.
+- [ ] Les relations sont cohérentes et sans doublons.
 
 ---
 
 CAT-007 — Migration des données existantes
 
-Priorité
-
-P0
-
-Complexité
-
-M
-
-Dépendances
-
-CAT-000
-CAT-001
-CAT-005
-CAT-006
-CAT-012
-
 Objectif
 
-Migrer les anciennes catégories vers le référentiel canonique sans perte de données.
+Migrer les données existantes vers le référentiel canonique.
 
-Règles
-
-- Aucun événement ne doit être supprimé.
-- Une valeur inconnue ne doit pas être transformée arbitrairement.
-- Toute migration doit être reproductible.
-- Les données historiques doivent rester traçables.
-- Les mappings doivent utiliser les nouveaux codes.
-
-Exemple
+Exemples :
 
 sport
 → SPORT
@@ -561,61 +651,46 @@ sport
 culture
 → CULTURE
 
-Cas ambigu :
+Les données ambiguës ne doivent pas être inventées.
 
-autre
-→ NEEDS_REVIEW
+Elles doivent être signalées :
 
-Critères d'acceptation
+NEEDS_REVIEW
 
-- [ ] Toutes les anciennes valeurs ont un mapping ou un statut explicite.
-- [ ] Les mappings utilisent les codes canoniques.
-- [ ] Les données existantes sont migrées.
-- [ ] Aucun événement n'est perdu.
-- [ ] Les valeurs ambiguës sont détectables.
-- [ ] Les données migrées sont vérifiées.
-- [ ] Les tests de migration passent.
-- [ ] La migration est documentée.
-- [ ] La migration respecte les contraintes de base.
+Règles
+
+La migration doit être :
+
+- reproductible ;
+- traçable ;
+- sans perte ;
+- testable ;
+- réversible si techniquement nécessaire.
+
+Créer ou compléter :
+
+docs/CATEGORY_MIGRATION_MAP.md
+
+avec les correspondances.
+
+Critères
+
+- [ ] Les anciennes données sont analysées.
+- [ ] Les correspondances sont documentées.
+- [ ] Les données ambiguës sont identifiées.
+- [ ] Aucune classification arbitraire n'est introduite.
+- [ ] La migration est reproductible.
+- [ ] Les données existantes sont conservées.
 
 ---
 
-CAT-008 — Classification des imports et du Seeder
+CAT-008 — Classification Seeder et imports
 
-Priorité
+Objectif
 
-P0
+Faire respecter le référentiel par toutes les sources de données.
 
-Complexité
-
-L
-
-Dépendances
-
-CAT-001
-CAT-002
-CAT-003
-CAT-004
-CAT-005
-CAT-006
-
-Pipeline cible
-
-SOURCE
-  ↓
-RAW DATA
-  ↓
-NORMALISATION
-  ↓
-CLASSIFICATION LOCALIFE
-  ↓
-VALIDATION
-  ↓
-DEDUPLICATION
-  ↓
-ACTIVITY
-
-Statuts
+Statuts de classification
 
 UNCLASSIFIED
 AUTO_CLASSIFIED
@@ -623,425 +698,385 @@ VALIDATED
 NEEDS_REVIEW
 REJECTED
 
-Règle fondamentale
+Règles
 
-Une source externe ne définit jamais directement une catégorie LocalLife.
+Une source externe ne peut jamais créer automatiquement une nouvelle catégorie.
+
+Une classification doit être réalisée vers les codes existants.
 
 Exemple :
 
-Source :
-"Marché gourmand nocturne"
+"Festival médiéval"
 
-Classification :
+peut produire :
 
-primaryCategory: GASTRONOMY
+primaryCategory = CULTURE
+activityTypes = [FESTIVAL, ANIMATION]
 
-secondaryCategories:
-  - MARKETS
+mais la source ne peut pas créer :
 
-activityTypes:
-  - MARCHE
+MEDIEVAL
 
-Critères d'acceptation
+comme nouvelle catégorie.
 
-- [ ] Le Seeder utilise le référentiel.
-- [ ] Les imports utilisent le référentiel.
-- [ ] Une source externe ne peut pas créer une catégorie.
-- [ ] Les codes canoniques sont utilisés.
-- [ ] Les cas ambigus sont détectables.
-- [ ] Les classifications sont traçables.
-- [ ] Les tests de classification passent.
-- [ ] Aucun composant ne possède une liste parallèle.
+Cas ambigu
+
+Si le système ne peut pas déterminer correctement :
+
+NEEDS_REVIEW
+
+et non une classification inventée.
+
+Critères
+
+- [ ] Seeder compatible avec les codes.
+- [ ] Imports compatibles avec les codes.
+- [ ] Classification centralisée.
+- [ ] Aucun mapping source → catégorie directe non contrôlé.
+- [ ] Statuts de classification présents.
+- [ ] Cas ambigus gérés.
+- [ ] Aucune catégorie créée automatiquement par une source.
 
 ---
 
 CAT-009 — Frontend basé sur le référentiel
 
-Priorité
-
-P1
-
-Complexité
-
-M
-
-Dépendances
-
-CAT-005
-CAT-006
-CAT-013
-
 Objectif
 
-Supprimer la saisie libre des catégories et utiliser le référentiel via le contrat API.
+Supprimer les catégories codées en dur dans le frontend.
 
-Règles
+Le frontend doit récupérer le référentiel depuis l'API ou le système i18n prévu.
 
-Le frontend :
+Il doit :
 
-affiche → LABEL
-manipule → CODE
+- manipuler les codes ;
+- afficher les labels traduits ;
+- utiliser la locale utilisateur ;
+- ne jamais utiliser le label comme identité.
 
-Exemple
+Exemple :
 
-L'utilisateur voit :
+CODE :
+SPORT
 
-Culture
+Affichage :
 
-L'application manipule :
+fr-FR → Sport
+en-US → Sport
 
-CULTURE
+Critères
 
-Critères d'acceptation
-
-- [ ] La catégorie n'est plus saisie librement.
-- [ ] Les catégories proviennent de l'API.
-- [ ] Les catégories secondaires utilisent le même référentiel.
-- [ ] Les libellés affichés sont français.
-- [ ] Les codes canoniques sont envoyés au backend.
-- [ ] Les IDs internes ne sont pas utilisés comme contrat frontend.
-- [ ] Le frontend ne contient pas de liste codée en dur.
-- [ ] Les tests frontend passent.
+- [ ] Aucun référentiel métier dupliqué dans le frontend.
+- [ ] Les filtres utilisent les codes.
+- [ ] Les labels affichés sont localisés.
+- [ ] Le changement de langue ne modifie pas les codes.
+- [ ] Les traductions ne sont pas dispersées dans les composants.
 
 ---
 
-CAT-010 — Tests de couverture des futurs cas
-
-Priorité
-
-P0
-
-Complexité
-
-M
+CAT-010 — Tests de couverture métier
 
 Objectif
 
-Vérifier que le référentiel couvre les futures activités prévues par LocalLife.
+Vérifier que le référentiel couvre les activités réelles et futures de LocalLife.
+
+Les tests doivent couvrir au minimum :
 
 Culture
 
-Concert
-Théâtre
-Exposition
-Festival médiéval
-Rencontre avec un auteur
+concert
+festival
+exposition
+spectacle
 
 Gastronomie
 
-Foodtruck
-Marché gourmand
-Dégustation
-Atelier cuisine
+dégustation
+repas
+foodtruck
 
 Marchés
 
-Marché traditionnel
-Marché artisanal
-Vide-grenier
-Brocante
+marché
+marché producteurs
+vide-grenier
+brocante
+foire
 
 Commerce
 
-Animation commerciale
-Portes ouvertes
+vente
+portes ouvertes
+salon
 
 Sport
 
-Match de football
-Tournoi
-Course
-Randonnée
+match
+tournoi
+compétition
 
 Loisirs
 
-Atelier poterie
-Jeux de société
-Stage photo
+jeu
+fête
+animation
 
 Nature
 
-Sortie nature
-Observation des oiseaux
-Visite d'un jardin
+randonnée
+balade
+sortie nature
 
-Associations / citoyen
+Citoyen
 
-Forum des associations
-Collecte solidaire
-Action collective
-
-Professionnels
-
-Formation professionnelle
-Salon professionnel
-Rencontre professionnelle
+action collective
+action solidaire
 
 Tourisme
 
-Visite guidée
-Circuit touristique
-Découverte du patrimoine
+visite
+visite guidée
 
 Famille
 
-Spectacle enfant
-Atelier parent/enfant
-Chasse au trésor familiale
+Vérifier que la famille est correctement représentée par :
 
-Événements hybrides
+AUDIENCE = FAMILY
 
-Festival + marché + foodtrucks
-Fête de village
-Journée vélo
-Marché de producteurs
-Portes ouvertes + dégustation
+et non par une catégorie.
 
-Critères d'acceptation
+Professionnels
 
-- [ ] Tous les cas sont représentables.
-- [ ] Aucun cas ne nécessite une catégorie ad hoc.
-- [ ] Les événements hybrides supportent plusieurs catégories.
-- [ ] Le public est séparé de la catégorie.
-- [ ] L'organisateur est séparé de la catégorie.
-- [ ] Le type d'activité est séparé de la catégorie.
-- [ ] Les tests sont automatisés.
+Vérifier :
+
+AUDIENCE = PROFESSIONALS
+
+et/ou :
+
+ORGANIZER_TYPE = PROFESSIONAL
+
+selon le cas.
+
+Hybride
+
+Tester les activités pouvant appartenir à plusieurs univers.
+
+Tests traduction
+
+Tester obligatoirement :
+
+- [ ] résolution "fr-FR" ;
+- [ ] résolution d'une autre locale ;
+- [ ] fallback langue ;
+- [ ] fallback "fr-FR" ;
+- [ ] fallback vers CODE ;
+- [ ] unicité "(reference_id, locale)" ;
+- [ ] changement de langue sans changement de CODE.
 
 ---
 
 CAT-011 — Documentation et gouvernance
 
-Priorité
-
-P1
-
-Complexité
-
-S
-
 Objectif
 
-Empêcher la dérive future du référentiel.
+Documenter le référentiel comme une partie officielle du domaine LocalLife.
 
-Documentation
-
-Créer ou mettre à jour :
+Créer ou compléter :
 
 docs/CATEGORY_REFERENCE.md
 
-Le document doit contenir :
+La documentation doit contenir :
 
-1. les catégories ;
-2. les types d'activité ;
-3. les publics ;
-4. les organisateurs ;
-5. les conventions ID/code/label ;
-6. les règles de classification ;
-7. les règles de multi-catégories ;
-8. les règles d'ajout d'une nouvelle valeur ;
-9. les règles de migration ;
-10. les exemples d'événements hybrides ;
-11. le modèle de données ;
-12. le contrat API.
+- catégories ;
+- types ;
+- audiences ;
+- organisateurs ;
+- codes ;
+- traductions ;
+- règles de classification ;
+- modèle de données ;
+- stratégie de fallback ;
+- API ;
+- règles Seeder/imports ;
+- gouvernance ;
+- procédure d'ajout d'une nouvelle valeur.
 
-Règle d'ajout d'une catégorie
+Gouvernance
 
-Avant de créer une nouvelle catégorie :
+Aucune nouvelle catégorie ne doit être créée simplement parce qu'une source externe utilise un nouveau terme.
 
-1. Le besoin peut-il être représenté par un type ?
-2. Le besoin peut-il être représenté par un public ?
-3. Le besoin peut-il être représenté par un organisateur ?
-4. Le besoin peut-il être représenté par une catégorie existante ?
-5. Une nouvelle catégorie est-elle réellement nécessaire ?
+Une nouvelle catégorie nécessite une décision explicite du projet.
 
-Une nouvelle catégorie doit rester une exception.
+Critères
 
-Critères d'acceptation
-
-- [ ] La documentation existe.
-- [ ] Les catégories sont documentées.
-- [ ] Les types sont documentés.
-- [ ] Les publics sont documentés.
-- [ ] Les organisateurs sont documentés.
-- [ ] ID/code/label sont documentés.
+- [ ] Le référentiel est documenté.
 - [ ] Les règles de classification sont documentées.
-- [ ] Les règles de gouvernance sont documentées.
+- [ ] La stratégie de traduction est documentée.
+- [ ] La gouvernance est documentée.
+- [ ] Les règles d'évolution sont documentées.
 
 ---
 
-CAT-012 — Intégrité et modèle de base de données
-
-Priorité
-
-P0
-
-Complexité
-
-L
-
-Dépendances
-
-CAT-001
-CAT-002
-CAT-003
-CAT-004
-CAT-005
-CAT-006
+CAT-012 — Modèle DB et intégrité
 
 Objectif
 
-Faire de la base de données une garantie d'intégrité du référentiel.
+Implémenter proprement le référentiel en base.
 
-Modèle logique
+Modèle cible
 
 CATEGORY
---------
+
 id
 code
-label
-description
 active
 created_at
 updated_at
+
+CATEGORY_TRANSLATION
+
+id
+category_id
+locale
+label
+description
 
 ACTIVITY_TYPE
--------------
+
 id
 code
-label
-description
 active
 created_at
 updated_at
 
+ACTIVITY_TYPE_TRANSLATION
+
+id
+activity_type_id
+locale
+label
+description
+
 AUDIENCE
---------
+
 id
 code
-label
 active
+created_at
+updated_at
+
+AUDIENCE_TRANSLATION
+
+id
+audience_id
+locale
+label
+description
 
 ORGANIZER_TYPE
---------------
+
 id
 code
-label
 active
+created_at
+updated_at
 
-Relations Activity
+ORGANIZER_TYPE_TRANSLATION
 
-ACTIVITY
-   │
-   ├── primary_category_id
-   │
-   ├── activity_categories
-   │       └── category_id
-   │
-   ├── activity_types
-   │       └── activity_type_id
-   │
-   ├── activity_audiences
-   │       └── audience_id
-   │
-   └── organizer_type_id
+id
+organizer_type_id
+locale
+label
+description
 
-Contraintes obligatoires
+Si un système i18n générique existe déjà et répond au besoin, il doit être utilisé à la place de ces tables spécifiques.
 
-CATEGORY.code UNIQUE
-ACTIVITY_TYPE.code UNIQUE
-AUDIENCE.code UNIQUE
-ORGANIZER_TYPE.code UNIQUE
+Contraintes
 
-Relations :
+Les codes doivent être uniques.
 
-(activity_id, category_id) UNIQUE
-(activity_id, activity_type_id) UNIQUE
-(activity_id, audience_id) UNIQUE
+Les traductions doivent être uniques par :
 
-Intégrité
+(reference_id, locale)
 
-- Une activité ne peut pas référencer une catégorie inexistante.
-- Une activité ne peut pas référencer un type inexistant.
-- Une activité ne peut pas référencer un public inexistant.
-- Une activité ne peut pas référencer un organisateur inexistant.
-- Les doublons sont interdits.
-- Les valeurs de référentiel utilisées ne doivent pas être supprimées physiquement sans stratégie d'historisation.
+Les relations doivent disposer de contraintes d'intégrité adaptées.
 
-Privilégier :
+Les relations multiples ne doivent pas accepter de doublons.
+
+Les références utilisées ne doivent pas être supprimées physiquement sans stratégie de migration.
+
+Préférer :
 
 active = false
 
-pour désactiver une valeur.
+pour désactiver une référence déjà utilisée.
 
 Migrations
 
-- [ ] Les migrations sont versionnées.
-- [ ] Elles fonctionnent sur une base vide.
-- [ ] Elles fonctionnent sur une base existante.
-- [ ] Elles respectent l'ordre des dépendances.
-- [ ] Elles ne détruisent aucune donnée existante.
-- [ ] Les contraintes sont testées.
+Les migrations doivent fonctionner :
 
-Critères d'acceptation
+- sur une base vide ;
+- sur une base existante ;
+- avec les données existantes ;
+- sans perte de données.
 
-- [ ] Les tables/références existent.
-- [ ] Les codes sont uniques.
-- [ ] Les foreign keys ou contraintes équivalentes sont en place.
-- [ ] Les doublons sont impossibles.
-- [ ] Les valeurs invalides sont rejetées.
-- [ ] Les migrations sont testées.
-- [ ] Les tests d'intégrité passent.
-- [ ] Les IDs restent techniques et les codes métier restent indépendants des IDs.
+Critères
+
+- [ ] Modèle DB implémenté.
+- [ ] Traductions correctement modélisées.
+- [ ] Unicité des codes.
+- [ ] Unicité des traductions par locale.
+- [ ] Foreign keys ou équivalent.
+- [ ] Intégrité des relations.
+- [ ] Migration existante compatible.
+- [ ] Base vide compatible.
+- [ ] Données existantes préservées.
 
 ---
 
 CAT-013 — Contrat API du référentiel
 
-Priorité
-
-P0
-
-Complexité
-
-L
-
-Dépendances
-
-CAT-001
-CAT-002
-CAT-003
-CAT-004
-CAT-005
-CAT-006
-CAT-012
-
 Objectif
 
-Exposer un contrat API stable permettant au frontend et aux futurs clients d'utiliser le référentiel sans dupliquer les valeurs.
+Expose le référentiel au frontend et aux autres consommateurs.
 
-Endpoints
+Les routes doivent respecter les conventions API déjà utilisées dans le projet.
 
-Les endpoints doivent respecter le conventionnement API déjà présent dans le projet.
-
-Exemple cible :
+Exemple logique :
 
 GET /api/v1/referential/categories
 GET /api/v1/referential/activity-types
 GET /api/v1/referential/audiences
 GET /api/v1/referential/organizer-types
 
-Réponse
+Locale
+
+L'API doit pouvoir recevoir une locale.
 
 Exemple :
+
+GET /api/v1/referential/categories?locale=fr-FR
+
+Réponse :
+
+{
+  "code": "CULTURE",
+  "label": "Culture"
+}
+
+Le "code" reste identique quelle que soit la langue.
+
+Exemple
 
 {
   "code": "CULTURE",
   "label": "Culture",
-  "description": "Arts, spectacles, musique, patrimoine et manifestations culturelles",
   "active": true
 }
 
 Contrat Activity
+
+Exemple :
 
 {
   "primaryCategory": "CULTURE",
@@ -1057,144 +1092,142 @@ Contrat Activity
   "organizerType": "ASSOCIATION"
 }
 
-Validation
+L'API doit refuser
 
-L'API doit refuser :
+- code inconnu ;
+- code inactif ;
+- valeur appartenant au mauvais référentiel ;
+- doublon ;
+- catégorie principale absente ;
+- valeur invalide.
 
-- un code inconnu ;
-- une valeur inactive ;
-- un doublon ;
-- une valeur appartenant au mauvais référentiel ;
-- une valeur vide lorsqu'elle est obligatoire ;
-- une catégorie principale inexistante.
+Les erreurs doivent être structurées et explicites.
 
-Exemple :
+Si le projet utilise OpenAPI/Swagger, le contrat doit être mis à jour.
 
-{
-  "code": "INVALID_REFERENCE_VALUE",
-  "field": "primaryCategory",
-  "value": "FOODTRUCK",
-  "message": "FOODTRUCK is not a valid category"
-}
+Critères
 
-Règle importante
-
-Les IDs internes de la base ne constituent pas le contrat métier de l'API.
-
-Le contrat est basé sur les codes.
-
-Documentation
-
-Le contrat doit être documenté dans OpenAPI/Swagger ou dans le mécanisme documentaire déjà utilisé par le projet.
-
-Critères d'acceptation
-
-- [ ] Les endpoints du référentiel existent.
-- [ ] Les réponses sont documentées.
-- [ ] Les codes métier sont stables.
-- [ ] Les IDs internes ne sont pas nécessaires au frontend.
-- [ ] Les valeurs inconnues sont rejetées.
+- [ ] Les endpoints existent.
+- [ ] Les codes sont exposés.
+- [ ] Les labels sont localisés.
+- [ ] La locale est prise en compte.
+- [ ] Le fallback est appliqué.
+- [ ] Les codes invalides sont rejetés.
 - [ ] Les valeurs inactives sont rejetées.
-- [ ] Les valeurs appartenant au mauvais référentiel sont rejetées.
-- [ ] Les erreurs sont structurées.
-- [ ] Le contrat OpenAPI/équivalent est à jour.
-- [ ] Les tests API valides passent.
-- [ ] Les tests API invalides passent.
-- [ ] Les événements hybrides sont testés.
+- [ ] Le contrat Activity utilise les codes.
+- [ ] La documentation API est à jour.
 
 ---
 
-ORDRE D'EXÉCUTION
+4. Ordre d'exécution obligatoire
+
+Claude doit respecter cet ordre :
 
 CAT-000
-Audit de l'existant
-        ↓
+↓
 CAT-001
-Catégories V1
-        ↓
+↓
 CAT-002
-Types d'activité
-        ↓
+↓
 CAT-003
-Publics
-        ↓
+↓
 CAT-004
-Organisateurs
-        ↓
+↓
 CAT-005
-IDs / Codes / Libellés
-        ↓
+↓
 CAT-006
-Modèle Activity
-        ↓
+↓
 CAT-012
-Base de données
-        ↓
+↓
 CAT-007
-Migration
-        ↓
+↓
 CAT-013
-Contrat API
-        ↓
+↓
 CAT-008
-Seeder + imports
-        ↓
+↓
 CAT-009
-Frontend
-        ↓
+↓
 CAT-010
-Tests de couverture
-        ↓
+↓
 CAT-011
-Documentation / gouvernance
+
+Pourquoi cet ordre ?
+
+"CAT-000" établit l'état réel.
+
+Les "CAT-001" à "CAT-004" définissent le vocabulaire métier.
+
+"CAT-005" fixe la règle fondamentale :
+
+ID ≠ CODE ≠ LABEL
+
+et définit la traduction.
+
+"CAT-006" adapte le modèle métier.
+
+"CAT-012" implémente le modèle DB.
+
+"CAT-007" peut alors migrer les données.
+
+"CAT-013" expose proprement le nouveau modèle.
+
+"CAT-008" adapte Seeder/imports.
+
+"CAT-009" adapte le frontend.
+
+Les derniers tickets consolident tests et documentation.
 
 ---
 
-Dépendances
+5. Definition of Done du sprint
 
-CAT-000 → CAT-001
+Le sprint est terminé uniquement lorsque :
 
-CAT-001 → CAT-005
-CAT-002 → CAT-005
-CAT-003 → CAT-005
-CAT-004 → CAT-005
-
-CAT-001..005 → CAT-006
-
-CAT-005 → CAT-012
-CAT-006 → CAT-012
-
-CAT-001..006 → CAT-007
-
-CAT-001..006 → CAT-013
-CAT-012 → CAT-013
-
-CAT-005 → CAT-008
-CAT-006 → CAT-008
-CAT-012 → CAT-008
-CAT-013 → CAT-008
-
-CAT-005 → CAT-009
-CAT-012 → CAT-009
-CAT-013 → CAT-009
-
-CAT-001..013 → CAT-010
-CAT-001..013 → CAT-011
-
----
-
-Definition of Done du sprint
-
-Le sprint CATEG est terminé uniquement lorsque :
-
-Référentiel
-
-- [ ] Les 9 catégories V1 sont définies.
-- [ ] Les types d'activité sont définis.
+- [ ] Le référentiel canonique existe.
+- [ ] Les catégories sont définies.
+- [ ] Les types d'activités sont définis.
 - [ ] Les publics sont définis.
 - [ ] Les organisateurs sont définis.
-- [ ] Les codes sont stables et documentés.
+- [ ] Les IDs sont séparés des codes.
+- [ ] Les codes sont stables et indépendants de la langue.
+- [ ] Les labels sont localisés.
+- [ ] "fr-FR" est disponible pour toutes les références V1.
+- [ ] Le fallback est testé.
+- [ ] Le modèle DB est migré.
+- [ ] Les données existantes sont migrées.
+- [ ] Le Seeder utilise les codes.
+- [ ] Les imports utilisent les codes.
+- [ ] Les sources ne peuvent pas créer de nouvelles catégories.
+- [ ] Le frontend utilise le référentiel.
+- [ ] L'API expose les codes et labels localisés.
+- [ ] Les tests métier passent.
+- [ ] Les tests de traduction passent.
+- [ ] Les tests de migration passent.
+- [ ] La documentation est complète.
+- [ ] Aucune catégorie libre ne reste utilisée comme identité métier.
 
-IDs / Codes / Libellés
+---
 
-- 
+6. Hors périmètre
+
+Ce sprint ne doit pas introduire :
+
+- nouvelles sources RSS ;
+- nouveau moteur de recommandation ;
+- géolocalisation ;
+- recherche avancée ;
+- fonctionnalités sociales ;
+- scoring ;
+- nouvelle logique métier sans rapport avec le référentiel ;
+- catégories spécifiques à une source ;
+- IDs DB utilisés comme API métier.
+
+---
+
+7. Règle finale du référentiel
+
+La règle à conserver dans toute l'architecture LocalLife est :
+
+«Le CODE identifie le concept.
+La LOCALE détermine le libellé.
+Le LABEL ne détermine jamais le concept.»
