@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.locallife.backend.category.application.CategoryService;
-import com.locallife.backend.category.domain.Category;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,28 +24,29 @@ class CategoryControllerTest {
 
     @Test
     void getAllCategories_ShouldReturnListOfCategories() {
-        // Given
-        List<Category> categories = List.of(
-                new Category(1L, "Concert", "Événements musicaux"),
-                new Category(2L, "Marché", "Marchés et brocantes")
+        // Given : deux des 9 catégories V1 (CAT-001), avec leur label fr-FR résolu
+        List<CategoryResponse> categories = List.of(
+                new CategoryResponse("CULTURE", "Culture", "Spectacle vivant, musique, exposition...", true),
+                new CategoryResponse("MARKETS", "Marchés", "Marchés de producteurs, brocantes...", true)
         );
-        when(categoryService.getAllCategories()).thenReturn(categories);
+        when(categoryService.getAllCategories("fr-FR")).thenReturn(categories);
 
         // When
-        ResponseEntity<List<Category>> response = categoryController.getAllCategories();
+        ResponseEntity<List<CategoryResponse>> response = categoryController.getAllCategories("fr-FR");
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(2, response.getBody().size());
+        assertEquals("CULTURE", response.getBody().get(0).code());
     }
 
     @Test
     void getAllCategories_ShouldReturnEmptyList_WhenNoCategories() {
         // Given
-        when(categoryService.getAllCategories()).thenReturn(List.of());
+        when(categoryService.getAllCategories("fr-FR")).thenReturn(List.of());
 
         // When
-        ResponseEntity<List<Category>> response = categoryController.getAllCategories();
+        ResponseEntity<List<CategoryResponse>> response = categoryController.getAllCategories("fr-FR");
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
