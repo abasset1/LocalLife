@@ -1,925 +1,917 @@
-# SPRINT CATEG — Référentiel de catégories et visibilité LocalLife
+SPRINT CATEG — Référentiel canonique des activités V1
 
-**Statut :** À faire
-**Priorité :** Haute
-**Domaine :** Classification / qualité des données / UX
-**Version :** 1.0
+Objectif du sprint
 
----
+Construire et intégrer le référentiel canonique des activités LocalLife V1.
 
-# 1. Objectif du sprint
+Le référentiel doit permettre à LocalLife de gérer les activités actuelles et futures sans dépendre des catégories fournies par les sources externes et sans multiplier les catégories au fur et à mesure de l'évolution du produit.
 
-Construire le référentiel de classification de LocalLife afin de résoudre le problème de surcharge constaté lors des premiers retours utilisateurs.
+Le sprint doit notamment couvrir :
 
-Le système doit permettre à LocalLife de :
+- culture ;
+- gastronomie ;
+- foodtrucks ;
+- marchés ;
+- brocantes ;
+- vide-greniers ;
+- commerce ;
+- sport ;
+- loisirs ;
+- nature ;
+- associations ;
+- professionnels ;
+- tourisme ;
+- famille ;
+- vie citoyenne ;
+- événements hybrides.
 
-* classer les contenus provenant de différentes sources ;
-* limiter le nombre de catégories principales visibles par l'utilisateur ;
-* conserver des types et sous-types plus précis sans les exposer systématiquement ;
-* empêcher qu'un nouveau type de contenu augmente automatiquement le volume affiché ;
-* distinguer clairement classification, publication et visibilité ;
-* préparer la personnalisation du contenu selon les préférences utilisateur ;
-* permettre l'évolution future du référentiel sans modification structurelle majeure du logiciel.
+Problème actuel
 
-L'objectif n'est **pas** de réduire artificiellement le nombre d'événements présents dans la base.
-
-L'objectif est de contrôler **ce qui est proposé à l'utilisateur par défaut**.
-
----
-
-# 2. Problème utilisateur à résoudre
-
-Les premiers retours montrent que le volume et l'hétérogénéité des événements peuvent rendre LocalLife difficile à comprendre.
-
-Un utilisateur peut actuellement être confronté à un mélange important de contenus :
-
-* événements culturels ;
-* concerts ;
-* activités sportives ;
-* foodtrucks ;
-* commerces ;
-* marchés ;
-* animations ;
-* activités très spécialisées ;
-* etc.
-
-La conséquence recherchée par ce sprint est :
-
-> **LocalLife doit pouvoir contenir beaucoup de contenus sans obliger tous les utilisateurs à les voir tous.**
-
-Un contenu pertinent pour un utilisateur peut être inutile pour un autre.
-
----
-
-# 3. Documents de référence obligatoires
-
-Avant toute modification liée aux catégories, l'IA doit lire :
-
-* `docs/CATEGORIES_FUNCTIONAL_MODEL.md`
-* `AI_RULES.md`
-* `docs/PROJECT_STATUS.md`
-* le présent sprint ;
-* la documentation de `CAT-000` ;
-* les données et résultats produits par `CAT-000`.
-
-`docs/CATEGORIES_FUNCTIONAL_MODEL.md` constitue la **référence fonctionnelle principale** pour ce sprint.
-
-En cas de contradiction entre une ancienne hypothèse du projet et ce document, l'IA doit :
-
-1. identifier la contradiction ;
-2. ne pas décider arbitrairement ;
-3. appliquer le modèle fonctionnel ;
-4. documenter la divergence si une modification de documentation est nécessaire.
-
----
-
-# 4. Principes fondamentaux
-
-## 4.1 Catégorie, type et visibilité sont différents
-
-Le système doit distinguer au minimum :
-
-* catégorie principale ;
-* type / sous-type ;
-* politique de visibilité.
+Le modèle actuel utilise une catégorie essentiellement sous forme de chaîne libre.
 
 Exemple :
 
-```text
-Catégorie : Gastronomie
-Type      : Foodtruck
-Visibilité: OPT_IN
-```
+category = "sport"
 
-Le type `Foodtruck` n'est donc pas nécessairement une catégorie principale.
+Cette approche pose plusieurs problèmes :
+
+- aucune liste canonique réellement imposée ;
+- risque de variantes ("sport", "SPORT", "sports", etc.) ;
+- impossibilité de distinguer catégorie, type d'activité, public et organisateur ;
+- dépendance potentielle aux catégories des sources externes ;
+- difficulté à gérer les événements hybrides ;
+- difficulté à faire évoluer le référentiel sans casser les données existantes ;
+- risque de duplication de la logique entre Seeder, backend, imports et frontend.
+
+Principe directeur
+
+Le référentiel doit séparer quatre dimensions :
+
+CATEGORY
+ACTIVITY_TYPE
+AUDIENCE
+ORGANIZER_TYPE
+
+CATEGORY
+
+Répond à :
+
+«De quoi parle principalement l'activité ?»
+
+ACTIVITY_TYPE
+
+Répond à :
+
+«Qu'est-ce qui se passe ?»
+
+AUDIENCE
+
+Répond à :
+
+«Pour qui ?»
+
+ORGANIZER_TYPE
+
+Répond à :
+
+«Qui organise ?»
 
 ---
 
-## 4.2 Le nombre de catégories principales doit rester limité
+CAT-000 — Audit de l'existant
 
-LocalLife doit disposer d'un nombre volontairement limité de catégories principales.
+Priorité
 
-La cible est de l'ordre de **8 à 12 catégories**, sans imposer artificiellement un nombre exact.
+P0
 
-Les catégories doivent être :
+Complexité
 
-* compréhensibles par le grand public ;
-* suffisamment larges ;
-* mutuellement cohérentes ;
-* utiles pour filtrer le contenu ;
-* suffisamment stables pour ne pas changer constamment.
+M
 
-Le référentiel doit être déterminé à partir des données réelles analysées par `CAT-000`.
+Objectif
+
+Identifier précisément toutes les valeurs actuellement utilisées dans :
+
+- la base de données ;
+- le Seeder ;
+- les fixtures ;
+- les tests ;
+- le backend ;
+- le frontend ;
+- les éventuels imports ;
+- les données historiques.
+
+L'objectif est de connaître l'écart exact entre l'existant et le nouveau référentiel.
+
+Travail demandé
+
+Rechercher toutes les valeurs actuellement utilisées pour les catégories.
+
+Exemples :
+
+sport
+culture
+loisir
+marché
+...
+
+Identifier également les catégories implicites ou codées en dur dans le frontend ou les tests.
+
+Critères d'acceptation
+
+- [ ] Toutes les valeurs actuellement utilisées sont identifiées.
+- [ ] Les occurrences dans le code sont identifiées.
+- [ ] Les valeurs présentes en base sont identifiées.
+- [ ] Les valeurs du Seeder sont identifiées.
+- [ ] Les fixtures/tests sont identifiés.
+- [ ] Les valeurs inconnues ou ambiguës sont listées.
+- [ ] Une table de migration ancien → nouveau est produite.
+- [ ] Aucun changement de données n'est effectué automatiquement par ce ticket.
+
+Livrable
+
+docs/CATEGORY_MIGRATION_MAP.md
 
 ---
 
-## 4.3 Les types peuvent être nombreux
+CAT-001 — Référentiel canonique des catégories V1
 
-Les types permettent de conserver une classification plus précise sans multiplier les catégories principales.
+Priorité
+
+P0
+
+Complexité
+
+M
+
+Objectif
+
+Créer la source de vérité unique des catégories LocalLife.
+
+Catégories V1
+
+CULTURE
+GASTRONOMY
+MARKETS
+COMMERCE
+SPORT
+LEISURE
+NATURE
+TOURISM
+CITIZEN
+
+Définitions
+
+CULTURE
+
+Arts, musique, spectacles, littérature, patrimoine, expositions et manifestations culturelles.
+
+GASTRONOMY
+
+Cuisine, alimentation, gastronomie, dégustations, producteurs, restauration événementielle et foodtrucks.
+
+MARKETS
+
+Marchés, brocantes, vide-greniers, foires et manifestations principalement orientées vers la vente ou l'échange.
+
+COMMERCE
+
+Animations commerciales, commerces locaux, portes ouvertes commerciales et événements liés à la vie commerciale locale.
+
+SPORT
+
+Pratique sportive, compétitions, matchs, tournois et manifestations sportives.
+
+LEISURE
+
+Loisirs, jeux, hobbies, ateliers et activités récréatives ne relevant pas principalement d'une autre catégorie.
+
+NATURE
+
+Nature, environnement, jardins, plein air, découverte de la faune/flore et activités de découverte naturelle.
+
+TOURISM
+
+Tourisme, découverte du territoire, visites guidées, circuits et activités destinées à découvrir un lieu ou son patrimoine.
+
+CITIZEN
+
+Vie citoyenne, solidarité, actions collectives, sensibilisation et initiatives locales.
+
+Règles
+
+- Les IDs sont immuables.
+- Les libellés sont séparés des IDs.
+- Une source externe ne peut jamais créer automatiquement une catégorie.
+- Une catégorie ne doit pas être créée simplement parce qu'un nouveau type d'activité apparaît.
+- Le référentiel est centralisé.
+- Aucun composant ne doit maintenir sa propre copie de la liste.
+
+Critères d'acceptation
+
+- [ ] Les 9 catégories existent.
+- [ ] Chaque catégorie possède un ID stable.
+- [ ] Chaque catégorie possède un libellé.
+- [ ] Chaque catégorie possède une description.
+- [ ] Les catégories sont uniques.
+- [ ] Le référentiel est accessible au backend.
+- [ ] Le référentiel est accessible au Seeder.
+- [ ] Les tests du référentiel sont présents.
+
+---
+
+CAT-002 — Référentiel des types d'activité
+
+Priorité
+
+P0
+
+Complexité
+
+M
+
+Objectif
+
+Définir ce qui se passe réellement lors d'une activité.
+
+Types V1
+
+CONCERT
+SPECTACLE
+FESTIVAL
+EXPOSITION
+CONFERENCE
+RENCONTRE
+VISITE
+VISITE_GUIDEE
+
+ATELIER
+INITIATION
+FORMATION
+STAGE
+
+MARCHE
+MARCHE_PRODUCTEURS
+MARCHE_ARTISANAL
+MARCHE_SPECIALISE
+VIDE_GRENIER
+BROCANTE
+FOIRE
+
+FOODTRUCK
+DEGUSTATION
+REPAS
+ANIMATION_GASTRONOMIQUE
+
+COMPETITION
+TOURNOI
+MATCH
+RANDONNEE
+BALADE
+SORTIE_NATURE
+
+FETE
+ANIMATION
+JEU
+ACTION_COLLECTIVE
+ACTION_SOLIDAIRE
+
+PORTES_OUVERTES
+SALON
+FORUM
+VENTE
+
+Règles
+
+Un type d'activité n'est pas une catégorie.
+
+Exemples :
+
+FOODTRUCK ≠ CATEGORY
+RANDONNEE ≠ CATEGORY
+VIDE_GRENIER ≠ CATEGORY
+FAMILLE ≠ CATEGORY
+ASSOCIATION ≠ CATEGORY
+
+Critères d'acceptation
+
+- [ ] Tous les types V1 sont définis.
+- [ ] Les IDs sont stables.
+- [ ] Les types sont centralisés.
+- [ ] Les types ne sont pas dupliqués dans le frontend.
+- [ ] Les types ne sont pas dépendants d'une source externe.
+- [ ] Tests unitaires présents.
+
+---
+
+CAT-003 — Référentiel des publics
+
+Priorité
+
+P1
+
+Complexité
+
+S
+
+Objectif
+
+Définir le public auquel une activité s'adresse.
+
+Valeurs V1
+
+ALL_PUBLIC
+FAMILY
+CHILDREN
+TEENAGERS
+ADULTS
+SENIORS
+PROFESSIONALS
+
+Règles
+
+"FAMILY" est un public et non une catégorie.
+
+Une activité peut avoir plusieurs publics.
 
 Exemple :
 
-```text
-Gastronomie
-├── Foodtruck
-├── Restaurant
-├── Bar
-├── Dégustation
-└── Atelier cuisine
-```
+audiences:
+  - FAMILY
+  - CHILDREN
 
-Autre exemple :
+Critères d'acceptation
 
-```text
+- [ ] Les valeurs sont centralisées.
+- [ ] Une activité peut avoir plusieurs publics.
+- [ ] "FAMILY" n'est jamais utilisé comme catégorie.
+- [ ] Les valeurs inconnues ne sont pas inventées.
+- [ ] Tests présents.
+
+---
+
+CAT-004 — Référentiel des organisateurs
+
+Priorité
+
+P1
+
+Complexité
+
+S
+
+Objectif
+
+Définir le type d'organisateur.
+
+Valeurs V1
+
+MUNICIPALITY
+ASSOCIATION
+COMPANY
+BUSINESS
+PROFESSIONAL
+INDIVIDUAL
+SPORTS_CLUB
+TOURISM_OFFICE
+INSTITUTION
+
+Règles
+
+L'organisateur ne détermine pas automatiquement la catégorie.
+
+Exemple :
+
+Association
+    +
+Concert
+    =
+CULTURE
+
+et non :
+
+ASSOCIATION
+
+comme catégorie.
+
+Critères d'acceptation
+
+- [ ] Les valeurs sont centralisées.
+- [ ] Une association n'est pas automatiquement classée comme catégorie.
+- [ ] Un commerce n'impose pas automatiquement "COMMERCE".
+- [ ] Tests présents.
+
+---
+
+CAT-005 — Évolution du modèle Activity
+
+Priorité
+
+P0
+
+Complexité
+
+L
+
+Objectif
+
+Faire évoluer "Activity" afin d'intégrer le nouveau référentiel.
+
+Modèle cible
+
+Activity
+├── primaryCategory
+├── secondaryCategories[]
+├── activityTypes[]
+├── audiences[]
+├── organizerType
+└── ...
+
+Contraintes
+
+Une activité possède :
+
+1 catégorie principale
+0..N catégories secondaires
+0..N types d'activité
+0..N publics
+0..1 type d'organisateur
+
+Exemple
+
+title: "Festival médiéval"
+
+primaryCategory: CULTURE
+
+secondaryCategories:
+  - TOURISM
+  - MARKETS
+
+activityTypes:
+  - FESTIVAL
+
+audiences:
+  - ALL_PUBLIC
+  - FAMILY
+
+organizerType: ASSOCIATION
+
+Critères d'acceptation
+
+- [ ] Une catégorie principale est obligatoire lorsque l'activité est classifiée.
+- [ ] Les catégories secondaires sont supportées.
+- [ ] Les types d'activité sont supportés.
+- [ ] Les publics sont supportés.
+- [ ] L'organisateur est supporté.
+- [ ] Les contraintes d'intégrité sont définies.
+- [ ] Les tests existants sont adaptés.
+- [ ] Les nouveaux composants n'utilisent plus une catégorie libre arbitraire.
+
+---
+
+CAT-006 — Migration des données existantes
+
+Priorité
+
+P0
+
+Complexité
+
+M
+
+Dépendances
+
+CAT-000
+CAT-001
+CAT-005
+
+Objectif
+
+Migrer les anciennes catégories vers le référentiel canonique sans perte de données.
+
+Exemple
+
+sport
+→ SPORT
+
+culture
+→ CULTURE
+
+Cas ambigu
+
+ancienne_valeur = "autre"
+→ NEEDS_REVIEW
+
+Règles
+
+- Aucun événement ne doit être supprimé.
+- Une valeur inconnue ne doit pas être transformée arbitrairement.
+- Toute migration doit être reproductible.
+- La migration doit être testée.
+- Les anciennes données doivent rester traçables pendant la transition.
+
+Critères d'acceptation
+
+- [ ] Toutes les anciennes valeurs ont un mapping ou un statut explicite.
+- [ ] Les données existantes sont migrées.
+- [ ] Aucun événement n'est perdu.
+- [ ] Les valeurs inconnues sont détectables.
+- [ ] Les données migrées sont vérifiées.
+- [ ] Les tests de migration passent.
+- [ ] La migration est documentée.
+
+---
+
+CAT-007 — Classification des imports et du Seeder
+
+Priorité
+
+P0
+
+Complexité
+
+L
+
+Dépendances
+
+CAT-001
+CAT-002
+CAT-003
+CAT-004
+CAT-005
+
+Objectif
+
+Faire du référentiel LocalLife la source de vérité utilisée par les données générées et importées.
+
+Pipeline cible
+
+SOURCE
+  ↓
+RAW DATA
+  ↓
+NORMALISATION
+  ↓
+CLASSIFICATION LOCALIFE
+  ↓
+VALIDATION
+  ↓
+DEDUPLICATION
+  ↓
+ACTIVITY
+
+Règle fondamentale
+
+Une source externe ne définit jamais directement une catégorie LocalLife.
+
+Exemple :
+
+Source :
+"Marché gourmand nocturne"
+
+peut être classifié :
+
+primaryCategory: GASTRONOMY
+
+secondaryCategories:
+  - MARKETS
+
+activityTypes:
+  - MARCHE
+
+Statut de classification
+
+UNCLASSIFIED
+AUTO_CLASSIFIED
+VALIDATED
+NEEDS_REVIEW
+REJECTED
+
+Gestion de l'incertitude
+
+Si les données ne permettent pas une classification fiable :
+
+classificationStatus = NEEDS_REVIEW
+
+Le système ne doit pas inventer.
+
+Critères d'acceptation
+
+- [ ] Le Seeder utilise le référentiel.
+- [ ] Les imports utilisent le référentiel.
+- [ ] Aucune catégorie source n'est injectée directement comme catégorie LocalLife.
+- [ ] Les cas ambigus sont détectables.
+- [ ] Les classifications sont traçables.
+- [ ] Les tests de classification passent.
+- [ ] Aucun composant ne possède sa propre liste parallèle de catégories.
+
+---
+
+CAT-008 — Frontend basé sur le référentiel
+
+Priorité
+
+P1
+
+Complexité
+
+M
+
+Dépendances
+
+CAT-001
+CAT-002
+CAT-003
+CAT-005
+
+Objectif
+
+Supprimer la saisie libre des catégories.
+
+Règle
+
+Le frontend doit utiliser le référentiel.
+
+La catégorie ne doit plus être saisie comme texte libre.
+
+Comportement attendu
+
+Catégorie
+[ Culture ▼ ]
+
+Les valeurs transmises au backend sont les IDs canoniques.
+
+Critères d'acceptation
+
+- [ ] La catégorie n'est plus saisie librement.
+- [ ] Les catégories proviennent du référentiel.
+- [ ] Les catégories secondaires utilisent le même référentiel.
+- [ ] Les libellés affichés sont français.
+- [ ] Les IDs envoyés au backend sont canoniques.
+- [ ] Le frontend ne contient pas de liste codée en dur.
+- [ ] Les tests frontend passent.
+
+---
+
+CAT-009 — Tests de couverture des futurs cas
+
+Priorité
+
+P0
+
+Complexité
+
+M
+
+Objectif
+
+Vérifier que le référentiel couvre les activités futures prévues par LocalLife.
+
+Cas obligatoires
+
 Culture
-├── Musée
-├── Exposition
-├── Conférence
-├── Patrimoine
-└── Visite guidée
-```
 
----
+Concert
+Théâtre
+Exposition
+Festival médiéval
+Rencontre avec un auteur
 
-# 5. Politique de visibilité
+Gastronomie
 
-Chaque catégorie ou type exploitable par le système doit avoir une politique de visibilité explicite.
-
-## `DEFAULT`
-
-Le contenu peut apparaître dans le flux général par défaut.
-
-## `OPT_IN`
-
-Le contenu est correctement classifié et peut être publié, mais il n'apparaît pas dans le flux général tant que l'utilisateur ne l'a pas sélectionné ou demandé.
-
-## `PENDING`
-
-La classification ou la décision de traitement n'est pas suffisamment déterminée.
-
-Le contenu ne doit pas être considéré comme publiable normalement tant que son traitement n'est pas résolu.
-
----
-
-# 6. Distinction obligatoire entre PENDING et OPT_IN
-
-Ces états ne doivent jamais être confondus.
-
-### `PENDING`
-
-Signifie :
-
-> LocalLife ne sait pas encore suffisamment bien comment traiter ce contenu.
-
-### `OPT_IN`
-
-Signifie :
-
-> LocalLife sait parfaitement ce qu'est ce contenu, mais choisit de ne pas l'afficher à tous les utilisateurs par défaut.
-
-Exemple :
-
-```text
 Foodtruck
-→ Gastronomie
-→ classification valide
-→ OPT_IN
-```
+Marché gourmand
+Dégustation
+Atelier cuisine
 
-est un cas normal.
+Marchés
 
-Alors que :
+Marché traditionnel
+Marché artisanal
+Vide-grenier
+Brocante
 
-```text
-"Animation XYZ"
-→ classification impossible
-→ PENDING
-```
+Commerce
 
-est un cas différent.
+Animation commerciale
+Portes ouvertes
 
----
+Sport
 
-# 7. Un contenu OPT_IN reste un contenu valide
+Match
+Tournoi
+Course
+Randonnée
 
-Un contenu `OPT_IN` :
+Loisirs
 
-* peut être publié ;
-* peut être conservé ;
-* peut être recherché ;
-* peut être consulté directement ;
-* peut apparaître dans une recherche ciblée ;
-* peut être proposé à un utilisateur ayant activé ce type ;
-* peut appartenir à un acteur local ;
-* ne doit simplement pas apparaître dans le flux général par défaut.
+Atelier poterie
+Jeux de société
+Stage photo
 
----
+Nature
 
-# 8. Règle fondamentale d'évolution
+Sortie nature
+Observation des oiseaux
+Visite d'un jardin
 
-L'ajout d'un nouveau type de contenu ne doit **jamais** provoquer automatiquement son affichage dans le flux général.
+Associations / citoyen
 
-Exemple :
+Forum des associations
+Collecte solidaire
+Action collective
 
-Si LocalLife ajoute demain :
+Professionnels
 
-```text
-Restaurant
-Bar
-Foodtruck
-Coiffeur
-Marché
-```
+Formation
+Salon professionnel
+Rencontre professionnelle
 
-ces types doivent chacun recevoir explicitement une politique :
+Tourisme
 
-```text
-DEFAULT
-OPT_IN
-PENDING
-```
+Visite guidée
+Circuit touristique
+Découverte du patrimoine
 
-Aucun comportement implicite ne doit être appliqué.
+Famille
 
----
+Spectacle enfant
+Atelier parent/enfant
+Chasse au trésor familiale
 
-# 9. Cas Foodtruck
+Événements hybrides
 
-Le Foodtruck est un cas d'usage important mais **ne constitue pas un modèle métier autonome dans ce sprint**.
+Festival + marché + foodtrucks
+Fête de village
+Journée vélo
+Marché de producteurs
+Portes ouvertes + dégustation
 
-Il doit être traité comme un type d'activité.
+Critères d'acceptation
 
-Exemple :
-
-```text
-Catégorie : Gastronomie
-Type      : Foodtruck
-Visibilité: OPT_IN
-```
-
-Aucun système spécifique Foodtruck ne doit être créé dans ce sprint.
-
-Le même modèle devra pouvoir être utilisé ultérieurement pour :
-
-* restaurant ;
-* bar ;
-* commerce ;
-* marché ;
-* association ;
-* théâtre ;
-* musée ;
-* activité sportive ;
-* etc.
+- [ ] Tous les cas sont représentables.
+- [ ] Aucun cas ne nécessite une catégorie ad hoc.
+- [ ] Les événements hybrides supportent plusieurs catégories.
+- [ ] Le public est séparé de la catégorie.
+- [ ] L'organisateur est séparé de la catégorie.
+- [ ] Le type d'activité est séparé de la catégorie.
+- [ ] Les tests sont automatisés.
 
 ---
 
-# 10. Classification des sources externes
+CAT-010 — Documentation et gouvernance du référentiel
 
-Les catégories fournies par une source externe ne doivent pas être reprises automatiquement comme catégories LocalLife.
+Priorité
 
-Le système doit permettre un mapping :
+P1
 
-```text
-Source externe
-      ↓
-Catégorie source
-      ↓
-Mapping LocalLife
-      ↓
-Catégorie principale
-      ↓
-Type / sous-type
-      ↓
-Politique de visibilité
-```
+Complexité
 
-Exemple :
+S
 
-```text
-OpenAgenda : "Food truck"
+Objectif
+
+Empêcher la dérive future du référentiel.
+
+Documentation
+
+Créer ou mettre à jour :
+
+docs/CATEGORY_REFERENCE.md
+
+Le document doit contenir :
+
+1. les catégories ;
+2. les types d'activité ;
+3. les publics ;
+4. les organisateurs ;
+5. les règles de classification ;
+6. les règles de multi-catégories ;
+7. les règles d'ajout d'une nouvelle valeur ;
+8. les règles de migration ;
+9. les exemples d'événements hybrides.
+
+Règle d'ajout d'une catégorie
+
+Avant de créer une nouvelle catégorie, vérifier :
+
+1. Le besoin peut-il être représenté par un type ?
+2. Le besoin peut-il être représenté par un public ?
+3. Le besoin peut-il être représenté par un organisateur ?
+4. Le besoin peut-il être représenté par une catégorie existante ?
+5. Une nouvelle catégorie est-elle réellement nécessaire ?
+
+Une nouvelle catégorie doit rester une exception.
+
+Critères d'acceptation
+
+- [ ] La documentation existe.
+- [ ] Les règles sont documentées.
+- [ ] Les catégories sont documentées.
+- [ ] Les types sont documentés.
+- [ ] Les publics sont documentés.
+- [ ] Les organisateurs sont documentés.
+- [ ] Les règles de gouvernance sont documentées.
+
+---
+
+ORDRE D'EXÉCUTION
+
+Les tickets doivent être réalisés dans cet ordre :
+
+CAT-000
+Audit de l'existant
         ↓
-LocalLife : Gastronomie
+CAT-001
+Catégories V1
         ↓
-Type : Foodtruck
+CAT-002
+Types d'activité
         ↓
-OPT_IN
-```
+CAT-003
+Publics
+        ↓
+CAT-004
+Organisateurs
+        ↓
+CAT-005
+Modèle Activity
+        ↓
+CAT-006
+Migration
+        ↓
+CAT-007
+Seeder + imports
+        ↓
+CAT-008
+Frontend
+        ↓
+CAT-009
+Tests de couverture
+        ↓
+CAT-010
+Documentation / gouvernance
+
+Dépendances principales
+
+CAT-000 → CAT-001
+CAT-001 → CAT-005
+CAT-002 → CAT-005
+CAT-003 → CAT-005
+CAT-004 → CAT-005
+CAT-005 → CAT-006
+CAT-005 → CAT-007
+CAT-005 → CAT-008
+CAT-001..004 → CAT-009
+CAT-006..009 → CAT-010
 
 ---
 
-# 11. Catégorie inconnue
-
-Lorsqu'un événement entrant ne peut pas être correctement classé dans le référentiel LocalLife :
-
-```text
-Événement entrant
-       ↓
-classification impossible
-       ↓
-PENDING
-```
-
-Il ne doit pas être forcé arbitrairement dans une catégorie existante simplement pour éviter `PENDING`.
-
-L'objectif est de préserver la qualité du référentiel.
-
----
-
-# 12. Conservation de l'information source
-
-La classification LocalLife ne doit pas détruire inutilement l'information provenant de la source.
-
-Le système doit conserver, lorsque cela est pertinent :
-
-* catégorie source ;
-* type source ;
-* source de l'information ;
-* mapping LocalLife appliqué.
-
-Cela permettra :
-
-* d'améliorer ultérieurement les mappings ;
-* de corriger les classifications ;
-* de comprendre l'origine d'un contenu ;
-* de traiter de nouvelles catégories sources.
-
----
-
-# 13. Préférences utilisateur
-
-Le référentiel doit être conçu pour permettre ultérieurement à un utilisateur connecté de sélectionner ses centres d'intérêt.
-
-Exemple :
-
-```text
-Musique       ✓
-Culture       ✓
-Famille       ✓
-Sport         ✗
-Foodtruck     ✓
-Restaurant    ✗
-```
-
-Les préférences pourront notamment permettre d'activer certains contenus `OPT_IN`.
-
-Ce sprint ne doit pas nécessairement implémenter l'interface complète des préférences utilisateur si celle-ci appartient à un autre sprint.
-
-En revanche, le modèle de catégories ne doit pas empêcher cette fonctionnalité.
-
----
-
-# 14. Utilisateur non connecté
-
-Le comportement par défaut doit rester simple.
-
-Un utilisateur non connecté doit recevoir uniquement les contenus correspondant à la politique de visibilité générale prévue par LocalLife.
-
-Les contenus `OPT_IN` ne doivent pas devenir visibles uniquement parce que l'utilisateur n'est pas connecté.
-
----
-
-# 15. Utilisateur connecté
-
-Un utilisateur connecté pourra ultérieurement disposer de préférences personnalisées.
-
-Le système devra permettre :
-
-```text
-Flux général
-     +
-préférences utilisateur
-     ↓
-contenus pertinents
-```
-
-Le mécanisme précis de personnalisation appartient au sprint qui implémentera les préférences utilisateur.
-
----
-
-# 16. Acteurs locaux
-
-Ce sprint doit tenir compte du futur modèle des acteurs locaux.
-
-LocalLife pourra ultérieurement accueillir :
-
-* entreprises ;
-* commerçants ;
-* foodtrucks ;
-* restaurants ;
-* bars ;
-* associations ;
-* artistes ;
-* organisateurs ;
-* collectivités ;
-* établissements culturels ;
-* structures sportives ;
-* particuliers organisateurs.
-
-Le système de catégories ne doit pas dépendre d'un type d'acteur particulier.
-
-Un acteur local pourra produire des contenus `DEFAULT` ou `OPT_IN`.
-
----
-
-# 17. Import et création manuelle
-
-Un contenu importé et un contenu créé directement dans LocalLife doivent pouvoir utiliser le même référentiel de classification.
-
-Exemple :
-
-```text
-IMPORT
-  ↓
-classification
-  ↓
-LocalLife
-```
-
-et :
-
-```text
-CRÉATION DIRECTE
-  ↓
-classification
-  ↓
-LocalLife
-```
-
-Le système de catégories ne doit pas créer deux référentiels parallèles.
-
----
-
-# 18. Objectifs techniques
-
-CAT doit produire un référentiel permettant :
-
-* d'identifier une catégorie LocalLife ;
-* d'identifier un type/sous-type ;
-* d'associer une politique de visibilité ;
-* de mapper une catégorie externe ;
-* de gérer les catégories inconnues ;
-* de faire évoluer le référentiel sans modification structurelle majeure du code.
-
-Le stockage peut être technique ou configuré selon l'architecture existante.
-
-Aucune technologie particulière ne doit être imposée par le présent sprint si l'architecture existante permet déjà de répondre au besoin.
-
----
-
-# 19. Tickets
-
-## CAT-000 — Audit des catégories existantes
-
-**Priorité : Haute**
-
-### Objectif
-
-Analyser les catégories et types réellement présents dans les données actuelles.
-
-### À analyser
-
-* catégories ;
-* types ;
-* fréquence ;
-* variantes orthographiques ;
-* synonymes ;
-* catégories trop fines ;
-* catégories trop larges ;
-* catégories inutilisables ;
-* catégories sans correspondance claire ;
-* catégories spécifiques à une source ;
-* volume d'événements par catégorie ;
-* exemples représentatifs.
-
-### Critères d'acceptation
-
-* les catégories réelles sont inventoriées ;
-* les volumes sont connus ;
-* les principales anomalies sont documentées ;
-* les regroupements potentiels sont identifiés ;
-* aucune suppression arbitraire n'est effectuée ;
-* les données servent de base à CAT-001.
-
-### Livrable
-
-Un document d'audit exploitable par CAT-001.
-
----
-
-# CAT-001 — Définir le référentiel de catégories LocalLife
-
-**Priorité : Critique**
-
-**Dépendance : CAT-000**
-
-### Objectif
-
-Définir les catégories principales et les types LocalLife à partir des données réelles et du modèle fonctionnel.
-
-### Le ticket doit produire
-
-1. la liste des catégories principales ;
-2. la justification de chaque catégorie ;
-3. les types/sous-types associés ;
-4. les mappings des catégories sources ;
-5. la politique `DEFAULT / OPT_IN / PENDING` ;
-6. les règles de traitement des catégories inconnues ;
-7. les cas particuliers ;
-8. les règles d'évolution du référentiel.
-
-### Critères d'acceptation
-
-* les catégories principales sont limitées ;
-* elles sont compréhensibles par l'utilisateur ;
-* les types sont séparés des catégories ;
-* chaque type dispose d'une politique de visibilité ;
-* les cas Foodtruck, Restaurant et Bar peuvent être représentés sans créer de catégorie principale obligatoire ;
-* un nouveau type ne devient pas automatiquement visible ;
-* les catégories sources peuvent être mappées ;
-* une catégorie inconnue peut rester `PENDING` ;
-* le référentiel est documenté ;
-* les décisions sont justifiées à partir des données de CAT-000.
-
-### Interdiction
-
-CAT-001 ne doit pas créer le système complet des acteurs locaux ou des préférences utilisateur.
-
----
-
-# CAT-002 — Définir le modèle de données du référentiel
-
-**Priorité : Haute**
-
-**Dépendance : CAT-001**
-
-### Objectif
-
-Traduire le référentiel fonctionnel validé en modèle de données compatible avec l'architecture existante.
-
-### À définir
-
-* catégorie ;
-* type ;
-* sous-type si nécessaire ;
-* politique de visibilité ;
-* relation entre catégories et types ;
-* mapping des catégories sources ;
-* gestion des valeurs actives/inactives.
-
-### Critères d'acceptation
-
-* modèle documenté ;
-* aucune duplication inutile ;
-* ajout d'un nouveau type possible sans modification structurelle majeure ;
-* compatibilité avec les données existantes ;
-* stratégie de migration définie si nécessaire.
-
----
-
-# CAT-003 — Implémenter le référentiel LocalLife
-
-**Priorité : Haute**
-
-**Dépendance : CAT-002**
-
-### Objectif
-
-Implémenter le référentiel défini par CAT-001 et CAT-002.
-
-### Critères d'acceptation
-
-* catégories persistées ;
-* types persistés ;
-* politique de visibilité persistée ;
-* relations fonctionnelles ;
-* données initiales intégrées ;
-* tests unitaires ;
-* aucun comportement implicite pour les nouvelles catégories.
-
----
-
-# CAT-004 — Implémenter le mapping des catégories sources
-
-**Priorité : Haute**
-
-**Dépendance : CAT-003**
-
-### Objectif
-
-Permettre aux données importées d'être converties vers le référentiel LocalLife.
-
-### Critères d'acceptation
-
-* mapping explicite ;
-* catégorie source conservée lorsque nécessaire ;
-* catégorie LocalLife attribuée correctement ;
-* type LocalLife attribué lorsque possible ;
-* absence de mapping → `PENDING` ;
-* aucune classification arbitraire ;
-* tests couvrant les principales catégories sources.
-
----
-
-# CAT-005 — Appliquer les politiques DEFAULT / OPT_IN / PENDING
-
-**Priorité : Haute**
-
-**Dépendance : CAT-004**
-
-### Objectif
-
-Faire respecter les règles de visibilité définies par le référentiel.
-
-### Critères d'acceptation
-
-* `DEFAULT` peut alimenter le flux général ;
-* `OPT_IN` n'est pas affiché par défaut ;
-* `OPT_IN` reste publiable et consultable ;
-* `PENDING` n'est pas considéré comme publiable normalement ;
-* aucun nouveau type n'est automatiquement `DEFAULT` ;
-* les règles sont couvertes par des tests.
-
----
-
-# CAT-006 — Adapter le pipeline d'import
-
-**Priorité : Haute**
-
-**Dépendance : CAT-005**
-
-### Objectif
-
-Intégrer le nouveau référentiel dans le processus d'import existant.
-
-### Flux attendu
-
-```text
-Source externe
-      ↓
-Normalisation
-      ↓
-Classification LocalLife
-      ↓
-DEFAULT / OPT_IN / PENDING
-      ↓
-Publication / traitement approprié
-```
-
-### Critères d'acceptation
-
-* les événements importés utilisent le référentiel LocalLife ;
-* les événements inconnus peuvent rester `PENDING` ;
-* aucun événement n'est affiché uniquement parce qu'il a été importé ;
-* aucun doublon de système de catégories n'est créé ;
-* tests d'intégration présents.
-
----
-
-# CAT-007 — Préparer l'exploitation par les préférences utilisateur
-
-**Priorité : Moyenne**
-
-**Dépendance : CAT-005**
-
-### Objectif
-
-Garantir que le référentiel peut être utilisé ultérieurement par le système de préférences utilisateur.
-
-### À définir
-
-* quelles catégories peuvent être sélectionnées ;
-* quels types peuvent être sélectionnés ;
-* comment un utilisateur active un contenu `OPT_IN` ;
-* comment les préférences pourront être appliquées au flux.
-
-### Critères d'acceptation
-
-* modèle documenté ;
-* aucune implémentation prématurée de l'interface utilisateur ;
-* aucune dépendance forte empêchant le futur sprint de préférences.
-
----
-
-# CAT-008 — Tests fonctionnels et non-régression
-
-**Priorité : Haute**
-
-**Dépendance : CAT-006**
-
-### Scénarios minimum
-
-#### Catégorie DEFAULT
-
-```text
-Événement → catégorie connue → DEFAULT
-→ visible dans le flux général
-```
-
-#### Type OPT_IN
-
-```text
-Foodtruck → Gastronomie → OPT_IN
-→ non visible par défaut
-→ reste publiable
-→ devient visible dans une recherche/préférence appropriée
-```
-
-#### Catégorie inconnue
-
-```text
-Événement → aucune classification fiable
-→ PENDING
-→ non affiché normalement
-```
-
-#### Nouveau type
-
-```text
-Ajout du type "Restaurant"
-→ aucune visibilité implicite
-→ politique explicite obligatoire
-```
-
-#### Source externe
-
-```text
-Catégorie source
-→ mapping LocalLife
-→ catégorie + type + visibilité corrects
-```
-
-### Critères d'acceptation
-
-Tous les scénarios passent.
-
-Aucune régression sur :
-
-* carte ;
-* liste ;
-* recherche ;
-* import ;
-* publication ;
-* modération.
-
----
-
-# CAT-009 — Documentation finale
-
-**Priorité : Haute**
-
-**Dépendance : CAT-008**
-
-### Documentation à mettre à jour
-
-Selon les besoins réels du projet :
-
-* `CATEGORIES_FUNCTIONAL_MODEL.md`
-* `PROJECT_STATUS.md`
-* `ROADMAP.md`
-* documentation architecture ;
-* documentation API ;
-* documentation import ;
-* changelog.
-
-### Critères d'acceptation
-
-La documentation permet à une nouvelle IA ou à un développeur de comprendre :
-
-* pourquoi les catégories sont limitées ;
-* la différence entre catégorie et type ;
-* la différence entre `DEFAULT`, `OPT_IN` et `PENDING` ;
-* comment ajouter un nouveau type ;
-* comment mapper une source externe ;
-* pourquoi un Foodtruck n'est pas un modèle spécifique ;
-* comment le système préparera les préférences utilisateur.
-
----
-
-# 20. Règles d'évolution du référentiel
-
-Toute demande future du type :
-
-> « Ajoutons une nouvelle catégorie »
-
-doit obligatoirement répondre à ces questions :
-
-1. Cette notion est-elle réellement une catégorie principale ?
-2. Ne s'agit-il pas plutôt d'un type/sous-type ?
-3. Existe-t-il déjà une catégorie capable de l'accueillir ?
-4. Combien de contenus sont concernés ?
-5. Quel est le besoin utilisateur ?
-6. Cette catégorie doit-elle être `DEFAULT` ou `OPT_IN` ?
-7. Quel est l'impact sur les préférences utilisateur ?
-8. Quel est l'impact sur les sources externes ?
-9. Quel est le comportement si la catégorie n'est pas reconnue ?
-10. Cette évolution augmente-t-elle inutilement la complexité de l'interface ?
-
-Aucune nouvelle catégorie principale ne doit être ajoutée uniquement parce qu'une source externe possède cette catégorie.
-
----
-
-# 21. Cas limites obligatoires
-
-Le système doit être capable de gérer au minimum :
-
-### Foodtruck
-
-```text
-Gastronomie / Foodtruck / OPT_IN
-```
-
-### Restaurant
-
-```text
-Gastronomie / Restaurant / OPT_IN ou DEFAULT
-```
-
-La décision finale appartient au référentiel validé.
-
-### Bar
-
-```text
-Gastronomie ou catégorie appropriée / Bar / politique explicite
-```
-
-### Festival
-
-Peut être classé selon sa nature sans créer automatiquement une catégorie Festival principale.
-
-### Association
-
-L'association est un type d'acteur, pas une catégorie d'événement.
-
-### Collectivité
-
-La collectivité est un type d'acteur, pas une catégorie d'événement.
-
-### Événement sans catégorie fiable
-
-```text
-PENDING
-```
-
-### Événement avec catégorie valide mais type OPT_IN
-
-```text
-PUBLISHED + OPT_IN
-```
-
-Ces deux notions ne doivent jamais être confondues.
-
----
-
-# 22. Ce qui est explicitement hors périmètre
-
-Ce sprint ne doit pas implémenter :
-
-* système complet des comptes professionnels ;
-* système complet des acteurs locaux ;
-* gestion des organisations ;
-* gestion multi-utilisateurs ;
-* revendication d'une fiche ;
-* abonnement professionnel ;
-* paiement ;
-* marketplace ;
-* statistiques professionnelles ;
-* publicité ;
-* recommandations algorithmiques ;
-* moteur de personnalisation complet ;
-* interface complète des préférences utilisateur ;
-* système spécifique Foodtruck ;
-* système spécifique Restaurant ;
-* système spécifique Bar.
-
-Ces sujets pourront être traités dans des sprints dédiés.
-
----
-
-# 23. Définition of Done
-
-Le Sprint CATEG est terminé lorsque :
-
-* [ ] `CAT-000` a analysé les données réelles ;
-* [ ] les catégories principales LocalLife sont définies ;
-* [ ] les types/sous-types sont définis ;
-* [ ] chaque type possède une politique de visibilité ;
-* [ ] `DEFAULT`, `OPT_IN` et `PENDING` sont clairement séparés ;
-* [ ] le mapping des sources externes est défini ;
-* [ ] le référentiel est implémenté ;
-* [ ] les imports utilisent ce référentiel ;
-* [ ] un contenu inconnu peut rester `PENDING` ;
-* [ ] un contenu `OPT_IN` peut être publié sans être visible par défaut ;
-* [ ] aucun nouveau type n'est automatiquement affiché ;
-* [ ] Foodtruck, Restaurant et Bar peuvent être représentés sans architecture spécifique ;
-* [ ] le futur système de préférences utilisateur est pris en compte ;
-* [ ] les tests de non-régression passent ;
-* [ ] la documentation est à jour ;
-* [ ] aucune décision d'architecture concernant les acteurs locaux n'a été prise prématurément.
-
----
-
-# 24. Principe directeur du sprint
-
-> **LocalLife ne cherche pas à afficher tout ce qu'il sait identifier.**
->
-> **LocalLife cherche à classifier suffisamment précisément les contenus pour décider intelligemment de ce qui doit être affiché par défaut et de ce qui doit être proposé uniquement aux utilisateurs intéressés.**
+Definition of Done du sprint
+
+Le sprint CATEG est terminé uniquement lorsque :
+
+- [ ] Le référentiel canonique V1 est implémenté.
+- [ ] Les 9 catégories sont définies.
+- [ ] Les types d'activité sont définis.
+- [ ] Les publics sont définis.
+- [ ] Les organisateurs sont définis.
+- [ ] "Activity" utilise le nouveau modèle.
+- [ ] Les anciennes catégories ont été auditées.
+- [ ] Les anciennes données ont été migrées.
+- [ ] Le Seeder utilise le référentiel.
+- [ ] Les imports utilisent le référentiel.
+- [ ] Le frontend utilise le référentiel.
+- [ ] Les événements hybrides sont correctement représentables.
+- [ ] Les cas futurs définis dans CAT-009 sont couverts par des tests.
+- [ ] Les cas ambigus ne sont pas classifiés arbitrairement.
+- [ ] La documentation est à jour.
+- [ ] Aucun composant ne maintient une liste parallèle de catégories.
+- [ ] La CI passe intégralement.
+- [ ] Aucune donnée existante n'a été perdue.
+
+Hors périmètre
+
+Ce sprint ne doit pas :
+
+- ajouter de nouvelles sources RSS ;
+- développer le moteur de recommandation ;
+- modifier la géolocalisation ;
+- modifier le système de recherche ;
+- développer les fonctionnalités sociales ;
+- créer des catégories spécifiques à une source externe ;
+- créer une catégorie pour chaque nouveau type d'activité.
+
+Résultat attendu
+
+À la fin du sprint CATEG, LocalLife dispose d'un référentiel unique, stable, extensible et indépendant des sources, utilisable par :
+
+Seeder
+Imports RSS/API
+Backend
+Base de données
+Frontend
+Administration
+Tests
+
+Le référentiel devient la source de vérité unique de la classification des activités LocalLife.
