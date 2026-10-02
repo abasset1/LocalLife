@@ -56,6 +56,17 @@ class OrganizerTypeServiceTest {
     }
 
     @Test
+    void getAllOrganizerTypes_ShouldFallBackToBaseLanguage_WhenRequestedRegionMissing() {
+        // CAT-005 : fr-BE absent -> langue de base "fr" -> fr-FR (maillon intermédiaire
+        // de la chaîne de repli, introduit par l'harmonisation CAT-005)
+        when(organizerTypeRepository.findAll()).thenReturn(List.of(typeWithFrTranslation()));
+
+        var result = organizerTypeService.getAllOrganizerTypes("fr-BE");
+
+        assertEquals("Association", result.get(0).label());
+    }
+
+    @Test
     void getAllOrganizerTypes_ShouldFallBackToCode_WhenNoTranslationAtAll() {
         OrganizerType withoutTranslation =
                 new OrganizerType(2L, "INDIVIDUAL", true, LocalDateTime.now(), LocalDateTime.now(), List.of());

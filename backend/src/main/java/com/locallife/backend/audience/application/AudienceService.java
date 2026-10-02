@@ -4,20 +4,21 @@ import com.locallife.backend.audience.api.AudienceResponse;
 import com.locallife.backend.audience.domain.Audience;
 import com.locallife.backend.audience.domain.AudienceTranslation;
 import com.locallife.backend.audience.infrastructure.AudienceRepository;
+import com.locallife.backend.common.i18n.LocaleResolver;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 /**
  * Service Audience (CAT-003). Résout le label/la description de la locale
- * demandée — même logique de repli que {@code CategoryService}/
- * {@code ActivityTypeService} : locale demandée → {@code fr-FR} →
- * {@code code}.
+ * demandée à partir des {@link AudienceTranslation} d'un public, en
+ * déléguant la chaîne de repli à
+ * {@link com.locallife.backend.common.i18n.LocaleResolver} (CAT-005) :
+ * locale demandée → langue de base correspondante → {@code fr-FR} →
+ * {@code CODE} (ce dernier maillon géré ici, dans {@link #toResponse}).
  */
 @Service
 public class AudienceService {
-
-    private static final String DEFAULT_LOCALE = "fr-FR";
 
     private final AudienceRepository audienceRepository;
 
@@ -44,18 +45,7 @@ public class AudienceService {
     }
 
     private AudienceTranslation resolveTranslation(Audience audience, String locale) {
-        AudienceTranslation exact = findByLocale(audience, locale);
-        if (exact != null) {
-            return exact;
-        }
-        return findByLocale(audience, DEFAULT_LOCALE);
-    }
-
-    private AudienceTranslation findByLocale(Audience audience, String locale) {
-        return audience.translations().stream()
-                .filter(t -> t.locale().equalsIgnoreCase(locale))
-                .findFirst()
-                .orElse(null);
+        return LocaleResolver.resolve(audience.translations(), locale, AudienceTranslation::locale);
     }
 
 }
