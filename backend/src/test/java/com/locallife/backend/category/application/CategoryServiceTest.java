@@ -57,6 +57,17 @@ class CategoryServiceTest {
     }
 
     @Test
+    void getAllCategories_ShouldFallBackToBaseLanguage_WhenRequestedRegionMissing() {
+        // CAT-005 : fr-BE absent -> langue de base "fr" -> fr-FR (maillon intermédiaire
+        // de la chaîne de repli, introduit par l'harmonisation CAT-005)
+        when(categoryRepository.findAll()).thenReturn(List.of(categoryWithFrTranslation()));
+
+        var result = categoryService.getAllCategories("fr-BE");
+
+        assertEquals("Culture", result.get(0).label());
+    }
+
+    @Test
     void getAllCategories_ShouldFallBackToCode_WhenNoTranslationAtAll() {
         Category withoutTranslation =
                 new Category(2L, "SPORT", true, LocalDateTime.now(), LocalDateTime.now(), List.of());

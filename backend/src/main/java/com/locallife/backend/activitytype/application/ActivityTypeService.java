@@ -4,22 +4,21 @@ import com.locallife.backend.activitytype.api.ActivityTypeResponse;
 import com.locallife.backend.activitytype.domain.ActivityType;
 import com.locallife.backend.activitytype.domain.ActivityTypeTranslation;
 import com.locallife.backend.activitytype.infrastructure.ActivityTypeRepository;
+import com.locallife.backend.common.i18n.LocaleResolver;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 /**
  * Service ActivityType (CAT-002). Résout le label/la description de la
- * locale demandée à partir des {@link ActivityTypeTranslation} d'un type —
- * même logique de repli que {@code CategoryService} (CAT-001) : locale
- * demandée → {@code fr-FR} → {@code code} (chaîne complète décrite par
- * CAT-005, réduite à ses deux derniers maillons tant qu'une seule locale
- * existe).
+ * locale demandée à partir des {@link ActivityTypeTranslation} d'un type,
+ * en déléguant la chaîne de repli à
+ * {@link com.locallife.backend.common.i18n.LocaleResolver} (CAT-005) :
+ * locale demandée → langue de base correspondante → {@code fr-FR} →
+ * {@code CODE} (ce dernier maillon géré ici, dans {@link #toResponse}).
  */
 @Service
 public class ActivityTypeService {
-
-    private static final String DEFAULT_LOCALE = "fr-FR";
 
     private final ActivityTypeRepository activityTypeRepository;
 
@@ -46,18 +45,7 @@ public class ActivityTypeService {
     }
 
     private ActivityTypeTranslation resolveTranslation(ActivityType type, String locale) {
-        ActivityTypeTranslation exact = findByLocale(type, locale);
-        if (exact != null) {
-            return exact;
-        }
-        return findByLocale(type, DEFAULT_LOCALE);
-    }
-
-    private ActivityTypeTranslation findByLocale(ActivityType type, String locale) {
-        return type.translations().stream()
-                .filter(t -> t.locale().equalsIgnoreCase(locale))
-                .findFirst()
-                .orElse(null);
+        return LocaleResolver.resolve(type.translations(), locale, ActivityTypeTranslation::locale);
     }
 
 }

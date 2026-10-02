@@ -57,6 +57,17 @@ class AudienceServiceTest {
     }
 
     @Test
+    void getAllAudiences_ShouldFallBackToBaseLanguage_WhenRequestedRegionMissing() {
+        // CAT-005 : fr-BE absent -> langue de base "fr" -> fr-FR (maillon intermédiaire
+        // de la chaîne de repli, introduit par l'harmonisation CAT-005)
+        when(audienceRepository.findAll()).thenReturn(List.of(audienceWithFrTranslation()));
+
+        var result = audienceService.getAllAudiences("fr-BE");
+
+        assertEquals("Famille", result.get(0).label());
+    }
+
+    @Test
     void getAllAudiences_ShouldFallBackToCode_WhenNoTranslationAtAll() {
         Audience withoutTranslation =
                 new Audience(2L, "SENIORS", true, LocalDateTime.now(), LocalDateTime.now(), List.of());

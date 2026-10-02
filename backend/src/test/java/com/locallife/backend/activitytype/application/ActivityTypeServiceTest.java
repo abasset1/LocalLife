@@ -57,6 +57,17 @@ class ActivityTypeServiceTest {
     }
 
     @Test
+    void getAllActivityTypes_ShouldFallBackToBaseLanguage_WhenRequestedRegionMissing() {
+        // CAT-005 : fr-BE absent -> langue de base "fr" -> fr-FR (maillon intermédiaire
+        // de la chaîne de repli, introduit par l'harmonisation CAT-005)
+        when(activityTypeRepository.findAll()).thenReturn(List.of(typeWithFrTranslation()));
+
+        var result = activityTypeService.getAllActivityTypes("fr-BE");
+
+        assertEquals("Festival", result.get(0).label());
+    }
+
+    @Test
     void getAllActivityTypes_ShouldFallBackToCode_WhenNoTranslationAtAll() {
         ActivityType withoutTranslation =
                 new ActivityType(2L, "ATELIER", true, LocalDateTime.now(), LocalDateTime.now(), List.of());
