@@ -60,7 +60,8 @@ class ActivityServiceTest {
         // Given
         Activity expected = new Activity(
                 1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null,
+                1L);
         when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null, null))
                 .thenReturn(List.of(expected));
 
@@ -421,7 +422,8 @@ class ActivityServiceTest {
         // Given
         Activity expected = new Activity(
                 1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null,
+                1L);
         when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null, null))
                 .thenReturn(List.of(expected));
 
@@ -664,7 +666,8 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null,
+                1L);
         when(activityRepository.findByStatus("PENDING")).thenReturn(List.of(pending));
 
         // When
@@ -718,7 +721,8 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null,
+                1L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -738,7 +742,8 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 2L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null,
+                1L);
         when(activityRepository.findById(2L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -781,7 +786,8 @@ class ActivityServiceTest {
         // Given : transition non prévue par LL-6003 (seul PENDING → PUBLISHED existe).
         Activity published = new Activity(
                 3L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null,
+                1L);
         when(activityRepository.findById(3L)).thenReturn(Optional.of(published));
 
         // When / Then
@@ -797,7 +803,8 @@ class ActivityServiceTest {
         // Given : transition non prévue par LL-6003 (seul PENDING → REJECTED existe).
         Activity rejected = new Activity(
                 4L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "REJECTED", 1L, null,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null,
+                1L);
         when(activityRepository.findById(4L)).thenReturn(Optional.of(rejected));
 
         // When / Then
@@ -1002,7 +1009,8 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, 42L);
+                null, null, null, null, null, null, null, null, 42L,
+                1L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -1022,7 +1030,8 @@ class ActivityServiceTest {
         // Given : cas principal visé par le ticket, annuler un événement déjà publié.
         Activity published = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null, null, null, null, null, null, null, null, 42L);
+                null, null, null, null, null, null, null, null, 42L,
+                1L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(published));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -1039,7 +1048,8 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, 42L);
+                null, null, null, null, null, null, null, null, 42L,
+                1L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -1070,7 +1080,8 @@ class ActivityServiceTest {
         // aucun créateur identifié — hors périmètre du ticket.
         Activity imported = new Activity(
                 1L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 2L,
-                "external:key", null, null, null, null, null, null, null, null, null);
+                "external:key", null, null, null, null, null, null, null, null, null,
+                1L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(imported));
 
         // When / Then
@@ -1087,7 +1098,8 @@ class ActivityServiceTest {
         // collectors ne sont pas concernées par cette fonctionnalité »).
         Activity imported = new Activity(
                 1L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 2L,
-                "external:key", null, null, null, null, null, null, null, null, null);
+                "external:key", null, null, null, null, null, null, null, null, null,
+                1L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(imported));
 
         assertThatThrownBy(() -> activityService().cancel(1L, 99L, true))
@@ -1101,7 +1113,8 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, 42L);
+                null, null, null, null, null, null, null, null, 42L,
+                1L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
 
         // When / Then : demandeur (99L) ni créateur (42L) ni administrateur.
@@ -1116,7 +1129,8 @@ class ActivityServiceTest {
         // Given : transition non prévue (déjà annulée, voir CANCELLABLE_STATUSES).
         Activity cancelled = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "CANCELLED", 1L, null,
-                null, null, null, null, null, null, null, null, 42L);
+                null, null, null, null, null, null, null, null, 42L,
+                1L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(cancelled));
 
         // When / Then
@@ -1134,7 +1148,8 @@ class ActivityServiceTest {
         // n'a pas de raison d'être "annulée" par son créateur.
         Activity rejected = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "REJECTED", 1L, null,
-                null, null, null, null, null, null, null, null, 42L);
+                null, null, null, null, null, null, null, null, 42L,
+                1L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(rejected));
 
         // When / Then

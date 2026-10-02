@@ -426,7 +426,8 @@ public class ImportService {
                 activity.status(), sourceId, importKey, activity.url(),
                 activity.address(), activity.city(), activity.postalCode(),
                 activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax(),
-                activity.createdBy());
+                activity.createdBy(),
+                activity.primaryCategoryId());
     }
 
     private Activity withStatus(Activity activity, String status) {
@@ -436,7 +437,8 @@ public class ImportService {
                 status, activity.sourceId(), activity.importKey(), activity.url(),
                 activity.address(), activity.city(), activity.postalCode(),
                 activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax(),
-                activity.createdBy());
+                activity.createdBy(),
+                activity.primaryCategoryId());
     }
 
 }

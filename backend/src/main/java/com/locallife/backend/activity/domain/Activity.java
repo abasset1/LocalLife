@@ -125,6 +125,34 @@ import org.springframework.data.annotation.Id;
  * explicite) mais n'est plus considérée comme active : exclue des
  * recherches publiques au même titre que {@code PENDING}/{@code REJECTED}
  * (statut {@code PUBLISHED} uniquement, LL-6004).
+ *
+ * {@code primaryCategoryId} ajouté en CAT-006 (SPRINT_CATEG) : référence
+ * vers {@code category.id} (référentiel canonique, CAT-001),
+ * {@code NOT NULL} depuis {@code V37__make_primary_category_mandatory.sql}
+ * — contrainte réelle en base, pas une convention applicative. Ce choix
+ * (plutôt qu'une table séparée faisant passer l'obligation pour une
+ * simple convention) fait suite à une relecture explicite de CAT-006 :
+ * la première version de cette migration utilisait une table séparée
+ * {@code activity_primary_category} précisément pour contourner le fait
+ * que les activités déjà en base n'avaient aucune classification — ce qui
+ * revenait à affaiblir le critère « la catégorie principale est
+ * obligatoire » plutôt qu'à l'appliquer. {@code V37} corrige cela : les
+ * activités existantes sans classification sont supprimées (voir cette
+ * migration) plutôt que de contourner la contrainte.
+ *
+ * Conséquence directe, assumée et non contournée : {@link
+ * com.locallife.backend.activity.application.ActivityService#createActivity}
+ * et {@link com.locallife.backend.collector.application.NormalizationService#normalize}
+ * ne disposent aujourd'hui d'aucune source de classification (CAT-008,
+ * « classification Seeder et imports », pas encore implémenté) — ils
+ * construisent toujours une {@code Activity} avec
+ * {@code primaryCategoryId = null}, ce qui fait désormais échouer
+ * l'{@code INSERT} en base (violation {@code NOT NULL}) plutôt que de
+ * silencieusement accepter une activité non classifiée. La création
+ * manuelle et l'import restent donc non fonctionnels de bout en bout tant
+ * que CAT-008 (ou un ticket équivalent) ne fournit pas de
+ * {@code primaryCategoryId} réel à ces deux appelants — point à traiter
+ * avant de remettre ces flux en production, pas un oubli.
  */
 public record Activity(
         @Id Long id,
@@ -146,5 +174,6 @@ public record Activity(
         String conditions,
         Integer ageMin,
         Integer ageMax,
-        Long createdBy) {
+        Long createdBy,
+        Long primaryCategoryId) {
 }

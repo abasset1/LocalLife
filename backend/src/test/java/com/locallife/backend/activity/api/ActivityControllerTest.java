@@ -113,10 +113,12 @@ class ActivityControllerTest {
         List<Activity> activities = List.of(
                 new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
                         LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
-                        null, null, null, null, null),
+                        null, null, null, null, null,
+                1L),
                 new Activity(2L, "Another Activity", "Another Description", "Another Category", 1.0, 1.0,
                         LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
-                        null, null, null, null, null)
+                        null, null, null, null, null,
+                1L)
         );
         when(activityService.findAll(null, null, null)).thenReturn(activities);
 
@@ -147,7 +149,8 @@ class ActivityControllerTest {
         // qui porte toute la logique de normalisation/validation (même approche que getNearbyActivities).
         Activity activity = new Activity(1L, "Marché", "Description", "marché", 43.9493, 4.8055,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, "Place Pie", "Avignon", "84000",
-                null, null, null, null, null);
+                null, null, null, null, null,
+                1L);
         when(activityService.findAll("Avignon", "city,date", null)).thenReturn(List.of(activity));
 
         // When
@@ -182,7 +185,8 @@ class ActivityControllerTest {
         // Given
         Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
                 LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
-                null, null, null, null, null);
+                null, null, null, null, null,
+                1L);
         when(activityService.findById(1L)).thenReturn(Optional.of(activity));
         when(premiumAccessPolicy.hasPremiumAccess(authentication)).thenReturn(true);
 
@@ -203,7 +207,8 @@ class ActivityControllerTest {
         // la décision revient exclusivement à PremiumAccessPolicy, jamais au domaine.
         Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
                 LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
-                null, null, null, null, null);
+                null, null, null, null, null,
+                1L);
         when(activityService.findById(1L)).thenReturn(Optional.of(activity));
         when(premiumAccessPolicy.hasPremiumAccess(authentication)).thenReturn(false);
 
@@ -232,7 +237,8 @@ class ActivityControllerTest {
     void createActivity_ShouldReturnCreated_WithActivity() {
         // Given
         Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
-                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
+                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L,
+                1L);
         when(activityService.createActivity(
                 "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
                 .thenReturn(created);
@@ -257,7 +263,8 @@ class ActivityControllerTest {
         // jamais d'un champ du corps de requête — même principe que UserController
         // pour userId (voir sa javadoc).
         Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
-                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
+                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L,
+                1L);
         when(activityService.createActivity(
                 "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
                 .thenReturn(created);
@@ -277,7 +284,8 @@ class ActivityControllerTest {
         // Given : demande Alex — startDate/endDate saisis manuellement transmis tels quels au service.
         Activity created = new Activity(1L, "Festival", "desc", "loisir", 43.29, 5.37,
                 LocalDateTime.of(2026, 9, 20, 0, 0), LocalDateTime.of(2026, 9, 22, 0, 0),
-                "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
+                "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L,
+                1L);
         when(activityService.createActivity(
                 "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22", 7L))
                 .thenReturn(created);
@@ -344,7 +352,8 @@ class ActivityControllerTest {
     void createActivity_ShouldAttachContactLinks_WhenUrlPhoneEmailProvided() {
         // Given
         Activity created = new Activity(42L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
-                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
+                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L,
+                1L);
         when(activityService.createActivity(
                 "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
                 .thenReturn(created);
@@ -372,7 +381,8 @@ class ActivityControllerTest {
     void createActivity_ShouldNotAttachAnyLink_WhenUrlPhoneEmailAbsent() {
         // Given
         Activity created = new Activity(42L, "Pique-nique", "Pique-nique au parc", "loisir", 43.29, 5.37,
-                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
+                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L,
+                1L);
         when(activityService.createActivity(
                 "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
                 .thenReturn(created);
@@ -417,7 +427,8 @@ class ActivityControllerTest {
     void getNearbyActivities_ShouldReturnOk_WithActivities() {
         // Given
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null);
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null,
+                1L);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
@@ -439,7 +450,8 @@ class ActivityControllerTest {
         // « Créée par : ... »), même principe que sourceId -> sourceName (LL-8006).
         Activity nearby = new Activity(1L, "Pique-nique", "Description", "loisir", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null,
-                42L);
+                42L,
+                1L);
         Source source = new Source(1L, "MANUAL", "MANUAL", null, "ACTIVE", null, null, null);
         User creator = new User(42L, "jean.dupont", "jean@example.com", null, Role.USER, null, true);
         when(activityService.findNearby("43.2951", "5.3739", "5", "loisir", "2026-09-05", null))
@@ -464,7 +476,8 @@ class ActivityControllerTest {
         // inutile à userService pour un id qui n'existe pas.
         Activity imported = new Activity(1L, "Marché", "Description", "marché", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 2L, "external:key", null, null, null, null, null, null,
-                null, null, null);
+                null, null, null,
+                1L);
         Source source = new Source(2L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null,
                 null, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", "marché", "2026-09-05", null))
@@ -485,7 +498,8 @@ class ActivityControllerTest {
     void getNearbyActivities_ShouldReturnUnknownSourceName_WhenSourceNotFound() {
         // Given : sourceId référencé par l'activité absent des sources connues (cas défensif LL-8006).
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED", 99L, null, null, null, null, null, null, null, null, null, null);
+                LocalDateTime.now(), null, "PUBLISHED", 99L, null, null, null, null, null, null, null, null, null, null,
+                1L);
         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
         when(sourceService.getAllSources()).thenReturn(List.of());
@@ -508,7 +522,8 @@ class ActivityControllerTest {
         // démontrait pas la propagation d'une valeur réelle.
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null,
-                "Quai du Port", "Marseille", "13002", null, null, null, null, null);
+                "Quai du Port", "Marseille", "13002", null, null, null, null, null,
+                1L);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", null))
                 .thenReturn(List.of(nearby));
@@ -568,7 +583,8 @@ class ActivityControllerTest {
         // LL-11003 : le contrôleur transmet simplement dateTo au service, qui porte
         // toute la validation (voir ActivityServiceTest pour le détail des cas).
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null);
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null,
+                1L);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", "concert", "2026-09-05", "2026-09-10"))
                 .thenReturn(List.of(nearby));
@@ -602,7 +618,8 @@ class ActivityControllerTest {
     void getActivitiesWithinBounds_ShouldReturnOk_WithActivities() {
         // Given
         Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
-                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null);
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null,
+                1L);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findWithinBounds(
                 "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null))
@@ -625,7 +642,8 @@ class ActivityControllerTest {
         // pour le second endpoint concerné par le contrat LOCATION_CONTRACT.md.
         Activity inBounds = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null,
-                "Quai du Port", "Marseille", "13002", null, null, null, null, null);
+                "Quai du Port", "Marseille", "13002", null, null, null, null, null,
+                1L);
         Source source = new Source(1L, "OpenAgenda — Avignon", "API", "https://openagenda.com", "ACTIVE", null, null, null);
         when(activityService.findWithinBounds(
                 "43.28", "5.35", "43.31", "5.40", "concert", "2026-09-05", null))
@@ -686,7 +704,8 @@ class ActivityControllerTest {
         // Given
         Activity cancelled = new Activity(1L, "Pique-nique", "desc", "loisir", 43.29, 5.37,
                 LocalDateTime.now(), null, "CANCELLED", 1L, null, null, null, null, null, null, null, null, null,
-                7L);
+                7L,
+                1L);
         when(activityService.cancel(1L, 7L, false)).thenReturn(Optional.of(cancelled));
 
         // When
@@ -703,7 +722,8 @@ class ActivityControllerTest {
         // le contrôleur transmet isAdmin=true au service, qui porte la vérification.
         Activity cancelled = new Activity(1L, "Pique-nique", "desc", "loisir", 43.29, 5.37,
                 LocalDateTime.now(), null, "CANCELLED", 1L, null, null, null, null, null, null, null, null, null,
-                7L);
+                7L,
+                1L);
         when(activityService.cancel(1L, 99L, true)).thenReturn(Optional.of(cancelled));
 
         // When
@@ -764,7 +784,8 @@ class ActivityControllerTest {
         // Given
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null,
-                null);
+                null,
+                1L);
         Source source = new Source(1L, "MANUAL", "MANUAL", null, "ACTIVE", null, null, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", null, null, null))
                 .thenReturn(List.of(nearby));
@@ -790,7 +811,8 @@ class ActivityControllerTest {
         // ActivityController#withSourceNames) : ne doit jamais appeler likeService.
         Activity nearby = new Activity(1L, "Concert", "Description", "concert", 43.29, 5.37,
                 LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null,
-                null);
+                null,
+                1L);
         Source source = new Source(1L, "MANUAL", "MANUAL", null, "ACTIVE", null, null, null);
         when(activityService.findNearby("43.2951", "5.3739", "5", null, null, null))
                 .thenReturn(List.of(nearby));

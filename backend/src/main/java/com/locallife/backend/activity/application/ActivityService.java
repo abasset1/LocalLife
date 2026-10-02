@@ -480,7 +480,8 @@ public class ActivityService {
                 status, activity.sourceId(), activity.importKey(), activity.url(),
                 activity.address(), activity.city(), activity.postalCode(),
                 activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax(),
-                activity.createdBy());
+                activity.createdBy(),
+                activity.primaryCategoryId());
     }
 
     /**
@@ -746,7 +747,11 @@ public class ActivityService {
                 null, title, description, category,
                 coordinates.latitude(), coordinates.longitude(), resolvedStartDate, resolvedEndDate, "PENDING",
                 manualSourceId, null, null,
-                address, coordinates.city(), coordinates.postalCode(), null, null, null, null, createdBy);
+                address, coordinates.city(), coordinates.postalCode(), null, null, null, null, createdBy,
+                // CAT-006/CAT-008 : pas encore de classification pour la contribution
+                // manuelle ; voir la javadoc de la classe pour la conséquence (l'INSERT
+                // échoue tant que CAT-008 ne fournit pas de primaryCategoryId ici).
+                null);
         return activityRepository.save(activity);
     }
 
