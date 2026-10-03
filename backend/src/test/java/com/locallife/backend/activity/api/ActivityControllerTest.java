@@ -5,6 +5,8 @@ import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.application.JwtAuthentication;
+import com.locallife.backend.category.domain.Category;
+import com.locallife.backend.category.infrastructure.CategoryRepository;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.geocoding.application.AddressNotFoundException;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
@@ -87,6 +89,19 @@ class ActivityControllerTest {
 
     @Mock
     private PremiumAccessPolicy premiumAccessPolicy;
+
+    @Mock
+    private CategoryRepository categoryRepository;
+
+    /**
+     * Fixture CAT-006 (correctif) : catégorie résolue par
+     * {@code categoryRepository.findByCode("CULTURE")} dans les tests
+     * {@code createActivity_*} qui atteignent cette résolution (toutes
+     * sauf {@code ShouldReturnBadRequest_AndNeverCreateActivity_WhenEmailInvalid},
+     * où la validation email échoue avant).
+     */
+    private static final Category CULTURE_CATEGORY =
+            new Category(1L, "CULTURE", true, null, null, List.of());
 
     @Mock
     private HttpServletRequest httpRequest;
@@ -240,14 +255,17 @@ class ActivityControllerTest {
                 LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L,
                 1L);
         when(activityService.createActivity(
-                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L,
+                1L))
                 .thenReturn(created);
 
         // When
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille",
-                        null, null, null, null, null),
+                        null, null, null, null, null,
+                "CULTURE"),
                 authentication, httpRequest);
 
         // Then
@@ -266,17 +284,21 @@ class ActivityControllerTest {
                 LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L,
                 1L);
         when(activityService.createActivity(
-                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L,
+                1L))
                 .thenReturn(created);
 
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
         activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille",
-                        null, null, null, null, null),
+                        null, null, null, null, null,
+                "CULTURE"),
                 authentication, httpRequest);
 
         verify(activityService).createActivity(
-                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L);
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L,
+                1L);
     }
 
     @Test
@@ -287,35 +309,42 @@ class ActivityControllerTest {
                 "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L,
                 1L);
         when(activityService.createActivity(
-                "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22", 7L))
+                "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22", 7L,
+                1L))
                 .thenReturn(created);
 
         // When
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22",
-                        null, null, null),
+                        null, null, null,
+                "CULTURE"),
                 authentication, httpRequest);
 
         // Then
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         verify(activityService).createActivity(
-                "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22", 7L);
+                "Festival", "desc", "loisir", "1 rue de la Paix, Marseille", "2026-09-20", "2026-09-22", 7L,
+                1L);
     }
 
     @Test
     void createActivity_ShouldReturnBadRequest_WhenAddressNotFound() {
         // Given
         when(activityService.createActivity(
-                "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue", null, null, 7L))
+                "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue", null, null, 7L,
+                1L))
                 .thenThrow(new AddressNotFoundException("adresse inconnue"));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities");
 
         // When
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Pique-nique", "Pique-nique au parc", "loisir", "adresse inconnue",
-                        null, null, null, null, null),
+                        null, null, null, null, null,
+                "CULTURE"),
                 authentication, httpRequest);
 
         // Then
@@ -327,15 +356,18 @@ class ActivityControllerTest {
     void createActivity_ShouldReturnServiceUnavailable_WhenGeocodingFails() {
         // Given
         when(activityService.createActivity(
-                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix", null, null, 7L))
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix", null, null, 7L,
+                1L))
                 .thenThrow(new GeocodingUnavailableException(new RuntimeException("timeout")));
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities");
 
         // When
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix",
-                        null, null, null, null, null),
+                        null, null, null, null, null,
+                "CULTURE"),
                 authentication, httpRequest);
 
         // Then
@@ -355,14 +387,17 @@ class ActivityControllerTest {
                 LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L,
                 1L);
         when(activityService.createActivity(
-                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L,
+                1L))
                 .thenReturn(created);
 
         // When
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille",
-                        null, null, "https://example.com", "06 12 34 56 78", "contact@example.com"),
+                        null, null, "https://example.com", "06 12 34 56 78", "contact@example.com",
+                "CULTURE"),
                 authentication, httpRequest);
 
         // Then
@@ -384,14 +419,17 @@ class ActivityControllerTest {
                 LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L,
                 1L);
         when(activityService.createActivity(
-                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L))
+                "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 7L,
+                1L))
                 .thenReturn(created);
 
         // When
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
         activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille",
-                        null, null, null, null, null),
+                        null, null, null, null, null,
+                "CULTURE"),
                 authentication, httpRequest);
 
         // Then
@@ -415,7 +453,8 @@ class ActivityControllerTest {
         ResponseEntity<Object> response = activityController.createActivity(
                 new ActivityController.CreateActivityRequest(
                         "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille",
-                        null, null, null, null, "pas-un-email"),
+                        null, null, null, null, "pas-un-email",
+                "CULTURE"),
                 authentication, httpRequest);
 
         // Then

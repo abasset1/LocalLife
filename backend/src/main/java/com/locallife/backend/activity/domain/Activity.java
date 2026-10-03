@@ -140,19 +140,28 @@ import org.springframework.data.annotation.Id;
  * activités existantes sans classification sont supprimées (voir cette
  * migration) plutôt que de contourner la contrainte.
  *
- * Conséquence directe, assumée et non contournée : {@link
- * com.locallife.backend.activity.application.ActivityService#createActivity}
- * et {@link com.locallife.backend.collector.application.NormalizationService#normalize}
- * ne disposent aujourd'hui d'aucune source de classification (CAT-008,
- * « classification Seeder et imports », pas encore implémenté) — ils
- * construisent toujours une {@code Activity} avec
- * {@code primaryCategoryId = null}, ce qui fait désormais échouer
- * l'{@code INSERT} en base (violation {@code NOT NULL}) plutôt que de
- * silencieusement accepter une activité non classifiée. La création
- * manuelle et l'import restent donc non fonctionnels de bout en bout tant
- * que CAT-008 (ou un ticket équivalent) ne fournit pas de
- * {@code primaryCategoryId} réel à ces deux appelants — point à traiter
- * avant de remettre ces flux en production, pas un oubli.
+ * Conséquence directe de ce correctif pour les deux producteurs
+ * d'activités identifiés par l'audit CAT-000 :
+ * <ul>
+ *   <li>la <b>contribution manuelle</b> ({@link
+ *       com.locallife.backend.activity.application.ActivityService#createActivity})
+ *       résout désormais un {@code categoryCode} explicitement fourni par
+ *       le contributeur, via {@code ActivityController#createActivity}
+ *       (un humain choisit la catégorie — ce n'est pas une classification
+ *       automatique, donc pas la matière de CAT-008) ;</li>
+ *   <li>l'<b>import OpenAgenda</b> ({@link
+ *       com.locallife.backend.collector.application.NormalizationService#normalize})
+ *       n'a en revanche aucune source de classification automatique
+ *       aujourd'hui (c'est précisément l'objet de CAT-008, « classification
+ *       Seeder et imports », pas encore implémenté) : il construit
+ *       toujours une {@code Activity} avec {@code primaryCategoryId = null},
+ *       ce qui fait échouer l'{@code INSERT} en base (violation
+ *       {@code NOT NULL}) plutôt que d'accepter silencieusement une
+ *       activité non classifiée. <b>L'import reste donc non fonctionnel de
+ *       bout en bout tant que CAT-008 ne fournit pas de classification
+ *       réelle</b> — point à traiter avant de remettre ce flux en
+ *       production, pas un oubli.</li>
+ * </ul>
  */
 public record Activity(
         @Id Long id,

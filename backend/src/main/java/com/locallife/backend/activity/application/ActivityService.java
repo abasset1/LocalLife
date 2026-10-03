@@ -724,14 +724,26 @@ public class ActivityService {
      *
      * @throws IllegalArgumentException si {@code title} est manquant, vide
      *         ou trop long, si {@code category} est fournie mais
-     *         vide/blanche, ou si {@code startDate}/{@code endDate} est
-     *         fournie mais illisible.
+     *         vide/blanche, si {@code startDate}/{@code endDate} est
+     *         fournie mais illisible, ou si {@code primaryCategoryId} est
+     *         {@code null} (CAT-006 : {@code activity.primary_category_id}
+     *         est {@code NOT NULL} en base depuis
+     *         {@code V37__make_primary_category_mandatory.sql} — ce
+     *         contrôle n'est qu'un échec rapide côté application, la
+     *         contrainte base reste la garantie réelle). La résolution
+     *         d'un {@code categoryCode} fourni par l'appelant vers cet id
+     *         est à la charge de {@code ActivityController#createActivity},
+     *         pas de cette méthode (qui ne connaît pas le référentiel
+     *         {@code Category}, pour ne pas lui ajouter une dépendance).
      */
     public Activity createActivity(
             String title, String description, String category, String address,
-            String startDate, String endDate, Long createdBy) {
+            String startDate, String endDate, Long createdBy, Long primaryCategoryId) {
         validateTitle(title);
         validateCategory(category);
+        if (primaryCategoryId == null) {
+            throw new IllegalArgumentException("La catégorie principale est obligatoire.");
+        }
         LocalDateTime resolvedStartDate = parseFlexibleDate("startDate", startDate)
                 .orElseGet(LocalDateTime::now);
         LocalDateTime resolvedEndDate = parseFlexibleDate("endDate", endDate)
@@ -748,10 +760,7 @@ public class ActivityService {
                 coordinates.latitude(), coordinates.longitude(), resolvedStartDate, resolvedEndDate, "PENDING",
                 manualSourceId, null, null,
                 address, coordinates.city(), coordinates.postalCode(), null, null, null, null, createdBy,
-                // CAT-006/CAT-008 : pas encore de classification pour la contribution
-                // manuelle ; voir la javadoc de la classe pour la conséquence (l'INSERT
-                // échoue tant que CAT-008 ne fournit pas de primaryCategoryId ici).
-                null);
+                primaryCategoryId);
         return activityRepository.save(activity);
     }
 

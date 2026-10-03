@@ -824,7 +824,8 @@ class ActivityServiceTest {
     @Test
     void createActivity_ShouldThrow_WhenTitleIsNull() {
         assertThatThrownBy(() -> activityService()
-                .createActivity(null, "description", "loisir", "1 rue de la Paix, Marseille", null, null, 1L))
+                .createActivity(null, "description", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
+                1L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("title");
 
@@ -834,7 +835,8 @@ class ActivityServiceTest {
     @Test
     void createActivity_ShouldThrow_WhenTitleIsBlank() {
         assertThatThrownBy(() -> activityService()
-                .createActivity("   ", "description", "loisir", "1 rue de la Paix, Marseille", null, null, 1L))
+                .createActivity("   ", "description", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
+                1L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("title");
 
@@ -846,7 +848,8 @@ class ActivityServiceTest {
         String tooLong = "T".repeat(256);
 
         assertThatThrownBy(() -> activityService()
-                .createActivity(tooLong, "description", "loisir", "1 rue de la Paix, Marseille", null, null, 1L))
+                .createActivity(tooLong, "description", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
+                1L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("title");
 
@@ -856,7 +859,8 @@ class ActivityServiceTest {
     @Test
     void createActivity_ShouldThrow_WhenCategoryIsBlankButNotNull() {
         assertThatThrownBy(() -> activityService()
-                .createActivity("Pique-nique", "description", "   ", "1 rue de la Paix, Marseille", null, null, 1L))
+                .createActivity("Pique-nique", "description", "   ", "1 rue de la Paix, Marseille", null, null, 1L,
+                1L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("category");
 
@@ -871,7 +875,8 @@ class ActivityServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         Activity result = activityService()
-                .createActivity("Pique-nique", "description", null, "1 rue de la Paix, Marseille", null, null, 1L);
+                .createActivity("Pique-nique", "description", null, "1 rue de la Paix, Marseille", null, null, 1L,
+                1L);
 
         assertThat(result.title()).isEqualTo("Pique-nique");
         assertThat(result.category()).isNull();
@@ -886,7 +891,8 @@ class ActivityServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         Activity result = activityService()
-                .createActivity("Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 1L);
+                .createActivity("Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
+                1L);
 
         assertThat(result.title()).isEqualTo("Pique-nique");
         assertThat(result.category()).isEqualTo("loisir");
@@ -907,7 +913,8 @@ class ActivityServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         Activity result = activityService()
-                .createActivity("Pique-nique", "description", "loisir", "1 rue de la Paix, Marseille", null, null, 42L);
+                .createActivity("Pique-nique", "description", "loisir", "1 rue de la Paix, Marseille", null, null, 42L,
+                1L);
 
         assertThat(result.createdBy()).isEqualTo(42L);
     }
@@ -925,7 +932,8 @@ class ActivityServiceTest {
 
         Activity result = activityService()
                 .createActivity(
-                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 1L);
+                        "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
+                1L);
 
         assertThat(result.address()).isEqualTo("1 rue de la Paix, Marseille");
         assertThat(result.city()).isEqualTo("Marseille");
@@ -942,7 +950,8 @@ class ActivityServiceTest {
 
         LocalDateTime before = LocalDateTime.now();
         Activity result = activityService()
-                .createActivity("Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", null, null, 1L);
+                .createActivity("Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
+                1L);
         LocalDateTime after = LocalDateTime.now();
 
         assertThat(result.startDate()).isBetween(before, after);
@@ -959,7 +968,8 @@ class ActivityServiceTest {
         Activity result = activityService()
                 .createActivity(
                         "Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille",
-                        "2026-09-20T14:30:00", null, 1L);
+                        "2026-09-20T14:30:00", null, 1L,
+                1L);
 
         assertThat(result.startDate()).isEqualTo(LocalDateTime.of(2026, 9, 20, 14, 30));
         assertThat(result.endDate()).isEqualTo(LocalDateTime.of(2026, 9, 20, 0, 0));
@@ -974,7 +984,8 @@ class ActivityServiceTest {
         Activity result = activityService()
                 .createActivity(
                         "Festival", "desc", "loisir", "1 rue de la Paix, Marseille",
-                        "2026-09-20", "2026-09-22", 1L);
+                        "2026-09-20", "2026-09-22", 1L,
+                1L);
 
         assertThat(result.startDate()).isEqualTo(LocalDateTime.of(2026, 9, 20, 0, 0));
         assertThat(result.endDate()).isEqualTo(LocalDateTime.of(2026, 9, 22, 0, 0));
@@ -984,7 +995,8 @@ class ActivityServiceTest {
     void createActivity_ShouldThrow_WhenStartDateIsNotParsable() {
         assertThatThrownBy(() -> activityService()
                 .createActivity(
-                        "Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", "pas une date", null, 1L))
+                        "Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", "pas une date", null, 1L,
+                1L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("startDate");
 
@@ -995,7 +1007,8 @@ class ActivityServiceTest {
     void createActivity_ShouldThrow_WhenEndDateIsNotParsable() {
         assertThatThrownBy(() -> activityService()
                 .createActivity(
-                        "Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", null, "pas une date", 1L))
+                        "Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", null, "pas une date", 1L,
+                1L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("endDate");
 

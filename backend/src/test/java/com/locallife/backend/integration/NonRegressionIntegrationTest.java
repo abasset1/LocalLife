@@ -127,7 +127,8 @@ class NonRegressionIntegrationTest {
         return restTestClient().post().uri("/api/v1/activities")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(new CreateActivityRequest(title, "description", "loisir", ADDRESS, null, null, null, null, null))
+                .body(new CreateActivityRequest(title, "description", "loisir", ADDRESS, null, null, null, null, null,
+                "CULTURE"))
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody(Activity.class)

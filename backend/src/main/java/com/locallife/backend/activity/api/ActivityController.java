@@ -6,6 +6,7 @@ import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.application.JwtAuthentication;
+import com.locallife.backend.category.infrastructure.CategoryRepository;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.geocoding.application.AddressNotFoundException;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
@@ -99,6 +100,7 @@ public class ActivityController {
     private final ActivityTagService activityTagService;
     private final ActivityMetadataService activityMetadataService;
     private final PremiumAccessPolicy premiumAccessPolicy;
+    private final CategoryRepository categoryRepository;
 
     public ActivityController(
             ActivityService activityService, SourceService sourceService, UserService userService,
@@ -106,7 +108,7 @@ public class ActivityController {
             LocationService locationService, MediaService mediaService, ActivityMediaService activityMediaService,
             ActivityLinkService activityLinkService, AccessibilityService accessibilityService,
             ActivityTagService activityTagService, ActivityMetadataService activityMetadataService,
-            PremiumAccessPolicy premiumAccessPolicy) {
+            PremiumAccessPolicy premiumAccessPolicy, CategoryRepository categoryRepository) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -121,6 +123,7 @@ public class ActivityController {
         this.activityTagService = activityTagService;
         this.activityMetadataService = activityMetadataService;
         this.premiumAccessPolicy = premiumAccessPolicy;
+        this.categoryRepository = categoryRepository;
     }
 
     /**
@@ -496,12 +499,21 @@ public class ActivityController {
                 activityLinkService.validateBeforeCreate(ActivityLinkService.TYPE_EMAIL, request.email());
             }
 
+            // CAT-006 (correctif) : la catégorie principale est obligatoire (contrainte
+            // NOT NULL en base, voir Activity#primaryCategoryId) — résolue ici depuis le
+            // categoryCode choisi par le contributeur, pas déduite automatiquement
+            // (CAT-008 ne concerne que les imports, pas la saisie manuelle).
+            Long primaryCategoryId = categoryRepository.findByCode(request.categoryCode())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Catégorie inconnue : " + request.categoryCode()))
+                    .id();
+
             // authentication non-null garanti : POST /api/v1/activities exige un JWT valide
             // (voir SecurityConfig), JwtFilter ne laisse passer que des JwtAuthentication.
             Long createdBy = ((JwtAuthentication) authentication).getUserId();
             Activity activity = activityService.createActivity(
                     request.title(), request.description(), request.category(), request.address(),
-                    request.startDate(), request.endDate(), createdBy);
+                    request.startDate(), request.endDate(), createdBy, primaryCategoryId);
 
             attachContactLinks(activity.id(), request);
 
@@ -695,9 +707,19 @@ public class ActivityController {
      * pour ce ticket (critère d'acceptation « structure suffisamment
      * propre pour permettre plusieurs contacts ultérieurement »).
      */
+    /**
+     * {@code categoryCode} ajouté en CAT-006 (correctif) : code d'une des
+     * 9 catégories V1 (CAT-001, ex. {@code CULTURE}), choisi explicitement
+     * par le contributeur — jamais déduit automatiquement (CAT-008 n'est
+     * pas encore implémenté et ne concerne de toute façon que les
+     * imports, pas la saisie manuelle). Résolu en {@code Category} par
+     * {@link #createActivity}, qui rejette (400) un code manquant ou
+     * inconnu.
+     */
     public record CreateActivityRequest(
             String title, String description, String category, String address,
-            String startDate, String endDate, String url, String phone, String email) {
+            String startDate, String endDate, String url, String phone, String email,
+            String categoryCode) {
     }
 
 }
