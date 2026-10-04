@@ -131,7 +131,8 @@ class AdminActivityControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new CreateActivityRequest(
                         title, "description", "loisir", "1 rue de la Paix, Marseille",
-                        null, null, null, null, null))
+                        null, null, null, null, null,
+                "CULTURE"))
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody(Activity.class)

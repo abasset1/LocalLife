@@ -114,7 +114,8 @@ class RealSchedulingScenariosIntegrationTest {
     private Activity persistActivity(String title, double latitude, double longitude, LocalDateTime startDate) {
         Activity activity = new Activity(
                 null, title, "Description", "test", latitude, longitude, startDate, null, "PUBLISHED",
-                testSourceId(), null, null, null, null, null, null, null, null, null, null);
+                testSourceId(), null, null, null, null, null, null, null, null, null, null,
+                1L);
         return activityRepository.save(activity);
     }
 
@@ -249,7 +250,8 @@ class RealSchedulingScenariosIntegrationTest {
                 LocalDateTime.of(2026, 9, 20, 19, 0), LocalDateTime.of(2026, 9, 20, 23, 0), "PUBLISHED",
                 testSourceId(), null, "https://example.com", "Place de l'Horloge", "Avignon", "84000",
                 "Description longue et détaillée du festival, sur plusieurs phrases.",
-                "Gratuit, tout public.", 0, null, null));
+                "Gratuit, tout public.", 0, null, null,
+                1L));
         Location avignon = persistLocation("Avignon", 43.9493, 4.8055);
         Schedule schedule = persistSchedule(activity.id(), avignon.id(), null);
         persistOccurrence(schedule.id(), LocalDateTime.of(2026, 9, 20, 19, 0), LocalDateTime.of(2026, 9, 20, 23, 0),

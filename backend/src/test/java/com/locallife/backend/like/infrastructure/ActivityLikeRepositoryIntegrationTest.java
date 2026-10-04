@@ -61,7 +61,8 @@ class ActivityLikeRepositoryIntegrationTest {
         return activityRepository.save(new Activity(
                 null, "Activité de test " + UUID.randomUUID(), "description", "loisir",
                 43.2951, 5.3739, LocalDateTime.now(), null, status, manualSourceId(), null, null,
-                null, null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, null,
+                1L));
     }
 
     @Test

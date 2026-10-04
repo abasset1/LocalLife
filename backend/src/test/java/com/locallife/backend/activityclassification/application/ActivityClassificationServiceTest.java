@@ -4,22 +4,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.activityclassification.domain.ActivityActivityType;
 import com.locallife.backend.activityclassification.domain.ActivityAudience;
 import com.locallife.backend.activityclassification.domain.ActivityOrganizerType;
-import com.locallife.backend.activityclassification.domain.ActivityPrimaryCategory;
 import com.locallife.backend.activityclassification.domain.ActivitySecondaryCategory;
 import com.locallife.backend.activityclassification.infrastructure.ActivityActivityTypeRepository;
 import com.locallife.backend.activityclassification.infrastructure.ActivityAudienceRepository;
 import com.locallife.backend.activityclassification.infrastructure.ActivityOrganizerTypeRepository;
-import com.locallife.backend.activityclassification.infrastructure.ActivityPrimaryCategoryRepository;
 import com.locallife.backend.activityclassification.infrastructure.ActivitySecondaryCategoryRepository;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,9 +32,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Couvre les critères d'acceptation CAT-006 : toutes les dimensions sont
- * supportées, la catégorie principale est obligatoire, les secondaires
- * sont facultatives, types/publics/organisateur sont séparés des
- * catégories, et les relations restent cohérentes et sans doublons.
+ * supportées, la catégorie principale est obligatoire (réellement, via
+ * {@code activity.primary_category_id}, pas via une table séparée — voir
+ * {@code V37__make_primary_category_mandatory.sql}), les secondaires sont
+ * facultatives, types/publics/organisateur sont séparés des catégories, et
+ * les relations restent cohérentes et sans doublons.
  */
 @ExtendWith(MockitoExtension.class)
 class ActivityClassificationServiceTest {
@@ -39,7 +44,7 @@ class ActivityClassificationServiceTest {
     private static final Long ACTIVITY_ID = 42L;
 
     @Mock
-    private ActivityPrimaryCategoryRepository primaryCategoryRepository;
+    private ActivityRepository activityRepository;
     @Mock
     private ActivitySecondaryCategoryRepository secondaryCategoryRepository;
     @Mock
@@ -52,10 +57,16 @@ class ActivityClassificationServiceTest {
     @InjectMocks
     private ActivityClassificationService classificationService;
 
+    private Activity activityWithPrimaryCategory(Long primaryCategoryId) {
+        return new Activity(
+                ACTIVITY_ID, "Festival communal", "desc", "culture", 43.29, 5.37,
+                LocalDateTime.now(), LocalDateTime.now(), "PUBLISHED", 1L, null, null,
+                null, null, null, null, null, null, null, null, primaryCategoryId);
+    }
+
     @Test
     void getClassification_ShouldAggregateAllFiveDimensions() {
-        when(primaryCategoryRepository.findByActivityId(ACTIVITY_ID))
-                .thenReturn(Optional.of(new ActivityPrimaryCategory(1L, ACTIVITY_ID, 100L)));
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(activityWithPrimaryCategory(100L)));
         when(secondaryCategoryRepository.findByActivityId(ACTIVITY_ID))
                 .thenReturn(List.of(new ActivitySecondaryCategory(2L, ACTIVITY_ID, 101L)));
         when(activityTypeRepository.findByActivityId(ACTIVITY_ID))
@@ -75,8 +86,16 @@ class ActivityClassificationServiceTest {
     }
 
     @Test
-    void getClassification_ShouldReturnNullPrimaryCategory_WhenNotYetClassified() {
-        when(primaryCategoryRepository.findByActivityId(ACTIVITY_ID)).thenReturn(Optional.empty());
+    void getClassification_ShouldThrow_WhenActivityNotFound() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> classificationService.getClassification(ACTIVITY_ID));
+    }
+
+    @Test
+    void getClassification_ShouldReturnNullOrganizerType_WhenNotSet() {
+        // Critère : l'organisateur est 0..1, contrairement à la catégorie principale
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(activityWithPrimaryCategory(100L)));
         when(secondaryCategoryRepository.findByActivityId(ACTIVITY_ID)).thenReturn(List.of());
         when(activityTypeRepository.findByActivityId(ACTIVITY_ID)).thenReturn(List.of());
         when(audienceRepository.findByActivityId(ACTIVITY_ID)).thenReturn(List.of());
@@ -84,31 +103,40 @@ class ActivityClassificationServiceTest {
 
         ActivityClassification result = classificationService.getClassification(ACTIVITY_ID);
 
-        assertNull(result.primaryCategoryId());
         assertNull(result.organizerTypeId());
     }
 
     @Test
-    void setPrimaryCategory_ShouldReplaceExisting() {
+    void setPrimaryCategory_ShouldUpdateTheActivity() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(activityWithPrimaryCategory(99L)));
+
         classificationService.setPrimaryCategory(ACTIVITY_ID, 100L);
 
-        verify(primaryCategoryRepository).deleteByActivityId(ACTIVITY_ID);
-        verify(primaryCategoryRepository).save(new ActivityPrimaryCategory(null, ACTIVITY_ID, 100L));
+        verify(activityRepository).save(argThat(a -> a.primaryCategoryId().equals(100L)));
     }
 
     @Test
     void setPrimaryCategory_ShouldReject_WhenCategoryIdIsNull() {
-        // Critère : la catégorie principale est obligatoire
+        // Critère : la catégorie principale est obligatoire — rejetée ici
+        // en plus d'être rejetée par la contrainte NOT NULL en base.
         assertThrows(IllegalArgumentException.class,
                 () -> classificationService.setPrimaryCategory(ACTIVITY_ID, null));
 
-        verify(primaryCategoryRepository, never()).save(any());
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void setPrimaryCategory_ShouldThrow_WhenActivityNotFound() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class,
+                () -> classificationService.setPrimaryCategory(ACTIVITY_ID, 100L));
     }
 
     @Test
     void replaceSecondaryCategories_ShouldAcceptEmptyList() {
         // Critère : les secondaires sont facultatives
-        when(primaryCategoryRepository.findByActivityId(ACTIVITY_ID)).thenReturn(Optional.empty());
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(activityWithPrimaryCategory(100L)));
 
         classificationService.replaceSecondaryCategories(ACTIVITY_ID, List.of());
 
@@ -118,7 +146,7 @@ class ActivityClassificationServiceTest {
 
     @Test
     void replaceSecondaryCategories_ShouldDeduplicate() {
-        when(primaryCategoryRepository.findByActivityId(ACTIVITY_ID)).thenReturn(Optional.empty());
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(activityWithPrimaryCategory(100L)));
 
         classificationService.replaceSecondaryCategories(ACTIVITY_ID, List.of(101L, 101L, 102L));
 
@@ -129,8 +157,7 @@ class ActivityClassificationServiceTest {
     void replaceSecondaryCategories_ShouldReject_WhenDuplicatesPrimaryCategory() {
         // Critère : relations cohérentes et sans doublons (catégorie
         // principale/secondaire identique pour la même activité)
-        when(primaryCategoryRepository.findByActivityId(ACTIVITY_ID))
-                .thenReturn(Optional.of(new ActivityPrimaryCategory(1L, ACTIVITY_ID, 100L)));
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(activityWithPrimaryCategory(100L)));
 
         assertThrows(IllegalArgumentException.class,
                 () -> classificationService.replaceSecondaryCategories(ACTIVITY_ID, List.of(100L, 101L)));

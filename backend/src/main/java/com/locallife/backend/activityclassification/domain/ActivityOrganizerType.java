@@ -8,7 +8,7 @@ import org.springframework.data.annotation.Id;
  * l'exprime explicitement comme 0..1, contrairement à la catégorie
  * principale), une activité peut donc n'avoir aucune ligne ici de façon
  * définitive, pas seulement temporairement (voir
- * {@link ActivityPrimaryCategory} pour la distinction).
+ * {@code activity.primary_category_id}, {@code NOT NULL}, pour la distinction).
  */
 public record ActivityOrganizerType(
         @Id Long id,

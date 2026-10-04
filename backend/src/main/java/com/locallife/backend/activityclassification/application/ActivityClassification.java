@@ -13,8 +13,12 @@ import java.util.List;
  * les services des référentiels (CAT-001 à CAT-005), pas à ce module, qui
  * ne gère que les relations.
  *
- * @param primaryCategoryId   {@code null} si l'activité n'est pas encore
- *                            classifiée (voir {@code ActivityPrimaryCategory})
+ * @param primaryCategoryId   jamais {@code null} pour une activité existante
+ *                            — contrainte {@code NOT NULL} réelle sur
+ *                            {@code activity.primary_category_id} depuis
+ *                            {@code V37__make_primary_category_mandatory.sql}
+ *                            (voir {@link ActivityClassificationService#getClassification}
+ *                            pour le cas d'une activité introuvable)
  * @param secondaryCategoryIds jamais {@code null}, éventuellement vide
  * @param activityTypeIds      jamais {@code null}, éventuellement vide
  * @param audienceIds           jamais {@code null}, éventuellement vide

@@ -34,7 +34,8 @@ class LikeServiceTest {
 
     private Activity activity(long id) {
         return new Activity(id, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED",
-                1L, null, null, null, null, null, null, null, null, null, null);
+                1L, null, null, null, null, null, null, null, null, null, null,
+                1L);
     }
 
     @Test

@@ -46,7 +46,8 @@ class ActivityTagRepositoryIntegrationTest {
         return activityRepository.save(new Activity(
                 null, "test-activity-" + UUID.randomUUID(), "description", "sport",
                 43.9493, 4.8055, LocalDateTime.now(), null, "PUBLISHED", manualSourceId(), null, null,
-                null, null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, null,
+                1L));
     }
 
     @Test

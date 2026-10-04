@@ -144,6 +144,10 @@ public class NormalizationService {
                 // createdBy (LL-EF-010) : toujours null pour une activité importée —
                 // seules les contributions manuelles ont un créateur identifié, voir
                 // ActivityService#createActivity et Activity#createdBy.
+                null,
+                // CAT-006/CAT-008 : pas encore de classification depuis les sources
+                // importées ; voir la javadoc de Activity pour la conséquence (l'INSERT
+                // échoue tant que CAT-008 ne fournit pas de primaryCategoryId ici).
                 null);
         return Optional.of(activity);
     }

@@ -6,7 +6,8 @@ import org.springframework.data.repository.Repository;
 
 /**
  * Repository ActivityOrganizerType (CAT-006). Relation 0..1 : même
- * patron que {@link ActivityPrimaryCategoryRepository}.
+ * patron que {@code ActivitySecondaryCategoryRepository} (relation 0..1 : lecture
+ * par {@code findByActivityId}, écriture en remplacement complet).
  */
 public interface ActivityOrganizerTypeRepository extends Repository<ActivityOrganizerType, Long> {
 

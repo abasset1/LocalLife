@@ -184,7 +184,8 @@ public class SourceService {
                 activity.conditions(),
                 activity.ageMin(),
                 activity.ageMax(),
-                activity.createdBy());
+                activity.createdBy(),
+                activity.primaryCategoryId());
     }
 
     /**
