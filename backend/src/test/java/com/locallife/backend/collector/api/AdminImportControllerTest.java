@@ -29,7 +29,7 @@ class AdminImportControllerTest {
     void triggerImport_ShouldReturnOkWithResults_WhenImportSucceeds() {
         // Given
         LocalDateTime now = LocalDateTime.now();
-        ImportResult result = new ImportResult("OpenAgenda", now, now, 3, 2, 1, 0, 0, 0);
+        ImportResult result = new ImportResult("OpenAgenda", now, now, 3, 2, 1, 0, 0, 0, 0);
         when(importService.importAll()).thenReturn(List.of(result));
 
         // When
@@ -46,7 +46,7 @@ class AdminImportControllerTest {
         // Given : ImportService capture déjà les échecs de collecte (voir sa javadoc) — un résultat
         // dégradé (errors=1, fetched=0) reste un 200, pas une erreur HTTP (voir AdminImportController).
         LocalDateTime now = LocalDateTime.now();
-        ImportResult degraded = new ImportResult("OpenAgenda", now, now, 0, 0, 0, 0, 1, 0);
+        ImportResult degraded = new ImportResult("OpenAgenda", now, now, 0, 0, 0, 0, 1, 0, 0);
         when(importService.importAll()).thenReturn(List.of(degraded));
 
         // When

@@ -9,6 +9,7 @@ import com.locallife.backend.category.infrastructure.CategoryRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 /**
@@ -55,8 +56,8 @@ public class ClassificationService {
     /** Consigne qu'une activité a été créée à partir d'une classification automatique. */
     public void recordClassified(
             Long sourceId, String importKey, Long activityId, String title, String sourceCategory,
-            ClassificationOutcome outcome) {
-        upsert(sourceId, importKey, activityId, title, sourceCategory, outcome.decision());
+            List<String> sourceTags, ClassificationOutcome outcome) {
+        upsert(sourceId, importKey, activityId, title, sourceCategory, sourceTags, outcome.decision());
     }
 
     /**
@@ -64,24 +65,33 @@ public class ClassificationService {
      * Mis à jour à chaque ré-import tant que l'élément n'est pas classé.
      */
     public void recordQuarantined(
-            Long sourceId, String importKey, String title, String sourceCategory, ClassificationOutcome outcome) {
-        upsert(sourceId, importKey, null, title, sourceCategory, outcome.decision());
+            Long sourceId, String importKey, String title, String sourceCategory, List<String> sourceTags,
+            ClassificationOutcome outcome) {
+        upsert(sourceId, importKey, null, title, sourceCategory, sourceTags, outcome.decision());
     }
 
     private void upsert(
             Long sourceId, String importKey, Long activityId, String title, String sourceCategory,
-            Decision decision) {
+            List<String> sourceTags, Decision decision) {
         Optional<ClassificationRecord> existing = recordRepository.findBySourceIdAndImportKey(sourceId, importKey);
         LocalDateTime now = LocalDateTime.now();
         String candidates = decision.candidateCodes().isEmpty() ? null : String.join(",", decision.candidateCodes());
         recordRepository.save(new ClassificationRecord(
                 existing.map(ClassificationRecord::id).orElse(null),
                 sourceId, importKey, activityId, decision.status(), decision.ruleId(), decision.reason(),
-                candidates, truncate(sourceCategory), truncate(title),
+                candidates, truncate(sourceCategory, 255), joinTags(sourceTags), truncate(title, 255),
                 existing.map(ClassificationRecord::createdAt).orElse(now), now));
     }
 
-    private static String truncate(String value) {
-        return value == null || value.length() <= 255 ? value : value.substring(0, 255);
+    private static String joinTags(List<String> tags) {
+        if (tags == null || tags.isEmpty()) {
+            return null;
+        }
+        String joined = tags.stream().filter(tag -> tag != null && !tag.isBlank()).collect(Collectors.joining(","));
+        return joined.isEmpty() ? null : truncate(joined, 1000);
+    }
+
+    private static String truncate(String value, int max) {
+        return value == null || value.length() <= max ? value : value.substring(0, max);
     }
 }

@@ -47,7 +47,7 @@ produire une catégorie `MEDIEVAL` (résultat : `NEEDS_REVIEW`).
   ré-import n'écrase pas une classification existante, y compris validée par un humain) ;
 * **nouvel élément classé** : activité créée avec la catégorie décidée, trace `AUTO_CLASSIFIED` liée à l'activité ;
 * **nouvel élément non classé** : **aucune activité créée**, trace consignée pour relecture, comptée
-  dans `ImportResult.ignored`.
+  dans le compteur dédié `ImportResult.needsReview` (distinct d'`ignored`, réservé aux données invalides).
 
 ### Pourquoi une file de relecture et pas une activité sans catégorie
 
@@ -83,9 +83,40 @@ par `ClassificationService` comme les imports.
 * **Contributions manuelles** : la catégorie y est déjà choisie par le contributeur parmi les codes
   V1 (`categoryCode`, CAT-006) ; aucune trace `VALIDATED` n'est encore écrite dans
   `classification_record`.
-* **Relecture** : aucun écran ni endpoint pour passer un élément de `NEEDS_REVIEW` à `VALIDATED` ou
+* **Relecture (dette / ticket suivant, voir §8)** : aucun écran ni endpoint pour passer un élément de `NEEDS_REVIEW` à `VALIDATED` ou
   `REJECTED` ; les statuts existent, le workflow reste à faire. Un élément validé devrait ensuite
   créer l'activité (ou être ré-importé).
 * **Types, publics, organisateur** : seule la catégorie principale est classée.
 * **Domaine emploi/formation** : reste `NEEDS_REVIEW` ; la décision de fond est à prendre séparément (CAT-007 §11.5).
-* **Compteur dédié** : `ImportResult` n'a pas de champ « à relire » (les non classés sont dans `ignored`).
+
+## 8. Dette et tickets suivants
+
+1. **Workflow de relecture** (ticket à créer, hors périmètre CAT-007/CAT-008) : passer un élément de
+   `classification_record` de `NEEDS_REVIEW` à `VALIDATED` (catégorie choisie parmi les candidats, création
+   de l'activité) ou `REJECTED`. Tant qu'il n'existe pas, les éléments restent consignés et visibles
+   uniquement en base et via le compteur `needsReview`.
+2. **Décision de fond emploi/formation** : à arbitrer avant de considérer CAT-007 clos (voir
+   `CATEGORY_MIGRATION_MAP.md` §11.5). Aucune catégorie n'est créée en attendant.
+3. **Mesure de l'apport des tags** : voir §9. Les règles ne sont **pas** modifiées sur la base du seul
+   1,8 % (catégorie d'origine seule).
+4. Trace `VALIDATED` des contributions manuelles ; classification des types/publics/organisateur.
+
+## 9. Mesurer l'apport des tags avant toute évolution des règles
+
+L'extraction du 29/09/2026 ne contient pas les tags, et un élément non classé n'a pas d'activité donc
+pas de ligne `activity_tag`. C'est pourquoi `classification_record.source_tags` conserve les tags de la
+source de chaque élément (classé ou non). Après un import réel, la mesure se fait directement :
+
+```sql
+-- Répartition des résultats de classification
+SELECT status, reason, count(*) FROM classification_record GROUP BY status, reason ORDER BY 3 DESC;
+
+-- Tags les plus fréquents parmi les éléments à relire (candidats pour de nouvelles règles, à arbitrer)
+SELECT trim(t) AS tag, count(*) AS nb
+FROM classification_record, unnest(string_to_array(source_tags, ',')) AS t
+WHERE status IN ('NEEDS_REVIEW', 'UNCLASSIFIED') AND source_tags IS NOT NULL
+GROUP BY 1 ORDER BY nb DESC LIMIT 100;
+```
+
+Ne pas ajouter de règle tant que cette mesure n'a pas été faite et arbitrée : toute règle ajoutée est
+une décision de classification, pas un réglage.

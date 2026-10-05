@@ -251,12 +251,13 @@ public class ImportService {
             LocalDateTime endedAt = LocalDateTime.now();
             LOGGER.error("Échec de la collecte pour la source '{}' : {}", source.name(), exception.getMessage(),
                     exception);
-            return new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0);
+            return new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0, 0);
         }
 
         int created = 0;
         int updated = 0;
         int ignored = 0;
+        int needsReview = 0;
         int errors = 0;
         Set<String> seenKeys = new HashSet<>();
 
@@ -279,7 +280,7 @@ public class ImportService {
                 // élément, si la classification n'est pas décidable (NEEDS_REVIEW / UNCLASSIFIED),
                 // aucune activité n'est créée : activity.primary_category_id est NOT NULL (V37) et
                 // aucune catégorie n'est inventée. L'élément est consigné pour relecture
-                // (classification_record) et compté comme ignoré.
+                // (classification_record) et compté dans needsReview (distinct d'ignored).
                 Long primaryCategoryId;
                 ClassificationOutcome classification = null;
                 if (existing.isPresent()) {
@@ -288,8 +289,8 @@ public class ImportService {
                     classification = classificationService.decide(item.category(), item.tags());
                     if (!classification.classified()) {
                         classificationService.recordQuarantined(
-                                source.id(), key, item.title(), item.category(), classification);
-                        ignored++;
+                                source.id(), key, item.title(), item.category(), item.tags(), classification);
+                        needsReview++;
                         continue;
                     }
                     primaryCategoryId = classification.primaryCategoryId();
@@ -301,7 +302,7 @@ public class ImportService {
                 Activity saved = activityRepository.save(toSave);
                 if (classification != null) {
                     classificationService.recordClassified(
-                            source.id(), key, saved.id(), item.title(), item.category(), classification);
+                            source.id(), key, saved.id(), item.title(), item.category(), item.tags(), classification);
                 }
 
                 // Bug corrigé (LL-11016, révélé par mvn verify en CI) : created/updated
@@ -336,7 +337,8 @@ public class ImportService {
         sourceService.recordSync(source.id(), endedAt);
 
         ImportResult result = new ImportResult(
-                source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors, archived);
+                source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors, archived,
+                needsReview);
         LOGGER.info("Import terminé pour la source '{}' : {}", source.name(), result);
 
         return result;

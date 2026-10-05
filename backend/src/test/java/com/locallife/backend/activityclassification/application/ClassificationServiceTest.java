@@ -90,7 +90,7 @@ class ClassificationServiceTest {
         ClassificationOutcome outcome = new ClassificationOutcome(
                 ActivityClassifier.classify("patrimoine", List.of()), null);
 
-        service.recordQuarantined(10L, "k1", "Visite du château", "patrimoine", outcome);
+        service.recordQuarantined(10L, "k1", "Visite du château", "patrimoine", List.of("visite", "été"), outcome);
 
         verify(recordRepository).save(argThat(record ->
                 record.id() == null
@@ -99,7 +99,8 @@ class ClassificationServiceTest {
                         && "AMBIGUOUS_CATEGORY".equals(record.reason())
                         && "CULTURE,TOURISM".equals(record.candidateCategoryCodes())
                         && "REVIEW:AMBIGUOUS_CATEGORY".equals(record.ruleId())
-                        && "patrimoine".equals(record.sourceCategory())));
+                        && "patrimoine".equals(record.sourceCategory())
+                        && "visite,été".equals(record.sourceTags())));
     }
 
     @Test
@@ -107,11 +108,11 @@ class ClassificationServiceTest {
         LocalDateTime created = LocalDateTime.of(2026, 10, 1, 8, 0);
         when(recordRepository.findBySourceIdAndImportKey(10L, "k1")).thenReturn(Optional.of(
                 new ClassificationRecord(5L, 10L, "k1", null, ClassificationStatus.NEEDS_REVIEW,
-                        "REVIEW:UNRECOGNIZED", "UNRECOGNIZED", null, "x", "t", created, created)));
+                        "REVIEW:UNRECOGNIZED", "UNRECOGNIZED", null, "x", null, "t", created, created)));
         ClassificationOutcome outcome = new ClassificationOutcome(
                 ActivityClassifier.classify("patrimoine", List.of()), null);
 
-        service.recordQuarantined(10L, "k1", "t", "patrimoine", outcome);
+        service.recordQuarantined(10L, "k1", "t", "patrimoine", List.of(), outcome);
 
         verify(recordRepository).save(argThat(record ->
                 Long.valueOf(5L).equals(record.id()) && created.equals(record.createdAt())));
@@ -123,13 +124,14 @@ class ClassificationServiceTest {
         ClassificationOutcome outcome = new ClassificationOutcome(
                 ActivityClassifier.classify("marché", List.of()), 7L);
 
-        service.recordClassified(10L, "k1", 99L, "Marché de Noël", "marché", outcome);
+        service.recordClassified(10L, "k1", 99L, "Marché de Noël", "marché", null, outcome);
 
         verify(recordRepository).save(argThat(record ->
                 Long.valueOf(99L).equals(record.activityId())
                         && record.status() == ClassificationStatus.AUTO_CLASSIFIED
                         && "AUTO:MARKETS".equals(record.ruleId())
                         && record.reason() == null
+                        && record.sourceTags() == null
                         && record.candidateCategoryCodes() == null));
     }
 
@@ -140,9 +142,10 @@ class ClassificationServiceTest {
         ClassificationOutcome outcome = new ClassificationOutcome(
                 ActivityClassifier.classify("patrimoine", List.of()), null);
 
-        service.recordQuarantined(10L, "k1", longTitle, longTitle, outcome);
+        service.recordQuarantined(10L, "k1", longTitle, longTitle, List.of(longTitle, longTitle, longTitle, longTitle, longTitle), outcome);
 
         verify(recordRepository).save(argThat(record ->
-                record.title().length() == 255 && record.sourceCategory().length() == 255));
+                record.title().length() == 255 && record.sourceCategory().length() == 255
+                        && record.sourceTags().length() == 1000));
     }
 }

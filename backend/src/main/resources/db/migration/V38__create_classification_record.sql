@@ -22,6 +22,7 @@ CREATE TABLE classification_record (
     reason                   VARCHAR(100),
     candidate_category_codes VARCHAR(255),
     source_category          VARCHAR(255),
+    source_tags              VARCHAR(1000),
     title                    VARCHAR(255),
     created_at               TIMESTAMP    NOT NULL,
     updated_at               TIMESTAMP    NOT NULL,

@@ -14,6 +14,12 @@ import java.time.LocalDateTime;
  *       {@code Collector#collect()} ;</li>
  *   <li>{@code ignored} : parmi ceux-ci, nombre rejetés par
  *       {@code NormalizationService} (donnée invalide) ;</li>
+ *   <li>{@code needsReview} (CAT-008) : nombre de nouveaux éléments valides
+ *       mais non publiés faute de catégorie V1 décidable ({@code NEEDS_REVIEW}
+ *       ou {@code UNCLASSIFIED}) — consignés dans {@code classification_record}
+ *       pour relecture, <b>distincts d'{@code ignored}</b> (donnée invalide) ;
+ *       {@code fetched} = {@code created} + {@code updated} + {@code ignored}
+ *       + {@code needsReview} + {@code errors} ;</li>
  *   <li>{@code errors} : nombre d'éléments dont le traitement a levé une
  *       exception inattendue (voir {@code ImportService}) — distinct
  *       d'{@code ignored}, qui est un rejet « normal » et anticipé.</li>
@@ -28,5 +34,6 @@ public record ImportResult(
         int updated,
         int ignored,
         int errors,
-        int archived) {
+        int archived,
+        int needsReview) {
 }

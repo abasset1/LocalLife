@@ -477,14 +477,14 @@ class ImportServiceTest {
         // Then
         verify(activityRepository).save(argThat(activity -> Long.valueOf(7L).equals(activity.primaryCategoryId())));
         verify(classificationService).recordClassified(
-                eq(10L), eq("external:OpenAgenda Marseille:ext-1"), eq(99L), eq("Marché de Noël"), eq("marché"),
+                eq(10L), eq("external:OpenAgenda Marseille:ext-1"), eq(99L), eq("Marché de Noël"), eq("marché"), any(),
                 eq(AUTO_CLASSIFIED_AS_MARKETS));
-        verify(classificationService, never()).recordQuarantined(any(), any(), any(), any(), any());
+        verify(classificationService, never()).recordQuarantined(any(), any(), any(), any(), any(), any());
     }
 
     /**
      * CAT-008 : classification ambiguë → aucune activité créée (primary_category_id est NOT NULL,
-     * aucune catégorie inventée), l'élément est consigné pour relecture et compté comme ignoré.
+     * aucune catégorie inventée), l'élément est consigné pour relecture et compté dans needsReview, pas dans ignored.
      */
     @Test
     void importAll_ShouldNotCreateActivity_AndQuarantine_WhenClassificationNeedsReview() {
@@ -505,13 +505,14 @@ class ImportServiceTest {
         // Then
         ImportResult result = results.get(0);
         assertEquals(0, result.created());
-        assertEquals(1, result.ignored());
+        assertEquals(0, result.ignored());
+        assertEquals(1, result.needsReview());
         assertEquals(0, result.errors());
         verify(activityRepository, never()).save(any());
         verify(classificationService).recordQuarantined(
-                eq(10L), eq("external:OpenAgenda Marseille:ext-1"), eq("Marché de Noël"), eq("marché"),
+                eq(10L), eq("external:OpenAgenda Marseille:ext-1"), eq("Marché de Noël"), eq("marché"), any(),
                 eq(NEEDS_REVIEW));
-        verify(classificationService, never()).recordClassified(any(), any(), any(), any(), any(), any());
+        verify(classificationService, never()).recordClassified(any(), any(), any(), any(), any(), any(), any());
     }
 
     /** CAT-008 : un ré-import ne reclasse pas une activité existante (pas d'écrasement d'une classification). */

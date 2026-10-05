@@ -302,4 +302,27 @@ class ImportServiceIntegrationTest {
         assertThat(activityRepository.findBySourceId(sourceIdFor(sourceName))).isEmpty();
     }
 
+    /** CAT-008 : classification non décidable -> aucune activité, compté dans needsReview (pas ignored). */
+    @Test
+    void importAll_ShouldNotPublishAndCountNeedsReview_WhenCategoryIsNotDecidable() {
+        String sourceName = uniqueSourceName();
+        createCollectibleSource(sourceName);
+        CollectedActivity item = validItem(sourceName, "ext-review", "Forum de recrutement");
+        CollectedActivity ambiguous = new CollectedActivity(
+                item.title(), item.description(), "Recrutement", item.sourceUrl(), item.externalId(),
+                item.source(), null, null, null, null, item.location(), item.timings(),
+                null, List.of(), List.of(), null, List.of(), null);
+        when(collector.collect()).thenReturn(List.of(ambiguous));
+
+        List<ImportResult> results = importService.importAll();
+
+        ImportResult result = resultFor(results, sourceName);
+        assertThat(result.fetched()).isEqualTo(1);
+        assertThat(result.created()).isZero();
+        assertThat(result.ignored()).isZero();
+        assertThat(result.needsReview()).isEqualTo(1);
+        assertThat(result.errors()).isZero();
+        assertThat(activityRepository.findBySourceId(sourceIdFor(sourceName))).isEmpty();
+    }
+
 }

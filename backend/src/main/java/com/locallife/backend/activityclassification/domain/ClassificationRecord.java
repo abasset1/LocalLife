@@ -8,6 +8,7 @@ import org.springframework.data.annotation.Id;
  * {@code V38__create_classification_record.sql}. {@code activityId} est
  * renseigné si et seulement si {@code status.hasActivity()}.
  *
+ * @param sourceTags             tags de la source, séparés par des virgules (relecture et mesure de leur apport)
  * @param candidateCategoryCodes codes V1 plausibles à départager, séparés par des virgules ({@code null} si aucun)
  */
 public record ClassificationRecord(
@@ -20,6 +21,7 @@ public record ClassificationRecord(
         String reason,
         String candidateCategoryCodes,
         String sourceCategory,
+        String sourceTags,
         String title,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {

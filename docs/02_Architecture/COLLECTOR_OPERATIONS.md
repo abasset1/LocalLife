@@ -112,7 +112,9 @@ source collectible trouvée en base au moment de l'appel — voir
 synthèse globale (`ImportScheduler`, LL-8005) quand l'import est
 déclenché automatiquement. Compteurs disponibles : `fetched`, `created`,
 `updated`, `ignored` (donnée invalide, rejetée par
-`NormalizationService`), `errors` (exception inattendue sur un élément,
+`NormalizationService`), `needsReview` (CAT-008 : élément valide mais non
+publié faute de catégorie V1 décidable, consigné dans
+`classification_record` — distinct d'`ignored`), `errors` (exception inattendue sur un élément,
 ou échec total du collecteur), `archived` (voir stratégie de
 suppression ci-dessous).
 
