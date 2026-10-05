@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,10 @@ import static org.mockito.Mockito.when;
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
+import com.locallife.backend.activityclassification.application.ActivityClassifier.Decision;
+import com.locallife.backend.activityclassification.application.ClassificationOutcome;
+import com.locallife.backend.activityclassification.application.ClassificationService;
+import com.locallife.backend.activityclassification.domain.ClassificationStatus;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedTiming;
@@ -105,12 +110,27 @@ class ImportServiceTest {
     @Mock
     private ActivityMetadataService activityMetadataService;
 
+    // CAT-008 : classification centralisée, mockée ici ; sa logique est testée dans
+    // ActivityClassifierTest / ClassificationServiceTest.
+    @Mock
+    private ClassificationService classificationService;
+
+    private static final ClassificationOutcome AUTO_CLASSIFIED_AS_MARKETS = new ClassificationOutcome(
+            new Decision(ClassificationStatus.AUTO_CLASSIFIED, "MARKETS", null, List.of(), "AUTO:MARKETS"), 7L);
+
+    private static final ClassificationOutcome NEEDS_REVIEW = new ClassificationOutcome(
+            new Decision(ClassificationStatus.NEEDS_REVIEW, null, "AMBIGUOUS_CATEGORY",
+                    List.of("CULTURE", "TOURISM"), "REVIEW:AMBIGUOUS_CATEGORY"), null);
+
     private ImportService importService() {
+        // Par défaut un nouvel élément est classé automatiquement (lenient : tous les tests
+        // n'atteignent pas l'étape de classification, ex. mise à jour d'une activité existante).
+        lenient().when(classificationService.decide(any(), any())).thenReturn(AUTO_CLASSIFIED_AS_MARKETS);
         return new ImportService(
                 sourceService, openAgendaCollectorFactory, normalizationService, deduplicationService,
                 activityRepository, locationService, scheduleService, occurrenceService, mediaService,
                 activityMediaService, activityLinkService, accessibilityService, activityTagService,
-                activityMetadataService);
+                activityMetadataService, classificationService);
     }
 
     private static final Source SOURCE = new Source(
@@ -435,6 +455,92 @@ class ImportServiceTest {
         // Then
         assertEquals(0, results.size());
         verify(openAgendaCollectorFactory, never()).create(any());
+    }
+
+    /** CAT-008 : un nouvel élément classé reçoit la catégorie principale décidée, et la trace est consignée. */
+    @Test
+    void importAll_ShouldCreateActivityWithDecidedPrimaryCategory_AndRecordClassification() {
+        // Given
+        givenOneCollectibleSource();
+        CollectedActivity item = collectedActivity("ext-1");
+        when(collector.collect()).thenReturn(List.of(item));
+        when(deduplicationService.computeDeduplicationKey(item)).thenReturn("external:OpenAgenda Marseille:ext-1");
+        when(normalizationService.normalize(item)).thenReturn(Optional.of(normalizedActivity()));
+        when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
+                .thenReturn(Optional.empty());
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        givenSaveAssignsId();
+
+        // When
+        importService().importAll();
+
+        // Then
+        verify(activityRepository).save(argThat(activity -> Long.valueOf(7L).equals(activity.primaryCategoryId())));
+        verify(classificationService).recordClassified(
+                eq(10L), eq("external:OpenAgenda Marseille:ext-1"), eq(99L), eq("Marché de Noël"), eq("marché"),
+                eq(AUTO_CLASSIFIED_AS_MARKETS));
+        verify(classificationService, never()).recordQuarantined(any(), any(), any(), any(), any());
+    }
+
+    /**
+     * CAT-008 : classification ambiguë → aucune activité créée (primary_category_id est NOT NULL,
+     * aucune catégorie inventée), l'élément est consigné pour relecture et compté comme ignoré.
+     */
+    @Test
+    void importAll_ShouldNotCreateActivity_AndQuarantine_WhenClassificationNeedsReview() {
+        // Given
+        givenOneCollectibleSource();
+        CollectedActivity item = collectedActivity("ext-1");
+        when(collector.collect()).thenReturn(List.of(item));
+        when(deduplicationService.computeDeduplicationKey(item)).thenReturn("external:OpenAgenda Marseille:ext-1");
+        when(normalizationService.normalize(item)).thenReturn(Optional.of(normalizedActivity()));
+        when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
+                .thenReturn(Optional.empty());
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        when(classificationService.decide(any(), any())).thenReturn(NEEDS_REVIEW);
+
+        // When
+        List<ImportResult> results = importService().importAll();
+
+        // Then
+        ImportResult result = results.get(0);
+        assertEquals(0, result.created());
+        assertEquals(1, result.ignored());
+        assertEquals(0, result.errors());
+        verify(activityRepository, never()).save(any());
+        verify(classificationService).recordQuarantined(
+                eq(10L), eq("external:OpenAgenda Marseille:ext-1"), eq("Marché de Noël"), eq("marché"),
+                eq(NEEDS_REVIEW));
+        verify(classificationService, never()).recordClassified(any(), any(), any(), any(), any(), any());
+    }
+
+    /** CAT-008 : un ré-import ne reclasse pas une activité existante (pas d'écrasement d'une classification). */
+    @Test
+    void importAll_ShouldKeepExistingPrimaryCategory_WithoutReclassifying() {
+        // Given
+        givenOneCollectibleSource();
+        CollectedActivity item = collectedActivity("ext-1");
+        when(collector.collect()).thenReturn(List.of(item));
+        when(deduplicationService.computeDeduplicationKey(item)).thenReturn("external:OpenAgenda Marseille:ext-1");
+        when(normalizationService.normalize(item)).thenReturn(Optional.of(normalizedActivity()));
+        Activity existing = new Activity(
+                42L, "Marché de Noël", "old description", "marché",
+                43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED",
+                10L, "external:OpenAgenda Marseille:ext-1", "https://example.com/old",
+                null, null, null, null, null, null, null, null,
+                5L);
+        when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
+                .thenReturn(Optional.of(existing));
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of(existing));
+        givenSaveAssignsId();
+
+        // When
+        importService().importAll();
+
+        // Then
+        verify(classificationService, never()).decide(any(), any());
+        verify(activityRepository).save(argThat(activity ->
+                Long.valueOf(42L).equals(activity.id()) && Long.valueOf(5L).equals(activity.primaryCategoryId())));
     }
 
 }
