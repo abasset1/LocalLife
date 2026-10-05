@@ -427,3 +427,81 @@ Aucune de ces migrations n'est créée par CAT-000 ; cette section sert de base 
 **Non couvert par cette extraction** (à fournir avant de figer CAT-001, §4.1) : répartition par
 `source_name` (pas seulement `source_type`), top complet des tags `activity_tag`, valeurs réelles de
 `food_truck.category`.
+
+## 11. CAT-007 — Migration des données existantes
+
+> Ticket CAT-007 du sprint CATEG. Code : `LegacyCategoryMapper`
+> (`backend/.../activityclassification/application/`), tests : `LegacyCategoryMapperTest`
+> (rejoue l'extraction réelle du 29/09/2026, copie dans `backend/src/test/resources/legacy/`).
+
+### 11.1 Ce qu'il y a (et n'y a plus) à migrer
+
+La migration `V37__make_primary_category_mandatory.sql` (CAT-006, correctif voulu par Alex) a
+exécuté `TRUNCATE TABLE activity CASCADE` : **les ~47 338 activités existantes ont été supprimées**
+avant l'ajout de `activity.primary_category_id NOT NULL`. Il n'y a donc **plus d'activité à
+reclassifier en base** et CAT-007 **ne crée volontairement aucune migration Flyway** (une
+migration SQL de reprise sur une table vide serait sans effet, et un `UPDATE` de masse sur
+des valeurs fragmentées irait contre « aucune classification arbitraire »).
+
+Conséquence sur le critère « Les données existantes sont conservées » : il ne peut pas être
+satisfait pour les activités, c'est le résultat assumé de V37. Ce qui est conservé : le fichier
+`docs/data/categorie_source_type.csv` (valeurs d'origine et volumes), et les ré-imports
+OpenAgenda qui rejouent les valeurs d'origine. CAT-007 livre donc la **correspondance
+reproductible** à appliquer à ces valeurs, au lieu d'une copie de lignes qui n'existent plus.
+
+### 11.2 Règle
+
+Correspondance **exacte** après normalisation (minuscules, sans accents ni ponctuation), jamais
+par sous-chaîne (« marché du travail » n'est pas un marché). Sortie : `MAPPED` (code V1),
+`NEEDS_REVIEW` (avec raison, et candidats si l'ambiguïté en porte) ou `NO_VALUE` (null/blanc).
+Aucune catégorie n'est créée.
+
+| Résultat | Valeurs | Règle |
+|---|---|---|
+| `CULTURE` | théâtre, spectacle, concert, musique, jazz, cirque, danse, exposition, lecture, marionnettes, conte, poésie, opéra, clown, magie, cinéma, projection, film, culture (+ variantes listées dans le code) | `EXACT:CULTURE` |
+| `MARKETS` | marché(s), brocante, vide-grenier(s) | `EXACT:MARKETS` |
+| `GASTRONOMY` | food truck(s), dégustation, gastronomie | `EXACT:GASTRONOMY` |
+| `SPORT` | sport(s), football, basket | `EXACT:SPORT` |
+| `NATURE` | nature | `EXACT:NATURE` |
+| `LEISURE` | jeux, jeux de société, jeux vidéo | `EXACT:LEISURE` |
+| `NEEDS_REVIEW` / `AMBIGUOUS_CATEGORY` | patrimoine, JEP, visite(s) guidée/commentée/libre, architecture, archéologie → CULTURE ou TOURISM (§6.4) ; randonnée → SPORT ou NATURE ; `loisir` (§6.5) | `REVIEW:AMBIGUOUS_CATEGORY` |
+| `NEEDS_REVIEW` / `AUDIENCE_VALUE` | jeune public, tout public, famille, adulte, jeunesse... : un public (dimension AUDIENCE), pas une catégorie | `REVIEW:AUDIENCE_VALUE` |
+| `NEEDS_REVIEW` / `ACTIVITY_TYPE_VALUE` | atelier, conférence, rencontre, festival, animation... : un type (dimension ACTIVITY_TYPE) | `REVIEW:ACTIVITY_TYPE_VALUE` |
+| `NEEDS_REVIEW` / `EMPLOYMENT_DOMAIN` | valeurs contenant un mot du domaine emploi/formation/insertion (§6.1, **toujours sans catégorie V1**) | `REVIEW:EMPLOYMENT_DOMAIN` |
+| `NEEDS_REVIEW` / `UNRECOGNIZED` | lieux, artistes, codes internes, texte libre | `REVIEW:UNRECOGNIZED` |
+| `NO_VALUE` | null ou blanc | `NO_VALUE` |
+
+Écart assumé avec le §5 : celui-ci proposait `patrimoine`/`visite` → `CULTURE` (confiance
+haute) et `jeune public` → `LEISURE`. Le §6.4 admet qu'aucun signal ne tranche culture/tourisme,
+et un public n'est pas une catégorie (principe des 4 dimensions séparées) ; ces valeurs passent
+donc en `NEEDS_REVIEW`. Changer ce choix = déplacer une valeur d'un tableau à l'autre dans le code.
+
+### 11.3 Résultat sur l'extraction réelle (47 338 activités, 950 valeurs normalisées)
+
+| Résultat | Activités | Part |
+|---|---|---|
+| `MAPPED` | 854 | 1,8 % |
+| `NEEDS_REVIEW` | 4 788 | 10,1 % |
+| `NO_VALUE` (null) | 41 696 | 88,1 % |
+
+Détail `MAPPED` : CULTURE 808, LEISURE 23, MARKETS 12, NATURE 7, GASTRONOMY 2, SPORT 2.
+Détail `NEEDS_REVIEW` : UNRECOGNIZED 2 551, EMPLOYMENT_DOMAIN 1 578, AMBIGUOUS_CATEGORY 252,
+AUDIENCE_VALUE 232, ACTIVITY_TYPE_VALUE 175. Les chiffres sont vérifiés par
+`LegacyCategoryMapperTest#replayOnRealExtractionMatchesDocumentedFigures`.
+
+Seules 1,8 % des activités sont classables à partir de `activity.category` seul. Les 88,1 % de
+null et la longue traîne exigent une classification par tags, titre et description : c'est
+CAT-008, pas une migration de valeur.
+
+### 11.4 Critères d'acceptation CAT-007
+
+* [x] Les anciennes données sont analysées (§4, §11.3)
+* [x] Les correspondances sont documentées (§11.2)
+* [x] Les données ambiguës sont identifiées (`NEEDS_REVIEW` + raison + candidats)
+* [x] Aucune classification arbitraire n'est introduite (liste fermée, correspondance exacte)
+* [x] La migration est reproductible (code déterministe + rejeu testé sur l'extraction)
+* [ ] Les données existantes sont conservées : **non satisfait pour les activités**, supprimées
+  par V37 (§11.1)
+
+**Reste pour CAT-008** : brancher `LegacyCategoryMapper` (ou ses règles) dans la classification
+des imports, avec les statuts `UNCLASSIFIED`/`NEEDS_REVIEW`, et trancher le domaine emploi/formation.
