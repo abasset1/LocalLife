@@ -142,7 +142,11 @@ public final class LegacyCategoryMapper {
             Map.entry("loisir", List.of("LEISURE")),
             Map.entry("loisirs", List.of("LEISURE")));
 
-    /** Publics (dimension AUDIENCE) : ne sont pas des catégories. */
+    /**
+     * Publics (dimension AUDIENCE) : des attributs, pas des catégories métier
+     * (arbitrage validé, CATEGORY_MIGRATION_MAP §11.5). Ne jamais en déduire
+     * ni en créer une catégorie.
+     */
     private static final Set<String> AUDIENCE_VALUES = Set.of(
             "jeune public", "tres jeune public", "tout public", "famille",
             "adulte", "adultes", "jeunesse", "enfants", "ados", "seniors");
@@ -152,7 +156,11 @@ public final class LegacyCategoryMapper {
             "atelier", "atelier creatif", "bricolage", "conference", "rencontre",
             "festival", "animation", "stage");
 
-    /** Mots entiers signalant le domaine emploi/formation/insertion. */
+    /**
+     * Mots entiers signalant le domaine emploi/formation/insertion. Aucune
+     * catégorie V1 n'existe pour ce domaine : décision de fond dédiée avant
+     * CAT-008 (CATEGORY_MIGRATION_MAP §11.5), le référentiel n'est pas modifié ici.
+     */
     private static final Set<String> EMPLOYMENT_TOKENS = Set.of(
             "emploi", "recrutement", "formation", "insertion", "alternance",
             "apprentissage", "metier", "metiers", "interim", "travail",

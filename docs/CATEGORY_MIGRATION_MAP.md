@@ -471,10 +471,8 @@ Aucune catégorie n'est créée.
 | `NEEDS_REVIEW` / `UNRECOGNIZED` | lieux, artistes, codes internes, texte libre | `REVIEW:UNRECOGNIZED` |
 | `NO_VALUE` | null ou blanc | `NO_VALUE` |
 
-Écart assumé avec le §5 : celui-ci proposait `patrimoine`/`visite` → `CULTURE` (confiance
-haute) et `jeune public` → `LEISURE`. Le §6.4 admet qu'aucun signal ne tranche culture/tourisme,
-et un public n'est pas une catégorie (principe des 4 dimensions séparées) ; ces valeurs passent
-donc en `NEEDS_REVIEW`. Changer ce choix = déplacer une valeur d'un tableau à l'autre dans le code.
+Écart avec le §5 : celui-ci proposait `patrimoine`/`visite` → `CULTURE` (confiance haute) et
+`jeune public` → `LEISURE`. Ces propositions sont **remplacées par les arbitrages validés du §11.5**.
 
 ### 11.3 Résultat sur l'extraction réelle (47 338 activités, 950 valeurs normalisées)
 
@@ -501,7 +499,29 @@ CAT-008, pas une migration de valeur.
 * [x] Aucune classification arbitraire n'est introduite (liste fermée, correspondance exacte)
 * [x] La migration est reproductible (code déterministe + rejeu testé sur l'extraction)
 * [ ] Les données existantes sont conservées : **non satisfait pour les activités**, supprimées
-  par V37 (§11.1)
+  par V37 (§11.1) — conséquence assumée de CAT-006, acceptée par Alex dans la validation de CAT-007
+
+**Statut : CAT-007 validé par Alex** sur la base des arbitrages du §11.5.
 
 **Reste pour CAT-008** : brancher `LegacyCategoryMapper` (ou ses règles) dans la classification
-des imports, avec les statuts `UNCLASSIFIED`/`NEEDS_REVIEW`, et trancher le domaine emploi/formation.
+des imports, avec les statuts `UNCLASSIFIED`/`NEEDS_REVIEW`. La décision de fond sur le domaine
+emploi/formation doit être prise **avant** CAT-008 (§11.5).
+
+### 11.5 Arbitrages validés (Alex)
+
+1. **Publics et attributs, pas des catégories.** `jeune public`, `très jeune public`, `famille`,
+   `tout public` (et valeurs voisines : adulte, jeunesse...) décrivent un **public cible**
+   (dimension `AUDIENCE`) ou un attribut de l'activité. Ce ne sont pas des catégories métier.
+   Ils restent `NEEDS_REVIEW` (`AUDIENCE_VALUE`) et **aucune catégorie ne doit être créée ni
+   déduite à partir de ces valeurs**.
+2. **Emploi / formation : aucune catégorie V1 créée.** Le domaine reste `NEEDS_REVIEW`
+   (`EMPLOYMENT_DOMAIN`). CAT-007 ne résout pas la contradiction du §6.1 ; elle fera l'objet
+   d'une **décision de fond dédiée avant CAT-008**.
+3. **Patrimoine, visites, JEP : pas de catégorie forcée.** Le référentiel V1 ne permet pas de
+   trancher objectivement entre `CULTURE` et `TOURISM` (§6.4). Ces valeurs restent
+   `NEEDS_REVIEW` (`AMBIGUOUS_CATEGORY`), candidats `CULTURE`/`TOURISM` conservés pour la relecture.
+4. **Concert, musique, jazz → `CULTURE`.**
+
+**Règle pour la suite** : le référentiel V1 n'est pas modifié au fil des cas ambigus. Tout
+changement de fond (nouvelle catégorie, redéfinition d'une catégorie) passe par une décision
+dédiée, pas par un ticket de migration ou de classification.
