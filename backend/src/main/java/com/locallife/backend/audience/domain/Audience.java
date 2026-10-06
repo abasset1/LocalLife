@@ -1,7 +1,7 @@
 package com.locallife.backend.audience.domain;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.MappedCollection;
 
@@ -35,5 +35,5 @@ public record Audience(
         boolean active,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        @MappedCollection(idColumn = "audience_id") List<AudienceTranslation> translations) {
+        @MappedCollection(idColumn = "audience_id") Set<AudienceTranslation> translations) {
 }

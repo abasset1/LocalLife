@@ -9,6 +9,7 @@ import com.locallife.backend.audience.domain.AudienceTranslation;
 import com.locallife.backend.audience.infrastructure.AudienceRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +33,7 @@ class AudienceServiceTest {
 
     private Audience audienceWithFrTranslation() {
         AudienceTranslation fr = new AudienceTranslation(1L, "fr-FR", "Famille", "Description FR");
-        return new Audience(1L, "FAMILY", true, LocalDateTime.now(), LocalDateTime.now(), List.of(fr));
+        return new Audience(1L, "FAMILY", true, LocalDateTime.now(), LocalDateTime.now(), Set.of(fr));
     }
 
     @Test
@@ -70,7 +71,7 @@ class AudienceServiceTest {
     @Test
     void getAllAudiences_ShouldFallBackToCode_WhenNoTranslationAtAll() {
         Audience withoutTranslation =
-                new Audience(2L, "SENIORS", true, LocalDateTime.now(), LocalDateTime.now(), List.of());
+                new Audience(2L, "SENIORS", true, LocalDateTime.now(), LocalDateTime.now(), Set.of());
         when(audienceRepository.findAll()).thenReturn(List.of(withoutTranslation));
 
         List<AudienceResponse> result = audienceService.getAllAudiences("fr-FR");
