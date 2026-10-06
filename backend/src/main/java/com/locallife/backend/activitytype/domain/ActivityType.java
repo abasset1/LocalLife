@@ -1,7 +1,7 @@
 package com.locallife.backend.activitytype.domain;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.MappedCollection;
 
@@ -36,5 +36,5 @@ public record ActivityType(
         boolean active,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        @MappedCollection(idColumn = "activity_type_id") List<ActivityTypeTranslation> translations) {
+        @MappedCollection(idColumn = "activity_type_id") Set<ActivityTypeTranslation> translations) {
 }

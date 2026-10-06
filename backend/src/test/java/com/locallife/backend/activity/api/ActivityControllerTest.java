@@ -30,6 +30,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -101,7 +102,7 @@ class ActivityControllerTest {
      * où la validation email échoue avant).
      */
     private static final Category CULTURE_CATEGORY =
-            new Category(1L, "CULTURE", true, null, null, List.of());
+            new Category(1L, "CULTURE", true, null, null, Set.of());
 
     @Mock
     private HttpServletRequest httpRequest;

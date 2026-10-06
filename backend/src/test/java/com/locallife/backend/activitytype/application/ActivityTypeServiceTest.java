@@ -9,6 +9,7 @@ import com.locallife.backend.activitytype.domain.ActivityTypeTranslation;
 import com.locallife.backend.activitytype.infrastructure.ActivityTypeRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +33,7 @@ class ActivityTypeServiceTest {
 
     private ActivityType typeWithFrTranslation() {
         ActivityTypeTranslation fr = new ActivityTypeTranslation(1L, "fr-FR", "Festival", "Description FR");
-        return new ActivityType(1L, "FESTIVAL", true, LocalDateTime.now(), LocalDateTime.now(), List.of(fr));
+        return new ActivityType(1L, "FESTIVAL", true, LocalDateTime.now(), LocalDateTime.now(), Set.of(fr));
     }
 
     @Test
@@ -70,7 +71,7 @@ class ActivityTypeServiceTest {
     @Test
     void getAllActivityTypes_ShouldFallBackToCode_WhenNoTranslationAtAll() {
         ActivityType withoutTranslation =
-                new ActivityType(2L, "ATELIER", true, LocalDateTime.now(), LocalDateTime.now(), List.of());
+                new ActivityType(2L, "ATELIER", true, LocalDateTime.now(), LocalDateTime.now(), Set.of());
         when(activityTypeRepository.findAll()).thenReturn(List.of(withoutTranslation));
 
         List<ActivityTypeResponse> result = activityTypeService.getAllActivityTypes("fr-FR");
