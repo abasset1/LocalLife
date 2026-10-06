@@ -497,10 +497,12 @@ class ImportServiceTest {
         when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
                 .thenReturn(Optional.empty());
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        // importService() pose le stub par défaut (classé) : le construire AVANT de surcharger le stub.
+        ImportService service = importService();
         when(classificationService.decide(any(), any())).thenReturn(NEEDS_REVIEW);
 
         // When
-        List<ImportResult> results = importService().importAll();
+        List<ImportResult> results = service.importAll();
 
         // Then
         ImportResult result = results.get(0);
