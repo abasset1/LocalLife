@@ -9,6 +9,7 @@ import com.locallife.backend.category.domain.CategoryTranslation;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +32,7 @@ class CategoryServiceTest {
 
     private Category categoryWithFrTranslation() {
         CategoryTranslation fr = new CategoryTranslation(1L, "fr-FR", "Culture", "Description FR");
-        return new Category(1L, "CULTURE", true, LocalDateTime.now(), LocalDateTime.now(), List.of(fr));
+        return new Category(1L, "CULTURE", true, LocalDateTime.now(), LocalDateTime.now(), Set.of(fr));
     }
 
     @Test
@@ -70,7 +71,7 @@ class CategoryServiceTest {
     @Test
     void getAllCategories_ShouldFallBackToCode_WhenNoTranslationAtAll() {
         Category withoutTranslation =
-                new Category(2L, "SPORT", true, LocalDateTime.now(), LocalDateTime.now(), List.of());
+                new Category(2L, "SPORT", true, LocalDateTime.now(), LocalDateTime.now(), Set.of());
         when(categoryRepository.findAll()).thenReturn(List.of(withoutTranslation));
 
         List<CategoryResponse> result = categoryService.getAllCategories("fr-FR");

@@ -3,6 +3,8 @@ package com.locallife.backend.collector.application;
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
+import com.locallife.backend.activityclassification.application.ClassificationOutcome;
+import com.locallife.backend.activityclassification.application.ClassificationService;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
@@ -177,6 +179,7 @@ public class ImportService {
     private final AccessibilityService accessibilityService;
     private final ActivityTagService activityTagService;
     private final ActivityMetadataService activityMetadataService;
+    private final ClassificationService classificationService;
 
     public ImportService(
             SourceService sourceService,
@@ -192,7 +195,8 @@ public class ImportService {
             ActivityLinkService activityLinkService,
             AccessibilityService accessibilityService,
             ActivityTagService activityTagService,
-            ActivityMetadataService activityMetadataService) {
+            ActivityMetadataService activityMetadataService,
+            ClassificationService classificationService) {
         this.sourceService = sourceService;
         this.openAgendaCollectorFactory = openAgendaCollectorFactory;
         this.normalizationService = normalizationService;
@@ -207,6 +211,7 @@ public class ImportService {
         this.accessibilityService = accessibilityService;
         this.activityTagService = activityTagService;
         this.activityMetadataService = activityMetadataService;
+        this.classificationService = classificationService;
     }
 
     /**
@@ -246,12 +251,13 @@ public class ImportService {
             LocalDateTime endedAt = LocalDateTime.now();
             LOGGER.error("Échec de la collecte pour la source '{}' : {}", source.name(), exception.getMessage(),
                     exception);
-            return new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0);
+            return new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0, 0);
         }
 
         int created = 0;
         int updated = 0;
         int ignored = 0;
+        int needsReview = 0;
         int errors = 0;
         Set<String> seenKeys = new HashSet<>();
 
@@ -267,9 +273,37 @@ public class ImportService {
                 }
 
                 Optional<Activity> existing = activityRepository.findBySourceIdAndImportKey(source.id(), key);
-                Activity toSave = withSourceAndKey(
-                        normalized.get(), existing.map(Activity::id).orElse(null), source.id(), key);
+
+                // CAT-008 : classification centralisée (ClassificationService). Une activité déjà
+                // importée garde sa catégorie principale (un ré-import n'écrase jamais une
+                // classification existante, y compris validée par un humain). Pour un nouvel
+                // élément, si la classification n'est pas décidable (NEEDS_REVIEW / UNCLASSIFIED),
+                // aucune activité n'est créée : activity.primary_category_id est NOT NULL (V37) et
+                // aucune catégorie n'est inventée. L'élément est consigné pour relecture
+                // (classification_record) et compté dans needsReview (distinct d'ignored).
+                Long primaryCategoryId;
+                ClassificationOutcome classification = null;
+                if (existing.isPresent()) {
+                    primaryCategoryId = existing.get().primaryCategoryId();
+                } else {
+                    classification = classificationService.decide(item.category(), item.tags());
+                    if (!classification.classified()) {
+                        classificationService.recordQuarantined(
+                                source.id(), key, item.title(), item.category(), item.tags(), classification);
+                        needsReview++;
+                        continue;
+                    }
+                    primaryCategoryId = classification.primaryCategoryId();
+                }
+
+                Activity toSave = withSourceKeyAndCategory(
+                        normalized.get(), existing.map(Activity::id).orElse(null), source.id(), key,
+                        primaryCategoryId);
                 Activity saved = activityRepository.save(toSave);
+                if (classification != null) {
+                    classificationService.recordClassified(
+                            source.id(), key, saved.id(), item.title(), item.category(), item.tags(), classification);
+                }
 
                 // Bug corrigé (LL-11016, révélé par mvn verify en CI) : created/updated
                 // s'incrémentaient après enrichActivity(...) — une exception dans
@@ -303,7 +337,8 @@ public class ImportService {
         sourceService.recordSync(source.id(), endedAt);
 
         ImportResult result = new ImportResult(
-                source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors, archived);
+                source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors, archived,
+                needsReview);
         LOGGER.info("Import terminé pour la source '{}' : {}", source.name(), result);
 
         return result;
@@ -419,7 +454,8 @@ public class ImportService {
         return archived;
     }
 
-    private Activity withSourceAndKey(Activity activity, Long id, Long sourceId, String importKey) {
+    private Activity withSourceKeyAndCategory(
+            Activity activity, Long id, Long sourceId, String importKey, Long primaryCategoryId) {
         return new Activity(
                 id, activity.title(), activity.description(), activity.category(),
                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
@@ -427,7 +463,7 @@ public class ImportService {
                 activity.address(), activity.city(), activity.postalCode(),
                 activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax(),
                 activity.createdBy(),
-                activity.primaryCategoryId());
+                primaryCategoryId);
     }
 
     private Activity withStatus(Activity activity, String status) {

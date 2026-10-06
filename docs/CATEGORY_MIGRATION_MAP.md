@@ -501,7 +501,10 @@ CAT-008, pas une migration de valeur.
 * [ ] Les données existantes sont conservées : **non satisfait pour les activités**, supprimées
   par V37 (§11.1) — conséquence assumée de CAT-006, acceptée par Alex dans la validation de CAT-007
 
-**Statut : CAT-007 validé par Alex** sur la base des arbitrages du §11.5.
+**Statut : CAT-007 validé sur la base des arbitrages du §11.5, mais pas entièrement clos** : la décision
+de fond sur emploi/formation reste à arbitrer explicitement (`NEEDS_REVIEW` en attendant, aucune
+catégorie créée). Les règles ne sont pas modifiées sur la base du seul 1,8 % ; l'apport des tags doit
+d'abord être mesuré (`CATEGORIES_CLASSIFICATION.md` §9).
 
 **Reste pour CAT-008** : brancher `LegacyCategoryMapper` (ou ses règles) dans la classification
 des imports, avec les statuts `UNCLASSIFIED`/`NEEDS_REVIEW`. La décision de fond sur le domaine

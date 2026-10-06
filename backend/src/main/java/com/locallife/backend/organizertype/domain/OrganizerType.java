@@ -1,7 +1,7 @@
 package com.locallife.backend.organizertype.domain;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.MappedCollection;
 
@@ -37,5 +37,5 @@ public record OrganizerType(
         boolean active,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        @MappedCollection(idColumn = "organizer_type_id") List<OrganizerTypeTranslation> translations) {
+        @MappedCollection(idColumn = "organizer_type_id") Set<OrganizerTypeTranslation> translations) {
 }

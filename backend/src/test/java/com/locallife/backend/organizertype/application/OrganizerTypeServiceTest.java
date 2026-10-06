@@ -9,6 +9,7 @@ import com.locallife.backend.organizertype.domain.OrganizerTypeTranslation;
 import com.locallife.backend.organizertype.infrastructure.OrganizerTypeRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +32,7 @@ class OrganizerTypeServiceTest {
 
     private OrganizerType typeWithFrTranslation() {
         OrganizerTypeTranslation fr = new OrganizerTypeTranslation(1L, "fr-FR", "Association", "Description FR");
-        return new OrganizerType(1L, "ASSOCIATION", true, LocalDateTime.now(), LocalDateTime.now(), List.of(fr));
+        return new OrganizerType(1L, "ASSOCIATION", true, LocalDateTime.now(), LocalDateTime.now(), Set.of(fr));
     }
 
     @Test
@@ -69,7 +70,7 @@ class OrganizerTypeServiceTest {
     @Test
     void getAllOrganizerTypes_ShouldFallBackToCode_WhenNoTranslationAtAll() {
         OrganizerType withoutTranslation =
-                new OrganizerType(2L, "INDIVIDUAL", true, LocalDateTime.now(), LocalDateTime.now(), List.of());
+                new OrganizerType(2L, "INDIVIDUAL", true, LocalDateTime.now(), LocalDateTime.now(), Set.of());
         when(organizerTypeRepository.findAll()).thenReturn(List.of(withoutTranslation));
 
         List<OrganizerTypeResponse> result = organizerTypeService.getAllOrganizerTypes("fr-FR");

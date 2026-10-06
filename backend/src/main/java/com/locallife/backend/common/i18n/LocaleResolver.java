@@ -1,6 +1,6 @@
 package com.locallife.backend.common.i18n;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.function.Function;
 
 /**
@@ -46,7 +46,7 @@ public final class LocaleResolver {
      * @param requestedLocale la locale demandée (peut être {@code null})
      * @param localeOf      extrait la locale d'une traduction (ex. {@code CategoryTranslation::locale})
      */
-    public static <T> T resolve(List<T> translations, String requestedLocale, Function<T, String> localeOf) {
+    public static <T> T resolve(Collection<T> translations, String requestedLocale, Function<T, String> localeOf) {
         if (translations == null || translations.isEmpty()) {
             return null;
         }
@@ -67,7 +67,7 @@ public final class LocaleResolver {
         return findByLocale(translations, localeOf, DEFAULT_LOCALE);
     }
 
-    private static <T> T findByLocale(List<T> translations, Function<T, String> localeOf, String locale) {
+    private static <T> T findByLocale(Collection<T> translations, Function<T, String> localeOf, String locale) {
         if (locale == null) {
             return null;
         }
@@ -77,7 +77,8 @@ public final class LocaleResolver {
                 .orElse(null);
     }
 
-    private static <T> T findByBaseLanguage(List<T> translations, Function<T, String> localeOf, String baseLanguage) {
+    private static <T> T findByBaseLanguage(
+            Collection<T> translations, Function<T, String> localeOf, String baseLanguage) {
         return translations.stream()
                 .filter(t -> baseLanguage.equalsIgnoreCase(baseLanguage(localeOf.apply(t))))
                 .findFirst()

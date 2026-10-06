@@ -1,7 +1,7 @@
 package com.locallife.backend.category.domain;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.MappedCollection;
 
@@ -41,5 +41,5 @@ public record Category(
         boolean active,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        @MappedCollection(idColumn = "category_id") List<CategoryTranslation> translations) {
+        @MappedCollection(idColumn = "category_id") Set<CategoryTranslation> translations) {
 }
