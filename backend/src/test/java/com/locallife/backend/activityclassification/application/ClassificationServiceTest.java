@@ -17,6 +17,7 @@ import com.locallife.backend.category.infrastructure.CategoryRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -38,7 +39,7 @@ class ClassificationServiceTest {
 
     private static Category category(Long id, String code, boolean active) {
         LocalDateTime now = LocalDateTime.of(2026, 10, 1, 0, 0);
-        return new Category(id, code, active, now, now, List.of());
+        return new Category(id, code, active, now, now, Set.of());
     }
 
     @Test
