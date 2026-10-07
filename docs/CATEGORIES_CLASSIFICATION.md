@@ -150,6 +150,11 @@ catégorie n'est ajoutée (les 9 catégories V1), pas de priorité entre mots-cl
 `réunion publique` (CITIZEN). Ajouter, retirer ou désactiver (`active = false`) un mot-clé ne demande
 aucune modification de code.
 
+**Enrichissement `V43` (issue #47)** : 274 mots-clés actifs, toutes les catégories couvertes (TOURISM n'en avait
+aucun), `escape` seul désactivé ; audit, mesures sur le vocabulaire réel et décisions de taxonomie dans
+[`AUDIT_REFERENTIEL_CATEGORIES.md`](AUDIT_REFERENTIEL_CATEGORIES.md). Un même mot-clé peut désigner plusieurs
+catégories (`patrimoine` → CULTURE + TOURISM).
+
 ### Comparaison (`KeywordMatcher`, point unique)
 
 Texte et mot-clé sont découpés en mots ; le mot-clé matche si ses mots apparaissent **consécutivement
