@@ -11,7 +11,10 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.locallife.backend.collector.domain.CollectedActivity;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -47,6 +50,12 @@ class OpenAgendaCollectorTest {
         RestClient.Builder builder = RestClient.builder();
         mockServer = MockRestServiceServer.bindTo(builder).build();
         return new OpenAgendaCollector(builder, apiKey, agendaUid, "OpenAgenda Marseille", regionFilter);
+    }
+
+    private OpenAgendaCollector newCollectorAt(String apiKey, String agendaUid, Clock clock) {
+        RestClient.Builder builder = RestClient.builder();
+        mockServer = MockRestServiceServer.bindTo(builder).build();
+        return new OpenAgendaCollector(builder, apiKey, agendaUid, "OpenAgenda Marseille", "", clock);
     }
 
     @Test
@@ -225,6 +234,57 @@ class OpenAgendaCollectorTest {
         List<CollectedActivity> result = collector.collect();
 
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void collect_ShouldExcludePastEvents_ButKeepFutureEvents() {
+        Clock clock = Clock.fixed(Instant.parse("2026-10-07T10:00:00Z"), ZoneId.of("UTC"));
+        OpenAgendaCollector collector = newCollectorAt("key", "12345", clock);
+
+        String pastEvent = """
+                {
+                  "slug": "concert-passe",
+                  "title": {"fr": "Concert passé"},
+                  "description": {"fr": "Déjà terminé"},
+                  "keywords": {"fr": ["concert"]},
+                  "location": {
+                    "latitude": 43.2965,
+                    "longitude": 5.3698,
+                    "timezone": "Europe/Paris"
+                  },
+                  "nextTiming": {
+                    "begin": "2026-10-07T09:00:00+0200",
+                    "end": "2026-10-07T11:00:00+0200"
+                  }
+                }
+                """;
+        String futureEvent = """
+                {
+                  "slug": "concert-futur",
+                  "title": {"fr": "Concert futur"},
+                  "description": {"fr": "À venir"},
+                  "keywords": {"fr": ["concert"]},
+                  "location": {
+                    "latitude": 43.2965,
+                    "longitude": 5.3698,
+                    "timezone": "Europe/Paris"
+                  },
+                  "nextTiming": {
+                    "begin": "2026-10-07T13:00:00+0200",
+                    "end": "2026-10-07T15:00:00+0200"
+                  }
+                }
+                """;
+
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + pastEvent + "," + futureEvent + "]}",
+                        MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.size());
+        assertEquals("concert-futur", result.get(0).externalId());
     }
 
     @Test

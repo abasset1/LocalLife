@@ -7,7 +7,10 @@ import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedMedia;
 import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -176,6 +179,7 @@ public class OpenAgendaCollector implements Collector {
     private final String agendaUid;
     private final String sourceName;
     private final String regionFilter;
+    private final Clock clock;
 
     /**
      * Constructeur package-privé sans filtre de région, pour les tests
@@ -183,7 +187,7 @@ public class OpenAgendaCollector implements Collector {
      * en production, {@link OpenAgendaCollectorFactory}).
      */
     OpenAgendaCollector(RestClient.Builder builder, String apiKey, String agendaUid, String sourceName) {
-        this(builder, apiKey, agendaUid, sourceName, "");
+        this(builder, apiKey, agendaUid, sourceName, "", Clock.systemUTC());
     }
 
     /**
@@ -199,11 +203,22 @@ public class OpenAgendaCollector implements Collector {
             String agendaUid,
             String sourceName,
             String regionFilter) {
+        this(builder, apiKey, agendaUid, sourceName, regionFilter, Clock.systemUTC());
+    }
+
+    OpenAgendaCollector(
+            RestClient.Builder builder,
+            String apiKey,
+            String agendaUid,
+            String sourceName,
+            String regionFilter,
+            Clock clock) {
         this.restClient = builder.baseUrl(BASE_URL).build();
         this.apiKey = apiKey;
         this.agendaUid = agendaUid;
         this.sourceName = sourceName;
         this.regionFilter = regionFilter == null ? "" : regionFilter.trim();
+        this.clock = clock;
     }
 
     @Override
@@ -261,6 +276,7 @@ public class OpenAgendaCollector implements Collector {
         return allEvents.stream()
                 .filter(event -> event.location() != null)
                 .filter(this::matchesRegionFilter)
+                .filter(this::hasUpcomingTiming)
                 .map(this::toCollectedActivity)
                 .toList();
     }
@@ -277,6 +293,34 @@ public class OpenAgendaCollector implements Collector {
         }
         String eventRegion = event.location().region();
         return eventRegion != null && eventRegion.trim().equalsIgnoreCase(regionFilter);
+    }
+
+    /**
+     * Exclut les événements dont tous les créneaux sont terminés.
+     *
+     * <p>Un événement en cours reste conservé tant que son heure de fin
+     * (ou, à défaut, son début) n'est pas passée. Pour les événements
+     * multi-créneaux, un seul créneau encore à venir suffit à conserver
+     * l'activité.</p>
+     */
+    private boolean hasUpcomingTiming(OpenAgendaEvent event) {
+        ZoneId zone = resolveZone(event.location().timezone());
+        LocalDateTime now = LocalDateTime.now(clock.withZone(zone));
+        return toCollectedTimings(event).stream()
+                .map(timing -> timing.end() != null ? timing.end() : timing.begin())
+                .filter(value -> value != null)
+                .anyMatch(value -> !value.isBefore(now));
+    }
+
+    private ZoneId resolveZone(String timezone) {
+        if (timezone == null || timezone.isBlank()) {
+            return ZoneOffset.UTC;
+        }
+        try {
+            return ZoneId.of(timezone);
+        } catch (RuntimeException exception) {
+            return ZoneOffset.UTC;
+        }
     }
 
     private CollectedActivity toCollectedActivity(OpenAgendaEvent event) {
