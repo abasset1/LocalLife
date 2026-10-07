@@ -3,6 +3,7 @@ package com.locallife.backend.collector.application;
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
+import com.locallife.backend.activityclassification.application.ActivityClassificationService;
 import com.locallife.backend.activityclassification.application.ClassificationOutcome;
 import com.locallife.backend.activityclassification.application.ClassificationService;
 import com.locallife.backend.collector.domain.CollectedActivity;
@@ -180,6 +181,7 @@ public class ImportService {
     private final ActivityTagService activityTagService;
     private final ActivityMetadataService activityMetadataService;
     private final ClassificationService classificationService;
+    private final ActivityClassificationService activityClassificationService;
 
     public ImportService(
             SourceService sourceService,
@@ -196,7 +198,8 @@ public class ImportService {
             AccessibilityService accessibilityService,
             ActivityTagService activityTagService,
             ActivityMetadataService activityMetadataService,
-            ClassificationService classificationService) {
+            ClassificationService classificationService,
+            ActivityClassificationService activityClassificationService) {
         this.sourceService = sourceService;
         this.openAgendaCollectorFactory = openAgendaCollectorFactory;
         this.normalizationService = normalizationService;
@@ -212,6 +215,7 @@ public class ImportService {
         this.activityTagService = activityTagService;
         this.activityMetadataService = activityMetadataService;
         this.classificationService = classificationService;
+        this.activityClassificationService = activityClassificationService;
     }
 
     /**
@@ -283,6 +287,9 @@ public class ImportService {
                 // (classification_record) et compté dans needsReview (distinct d'ignored).
                 // Fallback titre : le titre n'est exploité par ClassificationService que si la
                 // source ne fournit aucun keyword (catégorie d'origine / tags absents ou vides).
+                // Issue #43 : plusieurs domaines détectés donnent 1 principale + N secondaires
+                // (activity_secondary_category), pas un NEEDS_REVIEW. Comme la principale, les
+                // secondaires d'une activité déjà importée ne sont pas recalculées.
                 Long primaryCategoryId;
                 ClassificationOutcome classification = null;
                 if (existing.isPresent()) {
@@ -303,6 +310,10 @@ public class ImportService {
                         primaryCategoryId);
                 Activity saved = activityRepository.save(toSave);
                 if (classification != null) {
+                    if (!classification.secondaryCategoryIds().isEmpty()) {
+                        activityClassificationService.replaceSecondaryCategories(
+                                saved.id(), classification.secondaryCategoryIds());
+                    }
                     classificationService.recordClassified(
                             source.id(), key, saved.id(), item.title(), item.category(), item.tags(), classification);
                 }

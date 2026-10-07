@@ -6,12 +6,20 @@ import org.springframework.data.annotation.Id;
 /**
  * Mot-clé métier du fallback titre — voir {@code V39__create_category_keyword.sql}. Le mot-clé est
  * stocké tel quel (accents compris) ; il référence une catégorie V1 existante.
+ *
+ * @param priority force du mot-clé pour choisir la catégorie principale quand plusieurs catégories
+ *                 sont détectées ({@code V41__add_category_keyword_priority.sql}) : plus grand = plus
+ *                 fort, {@link #DEFAULT_PRIORITY} par défaut
  */
 public record CategoryKeyword(
         @Id Long id,
         Long categoryId,
         String keyword,
+        int priority,
         boolean active,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
+
+    /** Priorité d'un mot-clé qui désigne l'événement lui-même (valeur par défaut en base). */
+    public static final int DEFAULT_PRIORITY = 100;
 }

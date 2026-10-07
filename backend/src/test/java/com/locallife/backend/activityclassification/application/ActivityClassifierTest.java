@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.locallife.backend.activityclassification.application.ActivityClassifier.Decision;
+import com.locallife.backend.activityclassification.application.TitleKeywordClassifier.KeywordEntry;
 import com.locallife.backend.activityclassification.domain.ClassificationStatus;
 import java.util.List;
 import java.util.Set;
@@ -66,13 +67,49 @@ class ActivityClassifierTest {
     }
 
     @Test
-    void conflictingCategoriesNeedReviewWithBothCandidates() {
+    void severalCategoriesAreNoLongerAConflict_SourceCategoryBreaksAPriorityTie() {
         Decision decision = ActivityClassifier.classify("concert", List.of("sport"));
 
+        assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
+        assertNull(decision.reason());
+        assertEquals("CULTURE", decision.categoryCode());
+        assertEquals(List.of("SPORT"), decision.secondaryCategoryCodes());
+        assertEquals("AUTO:CULTURE", decision.ruleId());
+    }
+
+    @Test
+    void tagsOnlyWithTheSamePriorityAreARealAmbiguity() {
+        Decision decision = ActivityClassifier.classify(null, List.of("concert", "sport"));
+
         assertEquals(ClassificationStatus.NEEDS_REVIEW, decision.status());
-        assertEquals(ActivityClassifier.CONFLICTING_SIGNALS, decision.reason());
+        assertEquals(ActivityClassifier.AMBIGUOUS_PRIMARY, decision.reason());
         assertNull(decision.categoryCode());
         assertEquals(List.of("CULTURE", "SPORT"), decision.candidateCodes());
+        assertEquals(List.of(), decision.secondaryCategoryCodes());
+    }
+
+    @Test
+    void keywordPriorityChoosesThePrimaryAmongSourceSignals() {
+        List<KeywordEntry> entries = List.of(
+                new KeywordEntry("GASTRONOMY", "dégustation", 50),
+                new KeywordEntry("MARKETS", "marché", 100));
+
+        // Valeur source comparée au mot-clé après normalisation (« degustation » = « dégustation »).
+        Decision decision = ActivityClassifier.classify("degustation", List.of("degustation", "marché"), () -> entries);
+
+        assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
+        assertEquals("MARKETS", decision.categoryCode());
+        assertEquals(List.of("GASTRONOMY"), decision.secondaryCategoryCodes());
+    }
+
+    @Test
+    void keywordReferentialIsOnlyReadWhenSeveralCategoriesAreDetected() {
+        Decision decision = ActivityClassifier.classify("concert", List.of("concert", "théâtre"), () -> {
+            throw new AssertionError("référentiel lu inutilement");
+        });
+
+        assertEquals("CULTURE", decision.categoryCode());
+        assertEquals(List.of(), decision.secondaryCategoryCodes());
     }
 
     @Test
