@@ -5,7 +5,8 @@
 -- * Aucune nouvelle catégorie : les 9 catégories V1 couvrent les domaines observés hors emploi/formation
 --   (décision de fond toujours en attente, voir l'audit §4).
 -- * Aucune modification du moteur : uniquement des données (category_keyword).
--- * Mots-clés métier précis ; variantes singulier/pluriel et graphies observées dans les données
+-- * Mots-clés métier précis ; « artisanat » exclu (exposition, activité culturelle ou marché selon le
+--   contexte, trop ambigu pour COMMERCE) ; variantes singulier/pluriel et graphies observées dans les données
 --   réelles (« theatre », « théatre », « cinema ») ; expressions multi-mots quand le mot seul est trop
 --   générique (« visite » seul reste exclu : c'est un format, pas un domaine).
 -- * Un même mot-clé peut désigner plusieurs catégories (modèle 1..N, issue #45) : « patrimoine » →
@@ -137,7 +138,12 @@ JOIN (
         ('MARKETS', 'puces'),
         ('MARKETS', 'foire'),
         ('MARKETS', 'foires'),
-        ('MARKETS', 'bourse aux'),
+        -- « bourse aux » seul est trop générique (« bourse aux emplois », « bourse aux formations ») :
+        -- uniquement des expressions explicitement liées aux marchés d'objets.
+        ('MARKETS', 'bourse aux jouets'),
+        ('MARKETS', 'bourse aux livres'),
+        ('MARKETS', 'bourse aux vêtements'),
+        ('MARKETS', 'bourse aux collections'),
         ('MARKETS', 'troc'),
 
         -- COMMERCE
@@ -146,7 +152,6 @@ JOIN (
         ('COMMERCE', 'commerçants'),
         ('COMMERCE', 'commerces'),
         ('COMMERCE', 'boutique éphémère'),
-        ('COMMERCE', 'artisanat'),
         ('COMMERCE', 'artisans'),
 
         -- SPORT

@@ -26,14 +26,14 @@
 |---|---:|---:|---|
 | CULTURE | 34 | 101 | concentrait déjà 57 % des mots-clés |
 | GASTRONOMY | 3 | 27 | |
-| MARKETS | 3 | 12 | |
-| COMMERCE | 1 | 8 | |
+| MARKETS | 3 | 15 | `bourse aux` seul exclu, expressions explicites |
+| COMMERCE | 1 | 7 | `artisanat` exclu (ambigu) |
 | SPORT | 5 | 46 | |
 | LEISURE | 10 | 22 | `escape` seul désactivé |
 | NATURE | 3 | 23 | |
 | TOURISM | **0** | 14 | catégorie jamais attribuable par le titre avant V43 |
 | CITIZEN | 1 | 19 | |
-| **Total** | **60** | **272** | |
+| **Total** | **60** | **274** | |
 
 Mots-clés jugés trop génériques ou ambigus :
 
@@ -66,11 +66,11 @@ Motifs récurrents des 5 642 activités avec une catégorie d'origine (hors empl
 
 | Motif | Activités | Exemples | Traitement |
 |---|---:|---|---|
-| couvert par le référentiel après V43 | 1 471 | théâtre, spectacle, concert, patrimoine, JEP, jardins | — |
+| couvert par le référentiel après V43 | 1 470 | théâtre, spectacle, concert, patrimoine, JEP, jardins | — |
 | emploi/formation non détecté par les jetons du moteur | 792 | #TousMobilisés, Création d'entreprise, S'informer, Les clés pour réussir | décision §4 |
 | format (pas un domaine) | 328 | atelier, visite, rencontre, festival, conférence | **volontairement non classé** |
 | public (dimension AUDIENCE) | 242 | jeune public, adulte, tout public, famille | **volontairement non classé** |
-| noms propres et divers | 1 231 | lieux (Cameo Commanderie, Le Star), artistes, hashtags, événements nommés | non classable par mot-clé |
+| noms propres et divers | 1 232 | lieux (Cameo Commanderie, Le Star), artistes, hashtags, événements nommés | non classable par mot-clé |
 
 Thèmes métier qui manquaient et qui sont désormais couverts : **patrimoine/tourisme** (TOURISM n'avait aucun
 mot-clé), **musique et spectacle vivant** (spectacle, musique, marionnettes, conte…), **jardins/nature**,
@@ -81,12 +81,12 @@ don du sang…).
 
 | | Avant (V42) | Après (V43) |
 |---|---:|---:|
-| Mots-clés actifs | 60 | 272 |
-| Activités dont la valeur est reconnue | 797 / 4 064 (19,6 %) | 1 471 / 4 064 (36,2 %) |
-| … rapportées au vocabulaire classable (hors formats, publics, emploi non détecté) | 797 / 2 702 (29,5 %) | 1 471 / 2 702 (54,4 %) |
+| Mots-clés actifs | 60 | 274 |
+| Activités dont la valeur est reconnue | 797 / 4 064 (19,6 %) | 1 470 / 4 064 (36,2 %) |
+| … rapportées au vocabulaire classable (hors formats, publics, emploi non détecté) | 797 / 2 702 (29,5 %) | 1 470 / 2 702 (54,4 %) |
 
 Répartition après V43 (activités, une activité peut compter dans plusieurs catégories) : CULTURE 1 302,
-TOURISM 150, NATURE 75, LEISURE 43, SPORT 24, MARKETS 15, GASTRONOMY 5, CITIZEN 4, COMMERCE 1.
+TOURISM 150, NATURE 75, LEISURE 43, SPORT 24, MARKETS 14, GASTRONOMY 5, CITIZEN 4, COMMERCE 1.
 Ces chiffres sont recalculés à chaque build par `KeywordReferentialAuditIntegrationTest` (seuil de non-régression : 35 %).
 
 Les catégories GASTRONOMY, COMMERCE, CITIZEN et MARKETS restent peu présentes **dans cette extraction** (agendas
@@ -112,11 +112,14 @@ Deux candidats, **non ajoutés**, à arbitrer :
 
 Données uniquement, rejouable (`ON CONFLICT DO NOTHING`, désactivation idempotente). Mots-clés métier précis ;
 singulier/pluriel ; graphies réellement observées (`theatre`, `théatre`, `cinema`) ; expressions multi-mots quand
-le mot seul est générique (`course à pied`, `tir à l'arc`, `office de tourisme`, `conseil municipal`, `bourse aux`).
+le mot seul est générique (`course à pied`, `tir à l'arc`, `office de tourisme`, `conseil municipal`, `bourse aux jouets`,
+`bourse aux livres`, `bourse aux vêtements`, `bourse aux collections` — jamais `bourse aux` seul, qui matcherait
+« bourse aux emplois » ou « bourse aux formations »).
 `patrimoine`, `jep`, `pays d'art et d'histoire`, `ville d'art et d'histoire` désignent **à la fois** CULTURE et
 TOURISM (modèle 1..N). Exclus volontairement : formats (`visite`, `visite guidée`, `atelier`, `festival`,
 `rencontre`…), publics, termes trop génériques (`environnement`, `château` — « château gonflable » —, `histoire`,
-`église`, `fête`). Liste complète : la migration.
+`église`, `fête`), et `artisanat` (exposition, activité culturelle ou marché artisanal selon le contexte : trop
+ambigu pour COMMERCE ; `artisans`, `commerçants`, `commerces` restent). Liste complète : la migration.
 
 ## 6. Protocole de mesure sur un réimport réel (à exécuter avec accès OpenAgenda)
 

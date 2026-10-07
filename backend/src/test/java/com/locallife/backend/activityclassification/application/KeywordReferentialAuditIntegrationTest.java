@@ -78,7 +78,7 @@ class KeywordReferentialAuditIntegrationTest {
     void noFormatOrAudienceWordIsAnActiveKeyword() {
         List<String> forbidden = List.of(
                 "atelier", "ateliers", "visite", "visites", "visite guidée", "balade", "promenade", "conférence",
-                "conférences", "festival", "rencontre", "animation", "journée", "stage", "escape",
+                "conférences", "festival", "rencontre", "animation", "journée", "stage", "escape", "bourse aux", "artisanat",
                 "jeune public", "tout public", "famille", "adulte", "enfants");
 
         List<String> active = jdbcTemplate.queryForList(
@@ -99,6 +99,8 @@ class KeywordReferentialAuditIntegrationTest {
         "Marché de producteurs du terroir;MARKETS,GASTRONOMY",
         "Grande braderie des commerçants;COMMERCE",
         "Bourse aux jouets;MARKETS",
+        "Bourse aux vêtements de la crèche;MARKETS",
+        "Exposition d'artisanat local;CULTURE",
         "Trail des collines;SPORT",
         "Tournoi de pétanque;SPORT",
         "Initiation au tir à l'arc;SPORT",
@@ -120,7 +122,7 @@ class KeywordReferentialAuditIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {
         "Atelier", "Visite", "Rencontre avec l'équipe", "Jeune public", "Tout public", "Animation",
-        "Château gonflable", "Escape", "Conférence"
+        "Château gonflable", "Escape", "Conférence", "Bourse aux emplois", "Bourse aux formations", "Artisanat"
     })
     void formatsAudiencesAndHomographsAreNotClassified(String title) {
         assertThat(categoriesOf(title)).isEmpty();
