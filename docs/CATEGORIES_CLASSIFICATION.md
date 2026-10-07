@@ -28,8 +28,8 @@ seulement si** le statut est `AUTO_CLASSIFIED` ou `VALIDATED`.
 
 ## 3. Règles de décision (`ActivityClassifier`)
 
-Signaux : la catégorie d'origine et les tags de la source (pas le titre ni la description : trop de
-faux positifs par mot-clé).
+Signaux : la catégorie d'origine et les tags de la source (pas la description : trop de faux positifs
+par mot-clé). Le titre n'intervient qu'en **repli**, quand la source ne fournit aucun keyword : voir §10.
 
 1. aucun signal → `UNCLASSIFIED` ;
 2. un signal emploi/formation → `NEEDS_REVIEW` (`EMPLOYMENT_DOMAIN`), même si un autre signal est classable ;
@@ -120,3 +120,62 @@ GROUP BY 1 ORDER BY nb DESC LIMIT 100;
 
 Ne pas ajouter de règle tant que cette mesure n'a pas été faite et arbitrée : toute règle ajoutée est
 une décision de classification, pas un réglage.
+
+## 10. Fallback titre (`category_keyword`)
+
+> Ticket : `TICKET_TITLE_KEYWORD_CLASSIFICATION.md` (règles de comparaison : `TICKET_CLASSIFICATION_KEYWORD_MATCHING.md`).
+
+### Quand il s'applique
+
+`ClassificationService#decide(title, sourceCategory, sourceTags)` : si la source fournit au moins un
+keyword — une catégorie d'origine non blanche **ou** un tag non blanc (même condition que « aucun
+signal » de `ActivityClassifier`) — la décision est **exactement** celle de §3 et le titre n'est pas lu.
+Le titre n'est exploité que si les keywords source sont `null`, vides ou uniquement blancs. Un keyword
+source présent mais inconnu reste `NEEDS_REVIEW` (`UNRECOGNIZED`) : le titre ne le remplace pas. La
+description (`description`, `longDescription`) n'est jamais analysée.
+
+### Référentiel de mots-clés (`V39`)
+
+`category_keyword(id, category_id → category, keyword, active, created_at, updated_at)`, unicité
+`(category_id, keyword)`, mot-clé non blanc. Les mots-clés métier sont **uniquement en base** ; aucune
+catégorie n'est ajoutée (les 9 catégories V1), pas de colonne `priority` (une ambiguïté n'est jamais
+masquée). Jeu initial volontairement réduit (13 mots-clés) : `théâtre`, `exposition`, `concert`
+(CULTURE) ; `dégustation` (GASTRONOMY) ; `marché`, `vide-grenier`, `brocante` (MARKETS) ; `braderie`
+(COMMERCE) ; `football`, `rugby` (SPORT) ; `sortie nature` (NATURE) ; `jeux de société` (LEISURE) ;
+`réunion publique` (CITIZEN). Ajouter, retirer ou désactiver (`active = false`) un mot-clé ne demande
+aucune modification de code.
+
+### Comparaison (`KeywordMatcher`, point unique)
+
+Texte et mot-clé sont découpés en mots ; le mot-clé matche si ses mots apparaissent **consécutivement
+et entiers** dans le titre. Ignorés : casse, espaces de début/fin et multiples, séparateurs (tout ce
+qui n'est ni lettre ni chiffre : tiret, ponctuation, apostrophes `'` `’` `ʼ`). **Jamais** : suppression
+ou translittération des accents, stemming, synonymes, fuzzy matching, NLP/IA. Conséquences :
+`marché` ≠ `marche` ; `art` ne matche pas `artisanat` mais matche `atelier d'art` ; `vide grenier`
+matche `Grand vide-grenier municipal` ; `d'art` ≠ `dart`.
+
+### Décision (`TitleKeywordClassifier`)
+
+| Mots-clés reconnus dans le titre | Résultat |
+|---|---|
+| aucun | `UNCLASSIFIED`, règle `UNCLASSIFIED:NO_SIGNAL` |
+| un ou plusieurs, **même** catégorie | `AUTO_CLASSIFIED`, règle `TITLE_KEYWORD:AUTO:<CODE>` |
+| catégories **différentes** | `NEEDS_REVIEW`, raison `CONFLICTING_SIGNALS`, candidats listés, règle `TITLE_KEYWORD:REVIEW:CONFLICTING_SIGNALS` |
+
+Le code obtenu passe ensuite par la même résolution que §1 (catégorie existante et active, sinon
+`NEEDS_REVIEW` / `CATEGORY_NOT_IN_REFERENTIAL`). Les mots-clés d'une catégorie inactive restent des
+candidats : ils ne servent jamais à écarter silencieusement un conflit.
+
+### Traçabilité
+
+`classification_record` (réutilisé) gagne `classification_source` (`TITLE_KEYWORD` si la décision
+vient du titre, `NULL` pour les keywords source) et `matched_keywords` (mots-clés reconnus, séparés
+par `|`). Le fallback sans correspondance n'écrit pas de source : rien n'a été classé à partir du titre.
+
+### Limites connues
+
+* Un mot-clé isolé peut produire un faux positif (« Marché de la poésie » → MARKETS) : le jeu initial
+  est à valider et à étendre par arbitrage, pas par intuition (§9).
+* Un titre avec un mot-clé ET un mot-clé d'une autre catégorie part en relecture, par construction.
+* Une activité déjà importée garde sa catégorie : ajouter un mot-clé ne reclasse pas l'existant.
+* Une requête sur `category_keyword` par élément sans keyword source (table de quelques dizaines de lignes).
