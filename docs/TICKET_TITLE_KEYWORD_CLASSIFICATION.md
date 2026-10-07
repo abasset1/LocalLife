@@ -70,3 +70,16 @@ Indiquer fichiers modifiés, migration, structure category_keyword, abstraction 
 3. keyword marché + titre Marche nordique → aucun match.
 4. Deux catégories candidates → NEEDS_REVIEW, jamais de choix arbitraire.
 5. Tous les keywords métier sont en base, pas dans le code Java.
+
+## Décisions complémentaires (Alex, 07/10/2026)
+
+Ces décisions s'ajoutent aux contraintes ci-dessus et complètent le ticket.
+
+1. **Jeu initial validé, mais prudence sur les faux positifs.** Les 13 mots-clés initiaux sont validés. Un mot-clé isolé n'est pas automatiquement assez fiable : `marché` peut apparaître dans « Marché de la poésie » sans que l'activité relève de MARKETS. Si le jeu initial révèle une ambiguïté réelle, la signaler et conserver une classification prudente (`NEEDS_REVIEW` ou `UNCLASSIFIED:NO_SIGNAL`) plutôt que de forcer une catégorie.
+2. **Pas de reclassement rétroactif.** Un ré-import ne reclasse pas une activité existante (comportement de la PR #35). Ajouter ou modifier un mot-clé dans `category_keyword` ne modifie donc aucune activité déjà importée/classifiée. Aucun mécanisme de reclassement automatique des données existantes dans ce ticket.
+
+### Application dans l'implémentation
+
+* Audit des 13 mots-clés : seul `marché` isolé présente une ambiguïté réelle. Il n'est plus seedé seul mais en 5 expressions sans ambiguïté (`marché de Noël`, `marché de producteurs`, `marché artisanal`, `marché paysan`, `marché nocturne`). Un titre qui ne contient que « marché » reste `UNCLASSIFIED:NO_SIGNAL`. Le critère d'acceptation 1 (« Grand marché de Noël » → MARKETS, `AUTO_CLASSIFIED`) reste satisfait.
+* Vérifié dans le code : `category_keyword` n'est lue que par `ClassificationService#decide`, appelée par `ImportService` uniquement pour un élément sans activité existante. Aucune migration, tâche ou endpoint ne reclasse l'existant. Tests : `reimport_ShouldKeepTheExistingCategory_...` et `reimport_ShouldNotReclassifyOrRewriteTheRecord_...` (activité et `ClassificationRecord` identiques après modification des mots-clés).
+

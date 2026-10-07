@@ -126,8 +126,10 @@ class TitleKeywordClassificationIntegrationTest {
         assertThat(keywords).allSatisfy(keyword ->
                 assertThat(categoryRepository.findById(keyword.categoryId())).isPresent());
         // Accents conservés dans le référentiel.
-        assertThat(keywords).extracting(CategoryKeyword::keyword).contains("marché", "théâtre");
+        assertThat(keywords).extracting(CategoryKeyword::keyword).contains("marché de Noël", "théâtre");
         assertThat(keywords).extracting(CategoryKeyword::keyword).doesNotContain("marche", "theatre");
+        // Un mot ambigu n'est jamais seedé seul (faux positifs, ex. « Marché de la poésie »).
+        assertThat(keywords).extracting(CategoryKeyword::keyword).doesNotContain("marché");
     }
 
     @Test
@@ -144,7 +146,7 @@ class TitleKeywordClassificationIntegrationTest {
         ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
         assertThat(record.status()).isEqualTo(ClassificationStatus.AUTO_CLASSIFIED);
         assertThat(record.classificationSource()).isEqualTo("TITLE_KEYWORD");
-        assertThat(record.matchedKeywords()).isEqualTo("marché");
+        assertThat(record.matchedKeywords()).isEqualTo("marché de Noël");
         assertThat(record.ruleId()).isEqualTo("TITLE_KEYWORD:AUTO:MARKETS");
         assertThat(record.title()).isEqualTo("Grand marché de Noël");
     }
@@ -219,7 +221,7 @@ class TitleKeywordClassificationIntegrationTest {
         assertThat(record.reason()).isEqualTo("CONFLICTING_SIGNALS");
         assertThat(record.classificationSource()).isEqualTo("TITLE_KEYWORD");
         assertThat(split(record.candidateCategoryCodes(), ",")).containsExactlyInAnyOrder("MARKETS", "CULTURE");
-        assertThat(split(record.matchedKeywords(), "\\|")).containsExactlyInAnyOrder("marché", "concert");
+        assertThat(split(record.matchedKeywords(), "\\|")).containsExactlyInAnyOrder("marché de Noël", "concert");
     }
 
     @Test
@@ -227,13 +229,13 @@ class TitleKeywordClassificationIntegrationTest {
         String sourceName = "Test Source " + UUID.randomUUID();
         Long sourceId = createSource(sourceName);
 
-        importOne(sourceName, item(sourceName, "Marché, brocante et vide grenier", null, List.of()));
+        importOne(sourceName, item(sourceName, "Marché de Noël, brocante et vide grenier", null, List.of()));
 
         Activity activity = singleActivity(sourceId);
         assertThat(activity.primaryCategoryId()).isEqualTo(categoryId("MARKETS"));
         ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
         assertThat(split(record.matchedKeywords(), "\\|"))
-                .containsExactlyInAnyOrder("marché", "vide-grenier", "brocante");
+                .containsExactlyInAnyOrder("marché de Noël", "vide-grenier", "brocante");
     }
 
     @Test
@@ -253,7 +255,7 @@ class TitleKeywordClassificationIntegrationTest {
     void inactiveKeyword_ShouldNotMatch() {
         String sourceName = "Test Source " + UUID.randomUUID();
         Long sourceId = createSource(sourceName);
-        jdbcTemplate.update("UPDATE category_keyword SET active = false WHERE keyword = ?", "marché");
+        jdbcTemplate.update("UPDATE category_keyword SET active = false WHERE keyword = ?", "marché de Noël");
 
         ImportResult result = importOne(sourceName, item(sourceName, "Grand marché de Noël", null, List.of()));
 
@@ -261,6 +263,21 @@ class TitleKeywordClassificationIntegrationTest {
         assertThat(activityRepository.findBySourceId(sourceId)).isEmpty();
         assertThat(singleRecordWithoutActivity(sourceId, ClassificationStatus.UNCLASSIFIED).ruleId())
                 .isEqualTo("UNCLASSIFIED:NO_SIGNAL");
+    }
+
+    /** Faux positif connu : « marché » seul est ambigu, il ne force jamais MARKETS. */
+    @Test
+    void ambiguousIsolatedMarche_ShouldStayUnclassified_NotForcedIntoMarkets() {
+        String sourceName = "Test Source " + UUID.randomUUID();
+        Long sourceId = createSource(sourceName);
+
+        ImportResult result = importOne(sourceName, item(sourceName, "Marché de la poésie", null, List.of()));
+
+        assertThat(result.created()).isZero();
+        assertThat(activityRepository.findBySourceId(sourceId)).isEmpty();
+        ClassificationRecord record = singleRecordWithoutActivity(sourceId, ClassificationStatus.UNCLASSIFIED);
+        assertThat(record.ruleId()).isEqualTo("UNCLASSIFIED:NO_SIGNAL");
+        assertThat(record.classificationSource()).isNull();
     }
 
     @Test
@@ -271,10 +288,39 @@ class TitleKeywordClassificationIntegrationTest {
         importOne(sourceName, first);
         Long firstCategory = singleActivity(sourceId).primaryCategoryId();
 
-        jdbcTemplate.update("UPDATE category_keyword SET active = false WHERE keyword = ?", "marché");
+        jdbcTemplate.update("UPDATE category_keyword SET active = false WHERE keyword = ?", "marché de Noël");
         ImportResult second = importOne(sourceName, first);
 
         assertThat(second.updated()).isEqualTo(1);
         assertThat(singleActivity(sourceId).primaryCategoryId()).isEqualTo(firstCategory);
+    }
+
+    /**
+     * Décision « pas de reclassement rétroactif » (PR #35) : ajouter ou modifier un mot-clé qui
+     * désignerait une AUTRE catégorie ne change ni l'activité déjà classée, ni sa trace.
+     */
+    @Test
+    void reimport_ShouldNotReclassifyOrRewriteTheRecord_WhenAKeywordIsAddedOrChanged() {
+        String sourceName = "Test Source " + UUID.randomUUID();
+        Long sourceId = createSource(sourceName);
+        CollectedActivity first = item(sourceName, "Grand marché de Noël", null, List.of());
+        importOne(sourceName, first);
+        Activity before = singleActivity(sourceId);
+        ClassificationRecord recordBefore = recordRepository.findByActivityId(before.id()).orElseThrow();
+
+        // Un nouveau mot-clé d'une autre catégorie + le mot-clé d'origine réattribué à CULTURE.
+        jdbcTemplate.update(
+                "INSERT INTO category_keyword (category_id, keyword) SELECT id, ? FROM category WHERE code = ?",
+                "noël", "CULTURE");
+        jdbcTemplate.update(
+                "UPDATE category_keyword SET category_id = (SELECT id FROM category WHERE code = 'CULTURE') "
+                        + "WHERE keyword = ?", "marché de Noël");
+        importOne(sourceName, first);
+
+        Activity after = singleActivity(sourceId);
+        assertThat(after.id()).isEqualTo(before.id());
+        assertThat(after.primaryCategoryId()).isEqualTo(categoryId("MARKETS"));
+        ClassificationRecord recordAfter = recordRepository.findByActivityId(after.id()).orElseThrow();
+        assertThat(recordAfter).isEqualTo(recordBefore);
     }
 }

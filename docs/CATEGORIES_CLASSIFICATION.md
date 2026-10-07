@@ -139,8 +139,9 @@ description (`description`, `longDescription`) n'est jamais analysée.
 `category_keyword(id, category_id → category, keyword, active, created_at, updated_at)`, unicité
 `(category_id, keyword)`, mot-clé non blanc. Les mots-clés métier sont **uniquement en base** ; aucune
 catégorie n'est ajoutée (les 9 catégories V1), pas de colonne `priority` (une ambiguïté n'est jamais
-masquée). Jeu initial volontairement réduit (13 mots-clés) : `théâtre`, `exposition`, `concert`
-(CULTURE) ; `dégustation` (GASTRONOMY) ; `marché`, `vide-grenier`, `brocante` (MARKETS) ; `braderie`
+masquée). Jeu initial volontairement réduit : `théâtre`, `exposition`, `concert`
+(CULTURE) ; `dégustation` (GASTRONOMY) ; `marché de Noël`, `marché de producteurs`, `marché artisanal`,
+`marché paysan`, `marché nocturne`, `vide-grenier`, `brocante` (MARKETS) ; `braderie`
 (COMMERCE) ; `football`, `rugby` (SPORT) ; `sortie nature` (NATURE) ; `jeux de société` (LEISURE) ;
 `réunion publique` (CITIZEN). Ajouter, retirer ou désactiver (`active = false`) un mot-clé ne demande
 aucune modification de code.
@@ -174,8 +175,13 @@ par `|`). Le fallback sans correspondance n'écrit pas de source : rien n'a ét�
 
 ### Limites connues
 
-* Un mot-clé isolé peut produire un faux positif (« Marché de la poésie » → MARKETS) : le jeu initial
-  est à valider et à étendre par arbitrage, pas par intuition (§9).
+* **Faux positifs d'un mot isolé** : `marché` seul est ambigu (« Marché de la poésie » relève plutôt de
+  CULTURE) ; il n'est donc pas seedé seul mais en expressions précises (`marché de Noël`, `marché de
+  producteurs`...). Un titre avec seulement « marché » reste `UNCLASSIFIED:NO_SIGNAL`, jamais une catégorie
+  forcée. Tout mot ajouté ensuite doit être relu pour ce risque ; en cas de doute, expression plus précise.
 * Un titre avec un mot-clé ET un mot-clé d'une autre catégorie part en relecture, par construction.
-* Une activité déjà importée garde sa catégorie : ajouter un mot-clé ne reclasse pas l'existant.
+* **Pas de reclassement rétroactif** (décision Alex, cohérente avec la PR #35) : une activité déjà
+  importée garde sa catégorie et sa trace ; ajouter, modifier ou désactiver un mot-clé ne reclasse
+  jamais l'existant, et aucun mécanisme de reclassement n'est prévu dans ce ticket. Seuls les éléments
+  encore sans activité (`UNCLASSIFIED` / `NEEDS_REVIEW`) sont réévalués au ré-import suivant, comme en §4.
 * Une requête sur `category_keyword` par élément sans keyword source (table de quelques dizaines de lignes).

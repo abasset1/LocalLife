@@ -31,6 +31,14 @@ ALTER TABLE classification_record
 -- Jeu initial volontairement réduit : mots-clés précis et auditables, une catégorie V1 existante
 -- chacun. Les ajouter/retirer se fait par migration ou en base, sans toucher au code.
 -- 'vide-grenier' couvre aussi « vide grenier » (séparateurs équivalents).
+--
+-- Prudence sur les faux positifs : un mot isolé n'est pas toujours fiable. Le mot « marché »
+-- seul est ambigu (« Marché de la poésie », « marché de l'art » relèvent plutôt de CULTURE) ;
+-- il n'est donc PAS seedé seul, mais sous forme d'expressions qui désignent sans ambiguïté un
+-- marché commerçant. Un titre qui ne contient que « marché » reste UNCLASSIFIED:NO_SIGNAL
+-- (relecture/extension par décision humaine) plutôt qu'une catégorie forcée.
+-- Les autres mots-clés ont été relus un à un : pas d'ambiguïté réelle à ce stade ; les cas
+-- mixtes (« Concert au marché de Noël ») partent en NEEDS_REVIEW par construction.
 INSERT INTO category_keyword (category_id, keyword)
 SELECT category.id, v.keyword
 FROM category
@@ -39,7 +47,11 @@ JOIN (VALUES
     ('CULTURE',    'exposition'),
     ('CULTURE',    'concert'),
     ('GASTRONOMY', 'dégustation'),
-    ('MARKETS',    'marché'),
+    ('MARKETS',    'marché de Noël'),
+    ('MARKETS',    'marché de producteurs'),
+    ('MARKETS',    'marché artisanal'),
+    ('MARKETS',    'marché paysan'),
+    ('MARKETS',    'marché nocturne'),
     ('MARKETS',    'vide-grenier'),
     ('MARKETS',    'brocante'),
     ('COMMERCE',   'braderie'),
