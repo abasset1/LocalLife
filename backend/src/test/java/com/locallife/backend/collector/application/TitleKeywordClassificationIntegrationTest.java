@@ -154,7 +154,9 @@ class TitleKeywordClassificationIntegrationTest {
         String sourceName = "Test Source " + UUID.randomUUID();
         Long sourceId = createSource(sourceName);
 
-        importOne(sourceName, item(sourceName, "Grand marché de Noël", "  ", Arrays.asList(null, " ", "")));
+        // Une catégorie d'origine blanche est rejetée en amont par NormalizationService (donnée invalide) :
+        // le cas « blanc » pertinent ici est celui des tags (null, vide, espaces).
+        importOne(sourceName, item(sourceName, "Grand marché de Noël", null, Arrays.asList(null, " ", "")));
 
         assertThat(singleActivity(sourceId).primaryCategoryId()).isEqualTo(categoryId("MARKETS"));
     }
