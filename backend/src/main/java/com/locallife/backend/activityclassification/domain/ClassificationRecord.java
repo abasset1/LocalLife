@@ -10,6 +10,9 @@ import org.springframework.data.annotation.Id;
  *
  * @param sourceTags             tags de la source, séparés par des virgules (relecture et mesure de leur apport)
  * @param candidateCategoryCodes codes V1 plausibles à départager, séparés par des virgules ({@code null} si aucun)
+ * @param classificationSource   {@code TITLE_KEYWORD} si la décision vient du fallback titre ({@code null} sinon)
+ * @param matchedKeywords        mot(s)-clé(s) de {@code category_keyword} reconnu(s) dans le titre, séparés par
+ *                               {@code |} ({@code null} si aucun)
  */
 public record ClassificationRecord(
         @Id Long id,
@@ -24,5 +27,7 @@ public record ClassificationRecord(
         String sourceTags,
         String title,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt) {
+        LocalDateTime updatedAt,
+        String classificationSource,
+        String matchedKeywords) {
 }

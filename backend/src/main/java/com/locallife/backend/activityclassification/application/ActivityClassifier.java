@@ -54,13 +54,25 @@ public final class ActivityClassifier {
      * @param reason             renseigné pour {@code NEEDS_REVIEW}
      * @param candidateCodes     catégories plausibles à départager à la relecture (peut être vide)
      * @param ruleId             règle appliquée, pour la traçabilité
+     * @param source             origine de la décision : {@code null} pour les keywords source,
+     *                           {@code TITLE_KEYWORD} pour le fallback titre
+     * @param matchedKeywords    mot(s)-clé(s) du référentiel reconnu(s) (fallback titre), sinon vide
      */
     public record Decision(
             ClassificationStatus status,
             String categoryCode,
             String reason,
             List<String> candidateCodes,
-            String ruleId) {
+            String ruleId,
+            String source,
+            List<String> matchedKeywords) {
+
+        /** Décision issue des keywords source (sans source dédiée ni mot-clé du référentiel). */
+        public Decision(
+                ClassificationStatus status, String categoryCode, String reason, List<String> candidateCodes,
+                String ruleId) {
+            this(status, categoryCode, reason, candidateCodes, ruleId, null, List.of());
+        }
     }
 
     private ActivityClassifier() {

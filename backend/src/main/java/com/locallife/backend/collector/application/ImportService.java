@@ -281,12 +281,14 @@ public class ImportService {
                 // aucune activité n'est créée : activity.primary_category_id est NOT NULL (V37) et
                 // aucune catégorie n'est inventée. L'élément est consigné pour relecture
                 // (classification_record) et compté dans needsReview (distinct d'ignored).
+                // Fallback titre : le titre n'est exploité par ClassificationService que si la
+                // source ne fournit aucun keyword (catégorie d'origine / tags absents ou vides).
                 Long primaryCategoryId;
                 ClassificationOutcome classification = null;
                 if (existing.isPresent()) {
                     primaryCategoryId = existing.get().primaryCategoryId();
                 } else {
-                    classification = classificationService.decide(item.category(), item.tags());
+                    classification = classificationService.decide(item.title(), item.category(), item.tags());
                     if (!classification.classified()) {
                         classificationService.recordQuarantined(
                                 source.id(), key, item.title(), item.category(), item.tags(), classification);

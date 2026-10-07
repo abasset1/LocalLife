@@ -125,7 +125,7 @@ class ImportServiceTest {
     private ImportService importService() {
         // Par défaut un nouvel élément est classé automatiquement (lenient : tous les tests
         // n'atteignent pas l'étape de classification, ex. mise à jour d'une activité existante).
-        lenient().when(classificationService.decide(any(), any())).thenReturn(AUTO_CLASSIFIED_AS_MARKETS);
+        lenient().when(classificationService.decide(any(), any(), any())).thenReturn(AUTO_CLASSIFIED_AS_MARKETS);
         return new ImportService(
                 sourceService, openAgendaCollectorFactory, normalizationService, deduplicationService,
                 activityRepository, locationService, scheduleService, occurrenceService, mediaService,
@@ -499,7 +499,7 @@ class ImportServiceTest {
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
         // importService() pose le stub par défaut (classé) : le construire AVANT de surcharger le stub.
         ImportService service = importService();
-        when(classificationService.decide(any(), any())).thenReturn(NEEDS_REVIEW);
+        when(classificationService.decide(any(), any(), any())).thenReturn(NEEDS_REVIEW);
 
         // When
         List<ImportResult> results = service.importAll();
@@ -515,6 +515,27 @@ class ImportServiceTest {
                 eq(10L), eq("external:OpenAgenda Marseille:ext-1"), eq("Marché de Noël"), eq("marché"), any(),
                 eq(NEEDS_REVIEW));
         verify(classificationService, never()).recordClassified(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    /** Fallback titre : ImportService transmet titre, catégorie d'origine et tags à ClassificationService. */
+    @Test
+    void importAll_ShouldPassTitleCategoryAndTagsToClassificationService() {
+        // Given
+        givenOneCollectibleSource();
+        CollectedActivity item = collectedActivity("ext-1");
+        when(collector.collect()).thenReturn(List.of(item));
+        when(deduplicationService.computeDeduplicationKey(item)).thenReturn("external:OpenAgenda Marseille:ext-1");
+        when(normalizationService.normalize(item)).thenReturn(Optional.of(normalizedActivity()));
+        when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
+                .thenReturn(Optional.empty());
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        givenSaveAssignsId();
+
+        // When
+        importService().importAll();
+
+        // Then : la décision (source d'abord, titre en repli) reste dans ClassificationService.
+        verify(classificationService).decide(eq(item.title()), eq(item.category()), eq(item.tags()));
     }
 
     /** CAT-008 : un ré-import ne reclasse pas une activité existante (pas d'écrasement d'une classification). */
@@ -541,7 +562,7 @@ class ImportServiceTest {
         importService().importAll();
 
         // Then
-        verify(classificationService, never()).decide(any(), any());
+        verify(classificationService, never()).decide(any(), any(), any());
         verify(activityRepository).save(argThat(activity ->
                 Long.valueOf(42L).equals(activity.id()) && Long.valueOf(5L).equals(activity.primaryCategoryId())));
     }
