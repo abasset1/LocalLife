@@ -1,8 +1,6 @@
 package com.locallife.backend.activityclassification.application;
 
 import com.locallife.backend.activityclassification.application.ActivityClassifier.Decision;
-import com.locallife.backend.activityclassification.application.PrimaryCategorySelector.Selection;
-import com.locallife.backend.activityclassification.domain.CategoryKeyword;
 import com.locallife.backend.activityclassification.domain.ClassificationStatus;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -17,15 +15,11 @@ import java.util.Map;
  * {@code category_keyword} (aucun mot-clé métier dans le code) ; la comparaison est celle de
  * {@link KeywordMatcher} (accents conservés, frontières de mots).
  *
- * <p>Décision (issue #43, principal + secondaires) :
+ * <p>Décision (issue #45 : 1..N catégories, sans principale ni secondaire, sans score) :
  * <ol>
  *   <li>aucun mot-clé reconnu → {@code UNCLASSIFIED} ({@code UNCLASSIFIED:NO_SIGNAL}) ;</li>
- *   <li>un ou plusieurs mots-clés de la <b>même</b> catégorie → {@code AUTO_CLASSIFIED} ;</li>
- *   <li>mots-clés de <b>plusieurs</b> catégories → la catégorie dont le mot-clé reconnu a la plus forte
- *       priorité devient principale, les autres secondaires ({@code AUTO_CLASSIFIED}) — voir
- *       {@link PrimaryCategorySelector} ;</li>
- *   <li>égalité de priorité au sommet entre plusieurs catégories → {@code NEEDS_REVIEW}
- *       ({@link ActivityClassifier#AMBIGUOUS_PRIMARY}, ex aequo listés) : aucun choix arbitraire.</li>
+ *   <li>un ou plusieurs mots-clés reconnus → {@code AUTO_CLASSIFIED} avec <b>toutes</b> les catégories
+ *       de ces mots-clés, dans l'ordre du référentiel. Plusieurs catégories ne sont jamais un conflit.</li>
  * </ol>
  *
  * Classe pure, sans état ni dépendance.
@@ -35,13 +29,8 @@ public final class TitleKeywordClassifier {
     /** Origine tracée dans {@code classification_record.classification_source}. */
     public static final String SOURCE = "TITLE_KEYWORD";
 
-    /** Mot-clé du référentiel avec le code de sa catégorie et sa priorité (plus grand = plus fort). */
-    public record KeywordEntry(String categoryCode, String keyword, int priority) {
-
-        /** Mot-clé de priorité par défaut ({@link CategoryKeyword#DEFAULT_PRIORITY}). */
-        public KeywordEntry(String categoryCode, String keyword) {
-            this(categoryCode, keyword, CategoryKeyword.DEFAULT_PRIORITY);
-        }
+    /** Mot-clé du référentiel avec le code de sa catégorie. */
+    public record KeywordEntry(String categoryCode, String keyword) {
     }
 
     private TitleKeywordClassifier() {
@@ -49,7 +38,6 @@ public final class TitleKeywordClassifier {
 
     public static Decision classify(String title, List<KeywordEntry> entries) {
         Map<String, List<String>> matchedByCategory = new LinkedHashMap<>();
-        Map<String, Integer> scores = new LinkedHashMap<>();
         if (title != null && !title.isBlank() && entries != null) {
             for (KeywordEntry entry : entries) {
                 if (KeywordMatcher.matches(entry.keyword(), title)) {
@@ -58,22 +46,16 @@ public final class TitleKeywordClassifier {
                     if (!keywords.contains(entry.keyword())) {
                         keywords.add(entry.keyword());
                     }
-                    scores.merge(entry.categoryCode(), entry.priority(), Math::max);
                 }
             }
         }
         if (matchedByCategory.isEmpty()) {
-            return new Decision(ClassificationStatus.UNCLASSIFIED, null, null, List.of(), "UNCLASSIFIED:NO_SIGNAL");
+            return new Decision(
+                    ClassificationStatus.UNCLASSIFIED, List.of(), null, List.of(), "UNCLASSIFIED:NO_SIGNAL");
         }
         List<String> matched = matchedByCategory.values().stream().flatMap(List::stream).toList();
-        Selection selection = PrimaryCategorySelector.select(scores, null);
-        if (selection.decided()) {
-            String code = selection.primaryCode();
-            return new Decision(ClassificationStatus.AUTO_CLASSIFIED, code, null, List.of(),
-                    SOURCE + ":AUTO:" + code, SOURCE, matched, selection.secondaryCodes());
-        }
-        return new Decision(ClassificationStatus.NEEDS_REVIEW, null, ActivityClassifier.AMBIGUOUS_PRIMARY,
-                selection.tiedCodes(), SOURCE + ":REVIEW:" + ActivityClassifier.AMBIGUOUS_PRIMARY, SOURCE, matched,
-                List.of());
+        List<String> codes = List.copyOf(matchedByCategory.keySet());
+        return new Decision(ClassificationStatus.AUTO_CLASSIFIED, codes, null, List.of(),
+                SOURCE + ":" + ActivityClassifier.autoRuleId(codes), SOURCE, matched);
     }
 }

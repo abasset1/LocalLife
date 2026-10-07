@@ -2,6 +2,7 @@ package com.locallife.backend.activity.application;
 
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
+import com.locallife.backend.activityclassification.application.ActivityClassificationService;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
 import com.locallife.backend.source.application.SourceService;
@@ -70,12 +71,15 @@ public class ActivityService {
     private final ActivityRepository activityRepository;
     private final GeocodingService geocodingService;
     private final SourceService sourceService;
+    private final ActivityClassificationService activityClassificationService;
 
     public ActivityService(
-            ActivityRepository activityRepository, GeocodingService geocodingService, SourceService sourceService) {
+            ActivityRepository activityRepository, GeocodingService geocodingService, SourceService sourceService,
+            ActivityClassificationService activityClassificationService) {
         this.activityRepository = activityRepository;
         this.geocodingService = geocodingService;
         this.sourceService = sourceService;
+        this.activityClassificationService = activityClassificationService;
     }
 
     public List<Activity> findAll() {
@@ -480,8 +484,7 @@ public class ActivityService {
                 status, activity.sourceId(), activity.importKey(), activity.url(),
                 activity.address(), activity.city(), activity.postalCode(),
                 activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax(),
-                activity.createdBy(),
-                activity.primaryCategoryId());
+                activity.createdBy());
     }
 
     /**
@@ -725,24 +728,24 @@ public class ActivityService {
      * @throws IllegalArgumentException si {@code title} est manquant, vide
      *         ou trop long, si {@code category} est fournie mais
      *         vide/blanche, si {@code startDate}/{@code endDate} est
-     *         fournie mais illisible, ou si {@code primaryCategoryId} est
-     *         {@code null} (CAT-006 : {@code activity.primary_category_id}
-     *         est {@code NOT NULL} en base depuis
-     *         {@code V37__make_primary_category_mandatory.sql} — ce
+     *         fournie mais illisible, ou si {@code categoryIds} est
+     *         {@code null} ou vide (issue #45 : une activité a 1..N
+     *         catégories, contrainte réelle en base depuis
+     *         {@code V42__activity_category_n_categories.sql} — ce
      *         contrôle n'est qu'un échec rapide côté application, la
      *         contrainte base reste la garantie réelle). La résolution
-     *         d'un {@code categoryCode} fourni par l'appelant vers cet id
+     *         d'un {@code categoryCode} fourni par l'appelant vers un id
      *         est à la charge de {@code ActivityController#createActivity},
      *         pas de cette méthode (qui ne connaît pas le référentiel
      *         {@code Category}, pour ne pas lui ajouter une dépendance).
      */
     public Activity createActivity(
             String title, String description, String category, String address,
-            String startDate, String endDate, Long createdBy, Long primaryCategoryId) {
+            String startDate, String endDate, Long createdBy, List<Long> categoryIds) {
         validateTitle(title);
         validateCategory(category);
-        if (primaryCategoryId == null) {
-            throw new IllegalArgumentException("La catégorie principale est obligatoire.");
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            throw new IllegalArgumentException("Au moins une catégorie est obligatoire.");
         }
         LocalDateTime resolvedStartDate = parseFlexibleDate("startDate", startDate)
                 .orElseGet(LocalDateTime::now);
@@ -759,9 +762,8 @@ public class ActivityService {
                 null, title, description, category,
                 coordinates.latitude(), coordinates.longitude(), resolvedStartDate, resolvedEndDate, "PENDING",
                 manualSourceId, null, null,
-                address, coordinates.city(), coordinates.postalCode(), null, null, null, null, createdBy,
-                primaryCategoryId);
-        return activityRepository.save(activity);
+                address, coordinates.city(), coordinates.postalCode(), null, null, null, null, createdBy);
+        return activityClassificationService.createActivity(activity, categoryIds);
     }
 
     /**

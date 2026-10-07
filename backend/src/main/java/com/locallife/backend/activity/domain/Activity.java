@@ -126,42 +126,14 @@ import org.springframework.data.annotation.Id;
  * recherches publiques au même titre que {@code PENDING}/{@code REJECTED}
  * (statut {@code PUBLISHED} uniquement, LL-6004).
  *
- * {@code primaryCategoryId} ajouté en CAT-006 (SPRINT_CATEG) : référence
- * vers {@code category.id} (référentiel canonique, CAT-001),
- * {@code NOT NULL} depuis {@code V37__make_primary_category_mandatory.sql}
- * — contrainte réelle en base, pas une convention applicative. Ce choix
- * (plutôt qu'une table séparée faisant passer l'obligation pour une
- * simple convention) fait suite à une relecture explicite de CAT-006 :
- * la première version de cette migration utilisait une table séparée
- * {@code activity_primary_category} précisément pour contourner le fait
- * que les activités déjà en base n'avaient aucune classification — ce qui
- * revenait à affaiblir le critère « la catégorie principale est
- * obligatoire » plutôt qu'à l'appliquer. {@code V37} corrige cela : les
- * activités existantes sans classification sont supprimées (voir cette
- * migration) plutôt que de contourner la contrainte.
- *
- * Conséquence directe de ce correctif pour les deux producteurs
- * d'activités identifiés par l'audit CAT-000 :
- * <ul>
- *   <li>la <b>contribution manuelle</b> ({@link
- *       com.locallife.backend.activity.application.ActivityService#createActivity})
- *       résout désormais un {@code categoryCode} explicitement fourni par
- *       le contributeur, via {@code ActivityController#createActivity}
- *       (un humain choisit la catégorie — ce n'est pas une classification
- *       automatique, donc pas la matière de CAT-008) ;</li>
- *   <li>l'<b>import OpenAgenda</b> ({@link
- *       com.locallife.backend.collector.application.NormalizationService#normalize})
- *       n'a en revanche aucune source de classification automatique
- *       aujourd'hui (c'est précisément l'objet de CAT-008, « classification
- *       Seeder et imports », pas encore implémenté) : il construit
- *       toujours une {@code Activity} avec {@code primaryCategoryId = null},
- *       ce qui fait échouer l'{@code INSERT} en base (violation
- *       {@code NOT NULL}) plutôt que d'accepter silencieusement une
- *       activité non classifiée. <b>L'import reste donc non fonctionnel de
- *       bout en bout tant que CAT-008 ne fournit pas de classification
- *       réelle</b> — point à traiter avant de remettre ce flux en
- *       production, pas un oubli.</li>
- * </ul>
+ * Catégories (issue #45) : une activité a <b>1..N catégories</b>, sans
+ * notion de catégorie principale ou secondaire. Elles ne sont pas portées
+ * par ce record mais par la table {@code activity_category}
+ * ({@code V42__activity_category_n_categories.sql}, voir
+ * {@code ActivityClassificationService}) ; « au moins une catégorie » y est
+ * une contrainte réelle en base (trigger de contrainte différé, vérifié au
+ * commit). Une activité se crée donc avec ses catégories, dans la même
+ * transaction : {@code ActivityClassificationService#createActivity}.
  */
 public record Activity(
         @Id Long id,
@@ -183,6 +155,5 @@ public record Activity(
         String conditions,
         Integer ageMin,
         Integer ageMax,
-        Long createdBy,
-        Long primaryCategoryId) {
+        Long createdBy) {
 }

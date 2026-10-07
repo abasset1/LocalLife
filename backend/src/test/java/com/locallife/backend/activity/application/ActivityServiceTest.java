@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
+import com.locallife.backend.activityclassification.application.ActivityClassificationService;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
 import com.locallife.backend.source.application.SourceService;
@@ -51,8 +53,15 @@ class ActivityServiceTest {
     @Mock
     private SourceService sourceService;
 
+    @Mock
+    private ActivityClassificationService activityClassificationService;
+
     private ActivityService activityService() {
-        return new ActivityService(activityRepository, geocodingService, sourceService);
+        // Issue #45 : la création passe par ActivityClassificationService (activité + catégories dans
+        // une transaction) ; ici l'activité est simplement sauvegardée via le repository mocké.
+        lenient().doAnswer(invocation -> activityRepository.save(invocation.getArgument(0)))
+                .when(activityClassificationService).createActivity(any(), any());
+        return new ActivityService(activityRepository, geocodingService, sourceService, activityClassificationService);
     }
 
     @Test
@@ -60,8 +69,7 @@ class ActivityServiceTest {
         // Given
         Activity expected = new Activity(
                 1L, "Concert", "desc", "concert", 43.2951, 5.3739, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null, null, null, null, null, null, null, null, null,
-                1L);
+                null, null, null, null, null, null, null, null, null);
         when(activityRepository.findWithinRadius(43.2951, 5.3739, 5_000, "PUBLISHED", null, null, null))
                 .thenReturn(List.of(expected));
 
@@ -422,8 +430,7 @@ class ActivityServiceTest {
         // Given
         Activity expected = new Activity(
                 1L, "Concert", "desc", "concert", 43.30, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null, null, null, null, null, null, null, null, null,
-                1L);
+                null, null, null, null, null, null, null, null, null);
         when(activityRepository.findWithinBounds(43.28, 5.35, 43.31, 5.40, "PUBLISHED", null, null, null))
                 .thenReturn(List.of(expected));
 
@@ -666,8 +673,7 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, null,
-                1L);
+                null, null, null, null, null, null, null, null, null);
         when(activityRepository.findByStatus("PENDING")).thenReturn(List.of(pending));
 
         // When
@@ -721,8 +727,7 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, null,
-                1L);
+                null, null, null, null, null, null, null, null, null);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -742,8 +747,7 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 2L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, null,
-                1L);
+                null, null, null, null, null, null, null, null, null);
         when(activityRepository.findById(2L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -786,8 +790,7 @@ class ActivityServiceTest {
         // Given : transition non prévue par LL-6003 (seul PENDING → PUBLISHED existe).
         Activity published = new Activity(
                 3L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null, null, null, null, null, null, null, null, null,
-                1L);
+                null, null, null, null, null, null, null, null, null);
         when(activityRepository.findById(3L)).thenReturn(Optional.of(published));
 
         // When / Then
@@ -803,8 +806,7 @@ class ActivityServiceTest {
         // Given : transition non prévue par LL-6003 (seul PENDING → REJECTED existe).
         Activity rejected = new Activity(
                 4L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "REJECTED", 1L, null,
-                null, null, null, null, null, null, null, null, null,
-                1L);
+                null, null, null, null, null, null, null, null, null);
         when(activityRepository.findById(4L)).thenReturn(Optional.of(rejected));
 
         // When / Then
@@ -825,7 +827,7 @@ class ActivityServiceTest {
     void createActivity_ShouldThrow_WhenTitleIsNull() {
         assertThatThrownBy(() -> activityService()
                 .createActivity(null, "description", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
-                1L))
+                List.of(1L)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("title");
 
@@ -836,7 +838,7 @@ class ActivityServiceTest {
     void createActivity_ShouldThrow_WhenTitleIsBlank() {
         assertThatThrownBy(() -> activityService()
                 .createActivity("   ", "description", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
-                1L))
+                List.of(1L)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("title");
 
@@ -849,7 +851,7 @@ class ActivityServiceTest {
 
         assertThatThrownBy(() -> activityService()
                 .createActivity(tooLong, "description", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
-                1L))
+                List.of(1L)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("title");
 
@@ -860,7 +862,7 @@ class ActivityServiceTest {
     void createActivity_ShouldThrow_WhenCategoryIsBlankButNotNull() {
         assertThatThrownBy(() -> activityService()
                 .createActivity("Pique-nique", "description", "   ", "1 rue de la Paix, Marseille", null, null, 1L,
-                1L))
+                List.of(1L)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("category");
 
@@ -876,7 +878,7 @@ class ActivityServiceTest {
 
         Activity result = activityService()
                 .createActivity("Pique-nique", "description", null, "1 rue de la Paix, Marseille", null, null, 1L,
-                1L);
+                List.of(1L));
 
         assertThat(result.title()).isEqualTo("Pique-nique");
         assertThat(result.category()).isNull();
@@ -892,7 +894,7 @@ class ActivityServiceTest {
 
         Activity result = activityService()
                 .createActivity("Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
-                1L);
+                List.of(1L));
 
         assertThat(result.title()).isEqualTo("Pique-nique");
         assertThat(result.category()).isEqualTo("loisir");
@@ -914,7 +916,7 @@ class ActivityServiceTest {
 
         Activity result = activityService()
                 .createActivity("Pique-nique", "description", "loisir", "1 rue de la Paix, Marseille", null, null, 42L,
-                1L);
+                List.of(1L));
 
         assertThat(result.createdBy()).isEqualTo(42L);
     }
@@ -933,7 +935,7 @@ class ActivityServiceTest {
         Activity result = activityService()
                 .createActivity(
                         "Pique-nique", "Pique-nique au parc", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
-                1L);
+                List.of(1L));
 
         assertThat(result.address()).isEqualTo("1 rue de la Paix, Marseille");
         assertThat(result.city()).isEqualTo("Marseille");
@@ -951,7 +953,7 @@ class ActivityServiceTest {
         LocalDateTime before = LocalDateTime.now();
         Activity result = activityService()
                 .createActivity("Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
-                1L);
+                List.of(1L));
         LocalDateTime after = LocalDateTime.now();
 
         assertThat(result.startDate()).isBetween(before, after);
@@ -969,7 +971,7 @@ class ActivityServiceTest {
                 .createActivity(
                         "Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille",
                         "2026-09-20T14:30:00", null, 1L,
-                1L);
+                List.of(1L));
 
         assertThat(result.startDate()).isEqualTo(LocalDateTime.of(2026, 9, 20, 14, 30));
         assertThat(result.endDate()).isEqualTo(LocalDateTime.of(2026, 9, 20, 0, 0));
@@ -985,7 +987,7 @@ class ActivityServiceTest {
                 .createActivity(
                         "Festival", "desc", "loisir", "1 rue de la Paix, Marseille",
                         "2026-09-20", "2026-09-22", 1L,
-                1L);
+                List.of(1L));
 
         assertThat(result.startDate()).isEqualTo(LocalDateTime.of(2026, 9, 20, 0, 0));
         assertThat(result.endDate()).isEqualTo(LocalDateTime.of(2026, 9, 22, 0, 0));
@@ -996,7 +998,7 @@ class ActivityServiceTest {
         assertThatThrownBy(() -> activityService()
                 .createActivity(
                         "Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", "pas une date", null, 1L,
-                1L))
+                List.of(1L)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("startDate");
 
@@ -1008,7 +1010,7 @@ class ActivityServiceTest {
         assertThatThrownBy(() -> activityService()
                 .createActivity(
                         "Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", null, "pas une date", 1L,
-                1L))
+                List.of(1L)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("endDate");
 
@@ -1022,8 +1024,7 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, 42L,
-                1L);
+                null, null, null, null, null, null, null, null, 42L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -1043,8 +1044,7 @@ class ActivityServiceTest {
         // Given : cas principal visé par le ticket, annuler un événement déjà publié.
         Activity published = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 1L, null,
-                null, null, null, null, null, null, null, null, 42L,
-                1L);
+                null, null, null, null, null, null, null, null, 42L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(published));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -1061,8 +1061,7 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, 42L,
-                1L);
+                null, null, null, null, null, null, null, null, 42L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -1093,8 +1092,7 @@ class ActivityServiceTest {
         // aucun créateur identifié — hors périmètre du ticket.
         Activity imported = new Activity(
                 1L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 2L,
-                "external:key", null, null, null, null, null, null, null, null, null,
-                1L);
+                "external:key", null, null, null, null, null, null, null, null, null);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(imported));
 
         // When / Then
@@ -1111,8 +1109,7 @@ class ActivityServiceTest {
         // collectors ne sont pas concernées par cette fonctionnalité »).
         Activity imported = new Activity(
                 1L, "Marché", "desc", "marché", 43.29, 5.37, LocalDateTime.now(), null, "PUBLISHED", 2L,
-                "external:key", null, null, null, null, null, null, null, null, null,
-                1L);
+                "external:key", null, null, null, null, null, null, null, null, null);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(imported));
 
         assertThatThrownBy(() -> activityService().cancel(1L, 99L, true))
@@ -1126,8 +1123,7 @@ class ActivityServiceTest {
         // Given
         Activity pending = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "PENDING", 1L, null,
-                null, null, null, null, null, null, null, null, 42L,
-                1L);
+                null, null, null, null, null, null, null, null, 42L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(pending));
 
         // When / Then : demandeur (99L) ni créateur (42L) ni administrateur.
@@ -1142,8 +1138,7 @@ class ActivityServiceTest {
         // Given : transition non prévue (déjà annulée, voir CANCELLABLE_STATUSES).
         Activity cancelled = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "CANCELLED", 1L, null,
-                null, null, null, null, null, null, null, null, 42L,
-                1L);
+                null, null, null, null, null, null, null, null, 42L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(cancelled));
 
         // When / Then
@@ -1161,8 +1156,7 @@ class ActivityServiceTest {
         // n'a pas de raison d'être "annulée" par son créateur.
         Activity rejected = new Activity(
                 1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null, "REJECTED", 1L, null,
-                null, null, null, null, null, null, null, null, 42L,
-                1L);
+                null, null, null, null, null, null, null, null, 42L);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(rejected));
 
         // When / Then

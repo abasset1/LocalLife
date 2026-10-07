@@ -54,7 +54,7 @@ class ClassificationServiceTest {
         ClassificationOutcome outcome = service.decide("théâtre", List.of());
 
         assertTrue(outcome.classified());
-        assertEquals(3L, outcome.primaryCategoryId());
+        assertEquals(List.of(3L), outcome.categoryIds());
         assertEquals(ClassificationStatus.AUTO_CLASSIFIED, outcome.decision().status());
     }
 
@@ -65,7 +65,7 @@ class ClassificationServiceTest {
         ClassificationOutcome outcome = service.decide("théâtre", List.of());
 
         assertFalse(outcome.classified());
-        assertNull(outcome.primaryCategoryId());
+        assertEquals(List.of(), outcome.categoryIds());
         assertEquals(ClassificationStatus.NEEDS_REVIEW, outcome.decision().status());
         assertEquals(ClassificationService.CATEGORY_NOT_IN_REFERENTIAL, outcome.decision().reason());
         assertEquals(List.of("CULTURE"), outcome.decision().candidateCodes());
@@ -94,7 +94,7 @@ class ClassificationServiceTest {
     void recordQuarantinedCreatesARecordWithoutActivity() {
         when(recordRepository.findBySourceIdAndImportKey(10L, "k1")).thenReturn(Optional.empty());
         ClassificationOutcome outcome = new ClassificationOutcome(
-                ActivityClassifier.classify("patrimoine", List.of()), null);
+                ActivityClassifier.classify("patrimoine", List.of()), List.of());
 
         service.recordQuarantined(10L, "k1", "Visite du château", "patrimoine", List.of("visite", "été"), outcome);
 
@@ -116,7 +116,7 @@ class ClassificationServiceTest {
                 new ClassificationRecord(5L, 10L, "k1", null, ClassificationStatus.NEEDS_REVIEW,
                         "REVIEW:UNRECOGNIZED", "UNRECOGNIZED", null, "x", null, "t", created, created, null, null, null)));
         ClassificationOutcome outcome = new ClassificationOutcome(
-                ActivityClassifier.classify("patrimoine", List.of()), null);
+                ActivityClassifier.classify("patrimoine", List.of()), List.of());
 
         service.recordQuarantined(10L, "k1", "t", "patrimoine", List.of(), outcome);
 
@@ -128,7 +128,7 @@ class ClassificationServiceTest {
     void recordClassifiedLinksTheRecordToTheCreatedActivity() {
         when(recordRepository.findBySourceIdAndImportKey(10L, "k1")).thenReturn(Optional.empty());
         ClassificationOutcome outcome = new ClassificationOutcome(
-                ActivityClassifier.classify("marché", List.of()), 7L);
+                ActivityClassifier.classify("marché", List.of()), List.of(7L));
 
         service.recordClassified(10L, "k1", 99L, "Marché de Noël", "marché", null, outcome);
 
@@ -146,7 +146,7 @@ class ClassificationServiceTest {
         when(recordRepository.findBySourceIdAndImportKey(any(), any())).thenReturn(Optional.empty());
         String longTitle = "x".repeat(400);
         ClassificationOutcome outcome = new ClassificationOutcome(
-                ActivityClassifier.classify("patrimoine", List.of()), null);
+                ActivityClassifier.classify("patrimoine", List.of()), List.of());
 
         service.recordQuarantined(10L, "k1", longTitle, longTitle, List.of(longTitle, longTitle, longTitle, longTitle, longTitle), outcome);
 
@@ -155,16 +155,49 @@ class ClassificationServiceTest {
                         && record.sourceTags().length() == 1000));
     }
 
+    @Test
+    void decideKeepsAllSourceCategoriesAndResolvesEachOne() {
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(category(3L, "CULTURE", true)));
+        when(categoryRepository.findByCode("SPORT")).thenReturn(Optional.of(category(5L, "SPORT", true)));
+
+        ClassificationOutcome outcome = service.decide("concert", List.of("sport"));
+
+        assertTrue(outcome.classified());
+        assertEquals(List.of(3L, 5L), outcome.categoryIds());
+        assertEquals(List.of("CULTURE", "SPORT"), outcome.decision().categoryCodes());
+        org.mockito.Mockito.verifyNoInteractions(keywordRepository);
+    }
+
+    @Test
+    void decideDropsAMissingOrInactiveCategoryButKeepsTheOthers() {
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(category(3L, "CULTURE", true)));
+        when(categoryRepository.findByCode("SPORT")).thenReturn(Optional.of(category(5L, "SPORT", false)));
+
+        ClassificationOutcome outcome = service.decide("concert", List.of("sport"));
+
+        assertTrue(outcome.classified());
+        assertEquals(List.of(3L), outcome.categoryIds());
+        assertEquals(List.of("CULTURE"), outcome.decision().categoryCodes());
+    }
+
+    @Test
+    void decideNeedsReviewWhenNoCategoryCanBeResolved() {
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.empty());
+        when(categoryRepository.findByCode("SPORT")).thenReturn(Optional.of(category(5L, "SPORT", false)));
+
+        ClassificationOutcome outcome = service.decide("concert", List.of("sport"));
+
+        assertFalse(outcome.classified());
+        assertEquals(ClassificationService.CATEGORY_NOT_IN_REFERENTIAL, outcome.decision().reason());
+        assertEquals(List.of("CULTURE", "SPORT"), outcome.decision().candidateCodes());
+    }
+
     // ---- Fallback titre (category_keyword) ----
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 1, 0, 0);
 
     private static CategoryKeyword keyword(Long categoryId, String keyword) {
-        return keyword(categoryId, keyword, CategoryKeyword.DEFAULT_PRIORITY);
-    }
-
-    private static CategoryKeyword keyword(Long categoryId, String keyword, int priority) {
-        return new CategoryKeyword(null, categoryId, keyword, priority, true, NOW, NOW);
+        return new CategoryKeyword(null, categoryId, keyword, true, NOW, NOW);
     }
 
     private void givenKeywords(CategoryKeyword... keywords) {
@@ -175,16 +208,20 @@ class ClassificationServiceTest {
         when(categoryRepository.findById(id)).thenReturn(Optional.of(category(id, code, true)));
     }
 
+    private void givenActiveCode(Long id, String code) {
+        when(categoryRepository.findByCode(code)).thenReturn(Optional.of(category(id, code, true)));
+    }
+
     @Test
     void titleFallbackClassifiesWhenSourceKeywordsAreNull() {
         givenKeywords(keyword(1L, "marché"));
         givenCategory(1L, "MARKETS");
-        when(categoryRepository.findByCode("MARKETS")).thenReturn(Optional.of(category(1L, "MARKETS", true)));
+        givenActiveCode(1L, "MARKETS");
 
         ClassificationOutcome outcome = service.decide("Grand marché de Noël", null, null);
 
         assertTrue(outcome.classified());
-        assertEquals(1L, outcome.primaryCategoryId());
+        assertEquals(List.of(1L), outcome.categoryIds());
         assertEquals(ClassificationStatus.AUTO_CLASSIFIED, outcome.decision().status());
         assertEquals(TitleKeywordClassifier.SOURCE, outcome.decision().source());
         assertEquals(List.of("marché"), outcome.decision().matchedKeywords());
@@ -194,7 +231,7 @@ class ClassificationServiceTest {
     void titleFallbackClassifiesWhenSourceKeywordsAreEmptyOrBlank() {
         givenKeywords(keyword(1L, "marché"));
         givenCategory(1L, "MARKETS");
-        when(categoryRepository.findByCode("MARKETS")).thenReturn(Optional.of(category(1L, "MARKETS", true)));
+        givenActiveCode(1L, "MARKETS");
 
         assertTrue(service.decide("Grand marché de Noël", "  ", List.of()).classified());
         List<String> blankTags = java.util.Arrays.asList(null, " ", "");
@@ -203,11 +240,11 @@ class ClassificationServiceTest {
 
     @Test
     void titleIsNeverReadWhenSourceKeywordsArePresent() {
-        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(category(3L, "CULTURE", true)));
+        givenActiveCode(3L, "CULTURE");
 
         ClassificationOutcome outcome = service.decide("Marche nordique", "théâtre", List.of());
 
-        assertEquals(3L, outcome.primaryCategoryId());
+        assertEquals(List.of(3L), outcome.categoryIds());
         assertNull(outcome.decision().source());
         org.mockito.Mockito.verifyNoInteractions(keywordRepository);
         // Même décision que la logique source seule.
@@ -232,18 +269,22 @@ class ClassificationServiceTest {
     }
 
     @Test
-    void titleKeywordsFromTwoCategoriesWithTheSamePriorityNeedReviewAndNeverPickOne() {
-        givenKeywords(keyword(1L, "marché"), keyword(2L, "concert"));
+    void titleKeywordsFromSeveralCategoriesAreAllResolved() {
+        givenKeywords(keyword(1L, "marché"), keyword(4L, "dégustation"), keyword(2L, "concert"));
         givenCategory(1L, "MARKETS");
+        givenCategory(4L, "GASTRONOMY");
         givenCategory(2L, "CULTURE");
+        givenActiveCode(1L, "MARKETS");
+        givenActiveCode(4L, "GASTRONOMY");
+        givenActiveCode(2L, "CULTURE");
 
-        ClassificationOutcome outcome = service.decide("Concert au marché", null, List.of());
+        ClassificationOutcome outcome = service.decide("Marché gourmand avec dégustation et concert", null, List.of());
 
-        assertFalse(outcome.classified());
-        assertEquals(ClassificationStatus.NEEDS_REVIEW, outcome.decision().status());
-        assertEquals(ActivityClassifier.AMBIGUOUS_PRIMARY, outcome.decision().reason());
-        assertEquals(List.of("MARKETS", "CULTURE"), outcome.decision().candidateCodes());
-        org.mockito.Mockito.verify(categoryRepository, org.mockito.Mockito.never()).findByCode(any());
+        assertTrue(outcome.classified());
+        assertEquals(ClassificationStatus.AUTO_CLASSIFIED, outcome.decision().status());
+        assertNull(outcome.decision().reason());
+        assertEquals(List.of(1L, 4L, 2L), outcome.categoryIds());
+        assertEquals(List.of("MARKETS", "GASTRONOMY", "CULTURE"), outcome.decision().categoryCodes());
     }
 
     @Test
@@ -282,111 +323,46 @@ class ClassificationServiceTest {
     }
 
     @Test
-    void recordClassifiedTracesTheTitleKeyword() {
+    void recordClassifiedTracesTheTitleKeywordsAndAllCategories() {
         when(recordRepository.findBySourceIdAndImportKey(10L, "k1")).thenReturn(Optional.empty());
-        givenKeywords(keyword(1L, "marché"), keyword(1L, "vide-grenier"));
+        givenKeywords(keyword(1L, "marché"), keyword(1L, "vide-grenier"), keyword(4L, "dégustation"));
         givenCategory(1L, "MARKETS");
-        when(categoryRepository.findByCode("MARKETS")).thenReturn(Optional.of(category(1L, "MARKETS", true)));
-        ClassificationOutcome outcome = service.decide("Marché et vide grenier", null, List.of());
+        givenCategory(4L, "GASTRONOMY");
+        givenActiveCode(1L, "MARKETS");
+        givenActiveCode(4L, "GASTRONOMY");
+        ClassificationOutcome outcome = service.decide("Marché, vide grenier et dégustation", null, List.of());
 
-        service.recordClassified(10L, "k1", 99L, "Marché et vide grenier", null, List.of(), outcome);
+        service.recordClassified(10L, "k1", 99L, "Marché, vide grenier et dégustation", null, List.of(), outcome);
 
         verify(recordRepository).save(argThat(record ->
                 ClassificationStatus.AUTO_CLASSIFIED == record.status()
                         && "TITLE_KEYWORD".equals(record.classificationSource())
-                        && "marché|vide-grenier".equals(record.matchedKeywords())
-                        && "TITLE_KEYWORD:AUTO:MARKETS".equals(record.ruleId())));
+                        && "marché|vide-grenier|dégustation".equals(record.matchedKeywords())
+                        && "MARKETS,GASTRONOMY".equals(record.categoryCodes())
+                        && "TITLE_KEYWORD:AUTO:MARKETS+GASTRONOMY".equals(record.ruleId())));
     }
 
     @Test
     void recordForSourceKeywordsHasNoTitleTrace() {
         when(recordRepository.findBySourceIdAndImportKey(10L, "k1")).thenReturn(Optional.empty());
-        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(category(3L, "CULTURE", true)));
+        givenActiveCode(3L, "CULTURE");
         ClassificationOutcome outcome = service.decide("t", "théâtre", List.of());
 
         service.recordClassified(10L, "k1", 99L, "t", "théâtre", List.of(), outcome);
 
         verify(recordRepository).save(argThat(record ->
-                record.classificationSource() == null && record.matchedKeywords() == null));
+                record.classificationSource() == null && record.matchedKeywords() == null
+                        && "CULTURE".equals(record.categoryCodes())));
     }
 
     @Test
-    void titleKeywordsFromSeveralCategoriesResolvePrimaryAndSecondaryIds() {
-        givenKeywords(keyword(1L, "marché"), keyword(4L, "dégustation", 50));
-        givenCategory(1L, "MARKETS");
-        givenCategory(4L, "GASTRONOMY");
-        when(categoryRepository.findByCode("MARKETS")).thenReturn(Optional.of(category(1L, "MARKETS", true)));
-        when(categoryRepository.findByCode("GASTRONOMY")).thenReturn(Optional.of(category(4L, "GASTRONOMY", true)));
-
-        ClassificationOutcome outcome = service.decide("Marché avec dégustation", null, List.of());
-
-        assertTrue(outcome.classified());
-        assertEquals(1L, outcome.primaryCategoryId());
-        assertEquals(List.of(4L), outcome.secondaryCategoryIds());
-        assertEquals(List.of("GASTRONOMY"), outcome.decision().secondaryCategoryCodes());
-    }
-
-    @Test
-    void inactiveOrMissingSecondaryCategoryIsDroppedNeverCreated() {
-        givenKeywords(keyword(1L, "marché"), keyword(4L, "dégustation", 50));
-        givenCategory(1L, "MARKETS");
-        givenCategory(4L, "GASTRONOMY");
-        when(categoryRepository.findByCode("MARKETS")).thenReturn(Optional.of(category(1L, "MARKETS", true)));
-        when(categoryRepository.findByCode("GASTRONOMY")).thenReturn(Optional.of(category(4L, "GASTRONOMY", false)));
-
-        ClassificationOutcome outcome = service.decide("Marché avec dégustation", null, List.of());
-
-        assertTrue(outcome.classified());
-        assertEquals(1L, outcome.primaryCategoryId());
-        assertEquals(List.of(), outcome.secondaryCategoryIds());
-        assertEquals(List.of(), outcome.decision().secondaryCategoryCodes());
-        // La trace des mots-clés reconnus reste complète.
-        assertEquals(List.of("marché", "dégustation"), outcome.decision().matchedKeywords());
-    }
-
-    @Test
-    void sourceSignalsOfSeveralCategoriesUseTheKeywordPriority() {
-        givenKeywords(keyword(1L, "marché"), keyword(4L, "dégustation", 50));
-        givenCategory(1L, "MARKETS");
-        givenCategory(4L, "GASTRONOMY");
-        when(categoryRepository.findByCode("MARKETS")).thenReturn(Optional.of(category(1L, "MARKETS", true)));
-        when(categoryRepository.findByCode("GASTRONOMY")).thenReturn(Optional.of(category(4L, "GASTRONOMY", true)));
-
-        ClassificationOutcome outcome = service.decide(null, List.of("dégustation", "marché"));
-
-        assertTrue(outcome.classified());
-        assertEquals(1L, outcome.primaryCategoryId());
-        assertEquals(List.of(4L), outcome.secondaryCategoryIds());
-        assertNull(outcome.decision().source());
-    }
-
-    @Test
-    void recordClassifiedTracesTheSecondaryCategories() {
+    void recordQuarantinedHasNoCategoryCodes() {
         when(recordRepository.findBySourceIdAndImportKey(10L, "k1")).thenReturn(Optional.empty());
-        givenKeywords(keyword(1L, "marché"), keyword(4L, "dégustation", 50));
-        givenCategory(1L, "MARKETS");
-        givenCategory(4L, "GASTRONOMY");
-        when(categoryRepository.findByCode("MARKETS")).thenReturn(Optional.of(category(1L, "MARKETS", true)));
-        when(categoryRepository.findByCode("GASTRONOMY")).thenReturn(Optional.of(category(4L, "GASTRONOMY", true)));
-        ClassificationOutcome outcome = service.decide("Marché avec dégustation", null, List.of());
+        ClassificationOutcome outcome = service.decide("t", "patrimoine", List.of());
 
-        service.recordClassified(10L, "k1", 99L, "Marché avec dégustation", null, List.of(), outcome);
+        service.recordQuarantined(10L, "k1", "t", "patrimoine", List.of(), outcome);
 
-        verify(recordRepository).save(argThat(record ->
-                ClassificationStatus.AUTO_CLASSIFIED == record.status()
-                        && "GASTRONOMY".equals(record.secondaryCategoryCodes())
-                        && "TITLE_KEYWORD:AUTO:MARKETS".equals(record.ruleId())));
-    }
-
-    @Test
-    void recordWithoutSecondaryCategoryStoresNull() {
-        when(recordRepository.findBySourceIdAndImportKey(10L, "k1")).thenReturn(Optional.empty());
-        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(category(3L, "CULTURE", true)));
-        ClassificationOutcome outcome = service.decide("t", "théâtre", List.of());
-
-        service.recordClassified(10L, "k1", 99L, "t", "théâtre", List.of(), outcome);
-
-        verify(recordRepository).save(argThat(record -> record.secondaryCategoryCodes() == null));
+        verify(recordRepository).save(argThat(record -> record.categoryCodes() == null));
     }
 
 }

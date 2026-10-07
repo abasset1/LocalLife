@@ -44,8 +44,7 @@ class LikeControllerTest {
     void getLikedActivities_ShouldReturnActivitiesWithLikedByCurrentUserTrue() {
         // Given
         Activity liked = new Activity(1L, "Concert", "desc", "concert", 43.29, 5.37, LocalDateTime.now(), null,
-                "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null,
-                1L);
+                "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null);
         Source source = new Source(1L, "MANUAL", "MANUAL", null, "ACTIVE", null, null, null);
         when(likeService.getLikedActivities(42L)).thenReturn(List.of(liked));
         when(sourceService.getAllSources()).thenReturn(List.of(source));

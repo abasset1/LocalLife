@@ -120,16 +120,21 @@ class ImportServiceTest {
     private ActivityClassificationService activityClassificationService;
 
     private static final ClassificationOutcome AUTO_CLASSIFIED_AS_MARKETS = new ClassificationOutcome(
-            new Decision(ClassificationStatus.AUTO_CLASSIFIED, "MARKETS", null, List.of(), "AUTO:MARKETS"), 7L);
+            new Decision(ClassificationStatus.AUTO_CLASSIFIED, List.of("MARKETS"), null, List.of(), "AUTO:MARKETS"),
+            List.of(7L));
 
     private static final ClassificationOutcome NEEDS_REVIEW = new ClassificationOutcome(
-            new Decision(ClassificationStatus.NEEDS_REVIEW, null, "AMBIGUOUS_CATEGORY",
-                    List.of("CULTURE", "TOURISM"), "REVIEW:AMBIGUOUS_CATEGORY"), null);
+            new Decision(ClassificationStatus.NEEDS_REVIEW, List.of(), "AMBIGUOUS_CATEGORY",
+                    List.of("CULTURE", "TOURISM"), "REVIEW:AMBIGUOUS_CATEGORY"), List.of());
 
     private ImportService importService() {
         // Par défaut un nouvel élément est classé automatiquement (lenient : tous les tests
         // n'atteignent pas l'étape de classification, ex. mise à jour d'une activité existante).
         lenient().when(classificationService.decide(any(), any(), any())).thenReturn(AUTO_CLASSIFIED_AS_MARKETS);
+        // Issue #45 : un nouvel élément est créé avec ses catégories par ActivityClassificationService (une
+        // transaction) ; ici l'activité est simplement sauvegardée via le repository mocké.
+        lenient().doAnswer(invocation -> activityRepository.save(invocation.getArgument(0)))
+                .when(activityClassificationService).createActivity(any(), any());
         return new ImportService(
                 sourceService, openAgendaCollectorFactory, normalizationService, deduplicationService,
                 activityRepository, locationService, scheduleService, occurrenceService, mediaService,
@@ -159,8 +164,7 @@ class ImportServiceTest {
         return new Activity(
                 null, "Marché de Noël", "description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED", null, null,
-                "https://example.com", null, null, null, null, null, null, null, null,
-                1L);
+                "https://example.com", null, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -213,8 +217,7 @@ class ImportServiceTest {
                     toSave.status(), toSave.sourceId(), toSave.importKey(), toSave.url(),
                     toSave.address(), toSave.city(), toSave.postalCode(),
                     toSave.longDescription(), toSave.conditions(), toSave.ageMin(), toSave.ageMax(),
-                    toSave.createdBy(),
-                1L);
+                    toSave.createdBy());
         });
     }
 
@@ -274,8 +277,7 @@ class ImportServiceTest {
                 42L, "Marché de Noël", "old description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED",
                 10L, "external:OpenAgenda Marseille:ext-1", "https://example.com/old",
-                null, null, null, null, null, null, null, null,
-                1L);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
                 .thenReturn(Optional.of(existing));
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of(existing));
@@ -390,8 +392,7 @@ class ImportServiceTest {
                 42L, "Marché de Noël", "description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED",
                 10L, "external:OpenAgenda Marseille:ext-1", "https://example.com",
-                null, null, null, null, null, null, null, null,
-                1L);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of(previouslyImported));
 
         // When
@@ -413,8 +414,7 @@ class ImportServiceTest {
                 42L, "Marché de Noël", "description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "ARCHIVED",
                 10L, "external:OpenAgenda Marseille:ext-1", "https://example.com",
-                null, null, null, null, null, null, null, null,
-                1L);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of(alreadyArchived));
 
         // When
@@ -461,9 +461,9 @@ class ImportServiceTest {
         verify(openAgendaCollectorFactory, never()).create(any());
     }
 
-    /** CAT-008 : un nouvel élément classé reçoit la catégorie principale décidée, et la trace est consignée. */
+    /** CAT-008 / issue #45 : un nouvel élément classé est créé avec ses catégories, et la trace est consignée. */
     @Test
-    void importAll_ShouldCreateActivityWithDecidedPrimaryCategory_AndRecordClassification() {
+    void importAll_ShouldCreateActivityWithDecidedCategories_AndRecordClassification() {
         // Given
         givenOneCollectibleSource();
         CollectedActivity item = collectedActivity("ext-1");
@@ -479,18 +479,18 @@ class ImportServiceTest {
         importService().importAll();
 
         // Then
-        verify(activityRepository).save(argThat(activity -> Long.valueOf(7L).equals(activity.primaryCategoryId())));
+        verify(activityClassificationService).createActivity(argThat(activity ->
+                activity.id() == null && "external:OpenAgenda Marseille:ext-1".equals(activity.importKey())),
+                eq(List.of(7L)));
         verify(classificationService).recordClassified(
                 eq(10L), eq("external:OpenAgenda Marseille:ext-1"), eq(99L), eq("Marché de Noël"), eq("marché"), any(),
                 eq(AUTO_CLASSIFIED_AS_MARKETS));
         verify(classificationService, never()).recordQuarantined(any(), any(), any(), any(), any(), any());
-        // Aucune catégorie secondaire décidée : la table de relation n'est pas touchée.
-        verify(activityClassificationService, never()).replaceSecondaryCategories(any(), any());
     }
 
-    /** Issue #43 : un nouvel élément classé avec des catégories secondaires les persiste sur l'activité créée. */
+    /** Issue #45 : plusieurs catégories détectées sont toutes enregistrées avec l'activité créée. */
     @Test
-    void importAll_ShouldPersistSecondaryCategories_WhenClassificationHasSome() {
+    void importAll_ShouldCreateActivityWithAllDetectedCategories() {
         // Given
         givenOneCollectibleSource();
         CollectedActivity item = collectedActivity("ext-1");
@@ -501,11 +501,12 @@ class ImportServiceTest {
                 .thenReturn(Optional.empty());
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
         givenSaveAssignsId();
-        ClassificationOutcome withSecondary = new ClassificationOutcome(
-                new Decision(ClassificationStatus.AUTO_CLASSIFIED, "MARKETS", null, List.of(), "AUTO:MARKETS",
-                        null, List.of(), List.of("GASTRONOMY")), 7L, List.of(4L));
+        ClassificationOutcome severalCategories = new ClassificationOutcome(
+                new Decision(ClassificationStatus.AUTO_CLASSIFIED, List.of("MARKETS", "GASTRONOMY", "CULTURE"), null,
+                        List.of(), "AUTO:MARKETS+GASTRONOMY+CULTURE"),
+                List.of(7L, 4L, 3L));
         ImportService service = importService();
-        when(classificationService.decide(any(), any(), any())).thenReturn(withSecondary);
+        when(classificationService.decide(any(), any(), any())).thenReturn(severalCategories);
 
         // When
         ImportResult result = service.importAll().get(0);
@@ -513,12 +514,11 @@ class ImportServiceTest {
         // Then
         assertEquals(1, result.created());
         assertEquals(0, result.needsReview());
-        verify(activityRepository).save(argThat(activity -> Long.valueOf(7L).equals(activity.primaryCategoryId())));
-        verify(activityClassificationService).replaceSecondaryCategories(99L, List.of(4L));
+        verify(activityClassificationService).createActivity(any(), eq(List.of(7L, 4L, 3L)));
     }
 
     /**
-     * CAT-008 : classification ambiguë → aucune activité créée (primary_category_id est NOT NULL,
+     * CAT-008 : classification ambiguë → aucune activité créée (au moins une catégorie obligatoire,
      * aucune catégorie inventée), l'élément est consigné pour relecture et compté dans needsReview, pas dans ignored.
      */
     @Test
@@ -575,7 +575,7 @@ class ImportServiceTest {
 
     /** CAT-008 : un ré-import ne reclasse pas une activité existante (pas d'écrasement d'une classification). */
     @Test
-    void importAll_ShouldKeepExistingPrimaryCategory_WithoutReclassifying() {
+    void importAll_ShouldKeepExistingCategories_WithoutReclassifying() {
         // Given
         givenOneCollectibleSource();
         CollectedActivity item = collectedActivity("ext-1");
@@ -586,8 +586,7 @@ class ImportServiceTest {
                 42L, "Marché de Noël", "old description", "marché",
                 43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED",
                 10L, "external:OpenAgenda Marseille:ext-1", "https://example.com/old",
-                null, null, null, null, null, null, null, null,
-                5L);
+                null, null, null, null, null, null, null, null);
         when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
                 .thenReturn(Optional.of(existing));
         when(activityRepository.findBySourceId(10L)).thenReturn(List.of(existing));
@@ -598,10 +597,10 @@ class ImportServiceTest {
 
         // Then
         verify(classificationService, never()).decide(any(), any(), any());
-        verify(activityRepository).save(argThat(activity ->
-                Long.valueOf(42L).equals(activity.id()) && Long.valueOf(5L).equals(activity.primaryCategoryId())));
-        // Les catégories secondaires existantes ne sont pas recalculées non plus.
-        verify(activityClassificationService, never()).replaceSecondaryCategories(any(), any());
+        verify(activityRepository).save(argThat(activity -> Long.valueOf(42L).equals(activity.id())));
+        // Les catégories existantes ne sont ni recalculées ni recréées.
+        verify(activityClassificationService, never()).createActivity(any(), any());
+        verify(activityClassificationService, never()).replaceCategories(any(), any());
     }
 
 }

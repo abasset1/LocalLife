@@ -279,41 +279,31 @@ public class ImportService {
                 Optional<Activity> existing = activityRepository.findBySourceIdAndImportKey(source.id(), key);
 
                 // CAT-008 : classification centralisée (ClassificationService). Une activité déjà
-                // importée garde sa catégorie principale (un ré-import n'écrase jamais une
-                // classification existante, y compris validée par un humain). Pour un nouvel
-                // élément, si la classification n'est pas décidable (NEEDS_REVIEW / UNCLASSIFIED),
-                // aucune activité n'est créée : activity.primary_category_id est NOT NULL (V37) et
+                // importée garde ses catégories (un ré-import n'écrase jamais une classification
+                // existante, y compris validée par un humain). Pour un nouvel élément, si la
+                // classification n'est pas décidable (NEEDS_REVIEW / UNCLASSIFIED), aucune activité
+                // n'est créée : une activité a au moins une catégorie (activity_category, V42) et
                 // aucune catégorie n'est inventée. L'élément est consigné pour relecture
                 // (classification_record) et compté dans needsReview (distinct d'ignored).
                 // Fallback titre : le titre n'est exploité par ClassificationService que si la
                 // source ne fournit aucun keyword (catégorie d'origine / tags absents ou vides).
-                // Issue #43 : plusieurs domaines détectés donnent 1 principale + N secondaires
-                // (activity_secondary_category), pas un NEEDS_REVIEW. Comme la principale, les
-                // secondaires d'une activité déjà importée ne sont pas recalculées.
-                Long primaryCategoryId;
-                ClassificationOutcome classification = null;
+                // Issue #45 : toutes les catégories détectées (1..N) sont enregistrées avec
+                // l'activité, dans la même transaction (ActivityClassificationService#createActivity).
+                Activity toSave = withSourceAndKey(
+                        normalized.get(), existing.map(Activity::id).orElse(null), source.id(), key);
+                Activity saved;
                 if (existing.isPresent()) {
-                    primaryCategoryId = existing.get().primaryCategoryId();
+                    saved = activityRepository.save(toSave);
                 } else {
-                    classification = classificationService.decide(item.title(), item.category(), item.tags());
+                    ClassificationOutcome classification =
+                            classificationService.decide(item.title(), item.category(), item.tags());
                     if (!classification.classified()) {
                         classificationService.recordQuarantined(
                                 source.id(), key, item.title(), item.category(), item.tags(), classification);
                         needsReview++;
                         continue;
                     }
-                    primaryCategoryId = classification.primaryCategoryId();
-                }
-
-                Activity toSave = withSourceKeyAndCategory(
-                        normalized.get(), existing.map(Activity::id).orElse(null), source.id(), key,
-                        primaryCategoryId);
-                Activity saved = activityRepository.save(toSave);
-                if (classification != null) {
-                    if (!classification.secondaryCategoryIds().isEmpty()) {
-                        activityClassificationService.replaceSecondaryCategories(
-                                saved.id(), classification.secondaryCategoryIds());
-                    }
+                    saved = activityClassificationService.createActivity(toSave, classification.categoryIds());
                     classificationService.recordClassified(
                             source.id(), key, saved.id(), item.title(), item.category(), item.tags(), classification);
                 }
@@ -467,16 +457,14 @@ public class ImportService {
         return archived;
     }
 
-    private Activity withSourceKeyAndCategory(
-            Activity activity, Long id, Long sourceId, String importKey, Long primaryCategoryId) {
+    private Activity withSourceAndKey(Activity activity, Long id, Long sourceId, String importKey) {
         return new Activity(
                 id, activity.title(), activity.description(), activity.category(),
                 activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
                 activity.status(), sourceId, importKey, activity.url(),
                 activity.address(), activity.city(), activity.postalCode(),
                 activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax(),
-                activity.createdBy(),
-                primaryCategoryId);
+                activity.createdBy());
     }
 
     private Activity withStatus(Activity activity, String status) {
@@ -486,8 +474,7 @@ public class ImportService {
                 status, activity.sourceId(), activity.importKey(), activity.url(),
                 activity.address(), activity.city(), activity.postalCode(),
                 activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax(),
-                activity.createdBy(),
-                activity.primaryCategoryId());
+                activity.createdBy());
     }
 
 }

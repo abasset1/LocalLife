@@ -8,7 +8,7 @@ package com.locallife.backend.activityclassification.domain;
  *
  * <ul>
  *   <li>{@link #UNCLASSIFIED} : aucun signal exploitable (ni catégorie d'origine, ni tag) ;</li>
- *   <li>{@link #AUTO_CLASSIFIED} : classée automatiquement vers un code V1 existant, sans ambiguïté ;</li>
+ *   <li>{@link #AUTO_CLASSIFIED} : classée automatiquement vers un ou plusieurs codes V1 existants ;</li>
  *   <li>{@link #VALIDATED} : catégorie choisie ou confirmée par un humain (ex. contribution manuelle) ;</li>
  *   <li>{@link #NEEDS_REVIEW} : signaux présents mais ambigus, conflictuels ou hors référentiel
  *       — aucune classification inventée ;</li>
@@ -16,8 +16,8 @@ package com.locallife.backend.activityclassification.domain;
  * </ul>
  *
  * Seuls {@link #AUTO_CLASSIFIED} et {@link #VALIDATED} correspondent à une
- * activité réellement créée : {@code activity.primary_category_id} est
- * {@code NOT NULL} (V37), une activité sans catégorie ne peut pas exister.
+ * activité réellement créée : une activité a au moins une catégorie
+ * ({@code activity_category}, V42), une activité sans catégorie ne peut pas exister.
  */
 public enum ClassificationStatus {
     UNCLASSIFIED,

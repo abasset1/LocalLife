@@ -22,20 +22,19 @@ import org.springframework.stereotype.Service;
  * Classification des éléments issus des sources (CAT-008, SPRINT_CATEG).
  *
  * <p>La décision est prise par {@link ActivityClassifier} (règles pures) ;
- * ce service résout le code V1 obtenu vers l'id de la catégorie existante et
+ * ce service résout les codes V1 obtenus vers les ids des catégories existantes et
  * consigne le résultat ({@code classification_record}, V38). Il ne crée
- * jamais de catégorie : un code absent ou inactif dans le référentiel donne
- * {@code NEEDS_REVIEW}, jamais une catégorie créée à la volée.
+ * jamais de catégorie : un code absent ou inactif dans le référentiel est
+ * écarté, et si aucun code n'est résolu le résultat est {@code NEEDS_REVIEW},
+ * jamais une catégorie créée à la volée.
  *
  * <p><b>Fallback titre</b> ({@link #decide(String, String, List)}) : uniquement si la source ne fournit
  * aucun keyword (ni catégorie d'origine, ni tag non blanc) ; les mots-clés viennent de
  * {@code category_keyword}. Si la source fournit des keywords, la logique est strictement celle de
  * {@link #decide(String, List)} : le titre n'est pas lu.
  *
- * <p><b>Principal + secondaires</b> (issue #43) : plusieurs catégories détectées donnent une catégorie
- * principale (la plus forte priorité de {@code category_keyword.priority}) et des catégories secondaires,
- * et non plus un {@code NEEDS_REVIEW}. Une catégorie secondaire absente ou inactive du référentiel est écartée
- * (jamais créée) ; une catégorie principale absente ou inactive donne {@code NEEDS_REVIEW}.
+ * <p><b>1..N catégories</b> (issue #45) : toutes les catégories détectées sont conservées, sans
+ * principale ni secondaire, sans score ni arbitrage ; plusieurs catégories ne sont jamais un conflit.
  */
 @Service
 public class ClassificationService {
@@ -57,10 +56,9 @@ public class ClassificationService {
 
     /**
      * Décide à partir des seuls keywords source, sans rien persister : le titre n'est pas utilisé.
-     * Le référentiel {@code category_keyword} n'est lu que pour départager plusieurs catégories.
      */
     public ClassificationOutcome decide(String sourceCategory, List<String> sourceTags) {
-        return resolve(ActivityClassifier.classify(sourceCategory, sourceTags, this::loadKeywordEntries));
+        return resolve(ActivityClassifier.classify(sourceCategory, sourceTags));
     }
 
     /**
@@ -90,8 +88,8 @@ public class ClassificationService {
 
     /**
      * Mots-clés actifs avec le code de leur catégorie. Les mots-clés d'une catégorie inactive sont
-     * conservés : ils comptent comme candidats (donc visibles en cas de conflit) et une décision
-     * finale sur une catégorie inactive donne {@code NEEDS_REVIEW}, jamais une résolution silencieuse.
+     * conservés : ils restent tracés ({@code matched_keywords}) et la catégorie inactive est écartée à la
+     * résolution (voir {@link #resolve}).
      */
     private List<KeywordEntry> loadKeywordEntries() {
         Map<Long, Optional<String>> codes = new HashMap<>();
@@ -99,41 +97,39 @@ public class ClassificationService {
         for (CategoryKeyword keyword : keywordRepository.findByActiveTrueOrderByIdAsc()) {
             Optional<String> code = codes.computeIfAbsent(keyword.categoryId(),
                     id -> categoryRepository.findById(id).map(Category::code));
-            code.ifPresent(value -> entries.add(new KeywordEntry(value, keyword.keyword(), keyword.priority())));
+            code.ifPresent(value -> entries.add(new KeywordEntry(value, keyword.keyword())));
         }
         return entries;
     }
 
-    /** Résout le code V1 d'une décision vers la catégorie existante du référentiel. */
+    /**
+     * Résout les codes V1 d'une décision vers les catégories existantes et actives du référentiel.
+     * Un code absent ou inactif est écarté (jamais créé) ; si aucun ne l'est, {@code NEEDS_REVIEW}
+     * ({@code CATEGORY_NOT_IN_REFERENTIAL}, codes non résolus en candidats).
+     */
     private ClassificationOutcome resolve(Decision decision) {
         if (decision.status() != ClassificationStatus.AUTO_CLASSIFIED) {
-            return new ClassificationOutcome(decision, null);
+            return new ClassificationOutcome(decision, List.of());
         }
-        Optional<Category> category = findActive(decision.categoryCode());
-        if (category.isEmpty()) {
-            Decision unresolved = new Decision(
-                    ClassificationStatus.NEEDS_REVIEW, null, CATEGORY_NOT_IN_REFERENTIAL,
-                    List.of(decision.categoryCode()), "REVIEW:" + CATEGORY_NOT_IN_REFERENTIAL,
-                    decision.source(), decision.matchedKeywords());
-            return new ClassificationOutcome(unresolved, null);
-        }
-        // Secondaires : seules les catégories existantes et actives sont retenues (et tracées).
-        List<String> secondaryCodes = new ArrayList<>();
-        List<Long> secondaryIds = new ArrayList<>();
-        for (String code : decision.secondaryCategoryCodes()) {
-            findActive(code).ifPresent(secondary -> {
-                secondaryCodes.add(code);
-                secondaryIds.add(secondary.id());
+        List<String> codes = new ArrayList<>();
+        List<Long> ids = new ArrayList<>();
+        for (String code : decision.categoryCodes()) {
+            categoryRepository.findByCode(code).filter(Category::active).ifPresent(category -> {
+                codes.add(code);
+                ids.add(category.id());
             });
         }
+        if (ids.isEmpty()) {
+            Decision unresolved = new Decision(
+                    ClassificationStatus.NEEDS_REVIEW, List.of(), CATEGORY_NOT_IN_REFERENTIAL,
+                    decision.categoryCodes(), "REVIEW:" + CATEGORY_NOT_IN_REFERENTIAL,
+                    decision.source(), decision.matchedKeywords());
+            return new ClassificationOutcome(unresolved, List.of());
+        }
         Decision resolved = new Decision(
-                decision.status(), decision.categoryCode(), decision.reason(), decision.candidateCodes(),
-                decision.ruleId(), decision.source(), decision.matchedKeywords(), List.copyOf(secondaryCodes));
-        return new ClassificationOutcome(resolved, category.get().id(), List.copyOf(secondaryIds));
-    }
-
-    private Optional<Category> findActive(String code) {
-        return categoryRepository.findByCode(code).filter(Category::active);
+                decision.status(), List.copyOf(codes), decision.reason(), decision.candidateCodes(),
+                decision.ruleId(), decision.source(), decision.matchedKeywords());
+        return new ClassificationOutcome(resolved, List.copyOf(ids));
     }
 
     /** Consigne qu'une activité a été créée à partir d'une classification automatique. */
@@ -165,7 +161,7 @@ public class ClassificationService {
                 candidates, truncate(sourceCategory, 255), joinTags(sourceTags), truncate(title, 255),
                 existing.map(ClassificationRecord::createdAt).orElse(now), now,
                 decision.source(), joinMatchedKeywords(decision.matchedKeywords()),
-                joinCodes(decision.secondaryCategoryCodes())));
+                joinCodes(decision.categoryCodes())));
     }
 
     private static String joinCodes(List<String> codes) {

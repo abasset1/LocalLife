@@ -499,11 +499,10 @@ public class ActivityController {
                 activityLinkService.validateBeforeCreate(ActivityLinkService.TYPE_EMAIL, request.email());
             }
 
-            // CAT-006 (correctif) : la catégorie principale est obligatoire (contrainte
-            // NOT NULL en base, voir Activity#primaryCategoryId) — résolue ici depuis le
-            // categoryCode choisi par le contributeur, pas déduite automatiquement
-            // (CAT-008 ne concerne que les imports, pas la saisie manuelle).
-            Long primaryCategoryId = categoryRepository.findByCode(request.categoryCode())
+            // Issue #45 : une activité a 1..N catégories (contrainte en base, V42). Pour une
+            // contribution manuelle, la catégorie est celle du categoryCode choisi par le
+            // contributeur, pas déduite automatiquement (CAT-008 ne concerne que les imports).
+            Long categoryId = categoryRepository.findByCode(request.categoryCode())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "Catégorie inconnue : " + request.categoryCode()))
                     .id();
@@ -513,7 +512,7 @@ public class ActivityController {
             Long createdBy = ((JwtAuthentication) authentication).getUserId();
             Activity activity = activityService.createActivity(
                     request.title(), request.description(), request.category(), request.address(),
-                    request.startDate(), request.endDate(), createdBy, primaryCategoryId);
+                    request.startDate(), request.endDate(), createdBy, List.of(categoryId));
 
             attachContactLinks(activity.id(), request);
 
