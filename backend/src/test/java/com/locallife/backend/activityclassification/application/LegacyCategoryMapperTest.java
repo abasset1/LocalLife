@@ -169,7 +169,7 @@ class LegacyCategoryMapperTest {
     }
 
     /** Lignes {category, nb} de l'extraction (colonne source_type ignorée). */
-    private static List<String[]> readExtraction() throws IOException {
+    static List<String[]> readExtraction() throws IOException {
         List<String[]> rows = new ArrayList<>();
         try (InputStream in = LegacyCategoryMapperTest.class
                 .getResourceAsStream("/legacy/categorie_source_type.csv");

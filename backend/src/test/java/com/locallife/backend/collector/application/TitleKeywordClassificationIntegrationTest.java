@@ -134,7 +134,9 @@ class TitleKeywordClassificationIntegrationTest {
                 assertThat(categoryRepository.findById(keyword.categoryId())).isPresent());
         // Accents conservés dans le référentiel.
         assertThat(keywords).extracting(CategoryKeyword::keyword).contains("marché", "théâtre");
-        assertThat(keywords).extracting(CategoryKeyword::keyword).doesNotContain("marche", "theatre");
+        // « marche » (sans accent) n'est pas un mot-clé : « Marche nordique » ne doit jamais devenir un marché.
+        // (« theatre » sans accent, lui, est une graphie réellement observée, ajoutée par V43.)
+        assertThat(keywords).extracting(CategoryKeyword::keyword).doesNotContain("marche");
     }
 
     @Test
@@ -203,7 +205,21 @@ class TitleKeywordClassificationIntegrationTest {
         String sourceName = "Test Source " + UUID.randomUUID();
         Long sourceId = createSource(sourceName);
 
-        ImportResult result = importOne(sourceName, item(sourceName, "Marche nordique", null, List.of()));
+        importOne(sourceName, item(sourceName, "Marche nordique", null, List.of()));
+
+        // « marche nordique » est un mot-clé SPORT (V43) ; « marché » (MARKETS) ne matche jamais « marche ».
+        Activity activity = singleActivity(sourceId);
+        assertThat(categoryIds(activity.id())).containsExactly(categoryId("SPORT"));
+        assertThat(recordRepository.findByActivityId(activity.id()).orElseThrow().matchedKeywords())
+                .isEqualTo("marche nordique");
+    }
+
+    @Test
+    void accentedKeywordMarche_ShouldNotMatchAnUnaccentedWord() {
+        String sourceName = "Test Source " + UUID.randomUUID();
+        Long sourceId = createSource(sourceName);
+
+        ImportResult result = importOne(sourceName, item(sourceName, "Marche des fiertés", null, List.of()));
 
         assertThat(result.created()).isZero();
         assertThat(activityRepository.findBySourceId(sourceId)).isEmpty();
@@ -251,9 +267,9 @@ class TitleKeywordClassificationIntegrationTest {
         Long sourceId = createSource(sourceName);
         jdbcTemplate.update(
                 "INSERT INTO category_keyword (category_id, keyword) SELECT id, ? FROM category WHERE code = ?",
-                "zumba", "SPORT");
+                "zorbing", "SPORT");
 
-        importOne(sourceName, item(sourceName, "Cours de Zumba en plein air", null, List.of()));
+        importOne(sourceName, item(sourceName, "Initiation au zorbing en plein air", null, List.of()));
 
         assertThat(categoryIds(singleActivity(sourceId).id())).containsExactly(categoryId("SPORT"));
     }
