@@ -13,8 +13,8 @@ import org.springframework.data.annotation.Id;
  * @param classificationSource   {@code TITLE_KEYWORD} si la décision vient du fallback titre ({@code null} sinon)
  * @param matchedKeywords        mot(s)-clé(s) de {@code category_keyword} reconnu(s) dans le titre, séparés par
  *                               {@code |} ({@code null} si aucun)
- * @param secondaryCategoryCodes codes V1 retenus comme catégories secondaires, séparés par des virgules
- *                               ({@code null} si aucun)
+ * @param categoryCodes          codes V1 des catégories retenues, séparés par des virgules ({@code null} si
+ *                               l'élément n'est pas classé)
  */
 public record ClassificationRecord(
         @Id Long id,
@@ -32,5 +32,5 @@ public record ClassificationRecord(
         LocalDateTime updatedAt,
         String classificationSource,
         String matchedKeywords,
-        String secondaryCategoryCodes) {
+        String categoryCodes) {
 }

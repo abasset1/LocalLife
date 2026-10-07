@@ -5,11 +5,11 @@ import static org.mockito.Mockito.when;
 
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
-import com.locallife.backend.activityclassification.domain.ActivitySecondaryCategory;
+import com.locallife.backend.activityclassification.domain.ActivityCategory;
 import com.locallife.backend.activityclassification.domain.CategoryKeyword;
 import com.locallife.backend.activityclassification.domain.ClassificationRecord;
 import com.locallife.backend.activityclassification.domain.ClassificationStatus;
-import com.locallife.backend.activityclassification.infrastructure.ActivitySecondaryCategoryRepository;
+import com.locallife.backend.activityclassification.infrastructure.ActivityCategoryRepository;
 import com.locallife.backend.activityclassification.infrastructure.CategoryKeywordRepository;
 import com.locallife.backend.activityclassification.infrastructure.ClassificationRecordRepository;
 import com.locallife.backend.category.domain.Category;
@@ -68,7 +68,7 @@ class TitleKeywordClassificationIntegrationTest {
     private ClassificationRecordRepository recordRepository;
 
     @Autowired
-    private ActivitySecondaryCategoryRepository secondaryCategoryRepository;
+    private ActivityCategoryRepository activityCategoryRepository;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -147,7 +147,7 @@ class TitleKeywordClassificationIntegrationTest {
         assertThat(result.created()).isEqualTo(1);
         assertThat(result.needsReview()).isZero();
         Activity activity = singleActivity(sourceId);
-        assertThat(activity.primaryCategoryId()).isEqualTo(categoryId("MARKETS"));
+        assertThat(categoryIds(activity.id())).containsExactly(categoryId("MARKETS"));
         ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
         assertThat(record.status()).isEqualTo(ClassificationStatus.AUTO_CLASSIFIED);
         assertThat(record.classificationSource()).isEqualTo("TITLE_KEYWORD");
@@ -165,7 +165,7 @@ class TitleKeywordClassificationIntegrationTest {
         // le cas « blanc » pertinent ici est celui des tags (null, vide, espaces).
         importOne(sourceName, item(sourceName, "Grand marché de Noël", null, Arrays.asList(null, " ", "")));
 
-        assertThat(singleActivity(sourceId).primaryCategoryId()).isEqualTo(categoryId("MARKETS"));
+        assertThat(categoryIds(singleActivity(sourceId).id())).containsExactly(categoryId("MARKETS"));
     }
 
     @Test
@@ -177,7 +177,7 @@ class TitleKeywordClassificationIntegrationTest {
         importOne(sourceName, item(sourceName, "Grand marché de Noël", "théâtre", List.of("théâtre")));
 
         Activity activity = singleActivity(sourceId);
-        assertThat(activity.primaryCategoryId()).isEqualTo(categoryId("CULTURE"));
+        assertThat(categoryIds(activity.id())).containsExactly(categoryId("CULTURE"));
         ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
         assertThat(record.classificationSource()).isNull();
         assertThat(record.matchedKeywords()).isNull();
@@ -213,20 +213,21 @@ class TitleKeywordClassificationIntegrationTest {
     }
 
     @Test
-    void keywordsOfTwoCategoriesWithTheSamePriority_ShouldNeedReviewAndNeverCreateAnActivity() {
+    void keywordsOfTwoCategories_ShouldCreateTheActivityWithBothCategories() {
         String sourceName = "Test Source " + UUID.randomUUID();
         Long sourceId = createSource(sourceName);
 
         ImportResult result = importOne(sourceName, item(sourceName, "Concert au marché de Noël", null, List.of()));
 
-        assertThat(result.created()).isZero();
-        assertThat(result.needsReview()).isEqualTo(1);
-        assertThat(activityRepository.findBySourceId(sourceId)).isEmpty();
-        ClassificationRecord record = singleRecordWithoutActivity(sourceId, ClassificationStatus.NEEDS_REVIEW);
-        assertThat(record.reason()).isEqualTo("AMBIGUOUS_PRIMARY");
-        assertThat(record.secondaryCategoryCodes()).isNull();
+        assertThat(result.created()).isEqualTo(1);
+        assertThat(result.needsReview()).isZero();
+        Activity activity = singleActivity(sourceId);
+        assertThat(categoryIds(activity.id())).containsExactlyInAnyOrder(categoryId("MARKETS"), categoryId("CULTURE"));
+        ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
+        assertThat(record.status()).isEqualTo(ClassificationStatus.AUTO_CLASSIFIED);
+        assertThat(record.reason()).isNull();
         assertThat(record.classificationSource()).isEqualTo("TITLE_KEYWORD");
-        assertThat(split(record.candidateCategoryCodes(), ",")).containsExactlyInAnyOrder("MARKETS", "CULTURE");
+        assertThat(split(record.categoryCodes(), ",")).containsExactlyInAnyOrder("MARKETS", "CULTURE");
         assertThat(split(record.matchedKeywords(), "\\|")).containsExactlyInAnyOrder("marché", "concert");
     }
 
@@ -238,7 +239,7 @@ class TitleKeywordClassificationIntegrationTest {
         importOne(sourceName, item(sourceName, "Marché, brocante et vide grenier", null, List.of()));
 
         Activity activity = singleActivity(sourceId);
-        assertThat(activity.primaryCategoryId()).isEqualTo(categoryId("MARKETS"));
+        assertThat(categoryIds(activity.id())).containsExactly(categoryId("MARKETS"));
         ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
         assertThat(split(record.matchedKeywords(), "\\|"))
                 .containsExactlyInAnyOrder("marché", "vide-grenier", "brocante");
@@ -254,7 +255,7 @@ class TitleKeywordClassificationIntegrationTest {
 
         importOne(sourceName, item(sourceName, "Cours de Zumba en plein air", null, List.of()));
 
-        assertThat(singleActivity(sourceId).primaryCategoryId()).isEqualTo(categoryId("SPORT"));
+        assertThat(categoryIds(singleActivity(sourceId).id())).containsExactly(categoryId("SPORT"));
     }
 
     @Test
@@ -277,33 +278,30 @@ class TitleKeywordClassificationIntegrationTest {
         Long sourceId = createSource(sourceName);
         CollectedActivity first = item(sourceName, "Grand marché de Noël", null, List.of());
         importOne(sourceName, first);
-        Long firstCategory = singleActivity(sourceId).primaryCategoryId();
+        List<Long> firstCategories = categoryIds(singleActivity(sourceId).id());
 
         jdbcTemplate.update("UPDATE category_keyword SET active = false WHERE keyword = ?", "marché");
         ImportResult second = importOne(sourceName, first);
 
         assertThat(second.updated()).isEqualTo(1);
-        assertThat(singleActivity(sourceId).primaryCategoryId()).isEqualTo(firstCategory);
+        assertThat(categoryIds(singleActivity(sourceId).id())).isEqualTo(firstCategories);
     }
 
-    // --- Issue #43 : catégorie principale + catégories secondaires ---
+    // --- Issue #45 : 1..N catégories par activité ---
 
-    private List<Long> secondaryCategoryIds(Long activityId) {
-        return secondaryCategoryRepository.findByActivityId(activityId).stream()
-                .map(ActivitySecondaryCategory::categoryId)
+    private List<Long> categoryIds(Long activityId) {
+        return activityCategoryRepository.findByActivityIdOrderByIdAsc(activityId).stream()
+                .map(ActivityCategory::categoryId)
                 .toList();
     }
 
     @ParameterizedTest
     @CsvSource(delimiter = ';', value = {
-        "Exposition sur la biodiversité;CULTURE;NATURE",
-        "Balade à vélo;SPORT;",
-        "Marché avec dégustation;MARKETS;GASTRONOMY",
-        "Concert avec dégustation;CULTURE;GASTRONOMY",
-        "Conférence sur le patrimoine architectural;CULTURE;",
-        "Sortie nature avec randonnée;NATURE;SPORT"
+        "Marché gourmand avec dégustation et concert;MARKETS,GASTRONOMY,CULTURE",
+        "Balade nature à vélo;NATURE,SPORT",
+        "Exposition de peinture;CULTURE"
     })
-    void ticketExamples_ShouldPersistPrimaryAndSecondaryCategories(String title, String primary, String secondary) {
+    void ticketExamples_ShouldPersistAllDetectedCategories(String title, String codes) {
         String sourceName = "Test Source " + UUID.randomUUID();
         Long sourceId = createSource(sourceName);
 
@@ -312,45 +310,30 @@ class TitleKeywordClassificationIntegrationTest {
         assertThat(result.created()).isEqualTo(1);
         assertThat(result.needsReview()).isZero();
         Activity activity = singleActivity(sourceId);
-        assertThat(activity.primaryCategoryId()).isEqualTo(categoryId(primary));
-        List<Long> expectedSecondaries = secondary == null ? List.of() : List.of(categoryId(secondary));
-        assertThat(secondaryCategoryIds(activity.id())).containsExactlyElementsOf(expectedSecondaries);
+        List<Long> expected = Arrays.stream(codes.split(",")).map(this::categoryId).toList();
+        assertThat(categoryIds(activity.id())).containsExactlyInAnyOrderElementsOf(expected);
         ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
         assertThat(record.status()).isEqualTo(ClassificationStatus.AUTO_CLASSIFIED);
-        assertThat(record.ruleId()).isEqualTo("TITLE_KEYWORD:AUTO:" + primary);
-        assertThat(record.secondaryCategoryCodes()).isEqualTo(secondary);
+        assertThat(split(record.categoryCodes(), ",")).isEqualTo(split(codes, ","));
     }
 
     @Test
-    void sourceSignalsOfSeveralCategories_ShouldPersistPrimaryAndSecondaries() {
+    void sourceSignalsOfSeveralCategories_ShouldAllBePersisted() {
         String sourceName = "Test Source " + UUID.randomUUID();
         Long sourceId = createSource(sourceName);
 
-        // Tags seuls : « marché » (100) l'emporte sur « dégustation » (50, V41), quel que soit l'ordre.
         importOne(sourceName, item(sourceName, "Titre sans mot-clé", null, List.of("dégustation", "marché")));
 
         Activity activity = singleActivity(sourceId);
-        assertThat(activity.primaryCategoryId()).isEqualTo(categoryId("MARKETS"));
-        assertThat(secondaryCategoryIds(activity.id())).containsExactly(categoryId("GASTRONOMY"));
+        assertThat(categoryIds(activity.id())).containsExactly(categoryId("GASTRONOMY"), categoryId("MARKETS"));
         ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
         assertThat(record.classificationSource()).isNull();
-        assertThat(record.ruleId()).isEqualTo("AUTO:MARKETS");
+        assertThat(record.ruleId()).isEqualTo("AUTO:GASTRONOMY+MARKETS");
+        assertThat(record.categoryCodes()).isEqualTo("GASTRONOMY,MARKETS");
     }
 
     @Test
-    void singleCategory_ShouldPersistNoSecondaryCategory() {
-        String sourceName = "Test Source " + UUID.randomUUID();
-        Long sourceId = createSource(sourceName);
-
-        importOne(sourceName, item(sourceName, "Grand marché de Noël", null, List.of()));
-
-        Activity activity = singleActivity(sourceId);
-        assertThat(secondaryCategoryIds(activity.id())).isEmpty();
-        assertThat(recordRepository.findByActivityId(activity.id()).orElseThrow().secondaryCategoryCodes()).isNull();
-    }
-
-    @Test
-    void reimport_ShouldKeepTheExistingSecondaryCategories() {
+    void reimport_ShouldKeepTheExistingCategories() {
         String sourceName = "Test Source " + UUID.randomUUID();
         Long sourceId = createSource(sourceName);
         CollectedActivity first = item(sourceName, "Marché avec dégustation", null, List.of());
@@ -361,15 +344,16 @@ class TitleKeywordClassificationIntegrationTest {
         ImportResult second = importOne(sourceName, first);
 
         assertThat(second.updated()).isEqualTo(1);
-        assertThat(secondaryCategoryIds(activityId)).containsExactly(categoryId("GASTRONOMY"));
+        assertThat(categoryIds(activityId)).containsExactlyInAnyOrder(categoryId("MARKETS"), categoryId("GASTRONOMY"));
     }
 
     @Test
-    void keywordPriorityReferential_ShouldBeSeededByMigration() {
-        Integer degustation = jdbcTemplate.queryForObject(
-                "SELECT priority FROM category_keyword WHERE keyword = 'dégustation'", Integer.class);
-        Integer concert = jdbcTemplate.queryForObject(
-                "SELECT priority FROM category_keyword WHERE keyword = 'concert'", Integer.class);
+    void migration_ShouldHaveRemovedThePrimarySecondaryModel() {
+        Integer legacyStructures = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM information_schema.columns WHERE "
+                        + "(table_name = 'activity' AND column_name = 'primary_category_id') "
+                        + "OR (table_name = 'category_keyword' AND column_name = 'priority') "
+                        + "OR table_name = 'activity_secondary_category'", Integer.class);
         Boolean conference = jdbcTemplate.queryForObject(
                 "SELECT bool_or(active) FROM category_keyword WHERE keyword IN ('conférence', 'conférences')",
                 Boolean.class);
@@ -377,8 +361,7 @@ class TitleKeywordClassificationIntegrationTest {
                 "SELECT count(*) FROM category_keyword WHERE active AND keyword IN "
                         + "('balade', 'promenade', 'atelier', 'visite', 'conférence')", Integer.class);
 
-        assertThat(degustation).isEqualTo(50);
-        assertThat(concert).isEqualTo(CategoryKeyword.DEFAULT_PRIORITY);
+        assertThat(legacyStructures).isZero();
         assertThat(conference).isFalse();
         assertThat(formatWords).isZero();
     }

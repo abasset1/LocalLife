@@ -79,8 +79,7 @@ class ActivityRepositoryIntegrationTest {
         return activityRepository.save(new Activity(
                 null, uniqueTitle, "description", category,
                 latitude, longitude, startDate, endDate, status, manualSourceId(), null, null,
-                null, null, null, null, null, null, null, null,
-                1L));
+                null, null, null, null, null, null, null, null));
     }
 
     private Activity activityAt(double latitude, double longitude, String status, String category) {
@@ -553,8 +552,7 @@ class ActivityRepositoryIntegrationTest {
         return activityRepository.save(new Activity(
                 null, uniqueTitle, "description", "sport",
                 MARSEILLE_LAT, MARSEILLE_LON, startDate, null, "PUBLISHED", manualSourceId(), null, null,
-                null, city, null, null, null, null, null, null,
-                1L));
+                null, city, null, null, null, null, null, null));
     }
 
     @Test

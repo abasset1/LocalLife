@@ -6,7 +6,7 @@ import org.springframework.data.repository.Repository;
 
 /**
  * Repository ActivityAudience (CAT-006). Même patron que
- * {@link ActivitySecondaryCategoryRepository}.
+ * {@link ActivityCategoryRepository}.
  */
 public interface ActivityAudienceRepository extends Repository<ActivityAudience, Long> {
 

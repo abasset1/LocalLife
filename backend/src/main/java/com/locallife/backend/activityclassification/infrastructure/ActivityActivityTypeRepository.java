@@ -6,7 +6,7 @@ import org.springframework.data.repository.Repository;
 
 /**
  * Repository ActivityActivityType (CAT-006). Même patron que
- * {@link ActivitySecondaryCategoryRepository}.
+ * {@link ActivityCategoryRepository}.
  */
 public interface ActivityActivityTypeRepository extends Repository<ActivityActivityType, Long> {
 

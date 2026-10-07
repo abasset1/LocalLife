@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.locallife.backend.accessibility.domain.Accessibility;
 import com.locallife.backend.accessibility.infrastructure.AccessibilityRepository;
 import com.locallife.backend.activity.domain.Activity;
-import com.locallife.backend.activity.infrastructure.ActivityRepository;
+import com.locallife.backend.activityclassification.application.ActivityClassificationService;
+import com.locallife.backend.category.domain.Category;
+import com.locallife.backend.category.infrastructure.CategoryRepository;
 import com.locallife.backend.link.domain.ActivityLink;
 import com.locallife.backend.link.infrastructure.ActivityLinkRepository;
 import com.locallife.backend.media.domain.ActivityMedia;
@@ -60,10 +62,13 @@ class RealSchedulingScenariosIntegrationTest {
     private int port;
 
     @Autowired
-    private ActivityRepository activityRepository;
+    private SourceRepository sourceRepository;
 
     @Autowired
-    private SourceRepository sourceRepository;
+    private ActivityClassificationService activityClassificationService;
+
+    @Autowired
+    private CategoryRepository categoryRepository;
 
     @Autowired
     private LocationRepository locationRepository;
@@ -114,9 +119,17 @@ class RealSchedulingScenariosIntegrationTest {
     private Activity persistActivity(String title, double latitude, double longitude, LocalDateTime startDate) {
         Activity activity = new Activity(
                 null, title, "Description", "test", latitude, longitude, startDate, null, "PUBLISHED",
-                testSourceId(), null, null, null, null, null, null, null, null, null, null,
-                1L);
-        return activityRepository.save(activity);
+                testSourceId(), null, null, null, null, null, null, null, null, null, null);
+        return saveWithCategory(activity);
+    }
+
+    /**
+     * Issue #45 : une activité a au moins une catégorie (contrainte vérifiée au commit, ce test n'étant
+     * pas transactionnel) — elle est donc créée avec sa catégorie, comme en production.
+     */
+    private Activity saveWithCategory(Activity activity) {
+        Long cultureId = categoryRepository.findByCode("CULTURE").map(Category::id).orElseThrow();
+        return activityClassificationService.createActivity(activity, List.of(cultureId));
     }
 
     private Location persistLocation(String city, double latitude, double longitude) {
@@ -245,13 +258,12 @@ class RealSchedulingScenariosIntegrationTest {
 
     @Test
     void cas5_FicheRiche_ShouldBeRepresentedCorrectly() {
-        Activity activity = activityRepository.save(new Activity(
+        Activity activity = saveWithCategory(new Activity(
                 null, "Festival", "Description courte", "festival", 43.9493, 4.8055,
                 LocalDateTime.of(2026, 9, 20, 19, 0), LocalDateTime.of(2026, 9, 20, 23, 0), "PUBLISHED",
                 testSourceId(), null, "https://example.com", "Place de l'Horloge", "Avignon", "84000",
                 "Description longue et détaillée du festival, sur plusieurs phrases.",
-                "Gratuit, tout public.", 0, null, null,
-                1L));
+                "Gratuit, tout public.", 0, null, null));
         Location avignon = persistLocation("Avignon", 43.9493, 4.8055);
         Schedule schedule = persistSchedule(activity.id(), avignon.id(), null);
         persistOccurrence(schedule.id(), LocalDateTime.of(2026, 9, 20, 19, 0), LocalDateTime.of(2026, 9, 20, 23, 0),

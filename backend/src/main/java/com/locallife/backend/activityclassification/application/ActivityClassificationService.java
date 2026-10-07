@@ -4,33 +4,32 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.activityclassification.domain.ActivityActivityType;
 import com.locallife.backend.activityclassification.domain.ActivityAudience;
+import com.locallife.backend.activityclassification.domain.ActivityCategory;
 import com.locallife.backend.activityclassification.domain.ActivityOrganizerType;
-import com.locallife.backend.activityclassification.domain.ActivitySecondaryCategory;
 import com.locallife.backend.activityclassification.infrastructure.ActivityActivityTypeRepository;
 import com.locallife.backend.activityclassification.infrastructure.ActivityAudienceRepository;
+import com.locallife.backend.activityclassification.infrastructure.ActivityCategoryRepository;
 import com.locallife.backend.activityclassification.infrastructure.ActivityOrganizerTypeRepository;
-import com.locallife.backend.activityclassification.infrastructure.ActivitySecondaryCategoryRepository;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service de classification d'une activité (CAT-006, SPRINT_CATEG) : porte
- * les 5 dimensions du nouveau modèle (1 catégorie principale, 0..N
- * catégories secondaires, 0..N types, 0..N publics, 0..1 organisateur).
+ * les dimensions du modèle (1..N catégories, 0..N types, 0..N publics, 0..1
+ * organisateur).
  *
- * <b>Correctif CAT-006</b> : la catégorie principale n'est plus portée par
- * une table séparée ({@code activity_primary_category}, supprimée par
- * {@code V37__make_primary_category_mandatory.sql}) mais directement par
- * la colonne {@code activity.primary_category_id}
- * ({@link Activity#primaryCategoryId()}), {@code NOT NULL} en base — une
- * véritable contrainte d'obligation, pas une convention applicative.
- * {@link #setPrimaryCategory} passe donc par {@link ActivityRepository},
- * pas par un repository de relation dédié. Les 4 autres dimensions
- * (0..N ou 0..1 par nature, jamais obligatoires) restent portées par
- * leurs tables de relation séparées, créées par
- * {@code V36__create_activity_classification_tables.sql}.
+ * <b>Catégories (issue #45)</b> : une activité a 1..N catégories, toutes
+ * équivalentes — aucune notion de catégorie principale ou secondaire. Elles
+ * sont portées par la table {@code activity_category}
+ * ({@code V42__activity_category_n_categories.sql}), où « au moins une
+ * catégorie » est une contrainte réelle (trigger de contrainte différé,
+ * vérifié au commit). D'où {@link #createActivity}, qui enregistre une
+ * activité et ses catégories dans la même transaction, et
+ * {@link #replaceCategories}, qui refuse une liste vide.
  *
  * Ce service ne valide pas qu'un {@code categoryId}/{@code activityTypeId}/
  * {@code audienceId}/{@code organizerTypeId} donné existe réellement dans
@@ -38,7 +37,7 @@ import org.springframework.stereotype.Service;
  * contraintes {@code REFERENCES} des migrations — un id inexistant échoue
  * au niveau base, pas ici.
  *
- * Remplacement complet pour les listes (0..N) : {@link #replaceSecondaryCategories},
+ * Remplacement complet pour les listes : {@link #replaceCategories},
  * {@link #replaceActivityTypes} et {@link #replaceAudiences} suppriment
  * puis réinsèrent l'ensemble — même patron que {@code ActivityTagService}/
  * {@code ImportService} pour les tags (LL-11009/LL-11011).
@@ -47,40 +46,33 @@ import org.springframework.stereotype.Service;
 public class ActivityClassificationService {
 
     private final ActivityRepository activityRepository;
-    private final ActivitySecondaryCategoryRepository secondaryCategoryRepository;
+    private final ActivityCategoryRepository categoryRepository;
     private final ActivityActivityTypeRepository activityTypeRepository;
     private final ActivityAudienceRepository audienceRepository;
     private final ActivityOrganizerTypeRepository organizerTypeRepository;
 
     public ActivityClassificationService(
             ActivityRepository activityRepository,
-            ActivitySecondaryCategoryRepository secondaryCategoryRepository,
+            ActivityCategoryRepository categoryRepository,
             ActivityActivityTypeRepository activityTypeRepository,
             ActivityAudienceRepository audienceRepository,
             ActivityOrganizerTypeRepository organizerTypeRepository) {
         this.activityRepository = activityRepository;
-        this.secondaryCategoryRepository = secondaryCategoryRepository;
+        this.categoryRepository = categoryRepository;
         this.activityTypeRepository = activityTypeRepository;
         this.audienceRepository = audienceRepository;
         this.organizerTypeRepository = organizerTypeRepository;
     }
 
     /**
-     * Vue agrégée des 5 dimensions pour une activité (critère « le modèle
+     * Vue agrégée des dimensions pour une activité (critère « le modèle
      * supporte toutes les dimensions »).
      *
      * @throws java.util.NoSuchElementException si {@code activityId} ne
-     *         correspond à aucune activité — contrairement aux autres
-     *         dimensions, la catégorie principale ne peut structurellement
-     *         pas être absente d'une activité existante (contrainte
-     *         {@code NOT NULL}), donc une activité introuvable est la
-     *         seule raison pour laquelle elle manquerait ici.
+     *         correspond à aucune activité
      */
     public ActivityClassification getClassification(Long activityId) {
-        Activity activity = activityRepository.findById(activityId).orElseThrow();
-        List<Long> secondaryCategoryIds = secondaryCategoryRepository.findByActivityId(activityId).stream()
-                .map(ActivitySecondaryCategory::categoryId)
-                .toList();
+        activityRepository.findById(activityId).orElseThrow();
         List<Long> activityTypeIds = activityTypeRepository.findByActivityId(activityId).stream()
                 .map(ActivityActivityType::activityTypeId)
                 .toList();
@@ -90,63 +82,63 @@ public class ActivityClassificationService {
         Long organizerTypeId = organizerTypeRepository.findByActivityId(activityId)
                 .map(ActivityOrganizerType::organizerTypeId)
                 .orElse(null);
-        return new ActivityClassification(
-                activity.primaryCategoryId(), secondaryCategoryIds, activityTypeIds, audienceIds, organizerTypeId);
+        return new ActivityClassification(getCategoryIds(activityId), activityTypeIds, audienceIds, organizerTypeId);
+    }
+
+    /** Catégories d'une activité, dans l'ordre d'enregistrement. */
+    public List<Long> getCategoryIds(Long activityId) {
+        return categoryRepository.findByActivityIdOrderByIdAsc(activityId).stream()
+                .map(ActivityCategory::categoryId)
+                .toList();
     }
 
     /**
-     * Fixe la catégorie principale (critère « obligatoire ») en mettant à
-     * jour {@code activity.primary_category_id} — la contrainte
-     * {@code NOT NULL} en base est la véritable application du caractère
-     * obligatoire ; la vérification ici n'est qu'un échec rapide côté
-     * application, pas le mécanisme qui garantit la règle.
+     * Crée une activité avec ses catégories, dans une seule transaction : la
+     * contrainte « au moins une catégorie » (V42) est vérifiée au commit, une
+     * activité ne peut donc pas être enregistrée sans elles.
      *
-     * @throws IllegalArgumentException si {@code categoryId} est {@code null}
-     * @throws java.util.NoSuchElementException si {@code activityId} ne
-     *         correspond à aucune activité
+     * @throws IllegalArgumentException si {@code categoryIds} est {@code null}
+     *         ou vide (échec rapide côté application ; la contrainte en base
+     *         reste la garantie réelle)
      */
-    public void setPrimaryCategory(Long activityId, Long categoryId) {
-        if (categoryId == null) {
-            throw new IllegalArgumentException("La catégorie principale est obligatoire.");
-        }
-        Activity activity = activityRepository.findById(activityId).orElseThrow();
-        activityRepository.save(withPrimaryCategoryId(activity, categoryId));
-    }
-
-    private Activity withPrimaryCategoryId(Activity activity, Long primaryCategoryId) {
-        return new Activity(
-                activity.id(), activity.title(), activity.description(), activity.category(),
-                activity.latitude(), activity.longitude(), activity.startDate(), activity.endDate(),
-                activity.status(), activity.sourceId(), activity.importKey(), activity.url(),
-                activity.address(), activity.city(), activity.postalCode(),
-                activity.longDescription(), activity.conditions(), activity.ageMin(), activity.ageMax(),
-                activity.createdBy(), primaryCategoryId);
+    @Transactional
+    public Activity createActivity(Activity activity, List<Long> categoryIds) {
+        Set<Long> categories = requireCategories(categoryIds);
+        Activity saved = activityRepository.save(activity);
+        saveCategories(saved.id(), categories);
+        return saved;
     }
 
     /**
-     * Remplace l'ensemble des catégories secondaires d'une activité.
+     * Remplace l'ensemble des catégories d'une activité (doublons
+     * dédupliqués, ordre conservé).
      *
-     * @throws IllegalArgumentException si {@code categoryIds} contient la
-     *         catégorie principale actuelle de l'activité — critère
-     *         « relations cohérentes et sans doublons » : une catégorie ne
-     *         doit pas être à la fois principale et secondaire pour la
-     *         même activité. Les doublons internes à {@code categoryIds}
-     *         sont silencieusement dédupliqués, pas rejetés : seule la
-     *         redondance avec la catégorie principale est une erreur.
+     * @throws IllegalArgumentException si {@code categoryIds} est {@code null}
+     *         ou vide : une activité a au moins une catégorie
      * @throws java.util.NoSuchElementException si {@code activityId} ne
      *         correspond à aucune activité
      */
-    public void replaceSecondaryCategories(Long activityId, List<Long> categoryIds) {
-        Activity activity = activityRepository.findById(activityId).orElseThrow();
-        Set<Long> deduplicated = new LinkedHashSet<>(categoryIds);
-        if (deduplicated.contains(activity.primaryCategoryId())) {
-            throw new IllegalArgumentException(
-                    "Une catégorie secondaire ne peut pas être identique à la catégorie principale.");
-        }
+    @Transactional
+    public void replaceCategories(Long activityId, List<Long> categoryIds) {
+        Set<Long> categories = requireCategories(categoryIds);
+        activityRepository.findById(activityId).orElseThrow();
+        categoryRepository.deleteByActivityId(activityId);
+        saveCategories(activityId, categories);
+    }
 
-        secondaryCategoryRepository.deleteByActivityId(activityId);
-        for (Long categoryId : deduplicated) {
-            secondaryCategoryRepository.save(new ActivitySecondaryCategory(null, activityId, categoryId));
+    private static Set<Long> requireCategories(List<Long> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            throw new IllegalArgumentException("Une activité doit avoir au moins une catégorie.");
+        }
+        if (categoryIds.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("Une catégorie ne peut pas être nulle.");
+        }
+        return new LinkedHashSet<>(categoryIds);
+    }
+
+    private void saveCategories(Long activityId, Set<Long> categoryIds) {
+        for (Long categoryId : categoryIds) {
+            categoryRepository.save(new ActivityCategory(null, activityId, categoryId));
         }
     }
 
@@ -169,10 +161,9 @@ public class ActivityClassificationService {
     }
 
     /**
-     * Fixe le type d'organisateur (0..1 — contrairement à la catégorie
-     * principale, {@code organizerTypeId == null} est un état définitif
-     * valide, pas seulement temporaire). {@code null} supprime le type
-     * d'organisateur existant sans le remplacer.
+     * Fixe le type d'organisateur (0..1 — contrairement aux catégories,
+     * {@code organizerTypeId == null} est un état définitif valide).
+     * {@code null} supprime le type d'organisateur existant sans le remplacer.
      */
     public void setOrganizerType(Long activityId, Long organizerTypeId) {
         organizerTypeRepository.deleteByActivityId(activityId);
