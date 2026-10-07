@@ -17,9 +17,9 @@ catégorie. Un code obtenu est ensuite résolu vers la catégorie **existante** 
 | Statut | Sens | Activité créée ? |
 |---|---|---|
 | `UNCLASSIFIED` | aucun signal (ni catégorie d'origine, ni tag) | non |
-| `AUTO_CLASSIFIED` | un seul code V1, sans signal contradictoire | oui |
+| `AUTO_CLASSIFIED` | une catégorie principale déterminée (+ 0..N secondaires, §11) | oui |
 | `VALIDATED` | catégorie confirmée par un humain | oui |
-| `NEEDS_REVIEW` | signaux ambigus, conflictuels, hors référentiel, emploi/formation | non |
+| `NEEDS_REVIEW` | principal indécidable (égalité de priorité), signal ambigu non recoupé, hors référentiel, emploi/formation | non |
 | `REJECTED` | relecture terminée, élément écarté | non |
 
 À ne pas confondre avec `Activity.status` (modération / cycle de vie). Persistance :
@@ -33,9 +33,12 @@ par mot-clé). Le titre n'intervient qu'en **repli**, quand la source ne fournit
 
 1. aucun signal → `UNCLASSIFIED` ;
 2. un signal emploi/formation → `NEEDS_REVIEW` (`EMPLOYMENT_DOMAIN`), même si un autre signal est classable ;
-3. plusieurs catégories V1 différentes → `NEEDS_REVIEW` (`CONFLICTING_SIGNALS`, candidats listés) ;
-4. une seule catégorie V1 et aucun signal ambigu qui l'exclut → `AUTO_CLASSIFIED` ;
-5. sinon → `NEEDS_REVIEW` (`AMBIGUOUS_CATEGORY`, `AUDIENCE_VALUE`, `ACTIVITY_TYPE_VALUE` ou `UNRECOGNIZED`).
+3. un signal ambigu (ex. `patrimoine` → CULTURE ou TOURISM) dont aucune catégorie candidate n'est détectée
+   par ailleurs → `NEEDS_REVIEW` (`CONFLICTING_SIGNALS`, candidats listés) : son domaine reste indéterminé ;
+4. une ou plusieurs catégories V1 → `AUTO_CLASSIFIED` : principale + secondaires selon §11 (plusieurs
+   catégories ne produisent **plus** `CONFLICTING_SIGNALS`) ;
+5. égalité de priorité non départageable → `NEEDS_REVIEW` (`AMBIGUOUS_PRIMARY`, ex aequo listés) ;
+6. sinon → `NEEDS_REVIEW` (`AMBIGUOUS_CATEGORY`, `AUDIENCE_VALUE`, `ACTIVITY_TYPE_VALUE` ou `UNRECOGNIZED`).
 
 Les valeurs de public (jeune public, famille...) et de type (atelier, festival...) ne décident jamais
 la catégorie et ne la bloquent pas non plus. Exemple du sprint : « Festival médiéval » ne peut pas
@@ -45,7 +48,10 @@ produire une catégorie `MEDIEVAL` (résultat : `NEEDS_REVIEW`).
 
 * élément **déjà importé** : sa catégorie principale est conservée, aucune reclassification (un
   ré-import n'écrase pas une classification existante, y compris validée par un humain) ;
-* **nouvel élément classé** : activité créée avec la catégorie décidée, trace `AUTO_CLASSIFIED` liée à l'activité ;
+* **nouvel élément classé** : activité créée avec la catégorie principale décidée, catégories secondaires
+  enregistrées dans `activity_secondary_category` (via `ActivityClassificationService`), trace
+  `AUTO_CLASSIFIED` liée à l'activité ;
+* les catégories secondaires d'un élément **déjà importé** ne sont pas recalculées non plus ;
 * **nouvel élément non classé** : **aucune activité créée**, trace consignée pour relecture, comptée
   dans le compteur dédié `ImportResult.needsReview` (distinct d'`ignored`, réservé aux données invalides).
 
@@ -86,7 +92,7 @@ par `ClassificationService` comme les imports.
 * **Relecture (dette / ticket suivant, voir §8)** : aucun écran ni endpoint pour passer un élément de `NEEDS_REVIEW` à `VALIDATED` ou
   `REJECTED` ; les statuts existent, le workflow reste à faire. Un élément validé devrait ensuite
   créer l'activité (ou être ré-importé).
-* **Types, publics, organisateur** : seule la catégorie principale est classée.
+* **Types, publics, organisateur** : seules les catégories (principale et secondaires) sont classées.
 * **Domaine emploi/formation** : reste `NEEDS_REVIEW` ; la décision de fond est à prendre séparément (CAT-007 §11.5).
 
 ## 8. Dette et tickets suivants
@@ -138,8 +144,7 @@ description (`description`, `longDescription`) n'est jamais analysée.
 
 `category_keyword(id, category_id → category, keyword, active, created_at, updated_at)`, unicité
 `(category_id, keyword)`, mot-clé non blanc. Les mots-clés métier sont **uniquement en base** ; aucune
-catégorie n'est ajoutée (les 9 catégories V1), pas de colonne `priority` (une ambiguïté n'est jamais
-masquée). Jeu initial volontairement réduit (13 mots-clés) : `théâtre`, `exposition`, `concert`
+catégorie n'est ajoutée (les 9 catégories V1). Colonne `priority` ajoutée par `V41` (§11). Jeu initial volontairement réduit (13 mots-clés) : `théâtre`, `exposition`, `concert`
 (CULTURE) ; `dégustation` (GASTRONOMY) ; `marché`, `vide-grenier`, `brocante` (MARKETS) ; `braderie`
 (COMMERCE) ; `football`, `rugby` (SPORT) ; `sortie nature` (NATURE) ; `jeux de société` (LEISURE) ;
 `réunion publique` (CITIZEN). Ajouter, retirer ou désactiver (`active = false`) un mot-clé ne demande
@@ -160,7 +165,8 @@ matche `Grand vide-grenier municipal` ; `d'art` ≠ `dart`.
 |---|---|
 | aucun | `UNCLASSIFIED`, règle `UNCLASSIFIED:NO_SIGNAL` |
 | un ou plusieurs, **même** catégorie | `AUTO_CLASSIFIED`, règle `TITLE_KEYWORD:AUTO:<CODE>` |
-| catégories **différentes** | `NEEDS_REVIEW`, raison `CONFLICTING_SIGNALS`, candidats listés, règle `TITLE_KEYWORD:REVIEW:CONFLICTING_SIGNALS` |
+| catégories **différentes**, une seule au plus haut score | `AUTO_CLASSIFIED`, principale + secondaires (§11), règle `TITLE_KEYWORD:AUTO:<CODE principal>` |
+| catégories **différentes** à égalité au plus haut score | `NEEDS_REVIEW`, raison `AMBIGUOUS_PRIMARY`, ex aequo listés, règle `TITLE_KEYWORD:REVIEW:AMBIGUOUS_PRIMARY` |
 
 Le code obtenu passe ensuite par la même résolution que §1 (catégorie existante et active, sinon
 `NEEDS_REVIEW` / `CATEGORY_NOT_IN_REFERENTIAL`). Les mots-clés d'une catégorie inactive restent des
@@ -176,6 +182,59 @@ par `|`). Le fallback sans correspondance n'écrit pas de source : rien n'a ét�
 
 * Un mot-clé isolé peut produire un faux positif (« Marché de la poésie » → MARKETS) : le jeu initial
   est à valider et à étendre par arbitrage, pas par intuition (§9).
-* Un titre avec un mot-clé ET un mot-clé d'une autre catégorie part en relecture, par construction.
+* Un titre avec des mots-clés de catégories différentes de **même** priorité part en relecture (§11).
 * Une activité déjà importée garde sa catégorie : ajouter un mot-clé ne reclasse pas l'existant.
 * Une requête sur `category_keyword` par élément sans keyword source (table de quelques dizaines de lignes).
+
+## 11. Catégorie principale + catégories secondaires (issue #43)
+
+Une activité a exactement **1 catégorie principale** (`activity.primary_category_id`) et **0..N catégories
+secondaires** (`activity_secondary_category`, V36). Les catégories représentent le **domaine / sujet** ; la
+détection de plusieurs domaines ne produit plus automatiquement `NEEDS_REVIEW`.
+
+### Priorité des mots-clés (`V41`)
+
+`category_keyword.priority` (`SMALLINT`, défaut `100`, `1..1000`, plus grand = plus fort) :
+
+| Priorité | Sens | Exemples |
+|---|---|---|
+| 100 (défaut) | le mot-clé désigne l'événement lui-même | `concert`, `exposition`, `marché`, `sortie nature`, `architectural` |
+| 50 | mot-clé thématique / complémentaire, qui qualifie l'événement | `dégustation`, `couscous`, `muscat`, `biodiversité`, `vélo`, `randonnée(s)` |
+
+`V41` (idempotente) : ajoute la colonne, abaisse explicitement `dégustation`/`couscous`/`muscat` à 50, ajoute
+`biodiversité` (NATURE), `vélo`, `randonnée`, `randonnées` (SPORT) à 50, et **désactive** `conférence(s)`
+(mot de format, comme `atelier`/`visite`, cf. `ACTIVITY_TYPE_VALUES` de `LegacyCategoryMapper`). Aucun mot
+de format (`balade`, `promenade`, `atelier`, `visite`...) n'est un mot-clé de catégorie. Aucune autre
+donnée existante n'est modifiée.
+
+### Choix du principal (`PrimaryCategorySelector`, point unique)
+
+1. score d'une catégorie = priorité **maximale** de ses signaux reconnus ;
+2. la catégorie de score strictement le plus élevé devient principale ;
+3. égalité au plus haut score : pour les keywords source, la **catégorie d'origine** de la source
+   (`sourceCategory`) l'emporte si elle fait partie des ex aequo ; sinon → `NEEDS_REVIEW`
+   (`AMBIGUOUS_PRIMARY`), jamais de choix arbitraire ;
+4. les autres catégories deviennent secondaires, par score décroissant puis ordre de détection.
+
+Pour les **keywords source**, la priorité d'un signal est celle du mot-clé `category_keyword` de la même
+catégorie égal à la valeur (après `LegacyCategoryMapper.normalize`), sinon `100`. Le référentiel n'est lu
+que si plusieurs catégories sont détectées. Les keywords source restent prioritaires sur le titre (§10).
+
+### Résolution et persistance
+
+* principale absente/inactive du référentiel → `NEEDS_REVIEW` (`CATEGORY_NOT_IN_REFERENTIAL`), inchangé ;
+* secondaire absente/inactive → **écartée** (jamais créée), la trace `matched_keywords` reste complète ;
+* `classification_record.secondary_category_codes` (V41) : codes secondaires retenus, séparés par `,`.
+
+### Exemples (couverts par `TitleKeywordClassifierTest` et `TitleKeywordClassificationIntegrationTest`)
+
+| Titre | Principale | Secondaire(s) |
+|---|---|---|
+| Exposition sur la biodiversité | CULTURE | NATURE |
+| Balade à vélo | SPORT | — |
+| Marché avec dégustation | MARKETS | GASTRONOMY |
+| Concert avec dégustation | CULTURE | GASTRONOMY |
+| Conférence sur le patrimoine architectural | CULTURE | — |
+| Sortie nature avec randonnée | NATURE | SPORT |
+| Concert au marché de Noël | — (`NEEDS_REVIEW`, `AMBIGUOUS_PRIMARY` : CULTURE = MARKETS = 100) | — |
+

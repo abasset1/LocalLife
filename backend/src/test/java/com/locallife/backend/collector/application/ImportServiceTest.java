@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
+import com.locallife.backend.activityclassification.application.ActivityClassificationService;
 import com.locallife.backend.activityclassification.application.ActivityClassifier.Decision;
 import com.locallife.backend.activityclassification.application.ClassificationOutcome;
 import com.locallife.backend.activityclassification.application.ClassificationService;
@@ -115,6 +116,9 @@ class ImportServiceTest {
     @Mock
     private ClassificationService classificationService;
 
+    @Mock
+    private ActivityClassificationService activityClassificationService;
+
     private static final ClassificationOutcome AUTO_CLASSIFIED_AS_MARKETS = new ClassificationOutcome(
             new Decision(ClassificationStatus.AUTO_CLASSIFIED, "MARKETS", null, List.of(), "AUTO:MARKETS"), 7L);
 
@@ -130,7 +134,7 @@ class ImportServiceTest {
                 sourceService, openAgendaCollectorFactory, normalizationService, deduplicationService,
                 activityRepository, locationService, scheduleService, occurrenceService, mediaService,
                 activityMediaService, activityLinkService, accessibilityService, activityTagService,
-                activityMetadataService, classificationService);
+                activityMetadataService, classificationService, activityClassificationService);
     }
 
     private static final Source SOURCE = new Source(
@@ -480,6 +484,37 @@ class ImportServiceTest {
                 eq(10L), eq("external:OpenAgenda Marseille:ext-1"), eq(99L), eq("Marché de Noël"), eq("marché"), any(),
                 eq(AUTO_CLASSIFIED_AS_MARKETS));
         verify(classificationService, never()).recordQuarantined(any(), any(), any(), any(), any(), any());
+        // Aucune catégorie secondaire décidée : la table de relation n'est pas touchée.
+        verify(activityClassificationService, never()).replaceSecondaryCategories(any(), any());
+    }
+
+    /** Issue #43 : un nouvel élément classé avec des catégories secondaires les persiste sur l'activité créée. */
+    @Test
+    void importAll_ShouldPersistSecondaryCategories_WhenClassificationHasSome() {
+        // Given
+        givenOneCollectibleSource();
+        CollectedActivity item = collectedActivity("ext-1");
+        when(collector.collect()).thenReturn(List.of(item));
+        when(deduplicationService.computeDeduplicationKey(item)).thenReturn("external:OpenAgenda Marseille:ext-1");
+        when(normalizationService.normalize(item)).thenReturn(Optional.of(normalizedActivity()));
+        when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
+                .thenReturn(Optional.empty());
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        givenSaveAssignsId();
+        ClassificationOutcome withSecondary = new ClassificationOutcome(
+                new Decision(ClassificationStatus.AUTO_CLASSIFIED, "MARKETS", null, List.of(), "AUTO:MARKETS",
+                        null, List.of(), List.of("GASTRONOMY")), 7L, List.of(4L));
+        ImportService service = importService();
+        when(classificationService.decide(any(), any(), any())).thenReturn(withSecondary);
+
+        // When
+        ImportResult result = service.importAll().get(0);
+
+        // Then
+        assertEquals(1, result.created());
+        assertEquals(0, result.needsReview());
+        verify(activityRepository).save(argThat(activity -> Long.valueOf(7L).equals(activity.primaryCategoryId())));
+        verify(activityClassificationService).replaceSecondaryCategories(99L, List.of(4L));
     }
 
     /**
@@ -565,6 +600,8 @@ class ImportServiceTest {
         verify(classificationService, never()).decide(any(), any(), any());
         verify(activityRepository).save(argThat(activity ->
                 Long.valueOf(42L).equals(activity.id()) && Long.valueOf(5L).equals(activity.primaryCategoryId())));
+        // Les catégories secondaires existantes ne sont pas recalculées non plus.
+        verify(activityClassificationService, never()).replaceSecondaryCategories(any(), any());
     }
 
 }

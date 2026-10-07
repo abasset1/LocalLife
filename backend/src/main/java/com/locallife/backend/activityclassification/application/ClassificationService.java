@@ -31,6 +31,11 @@ import org.springframework.stereotype.Service;
  * aucun keyword (ni catégorie d'origine, ni tag non blanc) ; les mots-clés viennent de
  * {@code category_keyword}. Si la source fournit des keywords, la logique est strictement celle de
  * {@link #decide(String, List)} : le titre n'est pas lu.
+ *
+ * <p><b>Principal + secondaires</b> (issue #43) : plusieurs catégories détectées donnent une catégorie
+ * principale (la plus forte priorité de {@code category_keyword.priority}) et des catégories secondaires,
+ * et non plus un {@code NEEDS_REVIEW}. Une catégorie secondaire absente ou inactive du référentiel est écartée
+ * (jamais créée) ; une catégorie principale absente ou inactive donne {@code NEEDS_REVIEW}.
  */
 @Service
 public class ClassificationService {
@@ -51,11 +56,11 @@ public class ClassificationService {
     }
 
     /**
-     * Décide à partir des seuls keywords source, sans rien persister. Comportement historique
-     * (CAT-008), inchangé : le titre n'est pas utilisé.
+     * Décide à partir des seuls keywords source, sans rien persister : le titre n'est pas utilisé.
+     * Le référentiel {@code category_keyword} n'est lu que pour départager plusieurs catégories.
      */
     public ClassificationOutcome decide(String sourceCategory, List<String> sourceTags) {
-        return resolve(ActivityClassifier.classify(sourceCategory, sourceTags));
+        return resolve(ActivityClassifier.classify(sourceCategory, sourceTags, this::loadKeywordEntries));
     }
 
     /**
@@ -94,7 +99,7 @@ public class ClassificationService {
         for (CategoryKeyword keyword : keywordRepository.findByActiveTrueOrderByIdAsc()) {
             Optional<String> code = codes.computeIfAbsent(keyword.categoryId(),
                     id -> categoryRepository.findById(id).map(Category::code));
-            code.ifPresent(value -> entries.add(new KeywordEntry(value, keyword.keyword())));
+            code.ifPresent(value -> entries.add(new KeywordEntry(value, keyword.keyword(), keyword.priority())));
         }
         return entries;
     }
@@ -104,8 +109,7 @@ public class ClassificationService {
         if (decision.status() != ClassificationStatus.AUTO_CLASSIFIED) {
             return new ClassificationOutcome(decision, null);
         }
-        Optional<Category> category = categoryRepository.findByCode(decision.categoryCode())
-                .filter(Category::active);
+        Optional<Category> category = findActive(decision.categoryCode());
         if (category.isEmpty()) {
             Decision unresolved = new Decision(
                     ClassificationStatus.NEEDS_REVIEW, null, CATEGORY_NOT_IN_REFERENTIAL,
@@ -113,7 +117,23 @@ public class ClassificationService {
                     decision.source(), decision.matchedKeywords());
             return new ClassificationOutcome(unresolved, null);
         }
-        return new ClassificationOutcome(decision, category.get().id());
+        // Secondaires : seules les catégories existantes et actives sont retenues (et tracées).
+        List<String> secondaryCodes = new ArrayList<>();
+        List<Long> secondaryIds = new ArrayList<>();
+        for (String code : decision.secondaryCategoryCodes()) {
+            findActive(code).ifPresent(secondary -> {
+                secondaryCodes.add(code);
+                secondaryIds.add(secondary.id());
+            });
+        }
+        Decision resolved = new Decision(
+                decision.status(), decision.categoryCode(), decision.reason(), decision.candidateCodes(),
+                decision.ruleId(), decision.source(), decision.matchedKeywords(), List.copyOf(secondaryCodes));
+        return new ClassificationOutcome(resolved, category.get().id(), List.copyOf(secondaryIds));
+    }
+
+    private Optional<Category> findActive(String code) {
+        return categoryRepository.findByCode(code).filter(Category::active);
     }
 
     /** Consigne qu'une activité a été créée à partir d'une classification automatique. */
@@ -144,7 +164,12 @@ public class ClassificationService {
                 sourceId, importKey, activityId, decision.status(), decision.ruleId(), decision.reason(),
                 candidates, truncate(sourceCategory, 255), joinTags(sourceTags), truncate(title, 255),
                 existing.map(ClassificationRecord::createdAt).orElse(now), now,
-                decision.source(), joinMatchedKeywords(decision.matchedKeywords())));
+                decision.source(), joinMatchedKeywords(decision.matchedKeywords()),
+                joinCodes(decision.secondaryCategoryCodes())));
+    }
+
+    private static String joinCodes(List<String> codes) {
+        return codes == null || codes.isEmpty() ? null : truncate(String.join(",", codes), 255);
     }
 
     private static String joinMatchedKeywords(List<String> keywords) {
