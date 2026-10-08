@@ -48,7 +48,10 @@ class SourceKeywordReplayIntegrationTest {
         assertThat(weight).isEqualTo(3_162L);
     }
 
-    /** Chiffres documentés dans CATEGORIES_CLASSIFICATION.md §13. */
+    /**
+     * Chiffres documentés dans CATEGORIES_CLASSIFICATION.md §13 (3 790 classées, 1 852 à relire), plus une
+     * activité classée par la variante « volleyball » ajoutée en V46 (§14).
+     */
     @Test
     void replayOnRealExtractionMatchesDocumentedFigures() throws IOException {
         Map<String, Long> byOutcome = new TreeMap<>();
@@ -65,8 +68,8 @@ class SourceKeywordReplayIntegrationTest {
 
         assertThat(byOutcome.values().stream().mapToLong(Long::longValue).sum()).isEqualTo(47_338L);
         assertThat(byOutcome.get("UNCLASSIFIED")).isEqualTo(41_696L);
-        assertThat(byOutcome.get("AUTO_CLASSIFIED")).isEqualTo(3_790L);
-        assertThat(byOutcome.get("NEEDS_REVIEW")).isEqualTo(1_852L);
+        assertThat(byOutcome.get("AUTO_CLASSIFIED")).isEqualTo(3_791L);
+        assertThat(byOutcome.get("NEEDS_REVIEW")).isEqualTo(1_851L);
     }
 
     @ParameterizedTest
