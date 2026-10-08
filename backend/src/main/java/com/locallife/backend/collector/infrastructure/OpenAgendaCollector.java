@@ -399,23 +399,61 @@ public class OpenAgendaCollector implements Collector {
                 }
             }
         }
-        OpenAgendaRegistration registration = event.registration();
-        if (registration != null) {
-            if (!isBlank(registration.email())) {
-                links.add(new CollectedLink(LINK_TYPE_EMAIL, "Inscription", registration.email()));
+        links.addAll(toRegistrationLinks(event.registration()));
+        return links;
+    }
+
+    /**
+     * {@code registration} arrive sous deux formes. L'API réelle
+     * ({@code detailed=1}) renvoie un tableau {@code [{"type": "email",
+     * "value": "..."}]} ({@code type} parmi {@code email}/{@code phone}/
+     * {@code link}) : c'est cette forme, non prévue à l'origine, qui
+     * faisait échouer la désérialisation de toute la page. La forme objet
+     * ({@code email}/{@code phone}/{@code link}/{@code description})
+     * supposée initialement reste tolérée. Toute autre forme est ignorée
+     * plutôt que de faire échouer la collecte.
+     */
+    private List<CollectedLink> toRegistrationLinks(Object registration) {
+        List<CollectedLink> links = new ArrayList<>();
+        if (registration instanceof List<?> entries) {
+            for (Object entry : entries) {
+                if (entry instanceof Map<?, ?> fields) {
+                    addRegistrationLink(links, asString(fields.get("type")), asString(fields.get("value")));
+                }
             }
-            if (!isBlank(registration.phone())) {
-                links.add(new CollectedLink(LINK_TYPE_PHONE, "Inscription", registration.phone()));
-            }
-            if (!isBlank(registration.link())) {
-                links.add(new CollectedLink(LINK_TYPE_WEBSITE, "Inscription", registration.link()));
-            }
+        } else if (registration instanceof Map<?, ?> fields) {
+            addRegistrationLink(links, "email", asString(fields.get("email")));
+            addRegistrationLink(links, "phone", asString(fields.get("phone")));
+            addRegistrationLink(links, "link", asString(fields.get("link")));
         }
         return links;
     }
 
-    private String registrationText(OpenAgendaRegistration registration) {
-        return registration == null ? null : text(registration.description());
+    private String asString(Object value) {
+        return value instanceof String string ? string : null;
+    }
+
+    private void addRegistrationLink(List<CollectedLink> links, String registrationType, String value) {
+        if (isBlank(value) || registrationType == null) {
+            return;
+        }
+        String linkType = switch (registrationType) {
+            case "email" -> LINK_TYPE_EMAIL;
+            case "phone" -> LINK_TYPE_PHONE;
+            case "link" -> LINK_TYPE_WEBSITE;
+            default -> null;
+        };
+        if (linkType != null) {
+            links.add(new CollectedLink(linkType, "Inscription", value.trim()));
+        }
+    }
+
+    /** Texte libre d'inscription : n'existe que dans la forme objet, voir {@link #toRegistrationLinks}. */
+    private String registrationText(Object registration) {
+        if (registration instanceof Map<?, ?> fields && fields.get("description") instanceof Map<?, ?> description) {
+            return asString(description.get("fr"));
+        }
+        return null;
     }
 
     private CollectedAccessibility toCollectedAccessibility(OpenAgendaAccessibility accessibility) {
@@ -485,7 +523,7 @@ public class OpenAgendaCollector implements Collector {
             OpenAgendaAge age,
             OpenAgendaImage image,
             List<OpenAgendaLink> links,
-            OpenAgendaRegistration registration,
+            Object registration,
             OpenAgendaAccessibility accessibility) {
     }
 
@@ -538,16 +576,6 @@ public class OpenAgendaCollector implements Collector {
 
     /** LL-11011 : lien complémentaire ({@code label} + {@code link}), non vérifié en sandbox. */
     private record OpenAgendaLink(String label, String link) {
-    }
-
-    /**
-     * LL-11011 : informations d'inscription — {@code email}/{@code
-     * phone}/{@code link} structurés, {@code description} en texte libre
-     * (repris tel quel dans {@code CollectedActivity#registrationInfo()}).
-     * Non vérifié contre l'API réelle en sandbox (voir la javadoc de la
-     * classe).
-     */
-    private record OpenAgendaRegistration(String email, String phone, String link, Map<String, String> description) {
     }
 
     /**

@@ -410,8 +410,14 @@ public class ImportService {
             position++;
         }
 
+        // Un lien invalide (URL/email/téléphone mal saisi côté source) est ignoré seul : il ne
+        // doit pas faire échouer le reste de l'enrichissement (accessibilité, tags, métadonnées).
         for (var link : normalizationService.normalizeLinks(item, activityId)) {
-            activityLinkService.create(link);
+            try {
+                activityLinkService.create(link);
+            } catch (IllegalArgumentException exception) {
+                LOGGER.debug("Lien ignoré pour l'activité {} : {}", activityId, exception.getMessage());
+            }
         }
 
         normalizationService.normalizeAccessibility(item, activityId).ifPresent(accessibilityService::create);
