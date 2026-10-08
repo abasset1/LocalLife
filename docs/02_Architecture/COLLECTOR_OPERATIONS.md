@@ -53,8 +53,8 @@ d'administration (`SourceController`, champs `agendaUid`/
 
 Le filtre région ne conserve que les événements dont `location.region`
 correspond exactement (insensible casse/espaces) à la valeur fournie —
-filtrage côté client après récupération (ajoute `detailed=1` à la
-requête OpenAgenda quand actif). ⚠️ Non vérifié contre l'API réelle en
+filtrage côté client après récupération (`detailed=1` est envoyé à
+chaque requête OpenAgenda, avec ou sans filtre). ⚠️ Non vérifié contre l'API réelle en
 sandbox — à confirmer avec une clé réelle que le champ `region` est
 bien présent dans la réponse. Désormais réglable indépendamment par
 agenda (remplace l'ancien filtre global unique `OPENAGENDA_REGION_FILTER`).

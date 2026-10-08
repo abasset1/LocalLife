@@ -51,10 +51,15 @@ import org.springframework.web.client.RestClientException;
  *       côté client après récupération — non vérifié contre l'API réelle
  *       en sandbox (pas d'accès réseau à api.openagenda.com), le champ
  *       {@code region} exact à recevoir est à confirmer avec une clé
- *       réelle. Quand ce filtre est actif, {@code detailed=1} est ajouté
- *       à la requête pour maximiser les chances que {@code region} soit
- *       présent dans la réponse.</li>
+ *       réelle.</li>
  * </ul>
+ *
+ * <b>{@code detailed=1}</b> : toujours envoyé, avec ou sans filtre région.
+ * Sans lui, l'API ne renvoie qu'une version résumée des événements —
+ * constaté sur un import réel : un seul créneau par événement (repli
+ * {@code nextTiming}), aucun {@code longDescription}/{@code conditions}/
+ * lien/accessibilité/inscription, et un lieu sans {@code postalCode}/
+ * {@code region}/{@code timezone}.
  *
  * <b>Pagination</b> (corrige un écart constaté par Alex : seuls 20
  * événements — la première page, taille par défaut de l'API — étaient
@@ -233,8 +238,6 @@ public class OpenAgendaCollector implements Collector {
                     "OPENAGENDA_API_KEY et OPENAGENDA_AGENDA_UID doivent être configurés pour collecter.", null);
         }
 
-        boolean hasRegionFilter = !regionFilter.isEmpty();
-
         List<OpenAgendaEvent> allEvents = new ArrayList<>();
         List<Object> after = null;
         int page = 0;
@@ -247,10 +250,8 @@ public class OpenAgendaCollector implements Collector {
                         .uri(uriBuilder -> {
                             uriBuilder.path("/v2/agendas/{agendaUid}/events")
                                     .queryParam("key", apiKey)
-                                    .queryParam("size", PAGE_SIZE);
-                            if (hasRegionFilter) {
-                                uriBuilder.queryParam("detailed", "1");
-                            }
+                                    .queryParam("size", PAGE_SIZE)
+                                    .queryParam("detailed", "1");
                             if (currentAfter != null) {
                                 for (Object value : currentAfter) {
                                     uriBuilder.queryParam("after", value == null ? "null" : String.valueOf(value));

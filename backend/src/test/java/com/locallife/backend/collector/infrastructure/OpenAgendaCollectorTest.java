@@ -402,9 +402,10 @@ class OpenAgendaCollectorTest {
     }
 
     @Test
-    void collect_ShouldNotAddDetailedParam_WhenRegionFilterIsNotSet() {
+    void collect_ShouldAddDetailedParam_WhenRegionFilterIsNotSet() {
         OpenAgendaCollector collector = newCollector("key", "12345");
         mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andExpect(requestTo(containsString("detailed=1")))
                 .andRespond(withSuccess("{\"events\": [" + EVENT_JSON + "]}", MediaType.APPLICATION_JSON));
 
         List<CollectedActivity> result = collector.collect();
