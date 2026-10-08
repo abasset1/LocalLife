@@ -307,9 +307,11 @@ class ImportServiceIntegrationTest {
     void importAll_ShouldNotPublishAndCountNeedsReview_WhenCategoryIsNotDecidable() {
         String sourceName = uniqueSourceName();
         createCollectibleSource(sourceName);
-        CollectedActivity item = validItem(sourceName, "ext-review", "Forum de recrutement");
+        // Un public (AUDIENCE_VALUE) n'est pas une catégorie : non décidable. (« Recrutement » ne l'est plus
+        // depuis la catégorie EMPLOYMENT, issue #49.)
+        CollectedActivity item = validItem(sourceName, "ext-review", "Après-midi récréatif");
         CollectedActivity ambiguous = new CollectedActivity(
-                item.title(), item.description(), "Recrutement", item.sourceUrl(), item.externalId(),
+                item.title(), item.description(), "Jeune public", item.sourceUrl(), item.externalId(),
                 item.source(), null, null, null, null, item.location(), item.timings(),
                 null, List.of(), List.of(), null, List.of(), null);
         when(collector.collect()).thenReturn(List.of(ambiguous));

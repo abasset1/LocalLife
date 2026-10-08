@@ -2,7 +2,6 @@ package com.locallife.backend.activityclassification.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.locallife.backend.activityclassification.application.LegacyCategoryMapper.ReviewReason;
 import com.locallife.backend.activityclassification.domain.ClassificationStatus;
 import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
@@ -34,10 +33,11 @@ import org.springframework.transaction.annotation.Transactional;
 class KeywordReferentialAuditIntegrationTest {
 
     /**
-     * Couverture minimale du vocabulaire réel hors emploi/formation : mesurée à 36,2 % avec V43
-     * (19,6 % avant). Garde-fou contre une régression du référentiel, pas un objectif.
+     * Couverture minimale de tout le vocabulaire réel, emploi compris depuis la catégorie EMPLOYMENT
+     * (issue #49, V44) : mesurée à 50,8 % (27,3 % avec V43 seul). Garde-fou contre une régression du
+     * référentiel, pas un objectif.
      */
-    private static final double MIN_COVERAGE_OUTSIDE_EMPLOYMENT = 0.35;
+    private static final double MIN_COVERAGE = 0.50;
 
     @Autowired
     private ClassificationService classificationService;
@@ -112,7 +112,14 @@ class KeywordReferentialAuditIntegrationTest {
         "Conseil municipal;CITIZEN",
         "Collecte de don du sang;CITIZEN",
         "Exposition sur la biodiversité;CULTURE,NATURE",
-        "Marché gourmand avec dégustation et concert;MARKETS,GASTRONOMY,CULTURE"
+        "Marché gourmand avec dégustation et concert;MARKETS,GASTRONOMY,CULTURE",
+        "Job dating restauration;EMPLOYMENT",
+        "Forum de l'emploi saisonnier;EMPLOYMENT",
+        "Atelier CV et entretien d'embauche;EMPLOYMENT",
+        "Réunion d'information France Travail;EMPLOYMENT",
+        "Découverte des métiers du numérique;EMPLOYMENT",
+        "Recrutement par le sport;SPORT,EMPLOYMENT",
+        "Bourse aux emplois;EMPLOYMENT"
     })
     void realisticTitlesGetTheExpectedCategories(String title, String codes) {
         assertThat(categoriesOf(title)).isEqualTo(Set.of(codes.split(",")));
@@ -122,7 +129,7 @@ class KeywordReferentialAuditIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {
         "Atelier", "Visite", "Rencontre avec l'équipe", "Jeune public", "Tout public", "Animation",
-        "Château gonflable", "Escape", "Conférence", "Bourse aux emplois", "Bourse aux formations", "Artisanat"
+        "Château gonflable", "Escape", "Conférence", "Bourse aux formations", "Artisanat"
     })
     void formatsAudiencesAndHomographsAreNotClassified(String title) {
         assertThat(categoriesOf(title)).isEmpty();
@@ -133,21 +140,29 @@ class KeywordReferentialAuditIntegrationTest {
         assertThat(categoriesOf("Marche nordique")).doesNotContain("MARKETS");
     }
 
+    /** Homographes du domaine emploi : « formation », « apprentissage », « métiers d'art », « stage » seuls. */
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "Formation aux premiers secours", "Apprentissage de la natation", "Journées européennes des métiers d'art",
+        "Stage de poterie", "Visite d'entreprise du patrimoine industriel"
+    })
+    void employmentHomographsAreNotEmployment(String title) {
+        assertThat(categoriesOf(title)).doesNotContain("EMPLOYMENT");
+    }
+
     /**
      * Couverture du vocabulaire réel : chaque valeur de l'extraction (catégorie d'origine OpenAgenda,
-     * pondérée par son nombre d'activités) est passée comme un titre. Le domaine emploi/formation est
-     * exclu (aucune catégorie V1, décision de fond en attente) — même définition que le moteur
-     * ({@link LegacyCategoryMapper}, {@code EMPLOYMENT_DOMAIN}).
+     * pondérée par son nombre d'activités) est passée comme un titre. Depuis l'issue #49 le domaine
+     * emploi/formation a sa catégorie (EMPLOYMENT) : il n'est plus exclu de la mesure.
      */
     @Test
-    void realVocabularyCoverageOutsideEmploymentReachesTheFloor() throws IOException {
+    void realVocabularyCoverageReachesTheFloor() throws IOException {
         long total = 0;
         long covered = 0;
         Map<String, Long> byCategory = new java.util.TreeMap<>();
         for (String[] row : LegacyCategoryMapperTest.readExtraction()) {
             String value = row[0];
-            if (value.isBlank()
-                    || LegacyCategoryMapper.map(value).reason() == ReviewReason.EMPLOYMENT_DOMAIN) {
+            if (value.isBlank()) {
                 continue;
             }
             long nb = Long.parseLong(row[1]);
@@ -162,10 +177,11 @@ class KeywordReferentialAuditIntegrationTest {
         }
 
         double coverage = (double) covered / total;
-        System.out.printf("Couverture du vocabulaire réel hors emploi : %d/%d = %.1f %% ; par catégorie : %s%n",
+        System.out.printf("Couverture du vocabulaire réel : %d/%d = %.1f %% ; par catégorie : %s%n",
                 covered, total, 100 * coverage, byCategory.entrySet().stream()
                         .map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining(", ")));
-        assertThat(coverage).isGreaterThanOrEqualTo(MIN_COVERAGE_OUTSIDE_EMPLOYMENT);
-        assertThat(byCategory.keySet()).contains("CULTURE", "TOURISM", "NATURE", "SPORT", "LEISURE", "MARKETS");
+        assertThat(coverage).isGreaterThanOrEqualTo(MIN_COVERAGE);
+        assertThat(byCategory.keySet())
+                .contains("CULTURE", "TOURISM", "NATURE", "SPORT", "LEISURE", "MARKETS", "EMPLOYMENT");
     }
 }

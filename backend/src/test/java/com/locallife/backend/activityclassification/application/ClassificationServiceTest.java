@@ -83,11 +83,22 @@ class ClassificationServiceTest {
 
     @Test
     void decideDoesNotTouchTheReferentialWhenNothingIsClassified() {
-        ClassificationOutcome outcome = service.decide("Recrutement", List.of());
+        ClassificationOutcome outcome = service.decide("Jeune public", List.of());
 
         assertFalse(outcome.classified());
-        assertEquals("EMPLOYMENT_DOMAIN", outcome.decision().reason());
+        assertEquals("AUDIENCE_VALUE", outcome.decision().reason());
         org.mockito.Mockito.verifyNoInteractions(categoryRepository);
+    }
+
+    @Test
+    void decideResolvesTheEmploymentCategory() {
+        // Issue #49 (option A) : EMPLOYMENT est une catégorie du référentiel comme les autres.
+        when(categoryRepository.findByCode("EMPLOYMENT")).thenReturn(Optional.of(category(10L, "EMPLOYMENT", true)));
+
+        ClassificationOutcome outcome = service.decide("Recrutement", List.of());
+
+        assertTrue(outcome.classified());
+        assertEquals(List.of(10L), outcome.categoryIds());
     }
 
     @Test

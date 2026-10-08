@@ -95,6 +95,9 @@ courants (marchés, braderies, repas, conseils municipaux…), à valider sur un
 
 ## 4. Taxonomie : décision
 
+> **Mise à jour (issue #49)** : le candidat 1 a été retenu (option A) — catégorie `EMPLOYMENT`
+> (« Emploi & formation »), migration `V44`. Détail et effet mesuré : `CATEGORIES_CLASSIFICATION.md` §12.
+
 **Aucune catégorie ajoutée.** Les 9 catégories V1 couvrent les domaines observés hors emploi/formation ; les formats
 (atelier, visite, festival…) et les publics ne deviennent pas des catégories (règle de l'issue).
 

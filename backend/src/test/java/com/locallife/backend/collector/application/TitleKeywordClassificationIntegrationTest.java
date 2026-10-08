@@ -381,4 +381,43 @@ class TitleKeywordClassificationIntegrationTest {
         assertThat(conference).isFalse();
         assertThat(formatWords).isZero();
     }
+
+    // --- Issue #49 : catégorie emploi & formation ---
+
+    @Test
+    void employmentSource_ShouldCreateAnActivityInsteadOfNeedingReview() {
+        String sourceName = "Test Source " + UUID.randomUUID();
+        Long sourceId = createSource(sourceName);
+
+        ImportResult result = importOne(sourceName,
+                item(sourceName, "Job dating restauration", "#TousMobilisés", List.of("Recrutement", "théâtre")));
+
+        assertThat(result.created()).isEqualTo(1);
+        assertThat(result.needsReview()).isZero();
+        Activity activity = singleActivity(sourceId);
+        assertThat(categoryIds(activity.id()))
+                .containsExactlyInAnyOrder(categoryId("EMPLOYMENT"), categoryId("CULTURE"));
+        ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
+        assertThat(record.status()).isEqualTo(ClassificationStatus.AUTO_CLASSIFIED);
+        assertThat(record.reason()).isNull();
+    }
+
+    @Test
+    void employmentTitle_ShouldBeClassifiedByTheTitleFallback() {
+        String sourceName = "Test Source " + UUID.randomUUID();
+        Long sourceId = createSource(sourceName);
+
+        importOne(sourceName, item(sourceName, "Forum de l'emploi et de l'alternance", null, List.of()));
+
+        assertThat(categoryIds(singleActivity(sourceId).id())).containsExactly(categoryId("EMPLOYMENT"));
+    }
+
+    @Test
+    void employmentCategory_ShouldBeInTheReferentialWithItsLabel() {
+        String label = jdbcTemplate.queryForObject(
+                "SELECT t.label FROM category c JOIN category_translation t ON t.category_id = c.id "
+                        + "WHERE c.code = 'EMPLOYMENT' AND c.active AND t.locale = 'fr-FR'", String.class);
+
+        assertThat(label).isEqualTo("Emploi & formation");
+    }
 }

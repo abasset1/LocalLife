@@ -15,7 +15,7 @@ class ActivityClassifierTest {
 
     private static final Set<String> V1_CODES = Set.of(
             "CULTURE", "GASTRONOMY", "MARKETS", "COMMERCE", "SPORT",
-            "LEISURE", "NATURE", "TOURISM", "CITIZEN");
+            "LEISURE", "NATURE", "TOURISM", "CITIZEN", "EMPLOYMENT");
 
     @Test
     void noSignalIsUnclassified() {
@@ -113,12 +113,22 @@ class ActivityClassifierTest {
     }
 
     @Test
-    void employmentDomainIsNeverClassifiedEvenWithAnotherClassifiableSignal() {
+    void employmentDomainIsACategoryCombinedWithTheOthers() {
+        // Issue #49 (option A) : plus de NEEDS_REVIEW forcé, EMPLOYMENT s'ajoute aux autres catégories.
         Decision decision = ActivityClassifier.classify("Recrutement", List.of("théâtre"));
 
-        assertEquals(ClassificationStatus.NEEDS_REVIEW, decision.status());
-        assertEquals("EMPLOYMENT_DOMAIN", decision.reason());
-        assertEquals(List.of(), decision.categoryCodes());
+        assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
+        assertNull(decision.reason());
+        assertEquals(List.of("EMPLOYMENT", "CULTURE"), decision.categoryCodes());
+        assertEquals("AUTO:EMPLOYMENT+CULTURE", decision.ruleId());
+    }
+
+    @Test
+    void employmentAloneIsAutoClassified() {
+        Decision decision = ActivityClassifier.classify("#TousMobilisés", List.of("S'informer", "Recrutement"));
+
+        assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
+        assertEquals(List.of("EMPLOYMENT"), decision.categoryCodes());
     }
 
     @Test
