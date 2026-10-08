@@ -2,187 +2,146 @@ package com.locallife.backend.activityclassification.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.locallife.backend.activityclassification.application.ActivityClassifier.Decision;
+import com.locallife.backend.activityclassification.application.TitleKeywordClassifier.KeywordEntry;
 import com.locallife.backend.activityclassification.domain.ClassificationStatus;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** CAT-008 — décision de classification centralisée. */
+/**
+ * Décision sur les keywords source (catégorie d'origine + tags), avec le référentiel unique (issue #50) :
+ * même règle que le titre ({@link KeywordCategoryMatcher}), mots-clés fournis par le référentiel — ici un
+ * petit référentiel de test, les données réelles sont couvertes par {@code SourceKeywordReplayIntegrationTest}.
+ */
 class ActivityClassifierTest {
 
-    private static final Set<String> V1_CODES = Set.of(
-            "CULTURE", "GASTRONOMY", "MARKETS", "COMMERCE", "SPORT",
-            "LEISURE", "NATURE", "TOURISM", "CITIZEN", "EMPLOYMENT");
+    private static final List<KeywordEntry> ENTRIES = List.of(
+            new KeywordEntry("CULTURE", "théâtre"),
+            new KeywordEntry("CULTURE", "theatre"),
+            new KeywordEntry("CULTURE", "concert"),
+            new KeywordEntry("CULTURE", "métiers d'art"),
+            new KeywordEntry("MARKETS", "marché"),
+            new KeywordEntry("MARKETS", "brocante"),
+            new KeywordEntry("SPORT", "sport"),
+            new KeywordEntry("CULTURE", "patrimoine"),
+            new KeywordEntry("TOURISM", "patrimoine"),
+            new KeywordEntry("EMPLOYMENT", "recrutement"),
+            new KeywordEntry("EMPLOYMENT", "métiers"),
+            new KeywordEntry("EMPLOYMENT", "marché du travail"));
+
+    private static Decision classify(String sourceCategory, List<String> tags) {
+        return ActivityClassifier.classify(sourceCategory, tags, ENTRIES);
+    }
 
     @Test
     void noSignalIsUnclassified() {
-        Decision decision = ActivityClassifier.classify(null, List.of());
+        Decision decision = classify(null, List.of());
 
         assertEquals(ClassificationStatus.UNCLASSIFIED, decision.status());
         assertEquals(List.of(), decision.categoryCodes());
         assertEquals("UNCLASSIFIED:NO_SIGNAL", decision.ruleId());
+        assertNull(decision.source());
     }
 
     @Test
     void blankSignalsAreNoSignal() {
-        assertEquals(ClassificationStatus.UNCLASSIFIED,
-                ActivityClassifier.classify("  ", java.util.Arrays.asList(" ", null)).status());
+        assertEquals(ClassificationStatus.UNCLASSIFIED, classify("  ", Arrays.asList(" ", null)).status());
     }
 
     @Test
-    void singleUnambiguousCategoryIsAutoClassified() {
-        Decision decision = ActivityClassifier.classify("Théâtre", List.of());
+    void sourceCategoryMatchingAKeywordIsAutoClassifiedWithItsTrace() {
+        Decision decision = classify("Théâtre", List.of());
 
         assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
         assertEquals(List.of("CULTURE"), decision.categoryCodes());
         assertEquals("AUTO:CULTURE", decision.ruleId());
+        assertEquals(ActivityClassifier.SOURCE, decision.source());
+        assertEquals(List.of("théâtre"), decision.matchedKeywords());
+    }
+
+    @Test
+    void sameRuleAsTheTitle_CaseSeparatorsAndWholeWords() {
+        assertEquals(List.of("CULTURE"), classify("THÉÂTRE", List.of()).categoryCodes());
+        assertEquals(List.of("CULTURE"), classify("theatre de papier", List.of()).categoryCodes());
+        // Accents conservés, comme pour le titre : « marche » n'est pas « marché ».
+        assertEquals(ClassificationStatus.NEEDS_REVIEW, classify("Marche nordique", List.of()).status());
     }
 
     @Test
     void categoryComesFromTagsWhenSourceCategoryIsMissing() {
-        Decision decision = ActivityClassifier.classify(null, List.of("noël", "brocante"));
+        Decision decision = classify(null, List.of("noël", "brocante"));
 
         assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
         assertEquals(List.of("MARKETS"), decision.categoryCodes());
     }
 
     @Test
-    void agreeingSignalsAreStillAutoClassified() {
-        Decision decision = ActivityClassifier.classify("concert", List.of("musique", "jazz"));
-
-        assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
-        assertEquals(List.of("CULTURE"), decision.categoryCodes());
-    }
-
-    @Test
-    void audienceAndTypeSignalsNeverDecideOrBlockTheCategory() {
-        Decision decision = ActivityClassifier.classify("Atelier", List.of("jeune public", "théâtre"));
-
-        assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
-        assertEquals(List.of("CULTURE"), decision.categoryCodes());
-    }
-
-    @Test
-    void severalCategoriesAreAllKept_NeverAConflict() {
-        Decision decision = ActivityClassifier.classify("concert", List.of("sport"));
+    void allCategoriesOfAllSignalsAreKept_InSignalOrder() {
+        Decision decision = classify("concert", List.of("sport", "marché", "concert"));
 
         assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
         assertNull(decision.reason());
-        assertEquals(List.of("CULTURE", "SPORT"), decision.categoryCodes());
-        assertEquals(List.of(), decision.candidateCodes());
-        assertEquals("AUTO:CULTURE+SPORT", decision.ruleId());
+        assertEquals(List.of("CULTURE", "SPORT", "MARKETS"), decision.categoryCodes());
+        assertEquals("AUTO:CULTURE+SPORT+MARKETS", decision.ruleId());
     }
 
     @Test
-    void tagsOnlyOfSeveralCategoriesAreAllKeptInSignalOrder() {
-        Decision decision = ActivityClassifier.classify(null, List.of("marché", "dégustation", "concert", "marché"));
+    void oneKeywordCanMeanSeveralCategories() {
+        assertEquals(List.of("CULTURE", "TOURISM"), classify("Journées du patrimoine", List.of()).categoryCodes());
+    }
+
+    @Test
+    void aValueThatIsExactlyAKeywordIsDecidedByItAlone() {
+        // « Marché du travail » est un mot-clé EMPLOYMENT : « marché » (MARKETS) ne s'y ajoute pas.
+        assertEquals(List.of("EMPLOYMENT"), classify("Marché du travail", List.of()).categoryCodes());
+        // « Métiers d'art » est un mot-clé CULTURE : « métiers » (EMPLOYMENT) ne s'y ajoute pas.
+        assertEquals(List.of("CULTURE"), classify("Métiers d'art", List.of()).categoryCodes());
+        // Sinon tous les mots-clés reconnus comptent.
+        assertEquals(List.of("CULTURE", "EMPLOYMENT"), classify("Métiers du théâtre", List.of()).categoryCodes());
+    }
+
+    @Test
+    void employmentIsACategoryCombinedWithTheOthers() {
+        Decision decision = classify("Recrutement", List.of("théâtre"));
 
         assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
-        assertEquals(List.of("MARKETS", "GASTRONOMY", "CULTURE"), decision.categoryCodes());
-    }
-
-    @Test
-    void heritageAloneIsAmbiguousBetweenCultureAndTourism() {
-        Decision decision = ActivityClassifier.classify("patrimoine", List.of("visite guidée"));
-
-        assertEquals(ClassificationStatus.NEEDS_REVIEW, decision.status());
-        assertEquals("AMBIGUOUS_CATEGORY", decision.reason());
-        assertEquals(List.of(), decision.categoryCodes());
-        assertEquals(List.of("CULTURE", "TOURISM"), decision.candidateCodes());
-    }
-
-    @Test
-    void ambiguousSignalCompatibleWithTheMappedCategoryDoesNotBlockIt() {
-        // « exposition » → CULTURE ; « patrimoine » → CULTURE ou TOURISM : cohérent avec CULTURE.
-        Decision decision = ActivityClassifier.classify("exposition", List.of("patrimoine"));
-
-        assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
-        assertEquals(List.of("CULTURE"), decision.categoryCodes());
-    }
-
-    @Test
-    void ambiguousSignalNeverBlocksNorAddsACategory() {
-        // « marché » → MARKETS ; « patrimoine » → CULTURE ou TOURISM : ne désigne aucune catégorie.
-        Decision decision = ActivityClassifier.classify("marché", List.of("patrimoine"));
-
-        assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
-        assertEquals(List.of("MARKETS"), decision.categoryCodes());
-    }
-
-    @Test
-    void employmentDomainIsACategoryCombinedWithTheOthers() {
-        // Issue #49 (option A) : plus de NEEDS_REVIEW forcé, EMPLOYMENT s'ajoute aux autres catégories.
-        Decision decision = ActivityClassifier.classify("Recrutement", List.of("théâtre"));
-
-        assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
-        assertNull(decision.reason());
         assertEquals(List.of("EMPLOYMENT", "CULTURE"), decision.categoryCodes());
-        assertEquals("AUTO:EMPLOYMENT+CULTURE", decision.ruleId());
     }
 
     @Test
-    void employmentAloneIsAutoClassified() {
-        Decision decision = ActivityClassifier.classify("#TousMobilisés", List.of("S'informer", "Recrutement"));
+    void signalsWithoutAnyKeywordNeedReviewAndAreNeverGuessed() {
+        for (String value : List.of("Jeune public", "Atelier", "Cameo Commanderie", "Festival médiéval")) {
+            Decision decision = classify(value, List.of(value));
+
+            assertEquals(ClassificationStatus.NEEDS_REVIEW, decision.status(), value);
+            assertEquals(ActivityClassifier.UNRECOGNIZED, decision.reason(), value);
+            assertEquals("REVIEW:UNRECOGNIZED", decision.ruleId(), value);
+            assertEquals(List.of(), decision.categoryCodes(), value);
+        }
+    }
+
+    @Test
+    void anUnknownSignalDoesNotBlockTheRecognisedOnes() {
+        Decision decision = classify("Cameo Commanderie", List.of("Jeune public", "concert"));
 
         assertEquals(ClassificationStatus.AUTO_CLASSIFIED, decision.status());
-        assertEquals(List.of("EMPLOYMENT"), decision.categoryCodes());
+        assertEquals(List.of("CULTURE"), decision.categoryCodes());
     }
 
     @Test
-    void unrecognizedSignalsNeedReviewNotUnclassified() {
-        Decision decision = ActivityClassifier.classify("Cameo Commanderie", List.of("NDMBX26"));
-
-        assertEquals(ClassificationStatus.NEEDS_REVIEW, decision.status());
-        assertEquals("UNRECOGNIZED", decision.reason());
-        assertEquals(List.of(), decision.categoryCodes());
-    }
-
-    @Test
-    void onlyAudienceSignalNeedsReviewAndCreatesNoCategory() {
-        Decision decision = ActivityClassifier.classify("Jeune public", List.of("famille"));
-
-        assertEquals(ClassificationStatus.NEEDS_REVIEW, decision.status());
-        assertEquals("AUDIENCE_VALUE", decision.reason());
-        assertEquals(List.of(), decision.categoryCodes());
-    }
-
-    @Test
-    void onlyEverProducesExistingV1CodesAndNeverCreatesOne() {
-        List<String> values = List.of(
-                "Théâtre", "marché", "sport", "nature", "food truck", "jeux", "Medieval", "Festival médiéval",
-                "Recrutement", "patrimoine", "MEDIEVAL");
-        for (String value : values) {
-            Decision decision = ActivityClassifier.classify(value, List.of(value));
-            assertTrue(V1_CODES.containsAll(decision.categoryCodes()), value);
-            assertTrue(decision.candidateCodes().stream().allMatch(V1_CODES::contains), value);
-        }
-    }
-
-    /** Exemple du sprint : « Festival médiéval » ne peut pas créer une catégorie MEDIEVAL. */
-    @Test
-    void medievalFestivalDoesNotCreateAMedievalCategory() {
-        Decision decision = ActivityClassifier.classify("Festival médiéval", List.of());
-
-        assertEquals(ClassificationStatus.NEEDS_REVIEW, decision.status());
-        assertEquals(List.of(), decision.categoryCodes());
-    }
-
-    @Test
-    void onlyAutoClassifiedHasCategoryCodes() {
-        for (String value : List.of("Théâtre", "patrimoine", "Recrutement", "Jeune public", "xyz")) {
-            Decision decision = ActivityClassifier.classify(value, List.of());
-            assertEquals(decision.status() == ClassificationStatus.AUTO_CLASSIFIED,
-                    !decision.categoryCodes().isEmpty(), value);
-        }
+    void noReferentialMeansNothingIsRecognised() {
+        assertEquals(
+                ClassificationStatus.NEEDS_REVIEW,
+                ActivityClassifier.classify("Théâtre", List.of(), List.of()).status());
+        assertEquals(
+                ClassificationStatus.NEEDS_REVIEW,
+                ActivityClassifier.classify("Théâtre", List.of(), null).status());
     }
 
     @Test
     void isDeterministic() {
-        assertEquals(
-                ActivityClassifier.classify("concert", List.of("sport")),
-                ActivityClassifier.classify("concert", List.of("sport")));
+        assertEquals(classify("concert", List.of("sport")), classify("concert", List.of("sport")));
     }
 }

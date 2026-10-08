@@ -10,8 +10,9 @@ import org.springframework.data.annotation.Id;
  *
  * @param sourceTags             tags de la source, séparés par des virgules (relecture et mesure de leur apport)
  * @param candidateCategoryCodes codes V1 plausibles à départager, séparés par des virgules ({@code null} si aucun)
- * @param classificationSource   {@code TITLE_KEYWORD} si la décision vient du fallback titre ({@code null} sinon)
- * @param matchedKeywords        mot(s)-clé(s) de {@code category_keyword} reconnu(s) dans le titre, séparés par
+ * @param classificationSource   {@code SOURCE_KEYWORD} (keywords source) ou {@code TITLE_KEYWORD} (fallback
+ *                               titre) ; {@code null} si aucun signal
+ * @param matchedKeywords        mot(s)-clé(s) de {@code category_keyword} reconnu(s), séparés par
  *                               {@code |} ({@code null} si aucun)
  * @param categoryCodes          codes V1 des catégories retenues, séparés par des virgules ({@code null} si
  *                               l'élément n'est pas classé)

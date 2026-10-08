@@ -35,6 +35,10 @@ import org.springframework.stereotype.Service;
  *
  * <p><b>1..N catégories</b> (issue #45) : toutes les catégories détectées sont conservées, sans
  * principale ni secondaire, sans score ni arbitrage ; plusieurs catégories ne sont jamais un conflit.
+ *
+ * <p><b>Référentiel unique</b> (issue #50) : keywords source et titre sont comparés au même référentiel en
+ * base ({@code category_keyword}), avec la même règle ({@link KeywordCategoryMatcher}). Seule différence :
+ * les mots-clés de portée {@code SOURCE} ne s'appliquent qu'aux keywords source.
  */
 @Service
 public class ClassificationService {
@@ -55,23 +59,28 @@ public class ClassificationService {
     }
 
     /**
-     * Décide à partir des seuls keywords source, sans rien persister : le titre n'est pas utilisé.
+     * Décide à partir des seuls keywords source, sans rien persister : le titre n'est pas utilisé. Les
+     * keywords source sont comparés au référentiel {@code category_keyword} complet (portées {@code ALL} et
+     * {@code SOURCE}), lu seulement si la source fournit au moins un keyword.
      */
     public ClassificationOutcome decide(String sourceCategory, List<String> sourceTags) {
-        return resolve(ActivityClassifier.classify(sourceCategory, sourceTags));
+        List<KeywordEntry> entries =
+                hasSourceKeywords(sourceCategory, sourceTags) ? loadKeywordEntries(true) : List.of();
+        return resolve(ActivityClassifier.classify(sourceCategory, sourceTags, entries));
     }
 
     /**
      * Décide en tenant compte du fallback titre, sans rien persister. Les keywords source (catégorie
      * d'origine ou tag non blanc) ont toujours priorité : s'il y en a, le résultat est exactement celui de
      * {@link #decide(String, List)}. Sinon, le titre est comparé aux mots-clés actifs de
-     * {@code category_keyword}.
+     * {@code category_keyword} de portée {@code ALL} (les mots-clés {@code SOURCE}, trop ambigus dans un
+     * titre libre, sont exclus).
      */
     public ClassificationOutcome decide(String title, String sourceCategory, List<String> sourceTags) {
         if (hasSourceKeywords(sourceCategory, sourceTags)) {
             return decide(sourceCategory, sourceTags);
         }
-        List<KeywordEntry> entries = title == null || title.isBlank() ? List.of() : loadKeywordEntries();
+        List<KeywordEntry> entries = title == null || title.isBlank() ? List.of() : loadKeywordEntries(false);
         return resolve(TitleKeywordClassifier.classify(title, entries));
     }
 
@@ -90,11 +99,17 @@ public class ClassificationService {
      * Mots-clés actifs avec le code de leur catégorie. Les mots-clés d'une catégorie inactive sont
      * conservés : ils restent tracés ({@code matched_keywords}) et la catégorie inactive est écartée à la
      * résolution (voir {@link #resolve}).
+     *
+     * @param includeSourceScope {@code true} pour les keywords source (portées ALL et SOURCE),
+     *                           {@code false} pour le titre (portée ALL seulement)
      */
-    private List<KeywordEntry> loadKeywordEntries() {
+    private List<KeywordEntry> loadKeywordEntries(boolean includeSourceScope) {
         Map<Long, Optional<String>> codes = new HashMap<>();
         List<KeywordEntry> entries = new ArrayList<>();
         for (CategoryKeyword keyword : keywordRepository.findByActiveTrueOrderByIdAsc()) {
+            if (!includeSourceScope && !CategoryKeyword.SCOPE_ALL.equals(keyword.scope())) {
+                continue;
+            }
             Optional<String> code = codes.computeIfAbsent(keyword.categoryId(),
                     id -> categoryRepository.findById(id).map(Category::code));
             code.ifPresent(value -> entries.add(new KeywordEntry(value, keyword.keyword())));

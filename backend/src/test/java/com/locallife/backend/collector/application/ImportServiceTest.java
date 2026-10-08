@@ -124,8 +124,8 @@ class ImportServiceTest {
             List.of(7L));
 
     private static final ClassificationOutcome NEEDS_REVIEW = new ClassificationOutcome(
-            new Decision(ClassificationStatus.NEEDS_REVIEW, List.of(), "AMBIGUOUS_CATEGORY",
-                    List.of("CULTURE", "TOURISM"), "REVIEW:AMBIGUOUS_CATEGORY"), List.of());
+            new Decision(ClassificationStatus.NEEDS_REVIEW, List.of(), "UNRECOGNIZED",
+                    List.of(), "REVIEW:UNRECOGNIZED"), List.of());
 
     private ImportService importService() {
         // Par défaut un nouvel élément est classé automatiquement (lenient : tous les tests

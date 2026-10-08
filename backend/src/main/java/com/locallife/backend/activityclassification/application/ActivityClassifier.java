@@ -1,8 +1,6 @@
 package com.locallife.backend.activityclassification.application;
 
-import com.locallife.backend.activityclassification.application.LegacyCategoryMapper.Outcome;
-import com.locallife.backend.activityclassification.application.LegacyCategoryMapper.Result;
-import com.locallife.backend.activityclassification.application.LegacyCategoryMapper.ReviewReason;
+import com.locallife.backend.activityclassification.application.TitleKeywordClassifier.KeywordEntry;
 import com.locallife.backend.activityclassification.domain.ClassificationStatus;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -10,55 +8,47 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Point unique de décision de classification d'une activité issue d'une
- * source externe (CAT-008, SPRINT_CATEG : « classification centralisée »,
- * « aucun mapping source → catégorie direct non contrôlé »).
+ * Décision de classification d'un élément de source à partir de ses keywords : catégorie d'origine et tags
+ * (CAT-008, « classification centralisée »).
  *
- * <p>Règles imposées par le ticket :
+ * <p><b>Référentiel unique (issue #50)</b> : chaque signal source est comparé au référentiel en base
+ * {@code category_keyword} (portées {@code ALL} et {@code SOURCE}), avec la <b>même règle</b> que le titre
+ * ({@link KeywordCategoryMatcher}). Aucun mot-clé métier n'est codé en Java ; l'ancienne liste fermée
+ * {@code LegacyCategoryMapper} a été reprise en base (V45) puis supprimée.
+ *
+ * <p>Règles :
  * <ul>
- *   <li>une source ne crée jamais de catégorie : la sortie est toujours un
- *       <b>code V1 existant</b> ou aucun code (résolution en id par
- *       {@code ClassificationService}, qui rejette un code inconnu) ;</li>
- *   <li>cas ambigu → {@code NEEDS_REVIEW}, jamais une classification inventée.</li>
+ *   <li>une source ne crée jamais de catégorie : la sortie est toujours un ou plusieurs codes du
+ *       référentiel, résolus en ids par {@code ClassificationService} (qui écarte un code inconnu) ;</li>
+ *   <li>aucun signal (ni catégorie d'origine, ni tag non blanc) → {@code UNCLASSIFIED} ;</li>
+ *   <li>une ou plusieurs catégories reconnues → {@code AUTO_CLASSIFIED} avec <b>toutes</b> ces catégories,
+ *       dans l'ordre des signaux (catégorie d'origine puis tags) ; plusieurs catégories ne sont jamais un
+ *       conflit (issue #45) ;</li>
+ *   <li>des signaux, mais aucun ne correspond à un mot-clé (public, format, lieu, nom propre...) →
+ *       {@code NEEDS_REVIEW} ({@link #UNRECOGNIZED}) : jamais une classification inventée.</li>
  * </ul>
- *
- * <p>Signaux utilisés (V1) : la catégorie d'origine et les tags de la
- * source, chacun passé par {@link LegacyCategoryMapper}. Le titre et la
- * description ne sont volontairement pas utilisés (risque de faux positifs
- * par mot-clé), ni les types/publics (pas de classification de ces
- * dimensions dans ce ticket).
- *
- * <p>Décision (issue #45 : une activité a 1..N catégories, sans principale ni
- * secondaire, sans score ni arbitrage) :
- * <ol>
- *   <li>aucun signal → {@code UNCLASSIFIED} ;</li>
- *   <li>une ou plusieurs catégories V1 → {@code AUTO_CLASSIFIED} avec
- *       <b>toutes</b> ces catégories, dans l'ordre des signaux (catégorie
- *       d'origine puis tags). Plusieurs catégories ne sont jamais un conflit ;
- *       un signal ambigu (ex. {@code patrimoine} : CULTURE ou TOURISM) ne
- *       désigne aucune catégorie et n'en ajoute donc aucune. Le domaine
- *       emploi/formation est une catégorie comme les autres ({@code EMPLOYMENT},
- *       issue #49) : il s'ajoute aux autres catégories détectées ;</li>
- *   <li>seulement des signaux ambigus → {@code NEEDS_REVIEW}
- *       ({@code AMBIGUOUS_CATEGORY}, candidats listés) ;</li>
- *   <li>sinon {@code NEEDS_REVIEW} (public, type, valeur inconnue...).</li>
- * </ol>
  *
  * Classe pure (sans état ni dépendance), déterministe.
  */
 public final class ActivityClassifier {
 
+    /** Origine tracée dans {@code classification_record.classification_source} pour les keywords source. */
+    public static final String SOURCE = "SOURCE_KEYWORD";
+
+    /** Raison de {@code NEEDS_REVIEW} : la source fournit des keywords, mais aucun n'est dans le référentiel. */
+    public static final String UNRECOGNIZED = "UNRECOGNIZED";
+
     /**
      * Décision de classification.
      *
-     * @param categoryCodes      codes V1 retenus (1..N), renseignés uniquement pour
+     * @param categoryCodes      codes retenus (1..N), renseignés uniquement pour
      *                           {@code AUTO_CLASSIFIED}, sinon vide ; ordre de détection
      * @param reason             renseigné pour {@code NEEDS_REVIEW}
      * @param candidateCodes     catégories plausibles à départager à la relecture (peut être vide)
      * @param ruleId             règle appliquée, pour la traçabilité
-     * @param source             origine de la décision : {@code null} pour les keywords source,
-     *                           {@code TITLE_KEYWORD} pour le fallback titre
-     * @param matchedKeywords    mot(s)-clé(s) du référentiel reconnu(s) (fallback titre), sinon vide
+     * @param source             origine de la décision : {@link #SOURCE} pour les keywords source,
+     *                           {@code TITLE_KEYWORD} pour le fallback titre, {@code null} sans signal
+     * @param matchedKeywords    mot(s)-clé(s) du référentiel reconnu(s), sinon vide
      */
     public record Decision(
             ClassificationStatus status,
@@ -69,7 +59,7 @@ public final class ActivityClassifier {
             String source,
             List<String> matchedKeywords) {
 
-        /** Décision issue des keywords source (sans source dédiée ni mot-clé du référentiel). */
+        /** Décision sans origine ni mot-clé reconnu. */
         public Decision(
                 ClassificationStatus status, List<String> categoryCodes, String reason, List<String> candidateCodes,
                 String ruleId) {
@@ -85,50 +75,39 @@ public final class ActivityClassifier {
     private ActivityClassifier() {
     }
 
-    public static Decision classify(String sourceCategory, List<String> sourceTags) {
-        List<Result> results = new ArrayList<>();
+    /**
+     * @param keywordEntries référentiel {@code category_keyword} actif (portées {@code ALL} et {@code SOURCE})
+     */
+    public static Decision classify(String sourceCategory, List<String> sourceTags, List<KeywordEntry> keywordEntries) {
+        List<String> signals = new ArrayList<>();
         if (sourceCategory != null && !sourceCategory.isBlank()) {
-            results.add(LegacyCategoryMapper.map(sourceCategory));
+            signals.add(sourceCategory);
         }
         if (sourceTags != null) {
             for (String tag : sourceTags) {
                 if (tag != null && !tag.isBlank()) {
-                    results.add(LegacyCategoryMapper.map(tag));
+                    signals.add(tag);
                 }
             }
         }
-        if (results.isEmpty()) {
+        if (signals.isEmpty()) {
             return new Decision(
                     ClassificationStatus.UNCLASSIFIED, List.of(), null, List.of(), "UNCLASSIFIED:NO_SIGNAL");
         }
 
-        Set<String> mapped = new LinkedHashSet<>();
-        Set<String> ambiguousCandidates = new LinkedHashSet<>();
-        for (Result result : results) {
-            if (result.outcome() == Outcome.MAPPED) {
-                mapped.add(result.categoryCode());
-            } else if (result.reason() == ReviewReason.AMBIGUOUS_CATEGORY) {
-                ambiguousCandidates.addAll(result.candidateCategoryCodes());
-            }
+        Set<String> codes = new LinkedHashSet<>();
+        Set<String> matched = new LinkedHashSet<>();
+        for (String signal : signals) {
+            KeywordCategoryMatcher.Match match = KeywordCategoryMatcher.match(signal, keywordEntries);
+            codes.addAll(match.categoryCodes());
+            matched.addAll(match.matchedKeywords());
         }
-
-        if (!mapped.isEmpty()) {
-            List<String> codes = List.copyOf(mapped);
-            return new Decision(ClassificationStatus.AUTO_CLASSIFIED, codes, null, List.of(), autoRuleId(codes));
+        if (codes.isEmpty()) {
+            return new Decision(ClassificationStatus.NEEDS_REVIEW, List.of(), UNRECOGNIZED, List.of(),
+                    "REVIEW:" + UNRECOGNIZED, SOURCE, List.of());
         }
-        if (!ambiguousCandidates.isEmpty()) {
-            return review(ReviewReason.AMBIGUOUS_CATEGORY.name(), List.copyOf(ambiguousCandidates));
-        }
-        // Des signaux existent mais aucun n'est une catégorie (public, type, lieu, texte libre...).
-        ReviewReason reason = results.stream()
-                .map(Result::reason)
-                .filter(r -> r != null)
-                .findFirst()
-                .orElse(ReviewReason.UNRECOGNIZED);
-        return review(reason.name(), List.of());
-    }
-
-    private static Decision review(String reason, List<String> candidates) {
-        return new Decision(ClassificationStatus.NEEDS_REVIEW, List.of(), reason, candidates, "REVIEW:" + reason);
+        List<String> categoryCodes = List.copyOf(codes);
+        return new Decision(ClassificationStatus.AUTO_CLASSIFIED, categoryCodes, null, List.of(),
+                autoRuleId(categoryCodes), SOURCE, List.copyOf(matched));
     }
 }
