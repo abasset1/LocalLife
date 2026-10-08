@@ -323,3 +323,27 @@ tout élément sans mot-clé reconnu est `NEEDS_REVIEW` / `UNRECOGNIZED`.
 `classification_record.classification_source` vaut `SOURCE_KEYWORD` (keywords source) ou `TITLE_KEYWORD`
 (titre) ; `matched_keywords` liste les mots-clés reconnus dans les deux cas.
 
+## 14. Réparation du référentiel (`V46`)
+
+Audit de l'import du 08/10/2026 : 1 112 éléments classés sur 3 049 (36 %), 1 937 en quarantaine. Cause
+principale : la table `category_keyword` de la base auditée avait été vidée après l'installation de V39 à
+V41, puis réalimentée par V42 à V45 seulement. Il y manquait les 61 mots-clés de base (`théâtre`, `concert`,
+`exposition`, `architecture`, `musée`, `danse`, `lecture`, `jeu`…), que Flyway ne rejoue jamais. L'origine du
+vidage n'est pas identifiée (aucune migration ni aucun test ne le fait).
+
+`V46` remet le référentiel dans l'état attendu après V45 (58 mots-clés actifs, 3 inactifs : `conférence`,
+`conférences`, `escape`). Elle est sans effet sur une base saine (`ON CONFLICT DO NOTHING`).
+
+Elle ajoute aussi trois graphies observées dans la quarantaine, variantes de mots-clés existants : `archi`
+et `architectures` (CULTURE), `volleyball` (SPORT).
+
+| Rejeu sur les 3 049 éléments du 08/10/2026 | Classés | Part |
+|---|---:|---:|
+| Référentiel de la base auditée (273 mots-clés) | 1 112 | 36 % |
+| Après restauration des mots-clés de V39 à V41 | 1 800 | 59 % |
+
+Effet des trois variantes sur l'extraction du 29/09/2026 (§13) : 3 790 → 3 791 classées, 1 852 → 1 851 à
+relire.
+
+Le reliquat (environ 40 %) est conforme aux règles du §3 : titres sans mot-clé de domaine, ou signaux de
+format et de public seulement (`visite`, `atelier`, `conférence`, `jeune public`, `jeunesse`, `adulte`).
