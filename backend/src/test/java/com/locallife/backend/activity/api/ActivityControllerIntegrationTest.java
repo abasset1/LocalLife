@@ -1,18 +1,73 @@
 package com.locallife.backend.activity.api;
 
+import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activityclassification.application.ActivityClassificationService;
+import com.locallife.backend.category.domain.Category;
+import com.locallife.backend.category.infrastructure.CategoryRepository;
+import com.locallife.backend.source.domain.Source;
+import com.locallife.backend.source.infrastructure.SourceRepository;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Tests de bout en bout de {@code /api/v1/activities} (serveur réel, port aléatoire).
+ *
+ * <p>Chaque test dispose de sa <b>propre</b> activité, créée avant le test et supprimée après : ces tests
+ * ne dépendent ni des données de démonstration (V3, supprimées par V37) ni d'activités laissées par d'autres
+ * tests. Auparavant, quatre tests supposaient qu'au moins une activité existait déjà et échouaient sur une
+ * base vierge selon l'ordre d'exécution. Pas de {@code @Transactional} : le serveur HTTP tourne dans un autre
+ * thread et ne verrait pas des données non validées ; l'activité est donc réellement enregistrée (avec sa
+ * catégorie, contrainte V42) puis supprimée.
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ActivityControllerIntegrationTest {
 
     @LocalServerPort
     private int port;
+
+    @Autowired
+    private ActivityClassificationService activityClassificationService;
+
+    @Autowired
+    private CategoryRepository categoryRepository;
+
+    @Autowired
+    private SourceRepository sourceRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    /** Activité propre au test en cours, dans une ville unique pour la retrouver seule via {@code ?city=}. */
+    private Activity testActivity;
+
+    @BeforeEach
+    void createTestActivity() {
+        Long manualSourceId = sourceRepository.findByType("MANUAL").map(Source::id).orElseThrow();
+        Long cultureId = categoryRepository.findByCode("CULTURE").map(Category::id).orElseThrow();
+        testActivity = activityClassificationService.createActivity(new Activity(
+                null, "Activité de test " + UUID.randomUUID(), "Description", "concert",
+                43.9493, 4.8055, LocalDateTime.now().plusDays(7), null, "PUBLISHED",
+                manualSourceId, null, null, "Place de l'Horloge", "Ville-test-" + UUID.randomUUID(), "84000",
+                null, null, null, null, null), List.of(cultureId));
+    }
+
+    @AfterEach
+    void deleteTestActivity() {
+        // La suppression de l'activité supprime aussi ses catégories (ON DELETE CASCADE, V42).
+        jdbcTemplate.update("DELETE FROM activity WHERE id = ?", testActivity.id());
+    }
 
     private RestTestClient restTestClient() {
         return RestTestClient.bindToServer()
@@ -73,8 +128,9 @@ class ActivityControllerIntegrationTest {
      */
     @Test
     void getActivityById_ShouldReturnOk_WhenExists() {
-        // LL-11013 : GET /api/v1/activities retourne désormais ActivitySummaryResponse, pas Activity.
-        ActivitySummaryResponse[] activities = restTestClient().get().uri("/api/v1/activities")
+        // L'id provient de la liste exposée (LL-11013 : ActivitySummaryResponse), pas d'un id figé.
+        ActivitySummaryResponse[] activities = restTestClient().get()
+                .uri("/api/v1/activities?city=" + testActivity.city())
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(ActivitySummaryResponse[].class)
@@ -82,8 +138,8 @@ class ActivityControllerIntegrationTest {
                 .getResponseBody();
 
         assertNotNull(activities);
-        assertTrue(activities.length > 0,
-                "Aucune activité en base : la migration de démonstration V3 a-t-elle bien été appliquée ?");
+        assertEquals(1, activities.length);
+        assertEquals(testActivity.id(), activities[0].id());
 
         restTestClient().get().uri("/api/v1/activities/" + activities[0].id())
                 .exchange()
@@ -115,7 +171,7 @@ class ActivityControllerIntegrationTest {
      */
     @Test
     void getAllActivities_ShouldExposeOnlySummaryFields() {
-        restTestClient().get().uri("/api/v1/activities")
+        restTestClient().get().uri("/api/v1/activities?city=" + testActivity.city())
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -140,16 +196,7 @@ class ActivityControllerIntegrationTest {
      */
     @Test
     void getActivityById_ShouldExposeDetailFields() {
-        ActivitySummaryResponse[] activities = restTestClient().get().uri("/api/v1/activities")
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(ActivitySummaryResponse[].class)
-                .returnResult()
-                .getResponseBody();
-        assertNotNull(activities);
-        assertTrue(activities.length > 0);
-
-        restTestClient().get().uri("/api/v1/activities/" + activities[0].id())
+        restTestClient().get().uri("/api/v1/activities/" + testActivity.id())
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -173,16 +220,7 @@ class ActivityControllerIntegrationTest {
      */
     @Test
     void getActivityById_ShouldReturnDetailedFiche_ForAnonymousCaller_WithStubPolicy() {
-        ActivitySummaryResponse[] activities = restTestClient().get().uri("/api/v1/activities")
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(ActivitySummaryResponse[].class)
-                .returnResult()
-                .getResponseBody();
-        assertNotNull(activities);
-        assertTrue(activities.length > 0);
-
-        restTestClient().get().uri("/api/v1/activities/" + activities[0].id())
+        restTestClient().get().uri("/api/v1/activities/" + testActivity.id())
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
