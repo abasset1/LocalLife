@@ -379,10 +379,11 @@ class TitleKeywordClassificationIntegrationTest {
                 Boolean.class);
         Integer formatWords = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM category_keyword WHERE active AND keyword IN "
-                        + "('balade', 'promenade', 'atelier', 'visite', 'conférence')", Integer.class);
+                        + "('balade', 'promenade')", Integer.class);
 
         assertThat(legacyStructures).isZero();
-        assertThat(conference).isFalse();
+        // V47 : « conférence » / « conférences », désactivés par V41, sont réactivés (décision du 08/10/2026).
+        assertThat(conference).isTrue();
         assertThat(formatWords).isZero();
     }
 

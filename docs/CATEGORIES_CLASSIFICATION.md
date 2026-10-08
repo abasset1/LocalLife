@@ -39,8 +39,9 @@ par mot-clé). Le titre n'intervient qu'en **repli**, quand la source ne fournit
    mot-clé (public, format, lieu...) n'en ajoute ni n'en bloque aucune ;
 3. des signaux, mais aucun mot-clé reconnu → `NEEDS_REVIEW` (`UNRECOGNIZED`).
 
-Les valeurs de public (jeune public, famille...) et de format (atelier, festival...) ne sont pas des
-mots-clés : elles ne décident jamais la catégorie. Exemple du sprint : « Festival médiéval » ne peut pas
+Les valeurs de public (jeune public, famille...) et de format (balade, festival...) ne sont pas des
+mots-clés : elles ne décident jamais la catégorie. Quatre formats font exception depuis `V47` (§15) :
+`visite`, `visite guidée`, `atelier` et `conférence`. Exemple du sprint : « Festival médiéval » ne peut pas
 produire une catégorie `MEDIEVAL` (résultat : `NEEDS_REVIEW`).
 
 ## 4. Flux d'import (`ImportService`)
@@ -347,3 +348,27 @@ relire.
 
 Le reliquat (environ 40 %) est conforme aux règles du §3 : titres sans mot-clé de domaine, ou signaux de
 format et de public seulement (`visite`, `atelier`, `conférence`, `jeune public`, `jeunesse`, `adulte`).
+
+## 15. Formats admis comme mots-clés (`V47`)
+
+Décision produit du 08/10/2026 (Alex), contre la règle « un format ne décide jamais la catégorie » (§3) :
+
+| Mot-clé | Catégories |
+|---|---|
+| `visite`, `visites`, `visite guidée`, `visites guidées` | TOURISM + CULTURE |
+| `atelier`, `ateliers` | CULTURE |
+| `conférence`, `conférences` (désactivés par `V41`, réactivés) | CULTURE |
+
+Portée `ALL` : titres et keywords source. Les autres formats et les publics restent exclus (balade,
+promenade, festival, rencontre, animation, stage, jeune public…), toujours vérifié par
+`KeywordReferentialAuditIntegrationTest`.
+
+**Conséquence assumée** : tout titre ou tag contenant « atelier » reçoit CULTURE en plus de son domaine
+(« Atelier CV et entretien d'embauche » → EMPLOYMENT + CULTURE, « Atelier cuisine » → GASTRONOMY + CULTURE).
+
+| Mesure | Avant `V47` | Après `V47` |
+|---|---:|---:|
+| Éléments du 08/10/2026 classés (rejeu, 3 049 éléments) | 1 862 (61 %) | 2 208 (72 %) |
+| Extraction du 29/09/2026 : catégories d'origine classées (§13) | 3 791 | 4 005 |
+| Extraction du 29/09/2026 : à relire | 1 851 | 1 637 |
+| Vocabulaire réel reconnu par les mots-clés titre | 50,9 % | 54,6 % |

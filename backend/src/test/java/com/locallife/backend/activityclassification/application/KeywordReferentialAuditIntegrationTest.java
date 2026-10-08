@@ -34,7 +34,7 @@ class KeywordReferentialAuditIntegrationTest {
 
     /**
      * Couverture minimale de tout le vocabulaire réel, emploi compris depuis la catégorie EMPLOYMENT
-     * (issue #49, V44) : mesurée à 50,8 % (27,3 % avec V43 seul). Garde-fou contre une régression du
+     * (issue #49, V44) : mesurée à 50,8 % (27,3 % avec V43 seul), 54,6 % depuis V47. Garde-fou contre une régression du
      * référentiel, pas un objectif.
      */
     private static final double MIN_COVERAGE = 0.50;
@@ -73,12 +73,15 @@ class KeywordReferentialAuditIntegrationTest {
                 assertThat(count).as("mots-clés actifs de %s", code).isGreaterThanOrEqualTo(5));
     }
 
-    /** Une catégorie est un domaine, pas un format ni un public (issues #43, #47). */
+    /**
+     * Une catégorie est un domaine, pas un format ni un public (issues #43, #47). Exceptions décidées le
+     * 08/10/2026 (V47) : « visite », « visite guidée », « atelier » et « conférence » sont des mots-clés.
+     */
     @Test
     void noFormatOrAudienceWordIsAnActiveKeyword() {
         List<String> forbidden = List.of(
-                "atelier", "ateliers", "visite", "visites", "visite guidée", "balade", "promenade", "conférence",
-                "conférences", "festival", "rencontre", "animation", "journée", "stage", "escape", "bourse aux", "artisanat",
+                "balade", "promenade", "festival", "rencontre", "animation", "journée", "stage", "escape",
+                "bourse aux", "artisanat",
                 "jeune public", "tout public", "famille", "adulte", "enfants");
 
         List<String> active = jdbcTemplate.queryForList(
@@ -95,7 +98,7 @@ class KeywordReferentialAuditIntegrationTest {
         "Projection du film « Les Choristes »;CULTURE",
         "Journées européennes du patrimoine;CULTURE,TOURISM",
         "Découverte du patrimoine avec l'office de tourisme;CULTURE,TOURISM",
-        "Atelier cuisine et dégustation de fromages;GASTRONOMY",
+        "Atelier cuisine et dégustation de fromages;GASTRONOMY,CULTURE",
         "Marché de producteurs du terroir;MARKETS,GASTRONOMY",
         "Grande braderie des commerçants;COMMERCE",
         "Bourse aux jouets;MARKETS",
@@ -115,11 +118,15 @@ class KeywordReferentialAuditIntegrationTest {
         "Marché gourmand avec dégustation et concert;MARKETS,GASTRONOMY,CULTURE",
         "Job dating restauration;EMPLOYMENT",
         "Forum de l'emploi saisonnier;EMPLOYMENT",
-        "Atelier CV et entretien d'embauche;EMPLOYMENT",
+        "Atelier CV et entretien d'embauche;EMPLOYMENT,CULTURE",
         "Réunion d'information France Travail;EMPLOYMENT",
         "Découverte des métiers du numérique;EMPLOYMENT",
         "Recrutement par le sport;SPORT,EMPLOYMENT",
-        "Bourse aux emplois;EMPLOYMENT"
+        "Bourse aux emplois;EMPLOYMENT",
+        "Visite guidée du centre ancien;CULTURE,TOURISM",
+        "Visites du chantier de la gare;CULTURE,TOURISM",
+        "Atelier créatif;CULTURE",
+        "Conférence : habiter demain;CULTURE"
     })
     void realisticTitlesGetTheExpectedCategories(String title, String codes) {
         assertThat(categoriesOf(title)).isEqualTo(Set.of(codes.split(",")));
@@ -128,8 +135,8 @@ class KeywordReferentialAuditIntegrationTest {
     /** Faux positifs à éviter : formats, publics, homographes, accents (marché ≠ marche). */
     @ParameterizedTest
     @ValueSource(strings = {
-        "Atelier", "Visite", "Rencontre avec l'équipe", "Jeune public", "Tout public", "Animation",
-        "Château gonflable", "Escape", "Conférence", "Bourse aux formations", "Artisanat"
+        "Rencontre avec l'équipe", "Jeune public", "Tout public", "Animation", "Balade", "Festival",
+        "Château gonflable", "Escape", "Bourse aux formations", "Artisanat"
     })
     void formatsAudiencesAndHomographsAreNotClassified(String title) {
         assertThat(categoriesOf(title)).isEmpty();

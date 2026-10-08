@@ -50,7 +50,8 @@ class SourceKeywordReplayIntegrationTest {
 
     /**
      * Chiffres documentés dans CATEGORIES_CLASSIFICATION.md §13 (3 790 classées, 1 852 à relire), plus une
-     * activité classée par la variante « volleyball » ajoutée en V46 (§14).
+     * activité classée par la variante « volleyball » (V46, §14) et 214 par « visite », « atelier » et
+     * « conférence » (V47, §15).
      */
     @Test
     void replayOnRealExtractionMatchesDocumentedFigures() throws IOException {
@@ -68,8 +69,8 @@ class SourceKeywordReplayIntegrationTest {
 
         assertThat(byOutcome.values().stream().mapToLong(Long::longValue).sum()).isEqualTo(47_338L);
         assertThat(byOutcome.get("UNCLASSIFIED")).isEqualTo(41_696L);
-        assertThat(byOutcome.get("AUTO_CLASSIFIED")).isEqualTo(3_791L);
-        assertThat(byOutcome.get("NEEDS_REVIEW")).isEqualTo(1_851L);
+        assertThat(byOutcome.get("AUTO_CLASSIFIED")).isEqualTo(4_005L);
+        assertThat(byOutcome.get("NEEDS_REVIEW")).isEqualTo(1_637L);
     }
 
     @ParameterizedTest
@@ -104,7 +105,7 @@ class SourceKeywordReplayIntegrationTest {
 
     @Test
     void valuesWithoutAnyKeywordNeedReviewAndAreNeverGuessed() {
-        for (String value : List.of("Jeune public", "Atelier", "Visite", "Cameo Commanderie", "Festival médiéval")) {
+        for (String value : List.of("Jeune public", "Balade", "Cameo Commanderie", "Festival médiéval")) {
             ClassificationOutcome outcome = classificationService.decide(value, List.of());
             assertThat(outcome.decision().status()).as(value).isEqualTo(ClassificationStatus.NEEDS_REVIEW);
             assertThat(outcome.decision().reason()).as(value).isEqualTo(ActivityClassifier.UNRECOGNIZED);
