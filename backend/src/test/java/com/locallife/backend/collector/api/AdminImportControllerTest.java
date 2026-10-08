@@ -4,8 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.locallife.backend.collector.application.ImportAlreadyRunningException;
 import com.locallife.backend.collector.application.ImportResult;
 import com.locallife.backend.collector.application.ImportService;
+import com.locallife.backend.common.ErrorResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -55,6 +58,18 @@ class AdminImportControllerTest {
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).containsExactly(degraded);
+    }
+
+    @Test
+    void handleImportAlreadyRunning_ShouldReturnConflict() {
+        HttpServletRequest httpRequest = org.mockito.Mockito.mock(HttpServletRequest.class);
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/admin/import");
+
+        ResponseEntity<ErrorResponse> response = adminImportController.handleImportAlreadyRunning(
+                new ImportAlreadyRunningException(), httpRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody().message()).isEqualTo("Un import est déjà en cours.");
     }
 
     @Test

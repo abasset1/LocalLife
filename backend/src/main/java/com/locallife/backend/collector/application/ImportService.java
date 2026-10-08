@@ -26,8 +26,10 @@ import com.locallife.backend.tag.application.ActivityTagService;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -149,6 +151,18 @@ import org.springframework.stereotype.Service;
  * la source, par exemple, disparaît alors elle aussi de la base, ce qui
  * ne serait pas le cas avec un simple « upsert » par id). ⚠️ Décision à
  * valider, comme le reste de la stratégie de mise à jour ci-dessus.
+ *
+ * <b>Import incrémental</b> : un élément déjà importé dont le contenu
+ * collecté n'a pas changé depuis son dernier import réussi est sauté
+ * (compté dans {@code ImportResult.unchanged}) au lieu d'être réécrit et
+ * ré-enrichi — voir {@link ImportFingerprintService}. La collecte, elle,
+ * reste complète : toutes les clés vues alimentent toujours l'archivage
+ * des activités disparues de la source.
+ *
+ * <b>Un seul import à la fois</b> : {@link #importAll()} refuse de
+ * démarrer ({@link ImportAlreadyRunningException}) si un import est déjà
+ * en cours dans cette instance. Verrou en mémoire : suffisant tant que
+ * l'application tourne en une seule instance.
  */
 @Service
 public class ImportService {
@@ -182,6 +196,10 @@ public class ImportService {
     private final ActivityMetadataService activityMetadataService;
     private final ClassificationService classificationService;
     private final ActivityClassificationService activityClassificationService;
+    private final ImportFingerprintService importFingerprintService;
+
+    /** Vrai pendant un import, voir la javadoc de la classe (« un seul import à la fois »). */
+    private final AtomicBoolean running = new AtomicBoolean(false);
 
     public ImportService(
             SourceService sourceService,
@@ -199,7 +217,8 @@ public class ImportService {
             ActivityTagService activityTagService,
             ActivityMetadataService activityMetadataService,
             ClassificationService classificationService,
-            ActivityClassificationService activityClassificationService) {
+            ActivityClassificationService activityClassificationService,
+            ImportFingerprintService importFingerprintService) {
         this.sourceService = sourceService;
         this.openAgendaCollectorFactory = openAgendaCollectorFactory;
         this.normalizationService = normalizationService;
@@ -216,17 +235,27 @@ public class ImportService {
         this.activityMetadataService = activityMetadataService;
         this.classificationService = classificationService;
         this.activityClassificationService = activityClassificationService;
+        this.importFingerprintService = importFingerprintService;
     }
 
     /**
      * Exécute l'import pour chaque source collectible actuellement en
      * base (LL-EF-005) — voir {@link #isCollectible(Source)}.
+     *
+     * @throws ImportAlreadyRunningException si un import est déjà en cours
      */
     public List<ImportResult> importAll() {
-        return sourceService.getAllSources().stream()
-                .filter(this::isCollectible)
-                .map(this::importFrom)
-                .toList();
+        if (!running.compareAndSet(false, true)) {
+            throw new ImportAlreadyRunningException();
+        }
+        try {
+            return sourceService.getAllSources().stream()
+                    .filter(this::isCollectible)
+                    .map(this::importFrom)
+                    .toList();
+        } finally {
+            running.set(false);
+        }
     }
 
     /**
@@ -263,7 +292,9 @@ public class ImportService {
         int ignored = 0;
         int needsReview = 0;
         int errors = 0;
+        int unchanged = 0;
         Set<String> seenKeys = new HashSet<>();
+        Map<String, String> knownFingerprints = importFingerprintService.findBySourceId(source.id());
 
         for (CollectedActivity item : collected) {
             try {
@@ -277,6 +308,17 @@ public class ImportService {
                 }
 
                 Optional<Activity> existing = activityRepository.findBySourceIdAndImportKey(source.id(), key);
+
+                // Import incrémental : contenu identique à celui du dernier import réussi → rien à
+                // réécrire. Une activité archivée n'est jamais sautée : revenue dans la source, elle
+                // doit être republiée.
+                String fingerprint = importFingerprintService.compute(item);
+                if (existing.isPresent()
+                        && !ARCHIVED_STATUS.equals(existing.get().status())
+                        && fingerprint.equals(knownFingerprints.get(key))) {
+                    unchanged++;
+                    continue;
+                }
 
                 // CAT-008 : classification centralisée (ClassificationService). Une activité déjà
                 // importée garde ses catégories (un ré-import n'écrase jamais une classification
@@ -322,7 +364,13 @@ public class ImportService {
                     created++;
                 }
 
-                enrichActivitySafely(source, saved, item);
+                // L'empreinte n'est enregistrée qu'après un enrichissement réussi : sinon l'élément
+                // est retenté en entier au prochain import.
+                if (enrichActivitySafely(source, saved, item)) {
+                    importFingerprintService.record(source.id(), key, fingerprint);
+                } else {
+                    importFingerprintService.forget(source.id(), key);
+                }
             } catch (RuntimeException exception) {
                 errors++;
                 LOGGER.warn("Échec du traitement d'un élément collecté pour la source '{}' : {}",
@@ -341,7 +389,7 @@ public class ImportService {
 
         ImportResult result = new ImportResult(
                 source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors, archived,
-                needsReview);
+                needsReview, unchanged);
         LOGGER.info("Import terminé pour la source '{}' : {}", source.name(), result);
 
         return result;
@@ -375,15 +423,19 @@ public class ImportService {
      * jusqu'au prochain import réussi de ce même élément, qui retentera
      * l'enrichissement en entier (voir {@code clearEnrichment}/{@code
      * enrichActivity}, aucun état partiel à nettoyer entre-temps).
+     *
+     * @return {@code true} si l'enrichissement a réussi
      */
-    private void enrichActivitySafely(Source source, Activity saved, CollectedActivity item) {
+    private boolean enrichActivitySafely(Source source, Activity saved, CollectedActivity item) {
         try {
             enrichActivity(saved.id(), item);
+            return true;
         } catch (RuntimeException exception) {
             LOGGER.warn(
                     "Échec de l'enrichissement (Location/Schedule/Occurrence/...) de l'activité importée "
                             + "'{}' (id {}) pour la source '{}' : {}",
                     saved.title(), saved.id(), source.name(), exception.getMessage(), exception);
+            return false;
         }
     }
 
