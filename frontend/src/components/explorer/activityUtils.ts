@@ -1,4 +1,4 @@
-import type { Activity } from "./types";
+import type { Activity, Category } from "./types";
 
 /**
  * Formate une date en YYYY-MM-DD à partir de ses composants locaux
@@ -70,9 +70,22 @@ export function groupActivitiesByCity(items: Activity[]): Array<[string, Activit
     return Array.from(groups.entries()).sort(([cityA], [cityB]) => compareCities(cityA, cityB));
 }
 
-export function buildCategoryOptions(items: Activity[]): string[] {
-    const categories = items.map((item) => item.category).filter((category): category is string => Boolean(category));
-    return Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b, "fr"));
+/**
+ * Libellés des catégories répertoriées d'une activité, dans l'ordre de
+ * `categoryCodes`. Un code absent du référentiel chargé est ignoré : seules
+ * les catégories répertoriées sont affichées, jamais la chaîne libre
+ * historique `category`.
+ */
+export function getCategoryLabels(activity: Activity, categories: Category[]): string[] {
+    const labelsByCode = new Map(categories.map((category) => [category.code, category.label]));
+    return (activity.categoryCodes ?? [])
+        .map((code) => labelsByCode.get(code))
+        .filter((label): label is string => Boolean(label));
+}
+
+/** Libellés joints pour un affichage sur une ligne (« Culture, Tourisme »), chaîne vide si aucun. */
+export function formatCategoryLabels(activity: Activity, categories: Category[]): string {
+    return getCategoryLabels(activity, categories).join(", ");
 }
 
 /**
@@ -82,12 +95,12 @@ export function buildCategoryOptions(items: Activity[]): string[] {
  * backend (ticket typé "Frontend" uniquement, hors périmètre d'ajouter une
  * recherche plein texte côté serveur).
  */
-export function matchesSearchQuery(activity: Activity, query: string): boolean {
+export function matchesSearchQuery(activity: Activity, query: string, categories: Category[] = []): boolean {
     const normalized = query.trim().toLowerCase();
     if (!normalized) {
         return true;
     }
-    return [activity.title, activity.city, activity.address, activity.category]
+    return [activity.title, activity.city, activity.address, ...getCategoryLabels(activity, categories)]
         .filter((value): value is string => Boolean(value))
         .some((value) => value.toLowerCase().includes(normalized));
 }

@@ -63,7 +63,8 @@ public record ActivityDetailResponse(
         List<LinkSummary> links,
         AccessibilitySummary accessibility,
         List<String> tags,
-        String additionalInfo) {
+        String additionalInfo,
+        List<String> categoryCodes) {
 
     public static ActivityDetailResponse from(
             Activity activity,
@@ -75,6 +76,22 @@ public record ActivityDetailResponse(
             Accessibility accessibility,
             List<String> tags,
             String additionalInfo) {
+        return from(activity, schedules, occurrences, locations, media, links, accessibility, tags,
+                additionalInfo, List.of());
+    }
+
+    /** {@code categoryCodes} : codes des catégories du référentiel de l'activité (1..N). */
+    public static ActivityDetailResponse from(
+            Activity activity,
+            List<Schedule> schedules,
+            List<Occurrence> occurrences,
+            List<Location> locations,
+            List<Media> media,
+            List<ActivityLink> links,
+            Accessibility accessibility,
+            List<String> tags,
+            String additionalInfo,
+            List<String> categoryCodes) {
         return new ActivityDetailResponse(
                 activity.id(),
                 activity.title(),
@@ -100,7 +117,8 @@ public record ActivityDetailResponse(
                 links.stream().map(LinkSummary::from).toList(),
                 accessibility == null ? null : AccessibilitySummary.from(accessibility),
                 tags,
-                additionalInfo);
+                additionalInfo,
+                categoryCodes);
     }
 
     /** Programmation d'une activité — voir {@link Schedule}. */

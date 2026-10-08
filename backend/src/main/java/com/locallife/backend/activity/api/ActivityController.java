@@ -6,6 +6,7 @@ import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.application.JwtAuthentication;
+import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.geocoding.application.AddressNotFoundException;
@@ -41,6 +42,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -352,14 +354,34 @@ public class ActivityController {
             likedActivityIds = likeService.findLikedActivityIds(jwtAuthentication.getUserId(), activityIds);
         }
         Set<Long> likedActivityIdsSet = Set.copyOf(likedActivityIds);
+        Map<Long, List<String>> categoryCodesByActivityId = resolveCategoryCodes(
+                activities.stream().map(Activity::id).toList());
 
         return activities.stream()
                 .map(activity -> ActivityResponse.from(
                         activity, sourceNamesById.getOrDefault(activity.sourceId(), UNKNOWN_SOURCE_NAME),
                         usernamesByCreatedBy.get(activity.createdBy()),
                         likedActivityIdsSet.contains(activity.id()),
-                        resolveMainImageUrl(activity.id())))
+                        resolveMainImageUrl(activity.id()),
+                        categoryCodesByActivityId.getOrDefault(activity.id(), List.of())))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Codes des catégories du référentiel par activité, en deux requêtes pour toute la liste
+     * (liens {@code activity_category}, puis référentiel {@code category}, une dizaine de lignes).
+     */
+    private Map<Long, List<String>> resolveCategoryCodes(List<Long> activityIds) {
+        Map<Long, List<Long>> categoryIdsByActivityId = activityService.findCategoryIds(activityIds);
+        if (categoryIdsByActivityId == null || categoryIdsByActivityId.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> codesById = categoryRepository.findAll().stream()
+                .collect(Collectors.toMap(Category::id, Category::code));
+        Map<Long, List<String>> categoryCodesByActivityId = new LinkedHashMap<>();
+        categoryIdsByActivityId.forEach((activityId, categoryIds) -> categoryCodesByActivityId.put(
+                activityId, categoryIds.stream().map(codesById::get).filter(Objects::nonNull).toList()));
+        return categoryCodesByActivityId;
     }
 
     /**
@@ -477,9 +499,12 @@ public class ActivityController {
                 .map(metadata -> metadata.data().value())
                 .orElse(null);
 
+        List<String> categoryCodes = resolveCategoryCodes(List.of(activity.id()))
+                .getOrDefault(activity.id(), List.of());
+
         return ActivityDetailResponse.from(
                 activity, schedules, occurrences, List.copyOf(locationsById.values()), media, links,
-                accessibility, tags, additionalInfo);
+                accessibility, tags, additionalInfo, categoryCodes);
     }
 
     @PostMapping
@@ -500,19 +525,17 @@ public class ActivityController {
             }
 
             // Issue #45 : une activité a 1..N catégories (contrainte en base, V42). Pour une
-            // contribution manuelle, la catégorie est celle du categoryCode choisi par le
-            // contributeur, pas déduite automatiquement (CAT-008 ne concerne que les imports).
-            Long categoryId = categoryRepository.findByCode(request.categoryCode())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Catégorie inconnue : " + request.categoryCode()))
-                    .id();
+            // contribution manuelle, ce sont celles choisies par le contributeur (categoryCodes,
+            // ou l'ancien categoryCode unique), pas déduites automatiquement (CAT-008 ne concerne
+            // que les imports).
+            List<Long> categoryIds = resolveRequestedCategoryIds(request);
 
             // authentication non-null garanti : POST /api/v1/activities exige un JWT valide
             // (voir SecurityConfig), JwtFilter ne laisse passer que des JwtAuthentication.
             Long createdBy = ((JwtAuthentication) authentication).getUserId();
             Activity activity = activityService.createActivity(
                     request.title(), request.description(), request.category(), request.address(),
-                    request.startDate(), request.endDate(), createdBy, List.of(categoryId));
+                    request.startDate(), request.endDate(), createdBy, categoryIds);
 
             attachContactLinks(activity.id(), request);
 
@@ -522,6 +545,30 @@ public class ActivityController {
         } catch (GeocodingUnavailableException exception) {
             return errorResponse(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), httpRequest);
         }
+    }
+
+    /**
+     * Catégories choisies par le contributeur : {@code categoryCodes} s'il contient au moins un
+     * code non blanc, sinon l'ancien {@code categoryCode} unique. Doublons ignorés, ordre conservé.
+     *
+     * @throws IllegalArgumentException si aucun code n'est fourni ou si l'un d'eux est inconnu
+     */
+    private List<Long> resolveRequestedCategoryIds(CreateActivityRequest request) {
+        List<String> codes = request.categoryCodes() == null ? List.of() : request.categoryCodes().stream()
+                .filter(this::hasText)
+                .map(String::trim)
+                .distinct()
+                .toList();
+        if (codes.isEmpty()) {
+            codes = Collections.singletonList(request.categoryCode());
+        }
+        List<Long> categoryIds = new ArrayList<>();
+        for (String code : codes) {
+            categoryIds.add(categoryRepository.findByCode(code)
+                    .orElseThrow(() -> new IllegalArgumentException("Catégorie inconnue : " + code))
+                    .id());
+        }
+        return categoryIds;
     }
 
     /**
@@ -714,11 +761,24 @@ public class ActivityController {
      * imports, pas la saisie manuelle). Résolu en {@code Category} par
      * {@link #createActivity}, qui rejette (400) un code manquant ou
      * inconnu.
+     *
+     * {@code categoryCodes} : plusieurs catégories pour une même contribution (modèle 1..N,
+     * issue #45). Prioritaire sur {@code categoryCode}, conservé pour les clients qui n'envoient
+     * qu'une catégorie.
      */
     public record CreateActivityRequest(
             String title, String description, String category, String address,
             String startDate, String endDate, String url, String phone, String email,
-            String categoryCode) {
+            String categoryCode, List<String> categoryCodes) {
+
+        /** Une seule catégorie ({@code categoryCode}), sans {@code categoryCodes}. */
+        public CreateActivityRequest(
+                String title, String description, String category, String address,
+                String startDate, String endDate, String url, String phone, String email,
+                String categoryCode) {
+            this(title, description, category, address, startDate, endDate, url, phone, email, categoryCode,
+                    null);
+        }
     }
 
 }

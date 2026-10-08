@@ -1,8 +1,9 @@
-import { formatActivityLocation } from "./activityUtils";
-import type { Activity } from "./types";
+import { formatActivityLocation, formatCategoryLabels } from "./activityUtils";
+import type { Activity, Category } from "./types";
 
 interface ActivityPreviewProps {
     activity: Activity;
+    categories: Category[];
     onClose: () => void;
     onOpenDetail: (activity: Activity) => void;
 }
@@ -15,7 +16,9 @@ interface ActivityPreviewProps {
  * La fiche complète (`ActivityDetailModal`) ne s'ouvre qu'à la demande,
  * via "Voir l'activité".
  */
-function ActivityPreview({ activity, onClose, onOpenDetail }: ActivityPreviewProps) {
+function ActivityPreview({ activity, categories, onClose, onOpenDetail }: ActivityPreviewProps) {
+    const categoryLabels = formatCategoryLabels(activity, categories);
+
     return (
         <div className="explorer-preview" role="dialog" aria-labelledby="explorer-preview-title">
             <button aria-label="Fermer l'aperçu" className="explorer-preview-close" onClick={onClose} type="button">
@@ -31,7 +34,7 @@ function ActivityPreview({ activity, onClose, onOpenDetail }: ActivityPreviewPro
                 <h3 id="explorer-preview-title">{activity.title}</h3>
                 <p className="explorer-preview-meta">
                     📍 {formatActivityLocation(activity)}
-                    {activity.category ? ` · ${activity.category}` : ""}
+                    {categoryLabels ? ` · ${categoryLabels}` : ""}
                 </p>
                 <button className="explorer-preview-cta" onClick={() => onOpenDetail(activity)} type="button">
                     Voir l'activité →

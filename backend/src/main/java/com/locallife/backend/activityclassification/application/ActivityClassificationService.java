@@ -10,8 +10,12 @@ import com.locallife.backend.activityclassification.infrastructure.ActivityActiv
 import com.locallife.backend.activityclassification.infrastructure.ActivityAudienceRepository;
 import com.locallife.backend.activityclassification.infrastructure.ActivityCategoryRepository;
 import com.locallife.backend.activityclassification.infrastructure.ActivityOrganizerTypeRepository;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.springframework.stereotype.Service;
@@ -90,6 +94,23 @@ public class ActivityClassificationService {
         return categoryRepository.findByActivityIdOrderByIdAsc(activityId).stream()
                 .map(ActivityCategory::categoryId)
                 .toList();
+    }
+
+    /**
+     * Catégories de plusieurs activités, en une seule requête (listes de résultats de recherche) :
+     * id d'activité → ids de catégories, dans l'ordre d'enregistrement. Une activité sans catégorie
+     * est absente de la map.
+     */
+    public Map<Long, List<Long>> getCategoryIdsByActivityId(Collection<Long> activityIds) {
+        if (activityIds == null || activityIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, List<Long>> categoryIdsByActivityId = new HashMap<>();
+        for (ActivityCategory link : categoryRepository.findByActivityIdInOrderByIdAsc(activityIds)) {
+            categoryIdsByActivityId.computeIfAbsent(link.activityId(), id -> new ArrayList<>())
+                    .add(link.categoryId());
+        }
+        return categoryIdsByActivityId;
     }
 
     /**

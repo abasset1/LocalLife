@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { toLocalDateString } from "./activityUtils";
-import { ALL_CATEGORIES, NO_DATE_FILTER } from "./constants";
+import { NO_DATE_FILTER } from "./constants";
+import type { Category } from "./types";
 
 interface ExplorerFiltersProps {
-    categories: string[];
-    selectedCategory: string;
-    onSelectCategory: (category: string) => void;
+    /** Catégories actives du référentiel : seules valeurs proposées. */
+    categories: Category[];
+    /** Codes des catégories cochées ; vide = toutes les catégories. */
+    selectedCategoryCodes: string[];
+    onSelectedCategoryCodesChange: (codes: string[]) => void;
     selectedDate: string;
     selectedDateTo: string;
     onDateChange: (date: string) => void;
@@ -18,13 +21,14 @@ interface ExplorerFiltersProps {
 
 /**
  * LL-EF-017, section 6 : les filtres restent directement accessibles (pas
- * relégués au menu). Catégories affichées en liste déroulante (demande
- * d'Alex — remplace les chips d'une catégorie par ligne, trop nombreuses
- * une fois toutes les catégories réelles chargées) ; le filtre de
- * date/période — plus dense — reste dans un panneau replié par défaut
- * (`.explorer-dates-panel`) pour ne pas surcharger le bandeau, sans rien
+ * relégués au menu). Catégories : uniquement celles du référentiel
+ * (`GET /api/v1/categories`), en cases à cocher pour en choisir plusieurs
+ * (demande d'Alex — remplace la liste déroulante à choix unique, alimentée
+ * par la chaîne libre des activités chargées). Elles sont dans un panneau
+ * replié par défaut, comme le filtre de date/période
+ * (`.explorer-dates-panel`), pour ne pas surcharger le bandeau, sans rien
  * retirer de la fonctionnalité existante (LL-4005/LL-11003, critère de
- * régression CA-12).
+ * régression CA-12). Un seul des deux panneaux est ouvert à la fois.
  *
  * Le bouton Carte/Liste (LL-EF-008) est conservé pour la même raison, mais
  * masqué en desktop (voir styles.css) : la liste y est désormais un panneau
@@ -32,8 +36,8 @@ interface ExplorerFiltersProps {
  */
 function ExplorerFilters({
     categories,
-    selectedCategory,
-    onSelectCategory,
+    selectedCategoryCodes,
+    onSelectedCategoryCodesChange,
     selectedDate,
     selectedDateTo,
     onDateChange,
@@ -43,7 +47,9 @@ function ExplorerFilters({
     viewMode,
     onViewModeChange,
 }: ExplorerFiltersProps) {
-    const [isDatesPanelOpen, setIsDatesPanelOpen] = useState(false);
+    const [openPanel, setOpenPanel] = useState<"categories" | "dates" | null>(null);
+    const isCategoriesPanelOpen = openPanel === "categories";
+    const isDatesPanelOpen = openPanel === "dates";
     const hasActiveDateFilter = selectedDate !== NO_DATE_FILTER;
     const todayString = toLocalDateString(new Date());
 
@@ -56,25 +62,55 @@ function ExplorerFilters({
         onDateChange(value && value < todayString ? todayString : value);
     }
 
+    function toggleCategory(code: string) {
+        onSelectedCategoryCodesChange(
+            selectedCategoryCodes.includes(code)
+                ? selectedCategoryCodes.filter((selected) => selected !== code)
+                : [...selectedCategoryCodes, code],
+        );
+    }
+
     return (
         <div className="explorer-filters">
             <div className="explorer-category-row">
-                <label className="explorer-category-select-wrapper">
-                    <span className="explorer-sr-only">Filtrer par catégorie</span>
-                    <select
-                        aria-label="Filtrer par catégorie"
-                        className="explorer-category-select"
-                        onChange={(event) => onSelectCategory(event.target.value)}
-                        value={selectedCategory}
+                <div className="explorer-categories">
+                    <button
+                        aria-expanded={isCategoriesPanelOpen}
+                        className={
+                            selectedCategoryCodes.length > 0 ? "explorer-chip explorer-chip-active" : "explorer-chip"
+                        }
+                        onClick={() => setOpenPanel(isCategoriesPanelOpen ? null : "categories")}
+                        type="button"
                     >
-                        <option value={ALL_CATEGORIES}>Toutes les catégories</option>
-                        {categories.map((category) => (
-                            <option key={category} value={category}>
-                                {category}
-                            </option>
-                        ))}
-                    </select>
-                </label>
+                        Catégories{selectedCategoryCodes.length > 0 ? ` (${selectedCategoryCodes.length})` : ""}
+                    </button>
+                    {isCategoriesPanelOpen && (
+                        <div className="explorer-categories-panel" role="group" aria-label="Filtrer par catégorie">
+                            {categories.length === 0 && (
+                                <p className="explorer-categories-empty">Aucune catégorie disponible.</p>
+                            )}
+                            {categories.map((category) => (
+                                <label className="explorer-category-option" key={category.code}>
+                                    <input
+                                        checked={selectedCategoryCodes.includes(category.code)}
+                                        onChange={() => toggleCategory(category.code)}
+                                        type="checkbox"
+                                    />
+                                    {category.label}
+                                </label>
+                            ))}
+                            {selectedCategoryCodes.length > 0 && (
+                                <button
+                                    className="explorer-dates-clear"
+                                    onClick={() => onSelectedCategoryCodesChange([])}
+                                    type="button"
+                                >
+                                    Toutes les catégories
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
                 <button className="explorer-chip explorer-chip-location" onClick={onUseMyLocation} type="button">
                     ⌖ Autour de moi
                 </button>
@@ -85,7 +121,7 @@ function ExplorerFilters({
                     <button
                         aria-expanded={isDatesPanelOpen}
                         className={hasActiveDateFilter ? "explorer-chip explorer-chip-active" : "explorer-chip"}
-                        onClick={() => setIsDatesPanelOpen((open) => !open)}
+                        onClick={() => setOpenPanel(isDatesPanelOpen ? null : "dates")}
                         type="button"
                     >
                         📅 Dates

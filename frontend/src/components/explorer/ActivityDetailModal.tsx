@@ -1,8 +1,8 @@
 import { buildDirectionsUrl } from "../../utils/directions";
 import { buildGoogleCalendarUrl } from "../../utils/googleCalendar";
 import { formatDateOfDay, formatRecurrenceRule, formatTimeRange } from "../../utils/recurrence";
-import { formatActivityLocation } from "./activityUtils";
-import type { Activity, ActivityDetail, AccessibilitySummary, ExplorerCurrentUser } from "./types";
+import { formatActivityLocation, formatCategoryLabels } from "./activityUtils";
+import type { Activity, ActivityDetail, AccessibilitySummary, Category, ExplorerCurrentUser } from "./types";
 
 /**
  * LL-11015 : les cinq catégories d'accessibilité (LL-11009) traduites en
@@ -19,6 +19,7 @@ const ACCESSIBILITY_LABELS: Record<keyof AccessibilitySummary, string> = {
 
 interface ActivityDetailModalProps {
     activity: Activity;
+    categories: Category[];
     detail: ActivityDetail | null;
     isLoadingDetail: boolean;
     detailError: string | null;
@@ -166,6 +167,7 @@ function renderDetailSections(detail: ActivityDetail) {
  */
 function ActivityDetailModal({
     activity,
+    categories,
     detail,
     isLoadingDetail,
     detailError,
@@ -177,6 +179,8 @@ function ActivityDetailModal({
     onCancel,
     onClose,
 }: ActivityDetailModalProps) {
+    const categoryLabels = formatCategoryLabels(activity, categories);
+
     return (
         <div className="explorer-modal-overlay" onClick={onClose} role="presentation">
             <div
@@ -217,9 +221,10 @@ function ActivityDetailModal({
                             timeStyle: "short",
                         })}
                     </p>
-                    {activity.category && (
+                    {categoryLabels && (
                         <p className="explorer-detail-row">
-                            <strong>Catégorie :</strong> {activity.category}
+                            <strong>{categoryLabels.includes(",") ? "Catégories" : "Catégorie"} :</strong>{" "}
+                            {categoryLabels}
                         </p>
                     )}
                     <p className="explorer-detail-row">

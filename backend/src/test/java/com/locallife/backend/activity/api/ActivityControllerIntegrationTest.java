@@ -19,7 +19,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests de bout en bout de {@code /api/v1/activities} (serveur réel, port aléatoire).
@@ -257,6 +259,31 @@ class ActivityControllerIntegrationTest {
                 .uri("/api/v1/activities/nearby?latitude=43.2951&longitude=5.3739&radius=50&category=concert")
                 .exchange()
                 .expectStatus().isOk();
+    }
+
+    /** Recherche autour de l'activité de test (créée en CULTURE), le jour de son début. */
+    private String nearbyTestActivityBody(String categoryParam) {
+        return restTestClient().get()
+                .uri("/api/v1/activities/nearby?latitude=43.9493&longitude=4.8055&radius=1&date="
+                        + testActivity.startDate().toLocalDate() + "&category=" + categoryParam)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .returnResult()
+                .getResponseBody();
+    }
+
+    @Test
+    void getNearbyActivities_ShouldFilterOnReferentialCategoryCodes_AndExposeThem() {
+        // Plusieurs codes du référentiel : une activité est retenue dès qu'elle porte l'un d'eux.
+        String matching = nearbyTestActivityBody("SPORT,CULTURE");
+        assertNotNull(matching);
+        assertTrue(matching.contains(testActivity.title()));
+        assertTrue(matching.contains("\"categoryCodes\":[\"CULTURE\"]"));
+
+        String notMatching = nearbyTestActivityBody("SPORT");
+        assertNotNull(notMatching);
+        assertFalse(notMatching.contains(testActivity.title()));
     }
 
     @Test

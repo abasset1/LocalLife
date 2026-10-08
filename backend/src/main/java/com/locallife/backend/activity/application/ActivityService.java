@@ -11,8 +11,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -181,6 +183,15 @@ public class ActivityService {
     }
 
     /**
+     * Catégories du référentiel de plusieurs activités (id d'activité → ids de catégories), pour que
+     * les réponses de recherche exposent les catégories répertoriées plutôt que la seule chaîne
+     * libre {@code category}. Délégué à {@code ActivityClassificationService}.
+     */
+    public Map<Long, List<Long>> findCategoryIds(Collection<Long> activityIds) {
+        return activityClassificationService.getCategoryIdsByActivityId(activityIds);
+    }
+
+    /**
      * Recherche géographique (LL-4002/LL-4003/LL-4004) : activités situées
      * à moins de {@code radius} kilomètres du point donné, triées par
      * distance croissante, avec filtres optionnels par catégorie et par
@@ -209,9 +220,13 @@ public class ActivityService {
      * celui-ci.
      *
      * {@code category} (LL-4004) : liste de catégories séparées par des
-     * virgules (ex. {@code "concert,marché"}), ou {@code null} pour ne pas
-     * filtrer. Chaque valeur est nettoyée (espaces retirés, valeurs vides
-     * ignorées). Comparée telle quelle à la colonne {@code category}
+     * virgules (ex. {@code "concert,marché"} ou {@code "CULTURE,SPORT"}),
+     * ou {@code null} pour ne pas filtrer. Chaque valeur correspond soit à
+     * la chaîne libre décrite ci-dessous, soit à un code du référentiel
+     * ({@code category.code}, catégories de l'activité dans
+     * {@code activity_category}) — voir {@code ActivityRepository}. Chaque
+     * valeur est nettoyée (espaces retirés, valeurs vides ignorées). La
+     * chaîne libre est comparée telle quelle à la colonne {@code category}
      * d'{@link Activity}, qui est une chaîne libre saisie par le
      * contributeur (voir {@code createActivity} ci-dessous) — il n'existe
      * aucun lien entre cette colonne et la table {@code category}

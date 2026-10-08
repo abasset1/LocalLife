@@ -2,6 +2,7 @@ package com.locallife.backend.activity.api;
 
 import com.locallife.backend.activity.domain.Activity;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Représentation d'une activité pour les recherches publiques
@@ -91,7 +92,8 @@ public record ActivityResponse(
         Long createdBy,
         String createdByUsername,
         boolean likedByCurrentUser,
-        String mainImageUrl) {
+        String mainImageUrl,
+        List<String> categoryCodes) {
 
     public static ActivityResponse from(Activity activity, String sourceName) {
         return from(activity, sourceName, null, false, null);
@@ -122,6 +124,18 @@ public record ActivityResponse(
     public static ActivityResponse from(
             Activity activity, String sourceName, String createdByUsername, boolean likedByCurrentUser,
             String mainImageUrl) {
+        return from(activity, sourceName, createdByUsername, likedByCurrentUser, mainImageUrl, List.of());
+    }
+
+    /**
+     * {@code categoryCodes} : codes des catégories du référentiel de l'activité
+     * ({@code activity_category}, 1..N), pour que le frontend affiche et filtre sur les catégories
+     * répertoriées plutôt que sur la chaîne libre {@code category}. Les variantes ci-dessus valent
+     * une liste vide.
+     */
+    public static ActivityResponse from(
+            Activity activity, String sourceName, String createdByUsername, boolean likedByCurrentUser,
+            String mainImageUrl, List<String> categoryCodes) {
         return new ActivityResponse(
                 activity.id(),
                 activity.title(),
@@ -140,6 +154,7 @@ public record ActivityResponse(
                 activity.createdBy(),
                 createdByUsername,
                 likedByCurrentUser,
-                mainImageUrl);
+                mainImageUrl,
+                categoryCodes);
     }
 }

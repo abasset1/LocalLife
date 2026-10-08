@@ -271,6 +271,49 @@ class ActivityControllerTest {
     }
 
     @Test
+    void createActivity_ShouldPassAllSelectedCategories_WhenCategoryCodesProvided() {
+        // Plusieurs catégories cochées dans le formulaire : toutes transmises, dans l'ordre, sans doublon ;
+        // categoryCodes prime sur l'ancien categoryCode unique.
+        Activity created = new Activity(1L, "Pique-nique", "Pique-nique au parc", null, 43.29, 5.37,
+                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
+        when(categoryRepository.findByCode("SPORT"))
+                .thenReturn(Optional.of(new Category(5L, "SPORT", true, null, null, Set.of())));
+        when(activityService.createActivity(
+                "Pique-nique", "Pique-nique au parc", null, "1 rue de la Paix, Marseille", null, null, 7L,
+                List.of(1L, 5L)))
+                .thenReturn(created);
+
+        ResponseEntity<Object> response = activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Pique-nique", "Pique-nique au parc", null, "1 rue de la Paix, Marseille",
+                        null, null, null, null, null,
+                        "NATURE", List.of("CULTURE", "SPORT", "CULTURE")),
+                authentication, httpRequest);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        verify(activityService).createActivity(
+                "Pique-nique", "Pique-nique au parc", null, "1 rue de la Paix, Marseille", null, null, 7L,
+                List.of(1L, 5L));
+    }
+
+    @Test
+    void createActivity_ShouldReturnBadRequest_WhenOneOfTheCategoryCodesIsUnknown() {
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
+        when(categoryRepository.findByCode("INCONNUE")).thenReturn(Optional.empty());
+
+        ResponseEntity<Object> response = activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Pique-nique", "Pique-nique au parc", null, "1 rue de la Paix, Marseille",
+                        null, null, null, null, null,
+                        null, List.of("CULTURE", "INCONNUE")),
+                authentication, httpRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
     void createActivity_ShouldPassCreatedByFromAuthentication_ToService() {
         // LL-EF-010 : createdBy provient exclusivement du JWT (JwtAuthentication),
         // jamais d'un champ du corps de requête — même principe que UserController

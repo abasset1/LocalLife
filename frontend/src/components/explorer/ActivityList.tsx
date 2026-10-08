@@ -1,9 +1,10 @@
-import { groupActivitiesByCity } from "./activityUtils";
+import { formatCategoryLabels, groupActivitiesByCity } from "./activityUtils";
 import { UNKNOWN_ADDRESS_LABEL } from "./activityUtils";
-import type { Activity } from "./types";
+import type { Activity, Category } from "./types";
 
 interface ActivityListProps {
     activities: Activity[];
+    categories: Category[];
     isLoading: boolean;
     error: string | null;
     onSelectActivity: (activity: Activity) => void;
@@ -18,7 +19,7 @@ interface ActivityListProps {
  * directement (section 8 du ticket : même comportement qu'un clic sur un
  * marqueur).
  */
-function ActivityList({ activities, isLoading, error, onSelectActivity }: ActivityListProps) {
+function ActivityList({ activities, categories, isLoading, error, onSelectActivity }: ActivityListProps) {
     if (isLoading) {
         return <p className="explorer-status">Chargement des activités…</p>;
     }
@@ -67,7 +68,9 @@ function ActivityList({ activities, isLoading, error, onSelectActivity }: Activi
                                                 minute: "2-digit",
                                             })}`
                                             : ""}
-                                        {activity.category ? ` · ${activity.category}` : ""}
+                                        {formatCategoryLabels(activity, categories)
+                                            ? ` · ${formatCategoryLabels(activity, categories)}`
+                                            : ""}
                                     </span>
                                 </button>
                             </li>

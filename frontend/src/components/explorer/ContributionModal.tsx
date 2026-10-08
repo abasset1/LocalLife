@@ -1,12 +1,15 @@
 import type { FormEvent } from "react";
+import type { Category } from "./types";
 
 interface ContributionModalProps {
+    categories: Category[];
     title: string;
     onTitleChange: (value: string) => void;
     description: string;
     onDescriptionChange: (value: string) => void;
-    category: string;
-    onCategoryChange: (value: string) => void;
+    /** Codes des catégories du référentiel cochées (`categoryCodes` côté API), au moins une. */
+    selectedCategoryCodes: string[];
+    onSelectedCategoryCodesChange: (codes: string[]) => void;
     address: string;
     onAddressChange: (value: string) => void;
     startDate: string;
@@ -32,12 +35,13 @@ interface ContributionModalProps {
  * pour ne pas affecter le formulaire équivalent d'AdminPage (`.contribution-form`).
  */
 function ContributionModal({
+    categories,
     title,
     onTitleChange,
     description,
     onDescriptionChange,
-    category,
-    onCategoryChange,
+    selectedCategoryCodes,
+    onSelectedCategoryCodesChange,
     address,
     onAddressChange,
     startDate,
@@ -55,6 +59,14 @@ function ContributionModal({
     onSubmit,
     onClose,
 }: ContributionModalProps) {
+    function toggleCategory(code: string) {
+        onSelectedCategoryCodesChange(
+            selectedCategoryCodes.includes(code)
+                ? selectedCategoryCodes.filter((selected) => selected !== code)
+                : [...selectedCategoryCodes, code],
+        );
+    }
+
     return (
         <div className="explorer-modal-overlay" onClick={onClose} role="presentation">
             <div
@@ -91,16 +103,21 @@ function ContributionModal({
                             value={description}
                         />
                     </div>
-                    <div className="explorer-form-field">
-                        <label htmlFor="explorer-activity-category">Catégorie</label>
-                        <input
-                            id="explorer-activity-category"
-                            onChange={(event) => onCategoryChange(event.target.value)}
-                            required
-                            type="text"
-                            value={category}
-                        />
-                    </div>
+                    <fieldset className="explorer-form-field explorer-form-categories">
+                        <legend>Catégories (au moins une)</legend>
+                        <div className="explorer-form-categories-options">
+                            {categories.map((item) => (
+                                <label className="explorer-category-option" key={item.code}>
+                                    <input
+                                        checked={selectedCategoryCodes.includes(item.code)}
+                                        onChange={() => toggleCategory(item.code)}
+                                        type="checkbox"
+                                    />
+                                    {item.label}
+                                </label>
+                            ))}
+                        </div>
+                    </fieldset>
                     <div className="explorer-form-field">
                         <label htmlFor="explorer-activity-address">Adresse</label>
                         <input

@@ -30,7 +30,7 @@ conventions de nommage, même format de réponse, mêmes codes d'erreur.
 | `latitude`  | double | oui          | entre -90 et 90                                  | Latitude du point de recherche.           |
 | `longitude` | double | oui          | entre -180 et 180                                | Longitude du point de recherche.          |
 | `radius`    | double | oui          | strictement positif, **en kilomètres**, max `50` | Rayon de recherche autour du point.       |
-| `category`  | string | non          | une ou plusieurs valeurs séparées par des virgules (ex. `concert,marché`) | Filtre les résultats sur la/les catégorie(s) données (correspondance exacte, `OU` entre les valeurs). Absent → aucun filtrage. Catégorie ne correspondant à aucune activité → liste vide, **pas** une erreur 400 (voir décision ci-dessous). |
+| `category`  | string | non          | une ou plusieurs valeurs séparées par des virgules (ex. `concert,marché`) | Filtre les résultats sur la/les catégorie(s) données (correspondance exacte, `OU` entre les valeurs). Absent → aucun filtrage. Chaque valeur est comparée à la chaîne libre `activity.category` **et** aux codes du référentiel (`CULTURE`, `SPORT`… : catégories de l'activité dans `activity_category`) ; le frontend envoie des codes (ex. `CULTURE,SPORT`). Catégorie ne correspondant à aucune activité → liste vide, **pas** une erreur 400 (voir décision ci-dessous). |
 | `date`      | string | non          | format ISO-8601 `yyyy-MM-dd` | Filtre les résultats sur une date donnée : une activité est retenue quand cette date tombe dans sa période `[startDate, endDate]` (bornes incluses, comparaison au jour près). Absent → aucun filtrage. Voir décision LL-4005 ci-dessous. Borne de début de la période quand `dateTo` est également fourni — voir décision LL-11003 ci-dessous. |
 | `dateTo`    | string | non          | format ISO-8601 `yyyy-MM-dd`, doit être ≥ `date` | Borne de fin optionnelle de la période, n'a de sens qu'accompagnée de `date`. Voir décision LL-11003 ci-dessous. |
 
@@ -109,6 +109,13 @@ Même format standardisé que le reste de l'API (`ErrorResponse` — voir
 * Filtrage par statut (paramètre `status`) proposé initialement ici,
   **retiré en LL-6004** — voir la mise à jour en tête de ce document.
   Cet endpoint ne retourne plus que les activités `PUBLISHED`.
+
+## Catégories du référentiel dans la réponse
+
+Chaque activité renvoyée par `/nearby` et `/within-bounds` porte `categoryCodes` : les codes de ses
+catégories du référentiel (1..N, table `activity_category`). La fiche détaillée (`GET /api/v1/activities/{id}`)
+l'expose aussi. Le frontend affiche les libellés correspondants (`GET /api/v1/categories`) et n'affiche
+plus la chaîne libre `category`, conservée dans la réponse pour compatibilité.
 
 ## Décision LL-4004 à valider : `category` (chaîne) et non `categoryId`
 

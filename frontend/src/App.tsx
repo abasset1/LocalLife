@@ -6,14 +6,14 @@ import { clearToken, getPayload } from "./auth/authStorage";
 import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
 import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
-import { buildCategoryOptions, matchesSearchQuery, toLocalDateString } from "./components/explorer/activityUtils";
-import { ALL_CATEGORIES, DEFAULT_SEARCH_RADIUS_KM, MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE, NO_DATE_FILTER } from "./components/explorer/constants";
+import { matchesSearchQuery, toLocalDateString } from "./components/explorer/activityUtils";
+import { DEFAULT_SEARCH_RADIUS_KM, MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE, NO_DATE_FILTER } from "./components/explorer/constants";
 import ContributionModal from "./components/explorer/ContributionModal";
 import ExplorerFilters from "./components/explorer/ExplorerFilters";
 import ExplorerMap from "./components/explorer/ExplorerMap";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
 import ExplorerSearch from "./components/explorer/ExplorerSearch";
-import type { Activity, ActivityDetail, ApiErrorBody, FoodTruck, MapBounds, UserPosition } from "./components/explorer/types";
+import type { Activity, ActivityDetail, ApiErrorBody, Category, FoodTruck, MapBounds, UserPosition } from "./components/explorer/types";
 
 /**
  * LL-EF-017 — Refonte de l'écran Explorer autour de la carte.
@@ -29,14 +29,19 @@ import type { Activity, ActivityDetail, ApiErrorBody, FoodTruck, MapBounds, User
 function App() {
     const navigate = useNavigate();
     const [activities, setActivities] = useState<Activity[]>([]);
-    const [availableCategories, setAvailableCategories] = useState<string[]>([]);
-    const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
+    /** Catégories actives du référentiel (`GET /api/v1/categories`) : seules valeurs proposées et affichées. */
+    const [categories, setCategories] = useState<Category[]>([]);
+    /** Codes des catégories cochées ; vide = pas de filtre. */
+    const [selectedCategoryCodes, setSelectedCategoryCodes] = useState<string[]>([]);
+    /** Clé stable du filtre catégorie (codes triés) : évite de relancer la recherche sur un simple nouveau tableau. */
+    const selectedCategoriesKey = useMemo(() => [...selectedCategoryCodes].sort().join(","), [selectedCategoryCodes]);
     const [selectedDate, setSelectedDate] = useState(NO_DATE_FILTER);
     const [selectedDateTo, setSelectedDateTo] = useState(NO_DATE_FILTER);
     const [currentUser, setCurrentUser] = useState(() => getPayload());
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
-    const [category, setCategory] = useState("");
+    /** Formulaire de proposition : codes des catégories du référentiel cochées. */
+    const [contributionCategoryCodes, setContributionCategoryCodes] = useState<string[]>([]);
     const [address, setAddress] = useState("");
     const [url, setUrl] = useState("");
     const [phone, setPhone] = useState("");
@@ -72,12 +77,37 @@ function App() {
     const [isTogglingLike, setIsTogglingLike] = useState(false);
 
     const previousSearchDepsRef = useRef<{
-        selectedCategory: string;
+        selectedCategoriesKey: string;
         selectedDate: string;
         selectedDateTo: string;
         refreshKey: number;
         userPosition: UserPosition | null;
     } | null>(null);
+
+    // Référentiel des catégories, chargé une fois (lecture publique : `fetch` direct, voir apiClient.ts).
+    useEffect(() => {
+        const abortController = new AbortController();
+
+        async function loadCategories() {
+            try {
+                const response = await fetch("/api/v1/categories?locale=fr-FR", { signal: abortController.signal });
+                if (response.ok) {
+                    const data: Category[] = await response.json();
+                    setCategories(
+                        data
+                            .filter((category) => category.active)
+                            .sort((a, b) => a.label.localeCompare(b.label, "fr")),
+                    );
+                }
+            } catch {
+                // Référentiel indisponible : le filtre catégorie reste vide, la recherche fonctionne sans lui.
+            }
+        }
+
+        void loadCategories();
+
+        return () => abortController.abort();
+    }, []);
 
     useEffect(() => {
         const abortController = new AbortController();
@@ -87,12 +117,12 @@ function App() {
         // nouvelle activité proposée) déclenche l'état de chargement/la purge.
         const previousDeps = previousSearchDepsRef.current;
         const isMapOnlyReload = previousDeps !== null
-            && previousDeps.selectedCategory === selectedCategory
+            && previousDeps.selectedCategoriesKey === selectedCategoriesKey
             && previousDeps.selectedDate === selectedDate
             && previousDeps.selectedDateTo === selectedDateTo
             && previousDeps.refreshKey === refreshKey
             && previousDeps.userPosition === userPosition;
-        previousSearchDepsRef.current = { selectedCategory, selectedDate, selectedDateTo, refreshKey, userPosition };
+        previousSearchDepsRef.current = { selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition };
 
         if (!isMapOnlyReload) {
             setIsLoadingActivities(true);
@@ -121,8 +151,10 @@ function App() {
                 params.set("radius", String(DEFAULT_SEARCH_RADIUS_KM));
             }
 
-            if (selectedCategory !== ALL_CATEGORIES) {
-                params.set("category", selectedCategory);
+            // Plusieurs codes du référentiel, séparés par des virgules : une activité est retenue
+            // dès qu'elle porte l'une des catégories cochées.
+            if (selectedCategoriesKey) {
+                params.set("category", selectedCategoriesKey);
             }
             if (selectedDate !== NO_DATE_FILTER) {
                 params.set("date", selectedDate);
@@ -139,11 +171,6 @@ function App() {
                 if (response.ok) {
                     const data: Activity[] = await response.json();
                     setActivities(data);
-                    // Reconstruite uniquement sans filtre catégorie/date actif (voir la
-                    // javadoc d'origine, App.tsx avant LL-EF-017, pour le raisonnement complet).
-                    if (selectedCategory === ALL_CATEGORIES && selectedDate === NO_DATE_FILTER) {
-                        setAvailableCategories(buildCategoryOptions(data));
-                    }
                 } else {
                     const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
                     setSearchError(body?.message ?? "Impossible de charger les activités, réessaie.");
@@ -164,7 +191,7 @@ function App() {
         void loadActivities();
 
         return () => abortController.abort();
-    }, [selectedCategory, selectedDate, selectedDateTo, refreshKey, userPosition, mapBounds]);
+    }, [selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, mapBounds]);
 
     // Récupération des food trucks (LL-6009), isolée de celle des activités — inchangée.
     useEffect(() => {
@@ -194,7 +221,7 @@ function App() {
      * catégories disponibles.
      */
     const filteredActivities = useMemo(
-        () => activities.filter((activity) => matchesSearchQuery(activity, searchQuery)),
+        () => activities.filter((activity) => matchesSearchQuery(activity, searchQuery, categories)),
         [activities, searchQuery],
     );
 
@@ -316,6 +343,13 @@ function App() {
         setSubmitStatus("idle");
         setSubmitError(null);
 
+        // Des cases à cocher ne peuvent pas porter `required` à elles toutes : vérifié ici.
+        if (contributionCategoryCodes.length === 0) {
+            setSubmitError("Choisis au moins une catégorie.");
+            setSubmitStatus("error");
+            return;
+        }
+
         try {
             const response = await apiFetch("/api/v1/activities", {
                 method: "POST",
@@ -323,7 +357,9 @@ function App() {
                 body: JSON.stringify({
                     title,
                     description,
-                    category,
+                    categoryCodes: contributionCategoryCodes,
+                    // Ancien champ à valeur unique, encore lu par un backend antérieur à `categoryCodes`.
+                    categoryCode: contributionCategoryCodes[0],
                     address,
                     startDate: startDate || undefined,
                     endDate: endDate || undefined,
@@ -344,7 +380,7 @@ function App() {
             setSubmitStatus("success");
             setTitle("");
             setDescription("");
-            setCategory("");
+            setContributionCategoryCodes([]);
             setAddress("");
             setStartDate("");
             setEndDate("");
@@ -502,7 +538,7 @@ function App() {
                     </div>
 
                     <ExplorerFilters
-                        categories={availableCategories}
+                        categories={categories}
                         onClearDate={() => {
                             setSelectedDate(NO_DATE_FILTER);
                             setSelectedDateTo(NO_DATE_FILTER);
@@ -512,10 +548,10 @@ function App() {
                             setSelectedDateTo(NO_DATE_FILTER);
                         }}
                         onPeriodChange={handlePeriodChange}
-                        onSelectCategory={setSelectedCategory}
+                        onSelectedCategoryCodesChange={setSelectedCategoryCodes}
                         onUseMyLocation={requestGeolocation}
                         onViewModeChange={setViewMode}
-                        selectedCategory={selectedCategory}
+                        selectedCategoryCodes={selectedCategoryCodes}
                         selectedDate={selectedDate}
                         selectedDateTo={selectedDateTo}
                         viewMode={viewMode}
@@ -544,6 +580,7 @@ function App() {
                         {previewActivity && (
                             <ActivityPreview
                                 activity={previewActivity}
+                                categories={categories}
                                 onClose={() => setPreviewActivity(null)}
                                 onOpenDetail={handleOpenDetail}
                             />
@@ -553,6 +590,7 @@ function App() {
                     <div className="explorer-list-panel">
                         <ActivityList
                             activities={filteredActivities}
+                            categories={categories}
                             error={searchError}
                             isLoading={isLoadingActivities}
                             onSelectActivity={handleSelectActivity}
@@ -564,12 +602,13 @@ function App() {
             {isContributionModalOpen && currentUser && (
                 <ContributionModal
                     address={address}
-                    category={category}
+                    categories={categories}
                     description={description}
                     email={email}
                     endDate={endDate}
                     onAddressChange={setAddress}
-                    onCategoryChange={setCategory}
+                    onSelectedCategoryCodesChange={setContributionCategoryCodes}
+                    selectedCategoryCodes={contributionCategoryCodes}
                     onClose={handleCloseContributionForm}
                     onDescriptionChange={setDescription}
                     onEmailChange={setEmail}
@@ -591,6 +630,7 @@ function App() {
             {detailActivity && (
                 <ActivityDetailModal
                     activity={detailActivity}
+                    categories={categories}
                     cancelError={cancelActivityError}
                     currentUser={currentUser}
                     detail={activityDetail}
