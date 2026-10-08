@@ -32,14 +32,13 @@ import java.util.Set;
  * secondaire, sans score ni arbitrage) :
  * <ol>
  *   <li>aucun signal → {@code UNCLASSIFIED} ;</li>
- *   <li>un signal du domaine emploi/formation → {@code NEEDS_REVIEW}
- *       ({@code EMPLOYMENT_DOMAIN}), même si un autre signal est classable :
- *       la décision de fond sur ce domaine n'est pas prise ;</li>
  *   <li>une ou plusieurs catégories V1 → {@code AUTO_CLASSIFIED} avec
  *       <b>toutes</b> ces catégories, dans l'ordre des signaux (catégorie
  *       d'origine puis tags). Plusieurs catégories ne sont jamais un conflit ;
  *       un signal ambigu (ex. {@code patrimoine} : CULTURE ou TOURISM) ne
- *       désigne aucune catégorie et n'en ajoute donc aucune ;</li>
+ *       désigne aucune catégorie et n'en ajoute donc aucune. Le domaine
+ *       emploi/formation est une catégorie comme les autres ({@code EMPLOYMENT},
+ *       issue #49) : il s'ajoute aux autres catégories détectées ;</li>
  *   <li>seulement des signaux ambigus → {@code NEEDS_REVIEW}
  *       ({@code AMBIGUOUS_CATEGORY}, candidats listés) ;</li>
  *   <li>sinon {@code NEEDS_REVIEW} (public, type, valeur inconnue...).</li>
@@ -105,22 +104,14 @@ public final class ActivityClassifier {
 
         Set<String> mapped = new LinkedHashSet<>();
         Set<String> ambiguousCandidates = new LinkedHashSet<>();
-        boolean employment = false;
         for (Result result : results) {
             if (result.outcome() == Outcome.MAPPED) {
                 mapped.add(result.categoryCode());
-            } else if (result.outcome() == Outcome.NEEDS_REVIEW) {
-                if (result.reason() == ReviewReason.EMPLOYMENT_DOMAIN) {
-                    employment = true;
-                } else if (result.reason() == ReviewReason.AMBIGUOUS_CATEGORY) {
-                    ambiguousCandidates.addAll(result.candidateCategoryCodes());
-                }
+            } else if (result.reason() == ReviewReason.AMBIGUOUS_CATEGORY) {
+                ambiguousCandidates.addAll(result.candidateCategoryCodes());
             }
         }
 
-        if (employment) {
-            return review(ReviewReason.EMPLOYMENT_DOMAIN.name(), List.copyOf(mapped));
-        }
         if (!mapped.isEmpty()) {
             List<String> codes = List.copyOf(mapped);
             return new Decision(ClassificationStatus.AUTO_CLASSIFIED, codes, null, List.of(), autoRuleId(codes));

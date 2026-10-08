@@ -26,8 +26,13 @@ import java.util.Set;
  * {@link Outcome#NEEDS_REVIEW} avec la raison de ce statut, et les
  * catégories candidates quand l'ambiguïté en porte.
  *
+ * <p>Exception : le domaine emploi/formation/insertion (issue #49) est
+ * reconnu par jetons (mots entiers, {@code TOKEN:EMPLOYMENT}) ou par libellé
+ * entier ({@code EXACT:EMPLOYMENT}), et classé dans la catégorie
+ * {@code EMPLOYMENT}.
+ *
  * <p>Ne crée jamais de catégorie : les seuls codes produits sont des codes
- * V1 existants (CAT-001).
+ * existants du référentiel (CAT-001, + {@code EMPLOYMENT} depuis V44).
  */
 public final class LegacyCategoryMapper {
 
@@ -47,8 +52,6 @@ public final class LegacyCategoryMapper {
         AUDIENCE_VALUE,
         /** La valeur décrit un type d'activité (dimension ACTIVITY_TYPE), pas une catégorie. */
         ACTIVITY_TYPE_VALUE,
-        /** Domaine emploi/formation : aucune des 9 catégories V1 (CATEGORY_MIGRATION_MAP §6.1). */
-        EMPLOYMENT_DOMAIN,
         /** Valeur inconnue : lieu, artiste, code interne, texte libre... */
         UNRECOGNIZED
     }
@@ -94,6 +97,9 @@ public final class LegacyCategoryMapper {
             Map.entry("projection", "CULTURE"),
             Map.entry("film", "CULTURE"),
             Map.entry("culture", "CULTURE"),
+            // Artisanat d'art, pas le domaine emploi (le jeton « metiers » le classerait EMPLOYMENT).
+            Map.entry("metiers d art", "CULTURE"),
+            Map.entry("journees europeennes des metiers d art", "CULTURE"),
             // MARKETS
             Map.entry("marche", "MARKETS"),
             Map.entry("marches", "MARKETS"),
@@ -157,14 +163,33 @@ public final class LegacyCategoryMapper {
             "festival", "animation", "stage");
 
     /**
-     * Mots entiers signalant le domaine emploi/formation/insertion. Aucune
-     * catégorie V1 n'existe pour ce domaine : décision de fond dédiée avant
-     * CAT-008 (CATEGORY_MIGRATION_MAP §11.5), le référentiel n'est pas modifié ici.
+     * Code de la catégorie emploi/formation/insertion (issue #49, option A :
+     * catégorie à part entière, créée par
+     * {@code V44__create_employment_category.sql}).
+     */
+    static final String EMPLOYMENT = "EMPLOYMENT";
+
+    /**
+     * Mots entiers signalant le domaine emploi/formation/insertion : une valeur
+     * qui en contient un est classée {@link #EMPLOYMENT}. Les jetons ajoutés par
+     * l'issue #49 ({@code entreprise}, {@code job}, {@code embauche}...) viennent
+     * des libellés réels non détectés de l'extraction du 29/09/2026.
      */
     private static final Set<String> EMPLOYMENT_TOKENS = Set.of(
             "emploi", "recrutement", "formation", "insertion", "alternance",
             "apprentissage", "metier", "metiers", "interim", "travail",
-            "tousmobilises", "tousenimmersion", "qpv", "cv", "orientation");
+            "tousmobilises", "tousenimmersion", "qpv", "cv", "orientation",
+            "entreprise", "entreprises", "job", "jobs", "embauche", "recrute");
+
+    /**
+     * Libellés entiers propres aux agendas emploi (France Travail...), trop
+     * génériques pour être des jetons (« s'informer » seul n'est pas un signal
+     * emploi dans un titre) mais sans ambiguïté comme catégorie d'origine
+     * complète (extraction du 29/09/2026).
+     */
+    private static final Set<String> EMPLOYMENT_VALUES = Set.of(
+            "s informer", "se preparer", "les cles pour reussir", "detection de potentiel",
+            "mobilisation 50 ans et plus", "1 jeune 1 solution");
 
     private LegacyCategoryMapper() {
     }
@@ -192,9 +217,12 @@ public final class LegacyCategoryMapper {
         if (ACTIVITY_TYPE_VALUES.contains(key)) {
             return review(ReviewReason.ACTIVITY_TYPE_VALUE);
         }
+        if (EMPLOYMENT_VALUES.contains(key)) {
+            return new Result(Outcome.MAPPED, EMPLOYMENT, null, List.of(), "EXACT:" + EMPLOYMENT);
+        }
         for (String token : key.split(" ")) {
             if (EMPLOYMENT_TOKENS.contains(token)) {
-                return review(ReviewReason.EMPLOYMENT_DOMAIN);
+                return new Result(Outcome.MAPPED, EMPLOYMENT, null, List.of(), "TOKEN:" + EMPLOYMENT);
             }
         }
         return review(ReviewReason.UNRECOGNIZED);

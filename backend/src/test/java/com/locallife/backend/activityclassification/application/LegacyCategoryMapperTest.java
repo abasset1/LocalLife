@@ -31,7 +31,7 @@ class LegacyCategoryMapperTest {
 
     private static final Set<String> V1_CATEGORY_CODES = Set.of(
             "CULTURE", "GASTRONOMY", "MARKETS", "COMMERCE", "SPORT",
-            "LEISURE", "NATURE", "TOURISM", "CITIZEN");
+            "LEISURE", "NATURE", "TOURISM", "CITIZEN", "EMPLOYMENT");
 
     @ParameterizedTest
     @CsvSource({
@@ -66,12 +66,11 @@ class LegacyCategoryMapperTest {
 
     @Test
     void matchingIsExactNeverBySubstring() {
-        // « marché du travail » est du domaine emploi, pas un marché.
+        // « marché du travail » est du domaine emploi, jamais un marché.
         Result result = LegacyCategoryMapper.map("Marché du travail");
 
-        assertEquals(Outcome.NEEDS_REVIEW, result.outcome());
-        assertEquals(ReviewReason.EMPLOYMENT_DOMAIN, result.reason());
-        assertNull(result.categoryCode());
+        assertEquals(Outcome.MAPPED, result.outcome());
+        assertEquals("EMPLOYMENT", result.categoryCode());
         // « marche nordique » est de la marche à pied, pas un marché.
         assertEquals(Outcome.NEEDS_REVIEW, LegacyCategoryMapper.map("Marche nordique").outcome());
     }
@@ -103,14 +102,34 @@ class LegacyCategoryMapperTest {
     }
 
     @Test
-    void employmentDomainHasNoV1CategoryAndIsNotForcedIntoOne() {
+    void employmentDomainIsTheEmploymentCategory() {
+        // Issue #49 (option A) : jetons emploi (mots entiers) → EMPLOYMENT.
         for (String value : List.of("Recrutement", "#TousMobilisés", "Aides à l'emploi",
-                "Métiers du BTP", "L'alternance", "1 jeune 1 solution")) {
+                "Métiers du BTP", "L'alternance", "Création d'entreprise", "Décroche un job d'été",
+                "La Mer embauche")) {
             Result result = LegacyCategoryMapper.map(value);
-            assertEquals(Outcome.NEEDS_REVIEW, result.outcome(), value);
-            assertNull(result.categoryCode(), value);
+            assertEquals(Outcome.MAPPED, result.outcome(), value);
+            assertEquals("EMPLOYMENT", result.categoryCode(), value);
+            assertEquals("TOKEN:EMPLOYMENT", result.ruleId(), value);
         }
-        assertEquals(ReviewReason.EMPLOYMENT_DOMAIN, LegacyCategoryMapper.map("Recrutement").reason());
+        // Libellés entiers propres aux agendas emploi, trop génériques pour être des jetons.
+        for (String value : List.of("S'informer", "Se préparer", "Les clés pour réussir", "Détection de potentiel",
+                "Mobilisation 50 ans et plus", "1 jeune  1 solution")) {
+            Result result = LegacyCategoryMapper.map(value);
+            assertEquals("EMPLOYMENT", result.categoryCode(), value);
+            assertEquals("EXACT:EMPLOYMENT", result.ruleId(), value);
+        }
+    }
+
+    @Test
+    void employmentSignalsStayStrict() {
+        // Pas de sous-chaîne : « Se préparer à la retraite » n'est pas le libellé « Se préparer ».
+        assertNull(LegacyCategoryMapper.map("Se préparer à la retraite").categoryCode());
+        // « TaskForceEntreprise » est un seul mot : pas le jeton « entreprise ».
+        assertNull(LegacyCategoryMapper.map("TaskForceEntreprise").categoryCode());
+        // Métiers d'art : artisanat d'art (CULTURE), pas le domaine emploi.
+        assertEquals("CULTURE", LegacyCategoryMapper.map("Métiers d'art").categoryCode());
+        assertEquals("CULTURE", LegacyCategoryMapper.map("Journées européennes des métiers d'art").categoryCode());
     }
 
     @Test
@@ -152,20 +171,23 @@ class LegacyCategoryMapperTest {
 
         assertEquals(47_338L, total);
         long mapped = activitiesByRule.entrySet().stream()
-                .filter(e -> e.getKey().startsWith("EXACT:")).mapToLong(Map.Entry::getValue).sum();
+                .filter(e -> e.getKey().startsWith("EXACT:") || e.getKey().startsWith("TOKEN:"))
+                .mapToLong(Map.Entry::getValue).sum();
         long needsReview = activitiesByRule.entrySet().stream()
                 .filter(e -> e.getKey().startsWith("REVIEW:")).mapToLong(Map.Entry::getValue).sum();
-        assertEquals(854L, mapped);
-        assertEquals(4_788L, needsReview);
+        // Issue #49 : le domaine emploi est une catégorie (EMPLOYMENT) — avant : 854 classées, 4 788 à relire.
+        assertEquals(3_162L, mapped);
+        assertEquals(2_480L, needsReview);
         assertEquals(41_696L, activitiesByRule.get("NO_VALUE"));
         assertEquals(total, mapped + needsReview + activitiesByRule.get("NO_VALUE"));
 
         assertEquals(808L, activitiesByRule.get("EXACT:CULTURE"));
-        assertEquals(1_578L, activitiesByRule.get("REVIEW:" + ReviewReason.EMPLOYMENT_DOMAIN));
+        assertEquals(1_904L, activitiesByRule.get("TOKEN:EMPLOYMENT"));
+        assertEquals(404L, activitiesByRule.get("EXACT:EMPLOYMENT"));
         assertEquals(252L, activitiesByRule.get("REVIEW:" + ReviewReason.AMBIGUOUS_CATEGORY));
         assertEquals(232L, activitiesByRule.get("REVIEW:" + ReviewReason.AUDIENCE_VALUE));
         assertEquals(175L, activitiesByRule.get("REVIEW:" + ReviewReason.ACTIVITY_TYPE_VALUE));
-        assertEquals(2_551L, activitiesByRule.get("REVIEW:" + ReviewReason.UNRECOGNIZED));
+        assertEquals(1_821L, activitiesByRule.get("REVIEW:" + ReviewReason.UNRECOGNIZED));
     }
 
     /** Lignes {category, nb} de l'extraction (colonne source_type ignorée). */

@@ -19,7 +19,7 @@ catégorie. Un code obtenu est ensuite résolu vers la catégorie **existante** 
 | `UNCLASSIFIED` | aucun signal (ni catégorie d'origine, ni tag) | non |
 | `AUTO_CLASSIFIED` | une ou plusieurs catégories V1 déterminées (toutes conservées, §11) | oui |
 | `VALIDATED` | catégorie confirmée par un humain | oui |
-| `NEEDS_REVIEW` | seulement des signaux ambigus, aucune catégorie résolue dans le référentiel, emploi/formation, valeurs non catégorielles | non |
+| `NEEDS_REVIEW` | seulement des signaux ambigus, aucune catégorie résolue dans le référentiel, valeurs non catégorielles | non |
 | `REJECTED` | relecture terminée, élément écarté | non |
 
 À ne pas confondre avec `Activity.status` (modération / cycle de vie). Persistance :
@@ -32,12 +32,12 @@ Signaux : la catégorie d'origine et les tags de la source (pas la description :
 par mot-clé). Le titre n'intervient qu'en **repli**, quand la source ne fournit aucun keyword : voir §10.
 
 1. aucun signal → `UNCLASSIFIED` ;
-2. un signal emploi/formation → `NEEDS_REVIEW` (`EMPLOYMENT_DOMAIN`), même si un autre signal est classable ;
-3. une ou plusieurs catégories V1 → `AUTO_CLASSIFIED` avec **toutes** ces catégories (ordre des signaux) ;
+2. une ou plusieurs catégories → `AUTO_CLASSIFIED` avec **toutes** ces catégories (ordre des signaux) ;
    plusieurs catégories ne sont **jamais** un conflit. Un signal ambigu (ex. `patrimoine` → CULTURE ou
-   TOURISM) ne désigne aucune catégorie : il n'en ajoute ni n'en bloque aucune ;
-4. seulement des signaux ambigus → `NEEDS_REVIEW` (`AMBIGUOUS_CATEGORY`, candidats listés) ;
-5. sinon → `NEEDS_REVIEW` (`AMBIGUOUS_CATEGORY`, `AUDIENCE_VALUE`, `ACTIVITY_TYPE_VALUE` ou `UNRECOGNIZED`).
+   TOURISM) ne désigne aucune catégorie : il n'en ajoute ni n'en bloque aucune. Un signal emploi/formation
+   donne la catégorie `EMPLOYMENT`, cumulable avec les autres (§12) ;
+3. seulement des signaux ambigus → `NEEDS_REVIEW` (`AMBIGUOUS_CATEGORY`, candidats listés) ;
+4. sinon → `NEEDS_REVIEW` (`AMBIGUOUS_CATEGORY`, `AUDIENCE_VALUE`, `ACTIVITY_TYPE_VALUE` ou `UNRECOGNIZED`).
 
 Les valeurs de public (jeune public, famille...) et de type (atelier, festival...) ne décident jamais
 la catégorie et ne la bloquent pas non plus. Exemple du sprint : « Festival médiéval » ne peut pas
@@ -92,7 +92,6 @@ par `ClassificationService` comme les imports.
   `REJECTED` ; les statuts existent, le workflow reste à faire. Un élément validé devrait ensuite
   créer l'activité (ou être ré-importé).
 * **Types, publics, organisateur** : seules les catégories sont classées.
-* **Domaine emploi/formation** : reste `NEEDS_REVIEW` ; la décision de fond est à prendre séparément (CAT-007 §11.5).
 
 ## 8. Dette et tickets suivants
 
@@ -100,8 +99,7 @@ par `ClassificationService` comme les imports.
    `classification_record` de `NEEDS_REVIEW` à `VALIDATED` (catégorie choisie parmi les candidats, création
    de l'activité) ou `REJECTED`. Tant qu'il n'existe pas, les éléments restent consignés et visibles
    uniquement en base et via le compteur `needsReview`.
-2. **Décision de fond emploi/formation** : à arbitrer avant de considérer CAT-007 clos (voir
-   `CATEGORY_MIGRATION_MAP.md` §11.5). Aucune catégorie n'est créée en attendant.
+2. ~~**Décision de fond emploi/formation**~~ : prise par l'issue #49 → catégorie `EMPLOYMENT` (§12).
 3. **Mesure de l'apport des tags** : voir §9. Les règles ne sont **pas** modifiées sur la base du seul
    1,8 % (catégorie d'origine seule).
 4. Trace `VALIDATED` des contributions manuelles ; classification des types/publics/organisateur.
@@ -231,3 +229,35 @@ contributions manuelles) ; `replaceCategories` remplace l'ensemble, jamais par u
 | Balade nature à vélo | NATURE + SPORT |
 | Exposition de peinture | CULTURE |
 | Concert au marché de Noël | CULTURE + MARKETS |
+
+## 12. Catégorie emploi & formation (issue #49)
+
+Décision (option A) : le domaine emploi / formation / insertion devient une **catégorie à part entière**,
+`EMPLOYMENT` (« Emploi & formation »), créée par `V44__create_employment_category.sql`. C'est la seule
+catégorie ajoutée au référentiel V1 ; comme les autres, elle est exposée par `GET /api/v1/categories`.
+
+* **Catégories d'origine et tags** (`LegacyCategoryMapper`) : un jeton emploi (mot entier : `emploi`,
+  `recrutement`, `formation`, `alternance`, `metiers`, `travail`, `cv`, `entreprise`, `job`, `embauche`…) donne
+  `EMPLOYMENT` (`TOKEN:EMPLOYMENT`) ; quelques libellés entiers propres aux agendas emploi (« S'informer »,
+  « Se préparer », « Les clés pour réussir »…) aussi (`EXACT:EMPLOYMENT`). « Métiers d'art » reste CULTURE.
+* **Titres** (`category_keyword`) : 34 mots-clés précis (`emploi`, `job dating`, `alternance`, `cv`,
+  `formation professionnelle`, `découverte des métiers`, `marché du travail`, `création d'entreprise`…).
+  Exclus car ambigus seuls : `métier(s)`, `formation`, `apprentissage`, `stage`.
+* **Plus de `NEEDS_REVIEW` forcé** (`EMPLOYMENT_DOMAIN` supprimé) : `EMPLOYMENT` se cumule avec les autres
+  catégories détectées (« Recrutement » + « théâtre » → EMPLOYMENT + CULTURE).
+* Les éléments déjà consignés en `NEEDS_REVIEW` n'ont pas d'activité : ils sont re-décidés au prochain
+  import, sans reprise de données.
+
+Effet mesuré sur l'extraction du 29/09/2026 :
+
+| Chemin | Avant | Après |
+|---|---:|---:|
+| Catégorie d'origine : activités classées | 854 | 3 162 (dont 2 308 EMPLOYMENT) |
+| Catégorie d'origine : `NEEDS_REVIEW` | 4 788 (dont 1 578 `EMPLOYMENT_DOMAIN`) | 2 480 |
+| Catégorie d'origine : `UNRECOGNIZED` | 2 551 | 1 821 |
+| Vocabulaire réel reconnu par les mots-clés titre | 27,3 % | 50,8 % |
+
+Faux positifs connus côté titre (le moteur n'a pas de mot-clé d'exclusion) : « Marché du travail » →
+MARKETS + EMPLOYMENT, « Recrutement par le sport » → SPORT + EMPLOYMENT. Côté catégorie d'origine, ces
+valeurs ne donnent que `EMPLOYMENT` (correspondance de la valeur entière).
+

@@ -501,9 +501,8 @@ CAT-008, pas une migration de valeur.
 * [ ] Les données existantes sont conservées : **non satisfait pour les activités**, supprimées
   par V37 (§11.1) — conséquence assumée de CAT-006, acceptée par Alex dans la validation de CAT-007
 
-**Statut : CAT-007 validé sur la base des arbitrages du §11.5, mais pas entièrement clos** : la décision
-de fond sur emploi/formation reste à arbitrer explicitement (`NEEDS_REVIEW` en attendant, aucune
-catégorie créée). Les règles ne sont pas modifiées sur la base du seul 1,8 % ; l'apport des tags doit
+**Statut : CAT-007 validé sur la base des arbitrages du §11.5.** La décision de fond sur
+emploi/formation a été prise par l'issue #49 (catégorie `EMPLOYMENT`, §11.5 point 2). Les règles ne sont pas modifiées sur la base du seul 1,8 % ; l'apport des tags doit
 d'abord être mesuré (`CATEGORIES_CLASSIFICATION.md` §9).
 
 **Reste pour CAT-008** : brancher `LegacyCategoryMapper` (ou ses règles) dans la classification
@@ -520,6 +519,9 @@ emploi/formation doit être prise **avant** CAT-008 (§11.5).
 2. **Emploi / formation : aucune catégorie V1 créée.** Le domaine reste `NEEDS_REVIEW`
    (`EMPLOYMENT_DOMAIN`). CAT-007 ne résout pas la contradiction du §6.1 ; elle fera l'objet
    d'une **décision de fond dédiée avant CAT-008**.
+   **→ Décision prise (issue #49, option A)** : le domaine devient la catégorie `EMPLOYMENT`
+   (« Emploi & formation », `V44__create_employment_category.sql`), cumulable avec les autres
+   (modèle 1..N). `EMPLOYMENT_DOMAIN` n'existe plus ; voir `CATEGORIES_CLASSIFICATION.md` §12.
 3. **Patrimoine, visites, JEP : pas de catégorie forcée.** Le référentiel V1 ne permet pas de
    trancher objectivement entre `CULTURE` et `TOURISM` (§6.4). Ces valeurs restent
    `NEEDS_REVIEW` (`AMBIGUOUS_CATEGORY`), candidats `CULTURE`/`TOURISM` conservés pour la relecture.
