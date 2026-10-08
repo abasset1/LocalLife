@@ -103,6 +103,37 @@ scheduler ne dupliquent de logique d'import, tous deux se contentent de
 l'invoquer. Elle reste aussi appelable directement en test (voir
 `ImportServiceIntegrationTest`, LL-5010/LL-8009) ou depuis du code Java.
 
+**Un seul import à la fois** : si un import est déjà en cours,
+`importAll()` lève `ImportAlreadyRunningException`. L'import planifié est
+alors simplement ignoré (ligne `INFO`), et `POST /api/v1/admin/import`
+répond `409`. Constaté le 08/10/2026 : un import manuel chevauché par
+l'import planifié de l'heure pile traitait les mêmes sources en
+parallèle. Le verrou est en mémoire, donc valable pour une seule
+instance de l'application.
+
+## Import incrémental
+
+Un élément déjà importé dont le contenu collecté n'a pas changé depuis
+son dernier import réussi n'est ni réécrit ni ré-enrichi : il est compté
+dans `unchanged`. `ImportFingerprintService` calcule une empreinte
+SHA-256 de l'élément collecté (`CollectedActivity`) et la compare à
+celle enregistrée dans `import_fingerprint` (`V48`), une ligne par
+(source, clé d'import).
+
+* La collecte reste complète : toutes les clés vues alimentent toujours
+  l'archivage des activités disparues de la source.
+* L'empreinte n'est enregistrée qu'après un enrichissement réussi ;
+  sinon l'élément est retenté en entier à l'import suivant.
+* Une activité `ARCHIVED` revenue dans la source est toujours
+  réimportée (donc republiée), même à contenu identique.
+* Les éléments en quarantaine (sans activité) sont re-décidés à chaque
+  import, comme avant : un mot-clé ajouté au référentiel s'applique dès
+  l'import suivant.
+* Le premier import après `V48` réécrit tout une dernière fois (table
+  vide). Pour forcer un réimport complet après une évolution du
+  collecteur ou de la normalisation, incrémenter
+  `ImportFingerprintService.VERSION`.
+
 ## Résultat d'un import
 
 `ImportService.importAll()` retourne une liste d'`ImportResult` (un par
@@ -111,7 +142,8 @@ source collectible trouvée en base au moment de l'appel — voir
 (SLF4J) une ligne `INFO` récapitulative par source, plus une ligne de
 synthèse globale (`ImportScheduler`, LL-8005) quand l'import est
 déclenché automatiquement. Compteurs disponibles : `fetched`, `created`,
-`updated`, `ignored` (donnée invalide, rejetée par
+`updated` (activité existante réellement réécrite), `unchanged` (voir
+« Import incrémental » ci-dessus), `ignored` (donnée invalide, rejetée par
 `NormalizationService`), `needsReview` (CAT-008 : élément valide mais non
 publié faute de catégorie V1 décidable, consigné dans
 `classification_record` — distinct d'`ignored`), `errors` (exception inattendue sur un élément,

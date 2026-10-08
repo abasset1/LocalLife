@@ -200,7 +200,9 @@ class ImportServiceIntegrationTest {
         // Then : toujours une seule activité en base pour cette source.
         assertThat(activityRepository.findBySourceId(sourceIdFor(sourceName))).hasSize(1);
         assertThat(resultFor(secondRun, sourceName).created()).isZero();
-        assertThat(resultFor(secondRun, sourceName).updated()).isEqualTo(1);
+        // Import incrémental : contenu identique, l'activité n'est pas réécrite.
+        assertThat(resultFor(secondRun, sourceName).updated()).isZero();
+        assertThat(resultFor(secondRun, sourceName).unchanged()).isEqualTo(1);
     }
 
     @Test

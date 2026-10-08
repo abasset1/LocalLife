@@ -2,6 +2,7 @@ package com.locallife.backend.collector.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -38,6 +39,7 @@ import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.tag.application.ActivityTagService;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -119,9 +121,18 @@ class ImportServiceTest {
     @Mock
     private ActivityClassificationService activityClassificationService;
 
+    // Import incrémental : empreintes mockées. Par défaut aucune empreinte connue (Map vide) et
+    // compute() renvoie null, donc aucun élément n'est considéré comme inchangé.
+    @Mock
+    private ImportFingerprintService importFingerprintService;
+
     private static final ClassificationOutcome AUTO_CLASSIFIED_AS_MARKETS = new ClassificationOutcome(
             new Decision(ClassificationStatus.AUTO_CLASSIFIED, List.of("MARKETS"), null, List.of(), "AUTO:MARKETS"),
             List.of(7L));
+
+    private static final String FINGERPRINT = "empreinte-courante";
+
+    private static final String KEY = "external:OpenAgenda Marseille:ext-1";
 
     private static final ClassificationOutcome NEEDS_REVIEW = new ClassificationOutcome(
             new Decision(ClassificationStatus.NEEDS_REVIEW, List.of(), "UNRECOGNIZED",
@@ -135,11 +146,14 @@ class ImportServiceTest {
         // transaction) ; ici l'activité est simplement sauvegardée via le repository mocké.
         lenient().doAnswer(invocation -> activityRepository.save(invocation.getArgument(0)))
                 .when(activityClassificationService).createActivity(any(), any());
+        // Empreinte de l'élément collecté : valeur fixe, jamais connue par défaut (voir le mock).
+        lenient().when(importFingerprintService.compute(any())).thenReturn(FINGERPRINT);
         return new ImportService(
                 sourceService, openAgendaCollectorFactory, normalizationService, deduplicationService,
                 activityRepository, locationService, scheduleService, occurrenceService, mediaService,
                 activityMediaService, activityLinkService, accessibilityService, activityTagService,
-                activityMetadataService, classificationService, activityClassificationService);
+                activityMetadataService, classificationService, activityClassificationService,
+                importFingerprintService);
     }
 
     private static final Source SOURCE = new Source(
@@ -291,6 +305,100 @@ class ImportServiceTest {
         assertEquals(0, result.created());
         assertEquals(1, result.updated());
         verify(activityRepository).save(argThat(activity -> activity.id() != null && activity.id().equals(42L)));
+    }
+
+    // --- Import incrémental (import_fingerprint, V48) ---
+
+    /** Un élément déjà importé ({@code status}), dont l'empreinte enregistrée est {@code knownFingerprint}. */
+    private void givenAlreadyImportedItem(String status, String knownFingerprint) {
+        givenOneCollectibleSource();
+        CollectedActivity item = collectedActivity("ext-1");
+        when(collector.collect()).thenReturn(List.of(item));
+        when(deduplicationService.computeDeduplicationKey(item)).thenReturn(KEY);
+        when(normalizationService.normalize(item)).thenReturn(Optional.of(normalizedActivity()));
+        Activity existing = new Activity(
+                42L, "Marché de Noël", "description", "marché",
+                43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, status,
+                10L, KEY, "https://example.com", null, null, null, null, null, null, null, null);
+        when(activityRepository.findBySourceIdAndImportKey(10L, KEY)).thenReturn(Optional.of(existing));
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of(existing));
+        when(importFingerprintService.findBySourceId(10L)).thenReturn(Map.of(KEY, knownFingerprint));
+    }
+
+    @Test
+    void importAll_ShouldSkipExistingActivity_WhenFingerprintUnchanged() {
+        givenAlreadyImportedItem("PUBLISHED", FINGERPRINT);
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.unchanged());
+        assertEquals(0, result.updated());
+        assertEquals(0, result.archived());
+        verify(activityRepository, never()).save(any());
+        verify(scheduleService, never()).deleteByActivityId(any());
+        verify(importFingerprintService, never()).record(any(), any(), any());
+    }
+
+    @Test
+    void importAll_ShouldUpdateExistingActivity_AndRecordFingerprint_WhenFingerprintChanged() {
+        givenAlreadyImportedItem("PUBLISHED", "ancienne-empreinte");
+        givenSaveAssignsId();
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(0, result.unchanged());
+        assertEquals(1, result.updated());
+        verify(activityRepository).save(argThat(activity -> Long.valueOf(42L).equals(activity.id())));
+        verify(importFingerprintService).record(10L, KEY, FINGERPRINT);
+    }
+
+    @Test
+    void importAll_ShouldRepublishArchivedActivity_EvenWhenFingerprintUnchanged() {
+        // Une activité archivée revenue dans la source doit être republiée, même si son contenu
+        // est identique à celui du dernier import.
+        givenAlreadyImportedItem("ARCHIVED", FINGERPRINT);
+        givenSaveAssignsId();
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(0, result.unchanged());
+        assertEquals(1, result.updated());
+        verify(activityRepository).save(argThat(activity -> "PUBLISHED".equals(activity.status())));
+    }
+
+    @Test
+    void importAll_ShouldForgetFingerprint_WhenEnrichmentFails() {
+        // Enrichissement en échec : l'empreinte n'est pas enregistrée, l'élément sera retenté en entier.
+        givenAlreadyImportedItem("PUBLISHED", "ancienne-empreinte");
+        givenSaveAssignsId();
+        when(normalizationService.normalizeSchedule(any(), any(), any()))
+                .thenReturn(Optional.of(new Schedule(null, 42L, null, null, null, null, null, null, null)));
+        when(scheduleService.create(any())).thenThrow(new RuntimeException("boom-schedule"));
+
+        importService().importAll();
+
+        verify(importFingerprintService, never()).record(any(), any(), any());
+        verify(importFingerprintService).forget(10L, KEY);
+    }
+
+    // --- Un seul import à la fois ---
+
+    @Test
+    void importAll_ShouldRefuseToStart_WhileAnotherImportIsRunning_ThenAcceptAgain() {
+        givenOneCollectibleSource();
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        ImportService service = importService();
+        // Un second importAll() déclenché pendant la collecte du premier : refusé.
+        when(collector.collect()).thenAnswer(invocation -> {
+            assertThrows(ImportAlreadyRunningException.class, service::importAll);
+            return List.of();
+        });
+
+        List<ImportResult> results = service.importAll();
+
+        assertEquals(1, results.size());
+        // Le verrou est relâché à la fin : un import suivant démarre normalement.
+        assertEquals(1, service.importAll().size());
     }
 
     @Test

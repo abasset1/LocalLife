@@ -302,7 +302,8 @@ class TitleKeywordClassificationIntegrationTest {
         jdbcTemplate.update("UPDATE category_keyword SET active = false WHERE keyword = ?", "marché");
         ImportResult second = importOne(sourceName, first);
 
-        assertThat(second.updated()).isEqualTo(1);
+        // Import incrémental : élément inchangé, ni réécrit ni reclassé.
+        assertThat(second.unchanged()).isEqualTo(1);
         assertThat(categoryIds(singleActivity(sourceId).id())).isEqualTo(firstCategories);
     }
 
@@ -363,7 +364,8 @@ class TitleKeywordClassificationIntegrationTest {
         jdbcTemplate.update("UPDATE category_keyword SET active = false WHERE keyword = ?", "dégustation");
         ImportResult second = importOne(sourceName, first);
 
-        assertThat(second.updated()).isEqualTo(1);
+        // Import incrémental : élément inchangé, ni réécrit ni reclassé.
+        assertThat(second.unchanged()).isEqualTo(1);
         assertThat(categoryIds(activityId)).containsExactlyInAnyOrder(categoryId("MARKETS"), categoryId("GASTRONOMY"));
     }
 

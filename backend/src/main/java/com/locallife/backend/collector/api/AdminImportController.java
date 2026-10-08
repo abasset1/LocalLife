@@ -1,12 +1,18 @@
 package com.locallife.backend.collector.api;
 
+import com.locallife.backend.collector.application.ImportAlreadyRunningException;
 import com.locallife.backend.collector.application.ImportResult;
 import com.locallife.backend.collector.application.ImportService;
+import com.locallife.backend.common.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
 import java.util.List;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -72,12 +78,23 @@ public class AdminImportController {
                         + "(un échec de collecte pour une source se traduit par un résultat dégradé, pas "
                         + "par une erreur HTTP)."),
         @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide)."),
-        @ApiResponse(responseCode = "403", description = "Rôle ADMIN requis.")
+        @ApiResponse(responseCode = "403", description = "Rôle ADMIN requis."),
+        @ApiResponse(responseCode = "409", description = "Un import est déjà en cours (planifié ou manuel).")
     })
     @PostMapping
     public ResponseEntity<List<ImportResult>> triggerImport() {
         List<ImportResult> results = importService.importAll();
         return ResponseEntity.ok(results);
+    }
+
+    /** Un import est déjà en cours (planifié ou manuel) : 409 plutôt qu'un second import en parallèle. */
+    @ExceptionHandler(ImportAlreadyRunningException.class)
+    public ResponseEntity<ErrorResponse> handleImportAlreadyRunning(
+            ImportAlreadyRunningException exception, HttpServletRequest httpRequest) {
+        ErrorResponse body = new ErrorResponse(
+                Instant.now(), HttpStatus.CONFLICT.value(), HttpStatus.CONFLICT.getReasonPhrase(),
+                exception.getMessage(), httpRequest.getRequestURI());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
 }
