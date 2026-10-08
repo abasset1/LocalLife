@@ -430,6 +430,10 @@ Aucune de ces migrations n'est créée par CAT-000 ; cette section sert de base 
 
 ## 11. CAT-007 — Migration des données existantes
 
+> **Mise à jour (issue #50)** : `LegacyCategoryMapper` et son test ont été supprimés ; leurs règles sont reprises
+> dans le référentiel en base `category_keyword` (V45), avec un rejeu « sans perte » sur l'extraction réelle
+> (`SourceKeywordReplayIntegrationTest`). Voir `CATEGORIES_CLASSIFICATION.md` §13.
+>
 > Ticket CAT-007 du sprint CATEG. Code : `LegacyCategoryMapper`
 > (`backend/.../activityclassification/application/`), tests : `LegacyCategoryMapperTest`
 > (rejoue l'extraction réelle du 29/09/2026, copie dans `backend/src/test/resources/legacy/`).

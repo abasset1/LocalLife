@@ -52,6 +52,15 @@ public final class KeywordMatcher {
         return false;
     }
 
+    /**
+     * Vrai si {@code text} est exactement {@code keyword} (mêmes mots, dans le même ordre, rien d'autre) —
+     * même normalisation que {@link #matches} : casse, espaces et séparateurs ignorés, accents conservés.
+     */
+    public static boolean matchesWhole(String keyword, String text) {
+        List<String> needle = words(keyword);
+        return !needle.isEmpty() && needle.equals(words(text));
+    }
+
     /** Découpe en mots en minuscules, accents conservés. */
     static List<String> words(String value) {
         List<String> words = new ArrayList<>();

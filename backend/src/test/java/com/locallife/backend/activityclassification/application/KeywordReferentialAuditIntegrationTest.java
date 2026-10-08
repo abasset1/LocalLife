@@ -160,7 +160,7 @@ class KeywordReferentialAuditIntegrationTest {
         long total = 0;
         long covered = 0;
         Map<String, Long> byCategory = new java.util.TreeMap<>();
-        for (String[] row : LegacyCategoryMapperTest.readExtraction()) {
+        for (String[] row : RealExtraction.readExtraction()) {
             String value = row[0];
             if (value.isBlank()) {
                 continue;

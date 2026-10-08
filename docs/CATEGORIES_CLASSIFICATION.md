@@ -6,9 +6,10 @@
 ## 1. Principe
 
 Toute classification d'un élément de source passe par un seul point :
-`ClassificationService#decide` → `ActivityClassifier` (règles pures) → `LegacyCategoryMapper`
-(liste fermée, correspondance exacte, CAT-007). Aucun autre code ne traduit une valeur de source en
-catégorie. Un code obtenu est ensuite résolu vers la catégorie **existante** du référentiel
+`ClassificationService#decide` → `ActivityClassifier` (keywords source) ou `TitleKeywordClassifier` (titre)
+→ `KeywordCategoryMatcher`, avec **un seul référentiel en base**, `category_keyword` (§13, issue #50 ; avant,
+les keywords source passaient par `LegacyCategoryMapper`, liste fermée codée en Java, supprimée). Aucun
+autre code ne traduit une valeur de source en catégorie. Un code obtenu est ensuite résolu vers la catégorie **existante** du référentiel
 (`CategoryRepository#findByCode`, catégorie active) ; s'il n'existe pas, le résultat est
 `NEEDS_REVIEW` (`CATEGORY_NOT_IN_REFERENTIAL`). **Aucune catégorie n'est jamais créée par une source.**
 
@@ -32,15 +33,14 @@ Signaux : la catégorie d'origine et les tags de la source (pas la description :
 par mot-clé). Le titre n'intervient qu'en **repli**, quand la source ne fournit aucun keyword : voir §10.
 
 1. aucun signal → `UNCLASSIFIED` ;
-2. une ou plusieurs catégories → `AUTO_CLASSIFIED` avec **toutes** ces catégories (ordre des signaux) ;
-   plusieurs catégories ne sont **jamais** un conflit. Un signal ambigu (ex. `patrimoine` → CULTURE ou
-   TOURISM) ne désigne aucune catégorie : il n'en ajoute ni n'en bloque aucune. Un signal emploi/formation
-   donne la catégorie `EMPLOYMENT`, cumulable avec les autres (§12) ;
-3. seulement des signaux ambigus → `NEEDS_REVIEW` (`AMBIGUOUS_CATEGORY`, candidats listés) ;
-4. sinon → `NEEDS_REVIEW` (`AMBIGUOUS_CATEGORY`, `AUDIENCE_VALUE`, `ACTIVITY_TYPE_VALUE` ou `UNRECOGNIZED`).
+2. chaque signal est comparé au référentiel `category_keyword` (portées `ALL` et `SOURCE`), avec la même
+   règle que le titre (§13) ; une ou plusieurs catégories reconnues → `AUTO_CLASSIFIED` avec **toutes** ces
+   catégories (ordre des signaux). Plusieurs catégories ne sont **jamais** un conflit ; un signal sans
+   mot-clé (public, format, lieu...) n'en ajoute ni n'en bloque aucune ;
+3. des signaux, mais aucun mot-clé reconnu → `NEEDS_REVIEW` (`UNRECOGNIZED`).
 
-Les valeurs de public (jeune public, famille...) et de type (atelier, festival...) ne décident jamais
-la catégorie et ne la bloquent pas non plus. Exemple du sprint : « Festival médiéval » ne peut pas
+Les valeurs de public (jeune public, famille...) et de format (atelier, festival...) ne sont pas des
+mots-clés : elles ne décident jamais la catégorie. Exemple du sprint : « Festival médiéval » ne peut pas
 produire une catégorie `MEDIEVAL` (résultat : `NEEDS_REVIEW`).
 
 ## 4. Flux d'import (`ImportService`)
@@ -78,7 +78,7 @@ par `ClassificationService` comme les imports.
 * [x] Seeder compatible avec les codes : aucun Seeder (§5), référentiels seedés par codes
 * [x] Imports compatibles avec les codes : `ImportService` n'écrit que des catégories existantes
 * [x] Classification centralisée : `ClassificationService` / `ActivityClassifier`
-* [x] Aucun mapping source → catégorie direct non contrôlé : seul chemin = `LegacyCategoryMapper` (liste fermée)
+* [x] Aucun mapping source → catégorie direct non contrôlé : seul chemin = le référentiel `category_keyword` (§13)
 * [x] Statuts de classification présents : `ClassificationStatus` + `classification_record`
 * [x] Cas ambigus gérés : `NEEDS_REVIEW` + raison + candidats, aucune activité créée
 * [x] Aucune catégorie créée automatiquement par une source : code absent du référentiel → `NEEDS_REVIEW`
@@ -236,7 +236,7 @@ Décision (option A) : le domaine emploi / formation / insertion devient une **c
 `EMPLOYMENT` (« Emploi & formation »), créée par `V44__create_employment_category.sql`. C'est la seule
 catégorie ajoutée au référentiel V1 ; comme les autres, elle est exposée par `GET /api/v1/categories`.
 
-* **Catégories d'origine et tags** (`LegacyCategoryMapper`) : un jeton emploi (mot entier : `emploi`,
+* **Catégories d'origine et tags** (`LegacyCategoryMapper` à l'époque, repris en base par #50, §13) : un jeton emploi (mot entier : `emploi`,
   `recrutement`, `formation`, `alternance`, `metiers`, `travail`, `cv`, `entreprise`, `job`, `embauche`…) donne
   `EMPLOYMENT` (`TOKEN:EMPLOYMENT`) ; quelques libellés entiers propres aux agendas emploi (« S'informer »,
   « Se préparer », « Les clés pour réussir »…) aussi (`EXACT:EMPLOYMENT`). « Métiers d'art » reste CULTURE.
@@ -260,4 +260,66 @@ Effet mesuré sur l'extraction du 29/09/2026 :
 Faux positifs connus côté titre (le moteur n'a pas de mot-clé d'exclusion) : « Marché du travail » →
 MARKETS + EMPLOYMENT, « Recrutement par le sport » → SPORT + EMPLOYMENT. Côté catégorie d'origine, ces
 valeurs ne donnent que `EMPLOYMENT` (correspondance de la valeur entière).
+
+## 13. Référentiel unique pour les keywords source et les titres (issue #50)
+
+Avant : deux référentiels parallèles. Les catégories d'origine / tags passaient par `LegacyCategoryMapper`,
+une liste fermée **codée en Java** (correspondance exacte sans accents, jetons emploi) ; les titres, par
+`category_keyword` **en base**. Enrichir la base ne profitait qu'aux titres, et ajouter un mot-clé source
+demandait un déploiement.
+
+Désormais : **un seul référentiel, `category_keyword`**, et **une seule règle** (`KeywordCategoryMatcher`,
+comparaison `KeywordMatcher` : casse, espaces et séparateurs ignorés, accents conservés, mots entiers) :
+
+1. si le texte **entier** est exactement un mot-clé, lui seul décide (« Marché du travail » → EMPLOYMENT, pas
+   MARKETS par « marché » ; « Métiers d'art » → CULTURE, pas EMPLOYMENT par « métiers ») ;
+2. sinon, **toutes** les catégories des mots-clés reconnus (modèle 1..N).
+
+La règle s'applique au titre et à **chaque** catégorie d'origine / tag de la source. Priorité source > titre
+inchangée. `LegacyCategoryMapper` est supprimé ; plus aucun mot-clé métier n'est codé en Java.
+
+### Portée (`category_keyword.scope`, `V45`)
+
+| `scope` | S'applique à | Exemples |
+|---|---|---|
+| `ALL` (défaut) | titres **et** keywords source | `théâtre`, `marché`, `recrutement`, `job dating` |
+| `SOURCE` | keywords source seulement | `formation`, `métiers`, `travail`, `insertion`, `s'informer`, `culture`, `projection` |
+
+`SOURCE` sert aux termes fiables dans les mots-clés structurés d'un agenda (« Métiers du BTP », « Formation »)
+mais ambigus dans un titre libre (« Formation aux premiers secours », « Travail du bois »).
+
+### Reprise de la liste Java (`V45`)
+
+Les correspondances de `LegacyCategoryMapper` absentes du référentiel ont été ajoutées : jetons et libellés
+emploi (portée `SOURCE`), `culture` et `projection` (`SOURCE`), `métiers d'art` /
+`journées européennes des métiers d'art` (CULTURE) et la graphie observée `theâtre`. Les listes
+« non-catégorie » de la classe Java (valeurs ambiguës, publics, formats) sont **supprimées** : avec le modèle
+1..N, `patrimoine` / `jep` donnent déjà CULTURE + TOURISM, et un public ou un format n'est simplement pas un
+mot-clé. Conséquence : les raisons `AMBIGUOUS_CATEGORY`, `AUDIENCE_VALUE` et `ACTIVITY_TYPE_VALUE` disparaissent,
+tout élément sans mot-clé reconnu est `NEEDS_REVIEW` / `UNRECOGNIZED`.
+
+### Audit (extraction du 29/09/2026, 5 642 activités avec une catégorie d'origine)
+
+| Règle évaluée | Classées | Perdues vs liste Java | Changées | Gagnées |
+|---|---:|---:|---:|---:|
+| Liste Java (`LegacyCategoryMapper`, avant) | 3 162 | — | — | — |
+| Référentiel en base tel quel, mots sans accents | 2 872 | 920 | 73 | 630 |
+| Valeur entière seulement, sans accents | 2 250 | 1 217 | 0 | 305 |
+| **Retenu** : scope `SOURCE` + valeur entière prioritaire + mots, accents conservés (= titre) | **3 790** | **0** | 24 | 628 |
+
+* **0 perte** : chacune des 130 valeurs (3 162 activités) que la liste Java classait reste classée avec au moins
+  la même catégorie — vérifié par `SourceKeywordReplayIntegrationTest` contre un instantané figé avant la
+  suppression (`legacy/legacy_mapper_snapshot.csv`, validé contre le code Java).
+* **24 changements**, tous des ajouts de catégorie : « Métiers de la culture et du spectacle » → EMPLOYMENT +
+  CULTURE, « Recrutement par le sport » → EMPLOYMENT + SPORT…
+* **628 gains** : valeurs auparavant à relire, désormais classées par les mots-clés déjà validés pour les titres
+  (`architecture`, `patrimoine` / JEP → CULTURE + TOURISM, `jardiner`, `archives`, `marionnettes`…).
+* À relire : 2 480 → **1 852** (`UNRECOGNIZED`, essentiellement noms propres, publics et formats).
+* Effet sur le titre : la priorité à la valeur entière corrige « Marché du travail » (EMPLOYMENT seul) ;
+  couverture du vocabulaire inchangée (50,8 %).
+
+### Traçabilité
+
+`classification_record.classification_source` vaut `SOURCE_KEYWORD` (keywords source) ou `TITLE_KEYWORD`
+(titre) ; `matched_keywords` liste les mots-clés reconnus dans les deux cas.
 

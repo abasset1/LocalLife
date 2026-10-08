@@ -181,8 +181,9 @@ class TitleKeywordClassificationIntegrationTest {
         Activity activity = singleActivity(sourceId);
         assertThat(categoryIds(activity.id())).containsExactly(categoryId("CULTURE"));
         ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
-        assertThat(record.classificationSource()).isNull();
-        assertThat(record.matchedKeywords()).isNull();
+        // Décision issue des keywords source (référentiel unique, issue #50) : tracée comme telle, pas le titre.
+        assertThat(record.classificationSource()).isEqualTo("SOURCE_KEYWORD");
+        assertThat(record.matchedKeywords()).isEqualTo("théâtre");
     }
 
     @Test
@@ -197,7 +198,9 @@ class TitleKeywordClassificationIntegrationTest {
         assertThat(result.needsReview()).isEqualTo(1);
         assertThat(activityRepository.findBySourceId(sourceId)).isEmpty();
         ClassificationRecord record = singleRecordWithoutActivity(sourceId, ClassificationStatus.NEEDS_REVIEW);
-        assertThat(record.classificationSource()).isNull();
+        assertThat(record.classificationSource()).isEqualTo("SOURCE_KEYWORD");
+        assertThat(record.reason()).isEqualTo("UNRECOGNIZED");
+        assertThat(record.matchedKeywords()).isNull();
     }
 
     @Test
@@ -343,7 +346,8 @@ class TitleKeywordClassificationIntegrationTest {
         Activity activity = singleActivity(sourceId);
         assertThat(categoryIds(activity.id())).containsExactly(categoryId("GASTRONOMY"), categoryId("MARKETS"));
         ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
-        assertThat(record.classificationSource()).isNull();
+        assertThat(record.classificationSource()).isEqualTo("SOURCE_KEYWORD");
+        assertThat(record.matchedKeywords()).isEqualTo("dégustation|marché");
         assertThat(record.ruleId()).isEqualTo("AUTO:GASTRONOMY+MARKETS");
         assertThat(record.categoryCodes()).isEqualTo("GASTRONOMY,MARKETS");
     }
