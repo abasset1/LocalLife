@@ -7,9 +7,6 @@ export const MARSEILLE_COORDINATES: LatLngExpression = [MARSEILLE_LATITUDE, MARS
 /** Rayon de recherche (LL-4001, km, max 50) tant que la carte n'a pas été déplacée/zoomée. */
 export const DEFAULT_SEARCH_RADIUS_KM = 50;
 
-/** Valeur du filtre catégorie représentant « pas de filtre ». */
-export const ALL_CATEGORIES = "";
-
 /** Valeur du filtre date représentant « pas de filtre explicite ». */
 export const NO_DATE_FILTER = "";
 

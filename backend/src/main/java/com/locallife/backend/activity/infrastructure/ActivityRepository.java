@@ -148,6 +148,14 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      * voir la javadoc de {@link #findAllFiltered} pour le détail de cette
      * double condition, strictement le même principe ici.
      *
+     * {@code categoriesCsv} : chaque valeur est comparée à la colonne
+     * historique {@code activity.category} (texte libre, LL-4004) <b>et</b>
+     * aux codes du référentiel ({@code category.code} via
+     * {@code activity_category}, V42) — une activité est retenue dès
+     * qu'une valeur correspond à l'un ou l'autre. Les codes permettent au
+     * frontend de filtrer sur les catégories répertoriées, plusieurs à la
+     * fois.
+     *
      * Filtres {@code status}/{@code categoriesCsv} inchangés (LL-4003/
      * LL-4004, colonnes propres d'{@code activity}, non concernées par ce
      * ticket). Filtre {@code date}/{@code dateTo} (LL-4005/LL-11003) :
@@ -172,7 +180,13 @@ public interface ActivityRepository extends Repository<Activity, Long> {
     @Query("""
             SELECT a.* FROM activity a
             WHERE (:status IS NULL OR a.status = :status)
-              AND (:categoriesCsv IS NULL OR a.category = ANY(string_to_array(:categoriesCsv, ',')))
+              AND (:categoriesCsv IS NULL
+                   OR a.category = ANY(string_to_array(:categoriesCsv, ','))
+                   OR EXISTS (
+                       SELECT 1 FROM activity_category ac
+                       JOIN category c ON c.id = ac.category_id
+                       WHERE ac.activity_id = a.id
+                         AND c.code = ANY(string_to_array(:categoriesCsv, ','))))
               AND (
                 EXISTS (
                     SELECT 1 FROM schedule s
@@ -255,7 +269,13 @@ public interface ActivityRepository extends Repository<Activity, Long> {
     @Query("""
             SELECT a.* FROM activity a
             WHERE (:status IS NULL OR a.status = :status)
-              AND (:categoriesCsv IS NULL OR a.category = ANY(string_to_array(:categoriesCsv, ',')))
+              AND (:categoriesCsv IS NULL
+                   OR a.category = ANY(string_to_array(:categoriesCsv, ','))
+                   OR EXISTS (
+                       SELECT 1 FROM activity_category ac
+                       JOIN category c ON c.id = ac.category_id
+                       WHERE ac.activity_id = a.id
+                         AND c.code = ANY(string_to_array(:categoriesCsv, ','))))
               AND (
                 EXISTS (
                     SELECT 1 FROM schedule s

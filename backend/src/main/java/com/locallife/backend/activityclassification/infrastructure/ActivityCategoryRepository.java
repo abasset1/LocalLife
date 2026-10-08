@@ -1,6 +1,7 @@
 package com.locallife.backend.activityclassification.infrastructure;
 
 import com.locallife.backend.activityclassification.domain.ActivityCategory;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.repository.Repository;
 
@@ -14,6 +15,9 @@ public interface ActivityCategoryRepository extends Repository<ActivityCategory,
 
     /** Ordre d'enregistrement (id) : ordre stable des catégories d'une activité. */
     List<ActivityCategory> findByActivityIdOrderByIdAsc(Long activityId);
+
+    /** Catégories de plusieurs activités en une requête, dans l'ordre d'enregistrement. */
+    List<ActivityCategory> findByActivityIdInOrderByIdAsc(Collection<Long> activityIds);
 
     ActivityCategory save(ActivityCategory activityCategory);
 

@@ -1245,20 +1245,28 @@ body {
     gap: 0.5rem;
 }
 
-.explorer-category-select-wrapper {
-    flex-shrink: 0;
+/* Filtre catégories : cases à cocher du référentiel, dans un panneau replié
+   (même présentation que `.explorer-dates-panel`, déclaré plus bas). */
+.explorer-category-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
 }
 
-.explorer-category-select {
-    padding: 0.45rem 0.8rem;
-    border: 1px solid var(--ll-line);
-    border-radius: 999px;
-    background-color: #ffffff;
-    color: var(--ll-ink);
-    font-size: 0.85rem;
-    font-weight: 650;
-    font-family: inherit;
+.explorer-category-option input {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--ll-green);
     cursor: pointer;
+}
+
+.explorer-categories-empty {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--ll-ink);
 }
 
 /* Utilitaire : accessible aux lecteurs d'écran, invisible à l'affichage
@@ -1310,11 +1318,13 @@ body {
     border-color: var(--ll-green2);
 }
 
-.explorer-dates {
+.explorer-dates,
+.explorer-categories {
     position: relative;
 }
 
-.explorer-dates-panel {
+.explorer-dates-panel,
+.explorer-categories-panel {
     position: absolute;
     top: calc(100% + 0.4rem);
     left: 0;
@@ -1330,7 +1340,8 @@ body {
     box-shadow: 0 12px 28px rgba(23, 63, 53, 0.14);
 }
 
-.explorer-dates-panel label {
+.explorer-dates-panel label,
+.explorer-categories-panel label {
     font-size: 0.8rem;
     font-weight: 650;
     color: var(--ll-ink);
@@ -1753,6 +1764,33 @@ body {
     border-radius: 8px;
     font-size: 0.95rem;
     font-family: inherit;
+}
+
+/* Catégories du formulaire de proposition : cases à cocher du référentiel, sur deux colonnes. */
+.explorer-form-categories {
+    margin: 0;
+    padding: 0;
+    border: none;
+    min-width: 0;
+}
+
+.explorer-form-categories legend {
+    padding: 0;
+    margin-bottom: 0.3rem;
+    font-size: 0.85rem;
+    font-weight: 650;
+    color: var(--ll-ink);
+}
+
+.explorer-form-categories-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem 0.8rem;
+}
+
+.explorer-form .explorer-category-option input {
+    padding: 0;
+    border: none;
 }
 
 .explorer-form button[type="submit"] {

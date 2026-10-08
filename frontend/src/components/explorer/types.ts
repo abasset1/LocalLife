@@ -5,10 +5,21 @@
  * ajouté ou retiré par rapport aux interfaces d'origine.
  */
 
+/** Catégorie du référentiel (`GET /api/v1/categories`). */
+export interface Category {
+    code: string;
+    label: string;
+    description: string | null;
+    active: boolean;
+}
+
 export interface Activity {
     id: number;
     title: string;
+    /** Chaîne libre historique (premier tag de la source) : n'est plus affichée ni utilisée comme filtre. */
     category: string;
+    /** Codes des catégories du référentiel de l'activité (1..N). */
+    categoryCodes?: string[];
     latitude: number;
     longitude: number;
     startDate: string;
