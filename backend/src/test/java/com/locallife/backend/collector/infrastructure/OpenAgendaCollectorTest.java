@@ -594,6 +594,40 @@ class OpenAgendaCollectorTest {
     }
 
     @Test
+    void collect_ShouldReturnRegistrationLinks_WhenRegistrationIsAnArray() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        String eventWithRegistrationArray = """
+                {
+                  "slug": "marche-de-noel-2026",
+                  "title": {"fr": "Marché de Noël"},
+                  "description": {"fr": "Description"},
+                  "keywords": {"fr": ["marché"]},
+                  "location": {"latitude": 43.2965, "longitude": 5.3698},
+                  "nextTiming": {"begin": "2026-12-01T10:00:00+0100", "end": null},
+                  "registration": [
+                    {"type": "email", "value": "contact@example.com"},
+                    {"type": "phone", "value": "04 91 00 00 00"},
+                    {"type": "link", "value": "https://example.com/inscription"},
+                    {"type": "inconnu", "value": "ignoré"}
+                  ]
+                }
+                """;
+        mockServer.expect(requestTo(containsString("/v2/agendas/12345/events")))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + eventWithRegistrationArray + "]}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        CollectedActivity activity = result.get(0);
+        assertEquals(3, activity.links().size());
+        assertEquals("EMAIL", activity.links().get(0).type());
+        assertEquals("contact@example.com", activity.links().get(0).value());
+        assertEquals("PHONE", activity.links().get(1).type());
+        assertEquals("WEBSITE", activity.links().get(2).type());
+        assertNull(activity.registrationInfo());
+    }
+
+    @Test
     void collect_ShouldReturnAccessibility_WhenPresent() {
         OpenAgendaCollector collector = newCollector("key", "12345");
         String eventWithAccessibility = """
