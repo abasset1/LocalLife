@@ -129,7 +129,7 @@ class UserPreferencesServiceTest {
 
     @Test
     void updatePreferences_ShouldUseCityAtPosition_WhenPositionProvided() {
-        when(geocodingService.reverseCity(45.77, 4.85)).thenReturn(new Coordinates(45.76, 4.83, "Lyon", null));
+        when(geocodingService.resolveCity(null, 45.77, 4.85)).thenReturn(new Coordinates(45.76, 4.83, "Lyon", null));
 
         // Le nom saisi est ignoré : la position (géolocalisation) est prioritaire.
         UserPreferences result = userPreferencesService.updatePreferences(
@@ -144,14 +144,16 @@ class UserPreferencesServiceTest {
 
     @Test
     void updatePreferences_ShouldReject_IncompletePosition() {
+        when(geocodingService.resolveCity(null, 45.77, null)).thenThrow(new IllegalArgumentException("incomplète"));
+
         assertThrows(IllegalArgumentException.class,
                 () -> userPreferencesService.updatePreferences(1L, null, 45.77, null, null, List.of()));
         verify(userPreferencesRepository, never()).save(any());
     }
 
     @Test
-    void lookupCity_ShouldSearchByName_WhenNoPosition() {
-        when(geocodingService.findCity("Lyon")).thenReturn(new Coordinates(45.76, 4.83, "Lyon", null));
+    void lookupCity_ShouldDelegateToGeocoding() {
+        when(geocodingService.resolveCity("Lyon", null, null)).thenReturn(new Coordinates(45.76, 4.83, "Lyon", null));
 
         assertEquals("Lyon", userPreferencesService.lookupCity("Lyon", null, null).city());
     }

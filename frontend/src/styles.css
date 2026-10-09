@@ -927,6 +927,53 @@ body {
     color: #93c5fd;
 }
 
+.profile-alerts h3 {
+    margin: 0.5rem 0 0;
+    font-size: 0.95rem;
+}
+
+.profile-alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.profile-alerts-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.profile-form .profile-alerts-delete {
+    align-self: center;
+    border: 1px solid #dc2626;
+    background-color: #ffffff;
+    color: #dc2626;
+}
+
+.profile-alerts-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.profile-alerts-form select {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background-color: #ffffff;
+}
+
 .profile-preferences-categories {
     display: flex;
     flex-direction: column;

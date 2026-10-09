@@ -169,6 +169,25 @@ public class GeocodingService {
                 result.address().postcode());
     }
 
+    /**
+     * Ville choisie par une position (géolocalisation, prioritaire) ou par
+     * son nom — point d'entrée commun des paramètres utilisateur et des
+     * alertes email.
+     *
+     * @throws IllegalArgumentException si ni nom ni position complète ne sont fournis
+     * @throws CityNotFoundException si aucune ville ne correspond
+     * @throws GeocodingUnavailableException si l'appel au service échoue
+     */
+    public Coordinates resolveCity(String name, Double latitude, Double longitude) {
+        if (latitude != null || longitude != null) {
+            if (latitude == null || longitude == null) {
+                throw new IllegalArgumentException("La latitude et la longitude doivent être fournies ensemble.");
+            }
+            return reverseCity(latitude, longitude);
+        }
+        return findCity(name);
+    }
+
     private String cityOf(NominatimAddress details) {
         return details == null
                 ? null

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.28 — 2026-10-09
+
+### Alertes e-mail sur les nouvelles activités
+- Migration `V52` : tables `activity_alert` (ville + coordonnées, rayon 1–50 km, jeton de désinscription), `activity_alert_category` (une ou plusieurs catégories, FK sur `category.code`) et `activity_alert_sent` (activités déjà envoyées, jamais deux fois). Suppression en cascade avec l'utilisateur.
+- Endpoints `GET`/`POST /api/v1/users/me/alerts` et `DELETE /api/v1/users/me/alerts/{id}` (JWT requis), `POST /api/v1/alerts/unsubscribe` (public, lien de l'email). Au moins une catégorie, un rayon et une ville existante (par nom ou par géolocalisation, même vérification que les paramètres de recherche — logique déplacée dans `GeocodingService#resolveCity`). 10 alertes au plus par utilisateur.
+- `ActivityAlertNotifier` : envoi planifié (par défaut chaque jour à 8 h, heure de Paris, `app.alerts.cron` / `ALERTS_CRON`) d'un e-mail récapitulatif par alerte, uniquement aux adresses vérifiées et seulement s'il y a du nouveau. Sont retenues les activités publiées après la création de l'alerte (`activity` n'ayant pas de date de création, repère sur l'id), à venir, dans le rayon (occurrences et lieux réels, même logique que `/nearby`), d'au moins une des catégories, et non créées par le destinataire. 20 activités détaillées au plus, 100 traitées par alerte et par envoi. Une activité n'est marquée envoyée qu'après l'envoi réussi ; un échec n'empêche pas les autres alertes.
+- Frontend : section « Mes alertes e-mail » sur `/profile` (liste, suppression, création préremplie avec les paramètres de recherche) ; page `/alerts/unsubscribe`. Le champ ville (saisie vérifiée + « Utiliser ma position ») est désormais un composant partagé (`CityField`).
+- Tests : `ActivityAlertServiceTest`, `ActivityAlertNotifierTest`, `ActivityAlertControllerTest`, `ActivityAlertRepositoryIntegrationTest` (requête PostGIS : catégorie, rayon, nouveauté, statut, date passée, déjà envoyé, adresse non vérifiée).
+- Vérifié : `mvn verify` (976 tests, checkstyle) contre PostgreSQL/PostGIS 16, `npm run build`, et de bout en bout : backend lancé avec l'envoi toutes les minutes et un serveur SMTP local — e-mail reçu avec les 2 activités attendues (celle hors rayon exclue), aucun renvoi au passage suivant, lien de désinscription fonctionnel (et refusé une seconde fois), section du profil testée dans le navigateur. ⚠️ Nominatim injoignable depuis l'environnement de développement : la création d'une alerte via l'API (qui géocode la ville) n'a été testée qu'avec des réponses simulées.
+
 ## 0.9.27 — 2026-10-09
 
 ### Paramètres utilisateur : catégories, ville et rayon par défaut

@@ -27,4 +27,16 @@ public interface EmailService {
      */
     void sendEmailVerificationEmail(String to, String verificationLink);
 
+    /**
+     * Envoie le récapitulatif d'une alerte email (nouvelles activités
+     * correspondant aux critères de l'utilisateur, voir
+     * {@code ActivityAlertNotifier}).
+     *
+     * @param to      adresse email du destinataire
+     * @param subject objet de l'email
+     * @param text    corps texte, contenant le lien de désinscription — à ne
+     *                pas logger (le jeton suffit à supprimer l'alerte)
+     */
+    void sendActivityAlertEmail(String to, String subject, String text);
+
 }
