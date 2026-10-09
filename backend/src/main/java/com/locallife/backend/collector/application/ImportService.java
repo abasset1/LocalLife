@@ -159,6 +159,17 @@ import org.springframework.stereotype.Service;
  * reste complète : toutes les clés vues alimentent toujours l'archivage
  * des activités disparues de la source.
  *
+ * <b>Déduplication entre sources</b> : un même événement peut être
+ * publié par plusieurs agendas d'un même fournisseur (événement OpenAgenda
+ * partagé). Un élément dont une <b>autre</b> source a déjà une activité
+ * non archivée (même identifiant externe, même titre, même date de début,
+ * voir {@link ImportFingerprintService}) n'est pas importé une seconde
+ * fois : il est compté dans {@code ImportResult.duplicates}. La première
+ * source qui l'importe en reste propriétaire ; si elle l'archive (élément
+ * retiré de son agenda), la source suivante qui le contient encore le
+ * (re)publie à son prochain import. Les doublons déjà en base sont
+ * résorbés de la même façon : le plus récent des deux est archivé.
+ *
  * <b>Un seul import à la fois</b> : {@link #importAll()} refuse de
  * démarrer ({@link ImportAlreadyRunningException}) si un import est déjà
  * en cours dans cette instance. Verrou en mémoire : suffisant tant que
@@ -293,6 +304,7 @@ public class ImportService {
         int needsReview = 0;
         int errors = 0;
         int unchanged = 0;
+        int duplicates = 0;
         Set<String> seenKeys = new HashSet<>();
         Map<String, String> knownFingerprints = importFingerprintService.findBySourceId(source.id());
         // Lu une fois par source : sert à ne pas re-décider un élément en quarantaine inchangé.
@@ -322,6 +334,24 @@ public class ImportService {
                     continue;
                 }
 
+                // Élément déjà en quarantaine, contenu et référentiel inchangés : la décision
+                // serait la même, inutile de la recalculer et de réécrire sa trace.
+                String quarantineFingerprint =
+                        importFingerprintService.computeQuarantined(fingerprint, referentialVersion);
+                if (existing.isEmpty() && quarantineFingerprint.equals(knownFingerprints.get(key))) {
+                    needsReview++;
+                    continue;
+                }
+
+                // Déduplication entre sources (voir la javadoc de la classe) : ne concerne qu'un
+                // élément sans activité publiée ici (nouveau, ou archivé), jamais une activité que
+                // cette source possède déjà.
+                boolean publishedHere = existing.isPresent() && !ARCHIVED_STATUS.equals(existing.get().status());
+                if (!publishedHere && isDuplicateOfAnotherSource(source, item, normalized.get())) {
+                    duplicates++;
+                    continue;
+                }
+
                 // CAT-008 : classification centralisée (ClassificationService). Une activité déjà
                 // importée garde ses catégories (un ré-import n'écrase jamais une classification
                 // existante, y compris validée par un humain). Pour un nouvel élément, si la
@@ -339,20 +369,13 @@ public class ImportService {
                 if (existing.isPresent()) {
                     saved = activityRepository.save(toSave);
                 } else {
-                    // Élément déjà en quarantaine, contenu et référentiel inchangés : la décision
-                    // serait la même, inutile de la recalculer et de réécrire sa trace.
-                    String quarantineFingerprint =
-                            importFingerprintService.computeQuarantined(fingerprint, referentialVersion);
-                    if (quarantineFingerprint.equals(knownFingerprints.get(key))) {
-                        needsReview++;
-                        continue;
-                    }
                     ClassificationOutcome classification =
                             classificationService.decide(item.title(), item.category(), item.tags());
                     if (!classification.classified()) {
                         classificationService.recordQuarantined(
                                 source.id(), key, item.title(), item.category(), item.tags(), classification);
-                        importFingerprintService.record(source.id(), key, quarantineFingerprint);
+                        importFingerprintService.record(
+                                source.id(), key, quarantineFingerprint, item.externalId());
                         needsReview++;
                         continue;
                     }
@@ -378,7 +401,7 @@ public class ImportService {
                 // L'empreinte n'est enregistrée qu'après un enrichissement réussi : sinon l'élément
                 // est retenté en entier au prochain import.
                 if (enrichActivitySafely(source, saved, item)) {
-                    importFingerprintService.record(source.id(), key, fingerprint);
+                    importFingerprintService.record(source.id(), key, fingerprint, item.externalId());
                 } else {
                     importFingerprintService.forget(source.id(), key);
                 }
@@ -389,6 +412,7 @@ public class ImportService {
             }
         }
 
+        duplicates += archiveDuplicatesOfOtherSources(source.id());
         int archived = archiveActivitiesNoLongerInSource(source.id(), seenKeys);
         LocalDateTime endedAt = LocalDateTime.now();
 
@@ -400,7 +424,7 @@ public class ImportService {
 
         ImportResult result = new ImportResult(
                 source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors, archived,
-                needsReview, unchanged);
+                needsReview, unchanged, duplicates);
         LOGGER.info("Import terminé pour la source '{}' : {}", source.name(), result);
 
         return result;
@@ -511,6 +535,36 @@ public class ImportService {
         accessibilityService.deleteByActivityId(activityId);
         activityTagService.deleteByActivityId(activityId);
         activityMetadataService.deleteByActivityId(activityId);
+    }
+
+    /**
+     * Vrai si l'élément n'a pas (ou plus) d'activité publiée pour cette source et qu'une autre source en
+     * a déjà une pour le même élément. Sans identifiant externe (clé composite), aucun rapprochement
+     * n'est tenté.
+     */
+    private boolean isDuplicateOfAnotherSource(Source source, CollectedActivity item, Activity normalized) {
+        if (item.externalId() == null || item.externalId().isBlank()) {
+            return false;
+        }
+        return importFingerprintService.existsLiveDuplicateInAnotherSource(
+                source.id(), item.externalId(), normalized.title(), normalized.startDate());
+    }
+
+    /**
+     * Archive les activités de cette source qui doublonnent une activité plus ancienne d'une autre source
+     * (doublons antérieurs à la déduplication). Elles restent dans {@code seenKeys} : l'archivage des
+     * éléments disparus ne les concerne pas, et au prochain import elles sont reconnues comme doublons.
+     */
+    private int archiveDuplicatesOfOtherSources(Long sourceId) {
+        int archivedDuplicates = 0;
+        for (Long activityId : importFingerprintService.findDuplicateActivityIds(sourceId)) {
+            Optional<Activity> duplicate = activityRepository.findById(activityId);
+            if (duplicate.isPresent()) {
+                activityRepository.save(withStatus(duplicate.get(), ARCHIVED_STATUS));
+                archivedDuplicates++;
+            }
+        }
+        return archivedDuplicates;
     }
 
     private int archiveActivitiesNoLongerInSource(Long sourceId, Set<String> seenImportKeys) {
