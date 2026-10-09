@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.32 — 2026-10-09
+
+### Carte cadrée sur la ville, le rayon et les catégories favoris
+- Web : une fois connecté, la carte n'est plus seulement centrée sur la ville favorite au zoom par défaut — elle est **cadrée sur le rayon favori** (`fitBounds`, zoom fractionnaire `zoomSnap: 0.25` pour ne pas arrondir à un cadrage jusqu'à deux fois trop large), et ce rayon est matérialisé par un cercle en pointillés. Auparavant, la recherche initiale utilisait bien le rayon, mais elle était aussitôt remplacée par celle de la zone visible (beaucoup plus petite) : le rayon favori était perdu à l'écran. Catégories favorites cochées, inchangé. « Autour de moi » garde le rayon favori. Sans rayon favori (ou visiteur non connecté) : comportement d'origine.
+- Mobile : un rayon favori sans ville favorite cadre désormais la carte autour de son centre actuel (avec une ville, déjà cadrée sur le rayon).
+- Vérifié dans le navigateur contre le backend réel (Lyon, 10 km, Sport) : recherche initiale `nearby` rayon 10 km + Sport, puis zone visible ≈ 20 km × 21 km en desktop (≈ 34 km × 35 km avant le zoom fractionnaire), 20,8 km de large en format téléphone ; visiteur anonyme inchangé. Build web, mobile `tsc`/`eslint`/`jest` (44 tests).
+
 ## 0.9.31 — 2026-10-09
 
 ### Alertes sur les nouveaux food trucks
