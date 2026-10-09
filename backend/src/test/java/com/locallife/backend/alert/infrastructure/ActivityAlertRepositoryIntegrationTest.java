@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.locallife.backend.alert.domain.ActivityAlert;
 import com.locallife.backend.alert.domain.AlertActivity;
+import com.locallife.backend.alert.domain.AlertFoodTruck;
 import com.locallife.backend.alert.domain.AlertRecipient;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -61,7 +62,7 @@ class ActivityAlertRepositoryIntegrationTest {
      */
     private ActivityAlert createAlert(List<String> categoryCodes, int radiusKm) {
         ActivityAlert alert = activityAlertRepository.create(new ActivityAlert(
-                null, userId, "Lyon", LYON_LATITUDE, LYON_LONGITUDE, radiusKm, categoryCodes, true, false, null),
+                null, userId, "Lyon", LYON_LATITUDE, LYON_LONGITUDE, radiusKm, categoryCodes, false, true, false, null),
                 "token-" + radiusKm);
         jdbcTemplate.update(
                 "UPDATE activity_alert SET created_at = now() - interval '1 hour' WHERE id = ?", alert.id());
@@ -177,6 +178,50 @@ class ActivityAlertRepositoryIntegrationTest {
 
         assertThat(activityAlertRepository.findNewMatchingActivities(alert.id(), 100))
                 .extracting(AlertActivity::id).containsExactly(contribution);
+    }
+
+    private Long insertFoodTruck(String name, double latitude, double longitude) {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO food_truck (name, latitude, longitude, category, status) "
+                        + "VALUES (?, ?, ?, 'Burgers', 'PUBLISHED') RETURNING id",
+                Long.class, name, latitude, longitude);
+    }
+
+    @Test
+    void findNewMatchingFoodTrucks_ShouldMatchRadiusNewnessAndAlertOption() {
+        ActivityAlert alert = createAlert(List.of("SPORT"), 10);
+        // Publié la veille (date fournie à l'insertion : le trigger ne la remplace pas).
+        jdbcTemplate.update("INSERT INTO food_truck (name, latitude, longitude, category, status, published_at) "
+                + "VALUES ('Publié avant l''alerte', ?, ?, 'Burgers', 'PUBLISHED', now() - interval '1 day')",
+                LYON_LATITUDE, LYON_LONGITUDE);
+        Long nearby = insertFoodTruck("Le Camion Bleu", 45.7719, 4.8902);
+        insertFoodTruck("Trop loin (Grenoble)", 45.1885, 5.7245);
+
+        // Alerte sans l'option food trucks : rien.
+        assertThat(activityAlertRepository.findNewMatchingFoodTrucks(alert.id(), 100)).isEmpty();
+
+        jdbcTemplate.update("UPDATE activity_alert SET include_food_trucks = true WHERE id = ?", alert.id());
+        assertThat(activityAlertRepository.findNewMatchingFoodTrucks(alert.id(), 100))
+                .extracting(AlertFoodTruck::id).containsExactly(nearby);
+
+        activityAlertRepository.markFoodTrucksSent(alert.id(), List.of(nearby));
+        assertThat(activityAlertRepository.findNewMatchingFoodTrucks(alert.id(), 100)).isEmpty();
+    }
+
+    @Test
+    void foodTruckPublishedAt_ShouldBeSetByTrigger_AndKept() {
+        Long id = jdbcTemplate.queryForObject(
+                "INSERT INTO food_truck (name, latitude, longitude, category, status) "
+                        + "VALUES ('Brouillon', 45.0, 4.0, 'Crêpes', 'PENDING') RETURNING id", Long.class);
+        assertThat(jdbcTemplate.queryForObject("SELECT published_at FROM food_truck WHERE id = ?",
+                java.sql.Timestamp.class, id)).isNull();
+
+        jdbcTemplate.update("UPDATE food_truck SET status = 'PUBLISHED', published_at = '2026-01-01 10:00' WHERE id = ?",
+                id);
+        jdbcTemplate.update("UPDATE food_truck SET published_at = NULL WHERE id = ?", id);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT published_at FROM food_truck WHERE id = ?",
+                java.sql.Timestamp.class, id).toLocalDateTime()).isEqualTo(LocalDateTime.of(2026, 1, 1, 10, 0));
     }
 
 }

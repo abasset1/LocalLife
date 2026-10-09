@@ -9,6 +9,22 @@ export function toggleCode(selected: readonly string[], code: string): string[] 
   return selected.includes(code) ? selected.filter((value) => value !== code) : [...selected, code];
 }
 
+/**
+ * Valeur de la puce « Food trucks » parmi les catégories d'une alerte : elle
+ * n'est pas un code de catégorie, elle active `includeFoodTrucks`.
+ */
+export const FOOD_TRUCKS_CHIP = '__food_trucks__';
+
+/** Critères d'une alerte, lisibles : ses catégories, puis « Food trucks » si elle les couvre. */
+export function alertCriteria(
+  alert: { categoryCodes: readonly string[]; includeFoodTrucks: boolean },
+  categories: readonly { code: string; label: string }[],
+): string {
+  const labels = categoryLabels(alert.categoryCodes, categories);
+  if (!alert.includeFoodTrucks) return labels;
+  return labels ? `${labels}, Food trucks` : 'Food trucks';
+}
+
 /** Libellés des catégories, dans l'ordre de la sélection ; code brut si inconnu. */
 export function categoryLabels(codes: readonly string[], categories: readonly { code: string; label: string }[]): string {
   return codes.map((code) => categories.find((category) => category.code === code)?.label ?? code).join(', ');

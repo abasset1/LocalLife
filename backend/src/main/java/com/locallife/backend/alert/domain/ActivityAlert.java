@@ -4,8 +4,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Alerte email (table {@code activity_alert}, V52) : nouvelles activités
- * publiées d'au moins une des {@code categoryCodes}, à moins de
+ * Alerte (table {@code activity_alert}, V52) : nouvelles activités
+ * publiées d'au moins une des {@code categoryCodes} et/ou nouveaux food
+ * trucks ({@code includeFoodTrucks}, V55 — au moins l'un des deux), à moins de
  * {@code radiusKm} de {@code city}, envoyées par e-mail
  * ({@code notifyEmail}) et/ou par notification push ({@code notifyPush},
  * application mobile — au moins un des deux). Le jeton de désinscription n'est
@@ -20,6 +21,7 @@ public record ActivityAlert(
         double longitude,
         int radiusKm,
         List<String> categoryCodes,
+        boolean includeFoodTrucks,
         boolean notifyEmail,
         boolean notifyPush,
         LocalDateTime createdAt) {

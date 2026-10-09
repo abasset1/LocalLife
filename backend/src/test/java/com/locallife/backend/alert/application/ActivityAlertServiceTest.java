@@ -58,7 +58,7 @@ class ActivityAlertServiceTest {
         when(activityAlertRepository.create(any(), anyString())).thenAnswer(invocation -> invocation.getArgument(0));
 
         ActivityAlert created = activityAlertService.createAlert(
-                1L, Arrays.asList("SPORT", " CULTURE", "SPORT", null), " lyon ", null, null, 10, null, null);
+                1L, Arrays.asList("SPORT", " CULTURE", "SPORT", null), " lyon ", null, null, 10, null, null, null);
 
         assertEquals("Lyon", created.city());
         assertEquals(45.76, created.latitude());
@@ -75,7 +75,8 @@ class ActivityAlertServiceTest {
         when(geocodingService.resolveCity(null, 43.21, 5.54)).thenReturn(new Coordinates(43.2, 5.5, "Cassis", null));
         when(activityAlertRepository.create(any(), anyString())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ActivityAlert created = activityAlertService.createAlert(1L, List.of("SPORT"), null, 43.21, 5.54, 20, null, null);
+        ActivityAlert created = activityAlertService.createAlert(
+                1L, List.of("SPORT"), null, 43.21, 5.54, 20, null, null, null);
 
         assertEquals("Cassis", created.city());
     }
@@ -83,9 +84,9 @@ class ActivityAlertServiceTest {
     @Test
     void createAlert_ShouldRequireAtLeastOneCategory() {
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of(), "Lyon", null, null, 10, null, null));
+                () -> activityAlertService.createAlert(1L, List.of(), "Lyon", null, null, 10, null, null, null));
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, null, "Lyon", null, null, 10, null, null));
+                () -> activityAlertService.createAlert(1L, null, "Lyon", null, null, 10, null, null, null));
         verify(activityAlertRepository, never()).create(any(), anyString());
     }
 
@@ -94,13 +95,14 @@ class ActivityAlertServiceTest {
         givenCategories();
 
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of("NOPE"), "Lyon", null, null, 10, null, null));
+                () -> activityAlertService.createAlert(1L, List.of("NOPE"), "Lyon", null, null, 10, null, null, null));
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, null, null, null));
+                () -> activityAlertService.createAlert(
+                        1L, List.of("SPORT"), "Lyon", null, null, null, null, null, null));
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, 51, null, null));
+                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, 51, null, null, null));
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of("SPORT"), " ", null, null, 10, null, null));
+                () -> activityAlertService.createAlert(1L, List.of("SPORT"), " ", null, null, 10, null, null, null));
         verify(geocodingService, never()).resolveCity(any(), any(), any());
     }
 
@@ -110,7 +112,7 @@ class ActivityAlertServiceTest {
         when(activityAlertRepository.countByUserId(1L)).thenReturn(ActivityAlertService.MAX_ALERTS_PER_USER);
 
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, 10, null, null));
+                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, 10, null, null, null));
         verify(geocodingService, never()).resolveCity(any(), any(), any());
     }
 
@@ -120,7 +122,7 @@ class ActivityAlertServiceTest {
         when(geocodingService.resolveCity("Zzzz", null, null)).thenThrow(new CityNotFoundException("introuvable"));
 
         assertThrows(CityNotFoundException.class,
-                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Zzzz", null, null, 10, null, null));
+                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Zzzz", null, null, 10, null, null, null));
         verify(activityAlertRepository, never()).create(any(), anyString());
     }
 
@@ -144,12 +146,13 @@ class ActivityAlertServiceTest {
         when(activityAlertRepository.create(any(), anyString())).thenAnswer(invocation -> invocation.getArgument(0));
 
         ActivityAlert pushOnly = activityAlertService.createAlert(
-                1L, List.of("SPORT"), "Lyon", null, null, 10, false, true);
+                1L, List.of("SPORT"), "Lyon", null, null, 10, null, false, true);
 
         assertFalse(pushOnly.notifyEmail());
         assertTrue(pushOnly.notifyPush());
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, 10, false, false));
+                () -> activityAlertService.createAlert(
+                        1L, List.of("SPORT"), "Lyon", null, null, 10, null, false, false));
     }
 
     @Test
@@ -157,6 +160,18 @@ class ActivityAlertServiceTest {
         assertThrows(IllegalArgumentException.class, () -> activityAlertService.updateChannels(1L, 5L, false, false));
         when(activityAlertRepository.updateChannels(5L, 1L, false, true)).thenReturn(false);
         assertThrows(NoSuchElementException.class, () -> activityAlertService.updateChannels(1L, 5L, false, true));
+    }
+
+    @Test
+    void createAlert_ShouldAllowFoodTrucksWithoutCategory() {
+        when(geocodingService.resolveCity("Lyon", null, null)).thenReturn(new Coordinates(45.76, 4.83, "Lyon", null));
+        when(activityAlertRepository.create(any(), anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ActivityAlert foodTrucksOnly = activityAlertService.createAlert(
+                1L, List.of(), "Lyon", null, null, 10, true, null, null);
+
+        assertTrue(foodTrucksOnly.includeFoodTrucks());
+        assertTrue(foodTrucksOnly.categoryCodes().isEmpty());
     }
 
 }

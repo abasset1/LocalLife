@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.locallife.backend.alert.domain.ActivityAlert;
 import com.locallife.backend.alert.domain.AlertActivity;
+import com.locallife.backend.alert.domain.AlertFoodTruck;
 import com.locallife.backend.alert.domain.AlertRecipient;
 import com.locallife.backend.alert.infrastructure.ActivityAlertRepository;
 import com.locallife.backend.auth.application.EmailService;
@@ -53,10 +54,10 @@ class ActivityAlertNotifierTest {
     private ActivityAlertNotifier notifier;
 
     private final AlertRecipient alice = new AlertRecipient(
-            new ActivityAlert(1L, 10L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), true, false, LocalDateTime.now()),
+            new ActivityAlert(1L, 10L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), false, true, false, LocalDateTime.now()),
             "alice@example.com", "tok-alice");
     private final AlertRecipient bob = new AlertRecipient(
-            new ActivityAlert(2L, 11L, "Paris", 48.85, 2.35, 5, List.of("SPORT"), true, false, LocalDateTime.now()),
+            new ActivityAlert(2L, 11L, "Paris", 48.85, 2.35, 5, List.of("SPORT"), false, true, false, LocalDateTime.now()),
             "bob@example.com", "tok-bob");
 
     @BeforeEach
@@ -121,7 +122,7 @@ class ActivityAlertNotifierTest {
                 .mapToObj(id -> new AlertActivity(id, "Activité " + id, null, null))
                 .toList();
 
-        String body = notifier.body(alice, activities, java.util.Map.of("SPORT", "Sport"));
+        String body = notifier.body(alice, activities, List.of(), java.util.Map.of("SPORT", "Sport"));
 
         assertTrue(body.contains("- Activité 20\n"));
         assertTrue(!body.contains("- Activité 21\n"));
@@ -130,7 +131,7 @@ class ActivityAlertNotifierTest {
 
     private static AlertRecipient pushRecipient(boolean notifyEmail, String email) {
         return new AlertRecipient(
-                new ActivityAlert(3L, 12L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), notifyEmail, true,
+                new ActivityAlert(3L, 12L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), false, notifyEmail, true,
                         LocalDateTime.now()),
                 email, "tok-push");
     }
@@ -189,8 +190,61 @@ class ActivityAlertNotifierTest {
                 .mapToObj(id -> new AlertActivity(id, "A" + id, null, null))
                 .toList();
 
-        assertEquals("A1 · A2 · A3 · …", ActivityAlertNotifier.pushBody(activities));
-        assertEquals(Map.of("type", "activity-alert"), ActivityAlertNotifier.pushData(activities));
+        assertEquals("A1 · A2 · A3 · …", ActivityAlertNotifier.pushBody(activities, List.of()));
+        assertEquals(Map.of("type", "activity-alert"), ActivityAlertNotifier.pushData(activities, List.of()));
+    }
+
+    private static AlertRecipient foodTruckRecipient() {
+        return new AlertRecipient(
+                new ActivityAlert(4L, 13L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), true, true, true,
+                        LocalDateTime.now()),
+                "d@example.com", "tok-ft");
+    }
+
+    @Test
+    void sendAll_ShouldIncludeFoodTrucks_AndMarkBothSent() {
+        givenCategories();
+        when(activityAlertRepository.findAllRecipients()).thenReturn(List.of(foodTruckRecipient()));
+        when(activityAlertRepository.findNewMatchingActivities(4L, ActivityAlertNotifier.MAX_ACTIVITIES_PER_RUN))
+                .thenReturn(List.of(new AlertActivity(7L, "Match", "Lyon", null)));
+        when(activityAlertRepository.findNewMatchingFoodTrucks(4L, ActivityAlertNotifier.MAX_ACTIVITIES_PER_RUN))
+                .thenReturn(List.of(new AlertFoodTruck(9L, "Le Camion Bleu", "Burgers")));
+        when(pushTokenRepository.findTokensByUserId(13L)).thenReturn(List.of("ExponentPushToken[a]"));
+        when(expoPushService.send(any(), anyString(), anyString(), any())).thenReturn(List.of());
+
+        assertEquals(1, notifier.sendAll());
+
+        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendActivityAlertEmail(
+                eq("d@example.com"), eq("LocalLife : 2 nouveautés près de Lyon"), body.capture());
+        assertTrue(body.getValue().contains("« Sport, Food trucks »"));
+        assertTrue(body.getValue().contains("Activités :\n- Match — Lyon"));
+        assertTrue(body.getValue().contains("Food trucks :\n- Le Camion Bleu (Burgers)"));
+        verify(expoPushService).send(List.of("ExponentPushToken[a]"), "2 nouveautés près de Lyon",
+                "Match · 🚚 Le Camion Bleu", Map.of("type", "activity-alert"));
+        verify(activityAlertRepository).markSent(4L, List.of(7L));
+        verify(activityAlertRepository).markFoodTrucksSent(4L, List.of(9L));
+    }
+
+    @Test
+    void sendAll_ShouldNotLookForFoodTrucks_WhenAlertDoesNotCoverThem() {
+        givenCategories();
+        when(activityAlertRepository.findAllRecipients()).thenReturn(List.of(alice));
+        when(activityAlertRepository.findNewMatchingActivities(1L, ActivityAlertNotifier.MAX_ACTIVITIES_PER_RUN))
+                .thenReturn(List.of());
+
+        assertEquals(0, notifier.sendAll());
+        verify(activityAlertRepository, never()).findNewMatchingFoodTrucks(any(), eq(100));
+    }
+
+    @Test
+    void titleAndPushData_ShouldDescribeFoodTrucksOnly() {
+        List<AlertFoodTruck> one = List.of(new AlertFoodTruck(9L, "Le Camion Bleu", null));
+
+        assertEquals("1 nouveau food truck près de Lyon", ActivityAlertNotifier.title("Lyon", List.of(), one));
+        assertEquals("2 nouveaux food trucks près de Lyon", ActivityAlertNotifier.title("Lyon", List.of(),
+                List.of(one.get(0), new AlertFoodTruck(10L, "Pizza Mobile", null))));
+        assertEquals(Map.of("type", "activity-alert", "foodTruckId", 9L), ActivityAlertNotifier.pushData(List.of(), one));
     }
 
 }

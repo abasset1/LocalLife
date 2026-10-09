@@ -40,7 +40,7 @@ class ActivityAlertControllerTest {
 
     private final JwtAuthentication authentication = new JwtAuthentication(7L, "alice@example.com", Role.USER);
     private final ActivityAlert alert =
-            new ActivityAlert(3L, 7L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), true, false, LocalDateTime.now());
+            new ActivityAlert(3L, 7L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), false, true, false, LocalDateTime.now());
 
     @Test
     void getAlerts_ShouldUseUserIdFromJwt() {
@@ -48,34 +48,34 @@ class ActivityAlertControllerTest {
 
         List<AlertResponse> alerts = controller.getAlerts(authentication);
 
-        assertEquals(List.of(new AlertResponse(3L, List.of("SPORT"), "Lyon", 45.76, 4.83, 10, true, false)), alerts);
+        assertEquals(List.of(new AlertResponse(3L, List.of("SPORT"), false, "Lyon", 45.76, 4.83, 10, true, false)), alerts);
     }
 
     @Test
     void createAlert_ShouldReturnCreated() {
-        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Lyon", null, null, 10, null, null)).thenReturn(alert);
+        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Lyon", null, null, 10, null, null, null)).thenReturn(alert);
 
         ResponseEntity<Object> response = controller.createAlert(
-                authentication, new CreateAlertRequest(List.of("SPORT"), "Lyon", null, null, 10, null, null), httpRequest);
+                authentication, new CreateAlertRequest(List.of("SPORT"), "Lyon", null, null, 10, null, null, null), httpRequest);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
     }
 
     @Test
     void createAlert_ShouldMapErrors() {
-        when(activityAlertService.createAlert(7L, List.of(), "Lyon", null, null, 10, null, null))
+        when(activityAlertService.createAlert(7L, List.of(), "Lyon", null, null, 10, null, null, null))
                 .thenThrow(new IllegalArgumentException("Choisis au moins une catégorie."));
-        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Zzzz", null, null, 10, null, null))
+        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Zzzz", null, null, 10, null, null, null))
                 .thenThrow(new CityNotFoundException("Ville introuvable."));
-        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Lyon", null, null, 10, null, null))
+        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Lyon", null, null, 10, null, null, null))
                 .thenThrow(new GeocodingUnavailableException(new RuntimeException("down")));
 
         assertEquals(HttpStatus.BAD_REQUEST, controller.createAlert(authentication,
-                new CreateAlertRequest(List.of(), "Lyon", null, null, 10, null, null), httpRequest).getStatusCode());
+                new CreateAlertRequest(List.of(), "Lyon", null, null, 10, null, null, null), httpRequest).getStatusCode());
         assertEquals(HttpStatus.BAD_REQUEST, controller.createAlert(authentication,
-                new CreateAlertRequest(List.of("SPORT"), "Zzzz", null, null, 10, null, null), httpRequest).getStatusCode());
+                new CreateAlertRequest(List.of("SPORT"), "Zzzz", null, null, 10, null, null, null), httpRequest).getStatusCode());
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, controller.createAlert(authentication,
-                new CreateAlertRequest(List.of("SPORT"), "Lyon", null, null, 10, null, null), httpRequest).getStatusCode());
+                new CreateAlertRequest(List.of("SPORT"), "Lyon", null, null, 10, null, null, null), httpRequest).getStatusCode());
     }
 
     @Test
@@ -100,7 +100,7 @@ class ActivityAlertControllerTest {
     @Test
     void updateChannels_ShouldReturnUpdatedAlert_OrMapErrors() {
         ActivityAlert pushOnly =
-                new ActivityAlert(3L, 7L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), false, true, LocalDateTime.now());
+                new ActivityAlert(3L, 7L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), false, false, true, LocalDateTime.now());
         when(activityAlertService.updateChannels(7L, 3L, false, true)).thenReturn(pushOnly);
         when(activityAlertService.updateChannels(7L, 3L, false, false))
                 .thenThrow(new IllegalArgumentException("Choisis au moins un moyen d'être prévenu."));
