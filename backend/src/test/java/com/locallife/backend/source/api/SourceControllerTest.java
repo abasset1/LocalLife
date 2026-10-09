@@ -6,11 +6,15 @@ import static org.mockito.Mockito.when;
 
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.source.api.SourceController.CreateSourceRequest;
+import com.locallife.backend.source.api.SourceController.DefaultCategoriesRequest;
 import com.locallife.backend.source.api.SourceController.UpdateSourceRequest;
+import com.locallife.backend.source.application.SourceDefaultCategoryService;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,8 +33,59 @@ class SourceControllerTest {
     @Mock
     private HttpServletRequest httpRequest;
 
+    @Mock
+    private SourceDefaultCategoryService sourceDefaultCategoryService;
+
     @InjectMocks
     private SourceController sourceController;
+
+    // --- Catégories par défaut ---
+
+    @Test
+    void getAllDefaultCategories_ShouldReturnCodesBySourceId() {
+        when(sourceDefaultCategoryService.findAllCategoryCodes()).thenReturn(Map.of(7L, List.of("CULTURE")));
+
+        ResponseEntity<Map<Long, List<String>>> response = sourceController.getAllDefaultCategories();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(Map.of(7L, List.of("CULTURE")), response.getBody());
+    }
+
+    @Test
+    void replaceDefaultCategories_ShouldReturnTheStoredCodes() {
+        when(sourceDefaultCategoryService.replace(7L, List.of("CULTURE", "TOURISM")))
+                .thenReturn(List.of("CULTURE", "TOURISM"));
+
+        ResponseEntity<Object> response = sourceController.replaceDefaultCategories(
+                7L, new DefaultCategoriesRequest(List.of("CULTURE", "TOURISM")), httpRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(new DefaultCategoriesRequest(List.of("CULTURE", "TOURISM")), response.getBody());
+    }
+
+    @Test
+    void replaceDefaultCategories_ShouldReturnNotFound_WhenSourceDoesNotExist() {
+        when(sourceDefaultCategoryService.replace(99L, List.of("CULTURE")))
+                .thenThrow(new NoSuchElementException("Source introuvable : 99"));
+
+        ResponseEntity<Object> response = sourceController.replaceDefaultCategories(
+                99L, new DefaultCategoriesRequest(List.of("CULTURE")), httpRequest);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    }
+
+    @Test
+    void replaceDefaultCategories_ShouldReturnBadRequest_WhenACodeIsUnknown() {
+        when(sourceDefaultCategoryService.replace(7L, List.of("INCONNUE")))
+                .thenThrow(new IllegalArgumentException("Catégorie inconnue ou inactive : INCONNUE"));
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/sources/7/default-categories");
+
+        ResponseEntity<Object> response = sourceController.replaceDefaultCategories(
+                7L, new DefaultCategoriesRequest(List.of("INCONNUE")), httpRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("Catégorie inconnue ou inactive : INCONNUE", ((ErrorResponse) response.getBody()).message());
+    }
 
     @Test
     void getAllSources_ShouldReturnListOfSources() {

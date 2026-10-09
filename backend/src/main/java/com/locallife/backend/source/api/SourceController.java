@@ -1,6 +1,7 @@
 package com.locallife.backend.source.api;
 
 import com.locallife.backend.common.ErrorResponse;
+import com.locallife.backend.source.application.SourceDefaultCategoryService;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,6 +13,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -72,9 +75,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class SourceController {
 
     private final SourceService sourceService;
+    private final SourceDefaultCategoryService sourceDefaultCategoryService;
 
-    public SourceController(SourceService sourceService) {
+    public SourceController(
+            SourceService sourceService, SourceDefaultCategoryService sourceDefaultCategoryService) {
         this.sourceService = sourceService;
+        this.sourceDefaultCategoryService = sourceDefaultCategoryService;
     }
 
     @Operation(
@@ -213,6 +219,46 @@ public class SourceController {
         }
     }
 
+    @Operation(
+            summary = "Catégories par défaut de toutes les sources",
+            description = "Pour chaque source qui en a, les codes des catégories appliquées par l'import aux "
+                    + "éléments que ni leurs mots-clés ni leur titre ne permettent de classer. Une source "
+                    + "sans catégorie par défaut est absente de la réponse. Endpoint public.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Codes de catégories par id de source.")
+    })
+    @GetMapping("/default-categories")
+    public ResponseEntity<Map<Long, List<String>>> getAllDefaultCategories() {
+        return ResponseEntity.ok(sourceDefaultCategoryService.findAllCategoryCodes());
+    }
+
+    @Operation(
+            summary = "Remplace les catégories par défaut d'une source (réservé aux administrateurs)",
+            description = "Une liste vide les supprime toutes. Prend effet à l'import suivant : les éléments "
+                    + "de cette source restés en quarantaine sont alors re-décidés.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Catégories par défaut enregistrées."),
+        @ApiResponse(responseCode = "400", description = "Un code de catégorie est inconnu ou inactif.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Authentification requise."),
+        @ApiResponse(responseCode = "403", description = "Rôle ADMIN requis."),
+        @ApiResponse(responseCode = "404", description = "Aucune source ne correspond à cet id.")
+    })
+    @PutMapping("/{id}/default-categories")
+    public ResponseEntity<Object> replaceDefaultCategories(
+            @Parameter(description = "Identifiant de la source.", required = true) @PathVariable Long id,
+            @RequestBody DefaultCategoriesRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            List<String> codes = sourceDefaultCategoryService.replace(id, request.categoryCodes());
+            return ResponseEntity.ok(new DefaultCategoriesRequest(codes));
+        } catch (NoSuchElementException exception) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (IllegalArgumentException exception) {
+            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        }
+    }
+
     private ResponseEntity<Object> errorResponse(HttpStatus status, String message, HttpServletRequest request) {
         ErrorResponse body = new ErrorResponse(
                 Instant.now(), status.value(), status.getReasonPhrase(), message, request.getRequestURI());
@@ -220,6 +266,10 @@ public class SourceController {
     }
 
     public record CreateSourceRequest(String name, String type, String url, String agendaUid, String regionFilter) {
+    }
+
+    /** Codes des catégories par défaut d'une source ({@code CULTURE}...), en requête comme en réponse. */
+    public record DefaultCategoriesRequest(List<String> categoryCodes) {
     }
 
     public record UpdateSourceRequest(

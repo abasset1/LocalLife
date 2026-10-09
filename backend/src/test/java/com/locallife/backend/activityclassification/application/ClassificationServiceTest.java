@@ -94,6 +94,38 @@ class ClassificationServiceTest {
 
     // ---- Keywords source : même référentiel que le titre ----
 
+    // --- Catégories par défaut de la source ---
+
+    @Test
+    void sourceDefaultClassifiesWithTheActiveCategoriesOfTheSource() {
+        givenDefaultReferential();
+
+        ClassificationOutcome outcome = service.sourceDefault(List.of(3L, 8L));
+
+        assertTrue(outcome.classified());
+        assertEquals(List.of("CULTURE", "TOURISM"), outcome.decision().categoryCodes());
+        assertEquals(List.of(3L, 8L), outcome.categoryIds());
+        assertEquals("SOURCE_DEFAULT", outcome.decision().source());
+        assertEquals("SOURCE_DEFAULT:CULTURE+TOURISM", outcome.decision().ruleId());
+        assertTrue(outcome.decision().matchedKeywords().isEmpty());
+    }
+
+    @Test
+    void sourceDefaultIgnoresInactiveOrMissingCategories_AndDoesNotClassifyWhenNoneIsLeft() {
+        when(categoryRepository.findById(3L)).thenReturn(Optional.of(category(3L, "CULTURE", false)));
+        when(categoryRepository.findById(99L)).thenReturn(Optional.empty());
+
+        ClassificationOutcome outcome = service.sourceDefault(List.of(3L, 99L));
+
+        assertFalse(outcome.classified());
+        assertTrue(outcome.categoryIds().isEmpty());
+    }
+
+    @Test
+    void sourceDefaultDoesNotClassifyWithoutAnyDefaultCategory() {
+        assertFalse(service.sourceDefault(List.of()).classified());
+    }
+
     // --- Lot de décisions (beginBatch / endBatch) ---
 
     @Test

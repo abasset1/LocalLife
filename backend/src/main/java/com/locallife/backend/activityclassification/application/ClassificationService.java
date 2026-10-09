@@ -46,6 +46,12 @@ public class ClassificationService {
     /** Raison de {@code NEEDS_REVIEW} : le classifieur a produit un code que le référentiel ne contient pas. */
     public static final String CATEGORY_NOT_IN_REFERENTIAL = "CATEGORY_NOT_IN_REFERENTIAL";
 
+    /**
+     * Origine tracée dans {@code classification_record.classification_source} quand la catégorie vient
+     * des catégories par défaut de la source (voir {@link #sourceDefault}), pas d'un mot-clé.
+     */
+    public static final String SOURCE_DEFAULT = "SOURCE_DEFAULT";
+
     private final CategoryRepository categoryRepository;
     private final ClassificationRecordRepository recordRepository;
     private final CategoryKeywordRepository keywordRepository;
@@ -221,6 +227,36 @@ public class ClassificationService {
                 decision.status(), List.copyOf(codes), decision.reason(), decision.candidateCodes(),
                 decision.ruleId(), decision.source(), decision.matchedKeywords());
         return new ClassificationOutcome(resolved, List.copyOf(ids));
+    }
+
+    /**
+     * Classification par les catégories par défaut d'une source, quand ni les mots-clés source ni le
+     * titre n'ont rien donné. Seules les catégories existantes et actives sont retenues ; s'il n'en reste
+     * aucune, le résultat n'est pas classé ({@code UNCLASSIFIED}) et l'élément reste en quarantaine.
+     *
+     * @param categoryIds catégories par défaut de la source, peut être vide
+     */
+    public ClassificationOutcome sourceDefault(List<Long> categoryIds) {
+        List<String> codes = new ArrayList<>();
+        List<Long> ids = new ArrayList<>();
+        if (categoryIds != null) {
+            for (Long categoryId : categoryIds) {
+                categoryById(categoryId).filter(Category::active).ifPresent(category -> {
+                    codes.add(category.code());
+                    ids.add(category.id());
+                });
+            }
+        }
+        if (ids.isEmpty()) {
+            return new ClassificationOutcome(
+                    new Decision(ClassificationStatus.UNCLASSIFIED, List.of(), null, List.of(),
+                            "UNCLASSIFIED:NO_SIGNAL"),
+                    List.of());
+        }
+        Decision decision = new Decision(
+                ClassificationStatus.AUTO_CLASSIFIED, List.copyOf(codes), null, List.of(),
+                SOURCE_DEFAULT + ":" + String.join("+", codes), SOURCE_DEFAULT, List.of());
+        return new ClassificationOutcome(decision, List.copyOf(ids));
     }
 
     /** Consigne qu'une activité a été créée à partir d'une classification automatique. */

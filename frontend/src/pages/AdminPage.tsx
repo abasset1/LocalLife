@@ -28,6 +28,13 @@ interface AdminActivity {
     url: string | null;
 }
 
+/** Catégorie du référentiel (`GET /api/v1/categories`), pour les catégories par défaut d'un agenda. */
+interface Category {
+    code: string;
+    label: string;
+    active: boolean;
+}
+
 interface ApiErrorBody {
     message: string;
 }
@@ -119,6 +126,11 @@ function AdminPage() {
     const [sourceStatus, setSourceStatus] = useState<string>(SOURCE_STATUSES[0]);
     const [sourceAgendaUid, setSourceAgendaUid] = useState("");
     const [sourceRegionFilter, setSourceRegionFilter] = useState("");
+    // Catégories par défaut d'un agenda : appliquées par l'import aux événements que ni leurs
+    // mots-clés ni leur titre ne permettent de classer (`GET /api/v1/sources/default-categories`).
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [defaultCategoriesBySourceId, setDefaultCategoriesBySourceId] = useState<Record<string, string[]>>({});
+    const [sourceDefaultCategoryCodes, setSourceDefaultCategoryCodes] = useState<string[]>([]);
     // Incrémenté après chaque création/modification/suppression réussie pour redéclencher
     // le chargement de la liste (même schéma que `refreshKey` dans App.tsx pour les activités).
     const [sourcesRefreshKey, setSourcesRefreshKey] = useState(0);
@@ -196,6 +208,23 @@ function AdminPage() {
                 if (response.ok) {
                     const data: Source[] = await response.json();
                     setSources(data);
+                    // Lectures publiques, sans incidence sur l'affichage de la liste si elles échouent :
+                    // seules les catégories par défaut ne seraient alors ni affichées ni modifiables.
+                    const [categoriesResponse, defaultsResponse] = await Promise.all([
+                        fetch("/api/v1/categories?locale=fr-FR", { signal: abortController.signal }),
+                        fetch("/api/v1/sources/default-categories", { signal: abortController.signal }),
+                    ]);
+                    if (categoriesResponse.ok) {
+                        const allCategories: Category[] = await categoriesResponse.json();
+                        setCategories(
+                            allCategories
+                                .filter((category) => category.active)
+                                .sort((a, b) => a.label.localeCompare(b.label, "fr")),
+                        );
+                    }
+                    if (defaultsResponse.ok) {
+                        setDefaultCategoriesBySourceId(await defaultsResponse.json());
+                    }
                 } else {
                     const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
                     setSourcesError(body?.message ?? "Impossible de charger les agendas, réessaie.");
@@ -254,6 +283,7 @@ function AdminPage() {
         setSourceStatus(SOURCE_STATUSES[0]);
         setSourceAgendaUid("");
         setSourceRegionFilter("");
+        setSourceDefaultCategoryCodes([]);
         setSourceFormError(null);
         setIsSourceFormOpen(true);
     }
@@ -266,8 +296,22 @@ function AdminPage() {
         setSourceStatus(source.status);
         setSourceAgendaUid(source.agendaUid ?? "");
         setSourceRegionFilter(source.regionFilter ?? "");
+        setSourceDefaultCategoryCodes(defaultCategoriesBySourceId[String(source.id)] ?? []);
         setSourceFormError(null);
         setIsSourceFormOpen(true);
+    }
+
+    function toggleSourceDefaultCategory(code: string) {
+        setSourceDefaultCategoryCodes((current) =>
+            current.includes(code) ? current.filter((selected) => selected !== code) : [...current, code]);
+    }
+
+    /** Libellés des catégories par défaut d'un agenda, pour la liste (« Culture, Tourisme »). */
+    function formatDefaultCategories(sourceId: number): string {
+        const labelsByCode = new Map(categories.map((category) => [category.code, category.label]));
+        return (defaultCategoriesBySourceId[String(sourceId)] ?? [])
+            .map((code) => labelsByCode.get(code) ?? code)
+            .join(", ");
     }
 
     function closeSourceForm() {
@@ -312,8 +356,25 @@ function AdminPage() {
                 });
 
             if (response.ok) {
-                setIsSourceFormOpen(false);
+                // Catégories par défaut : endpoint dédié, appelé une fois l'agenda enregistré (son id
+                // n'est connu qu'après création). En cas d'échec ici, l'agenda lui-même est bien
+                // enregistré : la liste est rafraîchie et le formulaire reste ouvert sur l'erreur.
+                const saved: Source = await response.json();
+                const defaultsResponse = await apiFetch(`/api/v1/sources/${saved.id}/default-categories`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ categoryCodes: sourceDefaultCategoryCodes }),
+                });
                 setSourcesRefreshKey((current) => current + 1);
+                if (defaultsResponse.ok) {
+                    setIsSourceFormOpen(false);
+                } else {
+                    setEditingSource(saved);
+                    const body = (await defaultsResponse.json().catch(() => null)) as ApiErrorBody | null;
+                    setSourceFormError(
+                        body?.message ?? "Agenda enregistré, mais pas ses catégories par défaut. Réessaie.",
+                    );
+                }
             } else {
                 const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
                 setSourceFormError(body?.message ?? "Impossible d'enregistrer cet agenda, réessaie.");
@@ -567,6 +628,25 @@ function AdminPage() {
                                             value={sourceRegionFilter}
                                         />
                                     </div>
+                                    <fieldset className="form-field admin-default-categories">
+                                        <legend>Catégories par défaut (optionnel)</legend>
+                                        <p className="admin-default-categories-hint">
+                                            Appliquées aux événements de cet agenda que ni leurs mots-clés ni
+                                            leur titre ne permettent de classer. Prend effet à l'import suivant.
+                                        </p>
+                                        <div className="admin-default-categories-options">
+                                            {categories.map((category) => (
+                                                <label key={category.code}>
+                                                    <input
+                                                        checked={sourceDefaultCategoryCodes.includes(category.code)}
+                                                        onChange={() => toggleSourceDefaultCategory(category.code)}
+                                                        type="checkbox"
+                                                    />
+                                                    {category.label}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </fieldset>
                                     <div className="modal-actions">
                                         <button disabled={isSavingSource} type="submit">
                                             {editingSource ? "Enregistrer" : "Ajouter"}
@@ -608,6 +688,10 @@ function AdminPage() {
                                         <div>
                                             <dt>Filtre région</dt>
                                             <dd>{source.regionFilter ?? "—"}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Catégories par défaut</dt>
+                                            <dd>{formatDefaultCategories(source.id) || "—"}</dd>
                                         </div>
                                         <div>
                                             <dt>Dernière synchronisation</dt>
