@@ -13,6 +13,15 @@ export interface Category {
     active: boolean;
 }
 
+/** Miroir de `UserPreferencesResponse` (`GET`/`PUT /api/v1/users/me/preferences`) : paramètres de recherche par défaut. */
+export interface UserPreferences {
+    defaultCity: string | null;
+    defaultLatitude: number | null;
+    defaultLongitude: number | null;
+    defaultRadiusKm: number | null;
+    defaultCategoryCodes: string[];
+}
+
 export interface Activity {
     id: number;
     title: string;

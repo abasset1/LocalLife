@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.27 — 2026-10-09
+
+### Paramètres utilisateur : catégories, ville et rayon par défaut
+- Migration `V51` : table `user_preferences` (une ligne par utilisateur : `default_city` + coordonnées géocodées, `default_radius_km` borné à 1–50 km) et table `user_preference_category` (codes de catégories, FK sur `category.code`). Suppression en cascade avec l'utilisateur.
+- Nouveaux endpoints `GET`/`PUT /api/v1/users/me/preferences` (JWT requis, id lu dans le token). La ville est géocodée une fois à l'enregistrement (Nominatim) ; une ville inchangée garde ses coordonnées sans nouvel appel. `400` si rayon hors bornes, catégorie inconnue/inactive ou ville introuvable ; `503` si le géocodage est indisponible.
+- Frontend : section « Paramètres de recherche » sur la page `/profile` (ville, rayon, catégories cochées). À l'ouverture de la carte, un utilisateur connecté voit directement ses catégories cochées, la carte centrée sur sa ville par défaut (à la place de la géolocalisation automatique, « Autour de moi » reste disponible) et la recherche initiale faite avec son rayon. Champ vide = comportement standard inchangé.
+- Tests : `UserPreferencesServiceTest`, `UserPreferencesControllerTest`, `UserPreferencesRepositoryIntegrationTest`.
+- Vérifié : `mvn verify` (941 tests, checkstyle) contre PostgreSQL/PostGIS 16, `npm run build`, et parcours réel dans le navigateur (enregistrement des paramètres puis ouverture de la carte).
+
 ## 0.9.26 — 2026-09-23
 
 ### Vérification de l'adresse email à l'inscription
