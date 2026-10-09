@@ -4,7 +4,7 @@ import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { MAP_BOUNDS_DEBOUNCE_MS, MARSEILLE_COORDINATES } from "./constants";
 import type { Activity, FoodTruck, MapBounds, UserPosition } from "./types";
@@ -93,15 +93,25 @@ function MapBoundsWatcher({ onBoundsChange }: { onBoundsChange: (bounds: MapBoun
  * `MapContainer` ne respecte sa prop `center` qu'au montage initial — un
  * changement ultérieur de `userPosition` (LL-4010) ne recentre donc jamais
  * visuellement la carte sans ce composant.
+ *
+ * Avec un rayon favori (paramètres de l'utilisateur connecté), la carte est
+ * cadrée sur ce rayon autour du point : la zone visible, qui devient ensuite
+ * la zone de recherche (`within-bounds`), correspond alors au rayon choisi.
+ * Sans rayon favori, le zoom courant est conservé (comportement d'origine).
  */
-function MapRecenterOnUserPosition({ position }: { position: UserPosition | null }) {
+function MapRecenterOnUserPosition({ position, radiusKm }: { position: UserPosition | null; radiusKm: number | null }) {
     const map = useMap();
 
     useEffect(() => {
-        if (position) {
+        if (!position) {
+            return;
+        }
+        if (radiusKm) {
+            map.fitBounds(L.latLng(position.latitude, position.longitude).toBounds(radiusKm * 2 * 1000));
+        } else {
             map.setView([position.latitude, position.longitude], map.getZoom());
         }
-    }, [position, map]);
+    }, [position, radiusKm, map]);
 
     return null;
 }
@@ -164,6 +174,8 @@ interface ExplorerMapProps {
     activities: Activity[];
     foodTrucks: FoodTruck[];
     userPosition: UserPosition | null;
+    /** Rayon favori (km) : la carte est cadrée dessus autour de `userPosition`. */
+    favoriteRadiusKm: number | null;
     selectedActivity: Activity | null;
     onSelectActivity: (activity: Activity) => void;
     onBoundsChange: (bounds: MapBounds) => void;
@@ -173,6 +185,7 @@ function ExplorerMap({
     activities,
     foodTrucks,
     userPosition,
+    favoriteRadiusKm,
     selectedActivity,
     onSelectActivity,
     onBoundsChange,
@@ -182,13 +195,24 @@ function ExplorerMap({
         : MARSEILLE_COORDINATES;
 
     return (
-        <MapContainer center={initialCenter} className="explorer-map" zoom={13} zoomControl={false}>
+        // zoomSnap fractionnaire : le cadrage sur le rayon favori (fitBounds) colle au rayon au lieu
+        // d'arrondir au niveau de zoom entier inférieur (jusqu'à deux fois trop large).
+        <MapContainer center={initialCenter} className="explorer-map" zoom={13} zoomControl={false} zoomSnap={0.25}>
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapBoundsWatcher onBoundsChange={onBoundsChange} />
-            <MapRecenterOnUserPosition position={userPosition} />
+            <MapRecenterOnUserPosition position={userPosition} radiusKm={favoriteRadiusKm} />
+            {userPosition && favoriteRadiusKm && (
+                // Rayon favori, matérialisé autour de la ville (ou de la position) de recherche.
+                <Circle
+                    center={[userPosition.latitude, userPosition.longitude]}
+                    interactive={false}
+                    pathOptions={{ color: "#2563eb", weight: 1.5, dashArray: "6 6", fillOpacity: 0.04 }}
+                    radius={favoriteRadiusKm * 1000}
+                />
+            )}
             <MapFlyToSelection activity={selectedActivity} />
             <MapInvalidateOnResize />
             {/*

@@ -66,6 +66,8 @@ function App() {
     const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
     /** Rayon de la recherche initiale `/nearby` : paramètre utilisateur s'il est défini (voir ci-dessous). */
     const [searchRadiusKm, setSearchRadiusKm] = useState(DEFAULT_SEARCH_RADIUS_KM);
+    /** Rayon des paramètres utilisateur, s'il y en a un : la carte est cadrée dessus (ExplorerMap). */
+    const [favoriteRadiusKm, setFavoriteRadiusKm] = useState<number | null>(null);
     /**
      * Paramètres utilisateur (catégories, ville, rayon par défaut) appliqués avant
      * la première recherche, pour ne pas charger puis recharger la carte. Visiteur
@@ -129,6 +131,7 @@ function App() {
                     setSelectedCategoryCodes(preferences.defaultCategoryCodes);
                     if (preferences.defaultRadiusKm !== null) {
                         setSearchRadiusKm(preferences.defaultRadiusKm);
+                        setFavoriteRadiusKm(preferences.defaultRadiusKm);
                     }
                     if (preferences.defaultLatitude !== null && preferences.defaultLongitude !== null) {
                         hasDefaultCity = true;
@@ -650,6 +653,7 @@ function App() {
                             onSelectActivity={handleSelectActivity}
                             selectedActivity={previewActivity}
                             userPosition={userPosition}
+                            favoriteRadiusKm={favoriteRadiusKm}
                         />
                         {previewActivity && (
                             <ActivityPreview

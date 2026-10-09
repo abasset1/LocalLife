@@ -59,16 +59,27 @@ export default function MapScreen() {
   const categoryCodes =
     preferences && clearedFilterKey !== preferencesKey ? preferences.defaultCategoryCodes : NO_CATEGORIES;
 
+  // Centre courant, lu sans relancer le cadrage à chaque déplacement de la carte.
+  const regionRef = useRef(region);
+  useEffect(() => {
+    regionRef.current = region;
+  }, [region]);
+
   const centeredPreferences = useRef<string | null>(null);
   useEffect(() => {
     if (!preferences || centeredPreferences.current === preferencesKey) return;
     centeredPreferences.current = preferencesKey;
     const { defaultLatitude, defaultLongitude, defaultRadiusKm } = preferences;
     if (defaultLatitude !== null && defaultLongitude !== null) {
+      // Ville favorite : cadrée sur le rayon favori (ou 50 km).
       mapRef.current?.animateToRegion(
         regionForRadius(defaultLatitude, defaultLongitude, defaultRadiusKm ?? DEFAULT_PREFERENCE_RADIUS_KM),
         500,
       );
+    } else if (defaultRadiusKm !== null) {
+      // Rayon favori sans ville : cadré autour du centre actuel de la carte.
+      const { latitude, longitude } = regionRef.current;
+      mapRef.current?.animateToRegion(regionForRadius(latitude, longitude, defaultRadiusKm), 500);
     }
   }, [preferences, preferencesKey]);
 
