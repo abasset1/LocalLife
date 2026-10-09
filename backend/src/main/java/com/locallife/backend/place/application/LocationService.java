@@ -75,11 +75,12 @@ public class LocationService {
                 && hasText(candidate.city())
                 && hasText(candidate.postalCode());
         if (hasFullAddress) {
-            return locationRepository.findByAddressAndCityAndPostalCode(
+            return locationRepository.findFirstByAddressAndCityAndPostalCodeOrderByIdAsc(
                     candidate.address(), candidate.city(), candidate.postalCode());
         }
         if (candidate.latitude() != null && candidate.longitude() != null) {
-            return locationRepository.findByLatitudeAndLongitude(candidate.latitude(), candidate.longitude());
+            return locationRepository.findFirstByLatitudeAndLongitudeOrderByIdAsc(
+                    candidate.latitude(), candidate.longitude());
         }
         return Optional.empty();
     }

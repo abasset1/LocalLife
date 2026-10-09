@@ -132,6 +132,8 @@ class ImportServiceTest {
 
     private static final String FINGERPRINT = "empreinte-courante";
 
+    private static final String QUARANTINE_FINGERPRINT = "empreinte-quarantaine";
+
     private static final String KEY = "external:OpenAgenda Marseille:ext-1";
 
     private static final ClassificationOutcome NEEDS_REVIEW = new ClassificationOutcome(
@@ -148,6 +150,9 @@ class ImportServiceTest {
                 .when(activityClassificationService).createActivity(any(), any());
         // Empreinte de l'élément collecté : valeur fixe, jamais connue par défaut (voir le mock).
         lenient().when(importFingerprintService.compute(any())).thenReturn(FINGERPRINT);
+        lenient().when(classificationService.referentialVersion()).thenReturn("referentiel-1");
+        lenient().when(importFingerprintService.computeQuarantined(FINGERPRINT, "referentiel-1"))
+                .thenReturn(QUARANTINE_FINGERPRINT);
         return new ImportService(
                 sourceService, openAgendaCollectorFactory, normalizationService, deduplicationService,
                 activityRepository, locationService, scheduleService, occurrenceService, mediaService,
@@ -379,6 +384,59 @@ class ImportServiceTest {
 
         verify(importFingerprintService, never()).record(any(), any(), any());
         verify(importFingerprintService).forget(10L, KEY);
+    }
+
+    /** Un élément sans activité (jamais classé), dont l'empreinte enregistrée est {@code knownFingerprint}. */
+    private void givenQuarantinedItem(String knownFingerprint) {
+        givenOneCollectibleSource();
+        CollectedActivity item = collectedActivity("ext-1");
+        when(collector.collect()).thenReturn(List.of(item));
+        when(deduplicationService.computeDeduplicationKey(item)).thenReturn(KEY);
+        when(normalizationService.normalize(item)).thenReturn(Optional.of(normalizedActivity()));
+        when(activityRepository.findBySourceIdAndImportKey(10L, KEY)).thenReturn(Optional.empty());
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        if (knownFingerprint != null) {
+            when(importFingerprintService.findBySourceId(10L)).thenReturn(Map.of(KEY, knownFingerprint));
+        }
+    }
+
+    @Test
+    void importAll_ShouldNotDecideAgain_WhenQuarantinedItemAndReferentialUnchanged() {
+        givenQuarantinedItem(QUARANTINE_FINGERPRINT);
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.needsReview());
+        assertEquals(0, result.created());
+        verify(classificationService, never()).decide(any(), any(), any());
+        verify(classificationService, never()).recordQuarantined(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void importAll_ShouldDecideAgain_WhenQuarantinedItemButReferentialChanged() {
+        // Empreinte enregistrée avec un ancien référentiel : l'élément est re-décidé, et ici classé.
+        givenQuarantinedItem("empreinte-quarantaine-ancien-referentiel");
+        givenSaveAssignsId();
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.created());
+        assertEquals(0, result.needsReview());
+        verify(classificationService).decide(any(), any(), any());
+        verify(importFingerprintService).record(10L, KEY, FINGERPRINT);
+    }
+
+    @Test
+    void importAll_ShouldRecordQuarantineFingerprint_WhenItemIsQuarantined() {
+        givenQuarantinedItem(null);
+        ImportService service = importService();
+        when(classificationService.decide(any(), any(), any())).thenReturn(NEEDS_REVIEW);
+
+        ImportResult result = service.importAll().get(0);
+
+        assertEquals(1, result.needsReview());
+        verify(classificationService).recordQuarantined(any(), any(), any(), any(), any(), any());
+        verify(importFingerprintService).record(10L, KEY, QUARANTINE_FINGERPRINT);
     }
 
     // --- Un seul import à la fois ---

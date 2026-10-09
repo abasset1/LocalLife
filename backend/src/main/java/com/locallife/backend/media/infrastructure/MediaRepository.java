@@ -22,7 +22,7 @@ public interface MediaRepository extends Repository<Media, Long> {
      * {@code MediaService#findOrCreate}, pour ne pas dupliquer un média
      * réutilisé d'un réimport à l'autre (voir sa javadoc).
      */
-    Optional<Media> findByUrl(String url);
+    Optional<Media> findFirstByUrlOrderByIdAsc(String url);
 
     Media save(Media media);
 }

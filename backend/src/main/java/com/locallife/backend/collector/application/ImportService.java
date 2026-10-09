@@ -295,6 +295,8 @@ public class ImportService {
         int unchanged = 0;
         Set<String> seenKeys = new HashSet<>();
         Map<String, String> knownFingerprints = importFingerprintService.findBySourceId(source.id());
+        // Lu une fois par source : sert à ne pas re-décider un élément en quarantaine inchangé.
+        String referentialVersion = classificationService.referentialVersion();
 
         for (CollectedActivity item : collected) {
             try {
@@ -337,11 +339,20 @@ public class ImportService {
                 if (existing.isPresent()) {
                     saved = activityRepository.save(toSave);
                 } else {
+                    // Élément déjà en quarantaine, contenu et référentiel inchangés : la décision
+                    // serait la même, inutile de la recalculer et de réécrire sa trace.
+                    String quarantineFingerprint =
+                            importFingerprintService.computeQuarantined(fingerprint, referentialVersion);
+                    if (quarantineFingerprint.equals(knownFingerprints.get(key))) {
+                        needsReview++;
+                        continue;
+                    }
                     ClassificationOutcome classification =
                             classificationService.decide(item.title(), item.category(), item.tags());
                     if (!classification.classified()) {
                         classificationService.recordQuarantined(
                                 source.id(), key, item.title(), item.category(), item.tags(), classification);
+                        importFingerprintService.record(source.id(), key, quarantineFingerprint);
                         needsReview++;
                         continue;
                     }
