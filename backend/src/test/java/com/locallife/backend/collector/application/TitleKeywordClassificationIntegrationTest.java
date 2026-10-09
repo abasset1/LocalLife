@@ -20,8 +20,6 @@ import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.ImportTestSourceService;
 import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
-import com.locallife.backend.source.domain.Source;
-import com.locallife.backend.source.infrastructure.SourceRepository;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -55,9 +53,6 @@ class TitleKeywordClassificationIntegrationTest {
 
     @Autowired
     private ActivityRepository activityRepository;
-
-    @Autowired
-    private SourceRepository sourceRepository;
 
     @Autowired
     private CategoryRepository categoryRepository;
