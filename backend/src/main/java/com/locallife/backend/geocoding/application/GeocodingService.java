@@ -85,6 +85,96 @@ public class GeocodingService {
         return new Coordinates(Double.parseDouble(result.lat()), Double.parseDouble(result.lon()), city, postalCode);
     }
 
+    /**
+     * Recherche une ville par son nom (paramètres utilisateur) : contrairement
+     * à {@link #geocode}, seuls les lieux de type ville/village sont acceptés
+     * ({@code featureType=city}), et le résultat doit porter un nom de
+     * localité — sinon la saisie ne désigne pas une ville existante.
+     *
+     * @return le nom officiel de la ville (dans {@code city}) et ses coordonnées
+     * @throws IllegalArgumentException si le nom est vide
+     * @throws CityNotFoundException si aucune ville ne correspond
+     * @throws GeocodingUnavailableException si l'appel au service échoue
+     */
+    public Coordinates findCity(String name) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Le nom de la ville ne peut pas être vide.");
+        }
+
+        List<NominatimResult> results;
+        try {
+            results = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/search")
+                            .queryParam("q", name)
+                            .queryParam("featureType", "city")
+                            .queryParam("format", "json")
+                            .queryParam("limit", 1)
+                            .queryParam("addressdetails", 1)
+                            .build())
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<NominatimResult>>() { });
+        } catch (RestClientException exception) {
+            throw new GeocodingUnavailableException(exception);
+        }
+
+        NominatimResult result = results == null || results.isEmpty() ? null : results.get(0);
+        String city = result == null ? null : cityOf(result.address());
+        if (city == null) {
+            throw new CityNotFoundException("Ville introuvable : \"" + name.trim() + "\".");
+        }
+        return new Coordinates(Double.parseDouble(result.lat()), Double.parseDouble(result.lon()), city,
+                result.address().postcode());
+    }
+
+    /**
+     * Ville correspondant à une position (géolocalisation du navigateur,
+     * paramètres utilisateur), par géocodage inverse au niveau ville
+     * ({@code zoom=10}). Les coordonnées renvoyées sont celles du lieu
+     * trouvé par Nominatim, pas la position exacte fournie : seule la ville
+     * est conservée, jamais l'adresse de l'utilisateur.
+     *
+     * @throws IllegalArgumentException si la position est hors plage
+     * @throws CityNotFoundException si aucune ville n'est trouvée à cette position
+     * @throws GeocodingUnavailableException si l'appel au service échoue
+     */
+    public Coordinates reverseCity(double latitude, double longitude) {
+        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            throw new IllegalArgumentException("Position invalide.");
+        }
+
+        NominatimResult result;
+        try {
+            result = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/reverse")
+                            .queryParam("lat", latitude)
+                            .queryParam("lon", longitude)
+                            .queryParam("zoom", 10)
+                            .queryParam("format", "json")
+                            .queryParam("addressdetails", 1)
+                            .build())
+                    .retrieve()
+                    .body(NominatimResult.class);
+        } catch (RestClientException exception) {
+            throw new GeocodingUnavailableException(exception);
+        }
+
+        // Position sans résultat : Nominatim répond 200 avec {"error": "..."}, sans lat/lon ni address.
+        String city = result == null || result.lat() == null ? null : cityOf(result.address());
+        if (city == null) {
+            throw new CityNotFoundException("Aucune ville trouvée à ta position.");
+        }
+        return new Coordinates(Double.parseDouble(result.lat()), Double.parseDouble(result.lon()), city,
+                result.address().postcode());
+    }
+
+    private String cityOf(NominatimAddress details) {
+        return details == null
+                ? null
+                : firstNonBlank(details.city(), details.town(), details.village(), details.municipality());
+    }
+
     private String firstNonBlank(String... values) {
         for (String value : values) {
             if (value != null && !value.isBlank()) {
@@ -109,8 +199,9 @@ public class GeocodingService {
      * localité se trouve dans {@code city}, {@code town} ou
      * {@code village} (voir sa documentation "Place types") — les trois
      * sont donc lus, dans cet ordre de priorité (voir
-     * {@link #firstNonBlank}).
+     * {@link #firstNonBlank}). {@code municipality} : dernier recours pour
+     * {@link #findCity}/{@link #reverseCity} (communes sans champ ville).
      */
-    private record NominatimAddress(String city, String town, String village, String postcode) {
+    private record NominatimAddress(String city, String town, String village, String municipality, String postcode) {
     }
 }

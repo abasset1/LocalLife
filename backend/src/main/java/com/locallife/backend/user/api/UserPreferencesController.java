@@ -2,7 +2,8 @@ package com.locallife.backend.user.api;
 
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.common.ErrorResponse;
-import com.locallife.backend.geocoding.application.AddressNotFoundException;
+import com.locallife.backend.geocoding.application.CityNotFoundException;
+import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
 import com.locallife.backend.user.application.UserPreferencesService;
 import com.locallife.backend.user.domain.UserPreferences;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -41,8 +43,34 @@ public class UserPreferencesController {
     }
 
     /**
+     * Vérifie qu'une ville existe — par son nom ({@code name}) ou par une
+     * position ({@code latitude}/{@code longitude}, géolocalisation du
+     * navigateur) — et renvoie son nom officiel, sans rien enregistrer.
+     * Réservé à un utilisateur connecté : chaque appel interroge Nominatim,
+     * dont la politique d'usage limite le débit.
+     */
+    @GetMapping("/city")
+    public ResponseEntity<Object> lookupCity(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Double latitude,
+            @RequestParam(required = false) Double longitude,
+            HttpServletRequest httpRequest) {
+        try {
+            Coordinates city = userPreferencesService.lookupCity(name, latitude, longitude);
+            return ResponseEntity.ok(new CityResponse(city.city(), city.latitude(), city.longitude()));
+        } catch (IllegalArgumentException | CityNotFoundException exception) {
+            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        } catch (GeocodingUnavailableException exception) {
+            return errorResponse(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), httpRequest);
+        }
+    }
+
+    /**
      * Remplace l'ensemble des préférences (PUT : un champ absent ou
-     * {@code null} efface la préférence correspondante).
+     * {@code null} efface la préférence correspondante). Ville : par
+     * position si {@code defaultLatitude}/{@code defaultLongitude} sont
+     * fournis, sinon par {@code defaultCity} (voir
+     * {@link UserPreferencesService#updatePreferences}).
      */
     @PutMapping
     public ResponseEntity<Object> updatePreferences(
@@ -51,13 +79,11 @@ public class UserPreferencesController {
         Long userId = ((JwtAuthentication) authentication).getUserId();
         try {
             UserPreferences updated = userPreferencesService.updatePreferences(
-                    userId, request.defaultCity(), request.defaultRadiusKm(), request.defaultCategoryCodes());
+                    userId, request.defaultCity(), request.defaultLatitude(), request.defaultLongitude(),
+                    request.defaultRadiusKm(), request.defaultCategoryCodes());
             return ResponseEntity.ok(UserPreferencesResponse.from(updated));
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException | CityNotFoundException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
-        } catch (AddressNotFoundException exception) {
-            return errorResponse(HttpStatus.BAD_REQUEST, "Ville introuvable : \"" + request.defaultCity() + "\".",
-                    httpRequest);
         } catch (GeocodingUnavailableException exception) {
             return errorResponse(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), httpRequest);
         }
@@ -70,7 +96,11 @@ public class UserPreferencesController {
     }
 
     public record UpdatePreferencesRequest(
-            String defaultCity, Integer defaultRadiusKm, List<String> defaultCategoryCodes) {
+            String defaultCity, Double defaultLatitude, Double defaultLongitude, Integer defaultRadiusKm,
+            List<String> defaultCategoryCodes) {
+    }
+
+    public record CityResponse(String city, Double latitude, Double longitude) {
     }
 
     public record UserPreferencesResponse(

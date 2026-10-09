@@ -11,7 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
-import com.locallife.backend.geocoding.application.AddressNotFoundException;
+import com.locallife.backend.geocoding.application.CityNotFoundException;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
 import com.locallife.backend.user.domain.UserPreferences;
@@ -58,13 +58,13 @@ class UserPreferencesServiceTest {
     }
 
     @Test
-    void updatePreferences_ShouldGeocodeNewCity_AndSaveCleanedCategories() {
+    void updatePreferences_ShouldStoreOfficialCityName_AndSaveCleanedCategories() {
         when(userPreferencesRepository.findByUserId(1L)).thenReturn(Optional.empty());
-        when(geocodingService.geocode("Lyon")).thenReturn(new Coordinates(45.76, 4.83, "Lyon", "69001"));
+        when(geocodingService.findCity("lyon")).thenReturn(new Coordinates(45.76, 4.83, "Lyon", "69001"));
         when(categoryRepository.findAll()).thenReturn(List.of(category("SPORT", true), category("CULTURE", true)));
 
         UserPreferences result = userPreferencesService.updatePreferences(
-                1L, "  Lyon ", 20, Arrays.asList("SPORT", " CULTURE", "SPORT", "", null));
+                1L, "  lyon ", null, null, 20, Arrays.asList("SPORT", " CULTURE", "SPORT", "", null));
 
         assertEquals("Lyon", result.defaultCity());
         assertEquals(45.76, result.defaultLatitude());
@@ -79,29 +79,30 @@ class UserPreferencesServiceTest {
         when(userPreferencesRepository.findByUserId(1L)).thenReturn(Optional.of(
                 new UserPreferences(1L, "Lyon", 45.76, 4.83, 10, List.of())));
 
-        UserPreferences result = userPreferencesService.updatePreferences(1L, "lyon", 10, List.of());
+        UserPreferences result = userPreferencesService.updatePreferences(1L, "lyon", null, null, 10, List.of());
 
+        assertEquals("Lyon", result.defaultCity());
         assertEquals(45.76, result.defaultLatitude());
-        verify(geocodingService, never()).geocode(any());
+        verify(geocodingService, never()).findCity(any());
     }
 
     @Test
     void updatePreferences_ShouldClearCity_WhenBlank() {
-        UserPreferences result = userPreferencesService.updatePreferences(1L, "   ", null, null);
+        UserPreferences result = userPreferencesService.updatePreferences(1L, "   ", null, null, null, null);
 
         assertNull(result.defaultCity());
         assertNull(result.defaultLatitude());
         assertNull(result.defaultLongitude());
-        verify(geocodingService, never()).geocode(any());
+        verify(geocodingService, never()).findCity(any());
         verify(userPreferencesRepository).save(result);
     }
 
     @Test
     void updatePreferences_ShouldReject_RadiusOutOfRange() {
         assertThrows(IllegalArgumentException.class,
-                () -> userPreferencesService.updatePreferences(1L, null, 0, List.of()));
+                () -> userPreferencesService.updatePreferences(1L, null, null, null, 0, List.of()));
         assertThrows(IllegalArgumentException.class,
-                () -> userPreferencesService.updatePreferences(1L, null, 51, List.of()));
+                () -> userPreferencesService.updatePreferences(1L, null, null, null, 51, List.of()));
         verify(userPreferencesRepository, never()).save(any());
     }
 
@@ -110,20 +111,49 @@ class UserPreferencesServiceTest {
         when(categoryRepository.findAll()).thenReturn(List.of(category("SPORT", true), category("OLD", false)));
 
         assertThrows(IllegalArgumentException.class,
-                () -> userPreferencesService.updatePreferences(1L, null, null, List.of("NOPE")));
+                () -> userPreferencesService.updatePreferences(1L, null, null, null, null, List.of("NOPE")));
         assertThrows(IllegalArgumentException.class,
-                () -> userPreferencesService.updatePreferences(1L, null, null, List.of("OLD")));
+                () -> userPreferencesService.updatePreferences(1L, null, null, null, null, List.of("OLD")));
         verify(userPreferencesRepository, never()).save(any());
     }
 
     @Test
     void updatePreferences_ShouldPropagate_CityNotFound() {
         when(userPreferencesRepository.findByUserId(1L)).thenReturn(Optional.empty());
-        when(geocodingService.geocode("Zzzz")).thenThrow(new AddressNotFoundException("Zzzz"));
+        when(geocodingService.findCity("Zzzz")).thenThrow(new CityNotFoundException("Ville introuvable."));
 
-        assertThrows(AddressNotFoundException.class,
-                () -> userPreferencesService.updatePreferences(1L, "Zzzz", null, List.of()));
+        assertThrows(CityNotFoundException.class,
+                () -> userPreferencesService.updatePreferences(1L, "Zzzz", null, null, null, List.of()));
         verify(userPreferencesRepository, never()).save(any());
+    }
+
+    @Test
+    void updatePreferences_ShouldUseCityAtPosition_WhenPositionProvided() {
+        when(geocodingService.reverseCity(45.77, 4.85)).thenReturn(new Coordinates(45.76, 4.83, "Lyon", null));
+
+        // Le nom saisi est ignoré : la position (géolocalisation) est prioritaire.
+        UserPreferences result = userPreferencesService.updatePreferences(
+                1L, "Paris", 45.77, 4.85, null, List.of());
+
+        assertEquals("Lyon", result.defaultCity());
+        assertEquals(45.76, result.defaultLatitude());
+        assertEquals(4.83, result.defaultLongitude());
+        verify(geocodingService, never()).findCity(any());
+        verify(userPreferencesRepository).save(result);
+    }
+
+    @Test
+    void updatePreferences_ShouldReject_IncompletePosition() {
+        assertThrows(IllegalArgumentException.class,
+                () -> userPreferencesService.updatePreferences(1L, null, 45.77, null, null, List.of()));
+        verify(userPreferencesRepository, never()).save(any());
+    }
+
+    @Test
+    void lookupCity_ShouldSearchByName_WhenNoPosition() {
+        when(geocodingService.findCity("Lyon")).thenReturn(new Coordinates(45.76, 4.83, "Lyon", null));
+
+        assertEquals("Lyon", userPreferencesService.lookupCity("Lyon", null, null).city());
     }
 
 }

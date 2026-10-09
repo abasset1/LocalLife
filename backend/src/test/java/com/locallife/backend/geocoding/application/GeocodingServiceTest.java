@@ -106,4 +106,61 @@ class GeocodingServiceTest {
 
         assertThrows(GeocodingUnavailableException.class, () -> geocodingService.geocode("1 rue de la Paix"));
     }
+
+    @Test
+    void findCity_ShouldRestrictToCities_AndReturnOfficialName() {
+        mockServer.expect(requestTo(containsString("featureType=city")))
+                .andRespond(withSuccess(
+                        "[{\"lat\":\"45.76\",\"lon\":\"4.83\",\"address\":{\"city\":\"Lyon\"}}]",
+                        MediaType.APPLICATION_JSON));
+
+        Coordinates city = geocodingService.findCity("lyon");
+
+        assertEquals("Lyon", city.city());
+        assertEquals(45.76, city.latitude());
+    }
+
+    @Test
+    void findCity_ShouldThrowCityNotFound_WhenNoResults() {
+        mockServer.expect(requestTo(containsString("/search")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        assertThrows(CityNotFoundException.class, () -> geocodingService.findCity("Zzzz"));
+    }
+
+    @Test
+    void findCity_ShouldThrowCityNotFound_WhenResultHasNoLocality() {
+        mockServer.expect(requestTo(containsString("/search")))
+                .andRespond(withSuccess(
+                        "[{\"lat\":\"45.0\",\"lon\":\"4.0\",\"address\":{\"state\":\"Rhône\"}}]",
+                        MediaType.APPLICATION_JSON));
+
+        assertThrows(CityNotFoundException.class, () -> geocodingService.findCity("Rhône"));
+    }
+
+    @Test
+    void reverseCity_ShouldReturnCityAtPosition() {
+        mockServer.expect(requestTo(containsString("/reverse")))
+                .andRespond(withSuccess(
+                        "{\"lat\":\"43.21\",\"lon\":\"5.54\",\"address\":{\"town\":\"Cassis\"}}",
+                        MediaType.APPLICATION_JSON));
+
+        Coordinates city = geocodingService.reverseCity(43.2148, 5.5376);
+
+        assertEquals("Cassis", city.city());
+        assertEquals(43.21, city.latitude());
+    }
+
+    @Test
+    void reverseCity_ShouldThrowCityNotFound_WhenNominatimReturnsError() {
+        mockServer.expect(requestTo(containsString("/reverse")))
+                .andRespond(withSuccess("{\"error\":\"Unable to geocode\"}", MediaType.APPLICATION_JSON));
+
+        assertThrows(CityNotFoundException.class, () -> geocodingService.reverseCity(0.0, -30.0));
+    }
+
+    @Test
+    void reverseCity_ShouldRejectOutOfRangePosition() {
+        assertThrows(IllegalArgumentException.class, () -> geocodingService.reverseCity(91.0, 0.0));
+    }
 }

@@ -85,8 +85,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   règle statique {@code authenticated()} suffit entièrement.
  * - GET /api/v1/users/me/likes : utilisateur connecté, même principe que
  *   GET /api/v1/users/me (LL-EF-006) — voir {@code LikeController}.
- * - GET/PUT /api/v1/users/me/preferences : utilisateur connecté, même
- *   principe — voir {@code UserPreferencesController}.
+ * - GET/PUT /api/v1/users/me/preferences et GET .../preferences/city :
+ *   utilisateur connecté, même principe — voir {@code UserPreferencesController}.
  * Tous les autres endpoints restent accessibles sans JWT (consultation
  * publique des activités/catégories, inscription/connexion).
  */
@@ -112,6 +112,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/activities/*/like").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me/likes").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me/preferences").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/preferences/city").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/users/me/preferences").authenticated()
                         // LL-EF-006 : règles /me déclarées avant la règle générale
                         // GET /api/v1/users/{id} ci-dessous (voir la javadoc de
