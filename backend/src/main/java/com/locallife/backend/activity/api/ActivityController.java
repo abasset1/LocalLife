@@ -88,6 +88,9 @@ public class ActivityController {
      */
     private static final String LINK_TYPE_WEBSITE = "WEBSITE";
 
+    /** Seul statut lisible publiquement (LL-6004), voir {@link #isVisibleTo}. */
+    private static final String PUBLISHED_STATUS = "PUBLISHED";
+
     private final ActivityService activityService;
     private final SourceService sourceService;
     private final UserService userService;
@@ -385,6 +388,24 @@ public class ActivityController {
     }
 
     /**
+     * Une activité non {@code PUBLISHED} ({@code PENDING}, {@code REJECTED},
+     * {@code ARCHIVED}, {@code CANCELLED}) n'est visible sur l'endpoint
+     * public {@code GET /activities/{id}} que de son auteur et des
+     * administrateurs — même règle de visibilité que les recherches
+     * publiques (LL-6004), qui ne retournent que du {@code PUBLISHED}.
+     */
+    private boolean isVisibleTo(Activity activity, Authentication authentication) {
+        if (PUBLISHED_STATUS.equals(activity.status())) {
+            return true;
+        }
+        if (authentication instanceof JwtAuthentication jwtAuthentication) {
+            return jwtAuthentication.getRole() == Role.ADMIN
+                    || Objects.equals(jwtAuthentication.getUserId(), activity.createdBy());
+        }
+        return false;
+    }
+
+    /**
      * Fiche d'une activité (LL-11013 puis LL-11014). Retourne {@link
      * ActivityDetailResponse} (fiche détaillée) ou {@link
      * ActivitySummaryResponse} (résumé) selon que l'appelant a ou non
@@ -393,6 +414,10 @@ public class ActivityController {
      * docs/ADR-0008-preparation-premium.md} : aucune notion de Premium
      * ici, dans {@link ActivityService} ni dans le domaine, uniquement
      * à cette unique frontière API.
+     *
+     * Une activité non publiée répond 404 à tout autre appelant que son
+     * auteur ou un administrateur (voir {@link #isVisibleTo}) : 404 plutôt
+     * que 403, pour ne pas révéler son existence.
      *
      * {@code authentication} jamais {@code null} (endpoint public, voir
      * la javadoc de {@link #withSourceNames}) — transmis tel quel à
@@ -407,13 +432,16 @@ public class ActivityController {
                     + "(voir ActivitySummaryResponse).")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Activité trouvée."),
-        @ApiResponse(responseCode = "404", description = "Aucune activité ne correspond à cet id.")
+        @ApiResponse(responseCode = "404",
+                description = "Aucune activité ne correspond à cet id, ou elle n'est pas publiée et "
+                        + "l'appelant n'en est ni l'auteur ni un administrateur.")
     })
     @GetMapping("/{id}")
     public ResponseEntity<Object> getActivityById(
             @Parameter(description = "Identifiant de l'activité.", required = true) @PathVariable Long id,
             Authentication authentication) {
         return activityService.findById(id)
+                .filter(activity -> isVisibleTo(activity, authentication))
                 .map(activity -> ResponseEntity.ok(premiumAccessPolicy.hasPremiumAccess(authentication)
                         ? toDetailResponse(activity)
                         : (Object) ActivitySummaryResponse.from(activity, resolveMainImageUrl(activity.id()))))

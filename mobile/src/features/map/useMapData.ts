@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, RequestAbortedError, listFoodTrucks, searchWithinBounds } from '@/api';
 import type { Activity, FoodTruck } from '@/api';
 
-import { Bounds, Region, boundsContain, regionToBounds } from './geo';
+import { Bounds, Region, boundsContain, isSearchable, regionToBounds } from './geo';
 
 /** Délai sans nouveau mouvement de carte avant de recharger les activités. */
 export const REGION_DEBOUNCE_MS = 500;
@@ -27,7 +27,8 @@ function messageFor(error: unknown): string {
  * (`onRegionChangeComplete`, jamais pendant le mouvement du doigt) ; le
  * rechargement est en plus temporisé (`REGION_DEBOUNCE_MS`), la requête
  * précédente est annulée, et aucun appel n'est fait si la zone est déjà
- * entièrement couverte par les données chargées.
+ * entièrement couverte par les données chargées, ni si elle est trop
+ * étendue (`tooWide` : la carte invite alors à zoomer).
  */
 export function useMapData(region: Region | null) {
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -61,6 +62,12 @@ export function useMapData(region: Region | null) {
     if (!region) return;
     const bounds = regionToBounds(region);
     if (!bounds) return;
+
+    // Zone trop étendue : pas d'appel, les activités déjà chargées restent affichées.
+    if (!isSearchable(bounds)) {
+      setActivitiesStatus('success');
+      return;
+    }
 
     // Zone déjà couverte par le dernier chargement réussi : rien à faire.
     if (loadedBounds.current && boundsContain(loadedBounds.current, bounds)) {
@@ -101,6 +108,8 @@ export function useMapData(region: Region | null) {
 
   const loading = activitiesStatus === 'loading' || foodTrucksStatus === 'loading';
   const failed = activitiesStatus === 'error' || foodTrucksStatus === 'error';
+  const bounds = region ? regionToBounds(region) : null;
+  const tooWide = bounds !== null && !isSearchable(bounds);
 
-  return { activities, foodTrucks, loading, error: failed ? error : null, retry };
+  return { activities, foodTrucks, loading, error: failed ? error : null, tooWide, retry };
 }

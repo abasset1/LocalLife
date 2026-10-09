@@ -74,6 +74,8 @@ export function getActivity(
   options: CallOptions = {},
 ): Promise<ActivityDetailOrSummary> {
   return request<ActivityDetailOrSummary>(`${BASE}/${encodeURIComponent(String(id))}`, {
+    // Le niveau de détail dépend des droits de l'appelant (`PremiumAccessPolicy`).
+    authenticated: 'optional',
     signal: options.signal,
   });
 }

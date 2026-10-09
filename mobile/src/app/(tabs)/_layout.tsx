@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import { useColorScheme, type ColorValue } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
@@ -13,6 +14,20 @@ import { Colors } from '@/constants/theme';
  * (API instable) : rendu identique sur toutes les plateformes, pas de
  * double implémentation à maintenir.
  */
+/** Icône d'onglet : SF Symbol sur iOS, Material Symbol sur Android et le web. */
+function tabIcon(name: SymbolViewProps['name']) {
+  function TabIcon({ color, size }: { color: ColorValue; size: number }) {
+    return <SymbolView name={name} tintColor={color} size={size} />;
+  }
+  return TabIcon;
+}
+
+const ICONS = {
+  decouvrir: tabIcon({ ios: 'map', android: 'map', web: 'map' }),
+  contribution: tabIcon({ ios: 'plus.circle', android: 'add_circle', web: 'add_circle' }),
+  compte: tabIcon({ ios: 'person', android: 'person', web: 'person' }),
+};
+
 export default function TabsLayout() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
@@ -25,9 +40,9 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: { backgroundColor: colors.background },
       }}>
-      <Tabs.Screen name="index" options={{ title: 'Découvrir' }} />
-      <Tabs.Screen name="contribution" options={{ title: 'Contribution' }} />
-      <Tabs.Screen name="compte" options={{ title: 'Compte' }} />
+      <Tabs.Screen name="index" options={{ title: 'Découvrir', tabBarIcon: ICONS.decouvrir }} />
+      <Tabs.Screen name="contribution" options={{ title: 'Contribution', tabBarIcon: ICONS.contribution }} />
+      <Tabs.Screen name="compte" options={{ title: 'Compte', tabBarIcon: ICONS.compte }} />
     </Tabs>
   );
 }
