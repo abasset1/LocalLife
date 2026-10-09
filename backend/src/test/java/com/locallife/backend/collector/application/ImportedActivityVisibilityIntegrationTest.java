@@ -10,6 +10,7 @@ import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.collector.infrastructure.ImportTestSourceService;
 import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
@@ -68,6 +69,9 @@ class ImportedActivityVisibilityIntegrationTest {
     private SourceRepository sourceRepository;
 
     @Autowired
+    private ImportTestSourceService importTestSourceService;
+
+    @Autowired
     private Collector collector;
 
     /** Voir {@code ImportServiceIntegrationTest.resetCollectorMock()} (LL-8009). */
@@ -86,9 +90,9 @@ class ImportedActivityVisibilityIntegrationTest {
     private Activity importOneActivity(String sourceName, String category, LocalDateTime startDate) {
         // LL-EF-005 : la source doit exister en base avant l'import (ImportService itère les
         // sources déjà persistées, il ne les crée plus à la volée depuis le collecteur — voir
-        // ImportServiceIntegrationTest.createCollectibleSource).
-        sourceRepository.save(
-                new Source(null, sourceName, "API", null, "ACTIVE", null, "agenda-uid-" + UUID.randomUUID(), null));
+        // ImportServiceIntegrationTest.createCollectibleSource). Seule cette source est parcourue
+        // par importAll(), jamais les agendas réels présents en base (ImportTestSourceService).
+        importTestSourceService.createCollectibleTestSource(sourceName);
         when(collector.collect()).thenReturn(List.of(new CollectedActivity(
                 "Marché de Noël", "Marché de Noël sur le Vieux-Port", category, "https://example.com", "ext-1",
                 sourceName, null, null, null, null,

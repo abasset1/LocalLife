@@ -9,6 +9,7 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activityclassification.application.ActivityClassificationService;
 import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
+import com.locallife.backend.common.IntegrationTestCleaner;
 import com.locallife.backend.link.domain.ActivityLink;
 import com.locallife.backend.link.infrastructure.ActivityLinkRepository;
 import com.locallife.backend.media.domain.ActivityMedia;
@@ -30,6 +31,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -94,6 +97,20 @@ class RealSchedulingScenariosIntegrationTest {
     @Autowired
     private ActivityTagRepository activityTagRepository;
 
+    @Autowired
+    private IntegrationTestCleaner cleaner;
+
+    /** Test non transactionnel (serveur embarqué) : ce qu'il crée est supprimé après chaque test. */
+    @BeforeEach
+    void startCleaner() {
+        cleaner.start();
+    }
+
+    @AfterEach
+    void cleanUpTestData() {
+        cleaner.cleanUp();
+    }
+
     private RestTestClient restTestClient() {
         return RestTestClient.bindToServer()
                 .baseUrl("http://localhost:" + port)
@@ -112,7 +129,8 @@ class RealSchedulingScenariosIntegrationTest {
      */
     private Long testSourceId() {
         Source source = new Source(
-                null, "Source test LL-11016-" + UUID.randomUUID(), "API", null, "ACTIVE", null, null, null);
+                null, cleaner.trackSource("Source test LL-11016-" + UUID.randomUUID()), "API", null, "ACTIVE",
+                null, null, null);
         return sourceRepository.save(source).id();
     }
 
@@ -133,8 +151,10 @@ class RealSchedulingScenariosIntegrationTest {
     }
 
     private Location persistLocation(String city, double latitude, double longitude) {
-        return locationRepository.save(new Location(
+        Location location = locationRepository.save(new Location(
                 null, null, null, null, city, null, null, null, null, latitude, longitude, null, null, null, null));
+        cleaner.trackLocation(location.id());
+        return location;
     }
 
     private Schedule persistSchedule(Long activityId, Long locationId, String recurrenceRule) {

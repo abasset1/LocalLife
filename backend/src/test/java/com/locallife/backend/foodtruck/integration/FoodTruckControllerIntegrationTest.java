@@ -5,8 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.locallife.backend.auth.api.LoginRequest;
 import com.locallife.backend.auth.api.LoginResponse;
 import com.locallife.backend.auth.api.RegisterRequest;
+import com.locallife.backend.common.IntegrationTestCleaner;
 import com.locallife.backend.foodtruck.api.FoodTruckController;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -43,12 +46,26 @@ class FoodTruckControllerIntegrationTest {
         jdbcTemplate.update("UPDATE users SET email_verified = TRUE WHERE email = ?", email);
     }
 
+    @Autowired
+    private IntegrationTestCleaner cleaner;
+
+    /** Test non transactionnel (serveur embarqué) : ce qu'il crée est supprimé après chaque test. */
+    @BeforeEach
+    void startCleaner() {
+        cleaner.start();
+    }
+
+    @AfterEach
+    void cleanUpTestData() {
+        cleaner.cleanUp();
+    }
+
     private RestTestClient restTestClient() {
         return RestTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
     }
 
     private String uniqueEmail() {
-        return "test-" + UUID.randomUUID() + "@example.com";
+        return cleaner.trackUser("test-" + UUID.randomUUID() + "@example.com");
     }
 
     /** Inscrit un utilisateur normal (rôle USER) puis se connecte, et renvoie son token JWT. */
@@ -88,7 +105,8 @@ class FoodTruckControllerIntegrationTest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new FoodTruckController.CreateFoodTruckRequest(
-                        "Le Camion qui Fume " + UUID.randomUUID(), "Burgers gourmet", 43.29, 5.37, "burger", null))
+                        cleaner.trackFoodTruck("Le Camion qui Fume " + UUID.randomUUID()),
+                        "Burgers gourmet", 43.29, 5.37, "burger", null))
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody()
@@ -99,7 +117,7 @@ class FoodTruckControllerIntegrationTest {
     void createFoodTruck_ShouldBeVisibleOnPublicListing_AfterCreation() {
         // Given : un food truck créé via le flux protégé normal.
         String token = registerAndLoginAsUser(uniqueEmail());
-        String uniqueName = "Le Camion qui Fume " + UUID.randomUUID();
+        String uniqueName = cleaner.trackFoodTruck("Le Camion qui Fume " + UUID.randomUUID());
         restTestClient().post().uri("/api/v1/foodtrucks")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)

@@ -18,9 +18,8 @@ import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.collector.infrastructure.ImportTestSourceService;
 import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
-import com.locallife.backend.source.domain.Source;
-import com.locallife.backend.source.infrastructure.SourceRepository;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -56,9 +55,6 @@ class TitleKeywordClassificationIntegrationTest {
     private ActivityRepository activityRepository;
 
     @Autowired
-    private SourceRepository sourceRepository;
-
-    @Autowired
     private CategoryRepository categoryRepository;
 
     @Autowired
@@ -74,6 +70,9 @@ class TitleKeywordClassificationIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
+    private ImportTestSourceService importTestSourceService;
+
+    @Autowired
     private Collector collector;
 
     @BeforeEach
@@ -82,8 +81,7 @@ class TitleKeywordClassificationIntegrationTest {
     }
 
     private Long createSource(String name) {
-        return sourceRepository.save(
-                new Source(null, name, "API", null, "ACTIVE", null, "agenda-uid-" + UUID.randomUUID(), null)).id();
+        return importTestSourceService.createCollectibleTestSource(name).id();
     }
 
     private CollectedActivity item(String sourceName, String title, String category, List<String> tags) {

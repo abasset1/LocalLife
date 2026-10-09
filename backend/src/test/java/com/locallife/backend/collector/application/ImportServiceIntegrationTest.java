@@ -10,6 +10,7 @@ import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.CollectorException;
+import com.locallife.backend.collector.infrastructure.ImportTestSourceService;
 import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
@@ -68,6 +69,9 @@ class ImportServiceIntegrationTest {
     private SourceRepository sourceRepository;
 
     @Autowired
+    private ImportTestSourceService importTestSourceService;
+
+    @Autowired
     private Collector collector;
 
     /**
@@ -95,11 +99,12 @@ class ImportServiceIntegrationTest {
      * {@code collector.getSourceName()} d'avant ce ticket : la source
      * n'est plus déduite du collecteur après collecte
      * ({@code SourceService#findOrCreateByName}, supprimée), elle doit
-     * exister en base avant l'import.
+     * exister en base avant l'import. Passe par
+     * {@link ImportTestSourceService} : seule cette source sera parcourue
+     * par {@code importAll()}, jamais les agendas réels présents en base.
      */
     private void createCollectibleSource(String name) {
-        sourceRepository.save(
-                new Source(null, name, "API", null, "ACTIVE", null, "agenda-uid-" + UUID.randomUUID(), null));
+        importTestSourceService.createCollectibleTestSource(name);
     }
 
     private CollectedActivity validItem(String sourceName, String externalId, String title) {
@@ -128,18 +133,11 @@ class ImportServiceIntegrationTest {
     /**
      * Isole le résultat correspondant à la source de ce test.
      *
-     * <p>Depuis la migration {@code V14__add_agenda_fields_to_source.sql}
-     * (LL-EF-005), deux sources OpenAgenda réelles sont déjà collectibles
-     * en base (type {@code API}, statut {@code ACTIVE}, {@code agendaUid}
-     * renseigné) — {@code results} contient donc systématiquement au moins
-     * 3 éléments (les 2 sources seedées + la source propre à ce test), pas
-     * un seul comme avant ce ticket. {@code collector} étant mocké de
-     * façon partagée pour toute {@code Source} ({@code SingleMockCollectorConfig}),
-     * le comportement stubbé (succès, erreur...) s'applique aussi aux 2
-     * sources seedées, sans conséquence sur les assertions de ce fichier
-     * (scopées par {@code sourceIdFor(sourceName)}, jamais par
-     * {@code results.get(0)}) tant que ce résultat lui-même est bien
-     * identifié par nom plutôt que par position dans la liste.
+     * <p>{@code importAll()} ne parcourt que les sources créées par le test
+     * ({@link ImportTestSourceService}) : les agendas réels présents en base
+     * (seedés par {@code V14__add_agenda_fields_to_source.sql} ou ajoutés
+     * depuis l'administration) ne sont ni collectés ni modifiés. Le résultat
+     * reste identifié par nom plutôt que par position dans la liste.
      */
     private ImportResult resultFor(List<ImportResult> results, String sourceName) {
         return results.stream()
