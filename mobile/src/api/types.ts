@@ -185,6 +185,8 @@ export interface CityLookup {
 export interface ActivityAlert {
   id: number;
   categoryCodes: string[];
+  /** Nouveaux food trucks inclus (l'alerte peut n'avoir qu'eux). */
+  includeFoodTrucks: boolean;
   city: string;
   latitude: number;
   longitude: number;
@@ -196,6 +198,7 @@ export interface ActivityAlert {
 /** `CreateAlertRequest` — même règle de ville que `UpdatePreferencesRequest`. */
 export interface CreateAlertRequest {
   categoryCodes: string[];
+  includeFoodTrucks: boolean;
   city: string | null;
   latitude: number | null;
   longitude: number | null;

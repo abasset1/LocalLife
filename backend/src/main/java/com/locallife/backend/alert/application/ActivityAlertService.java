@@ -57,7 +57,10 @@ public class ActivityAlertService {
      * Canaux : e-mail seul si {@code notifyEmail}/{@code notifyPush} ne sont
      * pas précisés (site web) ; au moins un des deux doit être actif.
      *
-     * @throws IllegalArgumentException si aucune catégorie, une catégorie inconnue, un rayon hors de
+     * {@code includeFoodTrucks} : l'alerte couvre aussi les nouveaux food trucks ; elle peut alors
+     * n'avoir aucune catégorie.
+     *
+     * @throws IllegalArgumentException si ni catégorie ni food trucks, une catégorie inconnue, un rayon hors de
      *         [1, 50], aucune ville, aucun canal, ou le nombre maximal d'alertes est atteint
      * @throws com.locallife.backend.geocoding.application.CityNotFoundException si la ville n'existe pas
      * @throws com.locallife.backend.geocoding.application.GeocodingUnavailableException si le géocodage échoue
@@ -65,12 +68,13 @@ public class ActivityAlertService {
     @Transactional
     public ActivityAlert createAlert(
             Long userId, List<String> categoryCodes, String city, Double latitude, Double longitude,
-            Integer radiusKm, Boolean notifyEmail, Boolean notifyPush) {
+            Integer radiusKm, Boolean includeFoodTrucks, Boolean notifyEmail, Boolean notifyPush) {
         // Sans précision, e-mail seul : comportement des alertes créées depuis le site web.
         boolean email = notifyEmail == null || notifyEmail;
         boolean push = notifyPush != null && notifyPush;
         validateChannels(email, push);
-        List<String> codes = validateCategoryCodes(categoryCodes);
+        boolean foodTrucks = includeFoodTrucks != null && includeFoodTrucks;
+        List<String> codes = validateCategoryCodes(categoryCodes, foodTrucks);
         if (radiusKm == null || radiusKm < 1 || radiusKm > MAX_RADIUS_KM) {
             throw new IllegalArgumentException("Le rayon doit être compris entre 1 et " + MAX_RADIUS_KM + " km.");
         }
@@ -85,7 +89,8 @@ public class ActivityAlertService {
 
         Coordinates found = geocodingService.resolveCity(hasCity ? city.trim() : null, latitude, longitude);
         ActivityAlert alert = new ActivityAlert(
-                null, userId, found.city(), found.latitude(), found.longitude(), radiusKm, codes, email, push, null);
+                null, userId, found.city(), found.latitude(), found.longitude(), radiusKm, codes, foodTrucks, email,
+                push, null);
         return activityAlertRepository.create(alert, newUnsubscribeToken());
     }
 
@@ -124,14 +129,18 @@ public class ActivityAlertService {
         return token != null && !token.isBlank() && activityAlertRepository.deleteByUnsubscribeToken(token.trim());
     }
 
-    private List<String> validateCategoryCodes(List<String> requestedCodes) {
+    /** Catégories : au moins une, sauf si l'alerte couvre les food trucks (elle peut alors n'avoir qu'eux). */
+    private List<String> validateCategoryCodes(List<String> requestedCodes, boolean includeFoodTrucks) {
         Set<String> codes = requestedCodes == null ? Set.of() : requestedCodes.stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .filter(code -> !code.isEmpty())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         if (codes.isEmpty()) {
-            throw new IllegalArgumentException("Choisis au moins une catégorie.");
+            if (includeFoodTrucks) {
+                return List.of();
+            }
+            throw new IllegalArgumentException("Choisis au moins une catégorie, ou les food trucks.");
         }
         Set<String> activeCodes = categoryRepository.findAll().stream()
                 .filter(Category::active)

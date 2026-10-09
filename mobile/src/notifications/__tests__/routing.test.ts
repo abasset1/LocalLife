@@ -6,6 +6,10 @@ describe('routeForNotification', () => {
     expect(routeForNotification({ type: 'activity-alert', activityId: '12' })).toBe('/activite/12');
   });
 
+  it("ouvre la fiche du food truck quand l'alerte ne concerne que lui", () => {
+    expect(routeForNotification({ type: 'activity-alert', foodTruckId: 9 })).toBe('/foodtruck/9');
+  });
+
   it('ouvre la carte quand il y a plusieurs activités', () => {
     expect(routeForNotification({ type: 'activity-alert' })).toBe('/');
   });

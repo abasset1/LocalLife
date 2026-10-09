@@ -2,6 +2,7 @@ package com.locallife.backend.alert.infrastructure;
 
 import com.locallife.backend.alert.domain.ActivityAlert;
 import com.locallife.backend.alert.domain.AlertActivity;
+import com.locallife.backend.alert.domain.AlertFoodTruck;
 import com.locallife.backend.alert.domain.AlertRecipient;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -22,8 +23,8 @@ import org.springframework.stereotype.Repository;
 public class ActivityAlertRepository {
 
     private static final String ALERT_COLUMNS =
-            "al.id, al.user_id, al.city, al.latitude, al.longitude, al.radius_km, al.notify_email, al.notify_push, "
-                    + "al.created_at";
+            "al.id, al.user_id, al.city, al.latitude, al.longitude, al.radius_km, al.include_food_trucks, "
+                    + "al.notify_email, al.notify_push, al.created_at";
 
     /**
      * Nouvelles activités publiées correspondant à l'alerte {@code ?} :
@@ -76,6 +77,28 @@ public class ActivityAlertRepository {
             LIMIT ?
             """;
 
+    /**
+     * Nouveaux food trucks correspondant à l'alerte {@code ?} : alerte couvrant les food trucks,
+     * food truck publié après la création de l'alerte (V55 ; {@code published_at} inconnu pour les
+     * food trucks antérieurs, jamais envoyés), jamais envoyé pour elle, et dans le rayon.
+     */
+    private static final String NEW_MATCHING_FOOD_TRUCKS = """
+            SELECT ft.id, ft.name, ft.category
+            FROM activity_alert al
+            JOIN food_truck ft ON ft.published_at > al.created_at
+            WHERE al.id = ?
+              AND al.include_food_trucks
+              AND ft.status = 'PUBLISHED'
+              AND NOT EXISTS (
+                  SELECT 1 FROM activity_alert_food_truck_sent sent
+                  WHERE sent.alert_id = al.id AND sent.food_truck_id = ft.id)
+              AND ST_DWithin(ST_SetSRID(ST_MakePoint(ft.longitude, ft.latitude), 4326)::geography,
+                    ST_SetSRID(ST_MakePoint(al.longitude, al.latitude), 4326)::geography,
+                    al.radius_km * 1000)
+            ORDER BY ft.id
+            LIMIT ?
+            """;
+
     private final JdbcTemplate jdbcTemplate;
 
     public ActivityAlertRepository(JdbcTemplate jdbcTemplate) {
@@ -98,11 +121,12 @@ public class ActivityAlertRepository {
     public ActivityAlert create(ActivityAlert alert, String unsubscribeToken) {
         Long id = jdbcTemplate.queryForObject(
                 "INSERT INTO activity_alert "
-                        + "(user_id, city, latitude, longitude, radius_km, notify_email, notify_push, min_activity_id, "
-                        + "unsubscribe_token) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(id), 0) FROM activity), ?) RETURNING id",
+                        + "(user_id, city, latitude, longitude, radius_km, include_food_trucks, notify_email, "
+                        + "notify_push, min_activity_id, unsubscribe_token) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(id), 0) FROM activity), ?) "
+                        + "RETURNING id",
                 Long.class, alert.userId(), alert.city(), alert.latitude(), alert.longitude(), alert.radiusKm(),
-                alert.notifyEmail(), alert.notifyPush(), unsubscribeToken);
+                alert.includeFoodTrucks(), alert.notifyEmail(), alert.notifyPush(), unsubscribeToken);
         jdbcTemplate.batchUpdate(
                 "INSERT INTO activity_alert_category (alert_id, category_code) VALUES (?, ?)",
                 alert.categoryCodes().stream().map(code -> new Object[] {id, code}).toList());
@@ -160,17 +184,32 @@ public class ActivityAlertRepository {
                 alertId, limit);
     }
 
+    public List<AlertFoodTruck> findNewMatchingFoodTrucks(Long alertId, int limit) {
+        return jdbcTemplate.query(NEW_MATCHING_FOOD_TRUCKS,
+                (resultSet, rowNumber) -> new AlertFoodTruck(
+                        resultSet.getLong("id"), resultSet.getString("name"), resultSet.getString("category")),
+                alertId, limit);
+    }
+
     public void markSent(Long alertId, List<Long> activityIds) {
         jdbcTemplate.batchUpdate(
                 "INSERT INTO activity_alert_sent (alert_id, activity_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
                 activityIds.stream().map(activityId -> new Object[] {alertId, activityId}).toList());
     }
 
+    public void markFoodTrucksSent(Long alertId, List<Long> foodTruckIds) {
+        jdbcTemplate.batchUpdate(
+                "INSERT INTO activity_alert_food_truck_sent (alert_id, food_truck_id) VALUES (?, ?) "
+                        + "ON CONFLICT DO NOTHING",
+                foodTruckIds.stream().map(foodTruckId -> new Object[] {alertId, foodTruckId}).toList());
+    }
+
     private static ActivityAlert mapAlert(ResultSet resultSet) throws SQLException {
         return new ActivityAlert(
                 resultSet.getLong("id"), resultSet.getLong("user_id"), resultSet.getString("city"),
                 resultSet.getDouble("latitude"), resultSet.getDouble("longitude"), resultSet.getInt("radius_km"),
-                List.of(), resultSet.getBoolean("notify_email"), resultSet.getBoolean("notify_push"),
+                List.of(), resultSet.getBoolean("include_food_trucks"), resultSet.getBoolean("notify_email"),
+                resultSet.getBoolean("notify_push"),
                 resultSet.getTimestamp("created_at").toLocalDateTime());
     }
 
@@ -192,7 +231,8 @@ public class ActivityAlertRepository {
         return alerts.stream()
                 .map(alert -> new ActivityAlert(alert.id(), alert.userId(), alert.city(), alert.latitude(),
                         alert.longitude(), alert.radiusKm(), List.copyOf(codesByAlert.getOrDefault(alert.id(),
-                        List.of())), alert.notifyEmail(), alert.notifyPush(), alert.createdAt()))
+                        List.of())), alert.includeFoodTrucks(), alert.notifyEmail(), alert.notifyPush(),
+                        alert.createdAt()))
                 .toList();
     }
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.31 — 2026-10-09
+
+### Alertes sur les nouveaux food trucks
+- Migration `V55` : date de publication des food trucks (`food_truck.published_at`, même trigger que les activités : premier passage au statut `PUBLISHED`, figée ensuite ; `NULL` pour les food trucks existants), option `activity_alert.include_food_trucks` et table `activity_alert_food_truck_sent` (jamais deux envois).
+- Une alerte couvre ses catégories d'activités et/ou les nouveaux food trucks (au moins l'un des deux) ; un food truck est « nouveau » s'il a été publié après la création de l'alerte, dans le rayon. API : `includeFoodTrucks` dans la création et la réponse des alertes ; `publishedAt` sur les food trucks (renvoyé dès la création).
+- Envoi : un seul message par alerte pour les activités et les food trucks (« 1 nouveau food truck », « 3 nouveautés »…), e-mail en deux sections si besoin ; toucher la notification d'un seul food truck ouvre sa fiche dans l'application.
+- Web et mobile : option « 🚚 Food trucks » à la création d'une alerte, affichée dans la liste.
+- Tests : notifier (alerte mixte, food trucks seuls, option désactivée), service (alerte sans catégorie avec food trucks), intégration (rayon, nouveauté, option, déjà envoyé, trigger), `FoodTruckControllerIntegrationTest` (`publishedAt` à la création) ; mobile : `alertCriteria`, routage vers la fiche food truck.
+- Vérifié : `mvn verify` (1003 tests, checkstyle), `npm run build` (web), mobile `tsc`/`eslint` (0 erreur)/`jest` (44 tests). De bout en bout : food truck créé par l'API après une alerte « Food trucks » à Lyon → e-mail « 1 nouveau food truck près de Lyon » et notification ouvrant sa fiche (faux service Expo local), food truck marqué envoyé ; alerte sans catégorie ni food trucks refusée (400).
+
 ## 0.9.30 — 2026-10-09
 
 ### Date de publication des activités

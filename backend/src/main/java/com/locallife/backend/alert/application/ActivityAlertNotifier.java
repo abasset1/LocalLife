@@ -2,6 +2,7 @@ package com.locallife.backend.alert.application;
 
 import com.locallife.backend.alert.domain.ActivityAlert;
 import com.locallife.backend.alert.domain.AlertActivity;
+import com.locallife.backend.alert.domain.AlertFoodTruck;
 import com.locallife.backend.alert.domain.AlertRecipient;
 import com.locallife.backend.alert.infrastructure.ActivityAlertRepository;
 import com.locallife.backend.auth.application.EmailService;
@@ -11,6 +12,7 @@ import com.locallife.backend.category.infrastructure.CategoryRepository;
 import com.locallife.backend.push.application.ExpoPushService;
 import com.locallife.backend.push.infrastructure.PushTokenRepository;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +25,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Envoi planifié des alertes : pour chaque alerte, un seul message
- * récapitulant les nouvelles activités correspondantes depuis l'envoi
+ * récapitulant les nouvelles activités (et, si l'alerte les couvre, les
+ * nouveaux food trucks) correspondants depuis l'envoi
  * précédent (rien si rien de nouveau), sur ses canaux actifs — e-mail vers
  * une adresse vérifiée et/ou notification push vers les appareils
  * enregistrés (application mobile). Un récapitulatif plutôt qu'un message
@@ -93,19 +96,20 @@ public class ActivityAlertNotifier {
         ActivityAlert alert = recipient.alert();
         List<AlertActivity> activities =
                 activityAlertRepository.findNewMatchingActivities(alert.id(), MAX_ACTIVITIES_PER_RUN);
-        if (activities.isEmpty()) {
+        List<AlertFoodTruck> foodTrucks = alert.includeFoodTrucks()
+                ? activityAlertRepository.findNewMatchingFoodTrucks(alert.id(), MAX_ACTIVITIES_PER_RUN)
+                : List.of();
+        if (activities.isEmpty() && foodTrucks.isEmpty()) {
             return false;
         }
 
-        String title = activities.size() == 1
-                ? "1 nouvelle activité près de " + alert.city()
-                : activities.size() + " nouvelles activités près de " + alert.city();
+        String title = title(alert.city(), activities, foodTrucks);
         boolean delivered = false;
 
         if (alert.notifyEmail() && recipient.email() != null) {
             try {
                 emailService.sendActivityAlertEmail(
-                        recipient.email(), "LocalLife : " + title, body(recipient, activities, labels));
+                        recipient.email(), "LocalLife : " + title, body(recipient, activities, foodTrucks, labels));
                 delivered = true;
             } catch (RuntimeException exception) {
                 LOGGER.warn("Échec de l'e-mail de l'alerte {} : {}", alert.id(), exception.getMessage());
@@ -116,8 +120,8 @@ public class ActivityAlertNotifier {
             List<String> tokens = pushTokenRepository.findTokensByUserId(alert.userId());
             if (!tokens.isEmpty()) {
                 try {
-                    List<String> unregistered =
-                            expoPushService.send(tokens, title, pushBody(activities), pushData(activities));
+                    List<String> unregistered = expoPushService.send(
+                            tokens, title, pushBody(activities, foodTrucks), pushData(activities, foodTrucks));
                     if (!unregistered.isEmpty()) {
                         pushTokenRepository.deleteByTokens(unregistered);
                     }
@@ -130,52 +134,103 @@ public class ActivityAlertNotifier {
         }
 
         if (delivered) {
-            activityAlertRepository.markSent(alert.id(), activities.stream().map(AlertActivity::id).toList());
+            if (!activities.isEmpty()) {
+                activityAlertRepository.markSent(alert.id(), activities.stream().map(AlertActivity::id).toList());
+            }
+            if (!foodTrucks.isEmpty()) {
+                activityAlertRepository.markFoodTrucksSent(
+                        alert.id(), foodTrucks.stream().map(AlertFoodTruck::id).toList());
+            }
         }
         return delivered;
     }
 
-    /** Titres des premières activités, sur une ligne : le texte d'une notification est tronqué par le système. */
-    static String pushBody(List<AlertActivity> activities) {
-        String titles = activities.stream().limit(3).map(AlertActivity::title).collect(Collectors.joining(" · "));
-        return activities.size() > 3 ? titles + " · …" : titles;
+    /** « 1 nouvelle activité », « 2 nouveaux food trucks » ou « 3 nouveautés » près de la ville. */
+    static String title(String city, List<AlertActivity> activities, List<AlertFoodTruck> foodTrucks) {
+        int count = activities.size() + foodTrucks.size();
+        String what;
+        if (foodTrucks.isEmpty()) {
+            what = count == 1 ? "1 nouvelle activité" : count + " nouvelles activités";
+        } else if (activities.isEmpty()) {
+            what = count == 1 ? "1 nouveau food truck" : count + " nouveaux food trucks";
+        } else {
+            what = count + " nouveautés";
+        }
+        return what + " près de " + city;
+    }
+
+    /** Premiers titres, sur une ligne : le texte d'une notification est tronqué par le système. */
+    static String pushBody(List<AlertActivity> activities, List<AlertFoodTruck> foodTrucks) {
+        List<String> names = new ArrayList<>();
+        activities.forEach(activity -> names.add(activity.title()));
+        foodTrucks.forEach(foodTruck -> names.add("🚚 " + foodTruck.name()));
+        String titles = names.stream().limit(3).collect(Collectors.joining(" · "));
+        return names.size() > 3 ? titles + " · …" : titles;
     }
 
     /**
      * Écran à ouvrir au toucher de la notification : la fiche de l'activité
-     * s'il n'y en a qu'une, sinon la carte.
+     * ou du food truck s'il n'y a qu'une nouveauté, sinon la carte.
      */
-    static Map<String, Object> pushData(List<AlertActivity> activities) {
+    static Map<String, Object> pushData(List<AlertActivity> activities, List<AlertFoodTruck> foodTrucks) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("type", "activity-alert");
-        if (activities.size() == 1) {
+        if (activities.size() == 1 && foodTrucks.isEmpty()) {
             data.put("activityId", activities.get(0).id());
+        } else if (foodTrucks.size() == 1 && activities.isEmpty()) {
+            data.put("foodTruckId", foodTrucks.get(0).id());
         }
         return data;
     }
 
-    String body(AlertRecipient recipient, List<AlertActivity> activities, Map<String, String> labels) {
+    String body(
+            AlertRecipient recipient, List<AlertActivity> activities, List<AlertFoodTruck> foodTrucks,
+            Map<String, String> labels) {
         ActivityAlert alert = recipient.alert();
-        String categories = alert.categoryCodes().stream()
+        List<String> criteria = new ArrayList<>(alert.categoryCodes().stream()
                 .map(code -> labels.getOrDefault(code, code))
-                .collect(Collectors.joining(", "));
+                .toList());
+        if (alert.includeFoodTrucks()) {
+            criteria.add("Food trucks");
+        }
         StringBuilder text = new StringBuilder()
                 .append("Bonjour,\n\n")
-                .append("De nouvelles activités correspondent à ton alerte « ").append(categories)
+                .append("Du nouveau pour ton alerte « ").append(String.join(", ", criteria))
                 .append(" » à moins de ").append(alert.radiusKm()).append(" km de ").append(alert.city())
                 .append(" :\n\n");
-        activities.stream().limit(MAX_ACTIVITIES_LISTED).forEach(activity -> {
-            text.append("- ").append(activity.title());
-            if (activity.city() != null && !activity.city().isBlank()) {
-                text.append(" — ").append(activity.city());
+        boolean sections = !activities.isEmpty() && !foodTrucks.isEmpty();
+        if (!activities.isEmpty()) {
+            if (sections) {
+                text.append("Activités :\n");
             }
-            if (activity.startDate() != null) {
-                text.append(", le ").append(DATE_FORMAT.format(activity.startDate()));
+            activities.stream().limit(MAX_ACTIVITIES_LISTED).forEach(activity -> {
+                text.append("- ").append(activity.title());
+                if (activity.city() != null && !activity.city().isBlank()) {
+                    text.append(" — ").append(activity.city());
+                }
+                if (activity.startDate() != null) {
+                    text.append(", le ").append(DATE_FORMAT.format(activity.startDate()));
+                }
+                text.append('\n');
+            });
+            if (activities.size() > MAX_ACTIVITIES_LISTED) {
+                text.append("… et ").append(activities.size() - MAX_ACTIVITIES_LISTED).append(" autre(s).\n");
             }
-            text.append('\n');
-        });
-        if (activities.size() > MAX_ACTIVITIES_LISTED) {
-            text.append("… et ").append(activities.size() - MAX_ACTIVITIES_LISTED).append(" autre(s).\n");
+        }
+        if (!foodTrucks.isEmpty()) {
+            if (sections) {
+                text.append("\nFood trucks :\n");
+            }
+            foodTrucks.stream().limit(MAX_ACTIVITIES_LISTED).forEach(foodTruck -> {
+                text.append("- ").append(foodTruck.name());
+                if (foodTruck.category() != null && !foodTruck.category().isBlank()) {
+                    text.append(" (").append(foodTruck.category()).append(')');
+                }
+                text.append('\n');
+            });
+            if (foodTrucks.size() > MAX_ACTIVITIES_LISTED) {
+                text.append("… et ").append(foodTrucks.size() - MAX_ACTIVITIES_LISTED).append(" autre(s).\n");
+            }
         }
         return text
                 .append("\nVoir sur la carte : ").append(frontendBaseUrl).append("/\n")

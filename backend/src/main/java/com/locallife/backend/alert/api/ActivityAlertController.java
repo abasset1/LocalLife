@@ -50,7 +50,7 @@ public class ActivityAlertController {
         try {
             ActivityAlert created = activityAlertService.createAlert(
                     userId, request.categoryCodes(), request.city(), request.latitude(), request.longitude(),
-                    request.radiusKm(), request.notifyEmail(), request.notifyPush());
+                    request.radiusKm(), request.includeFoodTrucks(), request.notifyEmail(), request.notifyPush());
             return ResponseEntity.status(HttpStatus.CREATED).body(AlertResponse.from(created));
         } catch (IllegalArgumentException | CityNotFoundException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -105,7 +105,7 @@ public class ActivityAlertController {
 
     public record CreateAlertRequest(
             List<String> categoryCodes, String city, Double latitude, Double longitude, Integer radiusKm,
-            Boolean notifyEmail, Boolean notifyPush) {
+            Boolean includeFoodTrucks, Boolean notifyEmail, Boolean notifyPush) {
     }
 
     public record UpdateChannelsRequest(Boolean notifyEmail, Boolean notifyPush) {
@@ -115,12 +115,12 @@ public class ActivityAlertController {
     }
 
     public record AlertResponse(
-            Long id, List<String> categoryCodes, String city, double latitude, double longitude, int radiusKm,
-            boolean notifyEmail, boolean notifyPush) {
+            Long id, List<String> categoryCodes, boolean includeFoodTrucks, String city, double latitude,
+            double longitude, int radiusKm, boolean notifyEmail, boolean notifyPush) {
 
         static AlertResponse from(ActivityAlert alert) {
-            return new AlertResponse(alert.id(), alert.categoryCodes(), alert.city(), alert.latitude(),
-                    alert.longitude(), alert.radiusKm(), alert.notifyEmail(), alert.notifyPush());
+            return new AlertResponse(alert.id(), alert.categoryCodes(), alert.includeFoodTrucks(), alert.city(),
+                    alert.latitude(), alert.longitude(), alert.radiusKm(), alert.notifyEmail(), alert.notifyPush());
         }
 
     }

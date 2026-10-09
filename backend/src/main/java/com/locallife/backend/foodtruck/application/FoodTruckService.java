@@ -71,7 +71,9 @@ public class FoodTruckService {
 
         FoodTruck foodTruck = new FoodTruck(
                 null, name, description, latitude, longitude, category, contact, DEFAULT_STATUS);
-        return foodTruckRepository.save(foodTruck);
+        FoodTruck saved = foodTruckRepository.save(foodTruck);
+        // Relu pour renvoyer la date de publication posée par la base (trigger V55).
+        return foodTruckRepository.findById(saved.id()).orElse(saved);
     }
 
     private void validateName(String name) {

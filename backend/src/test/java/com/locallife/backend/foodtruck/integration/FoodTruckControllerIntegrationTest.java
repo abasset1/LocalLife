@@ -110,7 +110,9 @@ class FoodTruckControllerIntegrationTest {
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody()
-                .jsonPath("$.status").isEqualTo("PUBLISHED");
+                .jsonPath("$.status").isEqualTo("PUBLISHED")
+                // Date de publication posée par la base (trigger V55) et renvoyée à la création.
+                .jsonPath("$.publishedAt").isNotEmpty();
     }
 
     @Test

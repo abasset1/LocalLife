@@ -1,6 +1,9 @@
 package com.locallife.backend.foodtruck.domain;
 
+import java.time.LocalDateTime;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.PersistenceCreator;
+import org.springframework.data.annotation.ReadOnlyProperty;
 
 /**
  * Entité de domaine FoodTruck (LL-6009). Reprend exactement le modèle
@@ -43,5 +46,24 @@ public record FoodTruck(
         double longitude,
         String category,
         String contact,
-        String status) {
+        String status,
+        @ReadOnlyProperty LocalDateTime publishedAt) {
+
+    /**
+     * Constructeur canonique, utilisé par Spring Data JDBC à la lecture.
+     * {@code publishedAt} : premier passage au statut {@code PUBLISHED},
+     * posé par le trigger {@code trg_food_truck_set_published_at} (V55) et
+     * jamais écrit par l'application ; {@code null} pour les food trucks
+     * publiés avant V55.
+     */
+    @PersistenceCreator
+    public FoodTruck {
+    }
+
+    /** Food truck à écrire : {@code publishedAt} est géré par la base. */
+    public FoodTruck(
+            Long id, String name, String description, double latitude, double longitude, String category,
+            String contact, String status) {
+        this(id, name, description, latitude, longitude, category, contact, status, null);
+    }
 }

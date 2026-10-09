@@ -2,6 +2,7 @@ package com.locallife.backend.foodtruck.infrastructure;
 
 import com.locallife.backend.foodtruck.domain.FoodTruck;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.repository.Repository;
 
 /**
@@ -14,6 +15,8 @@ import org.springframework.data.repository.Repository;
 public interface FoodTruckRepository extends Repository<FoodTruck, Long> {
 
     FoodTruck save(FoodTruck foodTruck);
+
+    Optional<FoodTruck> findById(Long id);
 
     /**
      * Utilisé par {@code FoodTruckService#findAllPublished} : seuls les

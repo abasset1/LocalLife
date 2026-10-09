@@ -8,6 +8,8 @@ import CityField, { RADIUS_OPTIONS_KM, useCityPicker } from "./CityField";
 interface ActivityAlert {
     id: number;
     categoryCodes: string[];
+    /** Nouveaux food trucks inclus (l'alerte peut n'avoir qu'eux). */
+    includeFoodTrucks: boolean;
     city: string;
     latitude: number;
     longitude: number;
@@ -37,6 +39,7 @@ function ActivityAlertsSection() {
     const [loadError, setLoadError] = useState<string | null>(null);
 
     const [categoryCodes, setCategoryCodes] = useState<string[]>([]);
+    const [includeFoodTrucks, setIncludeFoodTrucks] = useState(false);
     const [radiusKm, setRadiusKm] = useState(String(DEFAULT_ALERT_RADIUS_KM));
     const cityPicker = useCityPicker(() => setCreateSuccess(false));
     const [isCreating, setIsCreating] = useState(false);
@@ -97,6 +100,14 @@ function ActivityAlertsSection() {
         return categories.find((category) => category.code === code)?.label ?? code;
     }
 
+    function criteriaOf(alert: ActivityAlert): string {
+        const labels = alert.categoryCodes.map(labelOf);
+        if (alert.includeFoodTrucks) {
+            labels.push("Food trucks");
+        }
+        return labels.join(", ");
+    }
+
     function toggleCategory(code: string) {
         setCreateSuccess(false);
         setCategoryCodes((selected) =>
@@ -108,8 +119,8 @@ function ActivityAlertsSection() {
         event.preventDefault();
         setCreateError(null);
         setCreateSuccess(false);
-        if (categoryCodes.length === 0) {
-            setCreateError("Choisis au moins une catégorie.");
+        if (categoryCodes.length === 0 && !includeFoodTrucks) {
+            setCreateError("Choisis au moins une catégorie, ou les food trucks.");
             return;
         }
         setIsCreating(true);
@@ -120,6 +131,7 @@ function ActivityAlertsSection() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     categoryCodes,
+                    includeFoodTrucks,
                     city: cityPicker.city.trim() || null,
                     latitude: cityPicker.position?.latitude ?? null,
                     longitude: cityPicker.position?.longitude ?? null,
@@ -166,7 +178,8 @@ function ActivityAlertsSection() {
         <section className="profile-form profile-preferences profile-alerts">
             <h2>Mes alertes e-mail</h2>
             <p className="profile-preferences-hint">
-                Reçois chaque matin par e-mail les nouvelles activités publiées qui correspondent à tes critères.
+                Reçois chaque matin par e-mail les nouvelles activités et les nouveaux food trucks qui correspondent à
+                tes critères.
                 Les notifications se règlent depuis l'application mobile.
             </p>
 
@@ -177,7 +190,7 @@ function ActivityAlertsSection() {
                     {alerts.map((alert) => (
                         <li key={alert.id}>
                             <span>
-                                <strong>{alert.categoryCodes.map(labelOf).join(", ")}</strong>
+                                <strong>{criteriaOf(alert)}</strong>
                                 <br />
                                 à moins de {alert.radiusKm} km de {alert.city}
                                 <br />
@@ -200,7 +213,7 @@ function ActivityAlertsSection() {
             <form className="profile-alerts-form" onSubmit={(event) => void handleCreate(event)}>
                 <h3>Nouvelle alerte</h3>
                 <fieldset className="profile-preferences-categories">
-                    <legend>Catégories (une ou plusieurs)</legend>
+                    <legend>Catégories (une ou plusieurs) et/ou food trucks</legend>
                     {categories.map((category) => (
                         <label className="explorer-category-option" key={category.code}>
                             <input
@@ -211,6 +224,17 @@ function ActivityAlertsSection() {
                             {category.label}
                         </label>
                     ))}
+                    <label className="explorer-category-option">
+                        <input
+                            checked={includeFoodTrucks}
+                            onChange={() => {
+                                setIncludeFoodTrucks((value) => !value);
+                                setCreateSuccess(false);
+                            }}
+                            type="checkbox"
+                        />
+                        🚚 Food trucks
+                    </label>
                 </fieldset>
 
                 <CityField id="alert-city" label="Ville" picker={cityPicker} required />

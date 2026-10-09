@@ -29,8 +29,9 @@ import {
   ChipGroup,
   CityPicker,
   DEFAULT_ALERT_RADIUS_KM,
+  FOOD_TRUCKS_CHIP,
   RADIUS_OPTIONS_KM,
-  categoryLabels,
+  alertCriteria,
   toggleCode,
   useCityPicker,
 } from '@/features/settings';
@@ -90,6 +91,7 @@ export default function AlertesScreen() {
   const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
 
   const [categoryCodes, setCategoryCodes] = useState<string[]>([]);
+  const [includeFoodTrucks, setIncludeFoodTrucks] = useState(false);
   const [radius, setRadius] = useState(String(DEFAULT_ALERT_RADIUS_KM));
   const [notifyPush, setNotifyPush] = useState(true);
   const [notifyEmail, setNotifyEmail] = useState(false);
@@ -128,8 +130,8 @@ export default function AlertesScreen() {
   async function create() {
     setCreateError(null);
     setCreated(false);
-    if (categoryCodes.length === 0) {
-      setCreateError('Choisissez au moins une catégorie.');
+    if (categoryCodes.length === 0 && !includeFoodTrucks) {
+      setCreateError('Choisissez au moins une catégorie, ou les food trucks.');
       return;
     }
     if (!notifyPush && !notifyEmail) {
@@ -147,6 +149,7 @@ export default function AlertesScreen() {
       }
       const alert = await createAlert({
         categoryCodes,
+        includeFoodTrucks,
         city: cityPicker.city.trim() || null,
         latitude: cityPicker.position?.latitude ?? null,
         longitude: cityPicker.position?.longitude ?? null,
@@ -225,13 +228,14 @@ export default function AlertesScreen() {
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <ThemedText themeColor="textSecondary">
-            Soyez prévenu chaque matin des nouvelles activités qui correspondent à vos critères.
+            Soyez prévenu chaque matin des nouvelles activités et des nouveaux food trucks qui correspondent à
+            vos critères.
           </ThemedText>
 
           {alerts.length === 0 && <ThemedText>Aucune alerte pour l’instant.</ThemedText>}
           {alerts.map((alert) => (
             <View key={alert.id} style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="smallBold">{categoryLabels(alert.categoryCodes, categories)}</ThemedText>
+              <ThemedText type="smallBold">{alertCriteria(alert, categories)}</ThemedText>
               <ThemedText type="small">
                 À moins de {alert.radiusKm} km de {alert.city}
               </ThemedText>
@@ -269,11 +273,15 @@ export default function AlertesScreen() {
             Nouvelle alerte
           </ThemedText>
           <ChipGroup
-            label="Catégories (une ou plusieurs)"
-            options={categories.map((c) => ({ value: c.code, label: c.label }))}
-            selected={categoryCodes}
-            onToggle={(code) => {
-              setCategoryCodes((current) => toggleCode(current, code));
+            label="Catégories et/ou food trucks"
+            options={[
+              ...categories.map((c) => ({ value: c.code, label: c.label })),
+              { value: FOOD_TRUCKS_CHIP, label: '🚚 Food trucks' },
+            ]}
+            selected={includeFoodTrucks ? [...categoryCodes, FOOD_TRUCKS_CHIP] : categoryCodes}
+            onToggle={(value) => {
+              if (value === FOOD_TRUCKS_CHIP) setIncludeFoodTrucks((current) => !current);
+              else setCategoryCodes((current) => toggleCode(current, value));
               setCreated(false);
             }}
           />
