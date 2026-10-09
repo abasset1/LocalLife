@@ -38,6 +38,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -197,7 +199,7 @@ class ActivityControllerTest {
     void getActivityById_ShouldReturnDetailedActivity_WhenPremiumAccessGranted() {
         // Given
         Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
-                LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
+                LocalDateTime.now(), LocalDateTime.now(), "PUBLISHED", 1L, null, null, null, null, null,
                 null, null, null, null, null);
         when(activityService.findById(1L)).thenReturn(Optional.of(activity));
         when(premiumAccessPolicy.hasPremiumAccess(authentication)).thenReturn(true);
@@ -218,7 +220,7 @@ class ActivityControllerTest {
         // LL-11014 : un appelant sans accès Premium reçoit le résumé, jamais la fiche détaillée —
         // la décision revient exclusivement à PremiumAccessPolicy, jamais au domaine.
         Activity activity = new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
-                LocalDateTime.now(), LocalDateTime.now(), "ACTIVE", 1L, null, null, null, null, null,
+                LocalDateTime.now(), LocalDateTime.now(), "PUBLISHED", 1L, null, null, null, null, null,
                 null, null, null, null, null);
         when(activityService.findById(1L)).thenReturn(Optional.of(activity));
         when(premiumAccessPolicy.hasPremiumAccess(authentication)).thenReturn(false);
@@ -242,6 +244,57 @@ class ActivityControllerTest {
 
         // Then
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    }
+
+    /** Activité non publiée créée par l'utilisateur 7 ({@link #authentication}). */
+    private Activity unpublishedActivity(String status) {
+        return new Activity(1L, "Test Activity", "Description", "Category", 0.0, 0.0,
+                LocalDateTime.now(), LocalDateTime.now(), status, 1L, null, null, null, null, null,
+                null, null, null, null, 7L);
+    }
+
+    @Test
+    void getActivityById_ShouldReturnNotFound_WhenNotPublishedAndCallerIsAnonymous() {
+        // Une activité non publiée ne doit pas être lisible publiquement, quel que soit son statut.
+        for (String status : List.of("PENDING", "REJECTED", "ARCHIVED", "CANCELLED")) {
+            when(activityService.findById(1L)).thenReturn(Optional.of(unpublishedActivity(status)));
+
+            ResponseEntity<Object> response = activityController.getActivityById(
+                    1L, new AnonymousAuthenticationToken(
+                            "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")));
+
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode(), status);
+        }
+    }
+
+    @Test
+    void getActivityById_ShouldReturnNotFound_WhenNotPublishedAndCallerIsAnotherUser() {
+        when(activityService.findById(1L)).thenReturn(Optional.of(unpublishedActivity("PENDING")));
+
+        ResponseEntity<Object> response = activityController.getActivityById(
+                1L, new JwtAuthentication(8L, "other@example.com", Role.USER));
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    }
+
+    @Test
+    void getActivityById_ShouldReturnActivity_WhenNotPublishedAndCallerIsAuthor() {
+        when(activityService.findById(1L)).thenReturn(Optional.of(unpublishedActivity("PENDING")));
+        when(premiumAccessPolicy.hasPremiumAccess(authentication)).thenReturn(true);
+
+        ResponseEntity<Object> response = activityController.getActivityById(1L, authentication);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    void getActivityById_ShouldReturnActivity_WhenNotPublishedAndCallerIsAdmin() {
+        when(activityService.findById(1L)).thenReturn(Optional.of(unpublishedActivity("REJECTED")));
+        when(premiumAccessPolicy.hasPremiumAccess(adminAuthentication)).thenReturn(true);
+
+        ResponseEntity<Object> response = activityController.getActivityById(1L, adminAuthentication);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 
     @Test
