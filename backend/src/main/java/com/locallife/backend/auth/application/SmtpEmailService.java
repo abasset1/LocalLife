@@ -71,4 +71,16 @@ public class SmtpEmailService implements EmailService {
         log.info("Email de confirmation d'adresse envoyé à {}", to);
     }
 
+    @Override
+    public void sendActivityAlertEmail(String to, String subject, String text) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(to);
+        message.setSubject(subject);
+        message.setText(text);
+
+        mailSender.send(message);
+        log.info("Email d'alerte d'activités envoyé à {}", to);
+    }
+
 }

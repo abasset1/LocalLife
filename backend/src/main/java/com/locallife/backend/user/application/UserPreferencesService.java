@@ -54,13 +54,7 @@ public class UserPreferencesService {
      * @throws com.locallife.backend.geocoding.application.GeocodingUnavailableException si le géocodage échoue
      */
     public Coordinates lookupCity(String name, Double latitude, Double longitude) {
-        if (latitude != null || longitude != null) {
-            if (latitude == null || longitude == null) {
-                throw new IllegalArgumentException("La latitude et la longitude doivent être fournies ensemble.");
-            }
-            return geocodingService.reverseCity(latitude, longitude);
-        }
-        return geocodingService.findCity(name);
+        return geocodingService.resolveCity(name, latitude, longitude);
     }
 
     /**

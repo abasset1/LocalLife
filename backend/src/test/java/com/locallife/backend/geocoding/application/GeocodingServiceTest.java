@@ -163,4 +163,19 @@ class GeocodingServiceTest {
     void reverseCity_ShouldRejectOutOfRangePosition() {
         assertThrows(IllegalArgumentException.class, () -> geocodingService.reverseCity(91.0, 0.0));
     }
+
+    @Test
+    void resolveCity_ShouldRejectIncompletePosition() {
+        assertThrows(IllegalArgumentException.class, () -> geocodingService.resolveCity(null, 45.0, null));
+    }
+
+    @Test
+    void resolveCity_ShouldPreferPosition_OverName() {
+        mockServer.expect(requestTo(containsString("/reverse")))
+                .andRespond(withSuccess(
+                        "{\"lat\":\"43.21\",\"lon\":\"5.54\",\"address\":{\"town\":\"Cassis\"}}",
+                        MediaType.APPLICATION_JSON));
+
+        assertEquals("Cassis", geocodingService.resolveCity("Paris", 43.21, 5.54).city());
+    }
 }

@@ -13,6 +13,7 @@ import LoginPage from "./pages/LoginPage";
 import ProfilePage from "./pages/ProfilePage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import UnsubscribeAlertPage from "./pages/UnsubscribeAlertPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 
 createRoot(document.getElementById("root")!).render(
@@ -28,6 +29,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route element={<ForgotPasswordPage />} path="/forgot-password" />
                 <Route element={<ResetPasswordPage />} path="/reset-password" />
                 <Route element={<VerifyEmailPage />} path="/verify-email" />
+                <Route element={<UnsubscribeAlertPage />} path="/alerts/unsubscribe" />
             </Routes>
         </BrowserRouter>
     </StrictMode>

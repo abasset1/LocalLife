@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 import { clearToken, getPayload } from "../auth/authStorage";
+import ActivityAlertsSection from "../components/profile/ActivityAlertsSection";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
 
 /**
@@ -178,6 +179,8 @@ function ProfilePage() {
                         </form>
 
                         <SearchPreferencesForm />
+
+                        <ActivityAlertsSection />
 
                         {/* Critère d'acceptation « la déconnexion est accessible ». */}
                         <button className="profile-logout-button" onClick={handleLogout} type="button">
