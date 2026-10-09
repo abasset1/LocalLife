@@ -13,7 +13,9 @@ import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.collector.infrastructure.ImportTestSourceService;
 import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
+import com.locallife.backend.common.IntegrationTestCleaner;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
 import io.jsonwebtoken.Jwts;
@@ -25,10 +27,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import javax.crypto.SecretKey;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -90,6 +92,9 @@ class AdminImportControllerIntegrationTest {
     private SourceRepository sourceRepository;
 
     @Autowired
+    private ImportTestSourceService importTestSourceService;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     /** Simule le clic sur le lien de confirmation reçu par email (voir EmailVerificationService). */
@@ -97,12 +102,26 @@ class AdminImportControllerIntegrationTest {
         jdbcTemplate.update("UPDATE users SET email_verified = TRUE WHERE email = ?", email);
     }
 
+    @Autowired
+    private IntegrationTestCleaner cleaner;
+
+    /** Test non transactionnel (serveur embarqué) : ce qu'il crée est supprimé après chaque test. */
+    @BeforeEach
+    void startCleaner() {
+        cleaner.start();
+    }
+
+    @AfterEach
+    void cleanUpTestData() {
+        cleaner.cleanUp();
+    }
+
     private RestTestClient restTestClient() {
         return RestTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
     }
 
     private String uniqueEmail() {
-        return "test-" + UUID.randomUUID() + "@example.com";
+        return cleaner.trackUser("test-" + UUID.randomUUID() + "@example.com");
     }
 
     /** Construit un token JWT valide avec le rôle ADMIN, voir AdminActivityControllerIntegrationTest. */
@@ -146,7 +165,7 @@ class AdminImportControllerIntegrationTest {
     }
 
     private String uniqueSourceName() {
-        return "Test Source " + UUID.randomUUID();
+        return cleaner.trackSource("Test Source " + UUID.randomUUID());
     }
 
     private CollectedActivity validItem(String sourceName, String title) {
@@ -167,8 +186,7 @@ class AdminImportControllerIntegrationTest {
         // LL-EF-005 : la source doit exister en base avant l'import (voir
         // ImportServiceIntegrationTest.createCollectibleSource).
         String sourceName = uniqueSourceName();
-        sourceRepository.save(
-                new Source(null, sourceName, "API", null, "ACTIVE", null, "agenda-uid-" + UUID.randomUUID(), null));
+        importTestSourceService.createCollectibleTestSource(sourceName);
         when(collector.collect()).thenReturn(List.of(validItem(sourceName, "Marché de Noël")));
 
         // When / Then
@@ -180,9 +198,8 @@ class AdminImportControllerIntegrationTest {
                 .returnResult()
                 .getResponseBody();
 
-        // LL-EF-005 : results contient aussi les deux agendas seedés par
-        // V14__add_agenda_fields_to_source.sql (également collectibles) — on isole le résultat
-        // de la source propre à ce test plutôt que de supposer une liste à un seul élément.
+        // Seule la source de ce test est parcourue par l'import (ImportTestSourceService) : les
+        // agendas réels présents en base ne sont ni collectés ni modifiés par le collecteur mocké.
         assertThat(results).isNotNull();
         ImportResult result = results.stream()
                 .filter(r -> sourceName.equals(r.sourceName()))
@@ -203,8 +220,7 @@ class AdminImportControllerIntegrationTest {
         // Given : échec de collecte (ex. panne réseau, configuration manquante) — capturé par
         // ImportService, ne doit pas faire échouer l'appel HTTP (voir AdminImportController).
         String sourceName = uniqueSourceName();
-        sourceRepository.save(
-                new Source(null, sourceName, "API", null, "ACTIVE", null, "agenda-uid-" + UUID.randomUUID(), null));
+        importTestSourceService.createCollectibleTestSource(sourceName);
         when(collector.collect()).thenThrow(new RuntimeException("panne réseau"));
 
         // When / Then

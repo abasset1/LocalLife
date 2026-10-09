@@ -2,6 +2,7 @@ package com.locallife.backend.source.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.locallife.backend.common.IntegrationTestCleaner;
 import com.locallife.backend.source.api.SourceController.CreateSourceRequest;
 import com.locallife.backend.source.api.SourceController.UpdateSourceRequest;
 import com.locallife.backend.source.domain.Source;
@@ -12,7 +13,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.UUID;
 import javax.crypto.SecretKey;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -39,6 +43,20 @@ class SourceControllerIntegrationTest {
 
     @Value("${jwt.secret}")
     private String jwtSecret;
+
+    @Autowired
+    private IntegrationTestCleaner cleaner;
+
+    /** Test non transactionnel (serveur embarqué) : ce qu'il crée est supprimé après chaque test. */
+    @BeforeEach
+    void startCleaner() {
+        cleaner.start();
+    }
+
+    @AfterEach
+    void cleanUpTestData() {
+        cleaner.cleanUp();
+    }
 
     private RestTestClient restTestClient() {
         return RestTestClient.bindToServer()
@@ -69,7 +87,7 @@ class SourceControllerIntegrationTest {
     }
 
     private String uniqueName() {
-        return "Source de test " + UUID.randomUUID();
+        return cleaner.trackSource("Source de test " + UUID.randomUUID());
     }
 
     // --- Lecture (non protégée, LL-6007) ---

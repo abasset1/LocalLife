@@ -1,7 +1,9 @@
 package com.locallife.backend.collector.infrastructure;
 
+import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.source.domain.Source;
+import com.locallife.backend.source.infrastructure.SourceRepository;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -31,6 +33,13 @@ import org.springframework.context.annotation.Primary;
  * {@link OpenAgendaCollectorFactory} réel (annoté {@code @Component}) pour
  * l'injection dans {@code ImportService} — le bean réel continue d'exister
  * dans le contexte, mais n'est jamais utilisé grâce à {@code @Primary}.
+ *
+ * <p><b>Isolation des sources réelles</b> : ce collecteur mocké ne doit
+ * jamais être appliqué aux agendas réels présents en base. Le
+ * {@code SourceService} est donc lui aussi remplacé
+ * ({@link ImportTestSourceService}) : {@code ImportService#importAll()} ne
+ * parcourt que les sources créées par le test via
+ * {@link ImportTestSourceService#createCollectibleTestSource(String)}.
  */
 @TestConfiguration
 public class SingleMockCollectorConfig {
@@ -46,5 +55,12 @@ public class SingleMockCollectorConfig {
         OpenAgendaCollectorFactory factory = Mockito.mock(OpenAgendaCollectorFactory.class);
         Mockito.when(factory.create(Mockito.any())).thenReturn(collector);
         return factory;
+    }
+
+    @Bean
+    @Primary
+    public ImportTestSourceService importTestSourceService(
+            SourceRepository sourceRepository, ActivityRepository activityRepository) {
+        return new ImportTestSourceService(sourceRepository, activityRepository);
     }
 }

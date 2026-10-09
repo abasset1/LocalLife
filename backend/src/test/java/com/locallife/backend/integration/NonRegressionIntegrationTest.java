@@ -8,6 +8,7 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.api.LoginRequest;
 import com.locallife.backend.auth.api.LoginResponse;
 import com.locallife.backend.auth.api.RegisterRequest;
+import com.locallife.backend.common.IntegrationTestCleaner;
 import com.locallife.backend.foodtruck.api.FoodTruckController;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
@@ -18,6 +19,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.UUID;
 import javax.crypto.SecretKey;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -78,12 +81,26 @@ class NonRegressionIntegrationTest {
         jdbcTemplate.update("UPDATE users SET email_verified = TRUE WHERE email = ?", email);
     }
 
+    @Autowired
+    private IntegrationTestCleaner cleaner;
+
+    /** Test non transactionnel (serveur embarqué) : ce qu'il crée est supprimé après chaque test. */
+    @BeforeEach
+    void startCleaner() {
+        cleaner.start();
+    }
+
+    @AfterEach
+    void cleanUpTestData() {
+        cleaner.cleanUp();
+    }
+
     private RestTestClient restTestClient() {
         return RestTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
     }
 
     private String uniqueEmail() {
-        return "test-" + UUID.randomUUID() + "@example.com";
+        return cleaner.trackUser("test-" + UUID.randomUUID() + "@example.com");
     }
 
     /** Même technique qu'{@code AdminActivityControllerIntegrationTest#adminToken} — voir sa javadoc. */
@@ -243,7 +260,7 @@ class NonRegressionIntegrationTest {
     void foodTruck_ShouldBeVisibleOnPublicMap() {
         // Given : un food truck créé par un utilisateur connecté (LL-6009, statut PUBLISHED par défaut).
         String userToken = registerAndLoginAsUser(uniqueEmail());
-        String name = "Le Camion qui Fume " + UUID.randomUUID();
+        String name = cleaner.trackFoodTruck("Le Camion qui Fume " + UUID.randomUUID());
 
         restTestClient().post().uri("/api/v1/foodtrucks")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
