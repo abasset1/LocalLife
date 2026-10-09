@@ -880,6 +880,45 @@ body {
     cursor: not-allowed;
 }
 
+.profile-preferences {
+    margin-top: 1.5rem;
+}
+
+.profile-preferences h2 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.profile-preferences-hint,
+.profile-preferences-categories small {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.profile-preferences select {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background-color: #ffffff;
+}
+
+.profile-preferences-categories {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+}
+
+.profile-preferences-categories legend {
+    padding: 0 0.25rem;
+    font-size: 0.85rem;
+    color: #334155;
+}
+
 .profile-logout-button {
     margin-top: 1.5rem;
     padding: 0.5rem 0.8rem;

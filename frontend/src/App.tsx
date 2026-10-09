@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
-import { clearToken, getPayload } from "./auth/authStorage";
+import { clearToken, getPayload, getToken } from "./auth/authStorage";
 import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
 import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
@@ -13,7 +13,16 @@ import ExplorerFilters from "./components/explorer/ExplorerFilters";
 import ExplorerMap from "./components/explorer/ExplorerMap";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
 import ExplorerSearch from "./components/explorer/ExplorerSearch";
-import type { Activity, ActivityDetail, ApiErrorBody, Category, FoodTruck, MapBounds, UserPosition } from "./components/explorer/types";
+import type {
+    Activity,
+    ActivityDetail,
+    ApiErrorBody,
+    Category,
+    FoodTruck,
+    MapBounds,
+    UserPosition,
+    UserPreferences,
+} from "./components/explorer/types";
 
 /**
  * LL-EF-017 — Refonte de l'écran Explorer autour de la carte.
@@ -55,6 +64,14 @@ function App() {
     const [isLoadingActivities, setIsLoadingActivities] = useState(true);
     const [searchError, setSearchError] = useState<string | null>(null);
     const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
+    /** Rayon de la recherche initiale `/nearby` : paramètre utilisateur s'il est défini (voir ci-dessous). */
+    const [searchRadiusKm, setSearchRadiusKm] = useState(DEFAULT_SEARCH_RADIUS_KM);
+    /**
+     * Paramètres utilisateur (catégories, ville, rayon par défaut) appliqués avant
+     * la première recherche, pour ne pas charger puis recharger la carte. Visiteur
+     * non connecté : rien à attendre.
+     */
+    const [arePreferencesApplied, setArePreferencesApplied] = useState(() => getPayload() === null);
     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
     const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
     const [viewMode, setViewMode] = useState<"map" | "list">("map");
@@ -82,7 +99,59 @@ function App() {
         selectedDateTo: string;
         refreshKey: number;
         userPosition: UserPosition | null;
+        searchRadiusKm: number;
     } | null>(null);
+
+    /**
+     * Paramètres utilisateur (`GET /api/v1/users/me/preferences`), chargés une fois.
+     * Ville par défaut : remplace la géolocalisation automatique comme point de
+     * départ de la carte (« Autour de moi » reste disponible). `fetch` direct avec
+     * le JWT plutôt que `apiFetch` : un token expiré ne doit pas rediriger vers
+     * /login depuis la carte publique — on garde simplement le comportement standard.
+     */
+    useEffect(() => {
+        if (arePreferencesApplied) {
+            requestGeolocation();
+            return;
+        }
+        const token = getToken();
+        const abortController = new AbortController();
+        let hasDefaultCity = false;
+
+        (async () => {
+            try {
+                const response = await fetch("/api/v1/users/me/preferences", {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: abortController.signal,
+                });
+                if (response.ok) {
+                    const preferences: UserPreferences = await response.json();
+                    setSelectedCategoryCodes(preferences.defaultCategoryCodes);
+                    if (preferences.defaultRadiusKm !== null) {
+                        setSearchRadiusKm(preferences.defaultRadiusKm);
+                    }
+                    if (preferences.defaultLatitude !== null && preferences.defaultLongitude !== null) {
+                        hasDefaultCity = true;
+                        setUserPosition({
+                            latitude: preferences.defaultLatitude,
+                            longitude: preferences.defaultLongitude,
+                        });
+                    }
+                }
+            } catch {
+                // Paramètres indisponibles : comportement standard de la carte.
+            } finally {
+                if (!abortController.signal.aborted) {
+                    setArePreferencesApplied(true);
+                    if (!hasDefaultCity) {
+                        requestGeolocation();
+                    }
+                }
+            }
+        })();
+
+        return () => abortController.abort();
+    }, []);
 
     // Référentiel des catégories, chargé une fois (lecture publique : `fetch` direct, voir apiClient.ts).
     useEffect(() => {
@@ -110,6 +179,9 @@ function App() {
     }, []);
 
     useEffect(() => {
+        if (!arePreferencesApplied) {
+            return;
+        }
         const abortController = new AbortController();
 
         // LL-EF-003 : un déplacement/zoom pur de la carte ne doit pas provoquer
@@ -121,8 +193,11 @@ function App() {
             && previousDeps.selectedDate === selectedDate
             && previousDeps.selectedDateTo === selectedDateTo
             && previousDeps.refreshKey === refreshKey
-            && previousDeps.userPosition === userPosition;
-        previousSearchDepsRef.current = { selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition };
+            && previousDeps.userPosition === userPosition
+            && previousDeps.searchRadiusKm === searchRadiusKm;
+        previousSearchDepsRef.current = {
+            selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm,
+        };
 
         if (!isMapOnlyReload) {
             setIsLoadingActivities(true);
@@ -142,13 +217,14 @@ function App() {
                 params.set("neLatitude", String(mapBounds.neLatitude));
                 params.set("neLongitude", String(mapBounds.neLongitude));
             } else {
-                // Avant toute interaction avec la carte : rayon fixe (LL-4008/LL-4011).
+                // Avant toute interaction avec la carte : rayon fixe (LL-4008/LL-4011),
+                // ou celui des paramètres utilisateur.
                 endpoint = "/api/v1/activities/nearby";
                 const latitude = userPosition?.latitude ?? MARSEILLE_LATITUDE;
                 const longitude = userPosition?.longitude ?? MARSEILLE_LONGITUDE;
                 params.set("latitude", String(latitude));
                 params.set("longitude", String(longitude));
-                params.set("radius", String(DEFAULT_SEARCH_RADIUS_KM));
+                params.set("radius", String(searchRadiusKm));
             }
 
             // Plusieurs codes du référentiel, séparés par des virgules : une activité est retenue
@@ -191,7 +267,7 @@ function App() {
         void loadActivities();
 
         return () => abortController.abort();
-    }, [selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, mapBounds]);
+    }, [arePreferencesApplied, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, mapBounds]);
 
     // Récupération des food trucks (LL-6009), isolée de celle des activités — inchangée.
     useEffect(() => {
@@ -243,11 +319,9 @@ function App() {
         );
     }
 
-    // LL-EF-002 : géolocalisation demandée automatiquement au chargement, sans action utilisateur.
+    // LL-EF-002 : géolocalisation demandée automatiquement au chargement, sans action utilisateur
+    // (après lecture des paramètres utilisateur, sauf ville par défaut — voir leur chargement ci-dessus).
     // ⚠️ Aucune position utilisateur n'est envoyée au backend ni stockée ailleurs qu'en état React local.
-    useEffect(() => {
-        requestGeolocation();
-    }, []);
 
     function handleLogout() {
         clearToken();
