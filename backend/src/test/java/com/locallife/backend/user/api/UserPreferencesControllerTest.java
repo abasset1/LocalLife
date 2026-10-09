@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.locallife.backend.auth.application.JwtAuthentication;
-import com.locallife.backend.geocoding.application.AddressNotFoundException;
+import com.locallife.backend.geocoding.application.CityNotFoundException;
+import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
+import com.locallife.backend.user.api.UserPreferencesController.CityResponse;
 import com.locallife.backend.user.api.UserPreferencesController.UpdatePreferencesRequest;
 import com.locallife.backend.user.api.UserPreferencesController.UserPreferencesResponse;
 import com.locallife.backend.user.application.UserPreferencesService;
@@ -49,11 +51,11 @@ class UserPreferencesControllerTest {
 
     @Test
     void updatePreferences_ShouldReturnOk_WithSavedPreferences() {
-        when(userPreferencesService.updatePreferences(7L, "Lyon", 20, List.of("SPORT"))).thenReturn(
+        when(userPreferencesService.updatePreferences(7L, "Lyon", null, null, 20, List.of("SPORT"))).thenReturn(
                 new UserPreferences(7L, "Lyon", 45.76, 4.83, 20, List.of("SPORT")));
 
         ResponseEntity<Object> response = userPreferencesController.updatePreferences(
-                authentication, new UpdatePreferencesRequest("Lyon", 20, List.of("SPORT")), httpRequest);
+                authentication, new UpdatePreferencesRequest("Lyon", null, null, 20, List.of("SPORT")), httpRequest);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(45.76, ((UserPreferencesResponse) response.getBody()).defaultLatitude());
@@ -61,35 +63,55 @@ class UserPreferencesControllerTest {
 
     @Test
     void updatePreferences_ShouldReturnBadRequest_WhenInvalid() {
-        when(userPreferencesService.updatePreferences(7L, null, 99, null))
+        when(userPreferencesService.updatePreferences(7L, null, null, null, 99, null))
                 .thenThrow(new IllegalArgumentException("Rayon invalide."));
 
         ResponseEntity<Object> response = userPreferencesController.updatePreferences(
-                authentication, new UpdatePreferencesRequest(null, 99, null), httpRequest);
+                authentication, new UpdatePreferencesRequest(null, null, null, 99, null), httpRequest);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
     void updatePreferences_ShouldReturnBadRequest_WhenCityNotFound() {
-        when(userPreferencesService.updatePreferences(7L, "Zzzz", null, null))
-                .thenThrow(new AddressNotFoundException("Zzzz"));
+        when(userPreferencesService.updatePreferences(7L, "Zzzz", null, null, null, null))
+                .thenThrow(new CityNotFoundException("Ville introuvable."));
 
         ResponseEntity<Object> response = userPreferencesController.updatePreferences(
-                authentication, new UpdatePreferencesRequest("Zzzz", null, null), httpRequest);
+                authentication, new UpdatePreferencesRequest("Zzzz", null, null, null, null), httpRequest);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
     void updatePreferences_ShouldReturnServiceUnavailable_WhenGeocodingDown() {
-        when(userPreferencesService.updatePreferences(7L, "Lyon", null, null))
+        when(userPreferencesService.updatePreferences(7L, "Lyon", null, null, null, null))
                 .thenThrow(new GeocodingUnavailableException(new RuntimeException("down")));
 
         ResponseEntity<Object> response = userPreferencesController.updatePreferences(
-                authentication, new UpdatePreferencesRequest("Lyon", null, null), httpRequest);
+                authentication, new UpdatePreferencesRequest("Lyon", null, null, null, null), httpRequest);
 
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+    }
+
+    @Test
+    void lookupCity_ShouldReturnCityName() {
+        when(userPreferencesService.lookupCity(null, 45.77, 4.85)).thenReturn(new Coordinates(45.76, 4.83, "Lyon", null));
+
+        ResponseEntity<Object> response = userPreferencesController.lookupCity(null, 45.77, 4.85, httpRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(new CityResponse("Lyon", 45.76, 4.83), response.getBody());
+    }
+
+    @Test
+    void lookupCity_ShouldReturnBadRequest_WhenCityNotFound() {
+        when(userPreferencesService.lookupCity("Zzzz", null, null))
+                .thenThrow(new CityNotFoundException("Ville introuvable."));
+
+        ResponseEntity<Object> response = userPreferencesController.lookupCity("Zzzz", null, null, httpRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
 }

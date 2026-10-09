@@ -903,6 +903,30 @@ body {
     background-color: #ffffff;
 }
 
+.profile-preferences-city {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.profile-preferences-city input {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-form .profile-preferences-locate {
+    align-self: stretch;
+    border: 1px solid #2563eb;
+    background-color: #ffffff;
+    color: #2563eb;
+    white-space: nowrap;
+}
+
+.profile-form .profile-preferences-locate:disabled {
+    background-color: #ffffff;
+    border-color: #93c5fd;
+    color: #93c5fd;
+}
+
 .profile-preferences-categories {
     display: flex;
     flex-direction: column;

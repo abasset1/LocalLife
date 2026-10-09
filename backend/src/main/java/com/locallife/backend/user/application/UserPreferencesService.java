@@ -2,6 +2,7 @@ package com.locallife.backend.user.application;
 
 import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
+import com.locallife.backend.geocoding.application.CityNotFoundException;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
 import com.locallife.backend.user.domain.UserPreferences;
@@ -44,36 +45,69 @@ public class UserPreferencesService {
     }
 
     /**
-     * Remplace les préférences de l'utilisateur. Une ville vide efface la
-     * ville par défaut ; une ville nouvelle (ou modifiée) est géocodée pour
-     * en stocker les coordonnées, une ville inchangée garde celles déjà
-     * enregistrées (aucun appel réseau).
+     * Ville correspondant à un nom saisi ou à une position (géolocalisation),
+     * pour que le formulaire affiche la ville retenue avant l'enregistrement.
+     * La position est prioritaire quand elle est fournie.
      *
-     * @throws IllegalArgumentException si le rayon est hors de [1, 50] ou si une catégorie est inconnue
-     * @throws com.locallife.backend.geocoding.application.AddressNotFoundException si la ville est introuvable
+     * @throws IllegalArgumentException si ni nom ni position complète ne sont fournis
+     * @throws CityNotFoundException si aucune ville ne correspond
+     * @throws com.locallife.backend.geocoding.application.GeocodingUnavailableException si le géocodage échoue
+     */
+    public Coordinates lookupCity(String name, Double latitude, Double longitude) {
+        if (latitude != null || longitude != null) {
+            if (latitude == null || longitude == null) {
+                throw new IllegalArgumentException("La latitude et la longitude doivent être fournies ensemble.");
+            }
+            return geocodingService.reverseCity(latitude, longitude);
+        }
+        return geocodingService.findCity(name);
+    }
+
+    /**
+     * Remplace les préférences de l'utilisateur. La ville par défaut est
+     * choisie soit par une position ({@code latitude}/{@code longitude},
+     * géolocalisation du navigateur — prioritaire), soit par son nom ; dans
+     * les deux cas elle doit correspondre à une ville existante, dont le nom
+     * officiel et les coordonnées sont enregistrés. Une ville identique à
+     * celle déjà enregistrée garde ses coordonnées (aucun appel réseau). Ni
+     * nom ni position : la ville par défaut est effacée.
+     *
+     * @throws IllegalArgumentException si le rayon est hors de [1, 50], si une catégorie est inconnue
+     *         ou si la position est incomplète/hors plage
+     * @throws CityNotFoundException si la ville n'existe pas
      * @throws com.locallife.backend.geocoding.application.GeocodingUnavailableException si le géocodage échoue
      */
     @Transactional
     public UserPreferences updatePreferences(
-            Long userId, String defaultCity, Integer defaultRadiusKm, List<String> defaultCategoryCodes) {
+            Long userId, String defaultCity, Double defaultLatitude, Double defaultLongitude,
+            Integer defaultRadiusKm, List<String> defaultCategoryCodes) {
         if (defaultRadiusKm != null && (defaultRadiusKm < 1 || defaultRadiusKm > MAX_RADIUS_KM)) {
             throw new IllegalArgumentException(
                     "Le rayon par défaut doit être compris entre 1 et " + MAX_RADIUS_KM + " km.");
         }
         List<String> categoryCodes = validateCategoryCodes(defaultCategoryCodes);
 
-        String city = defaultCity == null || defaultCity.isBlank() ? null : defaultCity.trim();
+        String name = defaultCity == null || defaultCity.isBlank() ? null : defaultCity.trim();
+        boolean hasPosition = defaultLatitude != null || defaultLongitude != null;
+        String city = null;
         Double latitude = null;
         Double longitude = null;
-        if (city != null) {
+        if (hasPosition) {
+            Coordinates found = lookupCity(null, defaultLatitude, defaultLongitude);
+            city = found.city();
+            latitude = found.latitude();
+            longitude = found.longitude();
+        } else if (name != null) {
             UserPreferences existing = getPreferences(userId);
-            if (city.equalsIgnoreCase(existing.defaultCity()) && existing.defaultLatitude() != null) {
+            if (name.equalsIgnoreCase(existing.defaultCity()) && existing.defaultLatitude() != null) {
+                city = existing.defaultCity();
                 latitude = existing.defaultLatitude();
                 longitude = existing.defaultLongitude();
             } else {
-                Coordinates coordinates = geocodingService.geocode(city);
-                latitude = coordinates.latitude();
-                longitude = coordinates.longitude();
+                Coordinates found = geocodingService.findCity(name);
+                city = found.city();
+                latitude = found.latitude();
+                longitude = found.longitude();
             }
         }
 
