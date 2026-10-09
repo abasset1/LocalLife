@@ -20,6 +20,7 @@ import com.locallife.backend.place.domain.Location;
 import com.locallife.backend.schedule.application.OccurrenceService;
 import com.locallife.backend.schedule.application.ScheduleService;
 import com.locallife.backend.schedule.domain.Schedule;
+import com.locallife.backend.source.application.SourceDefaultCategoryService;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.tag.application.ActivityTagService;
@@ -170,6 +171,12 @@ import org.springframework.stereotype.Service;
  * (re)publie à son prochain import. Les doublons déjà en base sont
  * résorbés de la même façon : le plus récent des deux est archivé.
  *
+ * <b>Catégories par défaut de la source</b> : un élément que ni ses
+ * mots-clés source ni son titre ne classent reçoit les catégories par
+ * défaut de sa source, si un administrateur en a réglé ({@link
+ * SourceDefaultCategoryService}) ; sinon il reste en quarantaine, comme
+ * avant. Les mots-clés gardent toujours la priorité.
+ *
  * <b>Un seul import à la fois</b> : {@link #importAll()} refuse de
  * démarrer ({@link ImportAlreadyRunningException}) si un import est déjà
  * en cours dans cette instance. Verrou en mémoire : suffisant tant que
@@ -208,6 +215,7 @@ public class ImportService {
     private final ClassificationService classificationService;
     private final ActivityClassificationService activityClassificationService;
     private final ImportFingerprintService importFingerprintService;
+    private final SourceDefaultCategoryService sourceDefaultCategoryService;
 
     /** Vrai pendant un import, voir la javadoc de la classe (« un seul import à la fois »). */
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -229,7 +237,8 @@ public class ImportService {
             ActivityMetadataService activityMetadataService,
             ClassificationService classificationService,
             ActivityClassificationService activityClassificationService,
-            ImportFingerprintService importFingerprintService) {
+            ImportFingerprintService importFingerprintService,
+            SourceDefaultCategoryService sourceDefaultCategoryService) {
         this.sourceService = sourceService;
         this.openAgendaCollectorFactory = openAgendaCollectorFactory;
         this.normalizationService = normalizationService;
@@ -247,6 +256,7 @@ public class ImportService {
         this.classificationService = classificationService;
         this.activityClassificationService = activityClassificationService;
         this.importFingerprintService = importFingerprintService;
+        this.sourceDefaultCategoryService = sourceDefaultCategoryService;
     }
 
     /**
@@ -320,8 +330,11 @@ public class ImportService {
         int duplicates = 0;
         Set<String> seenKeys = new HashSet<>();
         Map<String, String> knownFingerprints = importFingerprintService.findBySourceId(source.id());
-        // Lu une fois par source : sert à ne pas re-décider un élément en quarantaine inchangé.
-        String referentialVersion = classificationService.referentialVersion();
+        // Catégories par défaut de la source : dernier recours pour un élément qu'aucun mot-clé ne classe.
+        List<Long> defaultCategoryIds = sourceDefaultCategoryService.findCategoryIds(source.id());
+        // Lu une fois par source : sert à ne pas re-décider un élément en quarantaine inchangé. Les
+        // catégories par défaut en font partie : en régler une re-décide toute la quarantaine de la source.
+        String referentialVersion = classificationService.referentialVersion() + "|défaut:" + defaultCategoryIds;
 
         for (CollectedActivity item : collected) {
             try {
@@ -384,6 +397,12 @@ public class ImportService {
                 } else {
                     ClassificationOutcome classification =
                             classificationService.decide(item.title(), item.category(), item.tags());
+                    if (!classification.classified() && !defaultCategoryIds.isEmpty()) {
+                        ClassificationOutcome byDefault = classificationService.sourceDefault(defaultCategoryIds);
+                        if (byDefault.classified()) {
+                            classification = byDefault;
+                        }
+                    }
                     if (!classification.classified()) {
                         classificationService.recordQuarantined(
                                 source.id(), key, item.title(), item.category(), item.tags(), classification);

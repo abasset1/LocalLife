@@ -372,3 +372,26 @@ promenade, festival, rencontre, animation, stage, jeune public…), toujours vé
 | Extraction du 29/09/2026 : catégories d'origine classées (§13) | 3 791 | 4 005 |
 | Extraction du 29/09/2026 : à relire | 1 851 | 1 637 |
 | Vocabulaire réel reconnu par les mots-clés titre | 50,9 % | 54,6 % |
+
+## 16. Catégories par défaut d'une source (`V56`)
+
+Constat du 09/10/2026 sur 200 agendas officiels OpenAgenda : 9 463 éléments en quarantaine sur 16 780,
+concentrés sur quelques agendas thématiques dont les titres sont des noms d'artistes ou d'œuvres (un seul
+agenda de billetterie en comptait 4 521). Aucun mot-clé ne peut les classer, alors que la nature de
+l'agenda suffit à dire leur catégorie.
+
+Un administrateur peut régler 0..N catégories par défaut sur une source (`source_default_category`,
+`SourceDefaultCategoryService`) :
+
+* `PUT /api/v1/sources/{id}/default-categories` (rôle `ADMIN`), corps `{"categoryCodes": ["CULTURE"]}` ;
+  une liste vide les supprime. `GET /api/v1/sources/default-categories` les liste pour toutes les sources.
+  Dans l'administration : cases à cocher du formulaire d'agenda.
+* **Dernier recours seulement** : l'import ne les applique qu'à un élément que ni ses keywords source ni
+  son titre ne classent (§3, §10). Un mot-clé reconnu garde toujours la priorité, et les catégories par
+  défaut ne s'ajoutent pas à celles qu'il donne.
+* Traçabilité : `classification_record.classification_source = SOURCE_DEFAULT`, `rule_id =
+  SOURCE_DEFAULT:<codes>`, sans `matched_keywords`.
+* Effet à l'import suivant : régler ou modifier les catégories par défaut d'une source fait re-décider
+  toute sa quarantaine. Les activités déjà créées gardent leurs catégories (§4).
+* Une catégorie par défaut devenue inactive est ignorée ; s'il n'en reste aucune, l'élément reste en
+  quarantaine. Aucune catégorie n'est jamais déduite automatiquement de la source.

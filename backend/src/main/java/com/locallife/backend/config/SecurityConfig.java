@@ -141,6 +141,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/import/discover-agendas").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/sources").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/sources/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/sources/*/default-categories").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/sources/*").hasRole("ADMIN")
                         .anyRequest().permitAll()
                 )

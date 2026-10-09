@@ -268,6 +268,48 @@ body {
     font-size: 0.95rem;
 }
 
+/* Administration : catégories par défaut d'un agenda, cases à cocher sur deux colonnes. */
+.admin-default-categories {
+    margin: 0;
+    padding: 0;
+    border: none;
+    min-width: 0;
+}
+
+.admin-default-categories legend {
+    padding: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.admin-default-categories-hint {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.admin-default-categories-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem 0.8rem;
+}
+
+.admin-default-categories-options label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.contribution-form .admin-default-categories-options input {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
 .contribution-form button {
     padding: 0.5rem 1rem;
     border: none;

@@ -34,6 +34,7 @@ import com.locallife.backend.place.application.LocationService;
 import com.locallife.backend.schedule.application.OccurrenceService;
 import com.locallife.backend.schedule.application.ScheduleService;
 import com.locallife.backend.schedule.domain.Schedule;
+import com.locallife.backend.source.application.SourceDefaultCategoryService;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.tag.application.ActivityTagService;
@@ -126,6 +127,10 @@ class ImportServiceTest {
     @Mock
     private ImportFingerprintService importFingerprintService;
 
+    // Catégories par défaut de la source : aucune par défaut (liste vide du mock).
+    @Mock
+    private SourceDefaultCategoryService sourceDefaultCategoryService;
+
     private static final ClassificationOutcome AUTO_CLASSIFIED_AS_MARKETS = new ClassificationOutcome(
             new Decision(ClassificationStatus.AUTO_CLASSIFIED, List.of("MARKETS"), null, List.of(), "AUTO:MARKETS"),
             List.of(7L));
@@ -151,14 +156,14 @@ class ImportServiceTest {
         // Empreinte de l'élément collecté : valeur fixe, jamais connue par défaut (voir le mock).
         lenient().when(importFingerprintService.compute(any())).thenReturn(FINGERPRINT);
         lenient().when(classificationService.referentialVersion()).thenReturn("referentiel-1");
-        lenient().when(importFingerprintService.computeQuarantined(FINGERPRINT, "referentiel-1"))
+        lenient().when(importFingerprintService.computeQuarantined(eq(FINGERPRINT), any()))
                 .thenReturn(QUARANTINE_FINGERPRINT);
         return new ImportService(
                 sourceService, openAgendaCollectorFactory, normalizationService, deduplicationService,
                 activityRepository, locationService, scheduleService, occurrenceService, mediaService,
                 activityMediaService, activityLinkService, accessibilityService, activityTagService,
                 activityMetadataService, classificationService, activityClassificationService,
-                importFingerprintService);
+                importFingerprintService, sourceDefaultCategoryService);
     }
 
     private static final Source SOURCE = new Source(
@@ -437,6 +442,57 @@ class ImportServiceTest {
         assertEquals(1, result.needsReview());
         verify(classificationService).recordQuarantined(any(), any(), any(), any(), any(), any());
         verify(importFingerprintService).record(10L, KEY, QUARANTINE_FINGERPRINT, "ext-1");
+    }
+
+    // --- Catégories par défaut de la source ---
+
+    private static final ClassificationOutcome CLASSIFIED_BY_SOURCE_DEFAULT = new ClassificationOutcome(
+            new Decision(ClassificationStatus.AUTO_CLASSIFIED, List.of("CULTURE"), null, List.of(),
+                    "SOURCE_DEFAULT:CULTURE", "SOURCE_DEFAULT", List.of()),
+            List.of(3L));
+
+    @Test
+    void importAll_ShouldCreateActivityWithSourceDefaultCategories_WhenNoKeywordClassifiesTheItem() {
+        givenQuarantinedItem(null);
+        givenSaveAssignsId();
+        ImportService service = importService();
+        when(classificationService.decide(any(), any(), any())).thenReturn(NEEDS_REVIEW);
+        when(sourceDefaultCategoryService.findCategoryIds(10L)).thenReturn(List.of(3L));
+        when(classificationService.sourceDefault(List.of(3L))).thenReturn(CLASSIFIED_BY_SOURCE_DEFAULT);
+
+        ImportResult result = service.importAll().get(0);
+
+        assertEquals(1, result.created());
+        assertEquals(0, result.needsReview());
+        verify(activityClassificationService).createActivity(any(), eq(List.of(3L)));
+        verify(classificationService).recordClassified(
+                eq(10L), eq(KEY), any(), any(), any(), any(), eq(CLASSIFIED_BY_SOURCE_DEFAULT));
+        verify(classificationService, never()).recordQuarantined(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void importAll_ShouldKeepKeywordCategories_AndIgnoreSourceDefault_WhenKeywordsClassifyTheItem() {
+        givenQuarantinedItem(null);
+        givenSaveAssignsId();
+        when(sourceDefaultCategoryService.findCategoryIds(10L)).thenReturn(List.of(3L));
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.created());
+        verify(activityClassificationService).createActivity(any(), eq(List.of(7L)));
+        verify(classificationService, never()).sourceDefault(any());
+    }
+
+    @Test
+    void importAll_ShouldStillQuarantine_WhenSourceHasNoDefaultCategory() {
+        givenQuarantinedItem(null);
+        ImportService service = importService();
+        when(classificationService.decide(any(), any(), any())).thenReturn(NEEDS_REVIEW);
+
+        ImportResult result = service.importAll().get(0);
+
+        assertEquals(1, result.needsReview());
+        verify(classificationService, never()).sourceDefault(any());
     }
 
     // --- Débit du premier import ---
