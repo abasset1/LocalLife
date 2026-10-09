@@ -40,6 +40,11 @@ Scripts disponibles :
 - `npm run web` — démarre la version web (utile pour un aperçu rapide, pas
   une cible du sprint)
 - `npm run lint` — lint du projet
+- `npm run typecheck` — vérification TypeScript (`tsc --noEmit`)
+- `npm test` — tests unitaires (Jest, fichiers `__tests__/`)
+
+Ces trois commandes tournent en CI à chaque modification de `mobile/`
+(`.github/workflows/mobile-ci.yml`).
 
 ## Configuration de l'URL de l'API
 
@@ -93,6 +98,9 @@ empilé au-dessus des onglets (`src/app/activite/[id].tsx`), avec un header
 natif portant le bouton retour. Le geste/bouton retour Android est géré
 nativement par le stack navigator, sans code additionnel.
 
+Icônes d'onglets via `expo-symbols` (SF Symbols sur iOS, Material
+Symbols sur Android).
+
 Implémentation avec le `Tabs` standard de `expo-router` (pas `NativeTabs`,
 qui est une API instable) : même comportement sur toutes les plateformes,
 pas de double implémentation à maintenir.
@@ -126,7 +134,10 @@ n'appellent `fetch` directement ; l'URL de base vient de
   (`createActivity`) ; il n'est **jamais** envoyé sur les endpoints
   publics, car le `JwtFilter` du backend renvoie 401 sur un token
   expiré même sur une route publique (même règle que
-  `frontend/src/api/apiClient.ts`).
+  `frontend/src/api/apiClient.ts`). Exception : `getActivity`, dont le
+  niveau de détail dépend de l'appelant, joint le token s'il y en a un
+  (`authenticated: 'optional'`) et rejoue la requête sans lui si le
+  backend le refuse.
 - **Erreurs** (`src/api/errors.ts`), toutes des `ApiError` : `NetworkError`
   (serveur injoignable), `TimeoutError` (15 s par défaut),
   `RequestAbortedError` (annulation par l'appelant via `signal`, à
@@ -180,7 +191,9 @@ centrée au départ sur Marseille (périmètre du MVP).
 - **Nombre d'appels** : la zone n'est relue qu'à la **fin** d'un geste
   (`onRegionChangeComplete`), après une temporisation de 500 ms, avec
   annulation de la requête précédente ; aucun appel si la nouvelle zone
-  est déjà couverte par les données chargées (zoom avant, par exemple).
+  est déjà couverte par les données chargées (zoom avant, par exemple),
+  ni si la zone dépasse 2° de côté (`MAX_SEARCH_SPAN_DEGREES`) : la carte
+  affiche alors « Zoomez pour voir les activités ».
 - **Lisibilité** : regroupement des activités en clusters
   (`supercluster`, jusqu'au zoom 17) ; un toucher sur un cluster zoome
   dessus. Les food trucks ne sont jamais regroupés et se distinguent par

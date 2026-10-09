@@ -1,6 +1,7 @@
 import { apiUrl } from '@/config/env';
 
 import {
+  ApiError,
   ApiErrorBody,
   HttpError,
   NetworkError,
@@ -51,8 +52,12 @@ export interface RequestOptions {
    * `Authorization` invalide/expiré est présent, même sur une route
    * publique : joindre le token partout casserait la lecture publique
    * (même règle que `frontend/src/api/apiClient.ts`).
+   *
+   * `'optional'` pour les endpoints publics dont la réponse dépend de
+   * l'appelant (ex. fiche détaillée ou résumé) : le JWT est joint s'il y en
+   * a un, et si le backend le refuse (401) la requête est rejouée sans lui.
    */
-  authenticated?: boolean;
+  authenticated?: boolean | 'optional';
   /** Annulation par l'appelant (ex. déplacement de carte avant la fin du chargement). */
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -97,6 +102,20 @@ async function readErrorBody(response: Response): Promise<ApiErrorBody | null> {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { authenticated = false } = options;
+  const token = authenticated ? await clientConfig.getToken() : null;
+  try {
+    return await send<T>(path, options, token);
+  } catch (e) {
+    // Token refusé sur un endpoint public : la lecture anonyme reste possible.
+    if (authenticated === 'optional' && token && e instanceof HttpError && e.isUnauthorized) {
+      return send<T>(path, options, null);
+    }
+    throw e;
+  }
+}
+
+async function send<T>(path: string, options: RequestOptions, token: string | null): Promise<T> {
   const {
     method = 'GET',
     query,
@@ -108,11 +127,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-
-  if (authenticated) {
-    const token = await clientConfig.getToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   // Timeout + annulation appelant combinés dans un seul AbortController.
   const controller = new AbortController();
@@ -127,34 +142,40 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     else signal.addEventListener('abort', onCallerAbort, { once: true });
   }
 
-  let response: Response;
+  // Le timeout et l'annulation couvrent aussi la lecture du corps : une
+  // requête annulée ou expirée ne doit jamais aboutir, même si les en-têtes
+  // sont déjà arrivés.
   try {
-    response = await fetch(buildUrl(path, query), {
+    const response = await fetch(buildUrl(path, query), {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
     });
-  } catch {
+
+    if (!response.ok) {
+      const errorBody = await readErrorBody(response);
+      if (controller.signal.aborted) throw new RequestAbortedError();
+      if (response.status === 401 && (authenticated === true || token)) {
+        clientConfig.onUnauthorized?.();
+      }
+      throw new HttpError(
+        response.status,
+        errorBody?.message || defaultHttpMessage(response.status),
+        errorBody,
+      );
+    }
+
+    const data = await parseJson(response);
+    if (controller.signal.aborted) throw new RequestAbortedError();
+    return data as T;
+  } catch (e) {
     if (timedOut) throw new TimeoutError();
     if (signal?.aborted) throw new RequestAbortedError();
+    if (e instanceof ApiError) throw e;
     throw new NetworkError();
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', onCallerAbort);
   }
-
-  if (!response.ok) {
-    const errorBody = await readErrorBody(response);
-    if (response.status === 401 && authenticated) {
-      clientConfig.onUnauthorized?.();
-    }
-    throw new HttpError(
-      response.status,
-      errorBody?.message || defaultHttpMessage(response.status),
-      errorBody,
-    );
-  }
-
-  return (await parseJson(response)) as T;
 }

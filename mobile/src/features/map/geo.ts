@@ -48,6 +48,20 @@ export function regionToBounds(region: Region): Bounds | null {
   return bounds;
 }
 
+/**
+ * Étendue maximale (en degrés, ~220 km en latitude) d'une zone envoyée à
+ * `within-bounds`. L'endpoint n'a ni pagination ni plafond : au-delà, la
+ * carte demande de zoomer plutôt que de charger des milliers d'activités.
+ */
+export const MAX_SEARCH_SPAN_DEGREES = 2;
+
+export function isSearchable(bounds: Bounds): boolean {
+  return (
+    bounds.neLatitude - bounds.swLatitude <= MAX_SEARCH_SPAN_DEGREES &&
+    bounds.neLongitude - bounds.swLongitude <= MAX_SEARCH_SPAN_DEGREES
+  );
+}
+
 /** `true` si `inner` est entièrement contenue dans `outer`. */
 export function boundsContain(outer: Bounds, inner: Bounds): boolean {
   return (

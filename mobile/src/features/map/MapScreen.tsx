@@ -42,7 +42,7 @@ export default function MapScreen() {
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
   const [selection, setSelection] = useState<Selection | null>(null);
 
-  const { activities, foodTrucks, loading, error, retry } = useMapData(region);
+  const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(region);
   const location = useUserLocation();
   const [showUser, setShowUser] = useState(false);
 
@@ -104,7 +104,7 @@ export default function MapScreen() {
       ? location.status
       : null;
 
-  const isEmpty = !loading && !error && clusters.length === 0 && visibleFoodTrucks.length === 0;
+  const isEmpty = !loading && !error && !tooWide && clusters.length === 0 && visibleFoodTrucks.length === 0;
 
   return (
     <View style={styles.container}>
@@ -192,6 +192,13 @@ export default function MapScreen() {
                 )}
                 <Button label="Fermer" variant="secondary" onPress={location.dismiss} />
               </View>
+            </View>
+          )}
+          {tooWide && !loading && !error && (
+            <View
+              accessibilityLiveRegion="polite"
+              style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
+              <ThemedText type="small">Zoomez pour voir les activités.</ThemedText>
             </View>
           )}
           {isEmpty && (
