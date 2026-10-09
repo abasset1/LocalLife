@@ -341,7 +341,7 @@ class ImportServiceTest {
         assertEquals(0, result.archived());
         verify(activityRepository, never()).save(any());
         verify(scheduleService, never()).deleteByActivityId(any());
-        verify(importFingerprintService, never()).record(any(), any(), any());
+        verify(importFingerprintService, never()).record(any(), any(), any(), any());
     }
 
     @Test
@@ -354,7 +354,7 @@ class ImportServiceTest {
         assertEquals(0, result.unchanged());
         assertEquals(1, result.updated());
         verify(activityRepository).save(argThat(activity -> Long.valueOf(42L).equals(activity.id())));
-        verify(importFingerprintService).record(10L, KEY, FINGERPRINT);
+        verify(importFingerprintService).record(10L, KEY, FINGERPRINT, "ext-1");
     }
 
     @Test
@@ -382,7 +382,7 @@ class ImportServiceTest {
 
         importService().importAll();
 
-        verify(importFingerprintService, never()).record(any(), any(), any());
+        verify(importFingerprintService, never()).record(any(), any(), any(), any());
         verify(importFingerprintService).forget(10L, KEY);
     }
 
@@ -423,7 +423,7 @@ class ImportServiceTest {
         assertEquals(1, result.created());
         assertEquals(0, result.needsReview());
         verify(classificationService).decide(any(), any(), any());
-        verify(importFingerprintService).record(10L, KEY, FINGERPRINT);
+        verify(importFingerprintService).record(10L, KEY, FINGERPRINT, "ext-1");
     }
 
     @Test
@@ -436,7 +436,68 @@ class ImportServiceTest {
 
         assertEquals(1, result.needsReview());
         verify(classificationService).recordQuarantined(any(), any(), any(), any(), any(), any());
-        verify(importFingerprintService).record(10L, KEY, QUARANTINE_FINGERPRINT);
+        verify(importFingerprintService).record(10L, KEY, QUARANTINE_FINGERPRINT, "ext-1");
+    }
+
+    // --- Déduplication entre sources ---
+
+    @Test
+    void importAll_ShouldNotCreateActivity_WhenAnotherSourceAlreadyPublishedTheSameItem() {
+        givenQuarantinedItem(null);
+        when(importFingerprintService.existsLiveDuplicateInAnotherSource(
+                10L, "ext-1", "Marché de Noël", LocalDateTime.of(2026, 12, 1, 10, 0))).thenReturn(true);
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.duplicates());
+        assertEquals(0, result.created());
+        assertEquals(0, result.needsReview());
+        verify(activityRepository, never()).save(any());
+        verify(classificationService, never()).decide(any(), any(), any());
+        verify(importFingerprintService, never()).record(any(), any(), any(), any());
+    }
+
+    @Test
+    void importAll_ShouldNotRepublishArchivedActivity_WhenAnotherSourceNowOwnsTheItem() {
+        givenAlreadyImportedItem("ARCHIVED", FINGERPRINT);
+        when(importFingerprintService.existsLiveDuplicateInAnotherSource(any(), any(), any(), any()))
+                .thenReturn(true);
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.duplicates());
+        assertEquals(0, result.updated());
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void importAll_ShouldNeverCheckDuplicates_ForAnActivityThisSourceAlreadyPublishes() {
+        // Activité publiée par cette source et modifiée dans la source : mise à jour normale.
+        givenAlreadyImportedItem("PUBLISHED", "ancienne-empreinte");
+        givenSaveAssignsId();
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.updated());
+        assertEquals(0, result.duplicates());
+        verify(importFingerprintService, never()).existsLiveDuplicateInAnotherSource(any(), any(), any(), any());
+    }
+
+    @Test
+    void importAll_ShouldArchiveExistingDuplicates_OfOlderActivitiesFromOtherSources() {
+        givenAlreadyImportedItem("PUBLISHED", FINGERPRINT);
+        Activity duplicate = new Activity(
+                42L, "Marché de Noël", "description", "marché",
+                43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "PUBLISHED",
+                10L, KEY, "https://example.com", null, null, null, null, null, null, null, null);
+        when(importFingerprintService.findDuplicateActivityIds(10L)).thenReturn(List.of(42L));
+        when(activityRepository.findById(42L)).thenReturn(Optional.of(duplicate));
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.duplicates());
+        verify(activityRepository).save(argThat(activity ->
+                Long.valueOf(42L).equals(activity.id()) && "ARCHIVED".equals(activity.status())));
     }
 
     // --- Un seul import à la fois ---

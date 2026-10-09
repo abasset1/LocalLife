@@ -68,17 +68,19 @@ public class ImportScheduler {
             long totalErrors = results.stream().mapToLong(ImportResult::errors).sum();
             long totalNeedsReview = results.stream().mapToLong(ImportResult::needsReview).sum();
             long totalUnchanged = results.stream().mapToLong(ImportResult::unchanged).sum();
+            long totalDuplicates = results.stream().mapToLong(ImportResult::duplicates).sum();
 
             LOGGER.info(
                     "Import planifie termine en {}ms - "
                     + "Recapitulatif : {} sources, {} evenements recuperes, {} crees, "
-                    + "{} mis a jour, {} inchanges, {} archives, {} a relire, {} erreurs",
+                    + "{} mis a jour, {} inchanges, {} doublons, {} archives, {} a relire, {} erreurs",
                     java.time.Duration.between(startedAt, endedAt).toMillis(),
                     results.size(),
                     totalFetched,
                     totalCreated,
                     totalUpdated,
                     totalUnchanged,
+                    totalDuplicates,
                     totalArchived,
                     totalNeedsReview,
                     totalErrors);

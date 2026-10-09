@@ -36,12 +36,14 @@ public record ImportResult(
         int errors,
         int archived,
         int needsReview,
-        int unchanged) {
+        int unchanged,
+        int duplicates) {
 
-    /** Résultat sans élément inchangé ({@code unchanged = 0}). */
+    /** Résultat sans élément inchangé ni doublon ({@code unchanged = 0}, {@code duplicates = 0}). */
     public ImportResult(
             String sourceName, LocalDateTime startedAt, LocalDateTime endedAt, int fetched, int created,
             int updated, int ignored, int errors, int archived, int needsReview) {
-        this(sourceName, startedAt, endedAt, fetched, created, updated, ignored, errors, archived, needsReview, 0);
+        this(sourceName, startedAt, endedAt, fetched, created, updated, ignored, errors, archived, needsReview, 0,
+                0);
     }
 }

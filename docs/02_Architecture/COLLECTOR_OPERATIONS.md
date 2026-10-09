@@ -188,6 +188,30 @@ priorité à l'identifiant externe fourni par la source
 dans `Activity.importKey`, unique par `Activity.sourceId` (index
 partiel, voir la migration `V9__link_activity_to_source.sql`).
 
+### Déduplication entre sources
+
+La clé d'import ne distingue les éléments qu'au sein d'une source. Or un
+même événement OpenAgenda peut être partagé par plusieurs agendas : il
+porte alors le même slug dans chacun (25 des 29 doublons de l'import du
+09/10/2026 sur 50 agendas officiels).
+
+Un élément sans activité publiée dans la source en cours (nouveau, ou
+archivé) n'est pas importé si une **autre** source a déjà une activité
+non archivée avec le même identifiant externe (`import_fingerprint.external_id`,
+`V50`), le même titre (casse et espaces de bord ignorés) et la même date
+de début. Il est compté dans `ImportResult.duplicates`.
+
+* La première source qui importe l'élément en reste propriétaire. Si
+  elle l'archive (élément retiré de son agenda), la source suivante qui
+  le contient encore le publie à son prochain import.
+* Une activité que la source publie déjà n'est jamais remise en cause
+  par cette règle pendant le traitement des éléments. Les doublons déjà
+  en base sont résorbés en fin d'import de chaque source : la plus
+  récente des deux activités est archivée.
+* Sans identifiant externe (clé composite), aucun rapprochement n'est
+  tenté. Deux saisies distinctes du même événement, avec des slugs
+  différents, ne sont pas rapprochées (4 cas sur 29 le 09/10/2026).
+
 ## Stratégie de suppression : suppression douce
 
 Une activité déjà importée pour une source, mais absente de la
