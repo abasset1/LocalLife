@@ -230,6 +230,12 @@ function ActivityDetailModal({
                     <p className="explorer-detail-row">
                         <strong>Source :</strong> {activity.sourceName}
                     </p>
+                    {activity.publishedAt && (
+                        <p className="explorer-detail-row">
+                            <strong>Publiée le :</strong>{" "}
+                            {new Date(activity.publishedAt).toLocaleDateString("fr-FR", { dateStyle: "long" })}
+                        </p>
+                    )}
                     {activity.createdByUsername && (
                         <p className="explorer-detail-row">
                             <strong>Créée par :</strong> {activity.createdByUsername}

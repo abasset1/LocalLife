@@ -65,6 +65,7 @@ export default function ActiviteDetailScreen() {
             activity.city,
           );
           const url = detail?.url;
+          const publishedOn = detail ? formatDateRange(detail.publishedAt) : null;
 
           return (
             <ScrollView contentContainerStyle={styles.content}>
@@ -76,6 +77,7 @@ export default function ActiviteDetailScreen() {
               {date && <Field label="Date" value={date} />}
               {place && <Field label="Lieu" value={place} />}
               {source ? <Field label="Source" value={source} /> : null}
+              {publishedOn && <Field label="Publiée le" value={publishedOn} />}
 
               {description ? (
                 <View style={styles.field}>

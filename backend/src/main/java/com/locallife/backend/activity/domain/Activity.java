@@ -2,6 +2,8 @@ package com.locallife.backend.activity.domain;
 
 import java.time.LocalDateTime;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.PersistenceCreator;
+import org.springframework.data.annotation.ReadOnlyProperty;
 
 /**
  * Entité de domaine Activity.
@@ -155,5 +157,34 @@ public record Activity(
         String conditions,
         Integer ageMin,
         Integer ageMax,
-        Long createdBy) {
+        Long createdBy,
+        @ReadOnlyProperty LocalDateTime publishedAt) {
+
+    /**
+     * Constructeur canonique, utilisé par Spring Data JDBC à la lecture.
+     *
+     * {@code publishedAt} : date du premier passage au statut
+     * {@code PUBLISHED}, posée par le trigger
+     * {@code trg_activity_set_published_at} (V54) et jamais écrite par
+     * l'application ({@link ReadOnlyProperty}) ; {@code null} tant que
+     * l'activité n'a jamais été publiée, et pour les activités publiées avant
+     * V54 (date inconnue).
+     */
+    @PersistenceCreator
+    public Activity {
+    }
+
+    /**
+     * Activité à écrire : {@code publishedAt} est géré par la base, il n'a
+     * pas à être fourni (ni recopié lors d'une mise à jour).
+     */
+    public Activity(
+            Long id, String title, String description, String category, double latitude, double longitude,
+            LocalDateTime startDate, LocalDateTime endDate, String status, Long sourceId, String importKey,
+            String url, String address, String city, String postalCode, String longDescription, String conditions,
+            Integer ageMin, Integer ageMax, Long createdBy) {
+        this(id, title, description, category, latitude, longitude, startDate, endDate, status, sourceId,
+                importKey, url, address, city, postalCode, longDescription, conditions, ageMin, ageMax, createdBy,
+                null);
+    }
 }

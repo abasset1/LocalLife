@@ -39,6 +39,8 @@ export interface Activity {
   createdByUsername: string | null;
   likedByCurrentUser: boolean;
   mainImageUrl: string | null;
+  /** Premier passage au statut publié ; `null` si publiée avant le suivi de cette date. */
+  publishedAt: string | null;
 }
 
 export interface ScheduleSummary {
@@ -125,6 +127,9 @@ export interface ActivityDetail {
   accessibility: AccessibilitySummary | null;
   tags: string[];
   additionalInfo: string | null;
+  categoryCodes: string[];
+  /** Premier passage au statut publié ; `null` si publiée avant le suivi de cette date. */
+  publishedAt: string | null;
 }
 
 /**

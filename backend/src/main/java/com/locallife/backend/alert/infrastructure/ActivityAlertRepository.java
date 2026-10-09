@@ -28,8 +28,10 @@ public class ActivityAlertRepository {
     /**
      * Nouvelles activités publiées correspondant à l'alerte {@code ?} :
      * <ul>
-     *   <li>publiées, plus récentes que l'alerte ({@code min_activity_id}), jamais envoyées pour elle,
-     *       et pas créées par le destinataire lui-même ;</li>
+     *   <li>publiées après la création de l'alerte ({@code published_at}, V54 — y compris une
+     *       contribution soumise avant l'alerte mais validée après), jamais envoyées pour elle, et pas
+     *       créées par le destinataire lui-même. Activité publiée avant V54 (date inconnue) : repli sur
+     *       {@code min_activity_id} ;</li>
      *   <li>portant au moins une des catégories de l'alerte ({@code activity_category}) ;</li>
      *   <li>à venir et dans le rayon : même double branche que {@code ActivityRepository#findWithinRadius}
      *       (occurrences non annulées et leur lieu effectif, sinon repli sur les colonnes
@@ -39,7 +41,8 @@ public class ActivityAlertRepository {
     private static final String NEW_MATCHING_ACTIVITIES = """
             SELECT a.id, a.title, a.city, a.start_date
             FROM activity_alert al
-            JOIN activity a ON a.id > al.min_activity_id
+            JOIN activity a ON (a.published_at > al.created_at
+                                OR (a.published_at IS NULL AND a.id > al.min_activity_id))
             WHERE al.id = ?
               AND a.status = 'PUBLISHED'
               AND (a.created_by IS NULL OR a.created_by <> al.user_id)
