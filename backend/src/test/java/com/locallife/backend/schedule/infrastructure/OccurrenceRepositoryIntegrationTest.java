@@ -7,6 +7,7 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.place.domain.Location;
 import com.locallife.backend.place.infrastructure.LocationRepository;
+import com.locallife.backend.schedule.application.OccurrenceService;
 import com.locallife.backend.schedule.domain.Occurrence;
 import com.locallife.backend.schedule.domain.Schedule;
 import com.locallife.backend.source.domain.Source;
@@ -15,6 +16,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,6 +44,9 @@ class OccurrenceRepositoryIntegrationTest {
 
     @Autowired
     private OccurrenceRepository occurrenceRepository;
+
+    @Autowired
+    private OccurrenceService occurrenceService;
 
     @Autowired
     private ScheduleRepository scheduleRepository;
@@ -78,6 +84,41 @@ class OccurrenceRepositoryIntegrationTest {
 
     private Occurrence occurrenceFor(Long scheduleId, Long locationId, Instant startAt) {
         return new Occurrence(null, scheduleId, startAt, startAt.plusSeconds(9000), locationId, "SCHEDULED", false);
+    }
+
+    @Test
+    void createAll_ShouldInsertEveryOccurrence_AcrossSeveralBatches_WithAllFieldsIntact() {
+        // 1 200 occurrences : plus de deux lots de 500, comme une activité à créneaux quotidiens.
+        Location location = testLocation();
+        Schedule schedule = testSchedule(location.id());
+        Instant first = Instant.parse("2026-09-08T09:30:00Z");
+        List<Occurrence> toCreate = new ArrayList<>();
+        for (int day = 0; day < 1200; day++) {
+            toCreate.add(occurrenceFor(schedule.id(), location.id(), first.plusSeconds(86400L * day)));
+        }
+        // Champs optionnels absents : pas d'heure de fin, pas de lieu propre à l'occurrence.
+        Instant withoutEndNorLocation = first.minusSeconds(86400);
+        toCreate.add(new Occurrence(null, schedule.id(), withoutEndNorLocation, null, null, "CANCELLED", true));
+
+        occurrenceService.createAll(toCreate);
+
+        List<Occurrence> found = occurrenceRepository.findByScheduleId(schedule.id()).stream()
+                .sorted(Comparator.comparing(Occurrence::startAt))
+                .toList();
+        assertThat(found).hasSize(1201);
+        assertThat(found).allSatisfy(occurrence -> assertThat(occurrence.id()).isNotNull());
+        Occurrence sparse = found.get(0);
+        assertThat(sparse.startAt()).isEqualTo(withoutEndNorLocation);
+        assertThat(sparse.endAt()).isNull();
+        assertThat(sparse.locationId()).isNull();
+        assertThat(sparse.status()).isEqualTo("CANCELLED");
+        assertThat(sparse.exceptional()).isTrue();
+        Occurrence last = found.get(1200);
+        assertThat(last.startAt()).isEqualTo(first.plusSeconds(86400L * 1199));
+        assertThat(last.endAt()).isEqualTo(last.startAt().plusSeconds(9000));
+        assertThat(last.locationId()).isEqualTo(location.id());
+        assertThat(last.status()).isEqualTo("SCHEDULED");
+        assertThat(last.exceptional()).isFalse();
     }
 
     @Test
