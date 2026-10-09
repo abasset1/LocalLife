@@ -122,6 +122,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/reject").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/foodtrucks").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/import").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/admin/import/discover-agendas").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/sources").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/sources/*").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/sources/*").hasRole("ADMIN")
