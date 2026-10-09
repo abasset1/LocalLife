@@ -50,12 +50,69 @@ public class ClassificationService {
     private final ClassificationRecordRepository recordRepository;
     private final CategoryKeywordRepository keywordRepository;
 
+    /**
+     * Référentiel chargé une fois pour un lot de décisions, voir {@link #beginBatch()}. Par thread : un
+     * lot appartient au thread qui l'a ouvert (l'import), les autres appelants ne le voient pas.
+     */
+    private final ThreadLocal<Referential> batchReferential = new ThreadLocal<>();
+
+    /** Mots-clés actifs et catégories, tels que lus en base à l'ouverture d'un lot. */
+    private record Referential(
+            List<CategoryKeyword> activeKeywords, Map<Long, Category> categoriesById,
+            Map<String, Category> categoriesByCode) {
+    }
+
     public ClassificationService(
             CategoryRepository categoryRepository, ClassificationRecordRepository recordRepository,
             CategoryKeywordRepository keywordRepository) {
         this.categoryRepository = categoryRepository;
         this.recordRepository = recordRepository;
         this.keywordRepository = keywordRepository;
+    }
+
+    /**
+     * Ouvre un lot de décisions sur le thread courant : le référentiel (mots-clés actifs, catégories) est
+     * lu une fois, puis réutilisé par tous les {@code decide(...)} jusqu'à {@link #endBatch()}.
+     *
+     * <p>Sans lot, chaque décision relit le référentiel (une requête pour les mots-clés, une par
+     * catégorie rencontrée, une par code à résoudre) : sans importance pour une décision isolée, mais une
+     * quinzaine de requêtes par élément pendant un import. Le référentiel ne doit pas changer pendant le
+     * lot ; l'import en ouvre un par source. Toujours refermer dans un {@code finally}.
+     */
+    public void beginBatch() {
+        List<Category> categories = categoryRepository.findAll();
+        Map<Long, Category> categoriesById = new HashMap<>();
+        Map<String, Category> categoriesByCode = new HashMap<>();
+        for (Category category : categories) {
+            categoriesById.put(category.id(), category);
+            categoriesByCode.put(category.code(), category);
+        }
+        batchReferential.set(new Referential(
+                keywordRepository.findByActiveTrueOrderByIdAsc(), categoriesById, categoriesByCode));
+    }
+
+    /** Referme le lot ouvert par {@link #beginBatch()} ; sans effet si aucun lot n'est ouvert. */
+    public void endBatch() {
+        batchReferential.remove();
+    }
+
+    private List<CategoryKeyword> activeKeywords() {
+        Referential referential = batchReferential.get();
+        return referential != null ? referential.activeKeywords() : keywordRepository.findByActiveTrueOrderByIdAsc();
+    }
+
+    private Optional<Category> categoryById(Long id) {
+        Referential referential = batchReferential.get();
+        return referential != null
+                ? Optional.ofNullable(referential.categoriesById().get(id))
+                : categoryRepository.findById(id);
+    }
+
+    private Optional<Category> categoryByCode(String code) {
+        Referential referential = batchReferential.get();
+        return referential != null
+                ? Optional.ofNullable(referential.categoriesByCode().get(code))
+                : categoryRepository.findByCode(code);
     }
 
     /**
@@ -125,12 +182,12 @@ public class ClassificationService {
     private List<KeywordEntry> loadKeywordEntries(boolean includeSourceScope) {
         Map<Long, Optional<String>> codes = new HashMap<>();
         List<KeywordEntry> entries = new ArrayList<>();
-        for (CategoryKeyword keyword : keywordRepository.findByActiveTrueOrderByIdAsc()) {
+        for (CategoryKeyword keyword : activeKeywords()) {
             if (!includeSourceScope && !CategoryKeyword.SCOPE_ALL.equals(keyword.scope())) {
                 continue;
             }
             Optional<String> code = codes.computeIfAbsent(keyword.categoryId(),
-                    id -> categoryRepository.findById(id).map(Category::code));
+                    id -> categoryById(id).map(Category::code));
             code.ifPresent(value -> entries.add(new KeywordEntry(value, keyword.keyword())));
         }
         return entries;
@@ -148,7 +205,7 @@ public class ClassificationService {
         List<String> codes = new ArrayList<>();
         List<Long> ids = new ArrayList<>();
         for (String code : decision.categoryCodes()) {
-            categoryRepository.findByCode(code).filter(Category::active).ifPresent(category -> {
+            categoryByCode(code).filter(Category::active).ifPresent(category -> {
                 codes.add(code);
                 ids.add(category.id());
             });

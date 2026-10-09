@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Couvre la délégation de {@link OccurrenceService} vers
@@ -29,15 +30,27 @@ class OccurrenceServiceTest {
     @Mock
     private OccurrenceRepository occurrenceRepository;
 
+    // Insertions groupées (createAll) : couvertes contre une vraie base par
+    // OccurrenceRepositoryIntegrationTest, seule façon de vérifier le SQL.
+    @Mock
+    private JdbcTemplate jdbcTemplate;
+
     private OccurrenceService occurrenceService;
 
     @BeforeEach
     void setUp() {
-        occurrenceService = new OccurrenceService(occurrenceRepository);
+        occurrenceService = new OccurrenceService(occurrenceRepository, jdbcTemplate);
     }
 
     private Occurrence occurrence(Long id, Long scheduleId, Instant startAt) {
         return new Occurrence(id, scheduleId, startAt, startAt.plusSeconds(9000), 10L, "SCHEDULED", false);
+    }
+
+    @Test
+    void createAll_ShouldDoNothing_WhenListIsEmpty() {
+        occurrenceService.createAll(List.of());
+
+        org.mockito.Mockito.verifyNoInteractions(jdbcTemplate);
     }
 
     @Test

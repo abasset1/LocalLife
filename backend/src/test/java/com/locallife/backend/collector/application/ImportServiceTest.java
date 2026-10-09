@@ -439,6 +439,44 @@ class ImportServiceTest {
         verify(importFingerprintService).record(10L, KEY, QUARANTINE_FINGERPRINT, "ext-1");
     }
 
+    // --- Débit du premier import ---
+
+    @Test
+    void importAll_ShouldNotClearEnrichment_ForANewlyCreatedActivity() {
+        // Rien à supprimer pour une activité tout juste créée : pas de requêtes inutiles.
+        givenQuarantinedItem(null);
+        givenSaveAssignsId();
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.created());
+        verify(scheduleService, never()).findByActivityId(any());
+        verify(scheduleService, never()).deleteByActivityId(any());
+        verify(activityTagService, never()).deleteByActivityId(any());
+    }
+
+    @Test
+    void importAll_ShouldClearEnrichment_BeforeRebuildingIt_ForAnAlreadyImportedActivity() {
+        givenAlreadyImportedItem("PUBLISHED", "ancienne-empreinte");
+        givenSaveAssignsId();
+
+        importService().importAll();
+
+        verify(scheduleService).deleteByActivityId(42L);
+        verify(activityTagService).deleteByActivityId(42L);
+    }
+
+    @Test
+    void importAll_ShouldOpenAndCloseOneClassificationBatchPerSource_EvenWhenCollectFails() {
+        givenOneCollectibleSource();
+        when(collector.collect()).thenThrow(new CollectorException("panne réseau", null));
+
+        importService().importAll();
+
+        verify(classificationService).beginBatch();
+        verify(classificationService).endBatch();
+    }
+
     // --- Déduplication entre sources ---
 
     @Test

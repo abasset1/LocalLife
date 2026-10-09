@@ -284,7 +284,20 @@ public class ImportService {
                 && !source.agendaUid().isBlank();
     }
 
+    /**
+     * Importe une source, avec le référentiel de classification chargé une seule fois pour tous ses
+     * éléments (voir {@code ClassificationService#beginBatch}).
+     */
     private ImportResult importFrom(Source source) {
+        classificationService.beginBatch();
+        try {
+            return importFromWithinBatch(source);
+        } finally {
+            classificationService.endBatch();
+        }
+    }
+
+    private ImportResult importFromWithinBatch(Source source) {
         LocalDateTime startedAt = LocalDateTime.now();
         Collector collector = openAgendaCollectorFactory.create(source);
 
@@ -400,7 +413,7 @@ public class ImportService {
 
                 // L'empreinte n'est enregistrée qu'après un enrichissement réussi : sinon l'élément
                 // est retenté en entier au prochain import.
-                if (enrichActivitySafely(source, saved, item)) {
+                if (enrichActivitySafely(source, saved, item, existing.isPresent())) {
                     importFingerprintService.record(source.id(), key, fingerprint, item.externalId());
                 } else {
                     importFingerprintService.forget(source.id(), key);
@@ -461,9 +474,10 @@ public class ImportService {
      *
      * @return {@code true} si l'enrichissement a réussi
      */
-    private boolean enrichActivitySafely(Source source, Activity saved, CollectedActivity item) {
+    private boolean enrichActivitySafely(
+            Source source, Activity saved, CollectedActivity item, boolean alreadyImported) {
         try {
-            enrichActivity(saved.id(), item);
+            enrichActivity(saved.id(), item, alreadyImported);
             return true;
         } catch (RuntimeException exception) {
             LOGGER.warn(
@@ -474,8 +488,12 @@ public class ImportService {
         }
     }
 
-    private void enrichActivity(Long activityId, CollectedActivity item) {
-        clearEnrichment(activityId);
+    private void enrichActivity(Long activityId, CollectedActivity item, boolean alreadyImported) {
+        // Une activité tout juste créée n'a encore aucune entité liée : inutile de les rechercher et de
+        // les supprimer (sept requêtes par élément au premier import).
+        if (alreadyImported) {
+            clearEnrichment(activityId);
+        }
 
         Long locationId = normalizationService.normalizeLocation(item)
                 .map(locationService::findOrCreate)
@@ -485,9 +503,9 @@ public class ImportService {
         Optional<Schedule> schedule = normalizationService.normalizeSchedule(item, activityId, locationId);
         if (schedule.isPresent()) {
             Schedule savedSchedule = scheduleService.create(schedule.get());
-            for (var occurrence : normalizationService.normalizeOccurrences(item, savedSchedule.id(), locationId)) {
-                occurrenceService.create(occurrence);
-            }
+            // Insertions groupées : une activité peut porter plusieurs centaines de créneaux.
+            occurrenceService.createAll(
+                    normalizationService.normalizeOccurrences(item, savedSchedule.id(), locationId));
         }
 
         int position = 0;

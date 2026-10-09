@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -91,6 +93,43 @@ class ClassificationServiceTest {
     }
 
     // ---- Keywords source : même référentiel que le titre ----
+
+    // --- Lot de décisions (beginBatch / endBatch) ---
+
+    @Test
+    void batchReadsTheReferentialOnce_AndDecidesLikeWithoutBatch() {
+        givenDefaultReferential();
+        when(categoryRepository.findAll()).thenReturn(
+                IDS.entrySet().stream().map(entry -> category(entry.getValue(), entry.getKey(), true)).toList());
+
+        service.beginBatch();
+        ClassificationOutcome fromSource = service.decide("Sans importance", "Concert", List.of("patrimoine"));
+        ClassificationOutcome fromTitle = service.decide("Grand marché de Noël", null, List.of());
+        service.endBatch();
+
+        assertEquals(List.of("CULTURE", "TOURISM"), fromSource.decision().categoryCodes());
+        assertEquals(List.of(3L, 8L), fromSource.categoryIds());
+        assertEquals(List.of("MARKETS"), fromTitle.decision().categoryCodes());
+        // Une lecture des mots-clés et une des catégories pour tout le lot, aucune par décision.
+        verify(keywordRepository, times(1)).findByActiveTrueOrderByIdAsc();
+        verify(categoryRepository, times(1)).findAll();
+        verify(categoryRepository, never()).findById(any());
+        verify(categoryRepository, never()).findByCode(any());
+    }
+
+    @Test
+    void afterEndBatch_TheReferentialIsReadAgain() {
+        givenDefaultReferential();
+        when(categoryRepository.findAll()).thenReturn(List.of());
+
+        service.beginBatch();
+        service.endBatch();
+        ClassificationOutcome outcome = service.decide("Sans importance", "Concert", List.of());
+
+        assertEquals(List.of("CULTURE"), outcome.decision().categoryCodes());
+        // Hors lot : un mot-clé modifié en base est pris en compte dès la décision suivante.
+        verify(keywordRepository, times(2)).findByActiveTrueOrderByIdAsc();
+    }
 
     @Test
     void sourceKeywordIsResolvedToTheExistingCategoryId() {
