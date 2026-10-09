@@ -139,10 +139,64 @@ export function isActivityDetail(activity: ActivityDetailOrSummary): activity is
 }
 
 /** `Category`. */
+/** `CategoryResponse` (`GET /categories`) — le `code` est l'identifiant métier stable. */
 export interface Category {
-  id: number;
-  name: string;
+  code: string;
+  label: string;
   description: string | null;
+  active: boolean;
+}
+
+/** `UserPreferencesResponse` (`GET`/`PUT /users/me/preferences`) — paramètres de recherche par défaut. */
+export interface UserPreferences {
+  defaultCity: string | null;
+  defaultLatitude: number | null;
+  defaultLongitude: number | null;
+  defaultRadiusKm: number | null;
+  defaultCategoryCodes: string[];
+}
+
+/**
+ * `UpdatePreferencesRequest`. Ville : par position (`defaultLatitude`/
+ * `defaultLongitude`, prioritaire) ou par nom ; le backend vérifie qu'elle
+ * existe et enregistre son nom officiel.
+ */
+export interface UpdatePreferencesRequest {
+  defaultCity: string | null;
+  defaultLatitude: number | null;
+  defaultLongitude: number | null;
+  defaultRadiusKm: number | null;
+  defaultCategoryCodes: string[];
+}
+
+/** `CityResponse` (`GET /users/me/preferences/city`) — ville existante, nom officiel. */
+export interface CityLookup {
+  city: string;
+  latitude: number;
+  longitude: number;
+}
+
+/** `AlertResponse` (`/users/me/alerts`). */
+export interface ActivityAlert {
+  id: number;
+  categoryCodes: string[];
+  city: string;
+  latitude: number;
+  longitude: number;
+  radiusKm: number;
+  notifyEmail: boolean;
+  notifyPush: boolean;
+}
+
+/** `CreateAlertRequest` — même règle de ville que `UpdatePreferencesRequest`. */
+export interface CreateAlertRequest {
+  categoryCodes: string[];
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  radiusKm: number;
+  notifyEmail: boolean;
+  notifyPush: boolean;
 }
 
 /** `FoodTruck` (`GET /foodtrucks`, uniquement ceux au statut `PUBLISHED`). */

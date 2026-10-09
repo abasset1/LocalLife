@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -49,12 +50,29 @@ public class ActivityAlertController {
         try {
             ActivityAlert created = activityAlertService.createAlert(
                     userId, request.categoryCodes(), request.city(), request.latitude(), request.longitude(),
-                    request.radiusKm());
+                    request.radiusKm(), request.notifyEmail(), request.notifyPush());
             return ResponseEntity.status(HttpStatus.CREATED).body(AlertResponse.from(created));
         } catch (IllegalArgumentException | CityNotFoundException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
         } catch (GeocodingUnavailableException exception) {
             return errorResponse(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), httpRequest);
+        }
+    }
+
+    /** Change les canaux d'une alerte (e-mail / notification). */
+    @PatchMapping("/api/v1/users/me/alerts/{id}")
+    public ResponseEntity<Object> updateChannels(
+            Authentication authentication, @PathVariable Long id, @RequestBody UpdateChannelsRequest request,
+            HttpServletRequest httpRequest) {
+        Long userId = ((JwtAuthentication) authentication).getUserId();
+        try {
+            ActivityAlert updated = activityAlertService.updateChannels(
+                    userId, id, Boolean.TRUE.equals(request.notifyEmail()), Boolean.TRUE.equals(request.notifyPush()));
+            return ResponseEntity.ok(AlertResponse.from(updated));
+        } catch (IllegalArgumentException exception) {
+            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        } catch (NoSuchElementException exception) {
+            return errorResponse(HttpStatus.NOT_FOUND, exception.getMessage(), httpRequest);
         }
     }
 
@@ -86,18 +104,23 @@ public class ActivityAlertController {
     }
 
     public record CreateAlertRequest(
-            List<String> categoryCodes, String city, Double latitude, Double longitude, Integer radiusKm) {
+            List<String> categoryCodes, String city, Double latitude, Double longitude, Integer radiusKm,
+            Boolean notifyEmail, Boolean notifyPush) {
+    }
+
+    public record UpdateChannelsRequest(Boolean notifyEmail, Boolean notifyPush) {
     }
 
     public record UnsubscribeRequest(String token) {
     }
 
     public record AlertResponse(
-            Long id, List<String> categoryCodes, String city, double latitude, double longitude, int radiusKm) {
+            Long id, List<String> categoryCodes, String city, double latitude, double longitude, int radiusKm,
+            boolean notifyEmail, boolean notifyPush) {
 
         static AlertResponse from(ActivityAlert alert) {
             return new AlertResponse(alert.id(), alert.categoryCodes(), alert.city(), alert.latitude(),
-                    alert.longitude(), alert.radiusKm());
+                    alert.longitude(), alert.radiusKm(), alert.notifyEmail(), alert.notifyPush());
         }
 
     }

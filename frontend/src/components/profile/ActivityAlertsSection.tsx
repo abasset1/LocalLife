@@ -12,6 +12,14 @@ interface ActivityAlert {
     latitude: number;
     longitude: number;
     radiusKm: number;
+    notifyEmail: boolean;
+    /** Notification push, activée depuis l'application mobile. */
+    notifyPush: boolean;
+}
+
+function channelsLabel(alert: ActivityAlert): string {
+    const channels = [alert.notifyEmail && "e-mail", alert.notifyPush && "notification mobile"].filter(Boolean);
+    return `par ${channels.join(" et ")}`;
 }
 
 const DEFAULT_ALERT_RADIUS_KM = 10;
@@ -159,6 +167,7 @@ function ActivityAlertsSection() {
             <h2>Mes alertes e-mail</h2>
             <p className="profile-preferences-hint">
                 Reçois chaque matin par e-mail les nouvelles activités publiées qui correspondent à tes critères.
+                Les notifications se règlent depuis l'application mobile.
             </p>
 
             {alerts.length === 0 ? (
@@ -171,6 +180,8 @@ function ActivityAlertsSection() {
                                 <strong>{alert.categoryCodes.map(labelOf).join(", ")}</strong>
                                 <br />
                                 à moins de {alert.radiusKm} km de {alert.city}
+                                <br />
+                                <small>{channelsLabel(alert)}</small>
                             </span>
                             <button
                                 aria-label={`Supprimer l'alerte ${alert.city}`}

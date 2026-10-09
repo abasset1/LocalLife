@@ -54,15 +54,22 @@ public class ActivityAlertService {
      * prioritaire) ou par nom, et doit exister — même règle que les
      * paramètres utilisateur ({@link GeocodingService#resolveCity}).
      *
+     * Canaux : e-mail seul si {@code notifyEmail}/{@code notifyPush} ne sont
+     * pas précisés (site web) ; au moins un des deux doit être actif.
+     *
      * @throws IllegalArgumentException si aucune catégorie, une catégorie inconnue, un rayon hors de
-     *         [1, 50], aucune ville, ou le nombre maximal d'alertes est atteint
+     *         [1, 50], aucune ville, aucun canal, ou le nombre maximal d'alertes est atteint
      * @throws com.locallife.backend.geocoding.application.CityNotFoundException si la ville n'existe pas
      * @throws com.locallife.backend.geocoding.application.GeocodingUnavailableException si le géocodage échoue
      */
     @Transactional
     public ActivityAlert createAlert(
             Long userId, List<String> categoryCodes, String city, Double latitude, Double longitude,
-            Integer radiusKm) {
+            Integer radiusKm, Boolean notifyEmail, Boolean notifyPush) {
+        // Sans précision, e-mail seul : comportement des alertes créées depuis le site web.
+        boolean email = notifyEmail == null || notifyEmail;
+        boolean push = notifyPush != null && notifyPush;
+        validateChannels(email, push);
         List<String> codes = validateCategoryCodes(categoryCodes);
         if (radiusKm == null || radiusKm < 1 || radiusKm > MAX_RADIUS_KM) {
             throw new IllegalArgumentException("Le rayon doit être compris entre 1 et " + MAX_RADIUS_KM + " km.");
@@ -78,8 +85,31 @@ public class ActivityAlertService {
 
         Coordinates found = geocodingService.resolveCity(hasCity ? city.trim() : null, latitude, longitude);
         ActivityAlert alert = new ActivityAlert(
-                null, userId, found.city(), found.latitude(), found.longitude(), radiusKm, codes, null);
+                null, userId, found.city(), found.latitude(), found.longitude(), radiusKm, codes, email, push, null);
         return activityAlertRepository.create(alert, newUnsubscribeToken());
+    }
+
+    /**
+     * Change les canaux d'une alerte (au moins un actif).
+     *
+     * @throws IllegalArgumentException si aucun canal n'est actif
+     * @throws NoSuchElementException si l'alerte n'existe pas ou n'appartient pas à l'utilisateur
+     */
+    public ActivityAlert updateChannels(Long userId, Long alertId, boolean notifyEmail, boolean notifyPush) {
+        validateChannels(notifyEmail, notifyPush);
+        if (!activityAlertRepository.updateChannels(alertId, userId, notifyEmail, notifyPush)) {
+            throw new NoSuchElementException("Alerte introuvable.");
+        }
+        return activityAlertRepository.findByUserId(userId).stream()
+                .filter(alert -> alert.id().equals(alertId))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static void validateChannels(boolean notifyEmail, boolean notifyPush) {
+        if (!notifyEmail && !notifyPush) {
+            throw new IllegalArgumentException("Choisis au moins un moyen d'être prévenu : e-mail ou notification.");
+        }
     }
 
     /** @throws NoSuchElementException si l'alerte n'existe pas ou n'appartient pas à l'utilisateur */

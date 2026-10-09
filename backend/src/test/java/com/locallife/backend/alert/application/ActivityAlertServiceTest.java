@@ -3,6 +3,7 @@ package com.locallife.backend.alert.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -57,11 +58,14 @@ class ActivityAlertServiceTest {
         when(activityAlertRepository.create(any(), anyString())).thenAnswer(invocation -> invocation.getArgument(0));
 
         ActivityAlert created = activityAlertService.createAlert(
-                1L, Arrays.asList("SPORT", " CULTURE", "SPORT", null), " lyon ", null, null, 10);
+                1L, Arrays.asList("SPORT", " CULTURE", "SPORT", null), " lyon ", null, null, 10, null, null);
 
         assertEquals("Lyon", created.city());
         assertEquals(45.76, created.latitude());
         assertEquals(List.of("CULTURE", "SPORT"), created.categoryCodes());
+        // Sans précision (site web) : e-mail seul.
+        assertTrue(created.notifyEmail());
+        assertFalse(created.notifyPush());
         verify(activityAlertRepository).create(any(), argThat(token -> token.length() == 64));
     }
 
@@ -71,7 +75,7 @@ class ActivityAlertServiceTest {
         when(geocodingService.resolveCity(null, 43.21, 5.54)).thenReturn(new Coordinates(43.2, 5.5, "Cassis", null));
         when(activityAlertRepository.create(any(), anyString())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ActivityAlert created = activityAlertService.createAlert(1L, List.of("SPORT"), null, 43.21, 5.54, 20);
+        ActivityAlert created = activityAlertService.createAlert(1L, List.of("SPORT"), null, 43.21, 5.54, 20, null, null);
 
         assertEquals("Cassis", created.city());
     }
@@ -79,9 +83,9 @@ class ActivityAlertServiceTest {
     @Test
     void createAlert_ShouldRequireAtLeastOneCategory() {
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of(), "Lyon", null, null, 10));
+                () -> activityAlertService.createAlert(1L, List.of(), "Lyon", null, null, 10, null, null));
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, null, "Lyon", null, null, 10));
+                () -> activityAlertService.createAlert(1L, null, "Lyon", null, null, 10, null, null));
         verify(activityAlertRepository, never()).create(any(), anyString());
     }
 
@@ -90,13 +94,13 @@ class ActivityAlertServiceTest {
         givenCategories();
 
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of("NOPE"), "Lyon", null, null, 10));
+                () -> activityAlertService.createAlert(1L, List.of("NOPE"), "Lyon", null, null, 10, null, null));
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, null));
+                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, null, null, null));
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, 51));
+                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, 51, null, null));
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of("SPORT"), " ", null, null, 10));
+                () -> activityAlertService.createAlert(1L, List.of("SPORT"), " ", null, null, 10, null, null));
         verify(geocodingService, never()).resolveCity(any(), any(), any());
     }
 
@@ -106,7 +110,7 @@ class ActivityAlertServiceTest {
         when(activityAlertRepository.countByUserId(1L)).thenReturn(ActivityAlertService.MAX_ALERTS_PER_USER);
 
         assertThrows(IllegalArgumentException.class,
-                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, 10));
+                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, 10, null, null));
         verify(geocodingService, never()).resolveCity(any(), any(), any());
     }
 
@@ -116,7 +120,7 @@ class ActivityAlertServiceTest {
         when(geocodingService.resolveCity("Zzzz", null, null)).thenThrow(new CityNotFoundException("introuvable"));
 
         assertThrows(CityNotFoundException.class,
-                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Zzzz", null, null, 10));
+                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Zzzz", null, null, 10, null, null));
         verify(activityAlertRepository, never()).create(any(), anyString());
     }
 
@@ -131,6 +135,28 @@ class ActivityAlertServiceTest {
     void unsubscribe_ShouldIgnoreBlankToken() {
         assertFalse(activityAlertService.unsubscribe(" "));
         verify(activityAlertRepository, never()).deleteByUnsubscribeToken(eq(" "));
+    }
+
+    @Test
+    void createAlert_ShouldAcceptPushOnly_AndRejectNoChannel() {
+        givenCategories();
+        when(geocodingService.resolveCity("Lyon", null, null)).thenReturn(new Coordinates(45.76, 4.83, "Lyon", null));
+        when(activityAlertRepository.create(any(), anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ActivityAlert pushOnly = activityAlertService.createAlert(
+                1L, List.of("SPORT"), "Lyon", null, null, 10, false, true);
+
+        assertFalse(pushOnly.notifyEmail());
+        assertTrue(pushOnly.notifyPush());
+        assertThrows(IllegalArgumentException.class,
+                () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, 10, false, false));
+    }
+
+    @Test
+    void updateChannels_ShouldRejectNoChannel_AndUnknownAlert() {
+        assertThrows(IllegalArgumentException.class, () -> activityAlertService.updateChannels(1L, 5L, false, false));
+        when(activityAlertRepository.updateChannels(5L, 1L, false, true)).thenReturn(false);
+        assertThrows(NoSuchElementException.class, () -> activityAlertService.updateChannels(1L, 5L, false, true));
     }
 
 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import MapView from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,10 +10,11 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-import { Region, pointInBounds, regionForZoom, regionToBounds, zoomForRegion } from './geo';
+import { Region, pointInBounds, regionForRadius, regionForZoom, regionToBounds, zoomForRegion } from './geo';
 import { ActivityMarker, ClusterMarker, FoodTruckMarker } from './markers';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData } from './useMapData';
+import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
 
 /** Zone de départ : Marseille, périmètre du MVP (voir `BOUNDING_BOX_SEARCH_CONTRACT.md`). */
@@ -26,6 +27,11 @@ const INITIAL_REGION: Region = {
 
 /** Niveau de zoom après recentrage sur l'utilisateur (~ quartier, quelques centaines de mètres). */
 const USER_ZOOM = 14;
+
+/** Rayon de cadrage d'une ville par défaut sans rayon choisi (même valeur que le site web). */
+const DEFAULT_PREFERENCE_RADIUS_KM = 50;
+
+const NO_CATEGORIES: string[] = [];
 
 /** Au-delà de ce zoom, plus de regroupement : chaque activité a son marqueur. */
 const CLUSTER_MAX_ZOOM = 17;
@@ -42,7 +48,31 @@ export default function MapScreen() {
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
   const [selection, setSelection] = useState<Selection | null>(null);
 
-  const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(region);
+  // Paramètres de recherche (utilisateur connecté) : cadrage sur la ville et
+  // le rayon par défaut, et filtre sur les catégories par défaut. Appliqués à
+  // chaque changement de ces paramètres, pas à chaque retour sur la carte :
+  // un déplacement fait par l'utilisateur n'est pas écrasé.
+  const preferences = useSearchPreferences();
+  const preferencesKey = preferences ? JSON.stringify(preferences) : null;
+  // « Tout afficher » lève le filtre jusqu'au prochain changement des paramètres.
+  const [clearedFilterKey, setClearedFilterKey] = useState<string | null>(null);
+  const categoryCodes =
+    preferences && clearedFilterKey !== preferencesKey ? preferences.defaultCategoryCodes : NO_CATEGORIES;
+
+  const centeredPreferences = useRef<string | null>(null);
+  useEffect(() => {
+    if (!preferences || centeredPreferences.current === preferencesKey) return;
+    centeredPreferences.current = preferencesKey;
+    const { defaultLatitude, defaultLongitude, defaultRadiusKm } = preferences;
+    if (defaultLatitude !== null && defaultLongitude !== null) {
+      mapRef.current?.animateToRegion(
+        regionForRadius(defaultLatitude, defaultLongitude, defaultRadiusKm ?? DEFAULT_PREFERENCE_RADIUS_KM),
+        500,
+      );
+    }
+  }, [preferences, preferencesKey]);
+
+  const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(region, categoryCodes);
   const location = useUserLocation();
   const [showUser, setShowUser] = useState(false);
 
@@ -192,6 +222,16 @@ export default function MapScreen() {
                 )}
                 <Button label="Fermer" variant="secondary" onPress={location.dismiss} />
               </View>
+            </View>
+          )}
+          {categoryCodes.length > 0 && (
+            <View style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
+              <ThemedText type="small">
+                {categoryCodes.length === 1
+                  ? 'Filtré sur 1 catégorie'
+                  : `Filtré sur ${categoryCodes.length} catégories`}
+              </ThemedText>
+              <Button label="Tout afficher" variant="secondary" onPress={() => setClearedFilterKey(preferencesKey)} />
             </View>
           )}
           {tooWide && !loading && !error && (

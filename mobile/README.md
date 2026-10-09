@@ -273,3 +273,23 @@ l'aperçu d'un marqueur (`src/features/activity/`).
 - [x] Géolocalisation utilisateur (LL-MOB-0006)
 - [x] Détail d'une activité (LL-MOB-0008)
 - [x] Food trucks (LL-MOB-0009)
+
+## Notifications push (alertes)
+
+Les alertes (onglet Compte → « Mes alertes ») peuvent être envoyées en
+notification sur le téléphone, via le service **Expo Push**.
+
+- `EAS_PROJECT_ID` (voir `.env.example`) est requis pour obtenir le jeton
+  de notification de l'appareil. Sans lui, l'application fonctionne mais
+  la notification d'une alerte ne peut pas être activée (message affiché).
+- Les notifications ne fonctionnent **pas dans Expo Go sur Android** (ni sur
+  un émulateur) : utiliser un build de développement (`eas build --profile
+  development`) sur un vrai téléphone.
+- La permission n'est demandée qu'au moment où l'utilisateur active la
+  notification d'une alerte. Le jeton est rattaché au compte à chaque
+  ouverture de session, et retiré à la déconnexion.
+- Toucher une notification ouvre la fiche de l'activité (une seule
+  activité) ou la carte (plusieurs).
+- Côté backend : `EXPO_ACCESS_TOKEN` seulement si la « sécurité renforcée
+  des notifications » est activée sur le projet Expo.
+

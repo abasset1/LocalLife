@@ -8,7 +8,10 @@ import com.locallife.backend.auth.application.EmailService;
 import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.domain.CategoryTranslation;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
+import com.locallife.backend.push.application.ExpoPushService;
+import com.locallife.backend.push.infrastructure.PushTokenRepository;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -19,14 +22,16 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
- * Envoi planifié des alertes email : pour chaque alerte dont le
- * propriétaire a confirmé son adresse, un seul email récapitulant les
- * nouvelles activités correspondantes depuis l'envoi précédent (aucun email
- * si rien de nouveau). Un digest plutôt qu'un email par activité : un import
- * peut publier des dizaines d'activités d'un coup.
+ * Envoi planifié des alertes : pour chaque alerte, un seul message
+ * récapitulant les nouvelles activités correspondantes depuis l'envoi
+ * précédent (rien si rien de nouveau), sur ses canaux actifs — e-mail vers
+ * une adresse vérifiée et/ou notification push vers les appareils
+ * enregistrés (application mobile). Un récapitulatif plutôt qu'un message
+ * par activité : un import peut publier des dizaines d'activités d'un coup.
  *
- * Une activité n'est marquée envoyée qu'après l'envoi réussi de l'email ;
- * l'échec d'une alerte n'empêche pas le traitement des suivantes.
+ * Les activités sont marquées envoyées dès qu'au moins un canal a réussi
+ * (sinon elles seront retentées au prochain passage) ; l'échec d'une alerte
+ * n'empêche pas le traitement des suivantes.
  */
 @Service
 public class ActivityAlertNotifier {
@@ -45,15 +50,19 @@ public class ActivityAlertNotifier {
     private final ActivityAlertRepository activityAlertRepository;
     private final CategoryRepository categoryRepository;
     private final EmailService emailService;
+    private final ExpoPushService expoPushService;
+    private final PushTokenRepository pushTokenRepository;
     private final String frontendBaseUrl;
 
     public ActivityAlertNotifier(
             ActivityAlertRepository activityAlertRepository, CategoryRepository categoryRepository,
-            EmailService emailService,
+            EmailService emailService, ExpoPushService expoPushService, PushTokenRepository pushTokenRepository,
             @Value("${app.frontend-base-url:http://localhost:5173}") String frontendBaseUrl) {
         this.activityAlertRepository = activityAlertRepository;
         this.categoryRepository = categoryRepository;
         this.emailService = emailService;
+        this.expoPushService = expoPushService;
+        this.pushTokenRepository = pushTokenRepository;
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
@@ -61,10 +70,10 @@ public class ActivityAlertNotifier {
     @Scheduled(cron = "${app.alerts.cron:0 0 8 * * *}", zone = "Europe/Paris")
     public void scheduledSend() {
         int sent = sendAll();
-        LOGGER.info("Alertes email : {} email(s) envoyé(s)", sent);
+        LOGGER.info("Alertes : {} alerte(s) notifiée(s)", sent);
     }
 
-    /** @return le nombre d'emails envoyés */
+    /** @return le nombre d'alertes notifiées (sur au moins un canal) */
     public int sendAll() {
         Map<String, String> labels = categoryLabels();
         int sent = 0;
@@ -88,12 +97,61 @@ public class ActivityAlertNotifier {
             return false;
         }
 
-        String subject = activities.size() == 1
-                ? "LocalLife : 1 nouvelle activité près de " + alert.city()
-                : "LocalLife : " + activities.size() + " nouvelles activités près de " + alert.city();
-        emailService.sendActivityAlertEmail(recipient.email(), subject, body(recipient, activities, labels));
-        activityAlertRepository.markSent(alert.id(), activities.stream().map(AlertActivity::id).toList());
-        return true;
+        String title = activities.size() == 1
+                ? "1 nouvelle activité près de " + alert.city()
+                : activities.size() + " nouvelles activités près de " + alert.city();
+        boolean delivered = false;
+
+        if (alert.notifyEmail() && recipient.email() != null) {
+            try {
+                emailService.sendActivityAlertEmail(
+                        recipient.email(), "LocalLife : " + title, body(recipient, activities, labels));
+                delivered = true;
+            } catch (RuntimeException exception) {
+                LOGGER.warn("Échec de l'e-mail de l'alerte {} : {}", alert.id(), exception.getMessage());
+            }
+        }
+
+        if (alert.notifyPush()) {
+            List<String> tokens = pushTokenRepository.findTokensByUserId(alert.userId());
+            if (!tokens.isEmpty()) {
+                try {
+                    List<String> unregistered =
+                            expoPushService.send(tokens, title, pushBody(activities), pushData(activities));
+                    if (!unregistered.isEmpty()) {
+                        pushTokenRepository.deleteByTokens(unregistered);
+                    }
+                    // Au moins un appareil encore enregistré a reçu la notification.
+                    delivered = delivered || unregistered.size() < tokens.size();
+                } catch (RuntimeException exception) {
+                    LOGGER.warn("Échec de la notification de l'alerte {} : {}", alert.id(), exception.getMessage());
+                }
+            }
+        }
+
+        if (delivered) {
+            activityAlertRepository.markSent(alert.id(), activities.stream().map(AlertActivity::id).toList());
+        }
+        return delivered;
+    }
+
+    /** Titres des premières activités, sur une ligne : le texte d'une notification est tronqué par le système. */
+    static String pushBody(List<AlertActivity> activities) {
+        String titles = activities.stream().limit(3).map(AlertActivity::title).collect(Collectors.joining(" · "));
+        return activities.size() > 3 ? titles + " · …" : titles;
+    }
+
+    /**
+     * Écran à ouvrir au toucher de la notification : la fiche de l'activité
+     * s'il n'y en a qu'une, sinon la carte.
+     */
+    static Map<String, Object> pushData(List<AlertActivity> activities) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("type", "activity-alert");
+        if (activities.size() == 1) {
+            data.put("activityId", activities.get(0).id());
+        }
+        return data;
     }
 
     String body(AlertRecipient recipient, List<AlertActivity> activities, Map<String, String> labels) {
