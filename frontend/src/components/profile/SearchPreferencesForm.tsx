@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { apiFetch } from "../../api/apiClient";
+import { apiFetch, describeErrorResponse } from "../../api/apiClient";
 import { DEFAULT_SEARCH_RADIUS_KM } from "../explorer/constants";
 import type { ApiErrorBody, Category, UserPreferences } from "../explorer/types";
 import CityField, { RADIUS_OPTIONS_KM, useCityPicker } from "./CityField";
@@ -48,7 +48,9 @@ function SearchPreferencesForm() {
                     setRadiusKm(preferences.defaultRadiusKm === null ? "" : String(preferences.defaultRadiusKm));
                     setCategoryCodes(preferences.defaultCategoryCodes);
                 } else {
-                    setLoadError("Impossible de charger tes paramètres, réessaie.");
+                    setLoadError(
+                        await describeErrorResponse(preferencesResponse, "Impossible de charger tes paramètres"),
+                    );
                 }
             } catch {
                 if (!abortController.signal.aborted) {

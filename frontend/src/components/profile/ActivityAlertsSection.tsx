@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { apiFetch } from "../../api/apiClient";
+import { apiFetch, describeErrorResponse } from "../../api/apiClient";
 import type { ApiErrorBody, Category, UserPreferences } from "../explorer/types";
 import CityField, { RADIUS_OPTIONS_KM, useCityPicker } from "./CityField";
 
@@ -66,7 +66,7 @@ function ActivityAlertsSection() {
                     );
                 }
                 if (!alertsResponse.ok) {
-                    setLoadError("Impossible de charger tes alertes, réessaie.");
+                    setLoadError(await describeErrorResponse(alertsResponse, "Impossible de charger tes alertes"));
                     return;
                 }
                 setAlerts((await alertsResponse.json()) as ActivityAlert[]);

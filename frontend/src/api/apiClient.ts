@@ -34,3 +34,15 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
 
     return response;
 }
+
+/**
+ * Message d'erreur lisible pour une réponse en échec : le contexte, puis la
+ * cause renvoyée par le backend (`ErrorResponse.message`) et le code HTTP —
+ * plutôt qu'un message générique qui masque, par exemple, une route absente
+ * d'un backend pas à jour (404 « Route introuvable »).
+ */
+export async function describeErrorResponse(response: Response, context: string): Promise<string> {
+    const body = (await response.json().catch(() => null)) as { message?: string } | null;
+    const cause = body?.message || response.statusText || "réponse inattendue du serveur";
+    return `${context} : ${cause} (HTTP ${response.status}).`;
+}
