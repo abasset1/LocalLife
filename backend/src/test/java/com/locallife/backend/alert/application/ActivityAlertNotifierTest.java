@@ -18,8 +18,11 @@ import com.locallife.backend.auth.application.EmailService;
 import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.domain.CategoryTranslation;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
+import com.locallife.backend.push.application.ExpoPushService;
+import com.locallife.backend.push.infrastructure.PushTokenRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.LongStream;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,19 +44,25 @@ class ActivityAlertNotifierTest {
     @Mock
     private EmailService emailService;
 
+    @Mock
+    private ExpoPushService expoPushService;
+
+    @Mock
+    private PushTokenRepository pushTokenRepository;
+
     private ActivityAlertNotifier notifier;
 
     private final AlertRecipient alice = new AlertRecipient(
-            new ActivityAlert(1L, 10L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), LocalDateTime.now()),
+            new ActivityAlert(1L, 10L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), true, false, LocalDateTime.now()),
             "alice@example.com", "tok-alice");
     private final AlertRecipient bob = new AlertRecipient(
-            new ActivityAlert(2L, 11L, "Paris", 48.85, 2.35, 5, List.of("SPORT"), LocalDateTime.now()),
+            new ActivityAlert(2L, 11L, "Paris", 48.85, 2.35, 5, List.of("SPORT"), true, false, LocalDateTime.now()),
             "bob@example.com", "tok-bob");
 
     @BeforeEach
     void setUp() {
         notifier = new ActivityAlertNotifier(activityAlertRepository, categoryRepository, emailService,
-                "https://locallife.test");
+                expoPushService, pushTokenRepository, "https://locallife.test");
     }
 
     private void givenCategories() {
@@ -117,6 +126,71 @@ class ActivityAlertNotifierTest {
         assertTrue(body.contains("- Activité 20\n"));
         assertTrue(!body.contains("- Activité 21\n"));
         assertTrue(body.contains("… et 5 autre(s)."));
+    }
+
+    private static AlertRecipient pushRecipient(boolean notifyEmail, String email) {
+        return new AlertRecipient(
+                new ActivityAlert(3L, 12L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), notifyEmail, true,
+                        LocalDateTime.now()),
+                email, "tok-push");
+    }
+
+    @Test
+    void sendAll_ShouldSendPush_WithActivityToOpen() {
+        givenCategories();
+        when(activityAlertRepository.findAllRecipients()).thenReturn(List.of(pushRecipient(false, null)));
+        when(activityAlertRepository.findNewMatchingActivities(3L, ActivityAlertNotifier.MAX_ACTIVITIES_PER_RUN))
+                .thenReturn(List.of(new AlertActivity(7L, "Match de foot", "Villeurbanne", null)));
+        when(pushTokenRepository.findTokensByUserId(12L)).thenReturn(List.of("ExponentPushToken[a]"));
+        when(expoPushService.send(any(), anyString(), anyString(), any())).thenReturn(List.of());
+
+        assertEquals(1, notifier.sendAll());
+
+        verify(expoPushService).send(List.of("ExponentPushToken[a]"), "1 nouvelle activité près de Lyon",
+                "Match de foot", Map.of("type", "activity-alert", "activityId", 7L));
+        verify(emailService, never()).sendActivityAlertEmail(anyString(), anyString(), anyString());
+        verify(activityAlertRepository).markSent(3L, List.of(7L));
+    }
+
+    @Test
+    void sendAll_ShouldDropUnregisteredDevices_AndNotMarkSent_WhenNoDeviceReached() {
+        givenCategories();
+        when(activityAlertRepository.findAllRecipients()).thenReturn(List.of(pushRecipient(false, null)));
+        when(activityAlertRepository.findNewMatchingActivities(3L, ActivityAlertNotifier.MAX_ACTIVITIES_PER_RUN))
+                .thenReturn(List.of(new AlertActivity(7L, "Match", null, null)));
+        when(pushTokenRepository.findTokensByUserId(12L)).thenReturn(List.of("ExponentPushToken[old]"));
+        when(expoPushService.send(any(), anyString(), anyString(), any()))
+                .thenReturn(List.of("ExponentPushToken[old]"));
+
+        assertEquals(0, notifier.sendAll());
+
+        verify(pushTokenRepository).deleteByTokens(List.of("ExponentPushToken[old]"));
+        verify(activityAlertRepository, never()).markSent(any(), any());
+    }
+
+    @Test
+    void sendAll_ShouldMarkSent_WhenPushSucceedsButEmailFails() {
+        givenCategories();
+        when(activityAlertRepository.findAllRecipients()).thenReturn(List.of(pushRecipient(true, "c@example.com")));
+        when(activityAlertRepository.findNewMatchingActivities(3L, ActivityAlertNotifier.MAX_ACTIVITIES_PER_RUN))
+                .thenReturn(List.of(new AlertActivity(7L, "Match", null, null)));
+        doThrow(new RuntimeException("SMTP down"))
+                .when(emailService).sendActivityAlertEmail(anyString(), anyString(), anyString());
+        when(pushTokenRepository.findTokensByUserId(12L)).thenReturn(List.of("ExponentPushToken[a]"));
+        when(expoPushService.send(any(), anyString(), anyString(), any())).thenReturn(List.of());
+
+        assertEquals(1, notifier.sendAll());
+        verify(activityAlertRepository).markSent(3L, List.of(7L));
+    }
+
+    @Test
+    void pushBodyAndData_ShouldSummarizeSeveralActivities() {
+        List<AlertActivity> activities = LongStream.rangeClosed(1, 5)
+                .mapToObj(id -> new AlertActivity(id, "A" + id, null, null))
+                .toList();
+
+        assertEquals("A1 · A2 · A3 · …", ActivityAlertNotifier.pushBody(activities));
+        assertEquals(Map.of("type", "activity-alert"), ActivityAlertNotifier.pushData(activities));
     }
 
 }

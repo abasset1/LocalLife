@@ -2,6 +2,7 @@ import {
   boundsContain,
   isSearchable,
   pointInBounds,
+  regionForRadius,
   regionForZoom,
   regionToBounds,
   zoomForRegion,
@@ -69,5 +70,20 @@ describe('zoom', () => {
     expect(region.longitudeDelta).toBeCloseTo(360 / 2 ** 14);
     expect(region.latitudeDelta / region.longitudeDelta).toBeCloseTo(1.5);
     expect(zoomForRegion(region)).toBe(14);
+  });
+});
+
+describe('regionForRadius', () => {
+  it('couvre le diamètre demandé autour de la ville', () => {
+    const region = regionForRadius(45.76, 4.83, 10);
+    expect(region.latitude).toBe(45.76);
+    expect(region.latitudeDelta).toBeCloseTo(20 / 111.32, 5);
+    // Un degré de longitude est plus court qu'un degré de latitude hors de l'équateur.
+    expect(region.longitudeDelta).toBeGreaterThan(region.latitudeDelta);
+  });
+
+  it('reste cherchable au rayon maximal (50 km)', () => {
+    const bounds = regionToBounds(regionForRadius(43.2965, 5.3698, 50));
+    expect(bounds && isSearchable(bounds)).toBe(true);
   });
 });

@@ -56,7 +56,8 @@ class ActivityAlertRepositoryIntegrationTest {
 
     private ActivityAlert createAlert(List<String> categoryCodes, int radiusKm) {
         return activityAlertRepository.create(new ActivityAlert(
-                null, userId, "Lyon", LYON_LATITUDE, LYON_LONGITUDE, radiusKm, categoryCodes, null), "token-" + radiusKm);
+                null, userId, "Lyon", LYON_LATITUDE, LYON_LONGITUDE, radiusKm, categoryCodes, true, false, null),
+                "token-" + radiusKm);
     }
 
     @Test
@@ -121,6 +122,33 @@ class ActivityAlertRepositoryIntegrationTest {
         assertThat(activityAlertRepository.deleteByUnsubscribeToken("wrong")).isFalse();
         assertThat(activityAlertRepository.deleteByUnsubscribeToken("token-10")).isTrue();
         assertThat(activityAlertRepository.findByUserId(userId)).isEmpty();
+    }
+
+    @Test
+    void findAllRecipients_ShouldIncludePushAlerts_OnlyWithRegisteredDevice() {
+        ActivityAlert alert = createAlert(List.of("SPORT"), 10);
+        jdbcTemplate.update("UPDATE users SET email_verified = false WHERE id = ?", userId);
+        assertThat(activityAlertRepository.updateChannels(alert.id(), userId, false, true)).isTrue();
+
+        assertThat(activityAlertRepository.findAllRecipients())
+                .noneMatch(recipient -> recipient.alert().id().equals(alert.id()));
+
+        jdbcTemplate.update("INSERT INTO user_push_token (token, user_id) VALUES ('ExponentPushToken[abc]', ?)", userId);
+        assertThat(activityAlertRepository.findAllRecipients())
+                .filteredOn(recipient -> recipient.alert().id().equals(alert.id()))
+                .singleElement()
+                .satisfies(recipient -> {
+                    assertThat(recipient.email()).isNull();
+                    assertThat(recipient.alert().notifyPush()).isTrue();
+                    assertThat(recipient.alert().notifyEmail()).isFalse();
+                });
+    }
+
+    @Test
+    void updateChannels_ShouldRespectOwner() {
+        ActivityAlert alert = createAlert(List.of("SPORT"), 10);
+
+        assertThat(activityAlertRepository.updateChannels(alert.id(), userId + 1, false, true)).isFalse();
     }
 
 }

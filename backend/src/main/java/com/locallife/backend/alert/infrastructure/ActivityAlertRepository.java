@@ -22,7 +22,8 @@ import org.springframework.stereotype.Repository;
 public class ActivityAlertRepository {
 
     private static final String ALERT_COLUMNS =
-            "al.id, al.user_id, al.city, al.latitude, al.longitude, al.radius_km, al.created_at";
+            "al.id, al.user_id, al.city, al.latitude, al.longitude, al.radius_km, al.notify_email, al.notify_push, "
+                    + "al.created_at";
 
     /**
      * Nouvelles activités publiées correspondant à l'alerte {@code ?} :
@@ -94,10 +95,11 @@ public class ActivityAlertRepository {
     public ActivityAlert create(ActivityAlert alert, String unsubscribeToken) {
         Long id = jdbcTemplate.queryForObject(
                 "INSERT INTO activity_alert "
-                        + "(user_id, city, latitude, longitude, radius_km, min_activity_id, unsubscribe_token) "
-                        + "VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(id), 0) FROM activity), ?) RETURNING id",
+                        + "(user_id, city, latitude, longitude, radius_km, notify_email, notify_push, min_activity_id, "
+                        + "unsubscribe_token) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(id), 0) FROM activity), ?) RETURNING id",
                 Long.class, alert.userId(), alert.city(), alert.latitude(), alert.longitude(), alert.radiusKm(),
-                unsubscribeToken);
+                alert.notifyEmail(), alert.notifyPush(), unsubscribeToken);
         jdbcTemplate.batchUpdate(
                 "INSERT INTO activity_alert_category (alert_id, category_code) VALUES (?, ?)",
                 alert.categoryCodes().stream().map(code -> new Object[] {id, code}).toList());
@@ -105,6 +107,13 @@ public class ActivityAlertRepository {
                 .filter(created -> created.id().equals(id))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    /** @return {@code false} si l'alerte n'existe pas ou appartient à un autre utilisateur */
+    public boolean updateChannels(Long id, Long userId, boolean notifyEmail, boolean notifyPush) {
+        return jdbcTemplate.update(
+                "UPDATE activity_alert SET notify_email = ?, notify_push = ? WHERE id = ? AND user_id = ?",
+                notifyEmail, notifyPush, id, userId) > 0;
     }
 
     /** @return {@code false} si l'alerte n'existe pas ou appartient à un autre utilisateur */
@@ -117,11 +126,16 @@ public class ActivityAlertRepository {
         return jdbcTemplate.update("DELETE FROM activity_alert WHERE unsubscribe_token = ?", token) > 0;
     }
 
-    /** Toutes les alertes dont le propriétaire a confirmé son adresse email. */
+    /**
+     * Alertes ayant au moins un canal utilisable : e-mail vers une adresse
+     * vérifiée, ou notification vers au moins un appareil enregistré.
+     */
     public List<AlertRecipient> findAllRecipients() {
         List<AlertRecipient> recipients = jdbcTemplate.query(
-                "SELECT " + ALERT_COLUMNS + ", u.email, al.unsubscribe_token FROM activity_alert al "
-                        + "JOIN users u ON u.id = al.user_id WHERE u.email_verified ORDER BY al.id",
+                "SELECT " + ALERT_COLUMNS + ", CASE WHEN u.email_verified THEN u.email END AS email, "
+                        + "al.unsubscribe_token FROM activity_alert al JOIN users u ON u.id = al.user_id "
+                        + "WHERE (al.notify_email AND u.email_verified) OR (al.notify_push AND EXISTS ("
+                        + "SELECT 1 FROM user_push_token t WHERE t.user_id = al.user_id)) ORDER BY al.id",
                 (resultSet, rowNumber) -> new AlertRecipient(
                         mapAlert(resultSet), resultSet.getString("email"), resultSet.getString("unsubscribe_token")));
         List<ActivityAlert> alerts = withCategories(recipients.stream().map(AlertRecipient::alert).toList());
@@ -153,7 +167,8 @@ public class ActivityAlertRepository {
         return new ActivityAlert(
                 resultSet.getLong("id"), resultSet.getLong("user_id"), resultSet.getString("city"),
                 resultSet.getDouble("latitude"), resultSet.getDouble("longitude"), resultSet.getInt("radius_km"),
-                List.of(), resultSet.getTimestamp("created_at").toLocalDateTime());
+                List.of(), resultSet.getBoolean("notify_email"), resultSet.getBoolean("notify_push"),
+                resultSet.getTimestamp("created_at").toLocalDateTime());
     }
 
     /** Complète les alertes de leurs catégories, en une requête pour toute la liste. */
@@ -174,7 +189,7 @@ public class ActivityAlertRepository {
         return alerts.stream()
                 .map(alert -> new ActivityAlert(alert.id(), alert.userId(), alert.city(), alert.latitude(),
                         alert.longitude(), alert.radiusKm(), List.copyOf(codesByAlert.getOrDefault(alert.id(),
-                        List.of())), alert.createdAt()))
+                        List.of())), alert.notifyEmail(), alert.notifyPush(), alert.createdAt()))
                 .toList();
     }
 

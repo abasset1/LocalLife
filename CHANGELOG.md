@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.29 — 2026-10-09
+
+### Mobile : paramètres de recherche et alertes en notification
+- Migration `V53` : canaux par alerte (`notify_email`, par défaut pour les alertes existantes, et `notify_push`, au moins un des deux) et table `user_push_token` (jetons Expo Push des appareils, réattribués au compte connecté, supprimés à la déconnexion ou quand Expo signale `DeviceNotRegistered`).
+- Backend : `PUT`/`DELETE /api/v1/users/me/push-tokens`, `PATCH /api/v1/users/me/alerts/{id}` (canaux). `POST .../alerts` accepte `notifyEmail`/`notifyPush` (e-mail seul par défaut, comportement du site web). `ExpoPushService` (API Expo Push, lots de 100, `EXPO_ACCESS_TOKEN` optionnel). `ActivityAlertNotifier` envoie chaque récapitulatif par e-mail (adresse vérifiée) et/ou notification ; les activités sont marquées envoyées dès qu'un canal a réussi. Toucher la notification ouvre la fiche de l'activité (une seule) ou la carte.
+- Mobile : onglet Compte → « Paramètres de recherche » (ville par saisie vérifiée ou « Utiliser ma position », rayon, catégories) et « Mes alertes » (liste, interrupteurs Notification / E-mail, suppression, création préremplie avec les paramètres). La carte « Découvrir » se cadre sur la ville et le rayon par défaut et filtre sur les catégories par défaut (puce « Tout afficher »), relus à chaque retour sur la carte. Notifications : `expo-notifications`, permission demandée seulement à l'activation, jeton envoyé à chaque ouverture de session et retiré à la déconnexion ; `EAS_PROJECT_ID` requis, pas de notification dans Expo Go sur Android.
+- Mobile : type `Category` aligné sur `CategoryResponse` (`code`/`label`/`active`), il ne correspondait plus au backend.
+- Web : la liste des alertes indique leurs canaux.
+- Tests : `ExpoPushServiceTest`, `PushTokenControllerTest`, notifier (push seul, appareil désinscrit, e-mail en échec mais push réussi), service/contrôleur (canaux), intégration (destinataires push, `updateChannels`) ; mobile : `routing.test.ts`, `options.test.ts`, `regionForRadius`.
+- Vérifié : `mvn verify` (992 tests, checkstyle), `npm run build` (web), mobile `tsc`, `eslint` (0 erreur), `jest` (41 tests), bundles Metro Android/iOS/web. De bout en bout avec un faux service Expo local : enregistrement des jetons par l'API (400 si invalide, 401 sans JWT), notification reçue par les deux appareils avec l'activité à ouvrir, appareil désinscrit supprimé, aucun e-mail pour une alerte notification seule, retrait du jeton à la déconnexion ; échec d'Expo → rien marqué envoyé, renvoi au passage suivant. Écrans mobiles testés dans le navigateur (version web de l'application, API simulée) — ce test a révélé un plantage sur le web (`useLastNotificationResponse`), corrigé. ⚠️ Non testé sur un vrai téléphone (pas d'appareil ni de build EAS ici) : réception réelle d'une notification, carte native et géolocalisation restent à valider sur un build de développement.
+
 ## 0.9.28 — 2026-10-09
 
 ### Alertes e-mail sur les nouvelles activités

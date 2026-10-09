@@ -17,9 +17,10 @@ function messageFor(error: unknown): string {
 /**
  * Charge les données affichées sur la carte (LL-MOB-0005).
  *
- * - Activités : `GET /activities/within-bounds` sur la zone visible, sans
- *   filtre (les filtres arrivent avec LL-MOB-0007). Le backend ne renvoie
- *   que les activités `PUBLISHED`.
+ * - Activités : `GET /activities/within-bounds` sur la zone visible,
+ *   filtrées par `categoryCodes` (catégories par défaut des paramètres de
+ *   recherche ; vide = toutes). Le backend ne renvoie que les activités
+ *   `PUBLISHED`.
  * - Food trucks : `GET /foodtrucks` (pas de bounding box dans ce contrat),
  *   chargé une seule fois.
  *
@@ -30,7 +31,7 @@ function messageFor(error: unknown): string {
  * entièrement couverte par les données chargées, ni si elle est trop
  * étendue (`tooWide` : la carte invite alors à zoomer).
  */
-export function useMapData(region: Region | null) {
+export function useMapData(region: Region | null, categoryCodes: readonly string[] = []) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
   const [activitiesStatus, setActivitiesStatus] = useState<LoadStatus>('loading');
@@ -39,6 +40,9 @@ export function useMapData(region: Region | null) {
   const [retryCount, setRetryCount] = useState(0);
 
   const loadedBounds = useRef<Bounds | null>(null);
+  /** Clé stable du filtre : un nouveau tableau aux mêmes codes ne relance rien. */
+  const categoryKey = [...categoryCodes].sort().join(',');
+  const loadedCategoryKey = useRef(categoryKey);
 
   // Food trucks : une fois au montage, et à chaque « Réessayer ».
   useEffect(() => {
@@ -69,8 +73,12 @@ export function useMapData(region: Region | null) {
       return;
     }
 
-    // Zone déjà couverte par le dernier chargement réussi : rien à faire.
-    if (loadedBounds.current && boundsContain(loadedBounds.current, bounds)) {
+    // Zone déjà couverte par le dernier chargement réussi, avec le même filtre : rien à faire.
+    if (
+      loadedBounds.current &&
+      loadedCategoryKey.current === categoryKey &&
+      boundsContain(loadedBounds.current, bounds)
+    ) {
       // Une requête précédente a pu être annulée par le nettoyage de cet effet.
       setActivitiesStatus('success');
       return;
@@ -80,9 +88,13 @@ export function useMapData(region: Region | null) {
     setActivitiesStatus('loading');
 
     const timer = setTimeout(() => {
-      searchWithinBounds(bounds, { signal: controller.signal })
+      searchWithinBounds(
+        { ...bounds, category: categoryKey === '' ? undefined : categoryKey },
+        { signal: controller.signal },
+      )
         .then((result) => {
           loadedBounds.current = bounds;
+          loadedCategoryKey.current = categoryKey;
           setActivities(result);
           setActivitiesStatus('success');
         })
@@ -98,7 +110,7 @@ export function useMapData(region: Region | null) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [region, retryCount]);
+  }, [region, categoryKey, retryCount]);
 
   const retry = useCallback(() => {
     setError(null);

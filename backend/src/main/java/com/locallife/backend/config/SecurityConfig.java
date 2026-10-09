@@ -87,7 +87,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   GET /api/v1/users/me (LL-EF-006) — voir {@code LikeController}.
  * - GET/PUT /api/v1/users/me/preferences et GET .../preferences/city :
  *   utilisateur connecté, même principe — voir {@code UserPreferencesController}.
- * - GET/POST /api/v1/users/me/alerts et DELETE .../alerts/{id} : utilisateur
+ * - GET/POST /api/v1/users/me/alerts, PATCH/DELETE .../alerts/{id} et
+ *   PUT/DELETE /api/v1/users/me/push-tokens : utilisateur
  *   connecté, même principe — voir {@code ActivityAlertController}.
  *   POST /api/v1/alerts/unsubscribe reste public (lien de l'email, le jeton
  *   suffit).
@@ -119,6 +120,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me/alerts").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/users/me/alerts").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/users/me/alerts/*").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/users/me/alerts/*").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/users/me/push-tokens").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/users/me/push-tokens").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me/preferences/city").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/users/me/preferences").authenticated()
                         // LL-EF-006 : règles /me déclarées avant la règle générale

@@ -4,6 +4,7 @@ import { useColorScheme } from 'react-native';
 
 import { AuthProvider } from '@/auth';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { useNotificationRouting } from '@/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -16,6 +17,8 @@ SplashScreen.preventAutoHideAsync();
  */
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  // Toucher une notification d'alerte ouvre la fiche de l'activité (ou la carte).
+  useNotificationRouting();
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
@@ -27,6 +30,8 @@ export default function RootLayout() {
             options={{ title: "Détail de l'activité" }}
           />
           <Stack.Screen name="foodtruck/[id]" options={{ title: 'Food truck' }} />
+          <Stack.Screen name="parametres" options={{ title: 'Paramètres de recherche' }} />
+          <Stack.Screen name="alertes" options={{ title: 'Mes alertes' }} />
         </Stack>
       </AuthProvider>
     </ThemeProvider>

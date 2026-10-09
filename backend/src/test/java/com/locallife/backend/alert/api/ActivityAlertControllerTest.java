@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import com.locallife.backend.alert.api.ActivityAlertController.AlertResponse;
 import com.locallife.backend.alert.api.ActivityAlertController.CreateAlertRequest;
 import com.locallife.backend.alert.api.ActivityAlertController.UnsubscribeRequest;
+import com.locallife.backend.alert.api.ActivityAlertController.UpdateChannelsRequest;
 import com.locallife.backend.alert.application.ActivityAlertService;
 import com.locallife.backend.alert.domain.ActivityAlert;
 import com.locallife.backend.auth.application.JwtAuthentication;
@@ -39,7 +40,7 @@ class ActivityAlertControllerTest {
 
     private final JwtAuthentication authentication = new JwtAuthentication(7L, "alice@example.com", Role.USER);
     private final ActivityAlert alert =
-            new ActivityAlert(3L, 7L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), LocalDateTime.now());
+            new ActivityAlert(3L, 7L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), true, false, LocalDateTime.now());
 
     @Test
     void getAlerts_ShouldUseUserIdFromJwt() {
@@ -47,34 +48,34 @@ class ActivityAlertControllerTest {
 
         List<AlertResponse> alerts = controller.getAlerts(authentication);
 
-        assertEquals(List.of(new AlertResponse(3L, List.of("SPORT"), "Lyon", 45.76, 4.83, 10)), alerts);
+        assertEquals(List.of(new AlertResponse(3L, List.of("SPORT"), "Lyon", 45.76, 4.83, 10, true, false)), alerts);
     }
 
     @Test
     void createAlert_ShouldReturnCreated() {
-        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Lyon", null, null, 10)).thenReturn(alert);
+        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Lyon", null, null, 10, null, null)).thenReturn(alert);
 
         ResponseEntity<Object> response = controller.createAlert(
-                authentication, new CreateAlertRequest(List.of("SPORT"), "Lyon", null, null, 10), httpRequest);
+                authentication, new CreateAlertRequest(List.of("SPORT"), "Lyon", null, null, 10, null, null), httpRequest);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
     }
 
     @Test
     void createAlert_ShouldMapErrors() {
-        when(activityAlertService.createAlert(7L, List.of(), "Lyon", null, null, 10))
+        when(activityAlertService.createAlert(7L, List.of(), "Lyon", null, null, 10, null, null))
                 .thenThrow(new IllegalArgumentException("Choisis au moins une catégorie."));
-        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Zzzz", null, null, 10))
+        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Zzzz", null, null, 10, null, null))
                 .thenThrow(new CityNotFoundException("Ville introuvable."));
-        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Lyon", null, null, 10))
+        when(activityAlertService.createAlert(7L, List.of("SPORT"), "Lyon", null, null, 10, null, null))
                 .thenThrow(new GeocodingUnavailableException(new RuntimeException("down")));
 
         assertEquals(HttpStatus.BAD_REQUEST, controller.createAlert(authentication,
-                new CreateAlertRequest(List.of(), "Lyon", null, null, 10), httpRequest).getStatusCode());
+                new CreateAlertRequest(List.of(), "Lyon", null, null, 10, null, null), httpRequest).getStatusCode());
         assertEquals(HttpStatus.BAD_REQUEST, controller.createAlert(authentication,
-                new CreateAlertRequest(List.of("SPORT"), "Zzzz", null, null, 10), httpRequest).getStatusCode());
+                new CreateAlertRequest(List.of("SPORT"), "Zzzz", null, null, 10, null, null), httpRequest).getStatusCode());
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, controller.createAlert(authentication,
-                new CreateAlertRequest(List.of("SPORT"), "Lyon", null, null, 10), httpRequest).getStatusCode());
+                new CreateAlertRequest(List.of("SPORT"), "Lyon", null, null, 10, null, null), httpRequest).getStatusCode());
     }
 
     @Test
@@ -94,6 +95,26 @@ class ActivityAlertControllerTest {
                 controller.unsubscribe(new UnsubscribeRequest("good"), httpRequest).getStatusCode());
         assertEquals(HttpStatus.NOT_FOUND,
                 controller.unsubscribe(new UnsubscribeRequest("used"), httpRequest).getStatusCode());
+    }
+
+    @Test
+    void updateChannels_ShouldReturnUpdatedAlert_OrMapErrors() {
+        ActivityAlert pushOnly =
+                new ActivityAlert(3L, 7L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), false, true, LocalDateTime.now());
+        when(activityAlertService.updateChannels(7L, 3L, false, true)).thenReturn(pushOnly);
+        when(activityAlertService.updateChannels(7L, 3L, false, false))
+                .thenThrow(new IllegalArgumentException("Choisis au moins un moyen d'être prévenu."));
+        when(activityAlertService.updateChannels(7L, 99L, true, false))
+                .thenThrow(new NoSuchElementException("Alerte introuvable."));
+
+        ResponseEntity<Object> ok = controller.updateChannels(
+                authentication, 3L, new UpdateChannelsRequest(false, true), httpRequest);
+        assertEquals(HttpStatus.OK, ok.getStatusCode());
+        assertEquals(true, ((AlertResponse) ok.getBody()).notifyPush());
+        assertEquals(HttpStatus.BAD_REQUEST, controller.updateChannels(
+                authentication, 3L, new UpdateChannelsRequest(false, null), httpRequest).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, controller.updateChannels(
+                authentication, 99L, new UpdateChannelsRequest(true, false), httpRequest).getStatusCode());
     }
 
 }

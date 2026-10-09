@@ -98,3 +98,17 @@ export function regionForZoom(
   const ratio = like.longitudeDelta > 0 ? like.latitudeDelta / like.longitudeDelta : 1;
   return { latitude, longitude, latitudeDelta: longitudeDelta * ratio, longitudeDelta };
 }
+
+/** Kilomètres par degré de latitude (approximation sphérique, suffisante pour cadrer la carte). */
+const KM_PER_DEGREE = 111.32;
+
+/**
+ * Région centrée sur une ville et couvrant un disque de `radiusKm` (cadrage
+ * initial de la carte d'après les paramètres de recherche).
+ */
+export function regionForRadius(latitude: number, longitude: number, radiusKm: number): Region {
+  const latitudeDelta = (2 * radiusKm) / KM_PER_DEGREE;
+  const cosine = Math.cos((latitude * Math.PI) / 180);
+  const longitudeDelta = cosine > 0.01 ? latitudeDelta / cosine : latitudeDelta;
+  return { latitude, longitude, latitudeDelta, longitudeDelta };
+}

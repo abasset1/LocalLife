@@ -11,6 +11,7 @@ import {
 import { AppState } from 'react-native';
 
 import { ResponseFormatError, configureApiClient, login as apiLogin, register as apiRegister } from '@/api';
+import { disablePushRegistration, refreshPushRegistration } from '@/notifications';
 
 import { decodeJwtPayload, isTokenExpired } from './jwt';
 import { clearToken, loadToken, saveToken } from './tokenStorage';
@@ -131,13 +132,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [startSession],
   );
 
+  // Session ouverte (connexion ou restauration) : l'appareil est rattaché au
+  // compte pour les notifications, si l'utilisateur les a déjà autorisées.
+  const isAuthenticated = state.status === 'authenticated';
+  useEffect(() => {
+    if (isAuthenticated) void refreshPushRegistration();
+  }, [isAuthenticated]);
+
+  // Déconnexion volontaire : l'appareil ne doit plus recevoir les alertes du
+  // compte. Retiré avant d'effacer le JWT, nécessaire à l'appel.
+  const logout = useCallback(async () => {
+    await disablePushRegistration();
+    await endSession();
+  }, [endSession]);
+
   const register = useCallback(async ({ username, email, password }: RegisterInput) => {
     await apiRegister({ username: username.trim(), email: email.trim(), password });
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ state, login, register, logout: endSession }),
-    [state, login, register, endSession],
+    () => ({ state, login, register, logout }),
+    [state, login, register, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

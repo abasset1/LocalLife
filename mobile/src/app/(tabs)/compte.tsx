@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,6 +28,7 @@ function messageFor(error: unknown): string {
 export default function CompteScreen() {
   const { state, login, register, logout } = useAuth();
   const theme = useTheme();
+  const router = useRouter();
 
   const [mode, setMode] = useState<Mode>('login');
   const [username, setUsername] = useState('');
@@ -89,6 +91,8 @@ export default function CompteScreen() {
           </ThemedText>
           <ThemedText>Connecté en tant que</ThemedText>
           <ThemedText type="smallBold">{state.user.email}</ThemedText>
+          <Button label="Paramètres de recherche" onPress={() => router.push('/parametres')} />
+          <Button label="Mes alertes" onPress={() => router.push('/alertes')} />
           <Button label="Se déconnecter" variant="secondary" onPress={() => void logout()} />
         </SafeAreaView>
       </ThemedView>

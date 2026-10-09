@@ -22,6 +22,14 @@ const DEV_DEFAULT_API_URL = "http://localhost:8080";
  */
 const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
 
+/**
+ * Identifiant du projet EAS (Expo Application Services), requis pour
+ * obtenir un jeton de notification push Expo. Fourni par l'environnement :
+ * sans lui, l'application fonctionne mais les alertes par notification sont
+ * indisponibles (message affiché à l'utilisateur).
+ */
+const easProjectId = process.env.EAS_PROJECT_ID;
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "LocalLife",
@@ -51,6 +59,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     "expo-router",
     [
+      // Alertes en notification push (voir src/notifications/push.ts).
+      "expo-notifications",
+      {
+        color: "#1A5FC8",
+      },
+    ],
+    [
       // LL-MOB-0006 : position au premier plan uniquement, demandée à la
       // demande de l'utilisateur. Le message explique clairement l'usage.
       "expo-location",
@@ -76,5 +91,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? DEV_DEFAULT_API_URL,
+    ...(easProjectId ? { eas: { projectId: easProjectId } } : {}),
   },
 });
