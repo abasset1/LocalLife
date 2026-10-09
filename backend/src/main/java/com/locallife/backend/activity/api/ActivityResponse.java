@@ -93,7 +93,8 @@ public record ActivityResponse(
         String createdByUsername,
         boolean likedByCurrentUser,
         String mainImageUrl,
-        List<String> categoryCodes) {
+        List<String> categoryCodes,
+        LocalDateTime publishedAt) {
 
     public static ActivityResponse from(Activity activity, String sourceName) {
         return from(activity, sourceName, null, false, null);
@@ -155,6 +156,7 @@ public record ActivityResponse(
                 createdByUsername,
                 likedByCurrentUser,
                 mainImageUrl,
-                categoryCodes);
+                categoryCodes,
+                activity.publishedAt());
     }
 }

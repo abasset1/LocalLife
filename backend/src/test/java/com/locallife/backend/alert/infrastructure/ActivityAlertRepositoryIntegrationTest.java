@@ -54,10 +54,18 @@ class ActivityAlertRepositoryIntegrationTest {
         return id;
     }
 
+    /**
+     * Alerte créée « il y a une heure » : dans la transaction du test, {@code now()} est le même
+     * instant pour l'alerte et pour les activités publiées ensuite, alors que la règle compare
+     * strictement {@code published_at > created_at}.
+     */
     private ActivityAlert createAlert(List<String> categoryCodes, int radiusKm) {
-        return activityAlertRepository.create(new ActivityAlert(
+        ActivityAlert alert = activityAlertRepository.create(new ActivityAlert(
                 null, userId, "Lyon", LYON_LATITUDE, LYON_LONGITUDE, radiusKm, categoryCodes, true, false, null),
                 "token-" + radiusKm);
+        jdbcTemplate.update(
+                "UPDATE activity_alert SET created_at = now() - interval '1 hour' WHERE id = ?", alert.id());
+        return alert;
     }
 
     @Test
@@ -66,16 +74,19 @@ class ActivityAlertRepositoryIntegrationTest {
 
         assertThat(created.id()).isNotNull();
         assertThat(created.categoryCodes()).containsExactly("CULTURE", "SPORT");
-        assertThat(activityAlertRepository.findByUserId(userId)).containsExactly(created);
+        assertThat(activityAlertRepository.findByUserId(userId)).extracting(ActivityAlert::id).containsExactly(created.id());
         assertThat(activityAlertRepository.countByUserId(userId)).isEqualTo(1);
     }
 
     @Test
     void findNewMatchingActivities_ShouldMatchCategoryRadiusAndNewness() {
         LocalDateTime nextWeek = LocalDateTime.now().plusDays(7);
-        Long before = insertActivity("Existait avant l'alerte", LYON_LATITUDE, LYON_LONGITUDE, "SPORT",
-                "PUBLISHED", nextWeek);
         ActivityAlert alert = createAlert(List.of("SPORT"), 10);
+        // Publiée la veille : la date de publication, une fois posée, n'est plus modifiable (trigger V54).
+        Long before = insertActivity("Publiée avant l'alerte", LYON_LATITUDE, LYON_LONGITUDE, "SPORT",
+                "PENDING", nextWeek);
+        jdbcTemplate.update("UPDATE activity SET status = 'PUBLISHED', published_at = now() - interval '1 day' "
+                + "WHERE id = ?", before);
 
         Long match = insertActivity("Match à Villeurbanne", 45.7719, 4.8902, "SPORT", "PUBLISHED", nextWeek);
         insertActivity("Trop loin (Grenoble)", 45.1885, 5.7245, "SPORT", "PUBLISHED", nextWeek);
@@ -149,6 +160,23 @@ class ActivityAlertRepositoryIntegrationTest {
         ActivityAlert alert = createAlert(List.of("SPORT"), 10);
 
         assertThat(activityAlertRepository.updateChannels(alert.id(), userId + 1, false, true)).isFalse();
+    }
+
+    @Test
+    void findNewMatchingActivities_ShouldIncludeContributionSubmittedBeforeButPublishedAfterAlert() {
+        // Contribution en attente de modération avant la création de l'alerte...
+        Long contribution = insertActivity("Contribution validée plus tard", LYON_LATITUDE, LYON_LONGITUDE,
+                "SPORT", "PENDING", LocalDateTime.now().plusDays(4));
+        ActivityAlert alert = createAlert(List.of("SPORT"), 10);
+        // ...dont l'id est donc antérieur au repère min_activity_id de l'alerte.
+        jdbcTemplate.update("UPDATE activity_alert SET min_activity_id = ? WHERE id = ?", contribution, alert.id());
+        assertThat(activityAlertRepository.findNewMatchingActivities(alert.id(), 100)).isEmpty();
+
+        // Validée après la création de l'alerte : sa date de publication la rend « nouvelle ».
+        jdbcTemplate.update("UPDATE activity SET status = 'PUBLISHED' WHERE id = ?", contribution);
+
+        assertThat(activityAlertRepository.findNewMatchingActivities(alert.id(), 100))
+                .extracting(AlertActivity::id).containsExactly(contribution);
     }
 
 }

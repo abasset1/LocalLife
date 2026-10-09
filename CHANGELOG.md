@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.30 — 2026-10-09
+
+### Date de publication des activités
+- Migration `V54` : colonne `activity.published_at`, renseignée par le trigger `trg_activity_set_published_at` au premier passage au statut `PUBLISHED` (import créant l'activité publiée, validation d'une contribution par un administrateur, SQL direct). Une fois posée, elle ne change plus : une activité archivée puis republiée garde sa première date. Activités publiées avant la migration : `NULL` (date inconnue, aucune valeur inventée).
+- `Activity#publishedAt` en lecture seule côté Java (`@ReadOnlyProperty`) : l'application ne l'écrit jamais, une mise à jour ne peut pas l'effacer. Constructeur sans cette date conservé pour les créations/mises à jour (aucun appel existant modifié).
+- Exposée dans `ActivityResponse` et `ActivityDetailResponse` (`publishedAt`) ; affichée « Publiée le … » dans la fiche d'une activité (site web et application mobile).
+- Alertes : une activité est « nouvelle » si elle a été **publiée** après la création de l'alerte (`published_at > created_at`). Corrige le cas d'une contribution soumise avant l'alerte mais validée après, qui n'était pas envoyée. Repli sur l'ancien repère par id pour les activités publiées avant V54.
+- Tests : `ActivityPublishedAtIntegrationTest` (création publiée, passage PENDING → PUBLISHED, date figée après archivage/republication ou écrasement, lecture et sauvegarde par le repository), `ActivityAlertRepositoryIntegrationTest` (contribution validée après l'alerte).
+- Vérifié : `mvn verify` (997 tests, checkstyle), `npm run build` (web), mobile `tsc`/`eslint`/`jest`. De bout en bout : contribution en attente créée avant une alerte, validée par un administrateur via l'API → `publishedAt` renseigné dans la fiche, et activité reçue dans l'e-mail d'alerte.
+
 ## 0.9.29 — 2026-10-09
 
 ### Mobile : paramètres de recherche et alertes en notification

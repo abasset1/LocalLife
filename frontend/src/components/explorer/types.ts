@@ -33,6 +33,8 @@ export interface Activity {
     longitude: number;
     startDate: string;
     status: string;
+    /** Date du premier passage au statut publié ; absente pour les activités publiées avant son suivi. */
+    publishedAt?: string | null;
     sourceName: string;
     address: string | null;
     city: string | null;

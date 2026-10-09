@@ -64,7 +64,8 @@ public record ActivityDetailResponse(
         AccessibilitySummary accessibility,
         List<String> tags,
         String additionalInfo,
-        List<String> categoryCodes) {
+        List<String> categoryCodes,
+        LocalDateTime publishedAt) {
 
     public static ActivityDetailResponse from(
             Activity activity,
@@ -118,7 +119,8 @@ public record ActivityDetailResponse(
                 accessibility == null ? null : AccessibilitySummary.from(accessibility),
                 tags,
                 additionalInfo,
-                categoryCodes);
+                categoryCodes,
+                activity.publishedAt());
     }
 
     /** Programmation d'une activité — voir {@link Schedule}. */
