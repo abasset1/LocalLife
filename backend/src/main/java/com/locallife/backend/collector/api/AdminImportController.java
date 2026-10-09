@@ -1,10 +1,13 @@
 package com.locallife.backend.collector.api;
 
+import com.locallife.backend.collector.application.AgendaDiscoveryService;
 import com.locallife.backend.collector.application.ImportAlreadyRunningException;
 import com.locallife.backend.collector.application.ImportResult;
 import com.locallife.backend.collector.application.ImportService;
+import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.common.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -61,10 +65,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/admin/import")
 public class AdminImportController {
 
-    private final ImportService importService;
+    /** Bornes de {@code limit} pour la découverte d'agendas, voir {@link #discoverAgendas}. */
+    private static final int MAX_DISCOVERY_LIMIT = 500;
 
-    public AdminImportController(ImportService importService) {
+    private final ImportService importService;
+    private final AgendaDiscoveryService agendaDiscoveryService;
+
+    public AdminImportController(ImportService importService, AgendaDiscoveryService agendaDiscoveryService) {
         this.importService = importService;
+        this.agendaDiscoveryService = agendaDiscoveryService;
     }
 
     @Operation(
@@ -85,6 +94,43 @@ public class AdminImportController {
     public ResponseEntity<List<ImportResult>> triggerImport() {
         List<ImportResult> results = importService.importAll();
         return ResponseEntity.ok(results);
+    }
+
+    @Operation(
+            summary = "Découvre les agendas OpenAgenda officiels (réservé aux administrateurs)",
+            description = "Liste les agendas officiels OpenAgenda, les plus actifs d'abord, et crée une source "
+                    + "collectible pour chacun de ceux qui n'en ont pas encore. Ne lance aucun import : les "
+                    + "nouvelles sources sont collectées à l'import suivant. Un agenda déjà présent comme "
+                    + "source, même inactive, n'est ni recréé ni modifié.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Découverte effectuée ; voir le détail dans la réponse."),
+        @ApiResponse(responseCode = "400", description = "Paramètre 'limit' hors bornes (1 à 500)."),
+        @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide)."),
+        @ApiResponse(responseCode = "403", description = "Rôle ADMIN requis."),
+        @ApiResponse(responseCode = "502",
+                description = "OpenAgenda injoignable, ou clé API non configurée.")
+    })
+    @PostMapping("/discover-agendas")
+    public ResponseEntity<Object> discoverAgendas(
+            @Parameter(description = "Nombre maximum d'agendas officiels à examiner (1 à 500).")
+            @RequestParam(defaultValue = "50") int limit,
+            HttpServletRequest httpRequest) {
+        if (limit < 1 || limit > MAX_DISCOVERY_LIMIT) {
+            return errorResponse(
+                    HttpStatus.BAD_REQUEST,
+                    "Le paramètre 'limit' doit être compris entre 1 et " + MAX_DISCOVERY_LIMIT + ".", httpRequest);
+        }
+        try {
+            return ResponseEntity.ok(agendaDiscoveryService.discoverOfficialAgendas(limit));
+        } catch (CollectorException exception) {
+            return errorResponse(HttpStatus.BAD_GATEWAY, exception.getMessage(), httpRequest);
+        }
+    }
+
+    private ResponseEntity<Object> errorResponse(HttpStatus status, String message, HttpServletRequest request) {
+        ErrorResponse body = new ErrorResponse(
+                Instant.now(), status.value(), status.getReasonPhrase(), message, request.getRequestURI());
+        return ResponseEntity.status(status).body(body);
     }
 
     /** Un import est déjà en cours (planifié ou manuel) : 409 plutôt qu'un second import en parallèle. */

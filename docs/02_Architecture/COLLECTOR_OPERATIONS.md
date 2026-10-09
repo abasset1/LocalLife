@@ -83,6 +83,31 @@ Loisirs, LL-8004) n'ont pas été migrés (jamais configurés avec un uid
 réel) — à créer depuis l'interface d'administration le jour où ils
 sont identifiés, plutôt que par une nouvelle migration.
 
+## Découverte des agendas officiels
+
+`POST /api/v1/admin/import/discover-agendas?limit=50` (rôle `ADMIN`)
+liste les agendas **officiels** OpenAgenda (`GET /v2/agendas?official=1`,
+les plus actifs d'abord) et crée une source collectible pour chacun de
+ceux qui n'en ont pas encore — voir `AgendaDiscoveryService` et
+`OpenAgendaAgendaDirectory`.
+
+* `limit` : nombre maximum d'agendas examinés, de 1 à 500 (50 par
+  défaut). OpenAgenda compte plusieurs milliers d'agendas officiels ;
+  la limite borne les essais tant que la déduplication entre sources
+  n'existe pas.
+* Un agenda déjà présent comme source (même `agendaUid`), active ou
+  non, n'est ni recréé ni modifié : désactiver une source découverte
+  l'écarte durablement.
+* Les sources créées sont de type `API`, actives, sans filtre région,
+  avec l'URL publique de l'agenda. Elles sont collectées à l'import
+  suivant ; la découverte ne lance aucun import.
+* Réponse : `listed`, `created`, `alreadyKnown`, `createdNames`. `502`
+  si OpenAgenda est injoignable ou si la clé API n'est pas configurée.
+
+⚠️ Écrit d'après la documentation OpenAgenda, sans appel réel possible
+en développement : paramètres et forme de la réponse à confirmer au
+premier essai.
+
 ## Comment est déclenché un import
 
 **Automatique**, depuis LL-8005 : `ImportScheduler`

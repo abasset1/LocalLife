@@ -2,11 +2,15 @@ package com.locallife.backend.collector.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.locallife.backend.collector.application.AgendaDiscoveryResult;
+import com.locallife.backend.collector.application.AgendaDiscoveryService;
 import com.locallife.backend.collector.application.ImportAlreadyRunningException;
 import com.locallife.backend.collector.application.ImportResult;
 import com.locallife.backend.collector.application.ImportService;
+import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.common.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
@@ -24,6 +28,9 @@ class AdminImportControllerTest {
 
     @Mock
     private ImportService importService;
+
+    @Mock
+    private AgendaDiscoveryService agendaDiscoveryService;
 
     @InjectMocks
     private AdminImportController adminImportController;
@@ -58,6 +65,40 @@ class AdminImportControllerTest {
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).containsExactly(degraded);
+    }
+
+    @Test
+    void discoverAgendas_ShouldReturnOkWithResult() {
+        AgendaDiscoveryResult result = new AgendaDiscoveryResult(50, 48, 2, List.of("Agenda A"));
+        when(agendaDiscoveryService.discoverOfficialAgendas(50)).thenReturn(result);
+
+        ResponseEntity<Object> response = adminImportController.discoverAgendas(
+                50, org.mockito.Mockito.mock(HttpServletRequest.class));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(result);
+    }
+
+    @Test
+    void discoverAgendas_ShouldReturnBadRequest_WhenLimitOutOfBounds() {
+        HttpServletRequest httpRequest = org.mockito.Mockito.mock(HttpServletRequest.class);
+
+        assertThat(adminImportController.discoverAgendas(0, httpRequest).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(adminImportController.discoverAgendas(501, httpRequest).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(agendaDiscoveryService);
+    }
+
+    @Test
+    void discoverAgendas_ShouldReturnBadGateway_WhenOpenAgendaFails() {
+        when(agendaDiscoveryService.discoverOfficialAgendas(50))
+                .thenThrow(new CollectorException("Échec de la découverte des agendas OpenAgenda.", null));
+
+        ResponseEntity<Object> response = adminImportController.discoverAgendas(
+                50, org.mockito.Mockito.mock(HttpServletRequest.class));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
     }
 
     @Test
