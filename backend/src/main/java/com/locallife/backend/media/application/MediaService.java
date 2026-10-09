@@ -50,6 +50,6 @@ public class MediaService {
      * activité.
      */
     public Media findOrCreate(Media candidate) {
-        return mediaRepository.findByUrl(candidate.url()).orElseGet(() -> create(candidate));
+        return mediaRepository.findFirstByUrlOrderByIdAsc(candidate.url()).orElseGet(() -> create(candidate));
     }
 }

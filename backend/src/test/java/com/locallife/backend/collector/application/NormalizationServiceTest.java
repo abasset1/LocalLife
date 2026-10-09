@@ -415,6 +415,20 @@ class NormalizationServiceTest {
     }
 
     @Test
+    void normalizeTags_ShouldTruncateTagsLongerThanTheColumn() {
+        // Un tag trop long faisait échouer l'insertion, donc tout l'enrichissement de l'activité.
+        String longTag = "a".repeat(140);
+        CollectedActivity collected = new CollectedActivity(
+                "Titre", "description", "marché", "https://example.com", "ext-1", "OpenAgenda Marseille",
+                null, null, null, null, LOCATION, SINGLE_TIMING, null, List.of(), List.of(), null,
+                List.of(longTag, " marché "), null);
+
+        List<ActivityTag> result = normalizationService.normalizeTags(collected, 1L);
+
+        assertEquals(List.of("a".repeat(100), "marché"), result.stream().map(ActivityTag::tag).toList());
+    }
+
+    @Test
     void normalizeMetadata_ShouldReturnEmpty_WhenRegistrationInfoIsBlank() {
         assertTrue(normalizationService.normalizeMetadata(validCollectedActivity(), 1L).isEmpty());
     }

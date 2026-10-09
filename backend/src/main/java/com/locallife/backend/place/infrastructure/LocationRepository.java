@@ -33,7 +33,14 @@ public interface LocationRepository extends Repository<Location, Long> {
      * NULL} en SQL, cette méthode n'est donc appelée par {@code
      * findOrCreate} que lorsque les trois valeurs sont non nulles).
      */
-    Optional<Location> findByAddressAndCityAndPostalCode(String address, String city, String postalCode);
+    /*
+     * « First ... OrderByIdAsc » sur les deux recherches ci-dessous : aucune contrainte d'unicité ne
+     * garantit un seul lieu par adresse ou par coordonnées (deux lieux d'un même bâtiment, lieu créé deux
+     * fois par des imports simultanés). Avec un Optional simple, un doublon faisait échouer la recherche,
+     * donc tout l'enrichissement des activités de ce lieu, à chaque import. Le plus ancien est retenu.
+     */
+    Optional<Location> findFirstByAddressAndCityAndPostalCodeOrderByIdAsc(
+            String address, String city, String postalCode);
 
     /**
      * Retrouve un lieu déjà connu par coordonnées exactes (LL-11011),
@@ -42,7 +49,7 @@ public interface LocationRepository extends Repository<Location, Long> {
      * reconnaître un même lieu réimporté depuis la même source (mêmes
      * coordonnées à chaque collecte).
      */
-    Optional<Location> findByLatitudeAndLongitude(Double latitude, Double longitude);
+    Optional<Location> findFirstByLatitudeAndLongitudeOrderByIdAsc(Double latitude, Double longitude);
 
     Location save(Location location);
 }
