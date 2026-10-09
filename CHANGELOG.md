@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.33 — 2026-10-09
+
+### Erreurs plus explicites (route absente, profil)
+- Backend : une route inexistante (`NoResourceFoundException`, levée par Spring MVC faute de contrôleur) renvoie désormais **404** « Route introuvable : GET /api/v1/… », journalisée en avertissement, au lieu d'un 500 « Erreur serveur non gérée ». Cas rencontré avec un backend pas encore relancé après les dernières fusions alors que le frontend l'était déjà.
+- Web : les erreurs de chargement de la page profil (paramètres de recherche, alertes) affichent la cause renvoyée par le backend et le code HTTP (`describeErrorResponse` dans `apiClient.ts`), au lieu d'un message générique.
+- Tests : `GlobalExceptionHandlerTest` (404 sur route absente). Vérifié : `mvn verify` (1004 tests, checkstyle), `npm run build` ; appel réel d'une route inexistante (404 + avertissement) ; page profil dans le navigateur avec un backend simulé pas à jour (« Impossible de charger tes paramètres : Route introuvable : GET /api/v1/users/me/preferences (HTTP 404). ») et avec le backend réel (aucune erreur).
+
 ## 0.9.32 — 2026-10-09
 
 ### Carte cadrée sur la ville, le rayon et les catégories favoris

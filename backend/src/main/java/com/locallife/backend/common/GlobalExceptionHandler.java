@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Gestion globale des exceptions non gérées : transforme toute exception
@@ -19,6 +20,28 @@ import org.springframework.web.context.request.WebRequest;
 public class GlobalExceptionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * Route inexistante : Spring MVC, faute de contrôleur, cherche une
+     * ressource statique et lève {@link NoResourceFoundException}. C'est une
+     * erreur de l'appelant (ou un backend pas à jour par rapport au
+     * frontend), pas une panne serveur : 404 et simple avertissement, au lieu
+     * du 500 « erreur serveur non gérée » du gestionnaire générique.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException exception, WebRequest request) {
+        String path = request.getDescription(false).replace("uri=", "");
+        LOGGER.warn("Route introuvable : {} {}", exception.getHttpMethod(), path);
+
+        ErrorResponse body = new ErrorResponse(
+                Instant.now(),
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                "Route introuvable : " + exception.getHttpMethod() + " " + path,
+                path);
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception exception, WebRequest request) {
