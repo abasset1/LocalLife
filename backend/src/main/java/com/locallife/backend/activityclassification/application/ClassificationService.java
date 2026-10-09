@@ -85,6 +85,25 @@ public class ClassificationService {
     }
 
     /**
+     * Version du référentiel de classification : change dès qu'un mot-clé actif (texte, catégorie, portée)
+     * ou l'état d'une catégorie change. Tant qu'elle est identique, {@link #decide(String, String, List)}
+     * rend la même décision pour les mêmes entrées : l'import s'en sert pour ne pas re-décider à chaque
+     * passage un élément en quarantaine inchangé.
+     */
+    public String referentialVersion() {
+        StringBuilder state = new StringBuilder();
+        for (CategoryKeyword keyword : keywordRepository.findByActiveTrueOrderByIdAsc()) {
+            state.append(keyword.categoryId()).append('|').append(keyword.keyword()).append('|')
+                    .append(keyword.scope()).append('\n');
+        }
+        categoryRepository.findAll().stream()
+                .sorted(java.util.Comparator.comparing(Category::id))
+                .forEach(category -> state.append(category.id()).append('|').append(category.code()).append('|')
+                        .append(category.active()).append('\n'));
+        return Integer.toHexString(state.toString().hashCode()) + "-" + state.length();
+    }
+
+    /**
      * Mêmes signaux que {@link ActivityClassifier#classify} : vrai dès qu'une catégorie d'origine ou un
      * tag non blanc existe. Absent, null, vide ou uniquement blanc → fallback titre.
      */

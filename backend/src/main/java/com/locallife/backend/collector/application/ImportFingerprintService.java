@@ -40,14 +40,27 @@ public class ImportFingerprintService {
      * l'ordre de déclaration, records et listes imbriqués compris).
      */
     public String compute(CollectedActivity collected) {
+        return sha256(VERSION + "\n" + collected);
+    }
+
+    private static String sha256(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest((VERSION + "\n" + collected).getBytes(StandardCharsets.UTF_8));
+            byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException exception) {
             // SHA-256 fait partie de tout JDK conforme : ne peut pas survenir en pratique.
             throw new IllegalStateException("SHA-256 non disponible.", exception);
         }
+    }
+
+    /**
+     * Empreinte d'un élément <b>en quarantaine</b> : son contenu et l'état du référentiel de
+     * classification au moment de la décision. Elle change si l'un ou l'autre change, donc un élément
+     * non classé est re-décidé dès qu'un mot-clé ou une catégorie est modifié.
+     */
+    public String computeQuarantined(String contentFingerprint, String referentialVersion) {
+        return sha256("quarantine\n" + contentFingerprint + "\n" + referentialVersion);
     }
 
     /** Empreintes enregistrées pour une source, en une requête : clé d'import → empreinte. */

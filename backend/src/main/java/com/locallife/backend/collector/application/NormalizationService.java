@@ -99,6 +99,9 @@ public class NormalizationService {
     /** Alignée sur la colonne {@code activity.title} (V2__create_activity_table.sql). */
     private static final int MAX_TITLE_LENGTH = 255;
 
+    /** Longueur de {@code activity_tag.tag} (V24). */
+    private static final int MAX_TAG_LENGTH = 100;
+
     private final RecurrenceRuleService recurrenceRuleService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -327,7 +330,11 @@ public class NormalizationService {
      * Tags (LL-11009/LL-11011, « tags conservés »). Valeurs vides/blanches
      * ignorées et doublons supprimés (contrainte {@code UNIQUE(activity_id,
      * tag)} de {@code V24__create_accessibility_tag_metadata_tables.sql} :
-     * mieux vaut filtrer ici qu'échouer plus tard à la sauvegarde).
+     * mieux vaut filtrer ici qu'échouer plus tard à la sauvegarde). Même
+     * raison pour la longueur : un tag de plus de {@value #MAX_TAG_LENGTH}
+     * caractères (colonne {@code activity_tag.tag}) est tronqué, sinon son
+     * insertion échoue et fait perdre tout le reste de l'enrichissement de
+     * l'activité — constaté sur un import réel le 09/10/2026.
      */
     public List<ActivityTag> normalizeTags(CollectedActivity collected, Long activityId) {
         if (collected.tags() == null || activityId == null) {
@@ -335,6 +342,8 @@ public class NormalizationService {
         }
         return collected.tags().stream()
                 .filter(this::hasText)
+                .map(String::trim)
+                .map(tag -> tag.length() <= MAX_TAG_LENGTH ? tag : tag.substring(0, MAX_TAG_LENGTH).trim())
                 .distinct()
                 .map(tag -> new ActivityTag(null, activityId, tag))
                 .toList();
