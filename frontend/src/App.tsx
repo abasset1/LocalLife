@@ -13,6 +13,7 @@ import ExplorerFilters from "./components/explorer/ExplorerFilters";
 import ExplorerMap from "./components/explorer/ExplorerMap";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
 import ExplorerSearch from "./components/explorer/ExplorerSearch";
+import OnboardingModal from "./components/onboarding/OnboardingModal";
 import type {
     Activity,
     ActivityDetail,
@@ -74,6 +75,26 @@ function App() {
      * non connecté : rien à attendre.
      */
     const [arePreferencesApplied, setArePreferencesApplied] = useState(() => getPayload() === null);
+    /** Première connexion : préférences jamais enregistrées, l'accueil les fait choisir (OnboardingModal). */
+    const [needsOnboarding, setNeedsOnboarding] = useState(false);
+
+    /**
+     * Applique des préférences à la carte : catégories cochées, rayon de
+     * recherche et de cadrage, ville comme point de départ. Retourne `true` si
+     * elles contiennent une ville (pas de géolocalisation automatique alors).
+     */
+    function applyPreferences(preferences: UserPreferences): boolean {
+        setSelectedCategoryCodes(preferences.defaultCategoryCodes);
+        if (preferences.defaultRadiusKm !== null) {
+            setSearchRadiusKm(preferences.defaultRadiusKm);
+            setFavoriteRadiusKm(preferences.defaultRadiusKm);
+        }
+        if (preferences.defaultLatitude !== null && preferences.defaultLongitude !== null) {
+            setUserPosition({ latitude: preferences.defaultLatitude, longitude: preferences.defaultLongitude });
+            return true;
+        }
+        return false;
+    }
     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
     const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
     const [viewMode, setViewMode] = useState<"map" | "list">("map");
@@ -128,17 +149,9 @@ function App() {
                 });
                 if (response.ok) {
                     const preferences: UserPreferences = await response.json();
-                    setSelectedCategoryCodes(preferences.defaultCategoryCodes);
-                    if (preferences.defaultRadiusKm !== null) {
-                        setSearchRadiusKm(preferences.defaultRadiusKm);
-                        setFavoriteRadiusKm(preferences.defaultRadiusKm);
-                    }
-                    if (preferences.defaultLatitude !== null && preferences.defaultLongitude !== null) {
-                        hasDefaultCity = true;
-                        setUserPosition({
-                            latitude: preferences.defaultLatitude,
-                            longitude: preferences.defaultLongitude,
-                        });
+                    hasDefaultCity = applyPreferences(preferences);
+                    if (preferences.configured === false) {
+                        setNeedsOnboarding(true);
                     }
                 }
             } catch {
@@ -329,6 +342,7 @@ function App() {
     function handleLogout() {
         clearToken();
         setCurrentUser(null);
+        setNeedsOnboarding(false);
     }
 
     // LL-EF-001 : un visiteur non connecté est redirigé vers /login plutôt que de voir le formulaire.
@@ -676,6 +690,17 @@ function App() {
                     </div>
                 </div>
             </div>
+
+            {needsOnboarding && currentUser && (
+                <OnboardingModal
+                    categories={categories}
+                    onFinish={() => setNeedsOnboarding(false)}
+                    onLogout={handleLogout}
+                    onPreferencesSaved={(preferences) => {
+                        applyPreferences(preferences);
+                    }}
+                />
+            )}
 
             {isContributionModalOpen && currentUser && (
                 <ContributionModal

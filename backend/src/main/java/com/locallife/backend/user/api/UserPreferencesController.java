@@ -39,7 +39,9 @@ public class UserPreferencesController {
     @GetMapping
     public UserPreferencesResponse getPreferences(Authentication authentication) {
         Long userId = ((JwtAuthentication) authentication).getUserId();
-        return UserPreferencesResponse.from(userPreferencesService.getPreferences(userId));
+        return userPreferencesService.findPreferences(userId)
+                .map(UserPreferencesResponse::from)
+                .orElseGet(() -> UserPreferencesResponse.notConfigured(userId));
     }
 
     /**
@@ -103,17 +105,30 @@ public class UserPreferencesController {
     public record CityResponse(String city, Double latitude, Double longitude) {
     }
 
+    /**
+     * {@code configured} : {@code false} tant que l'utilisateur n'a jamais
+     * enregistré ses préférences (première connexion) — le frontend affiche
+     * alors l'accueil qui les fait choisir.
+     */
     public record UserPreferencesResponse(
             String defaultCity,
             Double defaultLatitude,
             Double defaultLongitude,
             Integer defaultRadiusKm,
-            List<String> defaultCategoryCodes) {
+            List<String> defaultCategoryCodes,
+            boolean configured) {
 
         static UserPreferencesResponse from(UserPreferences preferences) {
             return new UserPreferencesResponse(
                     preferences.defaultCity(), preferences.defaultLatitude(), preferences.defaultLongitude(),
-                    preferences.defaultRadiusKm(), preferences.defaultCategoryCodes());
+                    preferences.defaultRadiusKm(), preferences.defaultCategoryCodes(), true);
+        }
+
+        static UserPreferencesResponse notConfigured(Long userId) {
+            UserPreferences empty = UserPreferences.empty(userId);
+            return new UserPreferencesResponse(
+                    empty.defaultCity(), empty.defaultLatitude(), empty.defaultLongitude(), empty.defaultRadiusKm(),
+                    empty.defaultCategoryCodes(), false);
         }
 
     }

@@ -10,6 +10,7 @@ import com.locallife.backend.user.infrastructure.UserPreferencesRepository;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -41,7 +42,16 @@ public class UserPreferencesService {
 
     /** Préférences de l'utilisateur, vides s'il n'en a jamais enregistré. */
     public UserPreferences getPreferences(Long userId) {
-        return userPreferencesRepository.findByUserId(userId).orElseGet(() -> UserPreferences.empty(userId));
+        return findPreferences(userId).orElseGet(() -> UserPreferences.empty(userId));
+    }
+
+    /**
+     * Préférences enregistrées, ou vide si l'utilisateur n'en a encore
+     * jamais enregistré — ce qui déclenche l'accueil de première connexion
+     * côté frontend (choix obligatoire des préférences).
+     */
+    public Optional<UserPreferences> findPreferences(Long userId) {
+        return userPreferencesRepository.findByUserId(userId);
     }
 
     /**
