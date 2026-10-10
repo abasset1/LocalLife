@@ -3,6 +3,8 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 import { clearToken, getPayload } from "../auth/authStorage";
+import { USERNAME_MAX_LENGTH, useUsernameAvailability } from "../auth/useUsernameAvailability";
+import UsernameStatusMessage from "../components/UsernameStatusMessage";
 import ActivityAlertsSection from "../components/profile/ActivityAlertsSection";
 import { Notice, ProfileCard } from "../components/profile/ProfileUi";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
@@ -51,6 +53,7 @@ function ProfilePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [saveSuccess, setSaveSuccess] = useState(false);
+    const usernameStatus = useUsernameAvailability(username, profile?.username);
 
     /**
      * Garde d'accès (critère d'acceptation « un utilisateur connecté peut
@@ -101,15 +104,19 @@ function ProfilePage() {
 
     async function handleSubmit(event: FormEvent) {
         event.preventDefault();
-        setIsSaving(true);
         setSaveError(null);
         setSaveSuccess(false);
+        if (usernameStatus.kind === "unavailable") {
+            setSaveError(usernameStatus.message);
+            return;
+        }
+        setIsSaving(true);
 
         try {
             const response = await apiFetch("/api/v1/users/me", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, email }),
+                body: JSON.stringify({ username: username.trim(), email }),
             });
 
             if (response.ok) {
@@ -182,12 +189,20 @@ function ProfilePage() {
                                                 Nom d'utilisateur
                                             </label>
                                             <input
+                                                aria-describedby="profile-username-status"
+                                                aria-invalid={usernameStatus.kind === "unavailable"}
+                                                autoComplete="username"
                                                 className="pp-input"
                                                 id="profile-username"
+                                                maxLength={USERNAME_MAX_LENGTH}
                                                 onChange={(event) => setUsername(event.target.value)}
                                                 required
                                                 type="text"
                                                 value={username}
+                                            />
+                                            <UsernameStatusMessage
+                                                id="profile-username-status"
+                                                status={usernameStatus}
                                             />
                                         </div>
                                         <div className="pp-field">

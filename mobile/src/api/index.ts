@@ -13,6 +13,6 @@ export type { CallOptions } from './activities';
 export { createAlert, deleteAlert, listAlerts, updateAlertChannels } from './alerts';
 export { listCategories } from './categories';
 export { listFoodTrucks } from './foodTrucks';
-export { login, register } from './auth';
+export { checkUsernameAvailability, login, register } from './auth';
 export { getPreferences, lookupCity, updatePreferences } from './preferences';
 export { registerPushToken, unregisterPushToken } from './pushTokens';

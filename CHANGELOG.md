@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.39 — 2026-10-10
+
+### LS-000 — Nom d'utilisateur unique
+- Règles (`UsernamePolicy`) : 3 à 30 caractères parmi lettres sans accent, chiffres, « . », « _ » et « - », en commençant par une lettre ou un chiffre ; unique sans tenir compte de la casse (« Alice » et « alice » ne peuvent pas coexister) ; noms réservés refusés (admin, support, locallife, moderateur, api…). Appliquées à l'inscription, à la modification du profil et à la création d'utilisateur par un administrateur.
+- Base (migration V57) : `username` devient `NOT NULL`, `VARCHAR(30)`, avec une contrainte de format et un index unique sur `lower(username)`. Les comptes existants sont d'abord mis en conformité, du plus ancien au plus récent : nom hors format nettoyé (« Jean Dupont » → « Jean-Dupont », trop court → « membre-<id> »), doublon suffixé (« alex », « Alex » → « alex », « Alex-2 »). Chaque renommage est signalé dans les journaux de migration (`LS-000 : compte … renommé de … en …`).
+- Inscription Google : le nom proposé (nom Google ou début de l'email) est rendu conforme et libre (« Élodie Durand » → « Elodie-Durand », « -2 » si déjà pris).
+- Profil : le nom reste modifiable avec les mêmes règles ; un compte peut garder son nom actuel (y compris un nom réservé hérité, comme le premier administrateur « admin ») ou en changer la casse.
+- Nouveau `GET /api/v1/auth/username-availability?username=…` (public) : le web (inscription, profil) et le mobile (inscription) indiquent pendant la saisie si le nom est valide et libre.
+- Tests : `UsernamePolicyTest`, cas ajoutés à `AuthServiceTest`, `UserServiceTest`, `UserRepositoryIntegrationTest` (unicité et format garantis par la base) ; tests d'intégration adaptés (noms d'utilisateur uniques). Vérifié : `mvn verify` (1062 tests, checkstyle), build web, mobile `tsc`/`eslint`/`jest` ; migration rejouée sur un jeu de doublons et de noms invalides ; parcours web contre le backend réel (nom trop court, espace, réservé, pris avec une autre casse, libre ; profil : « Admin » refusé, changement de casse enregistré).
+
 ## 0.9.38 — 2026-10-10
 
 ### Rayon modifiable depuis l'écran principal + carte dézoomée à l'échelle du monde

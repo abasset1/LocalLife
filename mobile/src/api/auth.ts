@@ -1,6 +1,6 @@
 import { request } from './http';
 import type { CallOptions } from './activities';
-import type { LoginRequest, LoginResponse, RegisterRequest, UserProfile } from './types';
+import type { LoginRequest, LoginResponse, RegisterRequest, UserProfile, UsernameAvailability } from './types';
 
 /**
  * Endpoints d'authentification (publics : jamais de JWT envoyé).
@@ -29,6 +29,14 @@ export function login(payload: LoginRequest, options: CallOptions = {}): Promise
   return request<LoginResponse>(`${BASE}/login`, {
     method: 'POST',
     body: payload,
+    signal: options.signal,
+  });
+}
+
+/** `GET /auth/username-availability` — le nom d'utilisateur est-il valide et libre (LS-000) ? */
+export function checkUsernameAvailability(username: string, options: CallOptions = {}): Promise<UsernameAvailability> {
+  return request<UsernameAvailability>(`${BASE}/username-availability`, {
+    query: { username },
     signal: options.signal,
   });
 }

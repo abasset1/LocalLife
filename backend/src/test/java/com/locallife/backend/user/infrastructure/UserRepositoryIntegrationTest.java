@@ -1,6 +1,7 @@
 package com.locallife.backend.user.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
@@ -9,6 +10,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -63,4 +65,35 @@ class UserRepositoryIntegrationTest {
         assertThat(found).isEmpty();
     }
 
+
+    // --- LS-000 : nom d'utilisateur unique, garanti par la base ---
+
+    @Test
+    void findByUsernameIgnoreCase_ShouldMatchWhateverTheCase() {
+        userRepository.save(new User(null, "Ls000-Carol", "ls000-carol@example.com", "hash", Role.USER,
+                LocalDateTime.now(), true));
+
+        assertThat(userRepository.findByUsernameIgnoreCase("ls000-CAROL"))
+                .map(User::username).contains("Ls000-Carol");
+        assertThat(userRepository.findByUsernameIgnoreCase("ls000-dave")).isEmpty();
+    }
+
+    @Test
+    void save_ShouldBeRejectedByDatabase_WhenUsernameTakenWithAnotherCase() {
+        userRepository.save(new User(null, "ls000-erin", "ls000-erin@example.com", "hash", Role.USER,
+                LocalDateTime.now(), true));
+
+        assertThatThrownBy(() -> userRepository.save(new User(null, "LS000-ERIN", "ls000-erin2@example.com", "hash",
+                Role.USER, LocalDateTime.now(), true)))
+                .isInstanceOf(DataAccessException.class)
+                .hasStackTraceContaining("users_username_lower_key");
+    }
+
+    @Test
+    void save_ShouldBeRejectedByDatabase_WhenUsernameMalformed() {
+        assertThatThrownBy(() -> userRepository.save(new User(null, "jean dupont", "ls000-jean@example.com", "hash",
+                Role.USER, LocalDateTime.now(), true)))
+                .isInstanceOf(DataAccessException.class)
+                .hasStackTraceContaining("users_username_format");
+    }
 }

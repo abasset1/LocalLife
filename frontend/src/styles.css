@@ -2501,3 +2501,29 @@ body {
     flex-wrap: wrap;
     gap: 0.4rem;
 }
+
+/* LS-000 : vérification du nom d'utilisateur pendant la saisie. */
+.username-status {
+    display: block;
+    min-height: 1.1rem;
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.username-status-hint {
+    color: var(--ll-muted, #64748b);
+}
+
+.username-status-ok {
+    color: #1f7a4d;
+    font-weight: 650;
+}
+
+.username-status-error {
+    color: #c2412d;
+    font-weight: 650;
+}
+
+.auth-form .username-status {
+    margin-top: -0.35rem;
+}

@@ -20,9 +20,11 @@ public class UserService {
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     private final UserRepository userRepository;
+    private final UsernamePolicy usernamePolicy;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, UsernamePolicy usernamePolicy) {
         this.userRepository = userRepository;
+        this.usernamePolicy = usernamePolicy;
     }
 
     /**
@@ -32,8 +34,9 @@ public class UserService {
      * qui gérera le hachage du mot de passe (LL-3003).
      */
     public User createUser(String username, String email) {
-        User user = new User(null, username, email, null, Role.USER, LocalDateTime.now(), false);
-        return userRepository.save(user);
+        String validUsername = usernamePolicy.validate(username, null);
+        User user = new User(null, validUsername, email, null, Role.USER, LocalDateTime.now(), false);
+        return usernamePolicy.saveGuarded(() -> userRepository.save(user));
     }
 
     public Optional<User> getUserById(Long id) {
@@ -42,7 +45,8 @@ public class UserService {
 
     /**
      * Modifie le profil d'un utilisateur (LL-EF-006, « informations
-     * autorisées ») : uniquement {@code username}/{@code email} —
+     * autorisées ») : uniquement {@code username}/{@code email} — le nom
+     * suit les règles de {@link UsernamePolicy} (LS-000) —
      * {@code role} et {@code passwordHash} ne sont jamais modifiables par
      * cet endpoint (changement de mot de passe hors périmètre de ce
      * ticket, voir sa section « Prévoir une structure pouvant accueillir
@@ -59,17 +63,15 @@ public class UserService {
      */
     public User updateProfile(Long id, String username, String email) {
         User existing = userRepository.findById(id).orElseThrow();
-        validateProfileUpdate(username, email, id);
+        String validUsername = validateProfileUpdate(username, email, id);
         User updated = new User(
-                existing.id(), username, email, existing.passwordHash(), existing.role(), existing.createdAt(),
+                existing.id(), validUsername, email, existing.passwordHash(), existing.role(), existing.createdAt(),
                 existing.emailVerified());
-        return userRepository.save(updated);
+        return usernamePolicy.saveGuarded(() -> userRepository.save(updated));
     }
 
-    private void validateProfileUpdate(String username, String email, Long currentUserId) {
-        if (username == null || username.isBlank()) {
-            throw new IllegalArgumentException("Le nom d'utilisateur est requis.");
-        }
+    private String validateProfileUpdate(String username, String email, Long currentUserId) {
+        String validUsername = usernamePolicy.validate(username, currentUserId);
         if (email == null || !EMAIL_PATTERN.matcher(email).matches()) {
             throw new IllegalArgumentException("L'adresse email n'est pas valide.");
         }
@@ -77,6 +79,7 @@ public class UserService {
         if (ownerOfEmail.isPresent() && !ownerOfEmail.get().id().equals(currentUserId)) {
             throw new IllegalArgumentException("Cet email est déjà utilisé.");
         }
+        return validUsername;
     }
 
 }

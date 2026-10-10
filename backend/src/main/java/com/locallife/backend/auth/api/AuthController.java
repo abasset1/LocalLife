@@ -5,14 +5,17 @@ import com.locallife.backend.auth.application.EmailNotVerifiedException;
 import com.locallife.backend.auth.application.EmailVerificationService;
 import com.locallife.backend.auth.application.PasswordResetService;
 import com.locallife.backend.common.ErrorResponse;
+import com.locallife.backend.user.application.UsernamePolicy;
 import com.locallife.backend.user.domain.User;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -22,7 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
  * via Google) et, depuis LL-EF-007, POST /api/v1/auth/forgot-password et
  * POST /api/v1/auth/reset-password (réinitialisation de mot de passe), puis
  * POST /api/v1/auth/verify-email et POST /api/v1/auth/resend-verification
- * (confirmation de l'adresse email après inscription).
+ * (confirmation de l'adresse email après inscription), et GET
+ * /api/v1/auth/username-availability (LS-000, nom d'utilisateur libre ?).
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -37,14 +41,38 @@ public class AuthController {
 
     private final PasswordResetService passwordResetService;
     private final EmailVerificationService emailVerificationService;
+    private final UsernamePolicy usernamePolicy;
 
     public AuthController(
             AuthService authService,
             PasswordResetService passwordResetService,
-            EmailVerificationService emailVerificationService) {
+            EmailVerificationService emailVerificationService,
+            UsernamePolicy usernamePolicy) {
         this.authService = authService;
         this.passwordResetService = passwordResetService;
         this.emailVerificationService = emailVerificationService;
+        this.usernamePolicy = usernamePolicy;
+    }
+
+    /**
+     * Indique si un nom d'utilisateur peut être choisi (LS-000), pour que les
+     * formulaires d'inscription et de profil le signalent pendant la saisie.
+     * Public : le nom d'utilisateur est un identifiant public, savoir s'il est
+     * pris ne révèle rien de plus que la recherche d'utilisateurs.
+     * L'inscription et la modification du profil revérifient toujours.
+     */
+    @GetMapping("/username-availability")
+    public UsernameAvailabilityResponse usernameAvailability(@RequestParam("username") String username) {
+        return usernamePolicy.unavailabilityReason(username)
+                .map(reason -> new UsernameAvailabilityResponse(false, reason))
+                .orElseGet(() -> new UsernameAvailabilityResponse(true, null));
+    }
+
+    /**
+     * Réponse de {@link #usernameAvailability} : {@code message} explique un
+     * refus, {@code null} quand le nom est libre.
+     */
+    public record UsernameAvailabilityResponse(boolean available, String message) {
     }
 
     /**

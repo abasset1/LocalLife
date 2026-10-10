@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import com.locallife.backend.auth.api.LoginRequest;
 import com.locallife.backend.auth.api.LoginResponse;
 import com.locallife.backend.user.application.PasswordHashingService;
+import com.locallife.backend.user.application.UsernamePolicy;
 import com.locallife.backend.user.domain.AuthProvider;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
@@ -22,11 +23,11 @@ import com.locallife.backend.user.infrastructure.UserIdentityRepository;
 import com.locallife.backend.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -51,8 +52,14 @@ class AuthServiceTest {
     @Mock
     private EmailVerificationService emailVerificationService;
 
-    @InjectMocks
     private AuthService authService;
+
+    // Règles réelles du nom d'utilisateur, branchées sur le repository simulé.
+    @BeforeEach
+    void setUp() {
+        authService = new AuthService(userRepository, userIdentityRepository, jwtService, passwordHashingService,
+                googleAuthService, emailVerificationService, new UsernamePolicy(userRepository));
+    }
 
     // --- register ---
 
@@ -131,6 +138,40 @@ class AuthServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> authService.register("  ", "alice@example.com", "motDePasse123"));
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void register_ShouldThrow_WhenUsernameTakenWithAnotherCase() {
+        when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsernameIgnoreCase("ALICE")).thenReturn(Optional.of(
+                new User(9L, "alice", "other@example.com", "hash", Role.USER, LocalDateTime.now(), true)));
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> authService.register("ALICE", "alice@example.com", "motDePasse123"));
+
+        assertEquals("Ce nom d'utilisateur est déjà pris.", error.getMessage());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void register_ShouldThrow_WhenUsernameIsReserved() {
+        when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.empty());
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> authService.register("Admin", "alice@example.com", "motDePasse123"));
+
+        assertEquals("Ce nom d'utilisateur est réservé.", error.getMessage());
+    }
+
+    @Test
+    void register_ShouldTrimUsername() {
+        when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.empty());
+        when(passwordHashingService.hash("motDePasse123")).thenReturn("hashed");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User created = authService.register("  alice  ", "alice@example.com", "motDePasse123");
+
+        assertEquals("alice", created.username());
     }
 
     // --- bootstrapFirstAdmin ---
@@ -334,7 +375,7 @@ class AuthServiceTest {
         // Then
         assertEquals("un.jwt.token", response.token());
         verify(userRepository).save(argThat(user ->
-                user.username().equals("Nouveau Venu")
+                user.username().equals("Nouveau-Venu")
                         && user.email().equals("nouveau@gmail.com")
                         // Jamais null (colonne NOT NULL) ni un vrai hash BCrypt : aucun mot de
                         // passe LocalLife n'est demandé pour ce compte (exigence du ticket).
@@ -369,6 +410,28 @@ class AuthServiceTest {
 
         // Then
         verify(userRepository).save(argThat(user -> user.username().equals("nouveau")));
+    }
+
+    @Test
+    void loginOrRegisterWithGoogle_ShouldSuffixUsername_WhenGeneratedNameAlreadyTaken() {
+        when(googleAuthService.verify("id-token"))
+                .thenReturn(new GoogleAuthService.GoogleIdentity("google-sub-9", "jean@gmail.com", "Jean Dupont"));
+        when(userIdentityRepository.findByProviderAndProviderUserId(AuthProvider.GOOGLE, "google-sub-9"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmail("jean@gmail.com")).thenReturn(Optional.empty());
+        User taken = new User(5L, "jean-dupont", "autre@example.com", "hash", Role.USER, LocalDateTime.now(), true);
+        when(userRepository.findByUsernameIgnoreCase(any())).thenAnswer(invocation ->
+                "Jean-Dupont".equalsIgnoreCase(invocation.getArgument(0)) ? Optional.of(taken) : Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User toSave = invocation.getArgument(0);
+            return new User(6L, toSave.username(), toSave.email(), toSave.passwordHash(), toSave.role(),
+                    toSave.createdAt(), toSave.emailVerified());
+        });
+        when(jwtService.generateToken(6L, "jean@gmail.com", Role.USER)).thenReturn("jwt");
+
+        authService.loginOrRegisterWithGoogle("id-token");
+
+        verify(userRepository).save(argThat(user -> user.username().equals("Jean-Dupont-2")));
     }
 
 }

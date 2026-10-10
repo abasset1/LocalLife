@@ -29,6 +29,14 @@ Le username doit :
 
 Le username devient l'identifiant public permettant de rechercher un utilisateur.
 
+Statut : Terminé (backend, web, mobile). Règles : 3 à 30 caractères
+(lettres sans accent, chiffres, « . », « _ », « - », premier caractère
+lettre ou chiffre), unicité insensible à la casse garantie par l'index
+`users_username_lower_key`, noms réservés dans `UsernamePolicy`. Les
+comptes existants ont été mis en conformité par la migration V57.
+Modification possible depuis le profil web ; l'application mobile n'a pas
+encore d'écran de modification du profil.
+
 ---
 
 LS-001 — Rechercher et ajouter un utilisateur comme ami

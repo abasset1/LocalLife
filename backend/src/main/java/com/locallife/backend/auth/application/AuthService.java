@@ -3,6 +3,7 @@ package com.locallife.backend.auth.application;
 import com.locallife.backend.auth.api.LoginRequest;
 import com.locallife.backend.auth.api.LoginResponse;
 import com.locallife.backend.user.application.PasswordHashingService;
+import com.locallife.backend.user.application.UsernamePolicy;
 import com.locallife.backend.user.domain.AuthProvider;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
@@ -36,6 +37,7 @@ public class AuthService {
     private final PasswordHashingService passwordHashingService;
     private final GoogleAuthService googleAuthService;
     private final EmailVerificationService emailVerificationService;
+    private final UsernamePolicy usernamePolicy;
 
     public AuthService(
             UserRepository userRepository,
@@ -43,13 +45,15 @@ public class AuthService {
             JwtService jwtService,
             PasswordHashingService passwordHashingService,
             GoogleAuthService googleAuthService,
-            EmailVerificationService emailVerificationService) {
+            EmailVerificationService emailVerificationService,
+            UsernamePolicy usernamePolicy) {
         this.userRepository = userRepository;
         this.userIdentityRepository = userIdentityRepository;
         this.jwtService = jwtService;
         this.passwordHashingService = passwordHashingService;
         this.googleAuthService = googleAuthService;
         this.emailVerificationService = emailVerificationService;
+        this.usernamePolicy = usernamePolicy;
     }
 
     /**
@@ -67,11 +71,12 @@ public class AuthService {
      */
     public User register(String username, String email, String password) {
         String normalizedEmail = email == null ? null : email.trim();
-        validateCredentials(username, normalizedEmail, password);
+        validateCredentials(normalizedEmail, password);
+        String validUsername = usernamePolicy.validate(username, null);
 
         String passwordHash = passwordHashingService.hash(password);
-        User user = new User(null, username, normalizedEmail, passwordHash, Role.USER, LocalDateTime.now(), false);
-        User saved = userRepository.save(user);
+        User user = new User(null, validUsername, normalizedEmail, passwordHash, Role.USER, LocalDateTime.now(), false);
+        User saved = usernamePolicy.saveGuarded(() -> userRepository.save(user));
         emailVerificationService.sendVerification(saved);
         return saved;
     }
@@ -98,17 +103,15 @@ public class AuthService {
             return Optional.empty();
         }
 
-        validateCredentials(username, email, password);
+        validateCredentials(email, password);
+        String validUsername = usernamePolicy.validateForBootstrap(username);
 
         String passwordHash = passwordHashingService.hash(password);
-        User admin = new User(null, username, email, passwordHash, Role.ADMIN, LocalDateTime.now(), true);
+        User admin = new User(null, validUsername, email, passwordHash, Role.ADMIN, LocalDateTime.now(), true);
         return Optional.of(userRepository.save(admin));
     }
 
-    private void validateCredentials(String username, String email, String password) {
-        if (username == null || username.isBlank()) {
-            throw new IllegalArgumentException("Le nom d'utilisateur est requis.");
-        }
+    private void validateCredentials(String email, String password) {
         if (email == null || email.length() > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.matcher(email).matches()) {
             throw new IllegalArgumentException("L'adresse email n'est pas valide.");
         }
@@ -187,11 +190,10 @@ public class AuthService {
      *
      * Nom d'utilisateur d'un compte nouvellement créé : repli sur la
      * partie locale de l'email si Google n'a pas fourni de nom affiché
-     * (claim {@code name} absent) — {@code username} restant {@code NOT
-     * NULL} sur {@code users} (voir {@code V4__create_users_table.sql})
-     * sans être encore garanti unique à ce stade du projet (LL-EF-017 non
-     * traité), aucune vérification d'unicité n'est donc faite ici, à
-     * l'identique de {@link #register} ci-dessus.
+     * (claim {@code name} absent), rendu conforme et libre par
+     * {@link UsernamePolicy#generateAvailable} (LS-000) : « Jean Dupont »
+     * devient « Jean-Dupont », ou « Jean-Dupont-2 » s'il est déjà pris.
+     * L'utilisateur peut ensuite le changer depuis son profil.
      *
      * @throws IllegalArgumentException si {@link GoogleAuthService#verify}
      *         rejette le token (voir sa javadoc pour le détail des cas).
@@ -214,7 +216,8 @@ public class AuthService {
                 .map(this::confirmEmailViaGoogle)
                 .orElseGet(() -> userRepository.save(new User(
                         null,
-                        identity.name() != null ? identity.name() : identity.email().split("@")[0],
+                        usernamePolicy.generateAvailable(
+                                identity.name() != null ? identity.name() : identity.email().split("@")[0]),
                         identity.email(),
                         "",
                         Role.USER,
