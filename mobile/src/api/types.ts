@@ -263,13 +263,50 @@ export interface LoginResponse {
 export interface CreateActivityRequest {
   title: string;
   description?: string;
-  category: string;
+  /** Codes des catégories du référentiel (`CULTURE`…), au moins un. */
+  categoryCodes: string[];
   address: string;
+  /** Ignorées quand `recurrence` est renseignée (ses bornes `from`/`until` les remplacent). */
   startDate?: string;
   endDate?: string;
   url?: string;
   phone?: string;
   email?: string;
+  /** Passage hebdomadaire (food truck, marché…). */
+  recurrence?: RecurrenceRequest;
+}
+
+/** Récurrence hebdomadaire d'une contribution (`RecurrenceRequest` côté backend). */
+export interface RecurrenceRequest {
+  /** Codes RFC 5545 : `MO`, `TU`, `WE`, `TH`, `FR`, `SA`, `SU`. */
+  daysOfWeek: string[];
+  /** `HH:mm`. */
+  startTime: string;
+  endTime?: string | null;
+  /** `yyyy-MM-dd`, aujourd'hui par défaut. */
+  from?: string | null;
+  until?: string | null;
+}
+
+/**
+ * Contribution vue par son auteur (`ContributionResponse`) : « Mes contributions » et
+ * pré-remplissage du formulaire de modification.
+ */
+export interface Contribution {
+  id: number;
+  title: string;
+  description: string | null;
+  /** `PENDING` (en attente de validation), `PUBLISHED`, `REJECTED`, `CANCELLED`, `ARCHIVED`. */
+  status: string;
+  address: string | null;
+  city: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  categoryCodes: string[];
+  url: string | null;
+  phone: string | null;
+  email: string | null;
+  recurrence: RecurrenceRequest | null;
 }
 
 /**

@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,8 @@ public class RecurringContributionService {
      * sans date de fin, dont la RRULE reste conservée sur le {@link Schedule}.
      */
     static final int MATERIALIZATION_HORIZON_YEARS = 1;
+
+    private static final DateTimeFormatter FRENCH_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final ActivityService activityService;
     private final LocationService locationService;
@@ -81,8 +84,10 @@ public class RecurringContributionService {
         List<LocalDate> dates = recurrenceRuleService.computeOccurrenceDates(
                 toSchedule(null, null, recurrence), recurrence.from(), materializationEnd(recurrence));
         if (dates.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Aucun jour de passage ne tombe entre le début et la fin de la récurrence.");
+            throw new IllegalArgumentException("Aucun jour de passage choisi ne tombe entre le "
+                    + FRENCH_DATE.format(recurrence.from()) + " et le "
+                    + FRENCH_DATE.format(materializationEnd(recurrence))
+                    + " : élargis la période ou change les jours.");
         }
         return dates;
     }

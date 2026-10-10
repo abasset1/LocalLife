@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.42 — 2026-10-10
+
+### Mobile : proposer, modifier et supprimer ses contributions
+- Onglet « Contribution » (jusqu'ici vide) : formulaire de proposition — titre, description, catégories, adresse, dates, contacts — avec « Revient chaque semaine (food truck, marché…) » : jours de passage, heure d'arrivée et de départ (« 11h30 », « 11:30 » ou « 1130 » acceptés), « À partir du » / « Jusqu'au ». L'activité est créée en attente de validation.
+- Nouvel écran « Mes contributions » (depuis l'onglet Contribution et l'onglet Compte) : toutes ses activités avec leur statut (en attente de validation, publiée, refusée…), « Modifier » et « Supprimer » (avec confirmation). « Modifier » ouvre le formulaire pré-rempli ; après enregistrement l'activité repasse en validation (message d'information), sauf pour un administrateur. La liste se recharge au retour sur l'écran.
+- Correctif (web et mobile) : passer une activité ponctuelle en récurrente gardait sa date de fin (souvent le jour même), qui bornait la récurrence à une seule journée → « aucun jour de passage ». Activer « Revient chaque semaine » vide désormais la date de fin ; le message d'erreur du backend cite la période concernée.
+- Mobile : la fiche d'une activité n'affiche pas encore « Modifier »/« Supprimer » (elle n'expose pas son créateur) : la gestion passe par « Mes contributions ».
+- Tests : `features/contribution/__tests__/form.test.ts` (validation, récurrence, pré-remplissage, formats d'heure). Vérifié : mobile `tsc`/`eslint` (0 erreur, avertissements préexistants)/`jest`, build web, `mvn verify` ; parcours dans la version web de l'app (Expo) contre le backend réel : connexion → proposition d'un food truck mardi/jeudi 11h30–14h00 (corps de requête vérifié, la création réelle exigeant le géocodage, injoignable ici) → « Mes contributions » → Modifier → « tous les samedis à 8h00 » → « En attente de validation » en base (`FREQ=WEEKLY;BYDAY=SA`) → Supprimer. ⚠️ Non testé sur un appareil iOS/Android.
+
 ## 0.9.41 — 2026-10-10
 
 ### Modifier ou supprimer ses contributions (la modification repasse en validation)

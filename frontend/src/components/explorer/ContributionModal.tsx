@@ -182,7 +182,14 @@ function ContributionModal({
                     <label className="explorer-category-option explorer-recurrence-toggle">
                         <input
                             checked={recurrence.enabled}
-                            onChange={(event) => onRecurrenceChange({ ...recurrence, enabled: event.target.checked })}
+                            onChange={(event) => {
+                                onRecurrenceChange({ ...recurrence, enabled: event.target.checked });
+                                // La date de fin d'une activité ponctuelle (souvent le même jour) bornerait la
+                                // récurrence à une seule journée : elle est vidée en passant en récurrent.
+                                if (event.target.checked) {
+                                    onEndDateChange("");
+                                }
+                            }}
                             type="checkbox"
                         />
                         Revient chaque semaine (food truck, marché…)

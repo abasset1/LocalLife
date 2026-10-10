@@ -1,26 +1,101 @@
-import { StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ApiError, createActivity } from '@/api';
+import { useAuth } from '@/auth';
+import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { ContributionFields, EMPTY_FORM, toRequest, useActiveCategories } from '@/features/contribution';
+import type { ContributionForm } from '@/features/contribution';
+import { useTheme } from '@/hooks/use-theme';
 
 /**
- * Onglet "Contribution". Le formulaire de proposition d'activité sera
- * implémenté en LL-MOB-0010. Pour LL-MOB-0002, écran de navigation
- * uniquement.
+ * Onglet « Contribution » : proposer une activité, ponctuelle ou qui revient chaque semaine (food
+ * truck, marché…). Elle est créée en attente de validation par un modérateur. « Mes contributions »
+ * permet ensuite de la modifier ou de la supprimer.
  */
 export default function ContributionScreen() {
+  const theme = useTheme();
+  const router = useRouter();
+  const { state } = useAuth();
+  const { categories, error: categoriesError } = useActiveCategories();
+  const [form, setForm] = useState<ContributionForm>(EMPTY_FORM);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+
+  async function submit() {
+    setError(null);
+    setSubmitted(false);
+    const result = toRequest(form);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await createActivity(result.request);
+      setForm(EMPTY_FORM);
+      setSubmitted(true);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Une erreur inattendue est survenue. Réessayez.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (state.status !== 'authenticated') {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.centered}>
+          <ThemedText type="title">Contribution</ThemedText>
+          <ThemedText themeColor="textSecondary">
+            Connectez-vous depuis l’onglet Compte pour proposer une activité.
+          </ThemedText>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
+
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="title" style={styles.title}>
-          Contribution
-        </ThemedText>
-        <ThemedText themeColor="textSecondary">
-          Le formulaire de proposition d&apos;activité sera implémenté avec
-          LL-MOB-0010.
-        </ThemedText>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+            <ThemedText type="title">Proposer une activité</ThemedText>
+            <Button label="Mes contributions" variant="secondary" onPress={() => router.push('/contributions')} />
+            {categoriesError && (
+              <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
+                Erreur : {categoriesError}
+              </ThemedText>
+            )}
+
+            <ContributionFields
+              form={form}
+              categories={categories}
+              onChange={(next) => {
+                setForm(next);
+                setSubmitted(false);
+              }}
+            />
+
+            {error && (
+              <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
+                Erreur : {error}
+              </ThemedText>
+            )}
+            {submitted && (
+              <ThemedText accessibilityLiveRegion="polite">
+                ✓ Activité proposée. Elle sera visible sur la carte une fois validée par un modérateur.
+              </ThemedText>
+            )}
+            <Button label="Proposer l'activité" loading={submitting} onPress={() => void submit()} />
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -30,13 +105,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  safeArea: {
+  centered: {
     flex: 1,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.six,
     gap: Spacing.three,
   },
-  title: {
-    marginBottom: Spacing.two,
+  content: {
+    gap: Spacing.four,
+    padding: Spacing.four,
+    paddingBottom: Spacing.six,
   },
 });
