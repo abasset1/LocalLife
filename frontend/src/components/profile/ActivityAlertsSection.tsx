@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { apiFetch, describeErrorResponse } from "../../api/apiClient";
 import type { ApiErrorBody, Category, UserPreferences } from "../explorer/types";
 import CityField, { RADIUS_OPTIONS_KM, useCityPicker } from "./CityField";
+import { Chip, ChipGroup, Notice, ProfileCard } from "./ProfileUi";
 
 /** Miroir de `AlertResponse` (`/api/v1/users/me/alerts`). */
 interface ActivityAlert {
@@ -17,11 +18,6 @@ interface ActivityAlert {
     notifyEmail: boolean;
     /** Notification push, activée depuis l'application mobile. */
     notifyPush: boolean;
-}
-
-function channelsLabel(alert: ActivityAlert): string {
-    const channels = [alert.notifyEmail && "e-mail", alert.notifyPush && "notification mobile"].filter(Boolean);
-    return `par ${channels.join(" et ")}`;
 }
 
 const DEFAULT_ALERT_RADIUS_KM = 10;
@@ -100,12 +96,12 @@ function ActivityAlertsSection() {
         return categories.find((category) => category.code === code)?.label ?? code;
     }
 
-    function criteriaOf(alert: ActivityAlert): string {
+    function criteriaOf(alert: ActivityAlert): string[] {
         const labels = alert.categoryCodes.map(labelOf);
         if (alert.includeFoodTrucks) {
-            labels.push("Food trucks");
+            labels.push("🚚 Food trucks");
         }
-        return labels.join(", ");
+        return labels;
     }
 
     function toggleCategory(code: string) {
@@ -167,94 +163,112 @@ function ActivityAlertsSection() {
         }
     }
 
-    if (isLoading) {
-        return <p className="activities-status">Chargement de tes alertes…</p>;
-    }
-    if (loadError) {
-        return <p className="activities-status activities-status-error">{loadError}</p>;
-    }
-
     return (
-        <section className="profile-form profile-preferences profile-alerts">
-            <h2>Mes alertes e-mail</h2>
-            <p className="profile-preferences-hint">
-                Reçois chaque matin par e-mail les nouvelles activités et les nouveaux food trucks qui correspondent à
-                tes critères.
-                Les notifications se règlent depuis l'application mobile.
-            </p>
+        <ProfileCard
+            icon="🔔"
+            subtitle={
+                <>
+                    Chaque matin, les nouvelles activités et les nouveaux food trucks qui correspondent à tes critères.
+                    Les notifications se règlent depuis l'application mobile.
+                </>
+            }
+            title="Mes alertes"
+            titleId="profile-alerts-title"
+        >
+            {isLoading && <p className="pp-hint">Chargement de tes alertes…</p>}
+            {!isLoading && loadError && <Notice kind="error">{loadError}</Notice>}
+            {!isLoading && !loadError && (
+                <>
+                    {alerts.length === 0 ? (
+                        <p className="pp-empty">Aucune alerte pour l'instant : crée ta première ci-dessous.</p>
+                    ) : (
+                        <ul className="pp-alerts">
+                            {alerts.map((alert) => (
+                                <li className="pp-alert" key={alert.id}>
+                                    <div className="pp-alert-body">
+                                        <div className="pp-tags">
+                                            {criteriaOf(alert).map((criterion) => (
+                                                <span className="pp-tag" key={criterion}>
+                                                    {criterion}
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <p className="pp-alert-place">
+                                            📍 {alert.city} · {alert.radiusKm} km
+                                        </p>
+                                        <div className="pp-badges">
+                                            {alert.notifyEmail && <span className="pp-badge">✉️ E-mail</span>}
+                                            {alert.notifyPush && <span className="pp-badge">📱 Notification</span>}
+                                        </div>
+                                    </div>
+                                    <button
+                                        aria-label={`Supprimer l'alerte ${alert.city}`}
+                                        className="pp-button pp-button-danger"
+                                        onClick={() => void handleDelete(alert.id)}
+                                        type="button"
+                                    >
+                                        Supprimer
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    {deleteError && <Notice kind="error">{deleteError}</Notice>}
 
-            {alerts.length === 0 ? (
-                <p className="profile-preferences-hint">Aucune alerte pour l'instant.</p>
-            ) : (
-                <ul className="profile-alerts-list">
-                    {alerts.map((alert) => (
-                        <li key={alert.id}>
-                            <span>
-                                <strong>{criteriaOf(alert)}</strong>
-                                <br />
-                                à moins de {alert.radiusKm} km de {alert.city}
-                                <br />
-                                <small>{channelsLabel(alert)}</small>
-                            </span>
-                            <button
-                                aria-label={`Supprimer l'alerte ${alert.city}`}
-                                className="profile-alerts-delete"
-                                onClick={() => void handleDelete(alert.id)}
-                                type="button"
+                    <form className="pp-form pp-subform" onSubmit={(event) => void handleCreate(event)}>
+                        <h3 className="pp-subtitle">Nouvelle alerte</h3>
+                        <ChipGroup legend="Catégories et/ou food trucks">
+                            {categories.map((category) => (
+                                <Chip
+                                    checked={categoryCodes.includes(category.code)}
+                                    key={category.code}
+                                    onChange={() => toggleCategory(category.code)}
+                                >
+                                    {category.label}
+                                </Chip>
+                            ))}
+                            <Chip
+                                checked={includeFoodTrucks}
+                                onChange={() => {
+                                    setIncludeFoodTrucks((value) => !value);
+                                    setCreateSuccess(false);
+                                }}
                             >
-                                Supprimer
+                                🚚 Food trucks
+                            </Chip>
+                        </ChipGroup>
+
+                        <CityField id="alert-city" label="Ville" picker={cityPicker} required />
+
+                        <ChipGroup legend="Rayon">
+                            {RADIUS_OPTIONS_KM.map((value) => (
+                                <Chip
+                                    checked={radiusKm === String(value)}
+                                    key={value}
+                                    name="alert-radius"
+                                    onChange={() => setRadiusKm(String(value))}
+                                    type="radio"
+                                >
+                                    {value} km
+                                </Chip>
+                            ))}
+                        </ChipGroup>
+
+                        <div className="pp-actions">
+                            <button
+                                className="pp-button pp-button-primary"
+                                disabled={isCreating || cityPicker.blocksSubmit}
+                                type="submit"
+                            >
+                                {isCreating ? "Création…" : "Créer l'alerte"}
                             </button>
-                        </li>
-                    ))}
-                </ul>
+                            {createSuccess && <Notice kind="success">Alerte créée.</Notice>}
+                            {createError && <Notice kind="error">{createError}</Notice>}
+                        </div>
+                    </form>
+                </>
             )}
-            {deleteError && <span className="form-message form-message-error">{deleteError}</span>}
-
-            <form className="profile-alerts-form" onSubmit={(event) => void handleCreate(event)}>
-                <h3>Nouvelle alerte</h3>
-                <fieldset className="profile-preferences-categories">
-                    <legend>Catégories (une ou plusieurs) et/ou food trucks</legend>
-                    {categories.map((category) => (
-                        <label className="explorer-category-option" key={category.code}>
-                            <input
-                                checked={categoryCodes.includes(category.code)}
-                                onChange={() => toggleCategory(category.code)}
-                                type="checkbox"
-                            />
-                            {category.label}
-                        </label>
-                    ))}
-                    <label className="explorer-category-option">
-                        <input
-                            checked={includeFoodTrucks}
-                            onChange={() => {
-                                setIncludeFoodTrucks((value) => !value);
-                                setCreateSuccess(false);
-                            }}
-                            type="checkbox"
-                        />
-                        🚚 Food trucks
-                    </label>
-                </fieldset>
-
-                <CityField id="alert-city" label="Ville" picker={cityPicker} required />
-
-                <label htmlFor="alert-radius">Rayon</label>
-                <select id="alert-radius" onChange={(event) => setRadiusKm(event.target.value)} value={radiusKm}>
-                    {RADIUS_OPTIONS_KM.map((value) => (
-                        <option key={value} value={String(value)}>
-                            {value} km
-                        </option>
-                    ))}
-                </select>
-
-                <button disabled={isCreating || cityPicker.blocksSubmit} type="submit">
-                    {isCreating ? "Création…" : "Créer l'alerte"}
-                </button>
-                {createSuccess && <span className="form-message form-message-success">Alerte créée.</span>}
-                {createError && <span className="form-message form-message-error">{createError}</span>}
-            </form>
-        </section>
+        </ProfileCard>
     );
 }
 

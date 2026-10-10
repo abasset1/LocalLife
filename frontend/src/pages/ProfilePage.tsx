@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 import { clearToken, getPayload } from "../auth/authStorage";
 import ActivityAlertsSection from "../components/profile/ActivityAlertsSection";
+import { Notice, ProfileCard } from "../components/profile/ProfileUi";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
 
 /**
@@ -26,7 +27,17 @@ interface ApiErrorBody {
 
 function formatDate(value: string): string {
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("fr-FR");
+    return Number.isNaN(date.getTime())
+        ? value
+        : date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+}
+
+/** Initiales de l'avatar : premières lettres du nom d'utilisateur (ou de l'email). */
+function initialsOf(profile: UserProfile): string {
+    const source = profile.username.trim() || profile.email;
+    const words = source.split(/[\s._-]+/).filter(Boolean);
+    const letters = words.length > 1 ? words[0][0] + words[1][0] : source.slice(0, 2);
+    return letters.toUpperCase();
 }
 
 function ProfilePage() {
@@ -122,70 +133,101 @@ function ProfilePage() {
     }
 
     return (
-        <div className="admin-shell">
-            <header className="admin-header">
-                <h1>Mon profil</h1>
-                <Link to="/">← Retour à la carte</Link>
+        <div className="pp">
+            <header className="pp-topbar">
+                <Link aria-label="LocalLife — retour à la carte" className="pp-brand" to="/">
+                    <span aria-hidden="true" className="pp-brand-mark">
+                        L
+                    </span>
+                    LocalLife
+                </Link>
+                <Link className="pp-button pp-button-secondary" to="/">
+                    ← Retour à la carte
+                </Link>
             </header>
 
-            <main className="profile-content">
-                {isLoading && <p className="activities-status">Chargement de ton profil…</p>}
-                {!isLoading && loadError && (
-                    <p className="activities-status activities-status-error">{loadError}</p>
-                )}
+            <main className="pp-main">
+                {isLoading && <p className="pp-hint">Chargement de ton profil…</p>}
+                {!isLoading && loadError && <Notice kind="error">{loadError}</Notice>}
                 {!isLoading && !loadError && profile && (
                     <>
                         {/*
                           Critère d'acceptation « les informations de son compte sont
                           affichées » : role/date d'inscription ne sont pas modifiables
                           (voir UserService#updateProfile côté backend), affichées en
-                          lecture seule séparément du formulaire d'édition ci-dessous.
+                          lecture seule dans le bandeau, séparément du formulaire.
                         */}
-                        <dl className="profile-meta">
-                            <div>
-                                <dt>Rôle</dt>
-                                <dd>{profile.role === "ADMIN" ? "Administrateur" : "Utilisateur"}</dd>
+                        <section aria-label="Mon profil" className="pp-hero">
+                            <span aria-hidden="true" className="pp-avatar">
+                                {initialsOf(profile)}
+                            </span>
+                            <div className="pp-hero-text">
+                                <h1 className="pp-hero-name">{profile.username}</h1>
+                                <p className="pp-hero-email">{profile.email}</p>
+                                <div className="pp-hero-badges">
+                                    <span className="pp-hero-badge">
+                                        {profile.role === "ADMIN" ? "Administrateur" : "Utilisateur"}
+                                    </span>
+                                    <span className="pp-hero-badge">Membre depuis {formatDate(profile.createdAt)}</span>
+                                </div>
                             </div>
-                            <div>
-                                <dt>Membre depuis</dt>
-                                <dd>{formatDate(profile.createdAt)}</dd>
+                        </section>
+
+                        <div className="pp-grid">
+                            <div className="pp-column">
+                                <ProfileCard icon="👤" title="Mon compte" titleId="profile-account-title">
+                                    <form className="pp-form" onSubmit={(event) => void handleSubmit(event)}>
+                                        <div className="pp-field">
+                                            <label className="pp-label" htmlFor="profile-username">
+                                                Nom d'utilisateur
+                                            </label>
+                                            <input
+                                                className="pp-input"
+                                                id="profile-username"
+                                                onChange={(event) => setUsername(event.target.value)}
+                                                required
+                                                type="text"
+                                                value={username}
+                                            />
+                                        </div>
+                                        <div className="pp-field">
+                                            <label className="pp-label" htmlFor="profile-email">
+                                                Email
+                                            </label>
+                                            <input
+                                                className="pp-input"
+                                                id="profile-email"
+                                                onChange={(event) => setEmail(event.target.value)}
+                                                required
+                                                type="email"
+                                                value={email}
+                                            />
+                                        </div>
+                                        <div className="pp-actions">
+                                            <button
+                                                className="pp-button pp-button-primary"
+                                                disabled={isSaving}
+                                                type="submit"
+                                            >
+                                                {isSaving ? "Enregistrement…" : "Enregistrer"}
+                                            </button>
+                                            {saveSuccess && <Notice kind="success">Profil mis à jour.</Notice>}
+                                            {saveError && <Notice kind="error">{saveError}</Notice>}
+                                        </div>
+                                    </form>
+                                </ProfileCard>
+
+                                {/* Critère d'acceptation « la déconnexion est accessible ». */}
+                                <button className="pp-button pp-button-danger pp-logout" onClick={handleLogout} type="button">
+                                    Se déconnecter
+                                </button>
                             </div>
-                        </dl>
 
-                        <form className="profile-form" onSubmit={(event) => void handleSubmit(event)}>
-                            <label htmlFor="profile-username">Nom d'utilisateur</label>
-                            <input
-                                id="profile-username"
-                                onChange={(event) => setUsername(event.target.value)}
-                                required
-                                type="text"
-                                value={username}
-                            />
-                            <label htmlFor="profile-email">Email</label>
-                            <input
-                                id="profile-email"
-                                onChange={(event) => setEmail(event.target.value)}
-                                required
-                                type="email"
-                                value={email}
-                            />
-                            <button disabled={isSaving} type="submit">
-                                {isSaving ? "Enregistrement…" : "Enregistrer"}
-                            </button>
-                            {saveSuccess && (
-                                <span className="form-message form-message-success">Profil mis à jour.</span>
-                            )}
-                            {saveError && <span className="form-message form-message-error">{saveError}</span>}
-                        </form>
-
-                        <SearchPreferencesForm />
-
-                        <ActivityAlertsSection />
-
-                        {/* Critère d'acceptation « la déconnexion est accessible ». */}
-                        <button className="profile-logout-button" onClick={handleLogout} type="button">
-                            Déconnexion
-                        </button>
+                            <div className="pp-column pp-column-wide">
+                                <SearchPreferencesForm />
+                                <ActivityAlertsSection />
+                            </div>
+                        </div>
                     </>
                 )}
             </main>
