@@ -29,6 +29,10 @@ interface ActivityDetailModalProps {
     isCancelling: boolean;
     cancelError: string | null;
     onCancel: (activity: Activity) => void;
+    /** Ouvre le formulaire de modification (créateur ou administrateur). */
+    onEdit: (activity: Activity) => void;
+    isDeleting: boolean;
+    onDelete: (activity: Activity) => void;
     onClose: () => void;
 }
 
@@ -177,6 +181,9 @@ function ActivityDetailModal({
     isCancelling,
     cancelError,
     onCancel,
+    onEdit,
+    isDeleting,
+    onDelete,
     onClose,
 }: ActivityDetailModalProps) {
     const categoryLabels = formatCategoryLabels(activity, categories);
@@ -294,12 +301,28 @@ function ActivityDetailModal({
                                 </p>
                             )}
                             <button
+                                className="explorer-detail-action-button"
+                                disabled={isCancelling || isDeleting}
+                                onClick={() => onEdit(activity)}
+                                type="button"
+                            >
+                                Modifier
+                            </button>
+                            <button
                                 className="explorer-cancel-button"
-                                disabled={isCancelling}
+                                disabled={isCancelling || isDeleting}
                                 onClick={() => onCancel(activity)}
                                 type="button"
                             >
                                 {isCancelling ? "Annulation…" : "Annuler cette activité"}
+                            </button>
+                            <button
+                                className="explorer-cancel-button"
+                                disabled={isCancelling || isDeleting}
+                                onClick={() => onDelete(activity)}
+                                type="button"
+                            >
+                                {isDeleting ? "Suppression…" : "Supprimer"}
                             </button>
                         </div>
                     )}

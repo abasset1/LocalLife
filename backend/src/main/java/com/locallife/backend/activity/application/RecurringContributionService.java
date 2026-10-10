@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,20 +64,41 @@ public class RecurringContributionService {
     public Activity createActivity(
             String title, String description, String category, String address, Long createdBy,
             List<Long> categoryIds, ContributionRecurrence recurrence) {
-        Schedule draft = toSchedule(null, null, recurrence);
+        List<LocalDate> dates = planDates(recurrence);
+        Activity activity = activityService.createActivity(
+                title, description, category, address, firstStart(recurrence, dates).toString(),
+                lastEnd(recurrence, dates).toString(), createdBy, categoryIds);
+        attachSchedule(activity, recurrence, dates);
+        return activity;
+    }
+
+    /**
+     * Jours de passage à matérialiser, du premier jour à la fin de la récurrence (un an au plus).
+     *
+     * @throws IllegalArgumentException si aucun jour de passage ne tombe dans la période
+     */
+    public List<LocalDate> planDates(ContributionRecurrence recurrence) {
         List<LocalDate> dates = recurrenceRuleService.computeOccurrenceDates(
-                draft, recurrence.from(), materializationEnd(recurrence));
+                toSchedule(null, null, recurrence), recurrence.from(), materializationEnd(recurrence));
         if (dates.isEmpty()) {
             throw new IllegalArgumentException(
                     "Aucun jour de passage ne tombe entre le début et la fin de la récurrence.");
         }
+        return dates;
+    }
 
-        LocalDateTime firstStart = dates.get(0).atTime(recurrence.startTime());
-        LocalDateTime lastEnd = endOf(dates.get(dates.size() - 1), recurrence);
-        Activity activity = activityService.createActivity(
-                title, description, category, address, firstStart.toString(), lastEnd.toString(), createdBy,
-                categoryIds);
+    /** Début du premier passage, pour la colonne plate {@code startDate}. */
+    public static LocalDateTime firstStart(ContributionRecurrence recurrence, List<LocalDate> dates) {
+        return dates.get(0).atTime(recurrence.startTime());
+    }
 
+    /** Fin du dernier passage, pour la colonne plate {@code endDate}. */
+    public static LocalDateTime lastEnd(ContributionRecurrence recurrence, List<LocalDate> dates) {
+        return endOf(dates.get(dates.size() - 1), recurrence);
+    }
+
+    /** Crée le lieu, le {@link Schedule} et les occurrences ({@code dates}, voir {@link #planDates}). */
+    public void attachSchedule(Activity activity, ContributionRecurrence recurrence, List<LocalDate> dates) {
         Location location = locationService.findOrCreate(new Location(
                 null, null, activity.address(), activity.postalCode(), activity.city(), null, null, null, null,
                 activity.latitude(), activity.longitude(), CONTRIBUTION_ZONE.getId(), null, null, null));
@@ -87,7 +109,27 @@ public class RecurringContributionService {
                         recurrence.endTime() == null ? null : toInstant(endOf(date, recurrence)),
                         null, OccurrenceService.STATUS_SCHEDULED, false))
                 .toList());
-        return activity;
+    }
+
+    /** Supprime les schedules d'une activité et leurs occurrences (les lieux, partageables, restent). */
+    public void clearSchedules(Long activityId) {
+        for (Schedule schedule : scheduleService.findByActivityId(activityId)) {
+            occurrenceService.deleteByScheduleId(schedule.id());
+        }
+        scheduleService.deleteByActivityId(activityId);
+    }
+
+    /**
+     * Récurrence d'une contribution déjà enregistrée, pour pré-remplir le formulaire de modification :
+     * vide si l'activité n'a pas de schedule hebdomadaire (activité ponctuelle ou sur une période).
+     */
+    public Optional<ContributionRecurrence> findRecurrence(Long activityId) {
+        return scheduleService.findByActivityId(activityId).stream()
+                .filter(schedule -> schedule.recurrenceRule() != null && schedule.startTime() != null)
+                .findFirst()
+                .flatMap(schedule -> ContributionRecurrence.fromSchedule(
+                        schedule.recurrenceRule(), schedule.startTime(), schedule.endTime(),
+                        schedule.validFrom(), schedule.validUntil()));
     }
 
     private static Schedule toSchedule(Long activityId, Long locationId, ContributionRecurrence recurrence) {

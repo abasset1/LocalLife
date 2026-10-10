@@ -25,6 +25,10 @@ const RECURRENCE_DAYS: { code: string; label: string }[] = [
 ];
 
 interface ContributionModalProps {
+    /** `edit` : modification d'une contribution existante (titre et bouton adaptés). */
+    mode: "create" | "edit";
+    /** Modification par le contributeur : l'activité repassera en validation (pas pour un administrateur). */
+    requiresRevalidation: boolean;
     categories: Category[];
     title: string;
     onTitleChange: (value: string) => void;
@@ -60,6 +64,8 @@ interface ContributionModalProps {
  * pour ne pas affecter le formulaire équivalent d'AdminPage (`.contribution-form`).
  */
 function ContributionModal({
+    mode,
+    requiresRevalidation,
     categories,
     title,
     onTitleChange,
@@ -113,12 +119,20 @@ function ContributionModal({
                 role="dialog"
             >
                 <div className="explorer-modal-header">
-                    <h2 id="explorer-contribution-modal-title">Proposer une activité</h2>
+                    <h2 id="explorer-contribution-modal-title">
+                        {mode === "edit" ? "Modifier l'activité" : "Proposer une activité"}
+                    </h2>
                     <button aria-label="Fermer" className="explorer-modal-close-button" onClick={onClose} type="button">
                         ✕
                     </button>
                 </div>
                 <form className="explorer-form" onSubmit={onSubmit}>
+                    {mode === "edit" && requiresRevalidation && (
+                        <p className="explorer-form-notice">
+                            Après modification, l'activité repasse en validation : elle ne sera de nouveau visible
+                            sur la carte qu'une fois validée par un modérateur.
+                        </p>
+                    )}
                     <div className="explorer-form-field">
                         <label htmlFor="explorer-activity-title">Titre</label>
                         <input
@@ -262,7 +276,9 @@ function ContributionModal({
                         />
                     </div>
                     <div className="explorer-modal-actions">
-                        <button type="submit">Proposer l'activité</button>
+                        <button type="submit">
+                            {mode === "edit" ? "Enregistrer les modifications" : "Proposer l'activité"}
+                        </button>
                     </div>
                     {submitStatus === "success" && (
                         <span className="explorer-form-message explorer-form-message-success">Activité proposée !</span>

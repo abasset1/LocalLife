@@ -969,6 +969,62 @@ body {
     cursor: not-allowed;
 }
 
+/* « Mes contributions » : même liste que « Mes favoris », avec statut et actions. */
+.contributions-list-item .favorites-list-item-info {
+    cursor: default;
+}
+
+.contributions-list-item-actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.5rem;
+}
+
+.contribution-action {
+    padding: 0.35rem 0.8rem;
+    border: 1px solid #173f35;
+    border-radius: 999px;
+    background-color: #ffffff;
+    color: #173f35;
+    font-size: 0.85rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.contribution-action-danger {
+    border-color: #b3261e;
+    color: #b3261e;
+}
+
+.contribution-action:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.contribution-status {
+    font-weight: 600;
+}
+
+.contribution-status-pending {
+    color: #b45309;
+}
+
+.contribution-status-published {
+    color: #15803d;
+}
+
+.contribution-status-rejected,
+.contribution-status-cancelled {
+    color: #b3261e;
+}
+
+@media (max-width: 600px) {
+    .contributions-list-item {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
 /* ===================================================================
  * LL-EF-017 — Refonte de l'écran Explorer autour de la carte.
  *
@@ -1880,6 +1936,15 @@ body {
 .explorer-detail-action-button-accent {
     border-color: var(--ll-coral);
     color: var(--ll-coral);
+}
+
+.explorer-form-notice {
+    margin: 0;
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+    background-color: var(--ll-sand);
+    color: var(--ll-ink);
+    font-size: 0.85rem;
 }
 
 .explorer-cancel-button {

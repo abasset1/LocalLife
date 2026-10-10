@@ -63,6 +63,11 @@ function ExplorerMenu({ isOpen, onClose, currentUser, onOpenContributionForm, on
                     >
                         Proposer une activité
                     </button>
+                    {currentUser && (
+                        <Link className="explorer-menu-link" onClick={onClose} to="/contributions">
+                            Mes contributions
+                        </Link>
+                    )}
                 </div>
 
                 <div className="explorer-menu-section">

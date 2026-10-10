@@ -377,6 +377,11 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      */
     List<Activity> findByStatus(String status);
 
+    /** Contributions d'un utilisateur, toutes statuts confondus, les plus récentes d'abord. */
+    List<Activity> findByCreatedByOrderByIdDesc(Long createdBy);
+
+    void deleteById(Long id);
+
     /**
      * Activités likées par un utilisateur (LS-002), les plus
      * récemment likées en premier. Vit ici plutôt que sur

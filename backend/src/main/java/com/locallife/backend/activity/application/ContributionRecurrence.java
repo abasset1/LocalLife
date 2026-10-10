@@ -5,8 +5,10 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -72,14 +74,44 @@ public record ContributionRecurrence(
                 daysOfWeek, resolvedStartTime, resolvedEndTime, resolvedFrom, resolvedUntil);
     }
 
-    /** RRULE RFC 5545, jours dans l'ordre de la semaine : {@code FREQ=WEEKLY;BYDAY=TU,TH}. */
-    public String recurrenceRule() {
+    /**
+     * Relit une récurrence enregistrée ({@code FREQ=WEEKLY;BYDAY=...}, voir {@link #recurrenceRule()}).
+     * Vide pour toute autre règle, qu'un contributeur ne peut pas saisir.
+     */
+    public static Optional<ContributionRecurrence> fromSchedule(
+            String recurrenceRule, LocalTime startTime, LocalTime endTime, LocalDate from, LocalDate until) {
+        Map<String, String> parts = new HashMap<>();
+        for (String part : recurrenceRule.split(";")) {
+            String[] keyValue = part.split("=", 2);
+            if (keyValue.length == 2) {
+                parts.put(keyValue[0].trim().toUpperCase(), keyValue[1].trim().toUpperCase());
+            }
+        }
+        if (!"WEEKLY".equals(parts.get("FREQ")) || parts.get("BYDAY") == null || from == null
+                || parts.keySet().stream().anyMatch(key -> !key.equals("FREQ") && !key.equals("BYDAY"))) {
+            return Optional.empty();
+        }
+        Set<DayOfWeek> daysOfWeek = EnumSet.noneOf(DayOfWeek.class);
+        for (String day : parts.get("BYDAY").split(",")) {
+            DayOfWeek dayOfWeek = DAY_CODES.get(day);
+            if (dayOfWeek == null) {
+                return Optional.empty();
+            }
+            daysOfWeek.add(dayOfWeek);
+        }
+        return Optional.of(new ContributionRecurrence(daysOfWeek, startTime, endTime, from, until));
+    }
+
+    /** Codes RFC 5545 des jours, dans l'ordre de la semaine ({@code ["TU", "TH"]}). */
+    public List<String> dayCodes() {
         Map<DayOfWeek, String> codesByDay = DAY_CODES.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
-        return "FREQ=WEEKLY;BYDAY=" + daysOfWeek.stream()
-                .sorted()
-                .map(codesByDay::get)
-                .collect(Collectors.joining(","));
+        return daysOfWeek.stream().sorted().map(codesByDay::get).toList();
+    }
+
+    /** RRULE RFC 5545, jours dans l'ordre de la semaine : {@code FREQ=WEEKLY;BYDAY=TU,TH}. */
+    public String recurrenceRule() {
+        return "FREQ=WEEKLY;BYDAY=" + String.join(",", dayCodes());
     }
 
     private static LocalTime parseTime(String fieldName, String value) {

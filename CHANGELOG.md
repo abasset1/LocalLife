@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.41 — 2026-10-10
+
+### Modifier ou supprimer ses contributions (la modification repasse en validation)
+- Web : nouvelle page « Mes contributions » (menu Communauté) avec toutes les activités proposées, quel que soit leur statut (en attente de validation, publiée, refusée, annulée, archivée), chacune avec « Modifier » et « Supprimer ». La fiche d'une activité propose aussi « Modifier » et « Supprimer » à son créateur (et aux administrateurs), à côté de « Annuler cette activité ».
+- « Modifier » rouvre le formulaire de proposition pré-rempli (catégories, adresse, dates, contacts, récurrence). Un bandeau prévient que l'activité repassera en validation ; après enregistrement, elle passe en `PENDING` et disparaît de la carte jusqu'à ce qu'un administrateur la valide de nouveau. Une modification faite par un administrateur ne change pas le statut. Une activité refusée peut être corrigée puis resoumise ; une activité annulée ou archivée ne se modifie plus (elle peut être supprimée).
+- « Supprimer » (avec confirmation) efface définitivement l'activité et ce qui y est rattaché : horaires et occurrences, liens/contacts, médias, classification ; favoris et alertes partent en cascade.
+- API : `GET /api/v1/activities/mine`, `GET /api/v1/activities/{id}/contribution` (pré-remplissage), `PUT /api/v1/activities/{id}` (même corps que la création), `DELETE /api/v1/activities/{id}`. Réservés au créateur ou à un administrateur (401 sans connexion, 403 pour un autre utilisateur), refusés pour une activité importée. L'adresse n'est géocodée de nouveau que si elle change.
+- Mobile : pas encore de gestion des contributions (l'onglet Contribution n'a pas de formulaire).
+- Tests : `ContributionServiceTest`, cas ajoutés à `ActivityServiceTest` et `ActivityControllerTest`, `ContributionManagementIntegrationTest` (modification → `PENDING` et invisible publiquement, passage en récurrent puis retour, refus pour un autre utilisateur, suppression d'une activité likée et récurrente). Parcours web vérifié dans le navigateur contre le backend réel : « Mes contributions » → Modifier → passage en « tous les mardis et jeudis 11h30–14h00 » → statut « En attente de validation » → formulaire rouvert pré-rempli → Supprimer.
+
 ## 0.9.40 — 2026-10-10
 
 ### Proposer une activité récurrente (food truck, marché…)

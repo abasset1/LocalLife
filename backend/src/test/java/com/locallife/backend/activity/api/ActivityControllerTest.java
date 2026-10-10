@@ -4,6 +4,7 @@ import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.application.ContributionRecurrence;
+import com.locallife.backend.activity.application.ContributionService;
 import com.locallife.backend.activity.application.RecurringContributionService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.application.JwtAuthentication;
@@ -46,6 +47,7 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.doThrow;
@@ -102,6 +104,9 @@ class ActivityControllerTest {
 
     @Mock
     private RecurringContributionService recurringContributionService;
+
+    @Mock
+    private ContributionService contributionService;
 
     /**
      * Fixture CAT-006 (correctif) : catégorie résolue par
@@ -368,6 +373,84 @@ class ActivityControllerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verifyNoInteractions(recurringContributionService);
+    }
+
+    @Test
+    void updateActivity_ShouldReturnUpdatedActivity_AndReplaceContactLinks() {
+        Activity updated = new Activity(1L, "Food truck", "Burgers", null, 43.29, 5.37,
+                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
+        when(contributionService.update(1L, 7L, false, "Food truck", "Burgers", null, "1 rue de la Paix, Marseille",
+                null, null, List.of(1L), null))
+                .thenReturn(Optional.of(updated));
+
+        ResponseEntity<Object> response = activityController.updateActivity(1L,
+                new ActivityController.CreateActivityRequest(
+                        "Food truck", "Burgers", null, "1 rue de la Paix, Marseille",
+                        null, null, null, "06 12 34 56 78", null, "CULTURE"),
+                authentication, httpRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("PENDING", ((Activity) response.getBody()).status());
+        verify(activityLinkService).deleteByActivityId(1L);
+        verify(activityLinkService).create(any());
+    }
+
+    @Test
+    void updateActivity_ShouldReturnForbidden_WhenRequesterIsNotTheCreator() {
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
+        when(contributionService.update(any(), any(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(),
+                any()))
+                .thenThrow(new ActivityAccessDeniedException("refusé"));
+
+        ResponseEntity<Object> response = activityController.updateActivity(1L,
+                new ActivityController.CreateActivityRequest(
+                        "Food truck", "Burgers", null, "1 rue de la Paix, Marseille",
+                        null, null, null, null, null, "CULTURE"),
+                authentication, httpRequest);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        verify(activityLinkService, never()).deleteByActivityId(any());
+    }
+
+    @Test
+    void updateActivity_ShouldReturnNotFound_WhenActivityDoesNotExist() {
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
+        when(contributionService.update(any(), any(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(),
+                any()))
+                .thenReturn(Optional.empty());
+
+        ResponseEntity<Object> response = activityController.updateActivity(42L,
+                new ActivityController.CreateActivityRequest(
+                        "Food truck", "Burgers", null, "1 rue de la Paix, Marseille",
+                        null, null, null, null, null, "CULTURE"),
+                authentication, httpRequest);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    }
+
+    @Test
+    void deleteActivity_ShouldReturnNoContent_WhenDeleted() {
+        when(contributionService.delete(1L, 7L, false)).thenReturn(true);
+
+        assertEquals(HttpStatus.NO_CONTENT,
+                activityController.deleteActivity(1L, authentication, httpRequest).getStatusCode());
+    }
+
+    @Test
+    void deleteActivity_ShouldReturnForbidden_WhenRequesterIsNotTheCreator() {
+        when(contributionService.delete(1L, 7L, false)).thenThrow(new ActivityAccessDeniedException("refusé"));
+
+        assertEquals(HttpStatus.FORBIDDEN,
+                activityController.deleteActivity(1L, authentication, httpRequest).getStatusCode());
+    }
+
+    @Test
+    void deleteActivity_ShouldReturnNotFound_WhenActivityDoesNotExist() {
+        when(contributionService.delete(1L, 7L, false)).thenReturn(false);
+
+        assertEquals(HttpStatus.NOT_FOUND,
+                activityController.deleteActivity(1L, authentication, httpRequest).getStatusCode());
     }
 
     @Test
