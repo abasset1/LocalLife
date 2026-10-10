@@ -116,6 +116,15 @@ function App() {
     const [cancelActivityError, setCancelActivityError] = useState<string | null>(null);
     const [isTogglingLike, setIsTogglingLike] = useState(false);
 
+    /**
+     * Zone visible utilisée pour la recherche — `null` quand un rayon favori est
+     * défini : seules les activités dans ce rayon autour de la ville favorite (ou
+     * de la position, après « Autour de moi ») sont alors affichées, quels que
+     * soient les déplacements et le zoom de la carte. Sans rayon favori, la zone
+     * visible reste la source de vérité dès le premier geste (LL-4012).
+     */
+    const searchBounds = favoriteRadiusKm !== null && userPosition !== null ? null : mapBounds;
+
     const previousSearchDepsRef = useRef<{
         selectedCategoriesKey: string;
         selectedDate: string;
@@ -225,16 +234,16 @@ function App() {
             const params = new URLSearchParams();
             let endpoint: string;
 
-            if (mapBounds) {
+            if (searchBounds) {
                 // LL-4012 : la zone visible devient la source de vérité (contrat LL-4006).
                 endpoint = "/api/v1/activities/within-bounds";
-                params.set("swLatitude", String(mapBounds.swLatitude));
-                params.set("swLongitude", String(mapBounds.swLongitude));
-                params.set("neLatitude", String(mapBounds.neLatitude));
-                params.set("neLongitude", String(mapBounds.neLongitude));
+                params.set("swLatitude", String(searchBounds.swLatitude));
+                params.set("swLongitude", String(searchBounds.swLongitude));
+                params.set("neLatitude", String(searchBounds.neLatitude));
+                params.set("neLongitude", String(searchBounds.neLongitude));
             } else {
-                // Avant toute interaction avec la carte : rayon fixe (LL-4008/LL-4011),
-                // ou celui des paramètres utilisateur.
+                // Avant toute interaction avec la carte : rayon fixe (LL-4008/LL-4011).
+                // Avec un rayon favori : toujours ce rayon, la carte ne fait que l'afficher.
                 endpoint = "/api/v1/activities/nearby";
                 const latitude = userPosition?.latitude ?? MARSEILLE_LATITUDE;
                 const longitude = userPosition?.longitude ?? MARSEILLE_LONGITUDE;
@@ -283,7 +292,7 @@ function App() {
         void loadActivities();
 
         return () => abortController.abort();
-    }, [arePreferencesApplied, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, mapBounds]);
+    }, [arePreferencesApplied, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
 
     // Récupération des food trucks (LL-6009), isolée de celle des activités — inchangée.
     useEffect(() => {

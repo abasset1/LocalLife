@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.37 — 2026-10-10
+
+### Rayon favori : seules les activités dans le rayon
+- Web : avec un rayon favori, la recherche reste la recherche par rayon (`/nearby`) autour de la ville favorite — ou de la position après « Autour de moi » —, quels que soient les déplacements et le zoom de la carte. Auparavant, le premier geste sur la carte basculait sur la zone visible (`/within-bounds`) et faisait apparaître des activités hors du rayon. Sans rayon favori (ou visiteur non connecté) : comportement inchangé.
+- Mobile : même règle — avec un rayon favori et une ville favorite (ou après « Ma position », qui recentre le rayon et cadre la carte dessus), les activités sont chargées par `/nearby` dans ce rayon, la carte ne fait que l'afficher ; le rayon est matérialisé par un cercle comme sur le site.
+- Vérifié dans le navigateur contre le backend réel (rayon 10 km autour de Lyon, une activité à Lyon et une à Vienne à ~27 km) : après un dézoom, l'ancienne version affichait l'activité de Vienne (bascule sur `within-bounds`), la nouvelle n'affiche que celle de Lyon (une seule recherche `nearby`). Build web ; mobile `tsc`/`eslint` (0 erreur)/`jest`, bundles Android/iOS.
+
 ## 0.9.36 — 2026-10-10
 
 ### Mobile : accueil de première connexion

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import MapView from 'react-native-maps';
+import MapView, { Circle } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Supercluster from 'supercluster';
 
@@ -13,7 +13,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Region, pointInBounds, regionForRadius, regionForZoom, regionToBounds, zoomForRegion } from './geo';
 import { ActivityMarker, ClusterMarker, FoodTruckMarker } from './markers';
 import { PreviewCard, type Selection } from './PreviewCard';
-import { useMapData } from './useMapData';
+import { useMapData, type RadiusSearch } from './useMapData';
 import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
 
@@ -83,7 +83,24 @@ export default function MapScreen() {
     }
   }, [preferences, preferencesKey]);
 
-  const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(region, categoryCodes);
+  // Rayon favori : seules les activités dans ce rayon sont affichées, autour de
+  // la ville favorite ou, après « Ma position », de la position de l'utilisateur
+  // (jusqu'au prochain changement des paramètres).
+  const [userCenter, setUserCenter] = useState<{ key: string | null; latitude: number; longitude: number } | null>(
+    null,
+  );
+  const radiusSearch = useMemo<RadiusSearch | null>(() => {
+    if (!preferences || preferences.defaultRadiusKm === null) return null;
+    const center =
+      userCenter && userCenter.key === preferencesKey
+        ? userCenter
+        : preferences.defaultLatitude !== null && preferences.defaultLongitude !== null
+          ? { latitude: preferences.defaultLatitude, longitude: preferences.defaultLongitude }
+          : null;
+    return center ? { latitude: center.latitude, longitude: center.longitude, radiusKm: preferences.defaultRadiusKm } : null;
+  }, [preferences, preferencesKey, userCenter]);
+
+  const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(region, categoryCodes, radiusSearch);
   const location = useUserLocation();
   const [showUser, setShowUser] = useState(false);
 
@@ -134,11 +151,18 @@ export default function MapScreen() {
     if (!position) return;
     setShowUser(true);
     setSelection(null);
+    const favoriteRadiusKm = preferences?.defaultRadiusKm ?? null;
+    if (favoriteRadiusKm !== null) {
+      // Rayon favori : il suit l'utilisateur, et la carte est cadrée dessus.
+      setUserCenter({ key: preferencesKey, latitude: position.latitude, longitude: position.longitude });
+      mapRef.current?.animateToRegion(regionForRadius(position.latitude, position.longitude, favoriteRadiusKm), 500);
+      return;
+    }
     mapRef.current?.animateToRegion(
       regionForZoom(position.latitude, position.longitude, USER_ZOOM, region),
       500,
     );
-  }, [location, region]);
+  }, [location, region, preferences, preferencesKey]);
 
   const locationProblem =
     location.status === 'denied' || location.status === 'unavailable' || location.status === 'error'
@@ -161,6 +185,17 @@ export default function MapScreen() {
         moveOnMarkerPress={false}
         rotateEnabled={false}
         pitchEnabled={false}>
+        {radiusSearch && (
+          // Rayon favori, matérialisé comme sur le site web.
+          <Circle
+            center={{ latitude: radiusSearch.latitude, longitude: radiusSearch.longitude }}
+            radius={radiusSearch.radiusKm * 1000}
+            strokeColor="rgba(26, 95, 200, 0.8)"
+            strokeWidth={1.5}
+            lineDashPattern={[8, 8]}
+            fillColor="rgba(26, 95, 200, 0.05)"
+          />
+        )}
         {clusters.map((feature) => {
           const [longitude, latitude] = feature.geometry.coordinates;
           const coordinate = { latitude, longitude };

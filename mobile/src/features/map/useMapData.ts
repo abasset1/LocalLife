@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ApiError, RequestAbortedError, listFoodTrucks, searchWithinBounds } from '@/api';
+import { ApiError, RequestAbortedError, listFoodTrucks, searchNearby, searchWithinBounds } from '@/api';
 import type { Activity, FoodTruck } from '@/api';
 
 import { Bounds, Region, boundsContain, isSearchable, regionToBounds } from './geo';
@@ -17,7 +17,8 @@ function messageFor(error: unknown): string {
 /**
  * Charge les données affichées sur la carte (LL-MOB-0005).
  *
- * - Activités : `GET /activities/within-bounds` sur la zone visible,
+ * - Activités : `GET /activities/nearby` dans le rayon favori s'il y en a un
+ *   (`radiusSearch`), sinon `GET /activities/within-bounds` sur la zone visible,
  *   filtrées par `categoryCodes` (catégories par défaut des paramètres de
  *   recherche ; vide = toutes). Le backend ne renvoie que les activités
  *   `PUBLISHED`.
@@ -31,7 +32,18 @@ function messageFor(error: unknown): string {
  * entièrement couverte par les données chargées, ni si elle est trop
  * étendue (`tooWide` : la carte invite alors à zoomer).
  */
-export function useMapData(region: Region | null, categoryCodes: readonly string[] = []) {
+/** Rayon favori : seules les activités à moins de `radiusKm` de ce point sont chargées. */
+export interface RadiusSearch {
+  latitude: number;
+  longitude: number;
+  radiusKm: number;
+}
+
+export function useMapData(
+  region: Region | null,
+  categoryCodes: readonly string[] = [],
+  radiusSearch: RadiusSearch | null = null,
+) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
   const [activitiesStatus, setActivitiesStatus] = useState<LoadStatus>('loading');
@@ -43,6 +55,9 @@ export function useMapData(region: Region | null, categoryCodes: readonly string
   /** Clé stable du filtre : un nouveau tableau aux mêmes codes ne relance rien. */
   const categoryKey = [...categoryCodes].sort().join(',');
   const loadedCategoryKey = useRef(categoryKey);
+  const radiusKey = radiusSearch
+    ? `${radiusSearch.latitude},${radiusSearch.longitude},${radiusSearch.radiusKm}`
+    : null;
 
   // Food trucks : une fois au montage, et à chaque « Réessayer ».
   useEffect(() => {
@@ -61,9 +76,34 @@ export function useMapData(region: Region | null, categoryCodes: readonly string
     return () => controller.abort();
   }, [retryCount]);
 
-  // Activités de la zone visible.
+  // Rayon favori : activités dans le rayon (`/nearby`), indépendamment des
+  // déplacements et du zoom de la carte, qui ne font que l'afficher.
   useEffect(() => {
-    if (!region) return;
+    if (!radiusKey) return;
+    const [latitude, longitude, radiusKm] = radiusKey.split(',').map(Number);
+    // La zone chargée ne correspond plus à une recherche par zone visible.
+    loadedBounds.current = null;
+    const controller = new AbortController();
+    setActivitiesStatus('loading');
+    searchNearby(
+      { latitude, longitude, radiusKm, category: categoryKey === '' ? undefined : categoryKey },
+      { signal: controller.signal },
+    )
+      .then((result) => {
+        setActivities(result);
+        setActivitiesStatus('success');
+      })
+      .catch((e: unknown) => {
+        if (e instanceof RequestAbortedError) return;
+        setActivitiesStatus('error');
+        setError(messageFor(e));
+      });
+    return () => controller.abort();
+  }, [radiusKey, categoryKey, retryCount]);
+
+  // Activités de la zone visible (sans rayon favori).
+  useEffect(() => {
+    if (!region || radiusKey) return;
     const bounds = regionToBounds(region);
     if (!bounds) return;
 
@@ -110,7 +150,7 @@ export function useMapData(region: Region | null, categoryCodes: readonly string
       clearTimeout(timer);
       controller.abort();
     };
-  }, [region, categoryKey, retryCount]);
+  }, [region, categoryKey, radiusKey, retryCount]);
 
   const retry = useCallback(() => {
     setError(null);
@@ -121,7 +161,8 @@ export function useMapData(region: Region | null, categoryCodes: readonly string
   const loading = activitiesStatus === 'loading' || foodTrucksStatus === 'loading';
   const failed = activitiesStatus === 'error' || foodTrucksStatus === 'error';
   const bounds = region ? regionToBounds(region) : null;
-  const tooWide = bounds !== null && !isSearchable(bounds);
+  // Avec un rayon favori, la zone visible ne limite pas la recherche.
+  const tooWide = radiusKey === null && bounds !== null && !isSearchable(bounds);
 
   return { activities, foodTrucks, loading, error: failed ? error : null, tooWide, retry };
 }
