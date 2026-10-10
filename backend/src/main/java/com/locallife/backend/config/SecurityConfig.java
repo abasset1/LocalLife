@@ -113,6 +113,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/activities").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/activities/*/cancel").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/activities/mine").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/activities/*/contribution").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/activities/*").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/activities/*").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/activities/*/like").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/activities/*/like").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me/likes").authenticated()

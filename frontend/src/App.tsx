@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
 import { clearToken, getPayload, getToken } from "./auth/authStorage";
 import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
@@ -8,7 +8,7 @@ import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
 import { matchesSearchQuery, toLocalDateString } from "./components/explorer/activityUtils";
 import { DEFAULT_SEARCH_RADIUS_KM, MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE, NO_DATE_FILTER } from "./components/explorer/constants";
-import ContributionModal from "./components/explorer/ContributionModal";
+import ContributionModal, { EMPTY_RECURRENCE, type ContributionRecurrence } from "./components/explorer/ContributionModal";
 import ExplorerFilters from "./components/explorer/ExplorerFilters";
 import ExplorerMap from "./components/explorer/ExplorerMap";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
@@ -19,6 +19,7 @@ import type {
     ActivityDetail,
     ApiErrorBody,
     Category,
+    Contribution,
     FoodTruck,
     MapBounds,
     UserPosition,
@@ -58,6 +59,11 @@ function App() {
     const [email, setEmail] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [recurrence, setRecurrence] = useState<ContributionRecurrence>(EMPTY_RECURRENCE);
+    /** Contribution en cours de modification (`null` : le formulaire propose une nouvelle activité). */
+    const [editingActivityId, setEditingActivityId] = useState<number | null>(null);
+    const [isDeletingActivity, setIsDeletingActivity] = useState(false);
+    const [searchParams, setSearchParams] = useSearchParams();
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [isContributionModalOpen, setIsContributionModalOpen] = useState(false);
@@ -386,6 +392,9 @@ function App() {
             navigate("/login");
             return;
         }
+        if (editingActivityId !== null) {
+            resetContributionForm();
+        }
         setIsContributionModalOpen(true);
     }
 
@@ -393,7 +402,79 @@ function App() {
         setIsContributionModalOpen(false);
         setSubmitStatus("idle");
         setSubmitError(null);
+        // Un brouillon de proposition est conservé, pas les champs d'une contribution modifiée.
+        if (editingActivityId !== null) {
+            resetContributionForm();
+        }
     }
+
+    function resetContributionForm() {
+        setEditingActivityId(null);
+        setTitle("");
+        setDescription("");
+        setContributionCategoryCodes([]);
+        setAddress("");
+        setStartDate("");
+        setEndDate("");
+        setRecurrence(EMPTY_RECURRENCE);
+        setUrl("");
+        setPhone("");
+        setEmail("");
+    }
+
+    /** Ouvre le formulaire pré-rempli avec une contribution existante (créateur ou administrateur). */
+    async function openEditForm(activityId: number) {
+        setSubmitStatus("idle");
+        setSubmitError(null);
+        try {
+            const response = await apiFetch(`/api/v1/activities/${activityId}/contribution`);
+            if (!response.ok) {
+                const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+                window.alert(body?.message ?? "Impossible de charger cette activité pour la modifier.");
+                return;
+            }
+            const contribution = (await response.json()) as Contribution;
+            setEditingActivityId(contribution.id);
+            setTitle(contribution.title);
+            setDescription(contribution.description ?? "");
+            setContributionCategoryCodes(contribution.categoryCodes);
+            setAddress(contribution.address ?? "");
+            setUrl(contribution.url ?? "");
+            setPhone(contribution.phone ?? "");
+            setEmail(contribution.email ?? "");
+            if (contribution.recurrence) {
+                setRecurrence({
+                    enabled: true,
+                    days: contribution.recurrence.daysOfWeek,
+                    startTime: contribution.recurrence.startTime.slice(0, 5),
+                    endTime: contribution.recurrence.endTime?.slice(0, 5) ?? "",
+                });
+                setStartDate(contribution.recurrence.from);
+                setEndDate(contribution.recurrence.until ?? "");
+            } else {
+                setRecurrence(EMPTY_RECURRENCE);
+                setStartDate(contribution.startDate?.slice(0, 10) ?? "");
+                setEndDate(contribution.endDate?.slice(0, 10) ?? "");
+            }
+            setDetailActivity(null);
+            setIsContributionModalOpen(true);
+        } catch {
+            window.alert("Impossible de contacter le serveur, réessaie plus tard.");
+        }
+    }
+
+    // « Modifier » depuis « Mes contributions » : /?edit=<id> ouvre le formulaire pré-rempli.
+    const editParam = searchParams.get("edit");
+    useEffect(() => {
+        if (!editParam || !currentUser) {
+            return;
+        }
+        setSearchParams({}, { replace: true });
+        const activityId = Number(editParam);
+        if (Number.isInteger(activityId)) {
+            void openEditForm(activityId);
+        }
+    }, [editParam, currentUser]);
 
     // Fermeture au clavier (Échap) : referme l'élément le plus "au-dessus" ouvert
     // (fiche complète, puis aperçu, puis formulaire, puis menu mobile).
@@ -475,10 +556,16 @@ function App() {
             setSubmitStatus("error");
             return;
         }
+        if (recurrence.enabled && recurrence.days.length === 0) {
+            setSubmitError("Choisis au moins un jour de passage.");
+            setSubmitStatus("error");
+            return;
+        }
 
         try {
-            const response = await apiFetch("/api/v1/activities", {
-                method: "POST",
+            const isEditing = editingActivityId !== null;
+            const response = await apiFetch(isEditing ? `/api/v1/activities/${editingActivityId}` : "/api/v1/activities", {
+                method: isEditing ? "PUT" : "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     title,
@@ -487,8 +574,18 @@ function App() {
                     // Ancien champ à valeur unique, encore lu par un backend antérieur à `categoryCodes`.
                     categoryCode: contributionCategoryCodes[0],
                     address,
-                    startDate: startDate || undefined,
-                    endDate: endDate || undefined,
+                    // Activité récurrente : les dates du formulaire bornent la récurrence.
+                    startDate: recurrence.enabled ? undefined : startDate || undefined,
+                    endDate: recurrence.enabled ? undefined : endDate || undefined,
+                    recurrence: recurrence.enabled
+                        ? {
+                              daysOfWeek: recurrence.days,
+                              startTime: recurrence.startTime,
+                              endTime: recurrence.endTime || undefined,
+                              from: startDate || undefined,
+                              until: endDate || undefined,
+                          }
+                        : undefined,
                     url: url || undefined,
                     phone: phone || undefined,
                     email: email || undefined,
@@ -504,16 +601,13 @@ function App() {
 
             setRefreshKey((current) => current + 1);
             setSubmitStatus("success");
-            setTitle("");
-            setDescription("");
-            setContributionCategoryCodes([]);
-            setAddress("");
-            setStartDate("");
-            setEndDate("");
-            setUrl("");
-            setPhone("");
-            setEmail("");
+            resetContributionForm();
             setIsContributionModalOpen(false);
+            if (isEditing && currentUser?.role !== "ADMIN") {
+                window.alert(
+                    "Modification enregistrée. L'activité sera de nouveau visible après validation par un modérateur.",
+                );
+            }
         } catch {
             setSubmitError("Impossible de contacter le serveur, réessaie plus tard.");
             setSubmitStatus("error");
@@ -546,6 +640,33 @@ function App() {
             setCancelActivityError("Impossible de contacter le serveur, réessaie plus tard.");
         } finally {
             setIsCancellingActivity(false);
+        }
+    }
+
+    async function handleDeleteActivity(activity: Activity) {
+        const confirmed = window.confirm(`Supprimer définitivement « ${activity.title} » ? Cette action est irréversible.`);
+        if (!confirmed) {
+            return;
+        }
+
+        setIsDeletingActivity(true);
+        setCancelActivityError(null);
+
+        try {
+            const response = await apiFetch(`/api/v1/activities/${activity.id}`, { method: "DELETE" });
+
+            if (!response.ok) {
+                const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+                setCancelActivityError(body?.message ?? "Impossible de supprimer cette activité, réessaie.");
+                return;
+            }
+
+            setRefreshKey((current) => current + 1);
+            setDetailActivity(null);
+        } catch {
+            setCancelActivityError("Impossible de contacter le serveur, réessaie plus tard.");
+        } finally {
+            setIsDeletingActivity(false);
         }
     }
 
@@ -741,6 +862,8 @@ function App() {
 
             {isContributionModalOpen && currentUser && (
                 <ContributionModal
+                    mode={editingActivityId !== null ? "edit" : "create"}
+                    requiresRevalidation={currentUser.role !== "ADMIN"}
                     address={address}
                     categories={categories}
                     description={description}
@@ -754,11 +877,13 @@ function App() {
                     onEmailChange={setEmail}
                     onEndDateChange={setEndDate}
                     onPhoneChange={setPhone}
+                    onRecurrenceChange={setRecurrence}
                     onStartDateChange={setStartDate}
                     onSubmit={(event) => void handleSubmit(event)}
                     onTitleChange={setTitle}
                     onUrlChange={setUrl}
                     phone={phone}
+                    recurrence={recurrence}
                     startDate={startDate}
                     submitError={submitError}
                     submitStatus={submitStatus}
@@ -779,6 +904,9 @@ function App() {
                     isLoadingDetail={isLoadingActivityDetail}
                     isTogglingLike={isTogglingLike}
                     onCancel={(activity) => void handleCancelActivity(activity)}
+                    isDeleting={isDeletingActivity}
+                    onDelete={(activity) => void handleDeleteActivity(activity)}
+                    onEdit={(activity) => void openEditForm(activity.id)}
                     onClose={() => setDetailActivity(null)}
                     onToggleLike={(activity) => void handleToggleLike(activity)}
                 />

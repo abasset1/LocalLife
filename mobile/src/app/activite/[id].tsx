@@ -1,4 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useRef } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,8 +10,11 @@ import { Field } from '@/components/field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { formatDateRange, formatPlace, isSafeWebUrl } from '@/features/activity/format';
 import { useActivity } from '@/features/activity/useActivity';
+import { useAuth } from '@/auth';
+import { ContributorActions, STATUS_LABELS } from '@/features/contribution';
 
 /**
  * Détail d'une activité (LL-MOB-0008), atteint depuis l'aperçu d'un marqueur
@@ -21,7 +25,18 @@ import { useActivity } from '@/features/activity/useActivity';
 export default function ActiviteDetailScreen() {
   const { id, source } = useLocalSearchParams<{ id: string; source?: string }>();
   const router = useRouter();
-  const { state, retry } = useActivity(id);
+  const theme = useTheme();
+  const { state: auth } = useAuth();
+  const { state, retry } = useActivity(id, auth.status === 'authenticated' ? auth.user : null);
+
+  // Retour sur la fiche après « Modifier » : rechargée pour refléter la modification.
+  const focusedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (focusedOnce.current) retry();
+      focusedOnce.current = true;
+    }, [retry]),
+  );
 
   return (
     <ThemedView style={styles.container}>
@@ -73,6 +88,12 @@ export default function ActiviteDetailScreen() {
                 {activity.title}
               </ThemedText>
               <ThemedText themeColor="textSecondary">{activity.category}</ThemedText>
+              {detail && detail.status !== 'PUBLISHED' && (
+                <ThemedText style={[styles.statusNotice, { backgroundColor: theme.backgroundElement }]}>
+                  {STATUS_LABELS[detail.status] ?? detail.status} : visible seulement par vous (et les
+                  modérateurs) tant qu’elle n’est pas publiée.
+                </ThemedText>
+              )}
 
               {date && <Field label="Date" value={date} />}
               {place && <Field label="Lieu" value={place} />}
@@ -95,6 +116,13 @@ export default function ActiviteDetailScreen() {
                   onPress={() => WebBrowser.openBrowserAsync(url).catch(() => undefined)}
                 />
               )}
+              <ContributorActions
+                activityId={activity.id}
+                title={activity.title}
+                createdBy={activity.createdBy}
+                // Fiche ouverte depuis une notification : pas d'écran précédent, retour à la carte.
+                onDeleted={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+              />
               <Button label="Retour à la carte" onPress={() => router.back()} />
             </ScrollView>
           );
@@ -127,5 +155,9 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: Spacing.one,
+  },
+  statusNotice: {
+    padding: Spacing.three,
+    borderRadius: 8,
   },
 });

@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.9.43 — 2026-10-10
+
+### Mobile : « Modifier » / « Supprimer » sur la fiche d'une activité
+- La fiche affiche « Modifier » et « Supprimer » à son contributeur (et aux administrateurs), jamais aux autres utilisateurs ni pour une activité importée. « Modifier » ouvre le formulaire pré-rempli ; au retour, la fiche se recharge. « Supprimer » demande confirmation puis revient en arrière (ou à la carte si la fiche a été ouverte directement, depuis une notification par exemple).
+- Le contributeur voit désormais sa fiche même quand elle n'est pas publiée (en attente de validation après une modification, refusée…), avec un bandeau qui le précise ; pour les autres, elle reste « indisponible ».
+- API : `GET /api/v1/activities/{id}` expose `createdBy` (fiche détaillée et résumé), déjà public sur les réponses de la carte.
+- Tests : `permissions.test.ts`, cas ajouté à `ContributionManagementIntegrationTest`. Vérifié : mobile `tsc`/`eslint` (0 erreur, avertissements préexistants)/`jest` (81), `mvn verify` (1100 tests) ; parcours dans la version web de l'app contre le backend réel : un autre utilisateur ne voit pas les boutons ; l'auteur modifie le titre → fiche rechargée avec bandeau « En attente de validation » → Supprimer → retour à la carte, activité supprimée en base. ⚠️ Non testé sur un appareil iOS/Android.
+
+## 0.9.42 — 2026-10-10
+
+### Mobile : proposer, modifier et supprimer ses contributions
+- Onglet « Contribution » (jusqu'ici vide) : formulaire de proposition — titre, description, catégories, adresse, dates, contacts — avec « Revient chaque semaine (food truck, marché…) » : jours de passage, heure d'arrivée et de départ (« 11h30 », « 11:30 » ou « 1130 » acceptés), « À partir du » / « Jusqu'au ». L'activité est créée en attente de validation.
+- Nouvel écran « Mes contributions » (depuis l'onglet Contribution et l'onglet Compte) : toutes ses activités avec leur statut (en attente de validation, publiée, refusée…), « Modifier » et « Supprimer » (avec confirmation). « Modifier » ouvre le formulaire pré-rempli ; après enregistrement l'activité repasse en validation (message d'information), sauf pour un administrateur. La liste se recharge au retour sur l'écran.
+- Correctif (web et mobile) : passer une activité ponctuelle en récurrente gardait sa date de fin (souvent le jour même), qui bornait la récurrence à une seule journée → « aucun jour de passage ». Activer « Revient chaque semaine » vide désormais la date de fin ; le message d'erreur du backend cite la période concernée.
+- Mobile : la fiche d'une activité n'affiche pas encore « Modifier »/« Supprimer » (elle n'expose pas son créateur) : la gestion passe par « Mes contributions ».
+- Tests : `features/contribution/__tests__/form.test.ts` (validation, récurrence, pré-remplissage, formats d'heure). Vérifié : mobile `tsc`/`eslint` (0 erreur, avertissements préexistants)/`jest`, build web, `mvn verify` ; parcours dans la version web de l'app (Expo) contre le backend réel : connexion → proposition d'un food truck mardi/jeudi 11h30–14h00 (corps de requête vérifié, la création réelle exigeant le géocodage, injoignable ici) → « Mes contributions » → Modifier → « tous les samedis à 8h00 » → « En attente de validation » en base (`FREQ=WEEKLY;BYDAY=SA`) → Supprimer. ⚠️ Non testé sur un appareil iOS/Android.
+
+## 0.9.41 — 2026-10-10
+
+### Modifier ou supprimer ses contributions (la modification repasse en validation)
+- Web : nouvelle page « Mes contributions » (menu Communauté) avec toutes les activités proposées, quel que soit leur statut (en attente de validation, publiée, refusée, annulée, archivée), chacune avec « Modifier » et « Supprimer ». La fiche d'une activité propose aussi « Modifier » et « Supprimer » à son créateur (et aux administrateurs), à côté de « Annuler cette activité ».
+- « Modifier » rouvre le formulaire de proposition pré-rempli (catégories, adresse, dates, contacts, récurrence). Un bandeau prévient que l'activité repassera en validation ; après enregistrement, elle passe en `PENDING` et disparaît de la carte jusqu'à ce qu'un administrateur la valide de nouveau. Une modification faite par un administrateur ne change pas le statut. Une activité refusée peut être corrigée puis resoumise ; une activité annulée ou archivée ne se modifie plus (elle peut être supprimée).
+- « Supprimer » (avec confirmation) efface définitivement l'activité et ce qui y est rattaché : horaires et occurrences, liens/contacts, médias, classification ; favoris et alertes partent en cascade.
+- API : `GET /api/v1/activities/mine`, `GET /api/v1/activities/{id}/contribution` (pré-remplissage), `PUT /api/v1/activities/{id}` (même corps que la création), `DELETE /api/v1/activities/{id}`. Réservés au créateur ou à un administrateur (401 sans connexion, 403 pour un autre utilisateur), refusés pour une activité importée. L'adresse n'est géocodée de nouveau que si elle change.
+- Mobile : pas encore de gestion des contributions (l'onglet Contribution n'a pas de formulaire).
+- Tests : `ContributionServiceTest`, cas ajoutés à `ActivityServiceTest` et `ActivityControllerTest`, `ContributionManagementIntegrationTest` (modification → `PENDING` et invisible publiquement, passage en récurrent puis retour, refus pour un autre utilisateur, suppression d'une activité likée et récurrente). Parcours web vérifié dans le navigateur contre le backend réel : « Mes contributions » → Modifier → passage en « tous les mardis et jeudis 11h30–14h00 » → statut « En attente de validation » → formulaire rouvert pré-rempli → Supprimer.
+
+## 0.9.40 — 2026-10-10
+
+### Proposer une activité récurrente (food truck, marché…)
+- Web : le formulaire « Proposer une activité » a une case « Revient chaque semaine (food truck, marché…) ». Cochée, on choisit les jours de passage (au moins un), l'heure d'arrivée et, au besoin, l'heure de départ ; les dates deviennent « À partir du » (aujourd'hui par défaut) et « Jusqu'au » (facultatif). Une heure de départ avant l'heure d'arrivée (ex. 19h → 1h) se termine le lendemain.
+- API : `POST /api/v1/activities` accepte un objet facultatif `recurrence` (`daysOfWeek` en codes `MO`…`SU`, `startTime`/`endTime` en `HH:mm`, `from`/`until` en `yyyy-MM-dd`). Il crée, comme un import récurrent, un lieu, un `Schedule` portant la règle (`FREQ=WEEKLY;BYDAY=TU,TH`, fuseau Europe/Paris) et ses occurrences. La recherche (ADR-0006) ne trouve alors l'activité que les jours de passage, et la fiche affiche « Tous les mardis et jeudis · 11h30 → 14h00 ». Les colonnes `startDate`/`endDate` vont du premier au dernier passage. Sans `recurrence`, rien ne change.
+- Limite : les occurrences sont créées sur un an au plus à partir du premier jour (y compris sans date de fin) ; au-delà, il faut reproposer l'activité. Récurrence hebdomadaire uniquement (pas de « 1er dimanche du mois »). Mobile : l'onglet Contribution n'a pas encore de formulaire.
+- Tests : `ContributionRecurrenceTest`, `RecurringContributionServiceTest`, cas ajoutés à `ActivityControllerTest`, `RecurringContributionIntegrationTest` (food truck du lundi trouvé un lundi, pas le mardi). Vérifié : `mvn verify` (1075 tests, checkstyle), build web. ⚠️ Formulaire web non testé dans le navigateur.
+
 ## 0.9.39 — 2026-10-10
 
 ### LS-000 — Nom d'utilisateur unique

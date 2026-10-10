@@ -4,6 +4,9 @@ import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.accessibility.domain.Accessibility;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
+import com.locallife.backend.activity.application.ContributionRecurrence;
+import com.locallife.backend.activity.application.ContributionService;
+import com.locallife.backend.activity.application.RecurringContributionService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.category.domain.Category;
@@ -41,6 +44,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -58,6 +62,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -106,6 +111,8 @@ public class ActivityController {
     private final ActivityMetadataService activityMetadataService;
     private final PremiumAccessPolicy premiumAccessPolicy;
     private final CategoryRepository categoryRepository;
+    private final RecurringContributionService recurringContributionService;
+    private final ContributionService contributionService;
 
     public ActivityController(
             ActivityService activityService, SourceService sourceService, UserService userService,
@@ -113,7 +120,8 @@ public class ActivityController {
             LocationService locationService, MediaService mediaService, ActivityMediaService activityMediaService,
             ActivityLinkService activityLinkService, AccessibilityService accessibilityService,
             ActivityTagService activityTagService, ActivityMetadataService activityMetadataService,
-            PremiumAccessPolicy premiumAccessPolicy, CategoryRepository categoryRepository) {
+            PremiumAccessPolicy premiumAccessPolicy, CategoryRepository categoryRepository,
+            RecurringContributionService recurringContributionService, ContributionService contributionService) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -129,6 +137,8 @@ public class ActivityController {
         this.activityMetadataService = activityMetadataService;
         this.premiumAccessPolicy = premiumAccessPolicy;
         this.categoryRepository = categoryRepository;
+        this.recurringContributionService = recurringContributionService;
+        this.contributionService = contributionService;
     }
 
     /**
@@ -542,15 +552,7 @@ public class ActivityController {
         try {
             // LL-EF-016 : validés avant même la création de l'activité (voir la javadoc de
             // CreateActivityRequest et ActivityLinkService#validateBeforeCreate).
-            if (hasText(request.url())) {
-                activityLinkService.validateBeforeCreate(LINK_TYPE_WEBSITE, request.url());
-            }
-            if (hasText(request.phone())) {
-                activityLinkService.validateBeforeCreate(ActivityLinkService.TYPE_PHONE, request.phone());
-            }
-            if (hasText(request.email())) {
-                activityLinkService.validateBeforeCreate(ActivityLinkService.TYPE_EMAIL, request.email());
-            }
+            validateContactLinks(request);
 
             // Issue #45 : une activité a 1..N catégories (contrainte en base, V42). Pour une
             // contribution manuelle, ce sont celles choisies par le contributeur (categoryCodes,
@@ -561,9 +563,15 @@ public class ActivityController {
             // authentication non-null garanti : POST /api/v1/activities exige un JWT valide
             // (voir SecurityConfig), JwtFilter ne laisse passer que des JwtAuthentication.
             Long createdBy = ((JwtAuthentication) authentication).getUserId();
-            Activity activity = activityService.createActivity(
-                    request.title(), request.description(), request.category(), request.address(),
-                    request.startDate(), request.endDate(), createdBy, categoryIds);
+            // Récurrence (food truck, marché…) : validée avant toute écriture, comme les contacts.
+            RecurrenceRequest recurrence = request.recurrence();
+            Activity activity = recurrence == null
+                    ? activityService.createActivity(
+                            request.title(), request.description(), request.category(), request.address(),
+                            request.startDate(), request.endDate(), createdBy, categoryIds)
+                    : recurringContributionService.createActivity(
+                            request.title(), request.description(), request.category(), request.address(),
+                            createdBy, categoryIds, recurrence.toContributionRecurrence());
 
             attachContactLinks(activity.id(), request);
 
@@ -572,6 +580,143 @@ public class ActivityController {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
         } catch (GeocodingUnavailableException exception) {
             return errorResponse(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), httpRequest);
+        }
+    }
+
+    /**
+     * Contributions de l'utilisateur connecté, tous statuts confondus ({@code PENDING} en attente de
+     * validation, {@code PUBLISHED}, {@code REJECTED}…), pour qu'il puisse les retrouver, les modifier ou
+     * les supprimer — y compris celles qui ne sont pas (ou plus) visibles sur la carte.
+     */
+    @Operation(summary = "Liste les contributions de l'utilisateur connecté, tous statuts confondus")
+    @GetMapping("/mine")
+    public List<ContributionResponse> getMyContributions(Authentication authentication) {
+        Long userId = ((JwtAuthentication) authentication).getUserId();
+        return contributionService.findByCreator(userId).stream().map(this::toContributionResponse).toList();
+    }
+
+    /** Contribution à modifier (pré-remplissage du formulaire), réservée à son créateur ou à un administrateur. */
+    @Operation(summary = "Contribution à modifier, réservée à son créateur ou à un administrateur")
+    @GetMapping("/{id}/contribution")
+    public ResponseEntity<Object> getContribution(
+            @PathVariable Long id, Authentication authentication, HttpServletRequest httpRequest) {
+        JwtAuthentication jwtAuthentication = (JwtAuthentication) authentication;
+        try {
+            return contributionService.findManageable(
+                            id, jwtAuthentication.getUserId(), jwtAuthentication.getRole() == Role.ADMIN)
+                    .<ResponseEntity<Object>>map(activity -> ResponseEntity.ok(toContributionResponse(activity)))
+                    .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+        } catch (IllegalArgumentException exception) {
+            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        } catch (ActivityAccessDeniedException exception) {
+            return errorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), httpRequest);
+        }
+    }
+
+    /**
+     * Modifie une contribution (même corps que {@link #createActivity}). Faite par le contributeur, elle
+     * repasse l'activité en {@code PENDING} : retirée de la carte jusqu'à une nouvelle validation. Faite par
+     * un administrateur, le statut ne change pas. Les liens/contacts sont remplacés par ceux du corps.
+     */
+    @Operation(
+            summary = "Modifie une contribution",
+            description = "Réservé au créateur de l'activité ou à un administrateur. Une modification par le "
+                    + "créateur repasse l'activité en attente de validation (PENDING).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Activité modifiée."),
+        @ApiResponse(responseCode = "400", description = "Champ invalide, activité importée ou plus modifiable.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide)."),
+        @ApiResponse(responseCode = "403", description = "Ni créateur de l'activité ni administrateur.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Aucune activité ne correspond à cet id.")
+    })
+    @PutMapping("/{id}")
+    public ResponseEntity<Object> updateActivity(
+            @PathVariable Long id, @RequestBody CreateActivityRequest request, Authentication authentication,
+            HttpServletRequest httpRequest) {
+        JwtAuthentication jwtAuthentication = (JwtAuthentication) authentication;
+        try {
+            validateContactLinks(request);
+            List<Long> categoryIds = resolveRequestedCategoryIds(request);
+            RecurrenceRequest recurrence = request.recurrence();
+            Optional<Activity> updated = contributionService.update(
+                    id, jwtAuthentication.getUserId(), jwtAuthentication.getRole() == Role.ADMIN,
+                    request.title(), request.description(), request.category(), request.address(),
+                    request.startDate(), request.endDate(), categoryIds,
+                    recurrence == null ? null : recurrence.toContributionRecurrence());
+            if (updated.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            activityLinkService.deleteByActivityId(id);
+            attachContactLinks(id, request);
+            return ResponseEntity.ok(updated.get());
+        } catch (IllegalArgumentException | AddressNotFoundException exception) {
+            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        } catch (GeocodingUnavailableException exception) {
+            return errorResponse(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), httpRequest);
+        } catch (ActivityAccessDeniedException exception) {
+            return errorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), httpRequest);
+        }
+    }
+
+    /** Supprime définitivement une contribution, réservé à son créateur ou à un administrateur. */
+    @Operation(
+            summary = "Supprime une contribution",
+            description = "Suppression définitive, réservée au créateur de l'activité ou à un administrateur. "
+                    + "Impossible pour une activité importée.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Activité supprimée."),
+        @ApiResponse(responseCode = "400", description = "Activité importée.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide)."),
+        @ApiResponse(responseCode = "403", description = "Ni créateur de l'activité ni administrateur.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Aucune activité ne correspond à cet id.")
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Object> deleteActivity(
+            @PathVariable Long id, Authentication authentication, HttpServletRequest httpRequest) {
+        JwtAuthentication jwtAuthentication = (JwtAuthentication) authentication;
+        try {
+            boolean deleted = contributionService.delete(
+                    id, jwtAuthentication.getUserId(), jwtAuthentication.getRole() == Role.ADMIN);
+            return deleted ? ResponseEntity.noContent().build() : ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (IllegalArgumentException exception) {
+            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        } catch (ActivityAccessDeniedException exception) {
+            return errorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), httpRequest);
+        }
+    }
+
+    private ContributionResponse toContributionResponse(Activity activity) {
+        List<ActivityLink> links = activityLinkService.findByActivityId(activity.id());
+        RecurrenceRequest recurrence = recurringContributionService.findRecurrence(activity.id())
+                .map(RecurrenceRequest::from)
+                .orElse(null);
+        return new ContributionResponse(
+                activity.id(), activity.title(), activity.description(), activity.status(), activity.address(),
+                activity.city(), activity.startDate(), activity.endDate(),
+                resolveCategoryCodes(List.of(activity.id())).getOrDefault(activity.id(), List.of()),
+                linkValue(links, LINK_TYPE_WEBSITE), linkValue(links, ActivityLinkService.TYPE_PHONE),
+                linkValue(links, ActivityLinkService.TYPE_EMAIL), recurrence);
+    }
+
+    private static String linkValue(List<ActivityLink> links, String type) {
+        return links.stream().filter(link -> type.equals(link.type())).map(ActivityLink::value).findFirst()
+                .orElse(null);
+    }
+
+    /** Liens/contacts facultatifs, validés avant toute écriture (LL-EF-016). */
+    private void validateContactLinks(CreateActivityRequest request) {
+        if (hasText(request.url())) {
+            activityLinkService.validateBeforeCreate(LINK_TYPE_WEBSITE, request.url());
+        }
+        if (hasText(request.phone())) {
+            activityLinkService.validateBeforeCreate(ActivityLinkService.TYPE_PHONE, request.phone());
+        }
+        if (hasText(request.email())) {
+            activityLinkService.validateBeforeCreate(ActivityLinkService.TYPE_EMAIL, request.email());
         }
     }
 
@@ -793,11 +938,23 @@ public class ActivityController {
      * {@code categoryCodes} : plusieurs catégories pour une même contribution (modèle 1..N,
      * issue #45). Prioritaire sur {@code categoryCode}, conservé pour les clients qui n'envoient
      * qu'une catégorie.
+     *
+     * {@code recurrence} : facultatif. Renseigné, l'activité revient chaque semaine (food truck, marché…)
+     * et {@code startDate}/{@code endDate} sont ignorés au profit de ses bornes {@code from}/{@code until}.
      */
     public record CreateActivityRequest(
             String title, String description, String category, String address,
             String startDate, String endDate, String url, String phone, String email,
-            String categoryCode, List<String> categoryCodes) {
+            String categoryCode, List<String> categoryCodes, RecurrenceRequest recurrence) {
+
+        /** Sans récurrence (activité ponctuelle ou sur une période). */
+        public CreateActivityRequest(
+                String title, String description, String category, String address,
+                String startDate, String endDate, String url, String phone, String email,
+                String categoryCode, List<String> categoryCodes) {
+            this(title, description, category, address, startDate, endDate, url, phone, email, categoryCode,
+                    categoryCodes, null);
+        }
 
         /** Une seule catégorie ({@code categoryCode}), sans {@code categoryCodes}. */
         public CreateActivityRequest(
@@ -805,7 +962,29 @@ public class ActivityController {
                 String startDate, String endDate, String url, String phone, String email,
                 String categoryCode) {
             this(title, description, category, address, startDate, endDate, url, phone, email, categoryCode,
-                    null);
+                    null, null);
+        }
+    }
+
+    /**
+     * Récurrence hebdomadaire d'une contribution : {@code daysOfWeek} en codes RFC 5545 ({@code MO}…
+     * {@code SU}), {@code startTime}/{@code endTime} en {@code HH:mm}, {@code from}/{@code until} en
+     * {@code yyyy-MM-dd} (début par défaut : aujourd'hui ; fin facultative). Validée par
+     * {@link ContributionRecurrence#of}.
+     */
+    public record RecurrenceRequest(
+            List<String> daysOfWeek, String startTime, String endTime, String from, String until) {
+
+        static RecurrenceRequest from(ContributionRecurrence recurrence) {
+            return new RecurrenceRequest(
+                    recurrence.dayCodes(), recurrence.startTime().toString(),
+                    recurrence.endTime() == null ? null : recurrence.endTime().toString(),
+                    recurrence.from().toString(), recurrence.until() == null ? null : recurrence.until().toString());
+        }
+
+        ContributionRecurrence toContributionRecurrence() {
+            return ContributionRecurrence.of(daysOfWeek, startTime, endTime, from, until,
+                    LocalDate.now(RecurringContributionService.CONTRIBUTION_ZONE));
         }
     }
 

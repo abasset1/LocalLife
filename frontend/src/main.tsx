@@ -10,6 +10,7 @@ import AdminPage from "./pages/AdminPage";
 import FavoritesPage from "./pages/FavoritesPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
+import MyContributionsPage from "./pages/MyContributionsPage";
 import ProfilePage from "./pages/ProfilePage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
@@ -24,6 +25,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route element={<AdminPage />} path="/admin" />
                 <Route element={<ProfilePage />} path="/profile" />
                 <Route element={<FavoritesPage />} path="/favorites" />
+                <Route element={<MyContributionsPage />} path="/contributions" />
                 <Route element={<LoginPage />} path="/login" />
                 <Route element={<RegisterPage />} path="/register" />
                 <Route element={<ForgotPasswordPage />} path="/forgot-password" />

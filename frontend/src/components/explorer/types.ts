@@ -139,3 +139,30 @@ export interface ExplorerCurrentUser {
     email: string;
     role: string;
 }
+
+/**
+ * Contribution vue par son auteur (`ContributionResponse` côté backend) : « Mes contributions » et
+ * pré-remplissage du formulaire de modification.
+ */
+export interface Contribution {
+    id: number;
+    title: string;
+    description: string | null;
+    /** `PENDING` (en attente de validation), `PUBLISHED`, `REJECTED`, `CANCELLED`, `ARCHIVED`. */
+    status: string;
+    address: string | null;
+    city: string | null;
+    startDate: string | null;
+    endDate: string | null;
+    categoryCodes: string[];
+    url: string | null;
+    phone: string | null;
+    email: string | null;
+    recurrence: {
+        daysOfWeek: string[];
+        startTime: string;
+        endTime: string | null;
+        from: string;
+        until: string | null;
+    } | null;
+}

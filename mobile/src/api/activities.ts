@@ -3,6 +3,7 @@ import type {
   Activity,
   ActivityDetailOrSummary,
   ActivitySummary,
+  Contribution,
   CreateActivityRequest,
   CreatedActivity,
   ListActivitiesParams,
@@ -94,4 +95,39 @@ export function createActivity(
     authenticated: true,
     signal: options.signal,
   });
+}
+
+/** `GET /activities/mine` — contributions de l'utilisateur, tous statuts confondus (JWT requis). */
+export function listMyContributions(options: CallOptions = {}): Promise<Contribution[]> {
+  return request<Contribution[]>(`${BASE}/mine`, { authenticated: true, signal: options.signal });
+}
+
+/** `GET /activities/{id}/contribution` — contribution à modifier (créateur ou administrateur). */
+export function getContribution(id: number | string, options: CallOptions = {}): Promise<Contribution> {
+  return request<Contribution>(`${BASE}/${encodeURIComponent(String(id))}/contribution`, {
+    authenticated: true,
+    signal: options.signal,
+  });
+}
+
+/**
+ * `PUT /activities/{id}` — modifie une contribution (même corps que la création). Faite par le
+ * contributeur, elle repasse l'activité en attente de validation (`PENDING`).
+ */
+export function updateActivity(
+  id: number,
+  payload: CreateActivityRequest,
+  options: CallOptions = {},
+): Promise<CreatedActivity> {
+  return request<CreatedActivity>(`${BASE}/${id}`, {
+    method: 'PUT',
+    body: payload,
+    authenticated: true,
+    signal: options.signal,
+  });
+}
+
+/** `DELETE /activities/{id}` — suppression définitive (créateur ou administrateur). */
+export function deleteActivity(id: number, options: CallOptions = {}): Promise<void> {
+  return request<void>(`${BASE}/${id}`, { method: 'DELETE', authenticated: true, signal: options.signal });
 }

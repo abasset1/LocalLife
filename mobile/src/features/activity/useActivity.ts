@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, HttpError, RequestAbortedError, getActivity } from '@/api';
 import type { ActivityDetailOrSummary } from '@/api';
+import { canManageActivity } from '@/features/contribution/permissions';
 
 export type ActivityState =
   | { status: 'loading' }
@@ -16,9 +17,11 @@ export type ActivityState =
  * Une activité qui n'existe pas (404), dont l'identifiant est invalide
  * (400), ou qui n'est pas publiée (`status` ≠ `PUBLISHED`, quand la fiche
  * détaillée l'indique) est « indisponible » ; les autres échecs (réseau,
- * délai, 5xx) sont des erreurs réessayables.
+ * délai, 5xx) sont des erreurs réessayables. Exception : son contributeur
+ * (et un administrateur) voit sa fiche non publiée — en attente de
+ * validation après une modification, par exemple — pour la gérer.
  */
-export function useActivity(id: string | undefined) {
+export function useActivity(id: string | undefined, user: { userId: number; role: string } | null = null) {
   const [state, setState] = useState<ActivityState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
 
@@ -32,7 +35,11 @@ export function useActivity(id: string | undefined) {
 
     getActivity(id, { signal: controller.signal })
       .then((activity) => {
-        if ('status' in activity && activity.status !== 'PUBLISHED') {
+        if (
+          'status' in activity &&
+          activity.status !== 'PUBLISHED' &&
+          !canManageActivity(user, activity.createdBy)
+        ) {
           setState({ status: 'unavailable' });
         } else {
           setState({ status: 'success', activity });
@@ -51,7 +58,9 @@ export function useActivity(id: string | undefined) {
       });
 
     return () => controller.abort();
-  }, [id, attempt]);
+    // Seuls l'identifiant et le rôle comptent : `user` change d'objet à chaque rendu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, attempt, user?.userId, user?.role]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
   return { state, retry };

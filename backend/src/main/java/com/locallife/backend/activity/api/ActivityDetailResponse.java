@@ -37,6 +37,10 @@ import java.util.List;
  * supplémentaires à {@code ActivityController} pour un unique endpoint
  * de détail. Peuvent être ajoutés par un futur ticket si le frontend en
  * a besoin sur la fiche détaillée.
+ *
+ * {@code createdBy} : identifiant du contributeur ({@code null} pour une activité importée), déjà public
+ * sur {@code ActivityResponse} — permet à l'app mobile de proposer « Modifier »/« Supprimer » à son
+ * auteur sur la fiche (les droits restent vérifiés par le backend).
  */
 public record ActivityDetailResponse(
         Long id,
@@ -65,7 +69,8 @@ public record ActivityDetailResponse(
         List<String> tags,
         String additionalInfo,
         List<String> categoryCodes,
-        LocalDateTime publishedAt) {
+        LocalDateTime publishedAt,
+        Long createdBy) {
 
     public static ActivityDetailResponse from(
             Activity activity,
@@ -120,7 +125,8 @@ public record ActivityDetailResponse(
                 tags,
                 additionalInfo,
                 categoryCodes,
-                activity.publishedAt());
+                activity.publishedAt(),
+                activity.createdBy());
     }
 
     /** Programmation d'une activité — voir {@link Schedule}. */

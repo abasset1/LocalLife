@@ -33,6 +33,8 @@ export default function RootLayout() {
           <Stack.Screen name="foodtruck/[id]" options={{ title: 'Food truck' }} />
           <Stack.Screen name="parametres" options={{ title: 'Paramètres de recherche' }} />
           <Stack.Screen name="alertes" options={{ title: 'Mes alertes' }} />
+          <Stack.Screen name="contributions/index" options={{ title: 'Mes contributions' }} />
+          <Stack.Screen name="contributions/[id]" options={{ title: "Modifier l'activité" }} />
           {/* Accueil de première connexion : plein écran, sans geste ni bouton de retour. */}
           <Stack.Screen
             name="bienvenue"

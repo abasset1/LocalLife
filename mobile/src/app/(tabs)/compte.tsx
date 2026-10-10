@@ -98,6 +98,7 @@ export default function CompteScreen() {
           <ThemedText type="smallBold">{state.user.email}</ThemedText>
           <Button label="Paramètres de recherche" onPress={() => router.push('/parametres')} />
           <Button label="Mes alertes" onPress={() => router.push('/alertes')} />
+          <Button label="Mes contributions" onPress={() => router.push('/contributions')} />
           <Button label="Se déconnecter" variant="secondary" onPress={() => void logout()} />
         </SafeAreaView>
       </ThemedView>

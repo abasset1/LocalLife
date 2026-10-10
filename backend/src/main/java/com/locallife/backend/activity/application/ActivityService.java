@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service Activity — simple délégation vers le repository, avec géocodage
@@ -779,6 +780,50 @@ public class ActivityService {
                 manualSourceId, null, null,
                 address, coordinates.city(), coordinates.postalCode(), null, null, null, null, createdBy);
         return activityClassificationService.createActivity(activity, categoryIds);
+    }
+
+    /**
+     * Modifie une contribution manuelle : mêmes règles que {@link #createActivity} (titre, catégories,
+     * dates par défaut), statut fixé par l'appelant. L'adresse n'est géocodée de nouveau que si elle
+     * change ; sinon coordonnées, ville et code postal sont conservés. Remplace les catégories.
+     *
+     * @throws IllegalArgumentException si un champ est invalide
+     */
+    @Transactional
+    public Activity updateContribution(
+            Activity existing, String title, String description, String category, String address,
+            String startDate, String endDate, String status, List<Long> categoryIds) {
+        validateTitle(title);
+        validateCategory(category);
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            throw new IllegalArgumentException("Au moins une catégorie est obligatoire.");
+        }
+        LocalDateTime resolvedStartDate = parseFlexibleDate("startDate", startDate)
+                .orElseGet(LocalDateTime::now);
+        LocalDateTime resolvedEndDate = parseFlexibleDate("endDate", endDate)
+                .orElseGet(() -> resolvedStartDate.toLocalDate().atStartOfDay());
+        boolean sameAddress = address != null && existing.address() != null
+                && address.trim().equalsIgnoreCase(existing.address().trim());
+        double latitude = existing.latitude();
+        double longitude = existing.longitude();
+        String city = existing.city();
+        String postalCode = existing.postalCode();
+        if (!sameAddress) {
+            Coordinates coordinates = geocodingService.geocode(address);
+            validateLatitude("latitude", coordinates.latitude());
+            validateLongitude("longitude", coordinates.longitude());
+            latitude = coordinates.latitude();
+            longitude = coordinates.longitude();
+            city = coordinates.city();
+            postalCode = coordinates.postalCode();
+        }
+        Activity updated = activityRepository.save(new Activity(
+                existing.id(), title, description, category, latitude, longitude, resolvedStartDate,
+                resolvedEndDate, status, existing.sourceId(), existing.importKey(), existing.url(),
+                sameAddress ? existing.address() : address, city, postalCode, existing.longDescription(),
+                existing.conditions(), existing.ageMin(), existing.ageMax(), existing.createdBy()));
+        activityClassificationService.replaceCategories(updated.id(), categoryIds);
+        return updated;
     }
 
     /**

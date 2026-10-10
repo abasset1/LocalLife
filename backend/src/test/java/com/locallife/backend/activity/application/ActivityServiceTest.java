@@ -1167,4 +1167,56 @@ class ActivityServiceTest {
         verify(activityRepository, never()).save(any());
     }
 
+
+    @Test
+    void updateContribution_ShouldKeepCoordinates_AndSaveGivenStatus_WhenAddressUnchanged() {
+        Activity existing = new Activity(4L, "Ancien", "Desc", null, 45.76, 4.83,
+                LocalDateTime.of(2026, 11, 1, 10, 0), null, "PUBLISHED", 1L, null, null,
+                "Place Bellecour", "Lyon", "69002", null, null, null, null, 7L);
+        when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Activity updated = activityService().updateContribution(
+                existing, "Nouveau", "Autre desc", null, " place bellecour ", "2026-12-01T18:00", null, "PENDING",
+                List.of(3L));
+
+        verifyNoInteractions(geocodingService);
+        assertThat(updated.title()).isEqualTo("Nouveau");
+        assertThat(updated.status()).isEqualTo("PENDING");
+        assertThat(updated.address()).isEqualTo("Place Bellecour");
+        assertThat(updated.latitude()).isEqualTo(45.76);
+        assertThat(updated.createdBy()).isEqualTo(7L);
+        assertThat(updated.startDate()).isEqualTo(LocalDateTime.of(2026, 12, 1, 18, 0));
+        verify(activityClassificationService).replaceCategories(4L, List.of(3L));
+    }
+
+    @Test
+    void updateContribution_ShouldGeocodeNewAddress_WhenAddressChanged() {
+        Activity existing = new Activity(4L, "Ancien", "Desc", null, 45.76, 4.83,
+                LocalDateTime.of(2026, 11, 1, 10, 0), null, "PENDING", 1L, null, null,
+                "Place Bellecour", "Lyon", "69002", null, null, null, null, 7L);
+        when(geocodingService.geocode("Vieux-Port, Marseille"))
+                .thenReturn(new Coordinates(43.29, 5.37, "Marseille", "13001"));
+        when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Activity updated = activityService().updateContribution(
+                existing, "Ancien", "Desc", null, "Vieux-Port, Marseille", null, null, "PENDING", List.of(3L));
+
+        assertThat(updated.city()).isEqualTo("Marseille");
+        assertThat(updated.postalCode()).isEqualTo("13001");
+        assertThat(updated.latitude()).isEqualTo(43.29);
+        assertThat(updated.address()).isEqualTo("Vieux-Port, Marseille");
+    }
+
+    @Test
+    void updateContribution_ShouldThrow_WhenNoCategory() {
+        Activity existing = new Activity(4L, "Ancien", "Desc", null, 45.76, 4.83,
+                LocalDateTime.of(2026, 11, 1, 10, 0), null, "PENDING", 1L, null, null,
+                "Place Bellecour", "Lyon", "69002", null, null, null, null, 7L);
+
+        assertThatThrownBy(() -> activityService().updateContribution(
+                existing, "Ancien", "Desc", null, "Place Bellecour", null, null, "PENDING", List.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(activityRepository, never()).save(any());
+    }
+
 }
