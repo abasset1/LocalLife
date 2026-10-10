@@ -15,6 +15,7 @@ import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.UserPreferences;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,14 +40,15 @@ class UserPreferencesControllerTest {
 
     @Test
     void getPreferences_ShouldUseUserIdFromJwt() {
-        when(userPreferencesService.getPreferences(7L)).thenReturn(
-                new UserPreferences(7L, "Lyon", 45.76, 4.83, 20, List.of("SPORT")));
+        when(userPreferencesService.findPreferences(7L)).thenReturn(
+                Optional.of(new UserPreferences(7L, "Lyon", 45.76, 4.83, 20, List.of("SPORT"))));
 
         UserPreferencesResponse response = userPreferencesController.getPreferences(authentication);
 
         assertEquals("Lyon", response.defaultCity());
         assertEquals(20, response.defaultRadiusKm());
         assertEquals(List.of("SPORT"), response.defaultCategoryCodes());
+        assertEquals(true, response.configured());
     }
 
     @Test
@@ -112,6 +114,16 @@ class UserPreferencesControllerTest {
         ResponseEntity<Object> response = userPreferencesController.lookupCity("Zzzz", null, null, httpRequest);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
+    void getPreferences_ShouldReportNotConfigured_OnFirstLogin() {
+        when(userPreferencesService.findPreferences(7L)).thenReturn(Optional.empty());
+
+        UserPreferencesResponse response = userPreferencesController.getPreferences(authentication);
+
+        assertEquals(false, response.configured());
+        assertEquals(List.of(), response.defaultCategoryCodes());
     }
 
 }

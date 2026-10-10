@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.35 — 2026-10-10
+
+### Accueil de première connexion (web)
+- Backend : `GET /api/v1/users/me/preferences` renvoie `configured` (`false` tant que l'utilisateur n'a jamais enregistré ses préférences) — `UserPreferencesService#findPreferences`.
+- Web : à la première connexion (`configured: false`), une fenêtre s'ouvre sur la carte :
+  1. **préférences obligatoires** — ville (saisie vérifiée ou « Ma position »), rayon, au moins une catégorie ; ni bouton de fermeture ni touche Échap, seule « Se déconnecter » permet d'en sortir sans enregistrer ; dès l'enregistrement, la carte est cadrée et filtrée sur ces préférences ;
+  2. **alerte facultative** — proposition de créer une alerte e-mail préremplie (catégories choisies, ville et rayon, food trucks en option), ou « Plus tard ».
+- Les utilisateurs existants qui n'ont jamais enregistré de préférences verront aussi cette fenêtre une fois.
+- Composant `OnboardingModal` (réutilise `CityField` et les puces de la page profil).
+- Tests : `UserPreferencesControllerTest` (`configured` vrai/faux). Vérifié : `mvn verify` (1020 tests, checkstyle), `npm run build` ; drapeau `configured` contrôlé sur le backend réel ; parcours complet dans le navigateur (desktop et téléphone) : fenêtre affichée pour un nouvel utilisateur et non pour un utilisateur configuré, Échap sans effet, ville et catégorie exigées, carte recherchée aussitôt sur les préférences choisies, alerte créée ou « Plus tard » (appels géocodant la ville simulés, Nominatim étant injoignable depuis l'environnement de développement).
+
 ## 0.9.34 — 2026-10-10
 
 ### Page profil redessinée (web)
