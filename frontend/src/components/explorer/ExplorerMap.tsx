@@ -69,11 +69,15 @@ function MapBoundsWatcher({ onBoundsChange }: { onBoundsChange: (bounds: MapBoun
                 return;
             }
 
+            // Carte dézoomée au-delà d'un tour du monde : Leaflet renvoie des
+            // longitudes hors de [-180, 180] (le monde est répété), refusées par
+            // le backend (400). Ramenées aux bornes valides, comme sur mobile.
+            const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
             onBoundsChange({
-                swLatitude: southWest.lat,
-                swLongitude: southWest.lng,
-                neLatitude: northEast.lat,
-                neLongitude: northEast.lng,
+                swLatitude: clamp(southWest.lat, -90, 90),
+                swLongitude: clamp(southWest.lng, -180, 180),
+                neLatitude: clamp(northEast.lat, -90, 90),
+                neLongitude: clamp(northEast.lng, -180, 180),
             });
         }, MAP_BOUNDS_DEBOUNCE_MS);
     }
@@ -174,8 +178,8 @@ interface ExplorerMapProps {
     activities: Activity[];
     foodTrucks: FoodTruck[];
     userPosition: UserPosition | null;
-    /** Rayon favori (km) : la carte est cadrée dessus autour de `userPosition`. */
-    favoriteRadiusKm: number | null;
+    /** Rayon actif (km) : la carte est cadrée dessus autour de `userPosition`, et il est tracé. */
+    radiusKm: number | null;
     selectedActivity: Activity | null;
     onSelectActivity: (activity: Activity) => void;
     onBoundsChange: (bounds: MapBounds) => void;
@@ -185,7 +189,7 @@ function ExplorerMap({
     activities,
     foodTrucks,
     userPosition,
-    favoriteRadiusKm,
+    radiusKm,
     selectedActivity,
     onSelectActivity,
     onBoundsChange,
@@ -203,14 +207,14 @@ function ExplorerMap({
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapBoundsWatcher onBoundsChange={onBoundsChange} />
-            <MapRecenterOnUserPosition position={userPosition} radiusKm={favoriteRadiusKm} />
-            {userPosition && favoriteRadiusKm && (
-                // Rayon favori, matérialisé autour de la ville (ou de la position) de recherche.
+            <MapRecenterOnUserPosition position={userPosition} radiusKm={radiusKm} />
+            {userPosition && radiusKm && (
+                // Rayon actif, matérialisé autour de la ville (ou de la position) de recherche.
                 <Circle
                     center={[userPosition.latitude, userPosition.longitude]}
                     interactive={false}
                     pathOptions={{ color: "#2563eb", weight: 1.5, dashArray: "6 6", fillOpacity: 0.04 }}
-                    radius={favoriteRadiusKm * 1000}
+                    radius={radiusKm * 1000}
                 />
             )}
             <MapFlyToSelection activity={selectedActivity} />

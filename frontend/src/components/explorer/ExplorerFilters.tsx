@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toLocalDateString } from "./activityUtils";
 import { NO_DATE_FILTER } from "./constants";
+import { RADIUS_OPTIONS_KM } from "../profile/CityField";
 import type { Category } from "./types";
 
 interface ExplorerFiltersProps {
@@ -15,6 +16,9 @@ interface ExplorerFiltersProps {
     onPeriodChange: (period: string) => void;
     onClearDate: () => void;
     onUseMyLocation: () => void;
+    /** Rayon actif (km), `null` = pas de rayon (recherche sur la zone visible). */
+    radiusKm: number | null;
+    onRadiusChange: (radiusKm: number | null) => void;
     viewMode: "map" | "list";
     onViewModeChange: (mode: "map" | "list") => void;
 }
@@ -44,10 +48,13 @@ function ExplorerFilters({
     onPeriodChange,
     onClearDate,
     onUseMyLocation,
+    radiusKm,
+    onRadiusChange,
     viewMode,
     onViewModeChange,
 }: ExplorerFiltersProps) {
-    const [openPanel, setOpenPanel] = useState<"categories" | "dates" | null>(null);
+    const [openPanel, setOpenPanel] = useState<"categories" | "dates" | "radius" | null>(null);
+    const isRadiusPanelOpen = openPanel === "radius";
     const isCategoriesPanelOpen = openPanel === "categories";
     const isDatesPanelOpen = openPanel === "dates";
     const hasActiveDateFilter = selectedDate !== NO_DATE_FILTER;
@@ -106,6 +113,51 @@ function ExplorerFilters({
                                     type="button"
                                 >
                                     Toutes les catégories
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+                <div className="explorer-radius">
+                    <button
+                        aria-expanded={isRadiusPanelOpen}
+                        className={radiusKm !== null ? "explorer-chip explorer-chip-active" : "explorer-chip"}
+                        onClick={() => setOpenPanel(isRadiusPanelOpen ? null : "radius")}
+                        type="button"
+                    >
+                        ◎ {radiusKm !== null ? `${radiusKm} km` : "Rayon"}
+                    </button>
+                    {isRadiusPanelOpen && (
+                        <div aria-label="Rayon de recherche" className="explorer-categories-panel explorer-radius-panel" role="group">
+                            <p className="explorer-radius-hint">
+                                Afficher uniquement les activités dans ce rayon autour de ta ville ou de ta position.
+                            </p>
+                            <div className="explorer-radius-options">
+                                {RADIUS_OPTIONS_KM.map((value) => (
+                                    <button
+                                        aria-pressed={radiusKm === value}
+                                        className={radiusKm === value ? "explorer-chip explorer-chip-active" : "explorer-chip"}
+                                        key={value}
+                                        onClick={() => {
+                                            onRadiusChange(value);
+                                            setOpenPanel(null);
+                                        }}
+                                        type="button"
+                                    >
+                                        {value} km
+                                    </button>
+                                ))}
+                            </div>
+                            {radiusKm !== null && (
+                                <button
+                                    className="explorer-dates-clear"
+                                    onClick={() => {
+                                        onRadiusChange(null);
+                                        setOpenPanel(null);
+                                    }}
+                                    type="button"
+                                >
+                                    Sans rayon (zone visible de la carte)
                                 </button>
                             )}
                         </div>
