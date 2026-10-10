@@ -9,7 +9,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { useAuth } from '@/auth';
+import { USERNAME_MAX_LENGTH, USERNAME_RULES, useAuth, useUsernameAvailability } from '@/auth';
 import { useTheme } from '@/hooks/use-theme';
 
 type Mode = 'login' | 'register';
@@ -37,6 +37,7 @@ export default function CompteScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const usernameStatus = useUsernameAvailability(mode === 'register' ? username : '');
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -51,6 +52,10 @@ export default function CompteScreen() {
 
     if (!email.trim() || !password || (mode === 'register' && !username.trim())) {
       setError('Renseignez tous les champs.');
+      return;
+    }
+    if (mode === 'register' && usernameStatus.kind === 'unavailable') {
+      setError(usernameStatus.message);
       return;
     }
 
@@ -120,15 +125,29 @@ export default function CompteScreen() {
             )}
 
             {!isLogin && (
-              <TextField
-                label="Nom d'utilisateur"
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="username-new"
-                textContentType="username"
-              />
+              <>
+                <TextField
+                  label="Nom d'utilisateur"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="username-new"
+                  textContentType="username"
+                  maxLength={USERNAME_MAX_LENGTH}
+                />
+                <ThemedText
+                  type="small"
+                  accessibilityLiveRegion="polite"
+                  themeColor={usernameStatus.kind === 'unavailable' ? undefined : 'textSecondary'}
+                  style={usernameStatus.kind === 'unavailable' ? { color: theme.danger } : undefined}
+                >
+                  {usernameStatus.kind === 'idle' && USERNAME_RULES}
+                  {usernameStatus.kind === 'checking' && 'Vérification…'}
+                  {usernameStatus.kind === 'available' && '✓ Ce nom est disponible.'}
+                  {usernameStatus.kind === 'unavailable' && usernameStatus.message}
+                </ThemedText>
+              </>
             )}
             <TextField
               label="Adresse e-mail"

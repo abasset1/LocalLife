@@ -13,9 +13,9 @@ import com.locallife.backend.user.domain.User;
 import com.locallife.backend.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,8 +25,13 @@ class UserServiceTest {
     @Mock
     private UserRepository userRepository;
 
-    @InjectMocks
     private UserService userService;
+
+    // Règles réelles du nom d'utilisateur, branchées sur le repository simulé.
+    @BeforeEach
+    void setUp() {
+        userService = new UserService(userRepository, new UsernamePolicy(userRepository));
+    }
 
     @Test
     void createUser_ShouldSaveAndReturnUser() {
@@ -132,6 +137,41 @@ class UserServiceTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> userService.updateProfile(1L, "  ", "alice@example.com"));
+    }
+
+    @Test
+    void updateProfile_ShouldThrow_WhenUsernameTakenByAnotherUser() {
+        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
+        User otherUser = new User(2L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now(), true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.findByUsernameIgnoreCase("Bob")).thenReturn(Optional.of(otherUser));
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> userService.updateProfile(1L, "Bob", "alice@example.com"));
+        assertEquals("Ce nom d'utilisateur est déjà pris.", error.getMessage());
+    }
+
+    @Test
+    void updateProfile_ShouldAllowChangingCaseOfOwnUsername() {
+        User existing = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.findByUsernameIgnoreCase("Alice")).thenReturn(Optional.of(existing));
+        when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(existing));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertEquals("Alice", userService.updateProfile(1L, "Alice", "alice@example.com").username());
+    }
+
+    @Test
+    void updateProfile_ShouldLetAccountKeepItsReservedUsername() {
+        User admin = new User(1L, "admin", "admin@example.com", "hash", Role.ADMIN, LocalDateTime.now(), true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
+        when(userRepository.findByUsernameIgnoreCase("admin")).thenReturn(Optional.of(admin));
+        when(userRepository.findByEmail("admin2@example.com")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertEquals("admin", userService.updateProfile(1L, "admin", "admin2@example.com").username());
     }
 
     @Test

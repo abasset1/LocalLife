@@ -146,7 +146,7 @@ class AdminImportControllerIntegrationTest {
     private String registerAndLoginAsUser(String email) {
         restTestClient().post().uri("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(new RegisterRequest("alice", email, PASSWORD))
+                .body(new RegisterRequest("u-" + UUID.randomUUID().toString().substring(0, 12), email, PASSWORD))
                 .exchange()
                 .expectStatus().isCreated();
         markEmailVerified(email);

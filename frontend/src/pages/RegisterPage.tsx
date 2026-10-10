@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import UsernameStatusMessage from "../components/UsernameStatusMessage";
+import { USERNAME_MAX_LENGTH, useUsernameAvailability } from "../auth/useUsernameAvailability";
 
 interface ApiErrorBody {
     message: string;
@@ -14,17 +16,22 @@ function RegisterPage() {
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+    const usernameStatus = useUsernameAvailability(username);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         setError(null);
+        if (usernameStatus.kind === "unavailable") {
+            setError(usernameStatus.message);
+            return;
+        }
         setIsSubmitting(true);
 
         try {
             const response = await fetch("/api/v1/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, email, password }),
+                body: JSON.stringify({ username: username.trim(), email, password }),
             });
 
             if (!response.ok) {
@@ -66,14 +73,18 @@ function RegisterPage() {
             <form className="auth-form" onSubmit={(event) => void handleSubmit(event)}>
                 <h1>Créer un compte</h1>
                 <input
+                    aria-describedby="register-username-status"
+                    aria-invalid={usernameStatus.kind === "unavailable"}
                     aria-label="Nom d'utilisateur"
                     autoComplete="username"
+                    maxLength={USERNAME_MAX_LENGTH}
                     onChange={(event) => setUsername(event.target.value)}
                     placeholder="Nom d'utilisateur"
                     required
                     type="text"
                     value={username}
                 />
+                <UsernameStatusMessage id="register-username-status" status={usernameStatus} />
                 <input
                     aria-label="Email"
                     autoComplete="email"

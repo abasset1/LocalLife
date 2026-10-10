@@ -117,10 +117,15 @@ class NonRegressionIntegrationTest {
                 .compact();
     }
 
+    // Nom d'utilisateur unique (LS-000) déduit de l'email unique "test-<uuid>@example.com".
+    private static String usernameFor(String email) {
+        return "u-" + email.substring("test-".length(), "test-".length() + 12);
+    }
+
     private String registerAndLoginAsUser(String email) {
         restTestClient().post().uri("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(new RegisterRequest("alice", email, PASSWORD))
+                .body(new RegisterRequest(usernameFor(email), email, PASSWORD))
                 .exchange()
                 .expectStatus().isCreated();
         markEmailVerified(email);
@@ -318,8 +323,9 @@ class NonRegressionIntegrationTest {
 
     @Test
     void manuallyCreatedActivity_ShouldExposeCreatorUsername_InPublicSearch() {
-        // Given : une activité créée par "alice" (voir registerAndLoginAsUser), publiée par un administrateur.
-        String userToken = registerAndLoginAsUser(uniqueEmail());
+        // Given : une activité créée par un utilisateur, publiée par un administrateur.
+        String email = uniqueEmail();
+        String userToken = registerAndLoginAsUser(email);
         String title = "Atelier peinture " + UUID.randomUUID();
         Activity created = createPendingActivity(title, userToken);
 
@@ -328,7 +334,7 @@ class NonRegressionIntegrationTest {
                 .exchange()
                 .expectStatus().isOk();
 
-        // Then : createdByUsername ("alice", voir registerAndLoginAsUser) exposé dans la réponse publique.
+        // Then : son nom d'utilisateur (voir usernameFor) est exposé dans la réponse publique.
         String body = restTestClient().get()
                 .uri("/api/v1/activities/nearby?latitude=" + LATITUDE + "&longitude=" + LONGITUDE + "&radius=5")
                 .exchange()
@@ -336,7 +342,7 @@ class NonRegressionIntegrationTest {
                 .expectBody(String.class)
                 .returnResult()
                 .getResponseBody();
-        assertThat(body).contains(title).contains("\"createdByUsername\":\"alice\"");
+        assertThat(body).contains(title).contains("\"createdByUsername\":\"" + usernameFor(email) + "\"");
     }
 
     // --- 11. annulation par le créateur (LL-EF-010) ---

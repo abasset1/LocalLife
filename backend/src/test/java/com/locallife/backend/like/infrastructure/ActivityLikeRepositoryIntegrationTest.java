@@ -53,7 +53,7 @@ class ActivityLikeRepositoryIntegrationTest {
 
     private User newUser() {
         return userRepository.save(new User(
-                null, "user-" + UUID.randomUUID(), UUID.randomUUID() + "@example.com", "hash", Role.USER,
+                null, "u-" + UUID.randomUUID().toString().substring(0, 12), UUID.randomUUID() + "@example.com", "hash", Role.USER,
                 LocalDateTime.now(), true));
     }
 

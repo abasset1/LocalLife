@@ -239,6 +239,12 @@ export interface RegisterRequest {
   password: string;
 }
 
+/** `GET /auth/username-availability` (LS-000) : `message` explique un refus. */
+export interface UsernameAvailability {
+  available: boolean;
+  message: string | null;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
