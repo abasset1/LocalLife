@@ -1,6 +1,29 @@
 import type { FormEvent } from "react";
 import type { Category } from "./types";
 
+/**
+ * Passage hebdomadaire d'une contribution (food truck, marché…) : envoyé comme `recurrence`
+ * (`daysOfWeek` en codes RFC 5545, horaires `HH:mm`) ; les dates du formulaire en deviennent les bornes.
+ */
+export interface ContributionRecurrence {
+    enabled: boolean;
+    days: string[];
+    startTime: string;
+    endTime: string;
+}
+
+export const EMPTY_RECURRENCE: ContributionRecurrence = { enabled: false, days: [], startTime: "", endTime: "" };
+
+const RECURRENCE_DAYS: { code: string; label: string }[] = [
+    { code: "MO", label: "Lun" },
+    { code: "TU", label: "Mar" },
+    { code: "WE", label: "Mer" },
+    { code: "TH", label: "Jeu" },
+    { code: "FR", label: "Ven" },
+    { code: "SA", label: "Sam" },
+    { code: "SU", label: "Dim" },
+];
+
 interface ContributionModalProps {
     categories: Category[];
     title: string;
@@ -16,6 +39,8 @@ interface ContributionModalProps {
     onStartDateChange: (value: string) => void;
     endDate: string;
     onEndDateChange: (value: string) => void;
+    recurrence: ContributionRecurrence;
+    onRecurrenceChange: (value: ContributionRecurrence) => void;
     url: string;
     onUrlChange: (value: string) => void;
     phone: string;
@@ -48,6 +73,8 @@ function ContributionModal({
     onStartDateChange,
     endDate,
     onEndDateChange,
+    recurrence,
+    onRecurrenceChange,
     url,
     onUrlChange,
     phone,
@@ -65,6 +92,15 @@ function ContributionModal({
                 ? selectedCategoryCodes.filter((selected) => selected !== code)
                 : [...selectedCategoryCodes, code],
         );
+    }
+
+    function toggleRecurrenceDay(code: string) {
+        onRecurrenceChange({
+            ...recurrence,
+            days: recurrence.days.includes(code)
+                ? recurrence.days.filter((day) => day !== code)
+                : [...recurrence.days, code],
+        });
     }
 
     return (
@@ -129,8 +165,56 @@ function ContributionModal({
                             value={address}
                         />
                     </div>
+                    <label className="explorer-category-option explorer-recurrence-toggle">
+                        <input
+                            checked={recurrence.enabled}
+                            onChange={(event) => onRecurrenceChange({ ...recurrence, enabled: event.target.checked })}
+                            type="checkbox"
+                        />
+                        Revient chaque semaine (food truck, marché…)
+                    </label>
+                    {recurrence.enabled && (
+                        <>
+                            <fieldset className="explorer-form-field explorer-form-categories">
+                                <legend>Jours de passage (au moins un)</legend>
+                                <div className="explorer-form-categories-options">
+                                    {RECURRENCE_DAYS.map((day) => (
+                                        <label className="explorer-category-option" key={day.code}>
+                                            <input
+                                                checked={recurrence.days.includes(day.code)}
+                                                onChange={() => toggleRecurrenceDay(day.code)}
+                                                type="checkbox"
+                                            />
+                                            {day.label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </fieldset>
+                            <div className="explorer-form-field">
+                                <label htmlFor="explorer-activity-recurrence-start-time">Heure d'arrivée</label>
+                                <input
+                                    id="explorer-activity-recurrence-start-time"
+                                    onChange={(event) => onRecurrenceChange({ ...recurrence, startTime: event.target.value })}
+                                    required
+                                    type="time"
+                                    value={recurrence.startTime}
+                                />
+                            </div>
+                            <div className="explorer-form-field">
+                                <label htmlFor="explorer-activity-recurrence-end-time">Heure de départ (facultatif)</label>
+                                <input
+                                    id="explorer-activity-recurrence-end-time"
+                                    onChange={(event) => onRecurrenceChange({ ...recurrence, endTime: event.target.value })}
+                                    type="time"
+                                    value={recurrence.endTime}
+                                />
+                            </div>
+                        </>
+                    )}
                     <div className="explorer-form-field">
-                        <label htmlFor="explorer-activity-start-date">Date de début</label>
+                        <label htmlFor="explorer-activity-start-date">
+                            {recurrence.enabled ? "À partir du (facultatif, aujourd'hui par défaut)" : "Date de début"}
+                        </label>
                         <input
                             id="explorer-activity-start-date"
                             onChange={(event) => onStartDateChange(event.target.value)}
@@ -139,7 +223,9 @@ function ContributionModal({
                         />
                     </div>
                     <div className="explorer-form-field">
-                        <label htmlFor="explorer-activity-end-date">Date de fin</label>
+                        <label htmlFor="explorer-activity-end-date">
+                            {recurrence.enabled ? "Jusqu'au (facultatif)" : "Date de fin"}
+                        </label>
                         <input
                             id="explorer-activity-end-date"
                             onChange={(event) => onEndDateChange(event.target.value)}

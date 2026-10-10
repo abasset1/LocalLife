@@ -8,7 +8,7 @@ import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
 import { matchesSearchQuery, toLocalDateString } from "./components/explorer/activityUtils";
 import { DEFAULT_SEARCH_RADIUS_KM, MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE, NO_DATE_FILTER } from "./components/explorer/constants";
-import ContributionModal from "./components/explorer/ContributionModal";
+import ContributionModal, { EMPTY_RECURRENCE, type ContributionRecurrence } from "./components/explorer/ContributionModal";
 import ExplorerFilters from "./components/explorer/ExplorerFilters";
 import ExplorerMap from "./components/explorer/ExplorerMap";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
@@ -58,6 +58,7 @@ function App() {
     const [email, setEmail] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [recurrence, setRecurrence] = useState<ContributionRecurrence>(EMPTY_RECURRENCE);
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [isContributionModalOpen, setIsContributionModalOpen] = useState(false);
@@ -475,6 +476,11 @@ function App() {
             setSubmitStatus("error");
             return;
         }
+        if (recurrence.enabled && recurrence.days.length === 0) {
+            setSubmitError("Choisis au moins un jour de passage.");
+            setSubmitStatus("error");
+            return;
+        }
 
         try {
             const response = await apiFetch("/api/v1/activities", {
@@ -487,8 +493,18 @@ function App() {
                     // Ancien champ à valeur unique, encore lu par un backend antérieur à `categoryCodes`.
                     categoryCode: contributionCategoryCodes[0],
                     address,
-                    startDate: startDate || undefined,
-                    endDate: endDate || undefined,
+                    // Activité récurrente : les dates du formulaire bornent la récurrence.
+                    startDate: recurrence.enabled ? undefined : startDate || undefined,
+                    endDate: recurrence.enabled ? undefined : endDate || undefined,
+                    recurrence: recurrence.enabled
+                        ? {
+                              daysOfWeek: recurrence.days,
+                              startTime: recurrence.startTime,
+                              endTime: recurrence.endTime || undefined,
+                              from: startDate || undefined,
+                              until: endDate || undefined,
+                          }
+                        : undefined,
                     url: url || undefined,
                     phone: phone || undefined,
                     email: email || undefined,
@@ -510,6 +526,7 @@ function App() {
             setAddress("");
             setStartDate("");
             setEndDate("");
+            setRecurrence(EMPTY_RECURRENCE);
             setUrl("");
             setPhone("");
             setEmail("");
@@ -754,11 +771,13 @@ function App() {
                     onEmailChange={setEmail}
                     onEndDateChange={setEndDate}
                     onPhoneChange={setPhone}
+                    onRecurrenceChange={setRecurrence}
                     onStartDateChange={setStartDate}
                     onSubmit={(event) => void handleSubmit(event)}
                     onTitleChange={setTitle}
                     onUrlChange={setUrl}
                     phone={phone}
+                    recurrence={recurrence}
                     startDate={startDate}
                     submitError={submitError}
                     submitStatus={submitStatus}

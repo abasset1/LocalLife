@@ -3,6 +3,8 @@ package com.locallife.backend.activity.api;
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
+import com.locallife.backend.activity.application.ContributionRecurrence;
+import com.locallife.backend.activity.application.RecurringContributionService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.category.domain.Category;
@@ -43,6 +45,8 @@ import org.springframework.security.core.authority.AuthorityUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -95,6 +99,9 @@ class ActivityControllerTest {
 
     @Mock
     private CategoryRepository categoryRepository;
+
+    @Mock
+    private RecurringContributionService recurringContributionService;
 
     /**
      * Fixture CAT-006 (correctif) : catégorie résolue par
@@ -321,6 +328,46 @@ class ActivityControllerTest {
         Activity body = (Activity) response.getBody();
         assertEquals("Pique-nique", body.title());
         assertEquals("PENDING", body.status());
+    }
+
+    @Test
+    void createActivity_ShouldCreateRecurringActivity_WhenRecurrenceProvided() {
+        // Food truck présent tous les mardis et jeudis : startDate/endDate ignorés au profit de la récurrence.
+        Activity created = new Activity(1L, "Food truck", "Burgers", null, 43.29, 5.37,
+                LocalDateTime.now(), null, "PENDING", 1L, null, null, null, null, null, null, null, null, null, 7L);
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
+        ContributionRecurrence expected = ContributionRecurrence.of(
+                List.of("TU", "TH"), "11:30", "14:00", "2026-10-01", "2026-12-31", null);
+        when(recurringContributionService.createActivity(
+                "Food truck", "Burgers", null, "1 rue de la Paix, Marseille", 7L, List.of(1L), expected))
+                .thenReturn(created);
+
+        ResponseEntity<Object> response = activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Food truck", "Burgers", null, "1 rue de la Paix, Marseille",
+                        "2026-01-01", null, null, null, null, "CULTURE", null,
+                        new ActivityController.RecurrenceRequest(
+                                List.of("TU", "TH"), "11:30", "14:00", "2026-10-01", "2026-12-31")),
+                authentication, httpRequest);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        verify(activityService, never()).createActivity(
+                any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void createActivity_ShouldReturnBadRequest_WhenRecurrenceHasNoDay() {
+        when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
+
+        ResponseEntity<Object> response = activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Food truck", "Burgers", null, "1 rue de la Paix, Marseille",
+                        null, null, null, null, null, "CULTURE", null,
+                        new ActivityController.RecurrenceRequest(List.of(), "11:30", null, null, null)),
+                authentication, httpRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verifyNoInteractions(recurringContributionService);
     }
 
     @Test

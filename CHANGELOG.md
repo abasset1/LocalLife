@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.40 — 2026-10-10
+
+### Proposer une activité récurrente (food truck, marché…)
+- Web : le formulaire « Proposer une activité » a une case « Revient chaque semaine (food truck, marché…) ». Cochée, on choisit les jours de passage (au moins un), l'heure d'arrivée et, au besoin, l'heure de départ ; les dates deviennent « À partir du » (aujourd'hui par défaut) et « Jusqu'au » (facultatif). Une heure de départ avant l'heure d'arrivée (ex. 19h → 1h) se termine le lendemain.
+- API : `POST /api/v1/activities` accepte un objet facultatif `recurrence` (`daysOfWeek` en codes `MO`…`SU`, `startTime`/`endTime` en `HH:mm`, `from`/`until` en `yyyy-MM-dd`). Il crée, comme un import récurrent, un lieu, un `Schedule` portant la règle (`FREQ=WEEKLY;BYDAY=TU,TH`, fuseau Europe/Paris) et ses occurrences. La recherche (ADR-0006) ne trouve alors l'activité que les jours de passage, et la fiche affiche « Tous les mardis et jeudis · 11h30 → 14h00 ». Les colonnes `startDate`/`endDate` vont du premier au dernier passage. Sans `recurrence`, rien ne change.
+- Limite : les occurrences sont créées sur un an au plus à partir du premier jour (y compris sans date de fin) ; au-delà, il faut reproposer l'activité. Récurrence hebdomadaire uniquement (pas de « 1er dimanche du mois »). Mobile : l'onglet Contribution n'a pas encore de formulaire.
+- Tests : `ContributionRecurrenceTest`, `RecurringContributionServiceTest`, cas ajoutés à `ActivityControllerTest`, `RecurringContributionIntegrationTest` (food truck du lundi trouvé un lundi, pas le mardi). Vérifié : `mvn verify` (1075 tests, checkstyle), build web. ⚠️ Formulaire web non testé dans le navigateur.
+
 ## 0.9.39 — 2026-10-10
 
 ### LS-000 — Nom d'utilisateur unique

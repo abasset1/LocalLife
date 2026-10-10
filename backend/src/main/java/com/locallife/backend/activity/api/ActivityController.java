@@ -4,6 +4,8 @@ import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.accessibility.domain.Accessibility;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
+import com.locallife.backend.activity.application.ContributionRecurrence;
+import com.locallife.backend.activity.application.RecurringContributionService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.category.domain.Category;
@@ -41,6 +43,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -106,6 +109,7 @@ public class ActivityController {
     private final ActivityMetadataService activityMetadataService;
     private final PremiumAccessPolicy premiumAccessPolicy;
     private final CategoryRepository categoryRepository;
+    private final RecurringContributionService recurringContributionService;
 
     public ActivityController(
             ActivityService activityService, SourceService sourceService, UserService userService,
@@ -113,7 +117,8 @@ public class ActivityController {
             LocationService locationService, MediaService mediaService, ActivityMediaService activityMediaService,
             ActivityLinkService activityLinkService, AccessibilityService accessibilityService,
             ActivityTagService activityTagService, ActivityMetadataService activityMetadataService,
-            PremiumAccessPolicy premiumAccessPolicy, CategoryRepository categoryRepository) {
+            PremiumAccessPolicy premiumAccessPolicy, CategoryRepository categoryRepository,
+            RecurringContributionService recurringContributionService) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -129,6 +134,7 @@ public class ActivityController {
         this.activityMetadataService = activityMetadataService;
         this.premiumAccessPolicy = premiumAccessPolicy;
         this.categoryRepository = categoryRepository;
+        this.recurringContributionService = recurringContributionService;
     }
 
     /**
@@ -561,9 +567,15 @@ public class ActivityController {
             // authentication non-null garanti : POST /api/v1/activities exige un JWT valide
             // (voir SecurityConfig), JwtFilter ne laisse passer que des JwtAuthentication.
             Long createdBy = ((JwtAuthentication) authentication).getUserId();
-            Activity activity = activityService.createActivity(
-                    request.title(), request.description(), request.category(), request.address(),
-                    request.startDate(), request.endDate(), createdBy, categoryIds);
+            // Récurrence (food truck, marché…) : validée avant toute écriture, comme les contacts.
+            RecurrenceRequest recurrence = request.recurrence();
+            Activity activity = recurrence == null
+                    ? activityService.createActivity(
+                            request.title(), request.description(), request.category(), request.address(),
+                            request.startDate(), request.endDate(), createdBy, categoryIds)
+                    : recurringContributionService.createActivity(
+                            request.title(), request.description(), request.category(), request.address(),
+                            createdBy, categoryIds, recurrence.toContributionRecurrence());
 
             attachContactLinks(activity.id(), request);
 
@@ -793,11 +805,23 @@ public class ActivityController {
      * {@code categoryCodes} : plusieurs catégories pour une même contribution (modèle 1..N,
      * issue #45). Prioritaire sur {@code categoryCode}, conservé pour les clients qui n'envoient
      * qu'une catégorie.
+     *
+     * {@code recurrence} : facultatif. Renseigné, l'activité revient chaque semaine (food truck, marché…)
+     * et {@code startDate}/{@code endDate} sont ignorés au profit de ses bornes {@code from}/{@code until}.
      */
     public record CreateActivityRequest(
             String title, String description, String category, String address,
             String startDate, String endDate, String url, String phone, String email,
-            String categoryCode, List<String> categoryCodes) {
+            String categoryCode, List<String> categoryCodes, RecurrenceRequest recurrence) {
+
+        /** Sans récurrence (activité ponctuelle ou sur une période). */
+        public CreateActivityRequest(
+                String title, String description, String category, String address,
+                String startDate, String endDate, String url, String phone, String email,
+                String categoryCode, List<String> categoryCodes) {
+            this(title, description, category, address, startDate, endDate, url, phone, email, categoryCode,
+                    categoryCodes, null);
+        }
 
         /** Une seule catégorie ({@code categoryCode}), sans {@code categoryCodes}. */
         public CreateActivityRequest(
@@ -805,7 +829,22 @@ public class ActivityController {
                 String startDate, String endDate, String url, String phone, String email,
                 String categoryCode) {
             this(title, description, category, address, startDate, endDate, url, phone, email, categoryCode,
-                    null);
+                    null, null);
+        }
+    }
+
+    /**
+     * Récurrence hebdomadaire d'une contribution : {@code daysOfWeek} en codes RFC 5545 ({@code MO}…
+     * {@code SU}), {@code startTime}/{@code endTime} en {@code HH:mm}, {@code from}/{@code until} en
+     * {@code yyyy-MM-dd} (début par défaut : aujourd'hui ; fin facultative). Validée par
+     * {@link ContributionRecurrence#of}.
+     */
+    public record RecurrenceRequest(
+            List<String> daysOfWeek, String startTime, String endTime, String from, String until) {
+
+        ContributionRecurrence toContributionRecurrence() {
+            return ContributionRecurrence.of(daysOfWeek, startTime, endTime, from, until,
+                    LocalDate.now(RecurringContributionService.CONTRIBUTION_ZONE));
         }
     }
 
