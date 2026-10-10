@@ -1,3 +1,4 @@
+export { ChannelSwitch } from './ChannelSwitch';
 export { ChipGroup } from './ChipGroup';
 export type { ChipOption } from './ChipGroup';
 export { CityPicker, useCityPicker } from './CityPicker';
