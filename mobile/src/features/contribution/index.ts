@@ -1,4 +1,6 @@
 export { ContributionFields } from './ContributionFields';
+export { ContributorActions } from './ContributorActions';
+export { canManageActivity } from './permissions';
 export { confirmDestructive, inform } from './confirm';
 export {
   EMPTY_FORM,

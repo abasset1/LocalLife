@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.43 — 2026-10-10
+
+### Mobile : « Modifier » / « Supprimer » sur la fiche d'une activité
+- La fiche affiche « Modifier » et « Supprimer » à son contributeur (et aux administrateurs), jamais aux autres utilisateurs ni pour une activité importée. « Modifier » ouvre le formulaire pré-rempli ; au retour, la fiche se recharge. « Supprimer » demande confirmation puis revient en arrière (ou à la carte si la fiche a été ouverte directement, depuis une notification par exemple).
+- Le contributeur voit désormais sa fiche même quand elle n'est pas publiée (en attente de validation après une modification, refusée…), avec un bandeau qui le précise ; pour les autres, elle reste « indisponible ».
+- API : `GET /api/v1/activities/{id}` expose `createdBy` (fiche détaillée et résumé), déjà public sur les réponses de la carte.
+- Tests : `permissions.test.ts`, cas ajouté à `ContributionManagementIntegrationTest`. Vérifié : mobile `tsc`/`eslint` (0 erreur, avertissements préexistants)/`jest` (81), `mvn verify` (1100 tests) ; parcours dans la version web de l'app contre le backend réel : un autre utilisateur ne voit pas les boutons ; l'auteur modifie le titre → fiche rechargée avec bandeau « En attente de validation » → Supprimer → retour à la carte, activité supprimée en base. ⚠️ Non testé sur un appareil iOS/Android.
+
 ## 0.9.42 — 2026-10-10
 
 ### Mobile : proposer, modifier et supprimer ses contributions

@@ -101,6 +101,19 @@ class ContributionManagementIntegrationTest {
     }
 
     @Test
+    void activityPage_ExposesItsCreator_SoTheAppCanOfferEditAndDelete() {
+        String creator = registerAndLogin();
+        Activity created = create(creator, request("Pétanque", null));
+
+        restTestClient().get().uri("/api/v1/activities/" + created.id())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + creator)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.createdBy").isEqualTo(created.createdBy().intValue());
+    }
+
+    @Test
     void creatorCanTurnContributionIntoRecurringOne_AndBack() {
         String creator = registerAndLogin();
         Activity created = create(creator, request("Food truck", null));

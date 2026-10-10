@@ -37,6 +37,9 @@ import java.time.LocalDateTime;
  * #findByActivityId}, ordre déjà garanti par LL-11007), ou {@code null}
  * si aucun média n'est attaché — jamais d'image par défaut/générique
  * injectée ici, à la charge du frontend le cas échéant.
+ *
+ * {@code createdBy} : identifiant du contributeur ({@code null} pour une activité importée), voir
+ * {@link ActivityDetailResponse}.
  */
 public record ActivitySummaryResponse(
         Long id,
@@ -47,7 +50,8 @@ public record ActivitySummaryResponse(
         String address,
         double latitude,
         double longitude,
-        String mainImageUrl) {
+        String mainImageUrl,
+        Long createdBy) {
 
     public static ActivitySummaryResponse from(Activity activity, String mainImageUrl) {
         return new ActivitySummaryResponse(
@@ -59,6 +63,7 @@ public record ActivitySummaryResponse(
                 activity.address(),
                 activity.latitude(),
                 activity.longitude(),
-                mainImageUrl);
+                mainImageUrl,
+                activity.createdBy());
     }
 }

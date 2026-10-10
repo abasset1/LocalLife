@@ -17,6 +17,8 @@ export interface ActivitySummary {
   latitude: number;
   longitude: number;
   mainImageUrl: string | null;
+  /** Contributeur (`null` pour une activité importée). */
+  createdBy?: number | null;
 }
 
 /** `ActivityResponse` — résultats de `nearby` et `within-bounds`. */
@@ -130,6 +132,8 @@ export interface ActivityDetail {
   categoryCodes: string[];
   /** Premier passage au statut publié ; `null` si publiée avant le suivi de cette date. */
   publishedAt: string | null;
+  /** Contributeur (`null` pour une activité importée). */
+  createdBy?: number | null;
 }
 
 /**
