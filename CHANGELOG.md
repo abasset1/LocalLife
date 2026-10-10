@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.34 — 2026-10-10
+
+### Page profil redessinée (web)
+- Même identité visuelle que l'écran Explorer (vert profond, corail, fonds sable/papier, police Inter, cartes arrondies) au lieu de l'ancien style « administration » (bandeau blanc, boutons bleus).
+- En-tête avec le logo LocalLife et « Retour à la carte » ; bandeau d'identité avec avatar (initiales), nom, email, rôle et date d'inscription.
+- Mise en page en deux colonnes en desktop (« Mon compte » + déconnexion / « Paramètres de recherche » + « Mes alertes »), une seule colonne sur téléphone sans défilement horizontal.
+- Catégories et rayons en puces sélectionnables (comme les filtres de la carte) à la place des cases à cocher et des listes déroulantes — de vraies cases/boutons radio masqués visuellement, donc toujours utilisables au clavier et au lecteur d'écran. Alertes présentées en cartes : critères, ville et rayon, canaux (e-mail / notification).
+- Composants partagés `ProfileUi.tsx` (`ProfileCard`, `Chip`, `ChipGroup`, `Notice`) ; anciens styles du profil retirés de `styles.css`. Aucune logique modifiée.
+- Vérifié : `npm run build` ; page affichée dans le navigateur contre le backend réel (desktop 1366 px et téléphone 390 px, aucune erreur JS, aucun débordement horizontal) ; enregistrement des paramètres par les puces (rayon 20 km + catégorie ajoutée, bien persistés).
+
 ## 0.9.33 — 2026-10-09
 
 ### Erreurs plus explicites (route absente, profil)

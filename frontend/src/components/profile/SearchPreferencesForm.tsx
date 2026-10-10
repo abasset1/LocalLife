@@ -4,6 +4,7 @@ import { apiFetch, describeErrorResponse } from "../../api/apiClient";
 import { DEFAULT_SEARCH_RADIUS_KM } from "../explorer/constants";
 import type { ApiErrorBody, Category, UserPreferences } from "../explorer/types";
 import CityField, { RADIUS_OPTIONS_KM, useCityPicker } from "./CityField";
+import { Chip, ChipGroup, Notice, ProfileCard } from "./ProfileUi";
 
 /**
  * Paramètres utilisateur : catégories, ville et rayon appliqués par défaut
@@ -109,57 +110,68 @@ function SearchPreferencesForm() {
         }
     }
 
-    if (isLoading) {
-        return <p className="activities-status">Chargement de tes paramètres…</p>;
-    }
-    if (loadError) {
-        return <p className="activities-status activities-status-error">{loadError}</p>;
-    }
-
     return (
-        <form className="profile-form profile-preferences" onSubmit={(event) => void handleSubmit(event)}>
-            <h2>Paramètres de recherche</h2>
-            <p className="profile-preferences-hint">
-                Appliqués à l'ouverture de la carte. Laisse un champ vide pour garder le comportement par défaut.
-            </p>
+        <ProfileCard
+            icon="🧭"
+            subtitle="Appliqués à l'ouverture de la carte. Laisse vide pour garder le comportement par défaut."
+            title="Paramètres de recherche"
+            titleId="profile-preferences-title"
+        >
+            {isLoading && <p className="pp-hint">Chargement de tes paramètres…</p>}
+            {!isLoading && loadError && <Notice kind="error">{loadError}</Notice>}
+            {!isLoading && !loadError && (
+                <form className="pp-form" onSubmit={(event) => void handleSubmit(event)}>
+                    <CityField id="preferences-city" label="Ville par défaut" picker={cityPicker} />
 
-            <CityField id="preferences-city" label="Ville par défaut" picker={cityPicker} />
+                    <ChipGroup legend="Rayon par défaut">
+                        <Chip
+                            checked={radiusKm === ""}
+                            name="preferences-radius"
+                            onChange={() => setRadiusKm("")}
+                            type="radio"
+                        >
+                            Par défaut ({DEFAULT_SEARCH_RADIUS_KM} km)
+                        </Chip>
+                        {RADIUS_OPTIONS_KM.map((value) => (
+                            <Chip
+                                checked={radiusKm === String(value)}
+                                key={value}
+                                name="preferences-radius"
+                                onChange={() => setRadiusKm(String(value))}
+                                type="radio"
+                            >
+                                {value} km
+                            </Chip>
+                        ))}
+                    </ChipGroup>
 
-            <label htmlFor="preferences-radius">Rayon par défaut</label>
-            <select id="preferences-radius" onChange={(event) => setRadiusKm(event.target.value)} value={radiusKm}>
-                <option value="">Par défaut ({DEFAULT_SEARCH_RADIUS_KM} km)</option>
-                {RADIUS_OPTIONS_KM.map((value) => (
-                    <option key={value} value={String(value)}>
-                        {value} km
-                    </option>
-                ))}
-            </select>
+                    <ChipGroup hint="Aucune sélection = toutes les catégories." legend="Catégories par défaut">
+                        {categories.length === 0 && <span className="pp-hint">Aucune catégorie disponible.</span>}
+                        {categories.map((category) => (
+                            <Chip
+                                checked={categoryCodes.includes(category.code)}
+                                key={category.code}
+                                onChange={() => toggleCategory(category.code)}
+                            >
+                                {category.label}
+                            </Chip>
+                        ))}
+                    </ChipGroup>
 
-            <fieldset className="profile-preferences-categories">
-                <legend>Catégories par défaut</legend>
-                {categories.length === 0 && <p>Aucune catégorie disponible.</p>}
-                {categories.map((category) => (
-                    <label className="explorer-category-option" key={category.code}>
-                        <input
-                            checked={categoryCodes.includes(category.code)}
-                            onChange={() => toggleCategory(category.code)}
-                            type="checkbox"
-                        />
-                        {category.label}
-                    </label>
-                ))}
-                <small>Aucune case cochée = toutes les catégories.</small>
-            </fieldset>
-
-            <button
-                disabled={isSaving || cityPicker.blocksSubmit}
-                type="submit"
-            >
-                {isSaving ? "Enregistrement…" : "Enregistrer mes paramètres"}
-            </button>
-            {saveSuccess && <span className="form-message form-message-success">Paramètres enregistrés.</span>}
-            {saveError && <span className="form-message form-message-error">{saveError}</span>}
-        </form>
+                    <div className="pp-actions">
+                        <button
+                            className="pp-button pp-button-primary"
+                            disabled={isSaving || cityPicker.blocksSubmit}
+                            type="submit"
+                        >
+                            {isSaving ? "Enregistrement…" : "Enregistrer"}
+                        </button>
+                        {saveSuccess && <Notice kind="success">Paramètres enregistrés.</Notice>}
+                        {saveError && <Notice kind="error">{saveError}</Notice>}
+                    </div>
+                </form>
+            )}
+        </ProfileCard>
     );
 }
 

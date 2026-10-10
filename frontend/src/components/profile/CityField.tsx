@@ -144,12 +144,15 @@ interface CityFieldProps {
 function CityField({ id, label, picker, required = false }: CityFieldProps) {
     const { status } = picker;
     return (
-        <>
-            <label htmlFor={id}>{label}</label>
-            <div className="profile-preferences-city">
+        <div className="pp-field">
+            <label className="pp-label" htmlFor={id}>
+                {label}
+            </label>
+            <div className="pp-city">
                 <input
                     aria-describedby={`${id}-status`}
                     aria-invalid={status.kind === "invalid"}
+                    className="pp-input"
                     id={id}
                     onBlur={() => void picker.handleBlur()}
                     onChange={(event) => picker.handleChange(event.target.value)}
@@ -159,26 +162,22 @@ function CityField({ id, label, picker, required = false }: CityFieldProps) {
                     value={picker.city}
                 />
                 <button
-                    className="profile-preferences-locate"
+                    className="pp-button pp-button-secondary"
                     disabled={status.kind === "checking"}
                     onClick={picker.handleUseMyPosition}
                     type="button"
                 >
-                    📍 Utiliser ma position
+                    📍 Ma position
                 </button>
             </div>
-            <span id={`${id}-status`} role="status">
-                {status.kind === "checking" && (
-                    <span className="profile-preferences-hint">Vérification de la ville…</span>
-                )}
+            <span className="pp-city-status" id={`${id}-status`} role="status">
+                {status.kind === "checking" && <span className="pp-hint">Vérification de la ville…</span>}
                 {status.kind === "valid" && status.message && (
-                    <span className="form-message form-message-success">✓ {status.message}</span>
+                    <span className="pp-status-ok">✓ {status.message}</span>
                 )}
-                {status.kind === "invalid" && (
-                    <span className="form-message form-message-error">{status.message}</span>
-                )}
+                {status.kind === "invalid" && <span className="pp-status-error">{status.message}</span>}
             </span>
-        </>
+        </div>
     );
 }
 
