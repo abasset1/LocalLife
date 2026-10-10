@@ -159,6 +159,8 @@ export interface UserPreferences {
   defaultLongitude: number | null;
   defaultRadiusKm: number | null;
   defaultCategoryCodes: string[];
+  /** `false` tant que l'utilisateur n'a jamais enregistré ses préférences (accueil de première connexion). */
+  configured?: boolean;
 }
 
 /**

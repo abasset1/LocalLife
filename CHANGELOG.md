@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.36 — 2026-10-10
+
+### Mobile : accueil de première connexion
+- Même parcours que le site web : à l'ouverture d'une session (connexion ou restauration), si le compte n'a jamais enregistré ses préférences (`configured: false`), l'écran plein écran `bienvenue` s'ouvre (`OnboardingGate`, vérifié une fois par utilisateur et par lancement).
+  1. **Préférences obligatoires** — ville (saisie vérifiée ou « Utiliser ma position »), rayon, au moins une catégorie ; pas de geste retour ni de bouton retour Android, seule « Se déconnecter » permet d'en sortir sans enregistrer.
+  2. **Alerte facultative** — préremplie avec ces préférences, food trucks en option, notification sur ce téléphone par défaut (e-mail en option), ou « Plus tard ». La carte est ensuite cadrée et filtrée sur ces préférences.
+- Interrupteur de canal (`ChannelSwitch`) et activation des notifications (`enablePushOrExplain`) partagés avec l'écran « Mes alertes » ; règles pures dans `features/onboarding/rules.ts` (testées).
+- Vérifié : `tsc`, `eslint` (0 erreur), `jest` (47 tests), bundles Metro Android/iOS/web ; parcours complet dans le navigateur (version web de l'application, API simulée) : accueil ouvert pour un nouveau compte et pas pour un compte configuré, ville et catégorie exigées, message clair si la notification est indisponible, alerte créée, retour à la carte. ⚠️ Non testé sur un vrai téléphone (navigation native, bouton retour Android, notifications).
+
 ## 0.9.35 — 2026-10-10
 
 ### Accueil de première connexion (web)

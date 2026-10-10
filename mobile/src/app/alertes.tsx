@@ -5,7 +5,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   View,
 } from 'react-native';
 
@@ -26,6 +25,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/auth';
 import {
+  ChannelSwitch,
   ChipGroup,
   CityPicker,
   DEFAULT_ALERT_RADIUS_KM,
@@ -36,44 +36,13 @@ import {
   useCityPicker,
 } from '@/features/settings';
 import { useTheme } from '@/hooks/use-theme';
-import { enablePushNotifications } from '@/notifications';
+import { enablePushOrExplain } from '@/notifications';
 
 function messageFor(error: unknown): string {
   return error instanceof ApiError ? error.message : 'Une erreur inattendue est survenue. Réessayez.';
 }
 
-/**
- * Active les notifications sur cet appareil. Retourne un message d'erreur
- * affichable, ou `null` si l'appareil est bien enregistré.
- */
-async function ensurePushEnabled(): Promise<string | null> {
-  const result = await enablePushNotifications();
-  if (result.status === 'registered') return null;
-  if (result.status === 'denied') {
-    return 'Les notifications sont refusées : autorisez-les dans les réglages du téléphone.';
-  }
-  return result.reason;
-}
 
-/** Ligne « interrupteur + libellé », zone tactile ≥ 48 px. */
-function ChannelSwitch({
-  label,
-  value,
-  onValueChange,
-  disabled,
-}: {
-  label: string;
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <View style={styles.switchRow}>
-      <ThemedText>{label}</ThemedText>
-      <Switch accessibilityLabel={label} value={value} onValueChange={onValueChange} disabled={disabled} />
-    </View>
-  );
-}
 
 /**
  * Alertes (partagées avec le site web) : nouvelles activités publiées dans
@@ -141,7 +110,7 @@ export default function AlertesScreen() {
     setCreating(true);
     try {
       if (notifyPush) {
-        const pushProblem = await ensurePushEnabled();
+        const pushProblem = await enablePushOrExplain();
         if (pushProblem) {
           setCreateError(pushProblem);
           return;
@@ -175,7 +144,7 @@ export default function AlertesScreen() {
     setBusyAlertId(alert.id);
     try {
       if (channels.notifyPush && !alert.notifyPush) {
-        const pushProblem = await ensurePushEnabled();
+        const pushProblem = await enablePushOrExplain();
         if (pushProblem) {
           setListError(pushProblem);
           return;
@@ -341,11 +310,5 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     padding: Spacing.three,
     borderRadius: 12,
-  },
-  switchRow: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
 });

@@ -4,6 +4,7 @@ import { useColorScheme } from 'react-native';
 
 import { AuthProvider } from '@/auth';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { OnboardingGate } from '@/features/onboarding';
 import { useNotificationRouting } from '@/notifications';
 
 SplashScreen.preventAutoHideAsync();
@@ -32,7 +33,13 @@ export default function RootLayout() {
           <Stack.Screen name="foodtruck/[id]" options={{ title: 'Food truck' }} />
           <Stack.Screen name="parametres" options={{ title: 'Paramètres de recherche' }} />
           <Stack.Screen name="alertes" options={{ title: 'Mes alertes' }} />
+          {/* Accueil de première connexion : plein écran, sans geste ni bouton de retour. */}
+          <Stack.Screen
+            name="bienvenue"
+            options={{ headerShown: false, gestureEnabled: false, presentation: 'fullScreenModal' }}
+          />
         </Stack>
+        <OnboardingGate />
       </AuthProvider>
     </ThemeProvider>
   );

@@ -87,6 +87,19 @@ export async function enablePushNotifications(): Promise<PushRegistration> {
   }
 }
 
+/**
+ * Active les notifications sur cet appareil : `null` si l'appareil est bien
+ * enregistré, sinon un message affichable expliquant pourquoi.
+ */
+export async function enablePushOrExplain(): Promise<string | null> {
+  const result = await enablePushNotifications();
+  if (result.status === 'registered') return null;
+  if (result.status === 'denied') {
+    return 'Les notifications sont refusées : autorisez-les dans les réglages du téléphone.';
+  }
+  return result.reason;
+}
+
 /** À l'ouverture de session : renvoie le jeton au backend si la permission est déjà accordée, sans rien demander. */
 export async function refreshPushRegistration(): Promise<void> {
   if (unavailableReason()) return;
