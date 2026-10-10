@@ -2478,3 +2478,26 @@ body {
     text-decoration: underline;
     cursor: pointer;
 }
+
+/* --- Rayon de recherche (barre de filtres de l'Explorer) --- */
+
+.explorer-radius {
+    position: relative;
+}
+
+.explorer-radius-panel {
+    width: min(320px, calc(100vw - 2rem));
+}
+
+.explorer-radius-hint {
+    margin: 0 0 0.6rem;
+    color: var(--ll-muted);
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.explorer-radius-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}

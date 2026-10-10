@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.38 — 2026-10-10
+
+### Rayon modifiable depuis l'écran principal + carte dézoomée à l'échelle du monde
+- Web : nouvelle puce « ◎ Rayon » dans la barre de filtres de l'Explorer — choix de 5 à 50 km ou « Sans rayon ». Avec un rayon : recherche `/nearby` et cadrage dans ce rayon autour de la ville favorite / de la position (« Autour de moi »), ou du centre de la carte s'il n'y en a pas (visiteur non connecté compris) ; sans rayon : recherche par zone visible. Le rayon choisi vaut pour la session, les préférences enregistrées ne changent pas.
+- Mobile : bouton « ◎ Rayon » à côté de « Ma position », mêmes choix et même règle (cercle tracé, carte cadrée sur le rayon).
+- Correctif : carte dézoomée à l'échelle du monde → « Aucune activité ». Deux causes : (1) en `geography`, une enveloppe de plus de 180° de longitude est prise par son « petit côté » et ne contient rien — le backend (`ActivityRepository#findWithinBounds`) ne filtre alors que sur la latitude, le cas courant gardant la comparaison `geography` et son index ; (2) au-delà d'un tour du monde, Leaflet renvoyait des longitudes hors de [-180, 180], refusées en 400 — le web les ramène aux bornes valides (comme le mobile).
+- Tests : `ActivityWithinBoundsWideIntegrationTest` (zone monde, filtre de latitude, zones habituelles). Vérifié : `mvn verify` (1023 tests, checkstyle), build web, mobile `tsc`/`eslint` (0 erreur)/`jest`, bundles Android/iOS ; parcours web contre le backend réel (Lyon 10 km favori, activités à Lyon, Meyzieu ~13 km et Vienne ~27 km) : 10 km → Lyon ; 20 km → + Meyzieu ; 30 km → + Vienne ; sans rayon → zone visible ; dézoom monde → les trois ; visiteur anonyme : rayon 10 km autour du centre de la carte. ⚠️ Bouton « Rayon » mobile non testé visuellement (carte native uniquement).
+
 ## 0.9.37 — 2026-10-10
 
 ### Rayon favori : seules les activités dans le rayon

@@ -265,6 +265,13 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      *
      * Pas de tri par distance (pas de point de référence unique pour une
      * zone) : résultats triés par {@code id} croissant, inchangé.
+     *
+     * Zone de plus de 180° de longitude (carte dézoomée à l'échelle du
+     * monde) : en {@code geography}, une telle enveloppe est interprétée par
+     * son « petit côté » autour du globe et ne contient plus rien — on ne
+     * filtre alors que sur la latitude, toutes les longitudes étant
+     * visibles. Le cas courant garde la comparaison {@code geography} (et
+     * son index).
      */
     @Query("""
             SELECT a.* FROM activity a
@@ -283,8 +290,11 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                     JOIN location l ON l.id = COALESCE(o.location_id, s.location_id)
                     WHERE s.activity_id = a.id AND o.status <> 'CANCELLED'
                       AND l.geo_location IS NOT NULL
-                      AND l.geo_location && ST_MakeEnvelope(
-                            :swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography
+                      AND ((:neLongitude - :swLongitude < 180
+                            AND l.geo_location && ST_MakeEnvelope(
+                                :swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography)
+                           OR (:neLongitude - :swLongitude >= 180
+                            AND ST_Y(l.geo_location::geometry) BETWEEN :swLatitude AND :neLatitude))
                       AND ((:date::date IS NULL
                             AND ((o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date
                                    BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
@@ -305,8 +315,11 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                 OR (
                     NOT EXISTS (SELECT 1 FROM schedule s2 WHERE s2.activity_id = a.id)
                     AND a.location IS NOT NULL
-                    AND a.location && ST_MakeEnvelope(
-                          :swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography
+                    AND ((:neLongitude - :swLongitude < 180
+                          AND a.location && ST_MakeEnvelope(
+                              :swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography)
+                         OR (:neLongitude - :swLongitude >= 180
+                          AND ST_Y(a.location::geometry) BETWEEN :swLatitude AND :neLatitude))
                     AND ((:date::date IS NULL
                           AND (a.start_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' OR
                                COALESCE(a.end_date, a.start_date)::date

@@ -67,8 +67,13 @@ function App() {
     const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
     /** Rayon de la recherche initiale `/nearby` : paramètre utilisateur s'il est défini (voir ci-dessous). */
     const [searchRadiusKm, setSearchRadiusKm] = useState(DEFAULT_SEARCH_RADIUS_KM);
-    /** Rayon des paramètres utilisateur, s'il y en a un : la carte est cadrée dessus (ExplorerMap). */
-    const [favoriteRadiusKm, setFavoriteRadiusKm] = useState<number | null>(null);
+    /**
+     * Rayon actif : celui des paramètres utilisateur au chargement, puis celui
+     * choisi depuis la barre de filtres (« Rayon »), pour la session — les
+     * préférences enregistrées ne changent pas. `null` = pas de rayon : la zone
+     * visible de la carte fait la recherche.
+     */
+    const [activeRadiusKm, setActiveRadiusKm] = useState<number | null>(null);
     /**
      * Paramètres utilisateur (catégories, ville, rayon par défaut) appliqués avant
      * la première recherche, pour ne pas charger puis recharger la carte. Visiteur
@@ -87,7 +92,7 @@ function App() {
         setSelectedCategoryCodes(preferences.defaultCategoryCodes);
         if (preferences.defaultRadiusKm !== null) {
             setSearchRadiusKm(preferences.defaultRadiusKm);
-            setFavoriteRadiusKm(preferences.defaultRadiusKm);
+            setActiveRadiusKm(preferences.defaultRadiusKm);
         }
         if (preferences.defaultLatitude !== null && preferences.defaultLongitude !== null) {
             setUserPosition({ latitude: preferences.defaultLatitude, longitude: preferences.defaultLongitude });
@@ -123,7 +128,7 @@ function App() {
      * soient les déplacements et le zoom de la carte. Sans rayon favori, la zone
      * visible reste la source de vérité dès le premier geste (LL-4012).
      */
-    const searchBounds = favoriteRadiusKm !== null && userPosition !== null ? null : mapBounds;
+    const searchBounds = activeRadiusKm !== null && userPosition !== null ? null : mapBounds;
 
     const previousSearchDepsRef = useRef<{
         selectedCategoriesKey: string;
@@ -347,6 +352,27 @@ function App() {
     // LL-EF-002 : géolocalisation demandée automatiquement au chargement, sans action utilisateur
     // (après lecture des paramètres utilisateur, sauf ville par défaut — voir leur chargement ci-dessus).
     // ⚠️ Aucune position utilisateur n'est envoyée au backend ni stockée ailleurs qu'en état React local.
+
+    /**
+     * Rayon choisi depuis la barre de filtres. Avec un rayon : la recherche et le
+     * cadrage se font dans ce rayon autour de la position de recherche (ville
+     * favorite, « Autour de moi »), ou du centre actuel de la carte s'il n'y en a
+     * pas. Sans rayon : retour à la recherche par zone visible.
+     */
+    function handleRadiusChange(radiusKm: number | null) {
+        setActiveRadiusKm(radiusKm);
+        setSearchRadiusKm(radiusKm ?? DEFAULT_SEARCH_RADIUS_KM);
+        if (radiusKm !== null && userPosition === null) {
+            setUserPosition(
+                mapBounds
+                    ? {
+                          latitude: (mapBounds.swLatitude + mapBounds.neLatitude) / 2,
+                          longitude: (mapBounds.swLongitude + mapBounds.neLongitude) / 2,
+                      }
+                    : { latitude: MARSEILLE_LATITUDE, longitude: MARSEILLE_LONGITUDE },
+            );
+        }
+    }
 
     function handleLogout() {
         clearToken();
@@ -648,6 +674,8 @@ function App() {
                             setSelectedDateTo(NO_DATE_FILTER);
                         }}
                         onPeriodChange={handlePeriodChange}
+                        onRadiusChange={handleRadiusChange}
+                        radiusKm={activeRadiusKm}
                         onSelectedCategoryCodesChange={setSelectedCategoryCodes}
                         onUseMyLocation={requestGeolocation}
                         onViewModeChange={setViewMode}
@@ -676,7 +704,7 @@ function App() {
                             onSelectActivity={handleSelectActivity}
                             selectedActivity={previewActivity}
                             userPosition={userPosition}
-                            favoriteRadiusKm={favoriteRadiusKm}
+                            radiusKm={activeRadiusKm}
                         />
                         {previewActivity && (
                             <ActivityPreview

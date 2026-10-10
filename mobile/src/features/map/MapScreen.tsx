@@ -8,6 +8,7 @@ import type { Activity } from '@/api';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
 import { useTheme } from '@/hooks/use-theme';
 
 import { Region, pointInBounds, regionForRadius, regionForZoom, regionToBounds, zoomForRegion } from './geo';
@@ -32,6 +33,9 @@ const USER_ZOOM = 14;
 const DEFAULT_PREFERENCE_RADIUS_KM = 50;
 
 const NO_CATEGORIES: string[] = [];
+
+/** Valeur de la puce « Sans rayon » du sélecteur de rayon. */
+const NO_RADIUS = 'none';
 
 /** Au-delà de ce zoom, plus de regroupement : chaque activité a son marqueur. */
 const CLUSTER_MAX_ZOOM = 17;
@@ -89,16 +93,46 @@ export default function MapScreen() {
   const [userCenter, setUserCenter] = useState<{ key: string | null; latitude: number; longitude: number } | null>(
     null,
   );
+  // Rayon choisi depuis la carte (bouton « Rayon »), pour la session : remplace
+  // le rayon favori jusqu'au prochain changement des paramètres ; `null` = sans rayon.
+  const [radiusOverride, setRadiusOverride] = useState<{ key: string | null; radiusKm: number | null } | null>(
+    null,
+  );
+  const activeRadiusKm =
+    radiusOverride && radiusOverride.key === preferencesKey
+      ? radiusOverride.radiusKm
+      : (preferences?.defaultRadiusKm ?? null);
+  const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
+
   const radiusSearch = useMemo<RadiusSearch | null>(() => {
-    if (!preferences || preferences.defaultRadiusKm === null) return null;
+    if (activeRadiusKm === null) return null;
     const center =
       userCenter && userCenter.key === preferencesKey
         ? userCenter
-        : preferences.defaultLatitude !== null && preferences.defaultLongitude !== null
+        : preferences && preferences.defaultLatitude !== null && preferences.defaultLongitude !== null
           ? { latitude: preferences.defaultLatitude, longitude: preferences.defaultLongitude }
           : null;
-    return center ? { latitude: center.latitude, longitude: center.longitude, radiusKm: preferences.defaultRadiusKm } : null;
-  }, [preferences, preferencesKey, userCenter]);
+    return center ? { latitude: center.latitude, longitude: center.longitude, radiusKm: activeRadiusKm } : null;
+  }, [activeRadiusKm, preferences, preferencesKey, userCenter]);
+
+  /**
+   * Rayon choisi depuis la carte : recherche et cadrage dans ce rayon autour de
+   * la ville favorite ou de la position (ou, à défaut, du centre actuel de la
+   * carte) ; « Sans rayon » revient à la recherche par zone visible.
+   */
+  const changeRadius = useCallback(
+    (radiusKm: number | null) => {
+      setRadiusPanelOpen(false);
+      setRadiusOverride({ key: preferencesKey, radiusKm });
+      if (radiusKm === null) return;
+      const center = radiusSearch ?? { latitude: region.latitude, longitude: region.longitude };
+      if (!radiusSearch) {
+        setUserCenter({ key: preferencesKey, latitude: center.latitude, longitude: center.longitude });
+      }
+      mapRef.current?.animateToRegion(regionForRadius(center.latitude, center.longitude, radiusKm), 500);
+    },
+    [preferencesKey, radiusSearch, region],
+  );
 
   const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(region, categoryCodes, radiusSearch);
   const location = useUserLocation();
@@ -151,18 +185,17 @@ export default function MapScreen() {
     if (!position) return;
     setShowUser(true);
     setSelection(null);
-    const favoriteRadiusKm = preferences?.defaultRadiusKm ?? null;
-    if (favoriteRadiusKm !== null) {
-      // Rayon favori : il suit l'utilisateur, et la carte est cadrée dessus.
+    if (activeRadiusKm !== null) {
+      // Rayon actif : il suit l'utilisateur, et la carte est cadrée dessus.
       setUserCenter({ key: preferencesKey, latitude: position.latitude, longitude: position.longitude });
-      mapRef.current?.animateToRegion(regionForRadius(position.latitude, position.longitude, favoriteRadiusKm), 500);
+      mapRef.current?.animateToRegion(regionForRadius(position.latitude, position.longitude, activeRadiusKm), 500);
       return;
     }
     mapRef.current?.animateToRegion(
       regionForZoom(position.latitude, position.longitude, USER_ZOOM, region),
       500,
     );
-  }, [location, region, preferences, preferencesKey]);
+  }, [location, region, activeRadiusKm, preferencesKey]);
 
   const locationProblem =
     location.status === 'denied' || location.status === 'unavailable' || location.status === 'error'
@@ -297,16 +330,37 @@ export default function MapScreen() {
         </View>
 
         <View style={styles.bottom} pointerEvents="box-none">
-          {!selection && (
-            <View
-              style={[styles.locateWrapper, { backgroundColor: theme.background }]}
-              pointerEvents="box-none">
-              <Button
-                label="Ma position"
-                variant="secondary"
-                loading={location.status === 'locating'}
-                onPress={centerOnUser}
+          {!selection && radiusPanelOpen && (
+            <View style={[styles.radiusPanel, { backgroundColor: theme.background }]}>
+              <ChipGroup
+                label="Afficher les activités dans un rayon de"
+                single
+                options={[
+                  { value: NO_RADIUS, label: 'Sans rayon' },
+                  ...RADIUS_OPTIONS_KM.map((km) => ({ value: String(km), label: `${km} km` })),
+                ]}
+                selected={[activeRadiusKm === null ? NO_RADIUS : String(activeRadiusKm)]}
+                onToggle={(value) => changeRadius(value === NO_RADIUS ? null : Number(value))}
               />
+            </View>
+          )}
+          {!selection && (
+            <View style={styles.bottomActions} pointerEvents="box-none">
+              <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
+                <Button
+                  label={activeRadiusKm === null ? '◎ Rayon' : `◎ ${activeRadiusKm} km`}
+                  variant="secondary"
+                  onPress={() => setRadiusPanelOpen((open) => !open)}
+                />
+              </View>
+              <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
+                <Button
+                  label="Ma position"
+                  variant="secondary"
+                  loading={location.status === 'locating'}
+                  onPress={centerOnUser}
+                />
+              </View>
             </View>
           )}
           {selection && <PreviewCard selection={selection} onClose={() => setSelection(null)} />}
@@ -332,6 +386,16 @@ const styles = StyleSheet.create({
   bottom: {
     justifyContent: 'flex-end',
     margin: Spacing.three,
+  },
+  bottomActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: Spacing.two,
+  },
+  radiusPanel: {
+    marginBottom: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: 12,
   },
   locateWrapper: {
     alignSelf: 'flex-end',
