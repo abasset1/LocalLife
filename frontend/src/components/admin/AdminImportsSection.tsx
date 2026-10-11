@@ -31,9 +31,6 @@ interface AdminImportsSectionProps {
     onSourcesChanged: () => void;
 }
 
-const DEFAULT_DISCOVERY_LIMIT = 50;
-const MAX_DISCOVERY_LIMIT = 500;
-
 const RESULT_COLUMNS: { key: keyof ImportResult; label: string; title: string }[] = [
     { key: "fetched", label: "Collectées", title: "Activités renvoyées par la source" },
     { key: "created", label: "Créées", title: "Nouvelles activités" },
@@ -77,7 +74,6 @@ function useElapsedSeconds(since: number | null): number {
  * activités de toutes les sources actives (`POST /api/v1/admin/import`, bilan par source).
  */
 function AdminImportsSection({ onSourcesChanged }: AdminImportsSectionProps) {
-    const [discoveryLimit, setDiscoveryLimit] = useState(String(DEFAULT_DISCOVERY_LIMIT));
     const [discoveryStartedAt, setDiscoveryStartedAt] = useState<number | null>(null);
     const [discoveryResult, setDiscoveryResult] = useState<AgendaDiscoveryResult | null>(null);
     const [discoveryError, setDiscoveryError] = useState<string | null>(null);
@@ -91,16 +87,11 @@ function AdminImportsSection({ onSourcesChanged }: AdminImportsSectionProps) {
 
     async function handleDiscover(event: FormEvent) {
         event.preventDefault();
-        const limit = Number(discoveryLimit);
-        if (!Number.isInteger(limit) || limit < 1 || limit > MAX_DISCOVERY_LIMIT) {
-            setDiscoveryError(`Indique un nombre d'agendas entre 1 et ${MAX_DISCOVERY_LIMIT}.`);
-            return;
-        }
         setDiscoveryError(null);
         setDiscoveryResult(null);
         setDiscoveryStartedAt(Date.now());
         try {
-            const response = await apiFetch(`/api/v1/admin/import/discover-agendas?limit=${limit}`, { method: "POST" });
+            const response = await apiFetch("/api/v1/admin/import/discover-agendas", { method: "POST" });
             if (!response.ok) {
                 setDiscoveryError(await errorMessage(response, "La découverte des agendas a échoué."));
                 return;
@@ -150,21 +141,11 @@ function AdminImportsSection({ onSourcesChanged }: AdminImportsSectionProps) {
             <section aria-labelledby="admin-discovery-title" className="admin-import-card">
                 <h2 id="admin-discovery-title">Découvrir les agendas OpenAgenda</h2>
                 <p className="admin-import-hint">
-                    Parcourt les agendas officiels OpenAgenda, les plus actifs d'abord, et crée une source pour
-                    chacun de ceux qui n'en ont pas encore. Aucune activité n'est importée à cette étape : les
-                    nouveaux agendas seront collectés au prochain import.
+                    Parcourt tout l'annuaire des agendas officiels OpenAgenda accessible à LocalLife et crée une
+                    source pour chaque agenda qui n'en a pas encore. Aucune activité n'est importée à cette étape :
+                    les nouveaux agendas seront collectés au prochain import.
                 </p>
                 <form className="admin-import-form" onSubmit={(event) => void handleDiscover(event)}>
-                    <label htmlFor="admin-discovery-limit">Nombre d'agendas à examiner</label>
-                    <input
-                        disabled={discoveryStartedAt !== null}
-                        id="admin-discovery-limit"
-                        max={MAX_DISCOVERY_LIMIT}
-                        min={1}
-                        onChange={(event) => setDiscoveryLimit(event.target.value)}
-                        type="number"
-                        value={discoveryLimit}
-                    />
                     <button className="admin-import-button" disabled={discoveryStartedAt !== null} type="submit">
                         {discoveryStartedAt !== null ? (
                             <>
@@ -172,7 +153,7 @@ function AdminImportsSection({ onSourcesChanged }: AdminImportsSectionProps) {
                                 Découverte en cours… {formatElapsed(discoveryElapsed)}
                             </>
                         ) : (
-                            "Découvrir les agendas"
+                            "Découvrir tous les agendas"
                         )}
                     </button>
                 </form>
