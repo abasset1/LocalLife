@@ -608,6 +608,11 @@ function App() {
             setSubmitStatus("success");
             resetContributionForm();
             setIsContributionModalOpen(false);
+            if (!isEditing) {
+                window.alert(
+                    "Merci pour ta proposition ! Elle est soumise à validation par un modérateur et sera publiée d'ici 2 à 3 jours. Tu peux suivre son statut dans « Mes contributions ».",
+                );
+            }
             // Une activité publiée reste sur la carte ; seule une activité refusée corrigée repart en validation.
             if (isEditing && editingActivityStatus === "REJECTED" && saved?.status === "PENDING") {
                 window.alert(

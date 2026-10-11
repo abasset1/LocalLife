@@ -127,6 +127,12 @@ function ContributionModal({
                     </button>
                 </div>
                 <form className="explorer-form" onSubmit={onSubmit}>
+                    {mode === "create" && (
+                        <p className="explorer-form-notice">
+                            ℹ️ Ton activité sera soumise à validation par un modérateur avant d'apparaître sur la
+                            carte : elle sera publiée d'ici 2 à 3 jours.
+                        </p>
+                    )}
                     {mode === "edit" && requiresRevalidation && (
                         <p className="explorer-form-notice">
                             Cette activité a été refusée : après modification, elle sera de nouveau soumise à
