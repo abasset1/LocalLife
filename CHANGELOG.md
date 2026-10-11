@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.50 — 2026-10-11
+
+### Recherche : villes proposées avec leur code postal pendant la saisie
+- Web : dès 2 caractères, la barre de recherche de l'Explorer propose les communes correspondantes, les plus peuplées d'abord : « 📍 Lyon — 69001 – 69009 · 69 ». Taper un code postal (« 69003 ») propose sa commune avec ce code. Flèches pour parcourir, Entrée ou clic pour choisir, Échap pour fermer. Une ville choisie déplace aussitôt la carte (et le rayon actif), avec le bandeau « 📍 Lyon (69003) — N activités sur la carte ». Sans choix, « Rechercher » / Entrée gardent le comportement actuel (ville, sinon mot-clé).
+- Backend : endpoint public `GET /api/v1/geocoding/city-suggestions?q=…` (`CitySuggestionService`), qui interroge l'API Découpage administratif de l'État (`geo.api.gouv.fr`) : gratuite, sans clé, faite pour l'autocomplétion, avec codes postaux et centre des communes. Nominatim interdit l'autocomplétion dans sa politique d'usage. Couverture : communes françaises. Réponses gardées en mémoire (1 000 dernières saisies) ; liste vide sous 2 caractères ; 503 si l'API est injoignable (le web n'affiche alors simplement pas de suggestions).
+- Côté web, appel après 250 ms sans frappe, réponses obsolètes ignorées, suggestions précédentes conservées le temps de la réponse suivante (pas de clignotement). Liste accessible (motif ARIA « combobox »).
+- Tests : `CitySuggestionServiceTest` (recherche par nom et par code postal, codes triés, communes sans centre écartées, cache, saisie trop courte, API en erreur), cas ajouté à `GeocodingControllerTest`. Vérifié : `mvn verify` (1128 tests, checkstyle), build web ; parcours dans le navigateur contre le backend réel (suggestions simulées, `geo.api.gouv.fr` étant injoignable ici) : « lyo » → Lyon et Lyons-la-Forêt (un seul appel) ; ↓ + Entrée → carte sur Lyon, activité affichée ; « 69003 » → « Lyon 69003 » ; Échap ferme, la frappe rouvre ; « concert » → aucune suggestion, Entrée → recherche par mot-clé. Affichage vérifié en 375 px. Appel réel : 503 explicite ici, liste vide pour 1 caractère.
+
 ## 0.9.49 — 2026-10-11
 
 ### Administration : suppression d'activités (toutes, par critères ou une par une)
