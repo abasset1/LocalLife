@@ -2,6 +2,13 @@
 
 ## 0.9.51 — 2026-10-11
 
+### Suggestions de ville : tests de régression (#90), accessibilité et mobile
+- Tests frontend (nouveau : Vitest + jsdom + Testing Library, `npm test`) couvrant le correctif #90 : saisie modifiée pendant le debounce, saisie modifiée pendant une requête en vol (requête annulée), réponse tardive d'une ancienne saisie (avant ou après la nouvelle, y compris résolue malgré l'annulation), erreur réseau tardive, impossibilité de sélectionner une suggestion de l'ancienne saisie ; clavier (flèches, Entrée, Échap), attributs ARIA du combobox, sélection souris/toucher. Trois de ces tests échouent sur le code antérieur à #90.
+- Correctif accessibilité : une suggestion activée par un simple clic (sans mousedown préalable, cas de technologies d'assistance) n'était pas sélectionnée ; le choix se fait désormais au clic, le mousedown étant seulement neutralisé pour garder le focus.
+- Correctifs mobile (écrans tactiles uniquement, `pointer: coarse`) : champ de recherche en 16 px (évite le zoom automatique d'iOS Safari à la mise au point, la police était de 15,2 px) ; suggestions d'au moins 44 px de haut (36 px auparavant).
+- CI : nouveau workflow `frontend-ci.yml` (`npm ci`, `npm test`, `npm run build`, Node 20) ; il n'y avait aucune CI frontend.
+- Vérifié : `npm test` (12 tests) et `npm run build` sous Node 22.22 et Node 20.20 ; clavier, toucher et souris dans Chromium (suggestions simulées).
+
 ### Recherche textuelle globale : `GET /api/v1/activities/search` (#91)
 - Nouvel endpoint public : recherche dans le titre, la description, les catégories (libre, codes, libellés), la ville et l'adresse (de l'activité et des lieux effectifs de ses occurrences), sans casse, accents, ponctuation ni espaces superflus ; **globale** (aucun rayon, aucune zone) ; activités `PUBLISHED` uniquement.
 - Classement : niveau de pertinence (`TITLE_EXACT` > `TITLE_PREFIX` > `TITLE_CONTAINS` > `CATEGORY_MATCH` > `LOCATION_MATCH` > `DESCRIPTION_MATCH`), puis nombre de champs correspondants, puis distance à la position de référence (`latitude`/`longitude`, jamais enregistrée), puis date de début et identifiant. Filtres `category`, `date`/`dateTo` ; pagination `limit`/`offset` avec `total`. Sans `date` : activités non terminées.
@@ -10,6 +17,7 @@
 - Performance mesurée (20 000 activités, 30 000 occurrences, `EXPLAIN ANALYZE`) : ~0,15 à 0,35 s par requête, contre ~50 s pour la première écriture de la requête.
 - Contrat : `docs/02_Architecture/GLOBAL_SEARCH_CONTRACT.md`. Endpoints existants inchangés (contrôleur et requêtes dédiés).
 - Tests : `ActivitySearchIntegrationTest` (36 cas, HTTP et PostgreSQL réels). Vérifié : `mvn verify` (1164 tests, checkstyle).
+
 
 ## 0.9.50 — 2026-10-11
 
