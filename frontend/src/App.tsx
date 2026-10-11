@@ -6,15 +6,17 @@ import { clearToken, getPayload, getToken } from "./auth/authStorage";
 import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
 import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
-import { isInBounds, matchesSearchQuery, toLocalDateString } from "./components/explorer/activityUtils";
+import { isInBounds, toLocalDateString } from "./components/explorer/activityUtils";
 import { DEFAULT_SEARCH_RADIUS_KM, MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE, NO_DATE_FILTER } from "./components/explorer/constants";
 import ContributionModal, { EMPTY_RECURRENCE, type ContributionRecurrence } from "./components/explorer/ContributionModal";
 import ExplorerFilters from "./components/explorer/ExplorerFilters";
 import ExplorerMap from "./components/explorer/ExplorerMap";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
 import ExplorerSearch from "./components/explorer/ExplorerSearch";
+import { hasCoordinates, SEARCH_PAGE_SIZE, toActivity } from "./components/explorer/globalSearch";
 import SearchResultBanner from "./components/explorer/SearchResultBanner";
-import type { AppliedSearch } from "./components/explorer/SearchResultBanner";
+import type { AppliedSearch, TextSearchStatus } from "./components/explorer/SearchResultBanner";
+import { useActivitySearch } from "./components/explorer/useActivitySearch";
 import { formatCityLabel } from "./components/explorer/useCitySuggestions";
 import type { CitySuggestion } from "./components/explorer/useCitySuggestions";
 import OnboardingModal from "./components/onboarding/OnboardingModal";
@@ -115,12 +117,23 @@ function App() {
     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
     const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
     const [viewMode, setViewMode] = useState<"map" | "list">("map");
-    /** LL-EF-017 : recherche libre (titre/ville/adresse/catégorie), filtrage client — voir `matchesSearchQuery`. */
+    /** Saisie de la barre de recherche ; seul un envoi explicite lance une recherche (`handleSearchSubmit`). */
     const [searchQuery, setSearchQuery] = useState("");
-    /** Recherche appliquée (ville ou filtre texte) — la saisie seule ne change rien, voir `handleSearchSubmit`. */
+    /** Recherche appliquée (ville choisie ou texte envoyé) — la saisie seule ne change rien. */
     const [appliedSearch, setAppliedSearch] = useState<AppliedSearch | null>(null);
-    /** Texte en cours de recherche (appel au serveur en cours), `null` sinon. */
-    const [pendingSearch, setPendingSearch] = useState<string | null>(null);
+    /**
+     * Recherche texte globale (#92) : texte envoyé et page. `filtersKey` mémorise les filtres et la
+     * position de la page demandée : s'ils changent, la recherche repart de la première page.
+     */
+    const [textSearch, setTextSearch] = useState<{ query: string; offset: number; filtersKey: string } | null>(null);
+    const isTextSearch = textSearch !== null;
+    /** Texte envoyé trop court pour la recherche (contrat #91 : 2 caractères, une lettre ou un chiffre). */
+    const [searchHint, setSearchHint] = useState<string | null>(null);
+    /** Relance la recherche texte à l'identique (« Réessayer », activité annulée ou supprimée). */
+    const [searchRetryKey, setSearchRetryKey] = useState(0);
+    /** Favoris modifiés depuis un résultat de recherche (la recherche ne renvoie pas cet état). */
+    const [likeOverrides, setLikeOverrides] = useState<Record<number, boolean>>({});
+    const searchListRef = useRef<HTMLDivElement>(null);
     /** LL-EF-017 : tiroir de menu (mobile) — toujours visible en colonne fixe au-delà du point de rupture desktop (styles.css). */
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     /**
@@ -225,7 +238,9 @@ function App() {
     }, []);
 
     useEffect(() => {
-        if (!arePreferencesApplied) {
+        // Pendant une recherche texte, la carte et la liste montrent ses résultats : la zone n'est pas
+        // rechargée à chaque recadrage. Elle l'est à la sortie de la recherche.
+        if (!arePreferencesApplied || isTextSearch) {
             return;
         }
         const abortController = new AbortController();
@@ -313,7 +328,7 @@ function App() {
         void loadActivities();
 
         return () => abortController.abort();
-    }, [arePreferencesApplied, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
+    }, [arePreferencesApplied, isTextSearch, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
 
     // Récupération des food trucks (LL-6009), isolée de celle des activités — inchangée.
     useEffect(() => {
@@ -337,36 +352,99 @@ function App() {
     }, []);
 
     /**
-     * LL-EF-017 : recherche texte libre appliquée côté client sur les
-     * activités déjà chargées (voir la javadoc de `matchesSearchQuery`) —
-     * n'affecte ni les paramètres de requête backend ni la liste des
-     * catégories disponibles.
+     * Activités de la liste hors recherche texte : seulement celles visibles sur la carte. Avec un rayon,
+     * la recherche charge tout le rayon : un zoom sur une partie du rayon réduit donc la liste à la zone
+     * affichée. Recalculée à chaque déplacement ou zoom (`mapBounds`) et à chaque nouvelle recherche
+     * (rayon, filtres). Sans zone connue (carte pas encore affichée), la liste montre tout.
      */
-    const textQuery = appliedSearch?.kind === "text" ? appliedSearch.query : "";
-    const filteredActivities = useMemo(
-        () => activities.filter((activity) => matchesSearchQuery(activity, textQuery, categories)),
-        [activities, textQuery, categories],
+    const listedActivities = useMemo(
+        () => (mapBounds ? activities.filter((activity) => isInBounds(activity, mapBounds)) : activities),
+        [activities, mapBounds],
     );
 
     /**
-     * Activités de la liste : seulement celles visibles sur la carte. Avec un rayon, la recherche
-     * charge tout le rayon : un zoom sur une partie du rayon réduit donc la liste à la zone affichée.
-     * Recalculée à chaque déplacement ou zoom (`mapBounds`) et à chaque nouvelle recherche (rayon,
-     * filtres). Sans zone connue (carte pas encore affichée), la liste montre tout.
+     * Recherche texte globale (#92), `GET /api/v1/activities/search` : filtres catégorie et date actifs,
+     * position de référence seulement si elle existe déjà (géolocalisation, ville par défaut ou choisie).
+     * Le texte n'est jamais géocodé. Ni rayon ni zone visible : les résultats couvrent tout le territoire.
      */
-    const listedActivities = useMemo(
-        () => (mapBounds ? filteredActivities.filter((activity) => isInBounds(activity, mapBounds)) : filteredActivities),
-        [filteredActivities, mapBounds],
+    const searchFiltersKey = [
+        selectedCategoriesKey,
+        selectedDate,
+        selectedDateTo,
+        userPosition ? `${userPosition.latitude},${userPosition.longitude}` : "",
+    ].join("|");
+    const searchOffset = textSearch && textSearch.filtersKey === searchFiltersKey ? textSearch.offset : 0;
+    const searchState = useActivitySearch(
+        textSearch
+            ? {
+                  query: textSearch.query,
+                  categoriesKey: selectedCategoriesKey,
+                  date: selectedDate,
+                  dateTo: selectedDateTo,
+                  position: userPosition,
+                  offset: searchOffset,
+              }
+            : null,
+        currentUser ? getToken() : null,
+        searchRetryKey,
     );
+    /** Résultats de la page : même ensemble, dans l'ordre de pertinence, pour la liste et la carte. */
+    const searchActivities = useMemo(() => {
+        if (searchState.status !== "success") {
+            return [];
+        }
+        const knownById = new Map(activities.map((activity) => [activity.id, activity]));
+        return searchState.page.items.map((item) =>
+            toActivity(
+                item,
+                likeOverrides[item.id] ?? (searchState.likedIds.has(item.id) ? true : undefined),
+                knownById.get(item.id),
+            ));
+    }, [searchState, activities, likeOverrides]);
 
-    const emptyMessage = textQuery
-        ? `Aucun résultat pour « ${textQuery} » dans cette zone.`
-        : "Aucune activité trouvée dans cette zone.";
+    let textStatus: TextSearchStatus | null = null;
+    if (searchHint !== null) {
+        textStatus = { status: "invalid", message: searchHint };
+    } else if (isTextSearch && searchState.status === "success") {
+        textStatus = {
+            status: "success",
+            total: searchState.page.total,
+            offset: searchState.page.offset,
+            count: searchActivities.length,
+            withoutLocation: searchActivities.filter((activity) => !hasCoordinates(activity)).length,
+        };
+    } else if (isTextSearch && searchState.status === "error") {
+        textStatus = { status: "error", message: searchState.message };
+    } else if (isTextSearch) {
+        textStatus = { status: "loading" };
+    }
+
+    /** Identifiant de la page affichée : la carte se cadre sur ses résultats à chaque nouvelle page. */
+    const searchFitKey = searchState.status === "success" && textSearch
+        ? `${textSearch.query}|${searchFiltersKey}|${searchOffset}|${searchRetryKey}`
+        : null;
+
+    const mapActivities = isTextSearch ? searchActivities : activities;
+    const panelActivities = isTextSearch ? searchActivities : listedActivities;
+
+    let emptyMessage = "Aucune activité trouvée dans cette zone.";
+    if (isTextSearch) {
+        emptyMessage = textStatus?.status === "success" && textStatus.total > 0
+            ? "Aucun résultat sur cette page."
+            : `Aucun résultat pour « ${textSearch.query} ».`;
+    }
+
+    // Nouvelle page de résultats : la liste repart du haut.
+    useEffect(() => {
+        if (searchFitKey !== null && searchListRef.current) {
+            searchListRef.current.scrollTop = 0;
+        }
+    }, [searchFitKey]);
 
     function handleSearchChange(value: string) {
         setSearchQuery(value);
         if (!value.trim()) {
-            setAppliedSearch(null);
+            clearSearch();
         }
     }
 
@@ -374,6 +452,8 @@ function App() {
     function handleSelectCity(city: CitySuggestion, query: string) {
         setSearchQuery(city.name);
         setPreviewActivity(null);
+        setTextSearch(null);
+        setSearchHint(null);
         setUserPosition({ latitude: city.latitude, longitude: city.longitude });
         setAppliedSearch({ kind: "city", city: formatCityLabel(city, query) });
     }
@@ -381,39 +461,40 @@ function App() {
     function clearSearch() {
         setSearchQuery("");
         setAppliedSearch(null);
+        setTextSearch(null);
+        setSearchHint(null);
+        setPreviewActivity(null);
     }
 
     /**
-     * « Rechercher » ou Entrée. Le texte est d'abord cherché comme une ville : trouvée, la carte s'y
-     * déplace (et le rayon actif s'y recentre, comme « Autour de moi ») et toutes ses activités
-     * s'affichent. Sinon, il filtre les activités de la carte (titre, ville, adresse,
-     * catégorie). Le bandeau sous la barre montre la recherche en cours puis son résultat.
+     * « Rechercher » ou Entrée sans suggestion choisie : recherche globale du texte dans les activités
+     * (#92). Le texte n'est pas cherché comme une ville : choisir une commune proposée reste le moyen
+     * de déplacer la carte. La recherche reste appliquée lors des bascules Carte/Liste et des pages.
      */
-    async function handleSearchSubmit() {
+    function handleSearchSubmit() {
         const query = searchQuery.trim();
         if (!query) {
             clearSearch();
             return;
         }
-        setPendingSearch(query);
-        try {
-            const response = await fetch(`/api/v1/geocoding/city?name=${encodeURIComponent(query)}`);
-            if (response.ok) {
-                const city = (await response.json()) as { city: string; latitude: number; longitude: number };
-                setPreviewActivity(null);
-                setUserPosition({ latitude: city.latitude, longitude: city.longitude });
-                setAppliedSearch({ kind: "city", city: city.city });
-            } else if (response.status === 404) {
-                setAppliedSearch({ kind: "text", query });
-            } else {
-                // Recherche de ville indisponible : on cherche tout de même parmi les activités.
-                setAppliedSearch({ kind: "text", query, note: "(recherche de ville indisponible)" });
-            }
-        } catch {
-            setAppliedSearch({ kind: "text", query, note: "(recherche de ville indisponible)" });
-        } finally {
-            setPendingSearch(null);
+        setPreviewActivity(null);
+        setAppliedSearch({ kind: "text", query });
+        if (query.length < 2 || !/[\p{L}\p{N}]/u.test(query)) {
+            // Refusé par le serveur (400) : expliqué tout de suite, la carte garde ses activités.
+            setTextSearch(null);
+            setSearchHint("Saisis au moins 2 caractères, dont une lettre ou un chiffre.");
+            return;
         }
+        setSearchHint(null);
+        setTextSearch({ query, offset: 0, filtersKey: searchFiltersKey });
+        // Même texte renvoyé : la recherche est relancée plutôt qu'ignorée.
+        setSearchRetryKey((current) => current + 1);
+    }
+
+    function goToSearchPage(offset: number) {
+        setPreviewActivity(null);
+        setTextSearch((current) =>
+            current ? { ...current, offset: Math.max(0, offset), filtersKey: searchFiltersKey } : current);
     }
 
     function requestGeolocation() {
@@ -723,6 +804,7 @@ function App() {
             }
 
             setRefreshKey((current) => current + 1);
+            setSearchRetryKey((current) => current + 1);
             setDetailActivity(null);
         } catch {
             setCancelActivityError("Impossible de contacter le serveur, réessaie plus tard.");
@@ -750,6 +832,7 @@ function App() {
             }
 
             setRefreshKey((current) => current + 1);
+            setSearchRetryKey((current) => current + 1);
             setDetailActivity(null);
         } catch {
             setCancelActivityError("Impossible de contacter le serveur, réessaie plus tard.");
@@ -784,11 +867,14 @@ function App() {
             current && current.id === activityId ? { ...current, likedByCurrentUser: liked } : current);
         setPreviewActivity((current) =>
             current && current.id === activityId ? { ...current, likedByCurrentUser: liked } : current);
+        setLikeOverrides((current) => ({ ...current, [activityId]: liked }));
     }
 
     /** LL-EF-017, section 8 : sélection depuis un marqueur ou une ligne de liste → aperçu. */
     function handleSelectActivity(activity: Activity) {
         setPreviewActivity(activity);
+        // Mobile, vue Liste : l'aperçu et la carte centrée sur l'activité sont dans la vue Carte (#92).
+        setViewMode("map");
     }
 
     /** LL-EF-017, section 9 : "Voir l'activité" → fiche complète, l'aperçu se referme. */
@@ -871,20 +957,24 @@ function App() {
                         </button>
                         <ExplorerSearch
                             isActive={appliedSearch !== null}
-                            isSearching={pendingSearch !== null}
+                            isSearching={textStatus?.status === "loading"}
                             onChange={handleSearchChange}
                             onClear={clearSearch}
                             onSelectCity={handleSelectCity}
-                            onSubmit={() => void handleSearchSubmit()}
+                            onSubmit={handleSearchSubmit}
                             value={searchQuery}
                         />
                     </div>
                     <SearchResultBanner
+                        hasActiveFilters={selectedCategoriesKey !== "" || selectedDate !== NO_DATE_FILTER}
                         isLoadingActivities={isLoadingActivities}
                         onClear={clearSearch}
-                        pendingQuery={pendingSearch}
+                        onNextPage={() => goToSearchPage(searchOffset + SEARCH_PAGE_SIZE)}
+                        onPreviousPage={() => goToSearchPage(searchOffset - SEARCH_PAGE_SIZE)}
+                        onRetry={() => setSearchRetryKey((current) => current + 1)}
                         resultCount={listedActivities.length}
                         search={appliedSearch}
+                        textStatus={textStatus}
                     />
 
                     <ExplorerFilters
@@ -912,17 +1002,21 @@ function App() {
 
                 <div className="explorer-content">
                     <div className="explorer-map-wrapper">
-                        {isLoadingActivities && <p className="explorer-status explorer-status-floating">Chargement des activités…</p>}
-                        {!isLoadingActivities && searchError && (
+                        {/* Pendant une recherche texte, le bandeau sous la barre donne son état. */}
+                        {!isTextSearch && isLoadingActivities && (
+                            <p className="explorer-status explorer-status-floating">Chargement des activités…</p>
+                        )}
+                        {!isTextSearch && !isLoadingActivities && searchError && (
                             <p className="explorer-status explorer-status-error explorer-status-floating" role="alert">
                                 {searchError}
                             </p>
                         )}
-                        {!isLoadingActivities && !searchError && filteredActivities.length === 0 && (
+                        {!isTextSearch && !isLoadingActivities && !searchError && activities.length === 0 && (
                             <p className="explorer-status explorer-status-floating">{emptyMessage}</p>
                         )}
                         <ExplorerMap
-                            activities={filteredActivities}
+                            activities={mapActivities}
+                            fitKey={searchFitKey}
                             foodTrucks={foodTrucks}
                             onBoundsChange={setMapBounds}
                             onSelectActivity={handleSelectActivity}
@@ -940,14 +1034,16 @@ function App() {
                         )}
                     </div>
 
-                    <div className="explorer-list-panel">
+                    <div className="explorer-list-panel" ref={searchListRef}>
                         <ActivityList
-                            activities={listedActivities}
+                            activities={panelActivities}
                             categories={categories}
                             emptyMessage={emptyMessage}
-                            error={searchError}
-                            isLoading={isLoadingActivities}
+                            error={isTextSearch ? (textStatus?.status === "error" ? textStatus.message : null) : searchError}
+                            isLoading={isTextSearch ? textStatus?.status === "loading" : isLoadingActivities}
+                            label={isTextSearch ? "Résultats de la recherche" : undefined}
                             onSelectActivity={handleSelectActivity}
+                            ordered={isTextSearch}
                         />
                     </div>
                 </div>

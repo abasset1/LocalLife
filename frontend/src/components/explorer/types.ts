@@ -44,6 +44,8 @@ export interface Activity {
     createdByUsername: string | null;
     likedByCurrentUser: boolean;
     mainImageUrl: string | null;
+    /** Recherche globale (#92) : distance au lieu retenu, `null` sans position de référence ou sans lieu. */
+    distanceMeters?: number | null;
 }
 
 export interface ScheduleSummary {

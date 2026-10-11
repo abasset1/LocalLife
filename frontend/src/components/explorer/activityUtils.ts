@@ -1,3 +1,4 @@
+import { hasCoordinates, UNKNOWN_PLACE_LABEL } from "./globalSearch";
 import type { Activity, Category, MapBounds } from "./types";
 
 /**
@@ -31,6 +32,9 @@ export function formatActivityLocation(activity: Activity): string {
     }
     if (activity.city) {
         return activity.city;
+    }
+    if (!hasCoordinates(activity)) {
+        return UNKNOWN_PLACE_LABEL;
     }
     return `${activity.latitude.toFixed(4)}, ${activity.longitude.toFixed(4)}`;
 }
@@ -86,36 +90,6 @@ export function getCategoryLabels(activity: Activity, categories: Category[]): s
 /** Libellés joints pour un affichage sur une ligne (« Culture, Tourisme »), chaîne vide si aucun. */
 export function formatCategoryLabels(activity: Activity, categories: Category[]): string {
     return getCategoryLabels(activity, categories).join(", ");
-}
-
-/** Minuscules, sans accents ni ponctuation superflue : « Saint-Étienne » → « saint etienne ». */
-export function normalizeSearchText(value: string): string {
-    return value
-        .normalize("NFD")
-        .replace(/\p{M}+/gu, "")
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}]+/gu, " ")
-        .trim();
-}
-
-/**
- * Filtre texte libre (LL-EF-017, section 7 : "rechercher une activité, un
- * lieu, éventuellement une ville") — appliqué côté client sur les activités
- * déjà chargées. Insensible à la casse, aux accents et à l'ordre des mots :
- * chaque mot cherché doit apparaître dans le titre, la ville,
- * l'adresse ou une catégorie (« marche lyon » trouve un « Marché » à Lyon).
- */
-export function matchesSearchQuery(activity: Activity, query: string, categories: Category[] = []): boolean {
-    const words = normalizeSearchText(query).split(" ").filter(Boolean);
-    if (words.length === 0) {
-        return true;
-    }
-    const haystack = normalizeSearchText(
-        [activity.title, activity.city, activity.address, ...getCategoryLabels(activity, categories)]
-            .filter((value): value is string => Boolean(value))
-            .join(" "),
-    );
-    return words.every((word) => haystack.includes(word));
 }
 
 /** L'activité est-elle dans la zone affichée par la carte (bords compris) ? */

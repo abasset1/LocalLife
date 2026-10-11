@@ -2,6 +2,7 @@ import { buildDirectionsUrl } from "../../utils/directions";
 import { buildGoogleCalendarUrl } from "../../utils/googleCalendar";
 import { formatDateOfDay, formatRecurrenceRule, formatTimeRange } from "../../utils/recurrence";
 import { formatActivityLocation, formatCategoryLabels } from "./activityUtils";
+import { hasCoordinates } from "./globalSearch";
 import type { Activity, ActivityDetail, AccessibilitySummary, Category, ExplorerCurrentUser } from "./types";
 
 /**
@@ -187,6 +188,10 @@ function ActivityDetailModal({
     onClose,
 }: ActivityDetailModalProps) {
     const categoryLabels = formatCategoryLabels(activity, categories);
+    const calendarOccurrence = detail?.occurrences.find((occurrence) => occurrence.status !== "CANCELLED");
+    // Un résultat de recherche (#92) peut n'avoir ni date ni lieu connus : les liens qui en dépendent sont masqués.
+    const calendarStart = calendarOccurrence?.startAt ?? activity.startDate;
+    const hasDestination = hasCoordinates(activity) || Boolean(activity.address || activity.city);
 
     return (
         <div className="explorer-modal-overlay" onClick={onClose} role="presentation">
@@ -223,10 +228,12 @@ function ActivityDetailModal({
                     </p>
                     <p className="explorer-detail-row">
                         <strong>Date :</strong>{" "}
-                        {new Date(activity.startDate).toLocaleString("fr-FR", {
-                            dateStyle: "long",
-                            timeStyle: "short",
-                        })}
+                        {activity.startDate
+                            ? new Date(activity.startDate).toLocaleString("fr-FR", {
+                                  dateStyle: "long",
+                                  timeStyle: "short",
+                              })
+                            : "non précisée"}
                     </p>
                     {categoryLabels && (
                         <p className="explorer-detail-row">
@@ -234,9 +241,12 @@ function ActivityDetailModal({
                             {categoryLabels}
                         </p>
                     )}
-                    <p className="explorer-detail-row">
-                        <strong>Source :</strong> {activity.sourceName}
-                    </p>
+                    {/* Un résultat de recherche (#92) ne porte pas sa source : rien plutôt qu'une ligne vide. */}
+                    {activity.sourceName && (
+                        <p className="explorer-detail-row">
+                            <strong>Source :</strong> {activity.sourceName}
+                        </p>
+                    )}
                     {activity.publishedAt && (
                         <p className="explorer-detail-row">
                             <strong>Publiée le :</strong>{" "}
@@ -256,41 +266,41 @@ function ActivityDetailModal({
                     )}
                     {detail && renderDetailSections(detail)}
                     <div className="explorer-detail-actions">
-                        <a
-                            className="explorer-detail-action-button"
-                            href={buildGoogleCalendarUrl({
-                                title: activity.title,
-                                description: detail?.description ?? null,
-                                address: activity.address,
-                                city: activity.city,
-                                latitude: activity.latitude,
-                                longitude: activity.longitude,
-                                occurrenceStartAt: detail?.occurrences
-                                    .find((occurrence) => occurrence.status !== "CANCELLED")?.startAt
-                                    ?? null,
-                                occurrenceEndAt: detail?.occurrences
-                                    .find((occurrence) => occurrence.status !== "CANCELLED")?.endAt
-                                    ?? null,
-                                fallbackStartDate: activity.startDate,
-                            })}
-                            rel="noreferrer"
-                            target="_blank"
-                        >
-                            Ajouter à Google Agenda
-                        </a>
-                        <a
-                            className="explorer-detail-action-button explorer-detail-action-button-accent"
-                            href={buildDirectionsUrl({
-                                latitude: activity.latitude,
-                                longitude: activity.longitude,
-                                address: activity.address,
-                                city: activity.city,
-                            })}
-                            rel="noreferrer"
-                            target="_blank"
-                        >
-                            Y aller
-                        </a>
+                        {calendarStart && (
+                            <a
+                                className="explorer-detail-action-button"
+                                href={buildGoogleCalendarUrl({
+                                    title: activity.title,
+                                    description: detail?.description ?? null,
+                                    address: activity.address,
+                                    city: activity.city,
+                                    latitude: activity.latitude,
+                                    longitude: activity.longitude,
+                                    occurrenceStartAt: calendarOccurrence?.startAt ?? null,
+                                    occurrenceEndAt: calendarOccurrence?.endAt ?? null,
+                                    fallbackStartDate: activity.startDate,
+                                })}
+                                rel="noreferrer"
+                                target="_blank"
+                            >
+                                Ajouter à Google Agenda
+                            </a>
+                        )}
+                        {hasDestination && (
+                            <a
+                                className="explorer-detail-action-button explorer-detail-action-button-accent"
+                                href={buildDirectionsUrl({
+                                    latitude: activity.latitude,
+                                    longitude: activity.longitude,
+                                    address: activity.address,
+                                    city: activity.city,
+                                })}
+                                rel="noreferrer"
+                                target="_blank"
+                            >
+                                Y aller
+                            </a>
+                        )}
                     </div>
                     {currentUser && activity.createdBy !== null
                         && (currentUser.userId === activity.createdBy || currentUser.role === "ADMIN") && (

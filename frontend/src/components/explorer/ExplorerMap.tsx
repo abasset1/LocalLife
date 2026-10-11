@@ -7,6 +7,7 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { MAP_BOUNDS_DEBOUNCE_MS, MARSEILLE_COORDINATES } from "./constants";
+import { hasCoordinates } from "./globalSearch";
 import type { Activity, FoodTruck, MapBounds, UserPosition } from "./types";
 
 /**
@@ -133,12 +134,37 @@ function MapFlyToSelection({ activity }: { activity: Activity | null }) {
     const map = useMap();
 
     useEffect(() => {
-        if (activity) {
+        // Résultat de recherche sans lieu connu (#92) : la carte ne bouge pas.
+        if (activity && hasCoordinates(activity)) {
             map.setView([activity.latitude, activity.longitude], Math.max(map.getZoom(), 15), {
                 animate: true,
             });
         }
     }, [activity, map]);
+
+    return null;
+}
+
+/**
+ * Recherche globale (#92) : à chaque nouvelle page de résultats (`fitKey`), la carte est cadrée sur les
+ * résultats situés, où qu'ils soient — ils ne sont pas limités à la zone affichée. Sans résultat situé,
+ * la carte ne bouge pas.
+ */
+function MapFitToResults({ activities, fitKey }: { activities: Activity[]; fitKey: string | null }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (fitKey === null) {
+            return;
+        }
+        const located = activities.filter(hasCoordinates);
+        if (located.length === 0) {
+            return;
+        }
+        const bounds = L.latLngBounds(located.map((activity) => [activity.latitude, activity.longitude]));
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+        // Seul un changement de page ou de recherche recadre, pas un simple nouveau tableau.
+    }, [fitKey, map]);
 
     return null;
 }
@@ -187,6 +213,8 @@ interface ExplorerMapProps {
     selectedActivity: Activity | null;
     onSelectActivity: (activity: Activity) => void;
     onBoundsChange: (bounds: MapBounds) => void;
+    /** Recherche globale : identifiant de la page de résultats affichée, `null` hors recherche. */
+    fitKey?: string | null;
 }
 
 function ExplorerMap({
@@ -197,6 +225,7 @@ function ExplorerMap({
     selectedActivity,
     onSelectActivity,
     onBoundsChange,
+    fitKey = null,
 }: ExplorerMapProps) {
     const initialCenter: LatLngExpression = userPosition
         ? [userPosition.latitude, userPosition.longitude]
@@ -222,6 +251,7 @@ function ExplorerMap({
                 />
             )}
             <MapFlyToSelection activity={selectedActivity} />
+            <MapFitToResults activities={activities} fitKey={fitKey} />
             <MapInvalidateOnResize />
             {/*
               Clustering (demande Alex, hors ticket de sprint), conservé à l'identique.
@@ -229,7 +259,7 @@ function ExplorerMap({
               lieu d'un Popup Leaflet (LL-EF-017, section 8 : "afficher son aperçu").
             */}
             <MarkerClusterGroup>
-                {activities.map((activity) => (
+                {activities.filter(hasCoordinates).map((activity) => (
                     <Marker
                         eventHandlers={{ click: () => onSelectActivity(activity) }}
                         key={activity.id}

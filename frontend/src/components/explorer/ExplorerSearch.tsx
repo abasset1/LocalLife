@@ -6,13 +6,13 @@ import type { CitySuggestion } from "./useCitySuggestions";
 interface ExplorerSearchProps {
     value: string;
     onChange: (value: string) => void;
-    /** « Rechercher » ou Entrée sans suggestion choisie : lance la recherche (ville, sinon activités). */
+    /** « Rechercher » ou Entrée sans suggestion choisie : recherche globale dans les activités (#92). */
     onSubmit: () => void;
     /** Une commune proposée est choisie (avec la saisie, pour son code postal) : la carte s'y déplace. */
     onSelectCity: (city: CitySuggestion, query: string) => void;
     /** Efface la saisie et la recherche en cours. */
     onClear: () => void;
-    /** Recherche en cours : bouton et barre animés. */
+    /** Recherche texte en cours : bouton et barre animés, suggestions masquées. */
     isSearching: boolean;
     /** Une recherche est appliquée à la carte : la barre est mise en évidence. */
     isActive: boolean;
@@ -23,8 +23,8 @@ const LISTBOX_ID = "explorer-city-suggestions";
 /**
  * LL-EF-017, section 7 : barre de recherche du bandeau. Pendant la saisie, des communes sont proposées
  * (nom, codes postaux, département) : flèches pour parcourir, Entrée ou clic pour choisir, Échap pour
- * fermer. La recherche libre reste explicite (bouton « Rechercher » ou Entrée) — voir
- * `handleSearchSubmit` (App.tsx).
+ * fermer. La recherche libre reste explicite (bouton « Rechercher » ou Entrée) et n'est jamais géocodée :
+ * seule une commune choisie déplace la carte — voir `handleSearchSubmit` (App.tsx).
  */
 function ExplorerSearch({ value, onChange, onSubmit, onSelectCity, onClear, isSearching, isActive }: ExplorerSearchProps) {
     const [isFocused, setIsFocused] = useState(false);

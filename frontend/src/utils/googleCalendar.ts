@@ -76,6 +76,10 @@ function resolveLocationParam(event: GoogleCalendarEventInput): string {
     if (event.city) {
         return event.city;
     }
+    if (!Number.isFinite(event.latitude) || !Number.isFinite(event.longitude)) {
+        // Résultat de recherche sans lieu connu (#92) : pas de lieu plutôt que « NaN,NaN ».
+        return "";
+    }
     // Repli sur les coordonnées GPS (critère d'acceptation explicite du ticket) : Google Agenda
     // accepte un texte libre pour "location" et sait généralement géolocaliser "lat,lng".
     return `${event.latitude},${event.longitude}`;
