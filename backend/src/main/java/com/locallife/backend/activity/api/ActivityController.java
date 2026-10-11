@@ -158,7 +158,8 @@ public class ActivityController {
      */
     @Operation(
             summary = "Liste les activités",
-            description = "Retourne toutes les activités (représentation allégée, voir ActivitySummaryResponse), "
+            description = "Retourne les activités publiées (PUBLISHED uniquement ; représentation allégée, voir "
+                    + "ActivitySummaryResponse), "
                     + "avec filtre optionnel par ville ('city', comparaison exacte insensible à la casse), "
                     + "filtre optionnel par date ('date', ISO-8601 yyyy-MM-dd) et tri optionnel ('sort', une ou "
                     + "plusieurs clés parmi 'city'/'date' séparées par une virgule, ex. 'city,date').")

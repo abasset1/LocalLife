@@ -143,6 +143,10 @@ défini et implémenté par ce même ticket — sur le modèle des sections
 GET /api/v1/activities
 ```
 
+**Activités `PUBLISHED` uniquement**, avec ou sans paramètre : une activité en attente de validation
+(`PENDING`), refusée (`REJECTED`), annulée (`CANCELLED`) ou archivée (`ARCHIVED`) n'est jamais listée.
+Avant ce correctif (audit #93), la liste renvoyait tous les statuts.
+
 Uniquement cet endpoint (listing simple). `nearby` et
 `within-bounds` ont leurs propres contrats
 (`GEO_SEARCH_CONTRACT.md`, `BOUNDING_BOX_SEARCH_CONTRACT.md`) et

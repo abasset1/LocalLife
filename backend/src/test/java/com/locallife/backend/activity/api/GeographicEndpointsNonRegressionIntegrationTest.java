@@ -59,7 +59,8 @@ class GeographicEndpointsNonRegressionIntegrationTest {
     private String city;
     private long lyon;
     private long bordeaux;
-    private long pendingInLyon;
+    /** Une activité par statut non publié, toutes à Lyon et dans la fenêtre de dates. */
+    private final List<Long> unpublished = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
@@ -75,7 +76,9 @@ class GeographicEndpointsNonRegressionIntegrationTest {
         LocalDateTime start = LocalDateTime.now().plusDays(2).withNano(0);
         lyon = save("Kermesse " + token, LYON, "PUBLISHED", start);
         bordeaux = save("Kermesse " + token, BORDEAUX, "PUBLISHED", start);
-        pendingInLyon = save("Kermesse " + token, LYON, "PENDING", start);
+        for (String status : List.of("PENDING", "REJECTED", "CANCELLED", "ARCHIVED")) {
+            unpublished.add(save("Kermesse " + token, LYON, status, start));
+        }
     }
 
     @AfterEach
@@ -149,17 +152,42 @@ class GeographicEndpointsNonRegressionIntegrationTest {
         assertThat(fields(found.get(0))).isEqualTo(new TreeSet<>(MAP_ITEM_FIELDS));
     }
 
-    /**
-     * Champs inchangés. Le statut n'est volontairement pas vérifié : cet endpoint liste aussi les activités
-     * non publiées depuis toujours (audit #93, constat hors recherche, à décider séparément) — ce test ne
-     * doit ni figer ce comportement ni le masquer.
-     */
     @Test
     void activitiesList_KeepsItsSummaryFields() throws Exception {
         List<JsonNode> found = ours(get("/api/v1/activities?city=" + city));
 
-        assertThat(ids(found)).contains(lyon, bordeaux);
+        assertThat(ids(found)).containsExactlyInAnyOrder(lyon, bordeaux);
         found.forEach(item -> assertThat(fields(item)).isEqualTo(new TreeSet<>(LIST_ITEM_FIELDS)));
+    }
+
+    /**
+     * Liste publique : activités publiées uniquement, avec ou sans filtre ni tri. Avant le correctif, elle
+     * renvoyait aussi les activités en attente de validation, refusées, annulées et archivées (audit #93).
+     */
+    @Test
+    void activitiesList_NeverReturnsPendingRejectedCancelledOrArchived() throws Exception {
+        String day = LocalDateTime.now().plusDays(2).toLocalDate().toString();
+        for (String uri : List.of(
+                "/api/v1/activities",
+                "/api/v1/activities?city=" + city,
+                "/api/v1/activities?sort=city,date",
+                "/api/v1/activities?date=" + day,
+                "/api/v1/activities?city=" + city + "&date=" + day + "&sort=date")) {
+            List<Long> found = ids(ours(get(uri)));
+            assertThat(found).as(uri).containsExactlyInAnyOrder(lyon, bordeaux);
+            assertThat(found).as(uri).doesNotContainAnyElementsOf(unpublished);
+        }
+    }
+
+    @Test
+    void geographicEndpoints_NeverReturnUnpublishedActivities() throws Exception {
+        List<Long> nearby = ids(ours(get("/api/v1/activities/nearby?latitude=" + LYON[0] + "&longitude=" + LYON[1]
+                + "&radius=10")));
+        List<Long> withinBounds = ids(ours(get("/api/v1/activities/within-bounds?swLatitude=45.6&swLongitude=4.7"
+                + "&neLatitude=45.9&neLongitude=5.0")));
+
+        assertThat(nearby).containsExactly(lyon);
+        assertThat(withinBounds).containsExactly(lyon);
     }
 
     @Test
@@ -169,6 +197,6 @@ class GeographicEndpointsNonRegressionIntegrationTest {
 
         assertThat(ids(ours(search.get("items")))).containsExactly(lyon, bordeaux);
         assertThat(search.get("total").asLong()).isEqualTo(2);
-        assertThat(ids(ours(search.get("items")))).doesNotContain(pendingInLyon);
+        assertThat(ids(ours(search.get("items")))).doesNotContainAnyElementsOf(unpublished);
     }
 }
