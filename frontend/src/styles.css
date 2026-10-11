@@ -1454,6 +1454,59 @@ body {
     cursor: pointer;
 }
 
+/* Recherche globale (#92) : erreur, actions (pagination, réessayer, effacer). */
+.explorer-search-banner {
+    flex-wrap: wrap;
+}
+
+.explorer-search-banner.is-pending .explorer-search-banner-clear {
+    margin-left: auto;
+}
+
+.explorer-search-banner.is-error {
+    background-color: #fdecea;
+    color: #a3341f;
+}
+
+.explorer-search-banner-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: auto;
+}
+
+.explorer-search-pagination {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.explorer-search-pagination button,
+.explorer-search-banner-actions .explorer-search-banner-clear {
+    min-height: 2rem;
+}
+
+.explorer-search-pagination button {
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    padding: 0.2rem 0.75rem;
+    background-color: #ffffff;
+    color: inherit;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.explorer-search-pagination button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.explorer-search-banner button:focus-visible {
+    outline: 2px solid var(--ll-green, #1f4d3d);
+    outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .explorer-search-spinner,
     .explorer-search-progress {

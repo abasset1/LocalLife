@@ -182,6 +182,16 @@ Décisions qui en découlent :
 - Pas d'extension `unaccent` : disponible mais non installée, et son installation dépend des droits du
   rôle de migration. `ll_search_normalize` (SQL pur, `IMMUTABLE`) la remplace pour l'alphabet latin.
 
+## Utilisation par le web (#92)
+
+- La barre de recherche de l'Explorer envoie le texte saisi (« Rechercher » ou Entrée sans commune choisie),
+  avec les filtres catégorie et date actifs, `limit=20` et l'`offset` de la page. Elle n'envoie
+  `latitude`/`longitude` que si une position existe déjà (géolocalisation, ville par défaut, commune
+  choisie) : le texte n'est jamais géocodé.
+- Moins de 2 caractères, ou aucune lettre ni chiffre : refusé côté web sans appel.
+- Liste et carte affichent la même page ; un résultat sans coordonnées est dans la liste seulement.
+- Code : `frontend/src/components/explorer/globalSearch.ts` et `useActivitySearch.ts`.
+
 ## Limites connues
 
 - Accents : alphabet latin seulement ; les autres écritures sont comparées telles quelles, en minuscules.

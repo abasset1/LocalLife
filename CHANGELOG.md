@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.53 — 2026-10-11
+
+### Explorer : la barre de recherche utilise la recherche globale (#92)
+- « Rechercher » / Entrée (sans commune choisie) appelle `GET /api/v1/activities/search` avec le texte, les catégories et la période actives. La position de référence n'est envoyée que si elle existe déjà (géolocalisation acceptée, ville par défaut, commune choisie) ; le texte n'est **plus géocodé** (`/api/v1/geocoding/city` n'est plus appelé par la barre). Choisir une commune proposée reste le seul moyen de déplacer la carte, et efface la recherche texte.
+- Résultats globaux : ni rayon ni zone visible. La liste les montre à plat, dans l'ordre de pertinence, avec la ville et la distance (« à 1,2 km ») ; la carte affiche le même ensemble (résultats situés) et se cadre dessus à chaque page. Un résultat sans lieu reste dans la liste (« Lieu non précisé ») et le bandeau l'indique. Choisir un résultat centre la carte sur son lieu effectif sans effacer la recherche ; sur mobile, la vue Carte s'affiche alors avec l'aperçu (auparavant, un choix depuis la vue Liste ne montrait rien).
+- Pagination du contrat #91 (20 par page, « ‹ Précédents » / « Suivants › », « 21–26 sur 26 ») ; la recherche et la page survivent à la bascule Carte/Liste ; un changement de filtre ou de position relance en première page.
+- États explicites dans le bandeau : chargement, résultats, aucun résultat (avec conseil de retirer les filtres s'il y en a), erreur avec « Réessayer », texte trop court (sans appel), effacé. Les réponses obsolètes (nouvelle recherche, autre page) sont annulées et ignorées.
+- Fiche et aperçu d'un résultat sans lieu, sans date ou sans source : « Lieu non précisé », « Date non précisée », pas de ligne « Source » vide, pas de lien « Y aller » sans destination. Les favoris sont repris de `GET /api/v1/users/me/likes` (connecté).
+- Le filtre texte côté client (`matchesSearchQuery`) est retiré : il ne cherchait que dans les activités déjà chargées.
+- Tests : `globalSearch.test.ts` (URL, conversion, distance), `useActivitySearch.test.tsx` (annulation, réponse tardive, erreur, réessai, favoris), `App.search.test.tsx` (8 parcours dans l'écran, carte simulée). Vérifié : `npm test` (33 tests), `npm run build` ; parcours Playwright contre le backend réel en 1280×800 (avec et sans géolocalisation) et 390×844 : 51 vérifications, aucune erreur JS, aucun défilement horizontal.
+- Connu, hors périmètre : `GET /api/v1/activities/{id}` répond 500 pour une activité sans coordonnées en base (constructeur `Activity` en `double`) ; la fiche affiche alors « Le détail de cette activité n'a pas pu être chargé ».
+
 ## 0.9.52 — 2026-10-11
 
 ### Recherche globale : termes répartis sur plusieurs champs (correctif post-#95)

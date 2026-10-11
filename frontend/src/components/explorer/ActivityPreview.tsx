@@ -29,7 +29,9 @@ function ActivityPreview({ activity, categories, onClose, onOpenDetail }: Activi
             )}
             <div className="explorer-preview-body">
                 <span className="explorer-preview-date">
-                    {new Date(activity.startDate).toLocaleDateString("fr-FR", { dateStyle: "long" })}
+                    {activity.startDate
+                        ? new Date(activity.startDate).toLocaleDateString("fr-FR", { dateStyle: "long" })
+                        : "Date non précisée"}
                 </span>
                 <h3 id="explorer-preview-title">{activity.title}</h3>
                 <p className="explorer-preview-meta">
