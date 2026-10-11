@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.48 — 2026-10-11
+
+### Administration : imports des agendas et des activités
+- Nouvel onglet « Imports » dans l'administration web (les endpoints existaient, seulement accessibles par l'API) :
+  - **Découvrir les agendas OpenAgenda** (`POST /api/v1/admin/import/discover-agendas`) : nombre d'agendas à examiner (1 à 500, 50 par défaut) ; bilan « N examinés : X nouveaux, Y déjà connus » et liste des agendas ajoutés ; l'onglet « Agendas » est rechargé.
+  - **Importer les activités** (`POST /api/v1/admin/import`) : confirmation avant lancement, bouton « Import en cours… 1 min 05 s » avec durée, puis bilan par source (collectées, créées, mises à jour, inchangées, archivées, à relire, doublons, ignorées, erreurs) avec une ligne de total ; résumé en jaune s'il y a des erreurs. « Un import est déjà en cours » si un autre import tourne (409).
+  - L'onglet reste chargé : on peut changer d'onglet pendant un import, le bilan s'affiche à la fin. Messages d'erreur du serveur affichés tels quels (ex. clé OpenAgenda manquante).
+- Correctif : l'onglet actif de l'administration devenait illisible au survol (texte blanc sur fond clair).
+- Vérifié dans le navigateur contre le backend réel, avec un compte administrateur : découverte → « OPENAGENDA_API_KEY doit être configurée… » (pas de clé ici) ; import réel → bilan des 2 sources actives en erreur (OpenAgenda injoignable) ; découverte réussie simulée → 2 agendas ajoutés listés ; import lent simulé (4 s) → « Import en cours… », changement d'onglet, bilan affiché au retour. Build web.
+
 ## 0.9.47 — 2026-10-11
 
 ### Recherche de l'Explorer : explicite, visible, avec un message quand rien ne correspond

@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 import { getPayload } from "../auth/authStorage";
+import AdminImportsSection from "../components/admin/AdminImportsSection";
 
 /**
  * LL-EF-004 : représentation d'une activité pour l'interface
@@ -66,10 +67,11 @@ interface Source {
 const SOURCE_TYPES = ["API", "RSS", "MANUAL"];
 const SOURCE_STATUSES = ["ACTIVE", "INACTIVE", "ERROR"];
 
-/** Sections principales de l'interface d'administration (LL-EF-004 + LL-EF-005). */
+/** Sections principales de l'interface d'administration (LL-EF-004 + LL-EF-005, imports). */
 const ADMIN_SECTIONS = [
     { value: "moderation", label: "Modération des activités" },
     { value: "agendas", label: "Agendas" },
+    { value: "imports", label: "Imports" },
 ] as const;
 
 type AdminSection = (typeof ADMIN_SECTIONS)[number]["value"];
@@ -525,7 +527,7 @@ function AdminPage() {
                         )}
                     </main>
                 </>
-            ) : (
+            ) : activeSection === "agendas" ? (
                 <main className="admin-content">
                     <div className="admin-agendas-toolbar">
                         <button className="header-add-activity-button" onClick={openCreateSourceForm} type="button">
@@ -720,7 +722,12 @@ function AdminPage() {
                         </ul>
                     )}
                 </main>
-            )}
+            ) : null}
+
+            {/* Toujours monté : un import lancé continue et affiche son bilan même après un changement d'onglet. */}
+            <main className="admin-content" hidden={activeSection !== "imports"}>
+                <AdminImportsSection onSourcesChanged={() => setSourcesRefreshKey((key) => key + 1)} />
+            </main>
         </div>
     );
 }
