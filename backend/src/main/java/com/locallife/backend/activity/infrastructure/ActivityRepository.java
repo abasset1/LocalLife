@@ -37,7 +37,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      * conformément au contrat défini dans
      * {@code docs/02_Architecture/LOCATION_CONTRACT.md} (section « Filtre
      * `city` et tri `sort` ») et à {@code docs/ADR-0006-recherche-occurrences.md}
-     * pour {@code date}. Utilisée uniquement par
+     * pour {@code date}. Activités {@code PUBLISHED} uniquement (endpoint
+     * public, audit #93). Utilisée uniquement par
      * {@code GET /api/v1/activities} — {@code findWithinRadius}/
      * {@code findWithinBounds} ci-dessous ont leurs propres contrats
      * géographiques, adaptés séparément par ce même ticket.
@@ -92,7 +93,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      */
     @Query("""
             SELECT a.* FROM activity a
-            WHERE (:city::text IS NULL OR
+            WHERE a.status = 'PUBLISHED'
+              AND (:city::text IS NULL OR
                    EXISTS (
                        SELECT 1 FROM schedule s
                        JOIN occurrence o ON o.schedule_id = s.id

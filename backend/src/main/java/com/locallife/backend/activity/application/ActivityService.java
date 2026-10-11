@@ -97,12 +97,14 @@ public class ActivityService {
      * `city` et tri `sort` ») et {@code docs/ADR-0006-recherche-occurrences.md}
      * pour {@code date}.
      *
-     * Ni {@code city}, ni {@code sort}, ni {@code date} fournis : délègue à
-     * {@link #findAll()} sans passer par {@link
-     * ActivityRepository#findAllFiltered}, pour ne strictement rien
-     * changer au comportement historique de cet endpoint dans ce cas
-     * (critère d'acceptation « les filtres existants restent
-     * fonctionnels »).
+     * Activités {@code PUBLISHED} uniquement (endpoint public) : une
+     * activité en attente de validation, refusée, annulée ou archivée n'est
+     * jamais listée, avec ou sans filtre. Avant ce correctif, la liste
+     * renvoyait tous les statuts (constat de l'audit #93).
+     *
+     * Ni {@code city}, ni {@code sort}, ni {@code date} fournis : simple
+     * lecture par statut, sans passer par {@link
+     * ActivityRepository#findAllFiltered}.
      *
      * {@code city} : comparé tel quel (après nettoyage des espaces en
      * début/fin), la comparaison insensible à la casse est faite côté SQL
@@ -132,7 +134,7 @@ public class ActivityService {
         LocalDate date = parseOptionalDate("date", dateRaw);
 
         if (normalizedCity == null && sortKeys.isEmpty() && date == null) {
-            return activityRepository.findAll();
+            return activityRepository.findByStatus(PUBLIC_STATUS);
         }
 
         String primarySort = sortKeys.size() > 0 ? sortKeys.get(0) : null;
