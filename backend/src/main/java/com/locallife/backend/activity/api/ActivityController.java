@@ -614,14 +614,14 @@ public class ActivityController {
     }
 
     /**
-     * Modifie une contribution (même corps que {@link #createActivity}). Faite par le contributeur, elle
-     * repasse l'activité en {@code PENDING} : retirée de la carte jusqu'à une nouvelle validation. Faite par
-     * un administrateur, le statut ne change pas. Les liens/contacts sont remplacés par ceux du corps.
+     * Modifie une contribution (même corps que {@link #createActivity}). Le statut ne change pas (une
+     * activité publiée reste sur la carte), sauf une activité refusée corrigée par son contributeur, qui
+     * repart en validation ({@code PENDING}). Les liens/contacts sont remplacés par ceux du corps.
      */
     @Operation(
             summary = "Modifie une contribution",
-            description = "Réservé au créateur de l'activité ou à un administrateur. Une modification par le "
-                    + "créateur repasse l'activité en attente de validation (PENDING).")
+            description = "Réservé au créateur de l'activité ou à un administrateur. Le statut ne change pas, "
+                    + "sauf une activité refusée corrigée par son créateur, qui repasse en attente (PENDING).")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Activité modifiée."),
         @ApiResponse(responseCode = "400", description = "Champ invalide, activité importée ou plus modifiable.",

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.44 — 2026-10-11
+
+### Modifier une activité publiée ne la renvoie plus en validation
+- Une contribution modifiée par son auteur garde son statut : une activité publiée reste publiée et visible sur la carte, une activité en attente reste en attente. Jusqu'ici, toute modification par l'auteur la repassait en `PENDING` et la retirait de la carte.
+- Seule exception : une activité refusée, corrigée par son auteur, est resoumise (`REJECTED → PENDING`). Un administrateur modifie toujours sans changer le statut.
+- Web et mobile : le bandeau « l'activité repasse en validation » n'apparaît plus que pour une activité refusée, et le message après enregistrement suit le statut renvoyé par le serveur.
+- Tests : `ContributionServiceTest` (publiée gardée, refusée resoumise, règle complète), `ContributionManagementIntegrationTest` (publiée modifiée → reste visible publiquement ; refusée corrigée → `PENDING`). Vérifié : `mvn verify` (1103 tests, checkstyle), build web, mobile `tsc`/`eslint`/`jest`.
+
 ## 0.9.43 — 2026-10-10
 
 ### Mobile : « Modifier » / « Supprimer » sur la fiche d'une activité

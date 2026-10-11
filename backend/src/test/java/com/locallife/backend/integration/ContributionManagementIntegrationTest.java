@@ -32,8 +32,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
- * Gestion de ses contributions de bout en bout : « Mes contributions », modification (qui repasse
- * l'activité en attente de validation), suppression, et refus pour un autre utilisateur.
+ * Gestion de ses contributions de bout en bout : « Mes contributions », modification (qui garde le
+ * statut, sauf une activité refusée, resoumise en validation), suppression, et refus pour un autre
+ * utilisateur.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ContributionManagementIntegrationTest {
@@ -67,7 +68,7 @@ class ContributionManagementIntegrationTest {
     }
 
     @Test
-    void creatorCanEditContribution_WhichGoesBackToValidation() {
+    void creatorCanEditPublishedContribution_WhichStaysPublished() {
         String creator = registerAndLogin();
         Activity created = create(creator, request("Pétanque", null));
         publish(created.id());
@@ -88,9 +89,9 @@ class ContributionManagementIntegrationTest {
 
         assertThat(updated).isNotNull();
         assertThat(updated.title()).isEqualTo("Pétanque du dimanche");
-        assertThat(updated.status()).isEqualTo("PENDING");
-        // Plus visible publiquement tant qu'un administrateur ne l'a pas validée de nouveau.
-        restTestClient().get().uri("/api/v1/activities/" + created.id()).exchange().expectStatus().isNotFound();
+        assertThat(updated.status()).isEqualTo("PUBLISHED");
+        // Toujours visible publiquement : la modification ne la retire pas de la carte.
+        restTestClient().get().uri("/api/v1/activities/" + created.id()).exchange().expectStatus().isOk();
 
         ContributionResponse contribution = get(
                 "/api/v1/activities/" + created.id() + "/contribution", creator, ContributionResponse.class);
@@ -98,6 +99,27 @@ class ContributionManagementIntegrationTest {
         assertThat(contribution.categoryCodes()).containsExactly("CULTURE");
         assertThat(contribution.phone()).isEqualTo("0612345678");
         assertThat(contribution.recurrence()).isNull();
+    }
+
+    @Test
+    void creatorCanCorrectRejectedContribution_WhichIsResubmittedForValidation() {
+        String creator = registerAndLogin();
+        Activity created = create(creator, request("Pétanque", null));
+        jdbcTemplate.update("UPDATE activity SET status = 'REJECTED' WHERE id = ?", created.id());
+
+        Activity updated = restTestClient().put().uri("/api/v1/activities/" + created.id())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + creator)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request("Pétanque corrigée", null))
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(Activity.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertThat(updated).isNotNull();
+        assertThat(updated.status()).isEqualTo("PENDING");
+        restTestClient().get().uri("/api/v1/activities/" + created.id()).exchange().expectStatus().isNotFound();
     }
 
     @Test

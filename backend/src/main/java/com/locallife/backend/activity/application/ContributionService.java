@@ -20,17 +20,19 @@ import org.springframework.transaction.annotation.Transactional;
  * que {@link ActivityService#cancel} : réservé au créateur de l'activité ou à un administrateur, jamais
  * pour une activité importée (sans créateur).
  *
- * <p>Une modification par le contributeur repasse l'activité en {@code PENDING} : elle quitte la carte
- * jusqu'à ce qu'un administrateur la valide de nouveau. Un administrateur, lui, modifie sans changer le
- * statut (il est le validateur).
+ * <p>Une modification ne change pas le statut : une activité publiée reste publiée et visible sur la
+ * carte, une activité en attente reste en attente. Seule exception : une activité refusée, corrigée par
+ * son contributeur, est resoumise ({@code REJECTED → PENDING}) pour qu'un administrateur la valide.
+ * Un administrateur modifie toujours sans changer le statut (il est le validateur).
  */
 @Service
 public class ContributionService {
 
     static final String PENDING_STATUS = "PENDING";
+    static final String REJECTED_STATUS = "REJECTED";
 
     /** Statuts modifiables : une activité refusée peut être corrigée puis resoumise. */
-    private static final Set<String> EDITABLE_STATUSES = Set.of(PENDING_STATUS, "PUBLISHED", "REJECTED");
+    private static final Set<String> EDITABLE_STATUSES = Set.of(PENDING_STATUS, "PUBLISHED", REJECTED_STATUS);
 
     private final ActivityRepository activityRepository;
     private final ActivityService activityService;
@@ -110,7 +112,7 @@ public class ContributionService {
             resolvedStartDate = RecurringContributionService.firstStart(recurrence, dates).toString();
             resolvedEndDate = RecurringContributionService.lastEnd(recurrence, dates).toString();
         }
-        String status = requesterIsAdmin ? existing.status() : PENDING_STATUS;
+        String status = statusAfterUpdate(existing.status(), requesterIsAdmin);
         Activity updated = activityService.updateContribution(
                 existing, title, description, category, address, resolvedStartDate, resolvedEndDate, status,
                 categoryIds);
@@ -120,6 +122,14 @@ public class ContributionService {
             recurringContributionService.attachSchedule(updated, recurrence, dates);
         }
         return Optional.of(updated);
+    }
+
+    /**
+     * Statut après modification : inchangé, sauf une activité refusée corrigée par son contributeur, qui
+     * repart en validation.
+     */
+    static String statusAfterUpdate(String currentStatus, boolean requesterIsAdmin) {
+        return !requesterIsAdmin && REJECTED_STATUS.equals(currentStatus) ? PENDING_STATUS : currentStatus;
     }
 
     /**

@@ -27,7 +27,7 @@ const RECURRENCE_DAYS: { code: string; label: string }[] = [
 interface ContributionModalProps {
     /** `edit` : modification d'une contribution existante (titre et bouton adaptés). */
     mode: "create" | "edit";
-    /** Modification par le contributeur : l'activité repassera en validation (pas pour un administrateur). */
+    /** Correction d'une activité refusée par son contributeur : elle repartira en validation. */
     requiresRevalidation: boolean;
     categories: Category[];
     title: string;
@@ -129,8 +129,8 @@ function ContributionModal({
                 <form className="explorer-form" onSubmit={onSubmit}>
                     {mode === "edit" && requiresRevalidation && (
                         <p className="explorer-form-notice">
-                            Après modification, l'activité repasse en validation : elle ne sera de nouveau visible
-                            sur la carte qu'une fois validée par un modérateur.
+                            Cette activité a été refusée : après modification, elle sera de nouveau soumise à
+                            validation et visible sur la carte une fois validée par un modérateur.
                         </p>
                     )}
                     <div className="explorer-form-field">

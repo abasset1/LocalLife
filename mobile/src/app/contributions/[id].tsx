@@ -23,8 +23,8 @@ function messageFor(error: unknown): string {
 }
 
 /**
- * Modification d'une contribution, pré-remplie. Faite par le contributeur, elle repasse l'activité en
- * attente de validation : elle quitte la carte jusqu'à ce qu'un modérateur la valide de nouveau.
+ * Modification d'une contribution, pré-remplie. Le statut ne change pas (une activité publiée reste sur
+ * la carte), sauf une activité refusée corrigée par son contributeur, qui repart en validation.
  */
 export default function EditContributionScreen() {
   const theme = useTheme();
@@ -36,13 +36,19 @@ export default function EditContributionScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   const isAdmin = state.status === 'authenticated' && state.user.role === 'ADMIN';
+  // Seule une activité refusée, corrigée par son contributeur, repart en validation.
+  const resubmitted = !isAdmin && status === 'REJECTED';
 
   useEffect(() => {
     const controller = new AbortController();
     getContribution(id, { signal: controller.signal })
-      .then((contribution) => setForm(fromContribution(contribution)))
+      .then((contribution) => {
+        setStatus(contribution.status);
+        setForm(fromContribution(contribution));
+      })
       .catch((e: unknown) => {
         if (!controller.signal.aborted) setLoadError(messageFor(e));
       });
@@ -59,12 +65,12 @@ export default function EditContributionScreen() {
     }
     setSaving(true);
     try {
-      await updateActivity(Number(id), result.request);
+      const saved = await updateActivity(Number(id), result.request);
       inform(
         'Modification enregistrée',
-        isAdmin
-          ? 'L’activité a été mise à jour.'
-          : 'L’activité sera de nouveau visible sur la carte après validation par un modérateur.',
+        resubmitted && saved.status === 'PENDING'
+          ? 'L’activité est de nouveau soumise à validation : elle sera visible sur la carte une fois validée par un modérateur.'
+          : 'L’activité a été mise à jour.',
       );
       router.back();
     } catch (e) {
@@ -95,10 +101,10 @@ export default function EditContributionScreen() {
     <ThemedView style={styles.container}>
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          {!isAdmin && (
+          {resubmitted && (
             <ThemedText style={[styles.notice, { backgroundColor: theme.backgroundElement }]}>
-              Après modification, l’activité repasse en validation : elle ne sera de nouveau visible sur la
-              carte qu’une fois validée par un modérateur.
+              Cette activité a été refusée : après modification, elle sera de nouveau soumise à validation et
+              visible sur la carte une fois validée par un modérateur.
             </ThemedText>
           )}
           <ContributionFields form={form} categories={categories} onChange={setForm} />
