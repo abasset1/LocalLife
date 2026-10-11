@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.52 — 2026-10-11
+
+### Recherche globale : termes répartis sur plusieurs champs (correctif post-#95)
+- « concert Lyon » trouve désormais une activité dont le titre est « Concert acoustique » et la ville « Lyon » : chaque terme significatif doit se trouver dans au moins un champ (titre, description, catégorie, ville ou adresse de l'activité ou d'un lieu effectif d'occurrence), les termes pouvant se répartir entre champs. Auparavant, un même champ devait contenir tous les termes.
+- Pertinence globale non trompeuse : hors titre exact ou préfixe, le niveau est le moins bon, parmi les termes, du meilleur champ de chaque terme (« concert lyon » avec « lyon » en ville → `LOCATION_MATCH`, pas `TITLE_CONTAINS`). Les 6 niveaux et les critères secondaires (champs correspondants, distance, date, identifiant) sont conservés ; inchangé pour une requête d'un terme ou dont un champ contient tous les termes.
+- Décisions conservées : sans date, activités non terminées sans borne supérieure ; mots vides ignorés (repli sur tous les mots si la requête n'en contient que) ; lieu, coordonnées, dates et distance issus de la même occurrence retenue, occurrences annulées ignorées.
+- SQL : 4 tests `LIKE ALL` sur des concaténations cumulées des champs normalisés (séparateur `|`), sans sous-requête par ligne. Performance mesurée inchangée (~100 à 250 ms sur 20 000 activités et 30 000 occurrences ; ~200 à 310 ms au pire cas de 40 termes).
+- Tests : 9 tests d'intégration ajoutés (exemples « concert Lyon », termes répartis titre/catégorie/ville, lieu d'occurrence effectif et annulé, six niveaux avec une requête multi-termes, pertinence globale, ordre secondaire, mots vides, accents) ; 8 échouent sur le code antérieur. Vérifié : `mvn -o verify` (1173 tests, checkstyle).
+
 ## 0.9.51 — 2026-10-11
 
 ### Suggestions de ville : tests de régression (#90), accessibilité et mobile

@@ -76,15 +76,15 @@ supérieure**. La fenêtre par défaut de 7 jours de `/nearby` n'est pas reprise
 - Normalisation identique pour la requête et les champs : `ll_search_normalize` (V58, SQL pur).
   Elle met en minuscules, retire les accents latins (é → e) et transforme les ligatures (œ → oe, æ → ae,
   ß → ss). La ponctuation et les espaces superflus deviennent un seul espace.
-- Un champ correspond s'il contient **tous les termes significatifs** de la requête, dans n'importe quel
-  ordre. Contenir la requête entière l'implique.
+- **Multi-champs** (correctif post-#95) : chaque terme significatif doit se trouver dans **au moins un**
+  champ, et les termes peuvent se répartir entre champs. « concert lyon » trouve une activité dont le titre
+  est « Concert acoustique » et la ville « Lyon ». Il ne la trouve pas si aucun champ ne contient « lyon »,
+  y compris le lieu d'une occurrence annulée, qui est ignoré.
 - Termes significatifs : les mots de la requête normalisée, moins les mots vides (`a, au, aux, d, de, des,
   du, en, et, l, la, le, les, ou, un, une, the, of, and`). Une requête faite uniquement de mots vides
   utilise tous ses mots.
 - Correspondance par sous-chaîne : `art` trouve `marteau`.
-- **Hors V1** : fautes de frappe, synonymes, correspondance répartie sur plusieurs champs
-  (« concert lyon » avec « concert » dans le titre et « Lyon » en ville ne correspond pas). À proposer
-  séparément après mesure.
+- **Hors V1** : fautes de frappe et synonymes. À proposer séparément après mesure.
 
 ## Classement
 
@@ -94,12 +94,30 @@ supérieure**. La fenêtre par défaut de 7 jours de `/nearby` n'est pas reprise
    |---|---|
    | `TITLE_EXACT` | titre normalisé égal à la requête normalisée |
    | `TITLE_PREFIX` | titre normalisé commençant par la requête |
-   | `TITLE_CONTAINS` | titre contenant tous les termes significatifs |
-   | `CATEGORY_MATCH` | correspondance dans une catégorie |
-   | `LOCATION_MATCH` | correspondance dans la ville ou l'adresse |
-   | `DESCRIPTION_MATCH` | correspondance uniquement dans la description |
+   | `TITLE_CONTAINS` | tous les termes dans le titre |
+   | `CATEGORY_MATCH` | tous les termes dans le titre ou une catégorie, au moins un en catégorie |
+   | `LOCATION_MATCH` | tous les termes dans le titre, une catégorie ou le lieu, au moins un dans le lieu |
+   | `DESCRIPTION_MATCH` | au moins un terme trouvé uniquement dans la description |
 
-2. Nombre de champs distincts qui correspondent (titre, catégorie, lieu, description), décroissant.
+   **Pertinence globale.** Hors titre exact ou préfixe, le niveau est le **moins bon**, parmi les termes,
+   du meilleur champ de chaque terme, dans l'ordre titre > catégorie > lieu > description. Il ne vient
+   pas du seul terme le mieux placé, pour ne pas classer de façon trompeuse. Exemples :
+   - « concert lyon », avec « concert » dans le titre et « lyon » en ville, vaut `LOCATION_MATCH` ;
+   - « jazz culture », avec « jazz » dans le titre et « culture » seulement en description, vaut
+     `DESCRIPTION_MATCH`.
+
+   Pour une requête d'un seul terme, ou dont un champ contient tous les termes, le résultat est le même
+   qu'avant le correctif.
+
+   **Mise en œuvre SQL.** « Tous les termes sont dans titre ∪ catégorie » équivaut à « niveau ≤
+   `CATEGORY_MATCH` ». D'où quatre tests `LIKE ALL (motifs)` sur des concaténations cumulées, dans
+   l'ordre de priorité : titre ; titre + catégorie ; + lieu ; + description. Ce dernier test décide si
+   l'activité est retenue. Il n'y a aucune sous-requête par ligne. Le séparateur ` | `, absent des textes
+   normalisés, empêche un terme de chevaucher deux champs.
+
+2. Nombre de champs qui contiennent, chacun, **tous** les termes (titre, catégorie, lieu, description),
+   décroissant. C'est la règle d'avant le correctif, inchangée. Elle vaut 0 quand les termes ne sont que
+   répartis entre plusieurs champs.
 3. Distance au lieu effectif retenu, croissante, si une position de référence est fournie ; les distances
    inconnues viennent en dernier.
 4. `startDate` croissante, inconnues en dernier.
@@ -143,6 +161,16 @@ réparties sur 3 000 lieux. Trois exécutions par requête.
 | + textes normalisés calculés à l'écriture (V59) | ~2,3 s |
 | + termes calculés une fois, `LIKE ALL` sans sous-requête par ligne | **~0,15 à 0,35 s** |
 
+Après le correctif multi-champs (mêmes données, mêmes conditions), avec en plus trois requêtes
+multi-termes (« concert lyon », « jazz quartier republique », « brocante gourmand toulouse jaures ») :
+**~100 à 250 ms par requête**, sans dégradation mesurable. Un pic isolé à 2,4 s a été observé une fois,
+à la première exécution d'une requête filtrée par catégorie. Il ne s'est pas reproduit : six nouvelles
+exécutions ont pris 101 à 127 ms.
+
+Pire cas d'une requête publique : `q` est limité à 120 caractères, soit environ 40 termes, donc 40
+motifs par `LIKE ALL`. Mesuré : ~200 à 230 ms avec 40 termes rares, ~240 à 310 ms avec 40 termes
+fréquents.
+
 Décisions qui en découlent :
 - **V59, colonnes générées** `search_title`, `search_description`, `search_category`, `search_place`
   sur `activity`, et `search_place` sur `location`. Normaliser les descriptions à chaque recherche
@@ -158,5 +186,4 @@ Décisions qui en découlent :
 
 - Accents : alphabet latin seulement ; les autres écritures sont comparées telles quelles, en minuscules.
 - Correspondance par sous-chaîne, sans notion de mot ; pas de fautes de frappe ni de synonymes.
-- Pas de correspondance répartie sur plusieurs champs (voir Correspondance).
 - Activité sans horaire, et sans date de début ni de fin : jamais retenue, comme dans `/nearby`.

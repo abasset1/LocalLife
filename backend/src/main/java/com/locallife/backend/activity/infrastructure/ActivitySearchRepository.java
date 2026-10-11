@@ -29,8 +29,10 @@ import org.springframework.stereotype.Repository;
  *   <li>{@code retained} : l'occurrence retenue par activité (la plus proche avec position, sinon la
  *       plus tôt) — elle fournit lieu, coordonnées, dates et distance de la réponse, sans mélange avec
  *       les colonnes historiques ;</li>
- *   <li>{@code matched} : textes déjà normalisés à l'écriture (colonnes {@code search_*}, V59) et niveau de
- *       pertinence ; une activité n'apparaît qu'une fois, quel que soit son nombre d'occurrences ;</li>
+ *   <li>{@code matched} : textes déjà normalisés à l'écriture (colonnes {@code search_*}, V59). Chaque
+ *       terme significatif doit se trouver dans au moins un champ, les termes pouvant se répartir entre
+ *       champs ; le niveau de pertinence est le moins bon des meilleurs champs de chaque terme. Une
+ *       activité n'apparaît qu'une fois, quel que soit son nombre d'occurrences ;</li>
  *   <li>tri : niveau, nombre de champs correspondants, distance, début, identifiant ; pagination et
  *       total dans la même requête.</li>
  * </ol>
@@ -142,19 +144,30 @@ public class ActivitySearchRepository {
                 LEFT JOIN category_labels cl ON cl.activity_id = e.id
             ),
             matched AS MATERIALIZED (
-                -- « Contient la requête » implique « contient tous ses termes » : LIKE ALL suffit.
+                -- Chaque terme peut correspondre à un champ différent (#91, multi-champs). Niveau global = le
+                -- moins bon, parmi les termes, du meilleur champ de chaque terme (titre > catégorie > lieu >
+                -- description). « Tous les termes sont dans titre ∪ catégorie » équivaut à « niveau ≤
+                -- CATEGORY_MATCH », d'où les concaténations cumulées dans l'ordre de priorité : 4 LIKE ALL par
+                -- ligne, sans sous-requête. Le séparateur « | » (absent des textes normalisés) empêche un terme
+                -- de chevaucher deux champs. Les drapeaux *_all (champ contenant tous les termes) servent au
+                -- critère secondaire « nombre de champs correspondants », inchangé.
                 SELECT * FROM (
                     SELECT f.id,
                            f.title_n = q.qn AS title_exact,
                            starts_with(f.title_n, q.qn) AS title_prefix,
-                           f.title_n LIKE ALL (terms.patterns) AS title_match,
-                           f.category_n LIKE ALL (terms.patterns) AS category_match,
-                           f.location_n LIKE ALL (terms.patterns) AS location_match,
-                           f.description_n LIKE ALL (terms.patterns) AS description_match
+                           f.title_n LIKE ALL (terms.patterns) AS title_all,
+                           f.category_n LIKE ALL (terms.patterns) AS category_all,
+                           f.location_n LIKE ALL (terms.patterns) AS location_all,
+                           f.description_n LIKE ALL (terms.patterns) AS description_all,
+                           (f.title_n || ' | ' || f.category_n) LIKE ALL (terms.patterns) AS up_to_category,
+                           (f.title_n || ' | ' || f.category_n || ' | ' || f.location_n) LIKE ALL (terms.patterns)
+                               AS up_to_location,
+                           (f.title_n || ' | ' || f.category_n || ' | ' || f.location_n || ' | ' || f.description_n)
+                               LIKE ALL (terms.patterns) AS covered
                     FROM fields f CROSS JOIN q CROSS JOIN terms
                     WHERE q.qn <> '' AND cardinality(terms.patterns) > 0
                 ) candidates
-                WHERE title_match OR category_match OR location_match OR description_match
+                WHERE covered
             ),
             retained AS (
                 SELECT DISTINCT ON (occ.activity_id) occ.activity_id, occ.local_start, occ.local_end,
@@ -168,10 +181,10 @@ public class ActivitySearchRepository {
             ),
             ranked AS (
                 SELECT e.id,
-                       CASE WHEN m.title_exact THEN 1 WHEN m.title_prefix THEN 2 WHEN m.title_match THEN 3
-                            WHEN m.category_match THEN 4 WHEN m.location_match THEN 5 ELSE 6 END AS relevance_rank,
-                       (m.title_match::int + m.category_match::int + m.location_match::int
-                        + m.description_match::int) AS matched_fields,
+                       CASE WHEN m.title_exact THEN 1 WHEN m.title_prefix THEN 2 WHEN m.title_all THEN 3
+                            WHEN m.up_to_category THEN 4 WHEN m.up_to_location THEN 5 ELSE 6 END AS relevance_rank,
+                       (m.title_all::int + m.category_all::int + m.location_all::int
+                        + m.description_all::int) AS matched_fields,
                        CASE WHEN e.has_schedule THEN r.city ELSE e.city END AS city,
                        CASE WHEN e.has_schedule THEN r.address ELSE e.address END AS address,
                        CASE WHEN e.has_schedule THEN r.latitude ELSE e.latitude END AS latitude,
