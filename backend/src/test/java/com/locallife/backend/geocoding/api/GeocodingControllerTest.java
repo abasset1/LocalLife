@@ -6,15 +6,19 @@ import static org.mockito.Mockito.when;
 
 import com.locallife.backend.geocoding.application.CityNotFoundException;
 import com.locallife.backend.geocoding.application.CitySearchService;
+import com.locallife.backend.geocoding.application.CitySuggestionService;
+import com.locallife.backend.geocoding.application.CitySuggestionService.CitySuggestion;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 class GeocodingControllerTest {
 
     private final CitySearchService citySearchService = mock(CitySearchService.class);
-    private final GeocodingController controller = new GeocodingController(citySearchService);
+    private final CitySuggestionService citySuggestionService = mock(CitySuggestionService.class);
+    private final GeocodingController controller = new GeocodingController(citySearchService, citySuggestionService);
     private final MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/geocoding/city");
 
     @Test
@@ -36,5 +40,17 @@ class GeocodingControllerTest {
         assertThat(controller.findCity(" ", request).getStatusCode().value()).isEqualTo(400);
         assertThat(controller.findCity("zzz", request).getStatusCode().value()).isEqualTo(404);
         assertThat(controller.findCity("lyon", request).getStatusCode().value()).isEqualTo(503);
+    }
+
+    @Test
+    void suggestCities_ShouldReturnSuggestions_Or503() {
+        CitySuggestion lyon = new CitySuggestion("Lyon", List.of("69001", "69002"), "69", 45.75, 4.83);
+        when(citySuggestionService.suggest("lyo")).thenReturn(List.of(lyon));
+        when(citySuggestionService.suggest("par")).thenThrow(new GeocodingUnavailableException(null));
+
+        var ok = controller.suggestCities("lyo", request);
+        assertThat(ok.getStatusCode().value()).isEqualTo(200);
+        assertThat(ok.getBody()).isEqualTo(List.of(lyon));
+        assertThat(controller.suggestCities("par", request).getStatusCode().value()).isEqualTo(503);
     }
 }

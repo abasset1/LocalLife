@@ -15,6 +15,8 @@ import ExplorerMenu from "./components/explorer/ExplorerMenu";
 import ExplorerSearch from "./components/explorer/ExplorerSearch";
 import SearchResultBanner from "./components/explorer/SearchResultBanner";
 import type { AppliedSearch } from "./components/explorer/SearchResultBanner";
+import { formatCityLabel } from "./components/explorer/useCitySuggestions";
+import type { CitySuggestion } from "./components/explorer/useCitySuggestions";
 import OnboardingModal from "./components/onboarding/OnboardingModal";
 import type {
     Activity,
@@ -366,6 +368,14 @@ function App() {
         if (!value.trim()) {
             setAppliedSearch(null);
         }
+    }
+
+    /** Commune choisie dans les suggestions : la carte s'y déplace aussitôt (position déjà connue). */
+    function handleSelectCity(city: CitySuggestion, query: string) {
+        setSearchQuery(city.name);
+        setPreviewActivity(null);
+        setUserPosition({ latitude: city.latitude, longitude: city.longitude });
+        setAppliedSearch({ kind: "city", city: formatCityLabel(city, query) });
     }
 
     function clearSearch() {
@@ -864,6 +874,7 @@ function App() {
                             isSearching={pendingSearch !== null}
                             onChange={handleSearchChange}
                             onClear={clearSearch}
+                            onSelectCity={handleSelectCity}
                             onSubmit={() => void handleSearchSubmit()}
                             value={searchQuery}
                         />
