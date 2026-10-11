@@ -34,6 +34,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * - PATCH /api/v1/admin/activities/{id}/publish et .../reject : réservés
  *   au rôle ADMIN, même mécanisme que GET /api/v1/admin/activities
  *   ci-dessus (voir {@code AdminActivityController}).
+ * - GET /api/v1/admin/activities/deletion-preview, DELETE
+ *   /api/v1/admin/activities et DELETE /api/v1/admin/activities/{id} :
+ *   suppression d'activités, réservée au rôle ADMIN. Tout autre chemin
+ *   sous /api/v1/admin/ est aussi réservé au rôle ADMIN (filet de sécurité).
  * GET /api/v1/sources et /api/v1/sources/{id} (LL-6007, Sprint 6) restent
  * volontairement non protégés (voir {@code SourceController}) : ajoutés
  * ici sans modification de cette classe, aucune règle dédiée n'était
@@ -140,6 +144,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/activities").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/publish").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/reject").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin/activities/deletion-preview").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/admin/activities").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/admin/activities/*").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/foodtrucks").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/import").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/import/discover-agendas").hasRole("ADMIN")
@@ -147,6 +154,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/v1/sources/*").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/sources/*/default-categories").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/sources/*").hasRole("ADMIN")
+                        // Filet de sécurité : tout endpoint d'administration oublié ci-dessus reste réservé.
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptions -> exceptions

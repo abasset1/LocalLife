@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.49 — 2026-10-11
+
+### Administration : suppression d'activités (toutes, par critères ou une par une)
+- Nouvel onglet « Suppression » : critères cumulables (agenda / source, statut, période de début) ou « Toutes les activités ». Toujours en deux temps : « Compter les activités visées » affiche le nombre, puis « Supprimer N activités » après confirmation ; pour tout supprimer, il faut en plus taper « SUPPRIMER ». L'aperçu disparaît dès qu'un critère change, et le serveur refuse (409, rien n'est supprimé) si le nombre a changé depuis l'aperçu (import en cours…).
+- Modération : bouton « Supprimer » sur chaque activité, quel que soit son statut, activités importées comprises.
+- Backend : `GET /api/v1/admin/activities/deletion-preview`, `DELETE /api/v1/admin/activities` (critères + `expectedCount`), `DELETE /api/v1/admin/activities/{id}`, réservés au rôle ADMIN. `ActivityBulkDeletionService` supprime en SQL par lots de 1 000, avec tout ce qui est rattaché (horaires et occurrences, médias, liens, accessibilité, tags, métadonnées, classifications ; favoris, catégories, alertes envoyées et relectures en cascade). Sans critère, la suppression est refusée sauf `all=true`.
+- Sécurité : tout chemin sous `/api/v1/admin/` est désormais réservé au rôle ADMIN (filet de sécurité si un endpoint d'administration est oublié dans `SecurityConfig`).
+- Les activités importées encore présentes dans leur agenda reviennent au prochain import (rappelé dans l'interface).
+- Tests : `ActivityBulkDeletionServiceIntegrationTest` (chaque critère, bornes de dates, rattachements supprimés et autres activités intactes, nombre changé → rien de supprimé, critère obligatoire, tout supprimer, une seule activité ; et un test qui échoue si une nouvelle table liée aux activités n'est pas prise en charge), cas ajoutés à `AdminActivityControllerIntegrationTest` (403 pour un utilisateur, 401 sans connexion, aperçu puis suppression, 409, 400). Vérifié : `mvn verify` (1122 tests, checkstyle), build web ; parcours dans le navigateur contre le backend réel : « Supprimer » en modération ; source + « Publiées » → 2 activités comptées puis supprimées ; « Toutes » → bouton bloqué jusqu'à la saisie de SUPPRIMER, puis base vide.
+
 ## 0.9.48 — 2026-10-11
 
 ### Administration : imports des agendas et des activités

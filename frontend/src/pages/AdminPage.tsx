@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 import { getPayload } from "../auth/authStorage";
+import AdminDeletionSection from "../components/admin/AdminDeletionSection";
 import AdminImportsSection from "../components/admin/AdminImportsSection";
 
 /**
@@ -72,6 +73,7 @@ const ADMIN_SECTIONS = [
     { value: "moderation", label: "Modération des activités" },
     { value: "agendas", label: "Agendas" },
     { value: "imports", label: "Imports" },
+    { value: "deletion", label: "Suppression" },
 ] as const;
 
 type AdminSection = (typeof ADMIN_SECTIONS)[number]["value"];
@@ -136,6 +138,8 @@ function AdminPage() {
     // Incrémenté après chaque création/modification/suppression réussie pour redéclencher
     // le chargement de la liste (même schéma que `refreshKey` dans App.tsx pour les activités).
     const [sourcesRefreshKey, setSourcesRefreshKey] = useState(0);
+    /** Incrémenté après une suppression d'activités : recharge la liste de modération. */
+    const [activitiesRefreshKey, setActivitiesRefreshKey] = useState(0);
 
     /**
      * Garde d'accès (critère d'acceptation « un utilisateur non
@@ -192,7 +196,7 @@ function AdminPage() {
         void loadActivities();
 
         return () => abortController.abort();
-    }, [selectedStatus]);
+    }, [selectedStatus, activitiesRefreshKey]);
 
     // --- LL-EF-005 : chargement de la liste des agendas/sources ---
     useEffect(() => {
@@ -269,6 +273,28 @@ function AdminPage() {
             } else {
                 const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
                 setActionError(body?.message ?? "Action impossible, réessaie.");
+            }
+        } catch {
+            setActionError("Impossible de contacter le serveur, réessaie plus tard.");
+        } finally {
+            setPendingActionId(null);
+        }
+    }
+
+    /** Suppression définitive d'une activité (importée ou non), après confirmation. */
+    async function handleDeleteActivity(activity: AdminActivity) {
+        if (!window.confirm(`Supprimer définitivement « ${activity.title} » ? Cette action est irréversible.`)) {
+            return;
+        }
+        setPendingActionId(activity.id);
+        setActionError(null);
+        try {
+            const response = await apiFetch(`/api/v1/admin/activities/${activity.id}`, { method: "DELETE" });
+            if (response.ok || response.status === 404) {
+                setActivities((current) => current.filter((item) => item.id !== activity.id));
+            } else {
+                const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+                setActionError(body?.message ?? "Suppression impossible, réessaie.");
             }
         } catch {
             setActionError("Impossible de contacter le serveur, réessaie plus tard.");
@@ -501,26 +527,36 @@ function AdminPage() {
                                                 </dd>
                                             </div>
                                         </dl>
-                                        {selectedStatus === "PENDING" && (
-                                            <div className="admin-activity-actions">
-                                                <button
-                                                    className="admin-approve-button"
-                                                    disabled={pendingActionId === activity.id}
-                                                    onClick={() => void handleModerationAction(activity.id, "publish")}
-                                                    type="button"
-                                                >
-                                                    Valider
-                                                </button>
-                                                <button
-                                                    className="admin-reject-button"
-                                                    disabled={pendingActionId === activity.id}
-                                                    onClick={() => void handleModerationAction(activity.id, "reject")}
-                                                    type="button"
-                                                >
-                                                    Refuser
-                                                </button>
-                                            </div>
-                                        )}
+                                        <div className="admin-activity-actions">
+                                            {selectedStatus === "PENDING" && (
+                                                <>
+                                                    <button
+                                                        className="admin-approve-button"
+                                                        disabled={pendingActionId === activity.id}
+                                                        onClick={() => void handleModerationAction(activity.id, "publish")}
+                                                        type="button"
+                                                    >
+                                                        Valider
+                                                    </button>
+                                                    <button
+                                                        className="admin-reject-button"
+                                                        disabled={pendingActionId === activity.id}
+                                                        onClick={() => void handleModerationAction(activity.id, "reject")}
+                                                        type="button"
+                                                    >
+                                                        Refuser
+                                                    </button>
+                                                </>
+                                            )}
+                                            <button
+                                                className="admin-delete-activity-button"
+                                                disabled={pendingActionId === activity.id}
+                                                onClick={() => void handleDeleteActivity(activity)}
+                                                type="button"
+                                            >
+                                                Supprimer
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
@@ -723,6 +759,12 @@ function AdminPage() {
                     )}
                 </main>
             ) : null}
+
+            {activeSection === "deletion" && (
+                <main className="admin-content">
+                    <AdminDeletionSection onActivitiesDeleted={() => setActivitiesRefreshKey((key) => key + 1)} />
+                </main>
+            )}
 
             {/* Toujours monté : un import lancé continue et affiche son bilan même après un changement d'onglet. */}
             <main className="admin-content" hidden={activeSection !== "imports"}>

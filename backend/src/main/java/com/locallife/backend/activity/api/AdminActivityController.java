@@ -1,5 +1,8 @@
 package com.locallife.backend.activity.api;
 
+import com.locallife.backend.activity.application.ActivityBulkDeletionService;
+import com.locallife.backend.activity.application.ActivityBulkDeletionService.Criteria;
+import com.locallife.backend.activity.application.ActivityBulkDeletionService.DeletionCountChangedException;
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.common.ErrorResponse;
@@ -11,11 +14,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,9 +51,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminActivityController {
 
     private final ActivityService activityService;
+    private final ActivityBulkDeletionService bulkDeletionService;
 
-    public AdminActivityController(ActivityService activityService) {
+    public AdminActivityController(ActivityService activityService, ActivityBulkDeletionService bulkDeletionService) {
         this.activityService = activityService;
+        this.bulkDeletionService = bulkDeletionService;
     }
 
     /**
@@ -132,6 +140,93 @@ public class AdminActivityController {
             @PathVariable Long id,
             HttpServletRequest httpRequest) {
         return applyTransition(() -> activityService.reject(id), httpRequest);
+    }
+
+    @Operation(
+            summary = "Compte les activités qu'une suppression viserait (réservé aux administrateurs)",
+            description = "Aperçu avant suppression : mêmes critères que DELETE /api/v1/admin/activities.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Nombre d'activités visées."),
+        @ApiResponse(responseCode = "400", description = "Aucun critère (sans all=true), ou critère invalide.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Rôle ADMIN requis.")
+    })
+    @GetMapping("/deletion-preview")
+    public ResponseEntity<Object> previewDeletion(
+            @Parameter(description = "Source des activités.") @RequestParam(required = false) Long sourceId,
+            @Parameter(description = "Statut des activités.") @RequestParam(required = false) String status,
+            @Parameter(description = "Début au plus tôt ce jour (inclus).")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startFrom,
+            @Parameter(description = "Début au plus tard ce jour (inclus).")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startTo,
+            @Parameter(description = "Vrai pour viser toutes les activités, sans autre critère.")
+            @RequestParam(defaultValue = "false") boolean all,
+            HttpServletRequest httpRequest) {
+        try {
+            Criteria criteria = new Criteria(sourceId, blankToNull(status), startFrom, startTo, all);
+            long count = bulkDeletionService.count(criteria);
+            return ResponseEntity.ok(new DeletionCountResponse(count));
+        } catch (IllegalArgumentException exception) {
+            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        }
+    }
+
+    @Operation(
+            summary = "Supprime définitivement des activités (réservé aux administrateurs)",
+            description = "Supprime toutes les activités qui répondent aux critères (source, statut, période de "
+                    + "début), ou toutes avec all=true, ainsi que ce qui leur est rattaché. expectedCount doit "
+                    + "reprendre le nombre de l'aperçu : s'il a changé, rien n'est supprimé (409). Les activités "
+                    + "importées encore présentes dans leur source reviennent au prochain import.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Activités supprimées ; voir leur nombre."),
+        @ApiResponse(responseCode = "400", description = "Aucun critère (sans all=true), ou critère invalide.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Rôle ADMIN requis."),
+        @ApiResponse(responseCode = "409", description = "Le nombre d'activités visées a changé depuis l'aperçu.",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @DeleteMapping
+    public ResponseEntity<Object> deleteActivities(
+            @RequestParam(required = false) Long sourceId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startTo,
+            @RequestParam(defaultValue = "false") boolean all,
+            @Parameter(description = "Nombre d'activités annoncé par l'aperçu.", required = true)
+            @RequestParam long expectedCount,
+            HttpServletRequest httpRequest) {
+        try {
+            int deleted = bulkDeletionService.delete(
+                    new Criteria(sourceId, blankToNull(status), startFrom, startTo, all), expectedCount);
+            return ResponseEntity.ok(new DeletionCountResponse(deleted));
+        } catch (IllegalArgumentException exception) {
+            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        } catch (DeletionCountChangedException exception) {
+            return errorResponse(HttpStatus.CONFLICT, exception.getMessage(), httpRequest);
+        }
+    }
+
+    @Operation(
+            summary = "Supprime définitivement une activité (réservé aux administrateurs)",
+            description = "Contribution ou activité importée, avec tout ce qui lui est rattaché.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Activité supprimée."),
+        @ApiResponse(responseCode = "403", description = "Rôle ADMIN requis."),
+        @ApiResponse(responseCode = "404", description = "Aucune activité ne correspond à cet id.")
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteActivity(@PathVariable long id) {
+        return bulkDeletionService.deleteOne(id)
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    /** Nombre d'activités visées (aperçu) ou supprimées. */
+    public record DeletionCountResponse(long count) {
     }
 
     /**
