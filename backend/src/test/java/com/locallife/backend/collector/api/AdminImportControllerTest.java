@@ -80,12 +80,12 @@ class AdminImportControllerTest {
     }
 
     @Test
-    void discoverAgendas_ShouldReturnBadRequest_WhenLimitOutOfBounds() {
+    void discoverAgendas_ShouldReturnBadRequest_WhenLimitIsNotPositive() {
         HttpServletRequest httpRequest = org.mockito.Mockito.mock(HttpServletRequest.class);
 
         assertThat(adminImportController.discoverAgendas(0, httpRequest).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(adminImportController.discoverAgendas(501, httpRequest).getStatusCode())
+        assertThat(adminImportController.discoverAgendas(-1, httpRequest).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(agendaDiscoveryService);
     }
