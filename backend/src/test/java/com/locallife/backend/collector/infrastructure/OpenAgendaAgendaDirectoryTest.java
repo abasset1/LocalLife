@@ -87,6 +87,52 @@ class OpenAgendaAgendaDirectoryTest {
     }
 
     @Test
+    void listOfficialAgendas_ShouldContinueBeyondFiveHundredAgendas() {
+        OpenAgendaAgendaDirectory directory = newDirectory("key");
+        for (int page = 0; page < 5; page++) {
+            int firstUid = page * 100 + 1;
+            int lastUid = firstUid + 99;
+            StringBuilder agendas = new StringBuilder();
+            for (int uid = firstUid; uid <= lastUid; uid++) {
+                agendas.append(uid == firstUid ? "" : ",")
+                        .append("{\\"uid\\":").append(uid).append(",\\"title\\":\\"A")
+                        .append(uid).append("\\"}");
+            }
+            String after = page == 4 ? "[1,500]" : "[1," + lastUid + "]";
+            mockServer.expect(requestTo(containsString("size=100")))
+                    .andRespond(withSuccess(
+                            "{\\"after\\":" + after + ",\\"agendas\\":[" + agendas + "]}",
+                            MediaType.APPLICATION_JSON));
+        }
+        mockServer.expect(requestTo(allOf(containsString("size=1"), containsString("after%5B%5D=500"))))
+                .andRespond(withSuccess(
+                        "{\\"after\\":[1,501],\\"agendas\\":[{\\"uid\\":501,\\"title\\":\\"A501\\"}]}",
+                        MediaType.APPLICATION_JSON));
+
+        List<DiscoveredAgenda> agendas = directory.listOfficialAgendas(501);
+
+        assertEquals(501, agendas.size());
+        assertEquals("501", agendas.get(500).uid());
+        mockServer.verify();
+    }
+
+    @Test
+    void listOfficialAgendas_ShouldFailWhenApiRepeatsCursor() {
+        OpenAgendaAgendaDirectory directory = newDirectory("key");
+        mockServer.expect(requestTo(containsString("size=100")))
+                .andRespond(withSuccess(
+                        "{\\"after\\":[1,100],\\"agendas\\":[{\\"uid\\":1}]}",
+                        MediaType.APPLICATION_JSON));
+        mockServer.expect(requestTo(containsString("after%5B%5D=100")))
+                .andRespond(withSuccess(
+                        "{\\"after\\":[1,100],\\"agendas\\":[{\\"uid\\":2}]}",
+                        MediaType.APPLICATION_JSON));
+
+        assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(1000));
+        mockServer.verify();
+    }
+
+    @Test
     void listOfficialAgendas_ShouldReturnEmptyList_WhenNoAgenda() {
         OpenAgendaAgendaDirectory directory = newDirectory("key");
         mockServer.expect(requestTo(containsString("/v2/agendas")))
