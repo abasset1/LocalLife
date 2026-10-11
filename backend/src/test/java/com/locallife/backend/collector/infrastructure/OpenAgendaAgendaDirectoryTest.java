@@ -95,18 +95,18 @@ class OpenAgendaAgendaDirectoryTest {
             StringBuilder agendas = new StringBuilder();
             for (int uid = firstUid; uid <= lastUid; uid++) {
                 agendas.append(uid == firstUid ? "" : ",")
-                        .append("{\\"uid\\":").append(uid).append(",\\"title\\":\\"A")
-                        .append(uid).append("\\"}");
+                        .append("{\"uid\":").append(uid).append(",\"title\":\"A")
+                        .append(uid).append("\"}");
             }
             String after = page == 4 ? "[1,500]" : "[1," + lastUid + "]";
             mockServer.expect(requestTo(containsString("size=100")))
                     .andRespond(withSuccess(
-                            "{\\"after\\":" + after + ",\\"agendas\\":[" + agendas + "]}",
+                            "{\"after\":" + after + ",\"agendas\":[" + agendas + "]}",
                             MediaType.APPLICATION_JSON));
         }
         mockServer.expect(requestTo(allOf(containsString("size=1"), containsString("after%5B%5D=500"))))
                 .andRespond(withSuccess(
-                        "{\\"after\\":[1,501],\\"agendas\\":[{\\"uid\\":501,\\"title\\":\\"A501\\"}]}",
+                        "{\"after\":[1,501],\"agendas\":[{\"uid\":501,\"title\":\"A501\"}]}",
                         MediaType.APPLICATION_JSON));
 
         List<DiscoveredAgenda> agendas = directory.listOfficialAgendas(501);
@@ -121,11 +121,11 @@ class OpenAgendaAgendaDirectoryTest {
         OpenAgendaAgendaDirectory directory = newDirectory("key");
         mockServer.expect(requestTo(containsString("size=100")))
                 .andRespond(withSuccess(
-                        "{\\"after\\":[1,100],\\"agendas\\":[{\\"uid\\":1}]}",
+                        "{\"after\":[1,100],\"agendas\":[{\"uid\":1}]}",
                         MediaType.APPLICATION_JSON));
         mockServer.expect(requestTo(containsString("after%5B%5D=100")))
                 .andRespond(withSuccess(
-                        "{\\"after\\":[1,100],\\"agendas\\":[{\\"uid\\":2}]}",
+                        "{\"after\":[1,100],\"agendas\":[{\"uid\":2}]}",
                         MediaType.APPLICATION_JSON));
 
         assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(1000));
