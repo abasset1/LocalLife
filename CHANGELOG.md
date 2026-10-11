@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.9.54 — 2026-10-11
+
+### Recherche V1 : tests de non-régression et audit (#93)
+- Audit complet : `docs/02_Architecture/SEARCH_V1_AUDIT.md` (couverture par exigence, performance mesurée et plan SQL, sécurité, risques résiduels).
+- Correctif accessibilité web : après « Suivants › » ou « ‹ Précédents » au clavier, le focus retombait sur la page entière (le bouton disparaît pendant le chargement). Il revient sur le bouton utilisé, sur l'autre en dernière page, ou sur « Réessayer » en cas d'erreur. Vérifié dans Chromium en 1280×800 et 390×844 (10 vérifications).
+- Tests backend ajoutés (16) :
+  - `ActivitySearchIntegrationTest` couvre la série récurrente avec séance déplacée, les résultats lointains atteints par pagination, les activités non publiées jamais comptées (même avec occurrences et filtres), les jokers `%`/`_`/`\` neutres, les tentatives d'injection SQL, la position jamais persistée (lignes comptées dans toutes les tables) et la fiche d'un résultat sans position ;
+  - `GeographicEndpointsNonRegressionIntegrationTest` fige les champs JSON de `/nearby`, `/within-bounds` et `GET /api/v1/activities`, et vérifie le rayon et la zone.
+- Tests web ajoutés (17) :
+  - `SearchResultBanner.test.tsx` : états, rôles ARIA, pagination, focus ;
+  - `ActivityList.test.tsx` : ordre de pertinence, résultat sans lieu ni date, clavier, liste de la carte inchangée ;
+  - `App.search.test.tsx` : position connue envoyée, commune proposée qui reste un chemin distinct.
+- Performance (20 000 activités, 30 000 occurrences, `EXPLAIN ANALYZE` de la requête réelle) : 179 à 331 ms, aucun débordement sur disque.
+- Constats hors périmètre, non corrigés (décision à prendre) :
+  - `GET /api/v1/activities` (liste publique) renvoie aussi les activités non publiées ;
+  - `GET /api/v1/activities/{id}` répond 500 pour une activité sans coordonnées en base (cas non produit par l'application) ;
+  - aucune limitation de débit sur les endpoints publics.
+- Vérifié :
+  - `mvn -o verify` (1189 tests, 0 violation checkstyle) ;
+  - `npm test` (50 tests) et `npm run build` sous Node 22.22 et 20.20.
+
 ## 0.9.53 — 2026-10-11
 
 ### Explorer : la barre de recherche utilise la recherche globale (#92)

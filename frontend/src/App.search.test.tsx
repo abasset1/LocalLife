@@ -77,6 +77,10 @@ beforeEach(() => {
             let body: unknown = [];
             if (url.startsWith("/api/v1/categories")) {
                 body = [{ code: "CULTURE", label: "Culture", description: null, active: true }];
+            } else if (url.startsWith("/api/v1/geocoding/city-suggestions")) {
+                body = url.includes("q=lyo")
+                    ? [{ name: "Lyon", postalCodes: ["69001", "69009"], department: "69", latitude: 45.758, longitude: 4.835 }]
+                    : [];
             } else if (url.startsWith("/api/v1/activities/nearby") || url.startsWith("/api/v1/activities/within-bounds")) {
                 body = [MAP_ACTIVITY];
             }
@@ -273,5 +277,48 @@ describe("App — recherche globale (#92)", () => {
         expect(banner()).toHaveTextContent("« c » : Saisis au moins 2 caractères, dont une lettre ou un chiffre.");
         expect(searchCalls()).toHaveLength(0);
         expect(screen.getByRole("button", { name: "marqueur Visible sur la carte" })).toBeInTheDocument();
+    });
+
+    it("position déjà connue (géolocalisation acceptée) : envoyée avec le texte", async () => {
+        vi.stubGlobal("navigator", {
+            ...navigator,
+            geolocation: {
+                getCurrentPosition: (success: PositionCallback) =>
+                    success({ coords: { latitude: 43.2965, longitude: 5.3698 } } as GeolocationPosition),
+            },
+        });
+        try {
+            const user = await renderApp();
+            await submitSearch(user, "concert");
+            await waitFor(() => expect(searchCalls()).toHaveLength(1));
+            expect(lastSearchParams().get("latitude")).toBe("43.2965");
+            expect(lastSearchParams().get("longitude")).toBe("5.3698");
+            await act(async () => searchCalls()[0].respond(page([item(1, { distanceMeters: 1234 })])));
+            expect(screen.getByRole("list", { name: "Résultats de la recherche" })).toHaveTextContent("à 1,2 km");
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it("choisir une commune proposée reste distinct : la carte s'y déplace et la recherche texte s'efface", async () => {
+        const user = await renderApp();
+        await submitSearch(user, "concert");
+        await waitFor(() => expect(searchCalls()).toHaveLength(1));
+        await act(async () => searchCalls()[0].respond(page([item(1)])));
+
+        const input = screen.getByRole("combobox", { name: /Rechercher une activité/ });
+        await user.clear(input);
+        await user.type(input, "lyo");
+        await user.click(await screen.findByRole("option", { name: /Lyon/ }));
+
+        expect(banner()).toHaveTextContent("📍 Lyon");
+        expect(screen.queryByRole("list", { name: "Résultats de la recherche" })).toBeNull();
+        expect(searchCalls()).toHaveLength(1);
+        expect(calls.some((call) => call.url.includes("/geocoding/city?"))).toBe(false);
+
+        // La commune choisie devient la position de référence de la recherche suivante.
+        await submitSearch(user, "concert");
+        await waitFor(() => expect(searchCalls()).toHaveLength(2));
+        expect(lastSearchParams().get("latitude")).toBe("45.758");
     });
 });
