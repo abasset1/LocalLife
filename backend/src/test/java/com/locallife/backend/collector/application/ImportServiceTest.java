@@ -377,6 +377,32 @@ class ImportServiceTest {
     }
 
     @Test
+    void importAll_ShouldKeepCancelledStatus_WhenContentChanged() {
+        // Une activité annulée par un administrateur reste annulée : le ré-import met à jour son contenu,
+        // pas la décision de modération.
+        givenAlreadyImportedItem("CANCELLED", "ancienne-empreinte");
+        givenSaveAssignsId();
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.updated());
+        verify(activityRepository).save(argThat(activity ->
+                Long.valueOf(42L).equals(activity.id()) && "CANCELLED".equals(activity.status())));
+        verify(activityRepository, never()).save(argThat(activity -> "PUBLISHED".equals(activity.status())));
+    }
+
+    @Test
+    void importAll_ShouldKeepPublishedStatus_WhenContentChanged() {
+        givenAlreadyImportedItem("PUBLISHED", "ancienne-empreinte");
+        givenSaveAssignsId();
+
+        importService().importAll();
+
+        verify(activityRepository).save(argThat(activity ->
+                Long.valueOf(42L).equals(activity.id()) && "PUBLISHED".equals(activity.status())));
+    }
+
+    @Test
     void importAll_ShouldForgetFingerprint_WhenEnrichmentFails() {
         // Enrichissement en échec : l'empreinte n'est pas enregistrée, l'élément sera retenté en entier.
         givenAlreadyImportedItem("PUBLISHED", "ancienne-empreinte");
@@ -594,6 +620,22 @@ class ImportServiceTest {
                 Long.valueOf(42L).equals(activity.id()) && "ARCHIVED".equals(activity.status())));
     }
 
+    @Test
+    void importAll_ShouldNotArchiveCancelledDuplicate_OfAnotherSource() {
+        givenAlreadyImportedItem("PUBLISHED", FINGERPRINT);
+        Activity cancelledDuplicate = new Activity(
+                43L, "Marché de Noël", "description", "marché",
+                43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "CANCELLED",
+                10L, "autre-cle", "https://example.com", null, null, null, null, null, null, null, null);
+        when(importFingerprintService.findDuplicateActivityIds(10L)).thenReturn(List.of(43L));
+        when(activityRepository.findById(43L)).thenReturn(Optional.of(cancelledDuplicate));
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(0, result.duplicates());
+        verify(activityRepository, never()).save(argThat(activity -> Long.valueOf(43L).equals(activity.id())));
+    }
+
     // --- Un seul import à la fois ---
 
     @Test
@@ -724,6 +766,24 @@ class ImportServiceTest {
         assertEquals(1, result.archived());
         verify(activityRepository).save(argThat(activity ->
                 activity.id().equals(42L) && "ARCHIVED".equals(activity.status())));
+    }
+
+    @Test
+    void importAll_ShouldNotArchiveCancelledActivity_WhenNoLongerReturnedByCollector() {
+        // Archivée, elle serait republiée à son retour dans la source : elle garde son annulation.
+        givenOneCollectibleSource();
+        when(collector.collect()).thenReturn(List.of());
+        Activity cancelled = new Activity(
+                42L, "Marché de Noël", "description", "marché",
+                43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, "CANCELLED",
+                10L, "external:OpenAgenda Marseille:ext-1", "https://example.com",
+                null, null, null, null, null, null, null, null);
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of(cancelled));
+
+        List<ImportResult> results = importService().importAll();
+
+        assertEquals(0, results.get(0).archived());
+        verify(activityRepository, never()).save(any());
     }
 
     @Test

@@ -220,10 +220,21 @@ supprimée physiquement. Décision LL-5008 : plus prudent pour un MVP
 (une panne réseau partielle du collecteur ne doit pas effacer des
 activités réelles), et conserve un historique exploitable.
 
-⚠️ **Point à surveiller** : ni la recherche géographique ni la carte ne
-filtrent `status` par défaut (voir `ActivityService`) — une activité
-`ARCHIVED` continue donc d'apparaître tant qu'un filtre explicite n'est
-pas ajouté côté requête/frontend. Voir `DETTE_TECHNIQUE.md`.
+Seules les activités `PUBLISHED` sont archivées par ce balayage (et par
+l'archivage des doublons entre sources) : une activité annulée par un
+administrateur garde son statut. Les endpoints publics (recherche,
+carte, liste) ne renvoient que les activités `PUBLISHED` : une activité
+archivée n'y apparaît pas.
+
+### Statut décidé par un administrateur
+
+Un ré-import met à jour le **contenu** d'une activité existante, jamais
+son **statut** : une activité importée puis annulée par un
+administrateur (`CANCELLED`) reste annulée, même si la source modifie
+l'élément, le retire puis le remet. Seule une activité `ARCHIVED` par
+l'import lui-même (absente de la source) est republiée à son retour.
+Avant ce correctif, une modification côté source remettait l'activité
+en `PUBLISHED`.
 
 ## Activités manuelles vs importées
 

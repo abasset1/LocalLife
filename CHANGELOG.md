@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.56 — 2026-10-11
+
+### Import : une annulation par un administrateur n'est plus écrasée
+- Un ré-import met à jour le contenu d'une activité existante, jamais son statut. Une activité importée puis annulée par un administrateur reste annulée, même si la source la modifie, la retire puis la remet. Auparavant, toute modification côté source la remettait en `PUBLISHED` : elle réapparaissait sur la carte, dans la liste et dans la recherche.
+- L'archivage des activités disparues de la source, et celui des doublons entre sources, ne concerne plus que les activités `PUBLISHED`. Une activité annulée n'est donc jamais archivée puis republiée.
+- Inchangé : une activité archivée par l'import (absente de la source) est republiée à son retour.
+- Tests :
+  - `ImportServiceTest` : 4 cas, dont 3 qui échouent sur le code antérieur ;
+  - `ImportServiceIntegrationTest` : 1 scénario de bout en bout (annulée, modifiée, retirée, revenue), qui échoue sur le code antérieur.
+
 ## 0.9.54 — 2026-10-11
 
 ### Recherche V1 : tests de non-régression et audit (#93)

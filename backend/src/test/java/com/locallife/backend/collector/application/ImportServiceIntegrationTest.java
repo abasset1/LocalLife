@@ -242,6 +242,41 @@ class ImportServiceIntegrationTest {
     }
 
     @Test
+    void importAll_ShouldKeepAnActivityCancelledByAnAdministrator_OnLaterImports() {
+        // Given : activité importée, annulée par un administrateur, puis modifiée par la source,
+        // absente d'une collecte, et enfin revenue.
+        String sourceName = uniqueSourceName();
+        createCollectibleSource(sourceName);
+        when(collector.collect()).thenReturn(List.of(validItem(sourceName, "ext-1", "Marché de Noël")));
+        importService.importAll();
+        Activity imported = activityRepository.findBySourceId(sourceIdFor(sourceName)).get(0);
+        activityRepository.save(new Activity(
+                imported.id(), imported.title(), imported.description(), imported.category(),
+                imported.latitude(), imported.longitude(), imported.startDate(), imported.endDate(), "CANCELLED",
+                imported.sourceId(), imported.importKey(), imported.url(), imported.address(), imported.city(),
+                imported.postalCode(), imported.longDescription(), imported.conditions(), imported.ageMin(),
+                imported.ageMax(), imported.createdBy()));
+
+        // When : contenu modifié par la source.
+        when(collector.collect()).thenReturn(List.of(validItem(sourceName, "ext-1", "Marché de Noël (modifié)")));
+        importService.importAll();
+
+        // Then : contenu mis à jour, toujours annulée.
+        Activity updated = activityRepository.findById(imported.id()).orElseThrow();
+        assertThat(updated.title()).isEqualTo("Marché de Noël (modifié)");
+        assertThat(updated.status()).isEqualTo("CANCELLED");
+
+        // When : absente d'une collecte, puis revenue.
+        when(collector.collect()).thenReturn(List.of());
+        assertThat(resultFor(importService.importAll(), sourceName).archived()).isZero();
+        when(collector.collect()).thenReturn(List.of(validItem(sourceName, "ext-1", "Marché de Noël (revenu)")));
+        importService.importAll();
+
+        // Then : jamais archivée ni republiée.
+        assertThat(activityRepository.findById(imported.id()).orElseThrow().status()).isEqualTo("CANCELLED");
+    }
+
+    @Test
     void importAll_ShouldReturnDegradedResult_WhenCollectorThrows() {
         // Given : le collecteur échoue entièrement (ex. panne réseau, configuration manquante).
         String sourceName = uniqueSourceName();
