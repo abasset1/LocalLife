@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.45 — 2026-10-11
+
+### Explorer : la liste suit la carte
+- Web : la liste n'affiche plus que les activités visibles sur la carte. Avec un rayon, la recherche charge tout le rayon : zoomer sur une partie de ce rayon réduit désormais la liste à la zone affichée (auparavant elle gardait tout le rayon). La liste se met à jour à chaque déplacement ou zoom de la carte, et à chaque changement de rayon ou de filtre.
+- `isInBounds` (`activityUtils.ts`) ; l'application mobile, qui n'a pas de vue liste, n'est pas concernée.
+- Vérifié dans le navigateur contre le backend réel (Lyon 30 km favori, activités à Lyon, Meyzieu ~13 km et Vienne ~27 km) : 30 km → les trois ; zoom sur Lyon → Lyon seule (carte et liste identiques) ; dézoom → les trois ; rayon 10 km → Lyon ; 20 km → Lyon et Meyzieu. Build web.
+
 ## 0.9.44 — 2026-10-11
 
 ### Modifier une activité publiée ne la renvoie plus en validation ; délai de validation annoncé
