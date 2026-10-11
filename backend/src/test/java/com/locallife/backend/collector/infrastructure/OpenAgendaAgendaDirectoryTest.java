@@ -119,13 +119,17 @@ class OpenAgendaAgendaDirectoryTest {
     @Test
     void listOfficialAgendas_ShouldFailWhenApiRepeatsCursor() {
         OpenAgendaAgendaDirectory directory = newDirectory("key");
+        StringBuilder firstPage = new StringBuilder();
+        for (int uid = 1; uid <= 100; uid++) {
+            firstPage.append(uid == 1 ? "" : ",").append("{\\"uid\\":").append(uid).append("}");
+        }
         mockServer.expect(requestTo(containsString("size=100")))
                 .andRespond(withSuccess(
-                        "{\"after\":[1,100],\"agendas\":[{\"uid\":1}]}",
+                        "{\\"after\\":[1,100],\\"agendas\\":[" + firstPage + "]}",
                         MediaType.APPLICATION_JSON));
         mockServer.expect(requestTo(containsString("after%5B%5D=100")))
                 .andRespond(withSuccess(
-                        "{\"after\":[1,100],\"agendas\":[{\"uid\":2}]}",
+                        "{\\"after\\":[1,100],\\"agendas\\":[{\\"uid\\":101}]}",
                         MediaType.APPLICATION_JSON));
 
         assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(1000));
