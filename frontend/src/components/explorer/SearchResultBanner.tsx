@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 /** Recherche appliquée : une ville choisie dans les suggestions (la carte s'y est déplacée) ou un texte. */
 export type AppliedSearch = { kind: "city"; city: string } | { kind: "text"; query: string };
 
@@ -52,6 +54,35 @@ function SearchResultBanner({
     onPreviousPage,
     onNextPage,
 }: SearchResultBannerProps) {
+    // Pendant le chargement d'une page, les boutons de pagination disparaissent : le bouton utilisé au
+    // clavier perdrait le focus (retour sur <body>). Il le retrouve une fois la page affichée (#93).
+    const pageButtonUsed = useRef<"previous" | "next" | null>(null);
+    const previousButton = useRef<HTMLButtonElement>(null);
+    const nextButton = useRef<HTMLButtonElement>(null);
+    const retryButton = useRef<HTMLButtonElement>(null);
+    const status = textStatus?.status ?? null;
+
+    useEffect(() => {
+        if (status === "loading" || pageButtonUsed.current === null) {
+            return;
+        }
+        const preferred = pageButtonUsed.current === "next" ? nextButton.current : previousButton.current;
+        const other = pageButtonUsed.current === "next" ? previousButton.current : nextButton.current;
+        pageButtonUsed.current = null;
+        // Page en erreur : « Réessayer ».
+        const target = [preferred, other, retryButton.current].find((button) => button && !button.disabled);
+        target?.focus();
+    }, [status, textStatus]);
+
+    function goTo(direction: "previous" | "next") {
+        pageButtonUsed.current = direction;
+        if (direction === "next") {
+            onNextPage();
+        } else {
+            onPreviousPage();
+        }
+    }
+
     if (!search) {
         return null;
     }
@@ -99,7 +130,7 @@ function SearchResultBanner({
                     La recherche de « {query} » a échoué : {textStatus.message}
                 </span>
                 <div className="explorer-search-banner-actions">
-                    <button className="explorer-search-banner-clear" onClick={onRetry} type="button">
+                    <button className="explorer-search-banner-clear" onClick={onRetry} ref={retryButton} type="button">
                         Réessayer
                     </button>
                     {clearButton}
@@ -160,10 +191,10 @@ function SearchResultBanner({
             <div className="explorer-search-banner-actions">
                 {(hasPrevious || hasNext) && (
                     <nav aria-label="Pages de résultats" className="explorer-search-pagination">
-                        <button disabled={!hasPrevious} onClick={onPreviousPage} type="button">
+                        <button disabled={!hasPrevious} onClick={() => goTo("previous")} ref={previousButton} type="button">
                             ‹ Précédents
                         </button>
-                        <button disabled={!hasNext} onClick={onNextPage} type="button">
+                        <button disabled={!hasNext} onClick={() => goTo("next")} ref={nextButton} type="button">
                             Suivants ›
                         </button>
                     </nav>

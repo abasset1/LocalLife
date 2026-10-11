@@ -167,6 +167,9 @@ multi-termes (« concert lyon », « jazz quartier republique », « brocante go
 à la première exécution d'une requête filtrée par catégorie. Il ne s'est pas reproduit : six nouvelles
 exécutions ont pris 101 à 127 ms.
 
+Audit #93 (requête finale, même volume, descriptions d'environ 500 caractères) : **179 à 331 ms**, plan sans
+débordement sur disque — détail dans `SEARCH_V1_AUDIT.md`.
+
 Pire cas d'une requête publique : `q` est limité à 120 caractères, soit environ 40 termes, donc 40
 motifs par `LIKE ALL`. Mesuré : ~200 à 230 ms avec 40 termes rares, ~240 à 310 ms avec 40 termes
 fréquents.

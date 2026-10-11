@@ -8,9 +8,11 @@ import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.TreeMap;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -510,6 +512,138 @@ class ActivitySearchIntegrationTest {
         assertThat(last.distanceMeters()).isNull();
         assertThat(last.latitude()).isNull();
         assertThat(last.city()).isNull();
+    }
+
+    // --- Non-régression et audit (#93) ---
+
+    /** Occurrence déplacée à une autre date (exception), au lieu du schedule. */
+    private void rescheduledOccurrence(long scheduleId, LocalDateTime localStart) {
+        jdbcTemplate.update("INSERT INTO occurrence (schedule_id, start_at, end_at, location_id, status, is_exception) "
+                        + "VALUES (?, ?::timestamp AT TIME ZONE 'Europe/Paris', "
+                        + "(?::timestamp + interval '2 hours') AT TIME ZONE 'Europe/Paris', NULL, 'SCHEDULED', TRUE)",
+                scheduleId, localStart, localStart);
+    }
+
+    @Test
+    void recurringSeries_WithADateException_MatchesTheActualDateOfEachOccurrence() {
+        long activity = new Act("Cours " + token).starts(day.minusYears(1).atTime(10, 0)).save();
+        long weekly = schedule(activity, location("Lyon", LYON));
+        occurrence(weekly, day.atTime(18, 0), null, "SCHEDULED");
+        occurrence(weekly, day.plusDays(7).atTime(18, 0), null, "SCHEDULED");
+        // La séance de la troisième semaine est déplacée de deux jours.
+        rescheduledOccurrence(weekly, day.plusDays(16).atTime(18, 0));
+
+        Item noDate = only(search(token));
+        Item moved = only(search(Map.of("q", token, "date", day.plusDays(16).toString())));
+
+        // Une seule ligne pour toute la série, à la première séance, au lieu du schedule.
+        assertThat(noDate.startDate()).isEqualTo(day.atTime(18, 0));
+        assertThat(noDate.city()).isEqualTo("Lyon");
+        assertThat(moved.startDate()).isEqualTo(day.plusDays(16).atTime(18, 0));
+        assertThat(moved.city()).isEqualTo("Lyon");
+        // Le jour habituel de la séance déplacée ne correspond plus.
+        assertThat(search(Map.of("q", token, "date", day.plusDays(14).toString())).total()).isZero();
+    }
+
+    @Test
+    void farResults_RemainReachableByPagination() {
+        List<Long> near = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            near.add(new Act("Fête " + token).at(LYON).starts(day.atTime(8 + i, 0)).save());
+        }
+        long far = new Act("Fête " + token).at(BORDEAUX).starts(day.atTime(7, 0)).save();
+        Map<String, Object> nearLyon = Map.of("q", token, "latitude", LYON[0], "longitude", LYON[1], "limit", 2);
+
+        List<Long> all = new ArrayList<>();
+        for (int offset = 0; offset < 6; offset += 2) {
+            Map<String, Object> page = new HashMap<>(nearLyon);
+            page.put("offset", offset);
+            ActivitySearchResponse response = search(page);
+            assertThat(response.total()).isEqualTo(5);
+            all.addAll(ids(response));
+        }
+
+        // Plus de 430 km : dernier, mais présent ; aucun rayon ne l'écarte.
+        assertThat(all).hasSize(5).endsWith(far).containsAll(near);
+    }
+
+    @Test
+    void unpublishedActivities_AreNeverCounted_EvenThroughOccurrencesOrFilters() {
+        long published = new Act("Salon " + token).categoryCode("CULTURE").save();
+        for (String status : List.of("PENDING", "REJECTED", "CANCELLED", "ARCHIVED")) {
+            long hidden = new Act("Salon " + token).categoryCode("CULTURE").status(status).save();
+            occurrence(schedule(hidden, location("Lyon", LYON)), day.atTime(10, 0), null, "SCHEDULED");
+        }
+
+        ActivitySearchResponse filtered = search(Map.of("q", "salon lyon " + token, "category", "CULTURE",
+                "date", day.toString(), "latitude", LYON[0], "longitude", LYON[1]));
+
+        assertThat(filtered.total()).isZero();
+        assertThat(ids(search(Map.of("q", token, "category", "CULTURE", "date", day.toString()))))
+                .containsExactly(published);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"%", "_", "%%", "__", "\\", "%_\\"})
+    void likeWildcardsAlone_AreRejected_NeverMatchEverything(String q) {
+        client().get().uri(uri(Map.of("q", q))).exchange().expectStatus().isBadRequest();
+    }
+
+    @Test
+    void likeWildcardsAndSqlInjection_AreInertText() {
+        long target = new Act("Remise 50 " + token).save();
+        new Act("Autre activité " + token.substring(0, 6)).save();
+
+        // % et _ ne sont que de la ponctuation : « 50% » cherche « 50 ».
+        assertThat(ids(search("50% " + token))).containsExactly(target);
+        assertThat(ids(search(token + "_"))).containsExactly(target);
+        assertThat(search("x' OR '1'='1 " + token).total()).isZero();
+        assertThat(search("'; DROP TABLE activity; -- " + token).total()).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM activity WHERE id = ?", Long.class, target))
+                .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT ll_search_normalize('50%_off\\x')", String.class))
+                .isEqualTo("50 off x");
+    }
+
+    @Test
+    void searchingWithAPosition_PersistsNothing() {
+        new Act("Balade " + token).save();
+        List<String> tables = jdbcTemplate.queryForList("SELECT table_name FROM information_schema.tables "
+                + "WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name", String.class);
+        Map<String, Long> before = rowCounts(tables);
+
+        search(Map.of("q", token, "latitude", 48.123456, "longitude", 2.654321));
+        search(Map.of("q", token, "latitude", 48.123456, "longitude", 2.654321, "date", day.toString()));
+
+        assertThat(rowCounts(tables)).isEqualTo(before);
+        // Aucune colonne ne contient la position envoyée.
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM activity WHERE latitude = 48.123456", Long.class))
+                .isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM location WHERE latitude = 48.123456", Long.class))
+                .isZero();
+    }
+
+    private Map<String, Long> rowCounts(List<String> tables) {
+        Map<String, Long> counts = new TreeMap<>();
+        for (String table : tables) {
+            counts.put(table, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM \"" + table + "\"", Long.class));
+        }
+        return counts;
+    }
+
+    @Test
+    void resultWithoutEffectivePosition_HasAReadableDetail() {
+        long unlocated = new Act("Rencontre " + token).save();
+        occurrence(schedule(unlocated, null), day.atTime(10, 0), null, "SCHEDULED");
+
+        Item item = only(search(token));
+        assertThat(item.latitude()).isNull();
+
+        // Le web ouvre la fiche de ce résultat : elle doit se charger.
+        client().get().uri("/api/v1/activities/" + unlocated).exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.id").isEqualTo(unlocated);
     }
 
     // --- Multi-champs : chaque terme peut correspondre à un champ différent ---
