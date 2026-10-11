@@ -512,6 +512,127 @@ class ActivitySearchIntegrationTest {
         assertThat(last.city()).isNull();
     }
 
+    // --- Multi-champs : chaque terme peut correspondre à un champ différent ---
+
+    /** Recherche isolée par la date propre à l'exécution (les exemples n'emploient pas le jeton). */
+    private ActivitySearchResponse searchOnDay(String q) {
+        return search(Map.of("q", q, "date", day.toString()));
+    }
+
+    private Item found(ActivitySearchResponse response, long id) {
+        return response.items().stream().filter(item -> item.id() == id).findFirst()
+                .orElseThrow(() -> new AssertionError("Activité " + id + " absente de " + ids(response)));
+    }
+
+    @Test
+    void concertLyon_TitleAndCity_IsFound_AsLocationMatch() {
+        long lyon = new Act("Concert acoustique").city("Lyon").save();
+
+        ActivitySearchResponse response = searchOnDay("concert Lyon");
+
+        assertThat(ids(response)).containsExactly(lyon);
+        // Pertinence globale : « lyon » n'est trouvé que dans le lieu, pas TITLE_CONTAINS.
+        assertThat(response.items().get(0).relevance()).isEqualTo(SearchRelevance.LOCATION_MATCH);
+    }
+
+    @Test
+    void concertLyon_WithoutAnyLyonMatch_IsNotFound() {
+        new Act("Concert acoustique").city("Marseille").address("Vieux-Port").save();
+
+        assertThat(searchOnDay("concert Lyon").total()).isZero();
+    }
+
+    @Test
+    void termsSpreadAcrossTitleCategoryAndCity_AreFound_WhenAllCovered() {
+        long all = new Act("Soirée jazz").categoryCode("GASTRONOMY").city("Lyon").save();
+        new Act("Soirée jazz").categoryCode("GASTRONOMY").city("Marseille").save();
+        new Act("Soirée jazz").categoryCode("SPORT").city("Lyon").save();
+
+        ActivitySearchResponse response = searchOnDay("jazz gastronomie lyon");
+
+        assertThat(ids(response)).containsExactly(all);
+        assertThat(response.items().get(0).relevance()).isEqualTo(SearchRelevance.LOCATION_MATCH);
+    }
+
+    @Test
+    void termFoundOnlyInEffectiveOccurrenceLocation_CountsAsLocation_UnlessCancelled() {
+        long scheduled = new Act("Concert acoustique").city("Bordeaux").save();
+        occurrence(schedule(scheduled, null), day.atTime(20, 0), location("Lyon", LYON), "SCHEDULED");
+        long cancelled = new Act("Concert acoustique").city("Bordeaux").save();
+        long tour = schedule(cancelled, null);
+        occurrence(tour, day.atTime(20, 0), location("Lyon", LYON), "CANCELLED");
+        occurrence(tour, day.atTime(21, 0), location("Nantes", new double[] {47.2184, -1.5536}), "SCHEDULED");
+
+        ActivitySearchResponse response = searchOnDay("concert lyon");
+
+        assertThat(ids(response)).containsExactly(scheduled);
+        assertThat(response.items().get(0).city()).isEqualTo("Lyon");
+    }
+
+    @Test
+    void sixRelevanceLevels_WithAMultiTermQuery_InStrictOrder() {
+        // q = « jazz culture » ; une activité par niveau, la plus proche étant la moins pertinente.
+        long exact = new Act("Jazz Culture").at(MARSEILLE).save();
+        long prefix = new Act("Jazz culture en plein air").at(MARSEILLE).save();
+        long contains = new Act("Festival de culture et de jazz").at(PARIS).save();
+        long category = new Act("Soirée jazz").categoryCode("CULTURE").at(PARIS).save();
+        long location = new Act("Soirée jazz").address("12 rue de la Culture").at(LYON).save();
+        long description = new Act("Soirée jazz").description("Une soirée dédiée à la culture").at(LYON).save();
+        new Act("Soirée jazz").at(LYON).save();
+
+        ActivitySearchResponse response = search(Map.of(
+                "q", "jazz culture", "date", day.toString(), "latitude", LYON[0], "longitude", LYON[1]));
+
+        assertThat(ids(response)).containsExactly(exact, prefix, contains, category, location, description);
+        assertThat(response.items()).extracting(Item::relevance).containsExactly(
+                SearchRelevance.TITLE_EXACT, SearchRelevance.TITLE_PREFIX, SearchRelevance.TITLE_CONTAINS,
+                SearchRelevance.CATEGORY_MATCH, SearchRelevance.LOCATION_MATCH, SearchRelevance.DESCRIPTION_MATCH);
+    }
+
+    @Test
+    void globalRelevance_IsTheWeakestTermsBestField_NotTheBestTerm() {
+        // « jazz » est dans le titre, mais « culture » seulement dans la description.
+        long titleAndDescription = new Act("Grand jazz").description("Ouvert à la culture").save();
+
+        Item item = found(searchOnDay("jazz culture"), titleAndDescription);
+
+        assertThat(item.relevance()).isEqualTo(SearchRelevance.DESCRIPTION_MATCH);
+    }
+
+    @Test
+    void multiField_SecondaryOrder_IsDistanceThenStartDateThenId() {
+        long far = new Act("Concert acoustique").city("Lyon").at(MARSEILLE).starts(day.atTime(8, 0)).save();
+        long near = new Act("Concert acoustique").city("Lyon").at(LYON).starts(day.atTime(22, 0)).save();
+        long nearLater = new Act("Concert acoustique").city("Lyon").at(LYON).starts(day.atTime(23, 0)).save();
+
+        ActivitySearchResponse byDistance = search(Map.of(
+                "q", "concert lyon", "date", day.toString(), "latitude", LYON[0], "longitude", LYON[1]));
+        ActivitySearchResponse byDate = searchOnDay("concert lyon");
+
+        assertThat(ids(byDistance)).containsExactly(near, nearLater, far);
+        assertThat(ids(byDate)).containsExactly(far, near, nearLater);
+    }
+
+    @Test
+    void multiField_StopwordsAreIgnored_WithFallbackWhenOnlyStopwords() {
+        // Aucun champ ne contient « les » : il est ignoré, la recherche porte sur « concert » et « lyon ».
+        long lyon = new Act("Concert acoustique").city("Lyon").save();
+        long onlyStopwords = new Act("De la musique").city("Nantes").save();
+
+        assertThat(ids(searchOnDay("les concert lyon"))).containsExactly(lyon);
+        // Requête faite uniquement de mots vides : tous ses mots sont utilisés.
+        assertThat(ids(searchOnDay("de la"))).contains(onlyStopwords).doesNotContain(lyon);
+    }
+
+    @Test
+    void multiField_IgnoresAccentsAndCaseInEveryField() {
+        long fete = new Act("FÊTE foraine").city("Saint-Étienne").categoryCode("LEISURE").save();
+
+        assertThat(ids(searchOnDay("fete saint etienne"))).containsExactly(fete);
+        assertThat(ids(searchOnDay("Fête LOISIRS saint-étienne"))).containsExactly(fete);
+        assertThat(found(searchOnDay("fete etienne"), fete).relevance()).isEqualTo(SearchRelevance.LOCATION_MATCH);
+    }
+
     // --- Erreurs ---
 
     @ParameterizedTest
