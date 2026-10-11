@@ -38,8 +38,8 @@ export function formatCityLabel(city: CitySuggestion, query = ""): string {
 
 /**
  * Communes proposées pour la saisie en cours (2 caractères minimum), après une courte pause de
- * frappe. Une réponse arrivée pour une saisie déjà modifiée est ignorée ; en cas d'erreur, la liste
- * est simplement vide (la recherche par le bouton reste possible).
+ * frappe. Une réponse arrivée pour une saisie déjà modifiée est ignorée et les suggestions de la
+ * requête précédente ne restent pas sélectionnables ; en cas d'erreur, la liste est vide.
  */
 export function useCitySuggestions(query: string, enabled: boolean): CitySuggestion[] {
     const value = query.trim();
@@ -54,7 +54,11 @@ export function useCitySuggestions(query: string, enabled: boolean): CitySuggest
         const timer = window.setTimeout(() => {
             fetch(`/api/v1/geocoding/city-suggestions?q=${encodeURIComponent(value)}`, { signal: abortController.signal })
                 .then((response) => (response.ok ? (response.json() as Promise<CitySuggestion[]>) : []))
-                .then((suggestions) => setResult({ query: value, suggestions }))
+                .then((suggestions) => {
+                    if (!abortController.signal.aborted) {
+                        setResult({ query: value, suggestions });
+                    }
+                })
                 .catch(() => {
                     if (!abortController.signal.aborted) {
                         setResult({ query: value, suggestions: [] });
@@ -67,6 +71,6 @@ export function useCitySuggestions(query: string, enabled: boolean): CitySuggest
         };
     }, [value, active]);
 
-    // Les suggestions précédentes restent affichées le temps que la nouvelle réponse arrive (pas de clignotement).
-    return active && result ? result.suggestions : [];
+    // Ne jamais proposer une commune issue d'une saisie antérieure, même pendant le debounce.
+    return active && result?.query === value ? result.suggestions : [];
 }
