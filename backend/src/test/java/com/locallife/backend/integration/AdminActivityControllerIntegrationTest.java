@@ -328,4 +328,85 @@ class AdminActivityControllerIntegrationTest {
                 .expectStatus().isForbidden();
     }
 
+
+    // --- Suppression d'activités (réservée au rôle ADMIN) ---
+
+    @Test
+    void deletion_ShouldBeRefused_WhenNotAdmin() {
+        String userToken = registerAndLoginAsUser(uniqueEmail());
+        Activity activity = createPendingActivity("Pétanque " + UUID.randomUUID(), userToken);
+
+        restTestClient().get().uri("/api/v1/admin/activities/deletion-preview?all=true")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
+                .exchange()
+                .expectStatus().isForbidden();
+        restTestClient().delete().uri("/api/v1/admin/activities?all=true&expectedCount=1")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
+                .exchange()
+                .expectStatus().isForbidden();
+        restTestClient().delete().uri("/api/v1/admin/activities/" + activity.id())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
+                .exchange()
+                .expectStatus().isForbidden();
+        restTestClient().delete().uri("/api/v1/admin/activities/" + activity.id())
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void deletion_ShouldPreviewThenDelete_WhenAdmin() {
+        String userToken = registerAndLoginAsUser(uniqueEmail());
+        Activity activity = createPendingActivity("Pétanque " + UUID.randomUUID(), userToken);
+        // Jour lointain et propre à ce test : les critères ne visent que cette activité, jamais d'autres
+        // données de la base (les tests d'intégration tournent sur la base locale).
+        String day = "2099-03-" + (10 + (int) (activity.id() % 18));
+        jdbcTemplate.update("UPDATE activity SET start_date = ?::date + time '10:00' WHERE id = ?", day, activity.id());
+        String criteria = "status=PENDING&startFrom=" + day + "&startTo=" + day;
+        long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM activity WHERE status = 'PENDING' AND start_date::date = ?::date",
+                Long.class, day);
+        assertThat(count).isEqualTo(1);
+
+        restTestClient().get().uri("/api/v1/admin/activities/deletion-preview?" + criteria)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.count").isEqualTo(count);
+        // Nombre annoncé différent : rien n'est supprimé.
+        restTestClient().delete().uri("/api/v1/admin/activities?" + criteria + "&expectedCount=" + (count + 1))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isEqualTo(409);
+        restTestClient().delete().uri("/api/v1/admin/activities?" + criteria + "&expectedCount=" + count)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.count").isEqualTo(count);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM activity WHERE id = ?", Long.class, activity.id())).isZero();
+    }
+
+    @Test
+    void deletion_ShouldRequireACriterion() {
+        restTestClient().get().uri("/api/v1/admin/activities/deletion-preview")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void deleteActivity_ShouldDeleteOne_ThenReturnNotFound() {
+        String userToken = registerAndLoginAsUser(uniqueEmail());
+        Activity activity = createPendingActivity("Pétanque " + UUID.randomUUID(), userToken);
+
+        restTestClient().delete().uri("/api/v1/admin/activities/" + activity.id())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isNoContent();
+        restTestClient().delete().uri("/api/v1/admin/activities/" + activity.id())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange()
+                .expectStatus().isNotFound();
+    }
 }

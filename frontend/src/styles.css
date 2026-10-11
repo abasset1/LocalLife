@@ -2881,3 +2881,104 @@ body {
 .admin-import-button + .admin-import-hint {
     margin: 0.5rem 0 0;
 }
+
+/* Administration — suppression d'activités. */
+.admin-deletion {
+    max-width: 980px;
+}
+
+.admin-deletion-form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.admin-deletion-form fieldset {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem 1rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.75rem 1rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+}
+
+.admin-deletion-form fieldset:disabled {
+    opacity: 0.5;
+}
+
+.admin-deletion-form legend {
+    padding: 0 0.3rem;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.admin-deletion-form fieldset label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.88rem;
+    color: #334155;
+}
+
+.admin-deletion-form select,
+.admin-deletion-form input[type="date"],
+.admin-deletion-confirm input {
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 0.9rem;
+}
+
+.admin-deletion-all {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #991b1b;
+}
+
+.admin-deletion-confirm {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+}
+
+.admin-deletion-confirm label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.admin-danger-button,
+.admin-delete-activity-button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    background-color: #dc2626;
+    color: #ffffff;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.admin-danger-button:disabled,
+.admin-delete-activity-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.admin-delete-activity-button {
+    margin-left: auto;
+    padding: 0.4rem 0.8rem;
+    background-color: #ffffff;
+    border: 1px solid #dc2626;
+    color: #dc2626;
+}
