@@ -306,30 +306,31 @@ class ActivityServiceTest {
     // Voir docs/02_Architecture/LOCATION_CONTRACT.md, section "Filtre city et tri sort".
 
     @Test
-    void findAll_ShouldDelegateToPlainFindAll_WhenNeitherCityNorSortProvided() {
-        // Given : ni city ni sort -> comportement historique préservé, pas de findAllFiltered appelé.
+    void findAll_ShouldListPublishedOnly_WhenNeitherCityNorSortProvided() {
+        // Given : ni city ni sort -> simple lecture des activités publiées, pas de findAllFiltered appelé.
         List<Activity> expected = List.of();
-        when(activityRepository.findAll()).thenReturn(expected);
+        when(activityRepository.findByStatus("PUBLISHED")).thenReturn(expected);
 
         // When
         List<Activity> result = activityService().findAll(null, null, null);
 
         // Then
         assertThat(result).isEqualTo(expected);
-        verify(activityRepository).findAll();
+        verify(activityRepository).findByStatus("PUBLISHED");
+        verify(activityRepository, never()).findAll();
         verify(activityRepository, never()).findAllFiltered(any(), any(), any(), any());
     }
 
     @Test
-    void findAll_ShouldDelegateToPlainFindAll_WhenCityAndSortAreBlank() {
+    void findAll_ShouldListPublishedOnly_WhenCityAndSortAreBlank() {
         // Given : chaînes blanches -> équivalent à absent (même convention que 'category').
-        when(activityRepository.findAll()).thenReturn(List.of());
+        when(activityRepository.findByStatus("PUBLISHED")).thenReturn(List.of());
 
         // When
         activityService().findAll("   ", "   ", null);
 
         // Then
-        verify(activityRepository).findAll();
+        verify(activityRepository).findByStatus("PUBLISHED");
         verify(activityRepository, never()).findAllFiltered(any(), any(), any(), any());
     }
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.55 — 2026-10-11
+
+### Liste publique : activités publiées uniquement
+- `GET /api/v1/activities` ne renvoie plus que les activités `PUBLISHED`, avec ou sans filtre (`city`, `date`) ni tri. Auparavant, elle listait aussi, sans authentification, les activités en attente de validation, refusées, annulées et archivées (titre, coordonnées, adresse) — constat de l'audit #93.
+- Inchangés : la recherche globale (`/search`), `/nearby` et `/within-bounds` (déjà limités aux activités publiées), et le format des réponses.
+- Tests : `GeographicEndpointsNonRegressionIntegrationTest` (les 4 statuts non publiés absents de la liste sans filtre, par ville, par date, avec tri, ainsi que de `/nearby`, `/within-bounds` et `/search`) ; `ActivityRepositoryIntegrationTest` (requête filtrée) ; `ActivityServiceTest` mis à jour. Les 3 nouveaux cas échouent sur le code antérieur.
+
 ## 0.9.54 — 2026-10-11
 
 ### Recherche V1 : tests de non-régression et audit (#93)

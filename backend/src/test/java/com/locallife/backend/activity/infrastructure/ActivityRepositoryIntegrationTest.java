@@ -14,6 +14,7 @@ import com.locallife.backend.source.infrastructure.SourceRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -553,6 +554,26 @@ class ActivityRepositoryIntegrationTest {
                 null, uniqueTitle, "description", "sport",
                 MARSEILLE_LAT, MARSEILLE_LON, startDate, null, "PUBLISHED", manualSourceId(), null, null,
                 null, city, null, null, null, null, null, null));
+    }
+
+    @Test
+    void findAllFiltered_ShouldOnlyReturnPublishedActivities() {
+        String city = "Ville-statut-" + UUID.randomUUID();
+        Activity published = activityWithCityAndDate(city, LocalDateTime.now());
+        List<Long> unpublished = new ArrayList<>();
+        for (String status : List.of("PENDING", "REJECTED", "CANCELLED", "ARCHIVED")) {
+            Activity saved = activityWithCityAndDate(city, LocalDateTime.now());
+            unpublished.add(activityRepository.save(new Activity(
+                    saved.id(), saved.title(), saved.description(), saved.category(), saved.latitude(),
+                    saved.longitude(), saved.startDate(), saved.endDate(), status, saved.sourceId(), null, null,
+                    null, city, null, null, null, null, null, null)).id());
+        }
+
+        List<Long> resultIds = activityRepository.findAllFiltered(city, null, "date", null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).containsExactly(published.id());
+        assertThat(resultIds).doesNotContainAnyElementsOf(unpublished);
     }
 
     @Test
