@@ -1305,6 +1305,20 @@ body {
     color: var(--ll-ink, #17201d);
 }
 
+/* Écrans tactiles : cibles d'au moins 44 px, et champ en 16 px pour éviter le zoom automatique
+   d'iOS Safari à la mise au point d'un champ dont le texte est plus petit. */
+@media (pointer: coarse) {
+    .explorer-search-suggestions li {
+        min-height: 44px;
+        align-items: center;
+        box-sizing: border-box;
+    }
+
+    .explorer-search input {
+        font-size: 16px;
+    }
+}
+
 .explorer-suggestion-meta {
     margin-left: auto;
     color: var(--ll-muted, #68736e);
