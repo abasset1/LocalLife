@@ -76,11 +76,11 @@ import org.springframework.stereotype.Service;
  *       archivée plutôt que supprimée : plus prudent pour un MVP (une
  *       panne réseau partielle du collecteur, par exemple, ne doit pas
  *       effacer des activités réelles) et conserve un historique exploitable
- *       par LL-5009. ⚠️ Point à surveiller : la recherche/carte (LL-1007/
- *       LL-4002) ne filtre pas {@code status} par défaut — une activité
- *       {@code ARCHIVED} continuera donc d'apparaître tant qu'un filtre
- *       explicite n'est pas ajouté côté requête/frontend (hors périmètre
- *       de ce ticket). ⚠️ LL-11011 : les entités enrichies (Location
+ *       par LL-5009. Seules les activités {@code PUBLISHED} sont archivées,
+ *       et un ré-import conserve le statut d'une activité existante (une
+ *       annulation par un administrateur n'est jamais écrasée) : seule une
+ *       activité archivée par l'import est republiée à son retour.
+ *       ⚠️ LL-11011 : les entités enrichies (Location
  *       partagée exceptée, voir {@link #enrichActivity}) d'une activité
  *       archivée ne sont ni recalculées ni supprimées à l'archivage — elles
  *       restent telles que laissées par le dernier import réussi, cohérent
@@ -197,6 +197,7 @@ public class ImportService {
 
     /** Statut de suppression douce, voir la javadoc de la classe. */
     private static final String ARCHIVED_STATUS = "ARCHIVED";
+    private static final String PUBLISHED_STATUS = "PUBLISHED";
 
     private final SourceService sourceService;
     private final OpenAgendaCollectorFactory openAgendaCollectorFactory;
@@ -391,6 +392,12 @@ public class ImportService {
                 // l'activité, dans la même transaction (ActivityClassificationService#createActivity).
                 Activity toSave = withSourceAndKey(
                         normalized.get(), existing.map(Activity::id).orElse(null), source.id(), key);
+                // Un ré-import met à jour le contenu, jamais une décision de modération : une activité
+                // annulée par un administrateur (ou dans tout autre statut posé hors import) le reste.
+                // Seule une activité archivée par l'import lui-même (absente de la source) est republiée.
+                if (existing.isPresent() && !ARCHIVED_STATUS.equals(existing.get().status())) {
+                    toSave = withStatus(toSave, existing.get().status());
+                }
                 Activity saved;
                 if (existing.isPresent()) {
                     saved = activityRepository.save(toSave);
@@ -596,7 +603,8 @@ public class ImportService {
         int archivedDuplicates = 0;
         for (Long activityId : importFingerprintService.findDuplicateActivityIds(sourceId)) {
             Optional<Activity> duplicate = activityRepository.findById(activityId);
-            if (duplicate.isPresent()) {
+            // Une activité annulée par un administrateur garde ce statut (voir archiveActivitiesNoLongerInSource).
+            if (duplicate.isPresent() && PUBLISHED_STATUS.equals(duplicate.get().status())) {
                 activityRepository.save(withStatus(duplicate.get(), ARCHIVED_STATUS));
                 archivedDuplicates++;
             }
@@ -608,8 +616,10 @@ public class ImportService {
         int archived = 0;
         for (Activity activity : activityRepository.findBySourceId(sourceId)) {
             boolean stillPresent = activity.importKey() != null && seenImportKeys.contains(activity.importKey());
-            boolean alreadyArchived = ARCHIVED_STATUS.equals(activity.status());
-            if (!stillPresent && !alreadyArchived) {
+            // Seules les activités publiées sont archivées : une activité annulée par un administrateur
+            // garde ce statut, sinon son retour dans la source la republierait.
+            boolean published = PUBLISHED_STATUS.equals(activity.status());
+            if (!stillPresent && published) {
                 activityRepository.save(withStatus(activity, ARCHIVED_STATUS));
                 archived++;
             }

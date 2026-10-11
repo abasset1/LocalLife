@@ -1,11 +1,14 @@
 # Changelog
 
-## 0.9.55 — 2026-10-11
+## 0.9.56 — 2026-10-11
 
-### Liste publique : activités publiées uniquement
-- `GET /api/v1/activities` ne renvoie plus que les activités `PUBLISHED`, avec ou sans filtre (`city`, `date`) ni tri. Auparavant, elle listait aussi, sans authentification, les activités en attente de validation, refusées, annulées et archivées (titre, coordonnées, adresse) — constat de l'audit #93.
-- Inchangés : la recherche globale (`/search`), `/nearby` et `/within-bounds` (déjà limités aux activités publiées), et le format des réponses.
-- Tests : `GeographicEndpointsNonRegressionIntegrationTest` (les 4 statuts non publiés absents de la liste sans filtre, par ville, par date, avec tri, ainsi que de `/nearby`, `/within-bounds` et `/search`) ; `ActivityRepositoryIntegrationTest` (requête filtrée) ; `ActivityServiceTest` mis à jour. Les 3 nouveaux cas échouent sur le code antérieur.
+### Import : une annulation par un administrateur n'est plus écrasée
+- Un ré-import met à jour le contenu d'une activité existante, jamais son statut. Une activité importée puis annulée par un administrateur reste annulée, même si la source la modifie, la retire puis la remet. Auparavant, toute modification côté source la remettait en `PUBLISHED` : elle réapparaissait sur la carte, dans la liste et dans la recherche.
+- L'archivage des activités disparues de la source, et celui des doublons entre sources, ne concerne plus que les activités `PUBLISHED`. Une activité annulée n'est donc jamais archivée puis republiée.
+- Inchangé : une activité archivée par l'import (absente de la source) est republiée à son retour.
+- Tests :
+  - `ImportServiceTest` : 4 cas, dont 3 qui échouent sur le code antérieur ;
+  - `ImportServiceIntegrationTest` : 1 scénario de bout en bout (annulée, modifiée, retirée, revenue), qui échoue sur le code antérieur.
 
 ## 0.9.54 — 2026-10-11
 
