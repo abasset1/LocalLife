@@ -128,11 +128,11 @@ function ExplorerSearch({ value, onChange, onSubmit, onSelectCity, onClear, isSe
                             className={index === activeIndex ? "is-highlighted" : undefined}
                             id={`${LISTBOX_ID}-${index}`}
                             key={`${city.name}-${city.postalCodes[0] ?? index}`}
-                            // mousedown plutôt que click : le choix passe avant la perte de focus du champ.
-                            onMouseDown={(event) => {
-                                event.preventDefault();
-                                choose(city);
-                            }}
+                            // Le choix se fait au clic, que déclenchent aussi le toucher et les technologies
+                            // d'assistance (souvent sans mousedown) ; mousedown est seulement neutralisé
+                            // pour que le champ garde le focus et que la liste reste ouverte jusqu'au clic.
+                            onClick={() => choose(city)}
+                            onMouseDown={(event) => event.preventDefault()}
                             onMouseEnter={() => setHighlighted(index)}
                             role="option"
                         >
