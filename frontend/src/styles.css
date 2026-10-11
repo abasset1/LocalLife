@@ -1256,16 +1256,139 @@ body {
     padding: 0.1rem 0.3rem;
 }
 
-/* Résultat de la recherche de ville (Entrée). */
-.explorer-search-status {
-    margin: -0.25rem 1rem 0.5rem;
-    font-size: 0.82rem;
-    color: var(--ll-muted);
+/* Recherche explicite : bouton, état « en cours » et bandeau de résultat. */
+.explorer-search {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.explorer-search-status-error {
-    color: #c2412d;
+.explorer-search:focus-within,
+.explorer-search.is-active {
+    border-color: var(--ll-green, #1f4d3d);
+    box-shadow: 0 0 0 3px rgba(31, 77, 61, 0.12);
+}
+
+/* Le champ rétrécit sur téléphone pour laisser la place au bouton « Rechercher ». */
+.explorer-search input {
+    min-width: 0;
+}
+
+/* Un seul bouton d'effacement : celui de la barre, pas celui du navigateur (type="search"). */
+.explorer-search input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+}
+
+.explorer-search-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: none;
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    background-color: var(--ll-green, #1f4d3d);
+    color: #ffffff;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 650;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.explorer-search-submit:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.explorer-search.is-searching .explorer-search-submit:disabled {
+    opacity: 1;
+}
+
+.explorer-search-spinner {
+    width: 0.85rem;
+    height: 0.85rem;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: explorer-spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+.explorer-search-progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 40%;
+    background-color: var(--ll-coral, #e8664a);
+    animation: explorer-progress 1s ease-in-out infinite;
+}
+
+@keyframes explorer-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes explorer-progress {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(250%);
+    }
+}
+
+.explorer-search-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0 1rem 0.6rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 10px;
+    background-color: #e8f2ec;
+    color: var(--ll-ink, #1b2a24);
+    font-size: 0.88rem;
     font-weight: 600;
+}
+
+.explorer-search-banner.is-pending {
+    justify-content: flex-start;
+    background-color: var(--ll-sand, #f3ebdd);
+    color: var(--ll-green, #1f4d3d);
+}
+
+.explorer-search-banner.is-empty {
+    background-color: #fdecea;
+    color: #a3341f;
+}
+
+.explorer-search-note {
+    font-weight: 400;
+    opacity: 0.8;
+}
+
+.explorer-search-banner-clear {
+    flex-shrink: 0;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .explorer-search-spinner,
+    .explorer-search-progress {
+        animation-duration: 2.5s;
+    }
 }
 
 /* --- Filtres (section 6). --- */

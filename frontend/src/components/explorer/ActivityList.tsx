@@ -8,6 +8,8 @@ interface ActivityListProps {
     isLoading: boolean;
     error: string | null;
     onSelectActivity: (activity: Activity) => void;
+    /** Message quand aucune activité ne s'affiche (par défaut : aucune dans la zone). */
+    emptyMessage?: string;
 }
 
 /**
@@ -19,7 +21,14 @@ interface ActivityListProps {
  * directement (section 8 du ticket : même comportement qu'un clic sur un
  * marqueur).
  */
-function ActivityList({ activities, categories, isLoading, error, onSelectActivity }: ActivityListProps) {
+function ActivityList({
+    activities,
+    categories,
+    isLoading,
+    error,
+    onSelectActivity,
+    emptyMessage = "Aucune activité trouvée dans cette zone.",
+}: ActivityListProps) {
     if (isLoading) {
         return <p className="explorer-status">Chargement des activités…</p>;
     }
@@ -31,7 +40,7 @@ function ActivityList({ activities, categories, isLoading, error, onSelectActivi
         );
     }
     if (activities.length === 0) {
-        return <p className="explorer-status">Aucune activité trouvée dans cette zone.</p>;
+        return <p className="explorer-status">{emptyMessage}</p>;
     }
 
     return (

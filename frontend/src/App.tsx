@@ -13,6 +13,8 @@ import ExplorerFilters from "./components/explorer/ExplorerFilters";
 import ExplorerMap from "./components/explorer/ExplorerMap";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
 import ExplorerSearch from "./components/explorer/ExplorerSearch";
+import SearchResultBanner from "./components/explorer/SearchResultBanner";
+import type { AppliedSearch } from "./components/explorer/SearchResultBanner";
 import OnboardingModal from "./components/onboarding/OnboardingModal";
 import type {
     Activity,
@@ -113,8 +115,10 @@ function App() {
     const [viewMode, setViewMode] = useState<"map" | "list">("map");
     /** LL-EF-017 : recherche libre (titre/ville/adresse/catégorie), filtrage client — voir `matchesSearchQuery`. */
     const [searchQuery, setSearchQuery] = useState("");
-    /** Résultat de la recherche de ville (Entrée dans la barre de recherche), affiché sous la barre. */
-    const [citySearchStatus, setCitySearchStatus] = useState<{ kind: "info" | "error"; message: string } | null>(null);
+    /** Recherche appliquée (ville ou filtre texte) — la saisie seule ne change rien, voir `handleSearchSubmit`. */
+    const [appliedSearch, setAppliedSearch] = useState<AppliedSearch | null>(null);
+    /** Texte en cours de recherche (appel au serveur en cours), `null` sinon. */
+    const [pendingSearch, setPendingSearch] = useState<string | null>(null);
     /** LL-EF-017 : tiroir de menu (mobile) — toujours visible en colonne fixe au-delà du point de rupture desktop (styles.css). */
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     /**
@@ -336,9 +340,10 @@ function App() {
      * n'affecte ni les paramètres de requête backend ni la liste des
      * catégories disponibles.
      */
+    const textQuery = appliedSearch?.kind === "text" ? appliedSearch.query : "";
     const filteredActivities = useMemo(
-        () => activities.filter((activity) => matchesSearchQuery(activity, searchQuery, categories)),
-        [activities, searchQuery],
+        () => activities.filter((activity) => matchesSearchQuery(activity, textQuery, categories)),
+        [activities, textQuery, categories],
     );
 
     /**
@@ -352,45 +357,52 @@ function App() {
         [filteredActivities, mapBounds],
     );
 
+    const emptyMessage = textQuery
+        ? `Aucun résultat pour « ${textQuery} » dans cette zone.`
+        : "Aucune activité trouvée dans cette zone.";
+
     function handleSearchChange(value: string) {
         setSearchQuery(value);
-        setCitySearchStatus(null);
+        if (!value.trim()) {
+            setAppliedSearch(null);
+        }
+    }
+
+    function clearSearch() {
+        setSearchQuery("");
+        setAppliedSearch(null);
     }
 
     /**
-     * Entrée dans la barre de recherche : le texte est cherché comme une ville. Trouvée, la carte s'y
-     * déplace (et le rayon actif s'y recentre, comme « Autour de moi ») et le filtre texte est retiré
-     * pour afficher toutes les activités de la zone. Sinon, le texte reste un filtre sur les activités.
+     * « Rechercher » ou Entrée. Le texte est d'abord cherché comme une ville : trouvée, la carte s'y
+     * déplace (et le rayon actif s'y recentre, comme « Autour de moi ») et toutes ses activités
+     * s'affichent. Sinon, il filtre les activités de la carte (titre, ville, adresse,
+     * catégorie). Le bandeau sous la barre montre la recherche en cours puis son résultat.
      */
     async function handleSearchSubmit() {
         const query = searchQuery.trim();
         if (!query) {
+            clearSearch();
             return;
         }
-        setCitySearchStatus({ kind: "info", message: "Recherche de la ville…" });
+        setPendingSearch(query);
         try {
             const response = await fetch(`/api/v1/geocoding/city?name=${encodeURIComponent(query)}`);
             if (response.ok) {
                 const city = (await response.json()) as { city: string; latitude: number; longitude: number };
                 setPreviewActivity(null);
-                setSearchQuery("");
                 setUserPosition({ latitude: city.latitude, longitude: city.longitude });
-                setCitySearchStatus({ kind: "info", message: `📍 Carte centrée sur ${city.city}` });
-                return;
+                setAppliedSearch({ kind: "city", city: city.city });
+            } else if (response.status === 404) {
+                setAppliedSearch({ kind: "text", query });
+            } else {
+                // Recherche de ville indisponible : on cherche tout de même parmi les activités.
+                setAppliedSearch({ kind: "text", query, note: "(recherche de ville indisponible)" });
             }
-            if (response.status === 404) {
-                // Pas une ville : le texte reste un simple filtre sur les activités chargées.
-                setCitySearchStatus(
-                    filteredActivities.length > 0
-                        ? null
-                        : { kind: "error", message: `Aucune ville ni activité ne correspond à « ${query} ».` },
-                );
-                return;
-            }
-            const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
-            setCitySearchStatus({ kind: "error", message: body?.message ?? "Recherche de ville indisponible, réessaie." });
         } catch {
-            setCitySearchStatus({ kind: "error", message: "Impossible de contacter le serveur, réessaie plus tard." });
+            setAppliedSearch({ kind: "text", query, note: "(recherche de ville indisponible)" });
+        } finally {
+            setPendingSearch(null);
         }
     }
 
@@ -848,19 +860,21 @@ function App() {
                             ☰
                         </button>
                         <ExplorerSearch
+                            isActive={appliedSearch !== null}
+                            isSearching={pendingSearch !== null}
                             onChange={handleSearchChange}
+                            onClear={clearSearch}
                             onSubmit={() => void handleSearchSubmit()}
                             value={searchQuery}
                         />
                     </div>
-                    {citySearchStatus && (
-                        <p
-                            className={`explorer-search-status explorer-search-status-${citySearchStatus.kind}`}
-                            role="status"
-                        >
-                            {citySearchStatus.message}
-                        </p>
-                    )}
+                    <SearchResultBanner
+                        isLoadingActivities={isLoadingActivities}
+                        onClear={clearSearch}
+                        pendingQuery={pendingSearch}
+                        resultCount={listedActivities.length}
+                        search={appliedSearch}
+                    />
 
                     <ExplorerFilters
                         categories={categories}
@@ -894,7 +908,7 @@ function App() {
                             </p>
                         )}
                         {!isLoadingActivities && !searchError && filteredActivities.length === 0 && (
-                            <p className="explorer-status explorer-status-floating">Aucune activité trouvée dans cette zone.</p>
+                            <p className="explorer-status explorer-status-floating">{emptyMessage}</p>
                         )}
                         <ExplorerMap
                             activities={filteredActivities}
@@ -919,6 +933,7 @@ function App() {
                         <ActivityList
                             activities={listedActivities}
                             categories={categories}
+                            emptyMessage={emptyMessage}
                             error={searchError}
                             isLoading={isLoadingActivities}
                             onSelectActivity={handleSelectActivity}

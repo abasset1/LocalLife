@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.47 — 2026-10-11
+
+### Recherche de l'Explorer : explicite, visible, avec un message quand rien ne correspond
+- La saisie seule ne change plus la carte (auparavant chaque lettre filtrait aussitôt : taper une ville vidait la carte avant même la recherche). La recherche part avec le nouveau bouton « Rechercher » ou Entrée.
+- Recherche en cours visible : bouton « ⟳ Recherche… », barre de progression dans le champ, bandeau « Recherche de « … »… ». La barre reste mise en évidence tant qu'une recherche est appliquée.
+- Résultat dans un bandeau sous la barre, avec « Effacer ✕ » : « 📍 Lyon — 2 activités sur la carte » pour une ville (la carte s'y déplace), « 🔎 3 résultats pour « concert » » pour un mot, et en rouge « Aucun résultat pour « piscine » dans cette zone. Déplace la carte ou essaie un autre mot. » quand rien ne correspond (même message sur la carte et dans la liste). Le nombre suit la carte (zoom, déplacement). Si la recherche de ville est indisponible, le texte est tout de même cherché parmi les activités.
+- Correspondance plus tolérante : insensible aux accents, à la casse et à l'ordre des mots (« marche croix rousse » trouve « Marché de la Croix-Rousse »).
+- Un seul bouton d'effacement dans le champ (celui du navigateur est masqué) ; le bouton « Rechercher » reste visible sur téléphone.
+- Vérifié dans le navigateur contre le backend réel (réponses de Nominatim simulées, avec 1,2 s de latence) : saisie seule sans effet ; état « Recherche… » ; « Lyon » → carte déplacée, 2 activités ; « marche croix rousse » → 1 résultat ; « concert » → 1 résultat ; « piscine » → message d'absence de résultat ; « Effacer » → toutes les activités. Affichage vérifié en 375 px (pas de défilement horizontal). Build web.
+
 ## 0.9.46 — 2026-10-11
 
 ### Recherche de ville depuis la carte
