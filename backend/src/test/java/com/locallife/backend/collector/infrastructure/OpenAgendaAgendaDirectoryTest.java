@@ -127,9 +127,13 @@ class OpenAgendaAgendaDirectoryTest {
                 .andRespond(withSuccess(
                         "{\"after\":[1,100],\"agendas\":[" + firstPage + "]}",
                         MediaType.APPLICATION_JSON));
+        StringBuilder secondPage = new StringBuilder();
+        for (int uid = 101; uid <= 200; uid++) {
+            secondPage.append(uid == 101 ? "" : ",").append("{\\"uid\\":").append(uid).append("}");
+        }
         mockServer.expect(requestTo(containsString("after%5B%5D=100")))
                 .andRespond(withSuccess(
-                        "{\"after\":[1,100],\"agendas\":[{\"uid\":101}]}",
+                        "{\\"after\\":[1,100],\\"agendas\\":[" + secondPage + "]}",
                         MediaType.APPLICATION_JSON));
 
         assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(1000));
