@@ -80,6 +80,19 @@ class AdminImportControllerTest {
     }
 
     @Test
+    void discoverAgendas_ShouldExamineAllAgendas_WhenLimitIsOmitted() {
+        AgendaDiscoveryResult result = new AgendaDiscoveryResult(1200, 1100, 100, List.of());
+        when(agendaDiscoveryService.discoverOfficialAgendas(Integer.MAX_VALUE)).thenReturn(result);
+
+        ResponseEntity<Object> response = adminImportController.discoverAgendas(
+                null, org.mockito.Mockito.mock(HttpServletRequest.class));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(result);
+        verify(agendaDiscoveryService).discoverOfficialAgendas(Integer.MAX_VALUE);
+    }
+
+    @Test
     void discoverAgendas_ShouldReturnBadRequest_WhenLimitIsNotPositive() {
         HttpServletRequest httpRequest = org.mockito.Mockito.mock(HttpServletRequest.class);
 
