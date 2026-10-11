@@ -113,6 +113,8 @@ function App() {
     const [viewMode, setViewMode] = useState<"map" | "list">("map");
     /** LL-EF-017 : recherche libre (titre/ville/adresse/catégorie), filtrage client — voir `matchesSearchQuery`. */
     const [searchQuery, setSearchQuery] = useState("");
+    /** Résultat de la recherche de ville (Entrée dans la barre de recherche), affiché sous la barre. */
+    const [citySearchStatus, setCitySearchStatus] = useState<{ kind: "info" | "error"; message: string } | null>(null);
     /** LL-EF-017 : tiroir de menu (mobile) — toujours visible en colonne fixe au-delà du point de rupture desktop (styles.css). */
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     /**
@@ -349,6 +351,48 @@ function App() {
         () => (mapBounds ? filteredActivities.filter((activity) => isInBounds(activity, mapBounds)) : filteredActivities),
         [filteredActivities, mapBounds],
     );
+
+    function handleSearchChange(value: string) {
+        setSearchQuery(value);
+        setCitySearchStatus(null);
+    }
+
+    /**
+     * Entrée dans la barre de recherche : le texte est cherché comme une ville. Trouvée, la carte s'y
+     * déplace (et le rayon actif s'y recentre, comme « Autour de moi ») et le filtre texte est retiré
+     * pour afficher toutes les activités de la zone. Sinon, le texte reste un filtre sur les activités.
+     */
+    async function handleSearchSubmit() {
+        const query = searchQuery.trim();
+        if (!query) {
+            return;
+        }
+        setCitySearchStatus({ kind: "info", message: "Recherche de la ville…" });
+        try {
+            const response = await fetch(`/api/v1/geocoding/city?name=${encodeURIComponent(query)}`);
+            if (response.ok) {
+                const city = (await response.json()) as { city: string; latitude: number; longitude: number };
+                setPreviewActivity(null);
+                setSearchQuery("");
+                setUserPosition({ latitude: city.latitude, longitude: city.longitude });
+                setCitySearchStatus({ kind: "info", message: `📍 Carte centrée sur ${city.city}` });
+                return;
+            }
+            if (response.status === 404) {
+                // Pas une ville : le texte reste un simple filtre sur les activités chargées.
+                setCitySearchStatus(
+                    filteredActivities.length > 0
+                        ? null
+                        : { kind: "error", message: `Aucune ville ni activité ne correspond à « ${query} ».` },
+                );
+                return;
+            }
+            const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+            setCitySearchStatus({ kind: "error", message: body?.message ?? "Recherche de ville indisponible, réessaie." });
+        } catch {
+            setCitySearchStatus({ kind: "error", message: "Impossible de contacter le serveur, réessaie plus tard." });
+        }
+    }
 
     function requestGeolocation() {
         if (!("geolocation" in navigator)) {
@@ -803,8 +847,20 @@ function App() {
                         >
                             ☰
                         </button>
-                        <ExplorerSearch onChange={setSearchQuery} value={searchQuery} />
+                        <ExplorerSearch
+                            onChange={handleSearchChange}
+                            onSubmit={() => void handleSearchSubmit()}
+                            value={searchQuery}
+                        />
                     </div>
+                    {citySearchStatus && (
+                        <p
+                            className={`explorer-search-status explorer-search-status-${citySearchStatus.kind}`}
+                            role="status"
+                        >
+                            {citySearchStatus.message}
+                        </p>
+                    )}
 
                     <ExplorerFilters
                         categories={categories}

@@ -30,6 +30,9 @@ const FOOD_TRUCK_MARKER_ICON = L.divIcon({
     iconAnchor: [16, 16],
 });
 
+/** Zoom minimal quand la carte est centrée sur une ville ou une position. */
+const CITY_ZOOM = 12;
+
 /**
  * Composant enfant sans rendu visuel : seule façon d'écouter les événements
  * de la carte avec react-leaflet (`useMapEvents` doit être appelé depuis un
@@ -113,7 +116,8 @@ function MapRecenterOnUserPosition({ position, radiusKm }: { position: UserPosit
         if (radiusKm) {
             map.fitBounds(L.latLng(position.latitude, position.longitude).toBounds(radiusKm * 2 * 1000));
         } else {
-            map.setView([position.latitude, position.longitude], map.getZoom());
+            // Au moins l'échelle d'une ville (recherche de ville depuis une carte dézoomée).
+            map.setView([position.latitude, position.longitude], Math.max(map.getZoom(), CITY_ZOOM));
         }
     }, [position, radiusKm, map]);
 
