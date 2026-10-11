@@ -65,9 +65,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/admin/import")
 public class AdminImportController {
 
-    /** Bornes de {@code limit} pour la découverte d'agendas, voir {@link #discoverAgendas}. */
-    private static final int MAX_DISCOVERY_LIMIT = 500;
-
     private final ImportService importService;
     private final AgendaDiscoveryService agendaDiscoveryService;
 
@@ -104,7 +101,7 @@ public class AdminImportController {
                     + "source, même inactive, n'est ni recréé ni modifié.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Découverte effectuée ; voir le détail dans la réponse."),
-        @ApiResponse(responseCode = "400", description = "Paramètre 'limit' hors bornes (1 à 500)."),
+        @ApiResponse(responseCode = "400", description = "Le paramètre 'limit' doit être positif."),
         @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide)."),
         @ApiResponse(responseCode = "403", description = "Rôle ADMIN requis."),
         @ApiResponse(responseCode = "502",
@@ -112,13 +109,13 @@ public class AdminImportController {
     })
     @PostMapping("/discover-agendas")
     public ResponseEntity<Object> discoverAgendas(
-            @Parameter(description = "Nombre maximum d'agendas officiels à examiner (1 à 500).")
-            @RequestParam(defaultValue = "50") int limit,
+            @Parameter(description = "Nombre maximum d'agendas à examiner. Par défaut, tous les agendas accessibles dans l'annuaire officiel.")
+            @RequestParam(defaultValue = "2147483647") int limit,
             HttpServletRequest httpRequest) {
-        if (limit < 1 || limit > MAX_DISCOVERY_LIMIT) {
+        if (limit < 1) {
             return errorResponse(
                     HttpStatus.BAD_REQUEST,
-                    "Le paramètre 'limit' doit être compris entre 1 et " + MAX_DISCOVERY_LIMIT + ".", httpRequest);
+                    "Le paramètre 'limit' doit être positif.", httpRequest);
         }
         try {
             return ResponseEntity.ok(agendaDiscoveryService.discoverOfficialAgendas(limit));
