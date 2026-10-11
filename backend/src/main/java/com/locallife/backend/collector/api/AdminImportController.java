@@ -110,15 +110,16 @@ public class AdminImportController {
     @PostMapping("/discover-agendas")
     public ResponseEntity<Object> discoverAgendas(
             @Parameter(description = "Nombre maximum d'agendas à examiner. Par défaut, tous les agendas accessibles dans l'annuaire officiel.")
-            @RequestParam(defaultValue = "2147483647") int limit,
+            @RequestParam(required = false) Integer limit,
             HttpServletRequest httpRequest) {
-        if (limit < 1) {
+        if (limit != null && limit < 1) {
             return errorResponse(
                     HttpStatus.BAD_REQUEST,
                     "Le paramètre 'limit' doit être positif.", httpRequest);
         }
         try {
-            return ResponseEntity.ok(agendaDiscoveryService.discoverOfficialAgendas(limit));
+            int effectiveLimit = limit == null ? Integer.MAX_VALUE : limit;
+            return ResponseEntity.ok(agendaDiscoveryService.discoverOfficialAgendas(effectiveLimit));
         } catch (CollectorException exception) {
             return errorResponse(HttpStatus.BAD_GATEWAY, exception.getMessage(), httpRequest);
         }
