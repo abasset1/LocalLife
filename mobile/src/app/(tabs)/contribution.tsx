@@ -9,7 +9,7 @@ import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { ContributionFields, EMPTY_FORM, toRequest, useActiveCategories } from '@/features/contribution';
+import { ContributionFields, EMPTY_FORM, inform, toRequest, useActiveCategories } from '@/features/contribution';
 import type { ContributionForm } from '@/features/contribution';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -41,6 +41,10 @@ export default function ContributionScreen() {
       await createActivity(result.request);
       setForm(EMPTY_FORM);
       setSubmitted(true);
+      inform(
+        'Merci pour votre proposition',
+        'Elle est soumise à validation par un modérateur et sera publiée d’ici 2 à 3 jours. Suivez son statut dans « Mes contributions ».',
+      );
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Une erreur inattendue est survenue. Réessayez.');
     } finally {
@@ -68,6 +72,10 @@ export default function ContributionScreen() {
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
             <ThemedText type="title">Proposer une activité</ThemedText>
             <Button label="Mes contributions" variant="secondary" onPress={() => router.push('/contributions')} />
+            <ThemedText style={[styles.notice, { backgroundColor: theme.backgroundElement }]}>
+              ℹ️ Votre activité sera soumise à validation par un modérateur avant d’apparaître sur la carte : elle
+              sera publiée d’ici 2 à 3 jours.
+            </ThemedText>
             {categoriesError && (
               <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
                 Erreur : {categoriesError}
@@ -90,7 +98,7 @@ export default function ContributionScreen() {
             )}
             {submitted && (
               <ThemedText accessibilityLiveRegion="polite">
-                ✓ Activité proposée. Elle sera visible sur la carte une fois validée par un modérateur.
+                ✓ Activité proposée. Elle est soumise à validation et sera publiée d’ici 2 à 3 jours.
               </ThemedText>
             )}
             <Button label="Proposer l'activité" loading={submitting} onPress={() => void submit()} />
@@ -115,5 +123,9 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
     padding: Spacing.four,
     paddingBottom: Spacing.six,
+  },
+  notice: {
+    padding: Spacing.three,
+    borderRadius: 8,
   },
 });

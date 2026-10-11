@@ -66,12 +66,12 @@ class ContributionServiceTest {
     private ContributionService contributionService;
 
     @Test
-    void update_ShouldSendActivityBackToValidation_WhenEditedByItsCreator() {
+    void update_ShouldKeepActivityPublished_WhenEditedByItsCreator() {
         Activity published = activity("PUBLISHED", CREATOR_ID);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(published));
-        Activity updated = activity("PENDING", CREATOR_ID);
+        Activity updated = activity("PUBLISHED", CREATOR_ID);
         when(activityService.updateContribution(published, "Nouveau titre", "Desc", null, "Lyon", "2026-11-01",
-                null, "PENDING", List.of(3L)))
+                null, "PUBLISHED", List.of(3L)))
                 .thenReturn(updated);
 
         Optional<Activity> result = contributionService.update(
@@ -82,6 +82,30 @@ class ContributionServiceTest {
         // Une activité qui n'est plus récurrente perd son ancien schedule.
         verify(recurringContributionService).clearSchedules(1L);
         verify(recurringContributionService, never()).attachSchedule(any(), any(), any());
+    }
+
+    @Test
+    void update_ShouldResubmitRejectedActivity_WhenCorrectedByItsCreator() {
+        Activity rejected = activity("REJECTED", CREATOR_ID);
+        when(activityRepository.findById(1L)).thenReturn(Optional.of(rejected));
+        Activity resubmitted = activity("PENDING", CREATOR_ID);
+        when(activityService.updateContribution(
+                rejected, "Titre corrigé", "Desc", null, "Lyon", null, null, "PENDING", List.of(3L)))
+                .thenReturn(resubmitted);
+
+        Optional<Activity> result = contributionService.update(
+                1L, CREATOR_ID, false, "Titre corrigé", "Desc", null, "Lyon", null, null, List.of(3L), null);
+
+        assertEquals("PENDING", result.orElseThrow().status());
+    }
+
+    @Test
+    void statusAfterUpdate_ShouldOnlyChangeRejectedActivityEditedByItsCreator() {
+        assertEquals("PUBLISHED", ContributionService.statusAfterUpdate("PUBLISHED", false));
+        assertEquals("PENDING", ContributionService.statusAfterUpdate("PENDING", false));
+        assertEquals("PENDING", ContributionService.statusAfterUpdate("REJECTED", false));
+        assertEquals("REJECTED", ContributionService.statusAfterUpdate("REJECTED", true));
+        assertEquals("PUBLISHED", ContributionService.statusAfterUpdate("PUBLISHED", true));
     }
 
     @Test

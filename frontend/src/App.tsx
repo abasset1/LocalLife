@@ -62,6 +62,8 @@ function App() {
     const [recurrence, setRecurrence] = useState<ContributionRecurrence>(EMPTY_RECURRENCE);
     /** Contribution en cours de modification (`null` : le formulaire propose une nouvelle activité). */
     const [editingActivityId, setEditingActivityId] = useState<number | null>(null);
+    // Statut de la contribution en cours de modification : une activité refusée repart en validation.
+    const [editingActivityStatus, setEditingActivityStatus] = useState<string | null>(null);
     const [isDeletingActivity, setIsDeletingActivity] = useState(false);
     const [searchParams, setSearchParams] = useSearchParams();
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
@@ -410,6 +412,7 @@ function App() {
 
     function resetContributionForm() {
         setEditingActivityId(null);
+        setEditingActivityStatus(null);
         setTitle("");
         setDescription("");
         setContributionCategoryCodes([]);
@@ -435,6 +438,7 @@ function App() {
             }
             const contribution = (await response.json()) as Contribution;
             setEditingActivityId(contribution.id);
+            setEditingActivityStatus(contribution.status);
             setTitle(contribution.title);
             setDescription(contribution.description ?? "");
             setContributionCategoryCodes(contribution.categoryCodes);
@@ -599,13 +603,20 @@ function App() {
                 return;
             }
 
+            const saved = (await response.json().catch(() => null)) as { status?: string } | null;
             setRefreshKey((current) => current + 1);
             setSubmitStatus("success");
             resetContributionForm();
             setIsContributionModalOpen(false);
-            if (isEditing && currentUser?.role !== "ADMIN") {
+            if (!isEditing) {
                 window.alert(
-                    "Modification enregistrée. L'activité sera de nouveau visible après validation par un modérateur.",
+                    "Merci pour ta proposition ! Elle est soumise à validation par un modérateur et sera publiée d'ici 2 à 3 jours. Tu peux suivre son statut dans « Mes contributions ».",
+                );
+            }
+            // Une activité publiée reste sur la carte ; seule une activité refusée corrigée repart en validation.
+            if (isEditing && editingActivityStatus === "REJECTED" && saved?.status === "PENDING") {
+                window.alert(
+                    "Modification enregistrée. L'activité est de nouveau soumise à validation : elle sera visible sur la carte une fois validée par un modérateur.",
                 );
             }
         } catch {
@@ -863,7 +874,7 @@ function App() {
             {isContributionModalOpen && currentUser && (
                 <ContributionModal
                     mode={editingActivityId !== null ? "edit" : "create"}
-                    requiresRevalidation={currentUser.role !== "ADMIN"}
+                    requiresRevalidation={currentUser.role !== "ADMIN" && editingActivityStatus === "REJECTED"}
                     address={address}
                     categories={categories}
                     description={description}
