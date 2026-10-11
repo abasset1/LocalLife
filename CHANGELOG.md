@@ -9,6 +9,16 @@
 - CI : nouveau workflow `frontend-ci.yml` (`npm ci`, `npm test`, `npm run build`, Node 20) ; il n'y avait aucune CI frontend.
 - Vérifié : `npm test` (12 tests) et `npm run build` sous Node 22.22 et Node 20.20 ; clavier, toucher et souris dans Chromium (suggestions simulées).
 
+### Recherche textuelle globale : `GET /api/v1/activities/search` (#91)
+- Nouvel endpoint public : recherche dans le titre, la description, les catégories (libre, codes, libellés), la ville et l'adresse (de l'activité et des lieux effectifs de ses occurrences), sans casse, accents, ponctuation ni espaces superflus ; **globale** (aucun rayon, aucune zone) ; activités `PUBLISHED` uniquement.
+- Classement : niveau de pertinence (`TITLE_EXACT` > `TITLE_PREFIX` > `TITLE_CONTAINS` > `CATEGORY_MATCH` > `LOCATION_MATCH` > `DESCRIPTION_MATCH`), puis nombre de champs correspondants, puis distance à la position de référence (`latitude`/`longitude`, jamais enregistrée), puis date de début et identifiant. Filtres `category`, `date`/`dateTo` ; pagination `limit`/`offset` avec `total`. Sans `date` : activités non terminées.
+- Modèle riche respecté : lieu effectif `COALESCE(occurrence.location_id, schedule.location_id)`, occurrences annulées ignorées, une seule ligne par activité ; lieu, coordonnées, dates et distance de la réponse viennent de la même occurrence retenue.
+- Base : V58 `ll_search_normalize` (normalisation en SQL pur, sans extension), V59 colonnes générées `search_*` sur `activity` et `location` (textes normalisés calculés à l'écriture). Aucun index texte : non justifié par la mesure à ce volume.
+- Performance mesurée (20 000 activités, 30 000 occurrences, `EXPLAIN ANALYZE`) : ~0,15 à 0,35 s par requête, contre ~50 s pour la première écriture de la requête.
+- Contrat : `docs/02_Architecture/GLOBAL_SEARCH_CONTRACT.md`. Endpoints existants inchangés (contrôleur et requêtes dédiés).
+- Tests : `ActivitySearchIntegrationTest` (36 cas, HTTP et PostgreSQL réels). Vérifié : `mvn verify` (1164 tests, checkstyle).
+
+
 ## 0.9.50 — 2026-10-11
 
 ### Recherche : villes proposées avec leur code postal pendant la saisie
