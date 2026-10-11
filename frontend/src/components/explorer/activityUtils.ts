@@ -88,21 +88,34 @@ export function formatCategoryLabels(activity: Activity, categories: Category[])
     return getCategoryLabels(activity, categories).join(", ");
 }
 
+/** Minuscules, sans accents ni ponctuation superflue : « Saint-Étienne » → « saint etienne ». */
+export function normalizeSearchText(value: string): string {
+    return value
+        .normalize("NFD")
+        .replace(/\p{M}+/gu, "")
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, " ")
+        .trim();
+}
+
 /**
  * Filtre texte libre (LL-EF-017, section 7 : "rechercher une activité, un
  * lieu, éventuellement une ville") — appliqué côté client sur les activités
- * déjà chargées, sans appel réseau supplémentaire ni nouvel endpoint
- * backend (ticket typé "Frontend" uniquement, hors périmètre d'ajouter une
- * recherche plein texte côté serveur).
+ * déjà chargées. Insensible à la casse, aux accents et à l'ordre des mots :
+ * chaque mot cherché doit apparaître dans le titre, la ville,
+ * l'adresse ou une catégorie (« marche lyon » trouve un « Marché » à Lyon).
  */
 export function matchesSearchQuery(activity: Activity, query: string, categories: Category[] = []): boolean {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) {
+    const words = normalizeSearchText(query).split(" ").filter(Boolean);
+    if (words.length === 0) {
         return true;
     }
-    return [activity.title, activity.city, activity.address, ...getCategoryLabels(activity, categories)]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLowerCase().includes(normalized));
+    const haystack = normalizeSearchText(
+        [activity.title, activity.city, activity.address, ...getCategoryLabels(activity, categories)]
+            .filter((value): value is string => Boolean(value))
+            .join(" "),
+    );
+    return words.every((word) => haystack.includes(word));
 }
 
 /** L'activité est-elle dans la zone affichée par la carte (bords compris) ? */
