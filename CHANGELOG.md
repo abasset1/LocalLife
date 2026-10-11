@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.46 — 2026-10-11
+
+### Recherche de ville depuis la carte
+- Web : dans la barre de recherche de l'Explorer, Entrée cherche le texte comme une ville. Trouvée, la carte s'y déplace (au moins à l'échelle d'une ville ; avec un rayon actif, le rayon s'y recentre comme avec « Autour de moi »), le filtre texte est retiré et un message « 📍 Carte centrée sur … » s'affiche. Sinon, le texte reste un filtre sur les activités chargées, avec un message si rien ne correspond. Jusqu'ici, la recherche ne filtrait que les activités déjà chargées : chercher une autre ville ne donnait rien.
+- Backend : nouvel endpoint public `GET /api/v1/geocoding/city?name=…` (200 ville et position, 400 nom vide, 404 introuvable, 503 Nominatim indisponible). `CitySearchService` protège Nominatim (1 requête/s) : cache des 500 dernières recherches (villes introuvables comprises), appels espacés d'au moins une seconde, réponse 503 plutôt qu'une attente de plus de 3 s.
+- Tests : `CitySearchServiceTest` (cache insensible à la casse, villes introuvables en cache, indisponibilité non mise en cache, espacement des appels), `GeocodingControllerTest`. Vérifié : `mvn verify` (1110 tests, checkstyle), build web ; parcours dans le navigateur contre le backend réel, visiteur non connecté, réponses de Nominatim simulées (injoignable ici) : Marseille → Entrée « Lyon » → carte et liste sur l'activité de Lyon ; « Vienne » → activité de Vienne ; « zzzz » → message. Appel réel à l'endpoint : 503 explicite (Nominatim injoignable), 400 pour un nom vide.
+
 ## 0.9.45 — 2026-10-11
 
 ### Explorer : la liste suit la carte

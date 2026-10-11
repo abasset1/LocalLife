@@ -1256,6 +1256,18 @@ body {
     padding: 0.1rem 0.3rem;
 }
 
+/* Résultat de la recherche de ville (Entrée). */
+.explorer-search-status {
+    margin: -0.25rem 1rem 0.5rem;
+    font-size: 0.82rem;
+    color: var(--ll-muted);
+}
+
+.explorer-search-status-error {
+    color: #c2412d;
+    font-weight: 600;
+}
+
 /* --- Filtres (section 6). --- */
 
 .explorer-filters {
