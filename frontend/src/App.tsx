@@ -6,7 +6,7 @@ import { clearToken, getPayload, getToken } from "./auth/authStorage";
 import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
 import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
-import { matchesSearchQuery, toLocalDateString } from "./components/explorer/activityUtils";
+import { isInBounds, matchesSearchQuery, toLocalDateString } from "./components/explorer/activityUtils";
 import { DEFAULT_SEARCH_RADIUS_KM, MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE, NO_DATE_FILTER } from "./components/explorer/constants";
 import ContributionModal, { EMPTY_RECURRENCE, type ContributionRecurrence } from "./components/explorer/ContributionModal";
 import ExplorerFilters from "./components/explorer/ExplorerFilters";
@@ -337,6 +337,17 @@ function App() {
     const filteredActivities = useMemo(
         () => activities.filter((activity) => matchesSearchQuery(activity, searchQuery, categories)),
         [activities, searchQuery],
+    );
+
+    /**
+     * Activités de la liste : seulement celles visibles sur la carte. Avec un rayon, la recherche
+     * charge tout le rayon : un zoom sur une partie du rayon réduit donc la liste à la zone affichée.
+     * Recalculée à chaque déplacement ou zoom (`mapBounds`) et à chaque nouvelle recherche (rayon,
+     * filtres). Sans zone connue (carte pas encore affichée), la liste montre tout.
+     */
+    const listedActivities = useMemo(
+        () => (mapBounds ? filteredActivities.filter((activity) => isInBounds(activity, mapBounds)) : filteredActivities),
+        [filteredActivities, mapBounds],
     );
 
     function requestGeolocation() {
@@ -850,7 +861,7 @@ function App() {
 
                     <div className="explorer-list-panel">
                         <ActivityList
-                            activities={filteredActivities}
+                            activities={listedActivities}
                             categories={categories}
                             error={searchError}
                             isLoading={isLoadingActivities}

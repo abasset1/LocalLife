@@ -1,4 +1,4 @@
-import type { Activity, Category } from "./types";
+import type { Activity, Category, MapBounds } from "./types";
 
 /**
  * Formate une date en YYYY-MM-DD à partir de ses composants locaux
@@ -103,4 +103,14 @@ export function matchesSearchQuery(activity: Activity, query: string, categories
     return [activity.title, activity.city, activity.address, ...getCategoryLabels(activity, categories)]
         .filter((value): value is string => Boolean(value))
         .some((value) => value.toLowerCase().includes(normalized));
+}
+
+/** L'activité est-elle dans la zone affichée par la carte (bords compris) ? */
+export function isInBounds(activity: Activity, bounds: MapBounds): boolean {
+    return (
+        activity.latitude >= bounds.swLatitude
+        && activity.latitude <= bounds.neLatitude
+        && activity.longitude >= bounds.swLongitude
+        && activity.longitude <= bounds.neLongitude
+    );
 }
