@@ -2,7 +2,9 @@ package com.locallife.backend.collector.infrastructure;
 
 import com.locallife.backend.collector.domain.DiscoveredAgenda;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -31,9 +33,6 @@ public class OpenAgendaAgendaDirectory {
     /** Maximum autorisé par l'API pour {@code size}. */
     private static final int PAGE_SIZE = 100;
 
-    /** Garde-fou contre une pagination qui ne se terminerait pas. */
-    private static final int MAX_PAGES = 50;
-
     private final RestClient restClient;
     private final String apiKey;
 
@@ -60,9 +59,9 @@ public class OpenAgendaAgendaDirectory {
 
         List<DiscoveredAgenda> agendas = new ArrayList<>();
         List<Object> after = null;
-        int page = 0;
+        Set<String> seenCursors = new HashSet<>();
 
-        while (agendas.size() < limit && page < MAX_PAGES) {
+        while (agendas.size() < limit) {
             List<Object> currentAfter = after;
             int size = Math.min(PAGE_SIZE, limit - agendas.size());
             AgendasResponse response;
@@ -96,12 +95,17 @@ public class OpenAgendaAgendaDirectory {
                 }
             }
 
-            after = response.after();
-            page++;
-            // Page incomplète : c'était la dernière, même si l'API renvoie encore un curseur.
-            if (after == null || after.isEmpty() || response.agendas().size() < size) {
+            List<Object> nextAfter = response.after();
+            // La pagination doit finir sur le curseur de l'API, sans plafond arbitraire de pages.
+            if (nextAfter == null || nextAfter.isEmpty() || response.agendas().size() < size) {
                 break;
             }
+            String cursorKey = nextAfter.toString();
+            if (!seenCursors.add(cursorKey)) {
+                throw new CollectorException(
+                        "La pagination OpenAgenda a renvoyé un curseur déjà rencontré ; découverte interrompue.", null);
+            }
+            after = nextAfter;
         }
 
         return agendas;

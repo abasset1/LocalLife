@@ -85,16 +85,13 @@ sont identifiés, plutôt que par une nouvelle migration.
 
 ## Découverte des agendas officiels
 
-`POST /api/v1/admin/import/discover-agendas?limit=50` (rôle `ADMIN`)
+`POST /api/v1/admin/import/discover-agendas` (rôle `ADMIN`)
 liste les agendas **officiels** OpenAgenda (`GET /v2/agendas?official=1`,
 les plus actifs d'abord) et crée une source collectible pour chacun de
 ceux qui n'en ont pas encore — voir `AgendaDiscoveryService` et
 `OpenAgendaAgendaDirectory`.
 
-* `limit` : nombre maximum d'agendas examinés, de 1 à 500 (50 par
-  défaut). OpenAgenda compte plusieurs milliers d'agendas officiels ;
-  la limite borne les essais tant que la déduplication entre sources
-  n'existe pas.
+* Sans paramètre `limit`, la découverte parcourt toutes les pages de l'annuaire officiel accessibles via la clé API. Un `limit` positif peut être fourni pour une découverte partielle. Il n'existe plus de plafond LocalLife sur le nombre de pages ; si l'API renvoie un curseur déjà rencontré, la découverte s'arrête avec une erreur plutôt que de boucler indéfiniment.
 * Un agenda déjà présent comme source (même `agendaUid`), active ou
   non, n'est ni recréé ni modifié : désactiver une source découverte
   l'écarte durablement.
