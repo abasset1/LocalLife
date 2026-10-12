@@ -109,7 +109,8 @@ public class AdminImportController {
     })
     @PostMapping("/discover-agendas")
     public ResponseEntity<Object> discoverAgendas(
-            @Parameter(description = "Nombre maximum d'agendas à examiner. Par défaut, tous les agendas accessibles dans l'annuaire officiel.")
+            @Parameter(description = "Nombre maximum d'agendas à examiner. Par défaut, tous les agendas "
+                    + "accessibles dans l'annuaire officiel.")
             @RequestParam(required = false) Integer limit,
             HttpServletRequest httpRequest) {
         if (limit != null && limit < 1) {
