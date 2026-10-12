@@ -39,6 +39,16 @@ services:
       OPENAGENDA_SOURCE_NAME: ${OPENAGENDA_SOURCE_NAME}
       OPENAGENDA_AVIGNON_CULTURE_UID: ${OPENAGENDA_AVIGNON_CULTURE_UID}
       OPENAGENDA_AVIGNON_CULTURE_NAME: ${OPENAGENDA_AVIGNON_CULTURE_NAME}
+      # SMTP réel requis pour confirmation, réinitialisation et alertes.
+      # Le service SMTP doit être accessible depuis le réseau Docker.
+      SMTP_HOST: ${SMTP_HOST:?Configure SMTP_HOST in .env.beta}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:?Configure SMTP_USERNAME in .env.beta}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Configure SMTP_PASSWORD in .env.beta}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      MAIL_FROM: ${MAIL_FROM:?Configure MAIL_FROM in .env.beta}
+      FRONTEND_BASE_URL: https://${LOCALLIFE_DOMAIN}
     depends_on:
       - postgres
     restart: unless-stopped
