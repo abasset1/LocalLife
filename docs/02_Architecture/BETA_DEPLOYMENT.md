@@ -128,10 +128,21 @@ template sans valeur réelle est fourni dans
 | `LOCALLIFE_BOOTSTRAP_ADMIN_PASSWORD` | Mot de passe du premier compte ADMIN | **Oui** |
 | `OPENAGENDA_API_KEY` | Clé API OpenAgenda | **Oui** — externalisée en LL-9004 (`application.properties` contenait auparavant cette clé en clair, exposée publiquement dans l'historique Git ; la clé doit être révoquée/régénérée sur le portail OpenAgenda avant tout déploiement bêta) |
 | `OPENAGENDA_AVIGNON_CULTURE_UID` et variables `OPENAGENDA_AVIGNON_*` | Agendas Avignon configurés au Sprint 8 | Non |
+| `SMTP_HOST` / `SMTP_PORT` | Serveur SMTP et port du prestataire email | Non |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | Identifiants SMTP | **Mot de passe sensible** |
+| `SMTP_AUTH` / `SMTP_STARTTLS` | Authentification et chiffrement SMTP (défaut : `true`) | Non |
+| `MAIL_FROM` | Adresse expéditeur autorisée par le prestataire | Non |
+| `FRONTEND_BASE_URL` | URL des liens de confirmation/réinitialisation | Non |
 
-Ce tableau définit les variables ; leur branchement effectif dans
-`application-prod.properties` (aujourd'hui vide) est laissé à LL-9003,
-pour rester dans le périmètre strictement documentaire de ce ticket.
+Le service backend de `docker-compose.beta.yml` transmet désormais les
+variables SMTP à Spring. `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`
+et `MAIL_FROM` sont obligatoires au démarrage Compose : la pile refuse
+ainsi de démarrer avec la configuration par défaut `localhost:1025`, qui
+ne peut pas joindre un serveur mail depuis le conteneur backend. Le port
+587 et STARTTLS sont les valeurs par défaut ; elles doivent être adaptées
+si le prestataire impose un autre mode. `FRONTEND_BASE_URL` est défini
+automatiquement à partir de `LOCALLIFE_DOMAIN` pour générer des liens
+utilisables depuis Internet.
 
 ---
 
