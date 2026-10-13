@@ -12,7 +12,7 @@ documentaire.
 | Phase | Statut |
 |---|---|
 | A — précision géographique | quatre points validés le 13/10/2026 ; conception finalisée, règles implémentées et testées **sans changement de schéma, non branchées** ; migration testée sur base jetable seulement ; hypothèses restantes au § 7.1.6 |
-| B — lieux permanents | principe accepté ; impacts présentés au § 7.2 |
+| B — lieux permanents | liste blanche explicite et modération décidées le 13/10/2026 ; mécanisme, liste blanche mesurée et impacts proposés au § 7.2, **non implémentés** |
 | C — marchés et horaires | piste acceptée ; étude N-Triples terminée, **jours de marché non trouvés** dans la part lue (§ 2.8) : pas d'implémentation recommandée en l'état |
 | D — liens de doublons | règle implémentée et testée mais **non branchée, donc non opérationnelle** ; branchement présenté au § 7.4 |
 
@@ -180,7 +180,7 @@ Ordre des sources, selon les décisions d'Alex :
 
 | Source | Données (constat) | Point à trancher |
 |---|---|---|
-| DATAtourisme lieux | Vaucluse : 3 619 lieux, tous géolocalisés, 204 sans adresse. Dominés par la restauration (986), les commerces (731), l'hébergement (445). Pertinents a priori : sites culturels (345), sports et loisirs (708), patrimoine (59), lieux religieux (68), galeries (74). | Liste blanche des types à importer. |
+| DATAtourisme lieux | Vaucluse : 3 619 lignes `PlaceOfInterest` (3 483 lieux une fois retirés ceux qui sont aussi événement, produit ou circuit, § 7.2.3), tous géolocalisés, 204 sans adresse. Dominés par la restauration (986), les commerces (731), l'hébergement (445). Pertinents a priori : sites culturels (345), sports et loisirs (708), patrimoine (59), lieux religieux (68), galeries (74). | Liste blanche des types à importer. |
 | Data ES (équipements sportifs) | Non encore analysé (étape 3). Données quotidiennes, nationales, filtrables côté serveur. | Quels équipements : tous, ou seulement ceux ouverts au public ? |
 | Basilic (lieux culturels) | Non encore analysé (étape 3). Publication ponctuelle. | Fréquence de mise à jour acceptable. |
 
@@ -531,53 +531,168 @@ en bêta et en production avant de valider le rattrapage.
 7. **Géocodage des contributions (A3/A4)** : hors de cette phase. Les
    contributions restent `UNKNOWN`.
 
-### 7.2 Phase B — lieux permanents et provenance : présentation pour décision
+### 7.2 Phase B — lieux permanents et provenance
 
-**Principe accepté (réutiliser `Location`). Statut : à valider.**
+**Statut : proposition pour décision (13/10/2026). Rien n'est implémenté.**
 
-**Impacts sur l'architecture et les fonctionnalités existantes :**
+#### 7.2.1 Décisions d'Alex (13/10/2026)
 
-| Zone | Impact | Compromis |
-|---|---|---|
-| Module `place` | passe d'un simple modèle à un module complet : API publique (`PlaceController`), service de lieux, modération | un module de plus à maintenir, mais pas de doublon d'entité |
-| Recherches d'activités, alertes | inchangées : elles ignorent `place_type`/`status` | — |
-| Lieux partagés existants | inchangés ; un lieu d'événement peut être promu en lieu permanent, sans changer d'`id` | une promotion modifie la fiche d'un lieu déjà utilisé : règle « ne jamais déplacer un lieu qui porte des programmations » (§ 2.3) |
-| Suppression d'activités (administration) | inchangée : les lieux restent (déjà le cas) | les lieux permanents ne sont jamais supprimés avec une activité |
-| Suppression d'une source | provenance supprimée en cascade, lieux conservés | un lieu peut rester sans provenance : à archiver par une règle explicite |
-| Import | nouveau `PlaceImportService` séparé de l'import d'événements ; mêmes garde-fous (fichier suspect, disparition massive, essai à blanc) | duplication partielle de l'orchestration, à factoriser si un troisième import apparaît |
-| Carte web et mobile | nouvelle couche « Lieux », activable ; l'application mobile ne la verra qu'après mise à jour | volume : 3 619 lieux DATAtourisme dans le seul Vaucluse avant liste blanche |
-| Administration | modération des lieux `PENDING` (fusions ambiguës) | charge de relecture à mesurer sur un essai à blanc |
+- **Liste blanche explicite** : aucun type de lieu n'est publié
+  implicitement.
+- **Modération avant publication** de tout nouveau lieu importé.
+- Avant implémentation : proposer le mécanisme qui distingue lieux en
+  attente et lieux publiés, puis présenter la liste blanche et ses impacts.
 
-**Décisions demandées** : liste blanche des types de lieux DATAtourisme
-(§ 2.5 ; proposition : sites culturels, patrimoine, sports et loisirs,
-galeries) ; publication directe (`PUBLISHED`) ou modération (`PENDING`) des
-lieux importés ; ordre des sources (DATAtourisme, puis Data ES, puis
-Basilic).
+#### 7.2.2 Mécanisme proposé : statut de lieu permanent, distinct du lieu d'événement
+
+Une colonne `location.place_status` (et non `status`, pour ne pas la
+confondre avec le statut d'une activité), toujours associée à `place_type` :
+
+| `place_type` | `place_status` | Sens | Visible comme lieu (couche « Lieux », API `/places`) |
+|---|---|---|---|
+| nul | nul | lieu d'événement seulement (tous les lieux existants) | non — comme aujourd'hui |
+| renseigné | `PENDING` | lieu importé, en attente de modération | non |
+| renseigné | `PUBLISHED` | validé par un administrateur | **oui** |
+| renseigné | `REJECTED` | refusé ; mémorisé pour ne pas être reproposé | non |
+| renseigné | `ARCHIVED` | disparu de la source ou retiré de la liste blanche | non |
+
+Règles :
+
+1. **Import** : un lieu dont aucun type précis n'est dans la liste blanche
+   n'est **pas importé du tout**, pas même en attente. Un lieu retenu est
+   créé en `PENDING`, jamais en `PUBLISHED`.
+2. **Indépendance des événements** : `place_status` ne masque jamais un
+   événement. Un événement rattaché à un lieu `PENDING` ou `REJECTED` reste
+   affiché comme aujourd'hui (le lieu d'un événement et sa fiche de lieu
+   permanent sont deux usages distincts de la même ligne).
+3. **Promotion** (§ 2.3, étape 3) : un lieu d'événement reconnu comme lieu
+   permanent reçoit `place_type` et passe en `PENDING`, pas en
+   `PUBLISHED`.
+4. **Refus durable** : la provenance (`location_source`, clé `(source_id,
+   external_id)`) garde le lien ; un réimport d'un lieu `REJECTED` met à
+   jour sa provenance mais ne le repropose pas.
+5. **Mise à jour d'un lieu publié** : nom, description, contacts mis à jour
+   sans nouvelle modération ; **retour en `PENDING`** si sa position bouge
+   de plus de 100 m, si son adresse disparaît, ou si ses types sortent de
+   la liste blanche (au lieu de le dépublier sans regard humain).
+6. **Disparition de la source** : `ARCHIVED`, avec le même garde-fou que
+   les activités (au moins 10 lieux et plus de 50 % disparus d'un coup :
+   archivage suspendu) et l'essai à blanc avant activation.
+7. **Signalements à la modération** (calculés, non bloquants) : sans
+   adresse, nom d'itinéraire (« Circuit… », « Parcours… »), doublon de nom
+   dans la commune, précision `APPROXIMATE` (phase A), candidat de fusion
+   ambigu (§ 2.3).
+8. **Actions de modération** : publier ou refuser un lieu ; **actions
+   groupées** sur une sélection filtrée (type, commune, sans signalement),
+   indispensables au volume (§ 7.2.3). Chaque action est journalisée
+   (administrateur, date).
+9. **Publication automatique** par règle « source + type » : **non
+   proposée maintenant** ; envisageable plus tard, sur la base du taux de
+   refus mesuré par type.
 
 ```sql
+-- PROJET, non créé : remplace le projet précédent (colonne status).
 ALTER TABLE location
     ADD COLUMN place_type VARCHAR(50),
-    ADD COLUMN status VARCHAR(20),
+    ADD COLUMN place_status VARCHAR(20),
     ADD COLUMN description TEXT,
-    ADD COLUMN published_at TIMESTAMPTZ;
+    ADD COLUMN published_at TIMESTAMPTZ,
+    ADD COLUMN moderated_by BIGINT REFERENCES users (id) ON DELETE SET NULL,
+    ADD COLUMN moderated_at TIMESTAMPTZ;
 ALTER TABLE location ADD CONSTRAINT chk_location_permanent_place CHECK (
-    (place_type IS NULL AND status IS NULL)
-    OR (place_type IS NOT NULL AND status IN ('PENDING', 'PUBLISHED', 'REJECTED', 'ARCHIVED')));
-CREATE INDEX idx_location_published_place ON location (place_type) WHERE status = 'PUBLISHED';
+    (place_type IS NULL AND place_status IS NULL)
+    OR (place_type IS NOT NULL AND place_status IN ('PENDING', 'PUBLISHED', 'REJECTED', 'ARCHIVED')));
+CREATE INDEX idx_location_published_place ON location (place_type) WHERE place_status = 'PUBLISHED';
+CREATE INDEX idx_location_pending_place ON location (id) WHERE place_status = 'PENDING';
 
 CREATE TABLE location_source (
     id BIGSERIAL PRIMARY KEY,
     location_id BIGINT NOT NULL REFERENCES location (id) ON DELETE CASCADE,
     source_id BIGINT NOT NULL REFERENCES source (id) ON DELETE CASCADE,
     external_id VARCHAR(255) NOT NULL,
+    source_types TEXT NOT NULL,          -- types DATAtourisme reçus, pour rejouer la liste blanche
     content_hash VARCHAR(64),
     last_seen_at TIMESTAMPTZ,
     UNIQUE (source_id, external_id)
 );
 ```
 
-`ON DELETE CASCADE` sur la source : la suppression d'une source
-(`SourceService#deleteSource`) retire sa provenance, pas les lieux.
+Données existantes : aucune ligne ne reçoit `place_type` ni
+`place_status` ; aucun changement visible.
+
+#### 7.2.3 Liste blanche proposée, mesurée sur l'export DATAtourisme PACA du 13/10/2026
+
+Mesure reproductible : `collectors/verification/place_types_report.py`
+(lecture seule, sans réseau) sur `datatourisme-reg-pac.csv`. Vaucluse :
+**3 483 lieux**, dominés par la restauration (799 sans sous-type) et la
+dégustation (653), puis les commerces et l'hébergement.
+
+**Règle** : un lieu est retenu s'il a au moins un **type précis** de la
+liste (type qui n'est parent d'aucun autre de ses types), et aucun type
+`Accommodation`, `FoodEstablishment` ou `TastingProvider`. Un type parent
+de la liste (`CulturalSite`) ne retient que les lieux dont il est le type
+précis : aucun sous-type n'entre implicitement. La hiérarchie est déduite
+du fichier (l'ontologie n'est pas joignable), ce qui donne des parentés de
+fait parfois surprenantes (toutes les galeries portent aussi `Store`) :
+c'est pourquoi l'exclusion ne porte pas sur `Store`.
+
+**Groupe 1 — proposé (46 types, 418 lieux dans le Vaucluse)**
+
+| Famille | Types (lieux dans le Vaucluse) |
+|---|---|
+| Culture | `CulturalSite` sans sous-type (53 : Théâtre antique d'Orange…), `Library` (48), `Museum` (44), `Theater` (35), `Cinema` (14), `InterpretationCentre` (1) |
+| Patrimoine | `ParkAndGarden` (30), `Castle` (22), `Ruins` (18), `Mill` (5), `Tower` (4), `Dungeon` (4), `WashHouse` (3), `Bridge` (3), `RemembranceSite` (3), `Palace` (2), `Aqueduct` (2), `ArcheologicalSite`, `RomanPath`, `Fort`, `DefenceSite`, `TechnicalHeritage`, `IndustrialSite`, `Mine`, `CoveredMarket` (1 chacun) |
+| Patrimoine religieux | `Church` (45), `Chapel` (9), `Abbey` (5), `Collegiate` (4), `Basilica`, `Cathedral`, `Convent`, `Commanderie`, `Synagogue`, `Temple` (2 chacun), `Monastery` (1) |
+| Équipements sportifs et de plein air | `TennisComplex` (16), `SwimmingPool` (13), `BoulesPitch` (13), `TrackRollerOrSkateBoard` (9), `Stadium` (8), `Beach` (8), `FitnessPath` (5), `PlayArea` (3), `NaturalHeritage`, `PointOfView` (1 chacun) |
+
+Qualité des 418 : 28 sans adresse, 8 noms d'itinéraires (« Circuit piéton
+"à la découverte de Valréas" », classé à la fois église, chapelle, tour et
+couvent), 14 doublons de nom dans la même commune. Autres départements :
+04 : 322 ; 05 : 344 ; 06 : 678 ; 13 : 1 907 ; 83 : 1 072 (**4 741 en
+PACA**).
+
+**Groupe 2 — à trancher (17 types, 215 lieux)** : lieux de loisirs
+souvent commerciaux ou services. `ArtGalleryOrExhibitionGallery` (73,
+galeries marchandes et salles d'exposition mêlées), `EquestrianCenter`
+(41), `LocalTouristOffice` (37), `ClimbingWall` (21), `ThemePark` (10),
+`ZooAnimalPark` (6), `TouristTrain`, `GolfCourse`, `BowlingAlley`,
+`TeachingFarm` (4 chacun), `AdventurePark`, `MiniGolf` (3), `SightseeingBoat`
+(2), `ViaFerrata`, `RacingCircuit`, `Racetrack`, `LeisureComplex` (1).
+
+**Exclus explicitement** : restauration, dégustation, hébergement,
+commerces, prestataires d'activités, services, santé, transport ; et
+**`CityHeritage` / `District`** (59 lieux : un village ou un quartier
+entier, 28 sans adresse ; ce sont des zones, pas des lieux, au sens de la
+phase A).
+
+#### 7.2.4 Impacts
+
+**Impacts sur l'architecture et les fonctionnalités existantes :**
+
+| Zone | Impact | Compromis |
+|---|---|---|
+| Module `place` | passe d'un simple modèle à un module complet : API publique (`PlaceController`), service de lieux, modération | un module de plus à maintenir, mais pas de doublon d'entité |
+| Recherches d'activités, alertes, affichage des événements | inchangés : ils ignorent `place_type`/`place_status` (règle 2) | — |
+| Lieux partagés existants | inchangés ; un lieu d'événement peut être promu en lieu permanent, sans changer d'`id` | une promotion modifie la fiche d'un lieu déjà utilisé : règle « ne jamais déplacer un lieu qui porte des programmations » (§ 2.3) |
+| Suppression d'activités (administration) | inchangée : les lieux restent (déjà le cas) | les lieux permanents ne sont jamais supprimés avec une activité |
+| Suppression d'une source | provenance supprimée en cascade, lieux conservés | un lieu peut rester sans provenance : à archiver par une règle explicite |
+| Import | nouveau `PlaceImportService` séparé de l'import d'événements ; mêmes garde-fous (fichier suspect, disparition massive, essai à blanc) | duplication partielle de l'orchestration, à factoriser si un troisième import apparaît |
+| Carte web et mobile | nouvelle couche « Lieux », activable ; l'application mobile ne la verra qu'après mise à jour | volume : 418 lieux publiables dans le Vaucluse avec le groupe 1 (3 483 avant liste blanche) |
+| Administration | écran de modération des lieux `PENDING` (tous les nouveaux lieux importés), avec signalements et actions groupées | charge de relecture : voir la ligne suivante |
+| Modération | file d'attente initiale de **418 lieux** (Vaucluse) ou **4 741** (PACA) ; ensuite, quelques lieux par import. Actions groupées indispensables | sans actions groupées, la file initiale n'est pas traitable |
+| Ordre de mise en service | Vaucluse seul d'abord (filtre de département de la source, comme les événements), puis extension | — |
+| Phase A | les lieux sans adresse et les zones sont signalés ; `CityHeritage`/`District` exclus | dépend de la migration de la phase A pour le signalement `APPROXIMATE` |
+
+#### 7.2.5 Décisions demandées
+
+1. Valider le **groupe 1** tel quel, ou le réduire.
+2. Trancher le **groupe 2**, type par type ou en bloc (proposition : ne
+   pas l'inclure au départ ; galeries et offices de tourisme à revoir après
+   un premier cycle de modération).
+3. Valider la règle 5 (retour en attente sur changement important) et la
+   règle 4 (refus durable).
+4. Périmètre de départ : **Vaucluse seul** (proposition).
+5. Qui modère, et à quel rythme : la file initiale est de 418 lieux.
 
 ### 7.3 Phase C — marchés et horaires d'ouverture (§ 2.7)
 

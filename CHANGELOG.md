@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Lieux permanents (ADR-0011, phase B) : proposition, rien d'implémenté
+- Mécanisme de modération proposé : `location.place_status` (`PENDING`, `PUBLISHED`, `REJECTED`, `ARCHIVED`), distinct du lieu d'événement ; tout nouveau lieu importé en attente ; aucun événement masqué par le statut d'un lieu ; refus durable ; retour en attente sur changement important.
+- Liste blanche explicite mesurée sur l'export DATAtourisme PACA : 46 types proposés (418 lieux dans le Vaucluse, 4 741 en PACA), 17 à trancher, exclusions explicites. Mesure reproductible : `collectors/verification/place_types_report.py`.
+
 ### Vérification JEP / Fête de la science : accès préparés, aucune connexion
 - `VERIFICATION_JEP_FDS.md` : permissions exactes (rôle en lecture seule limité à 13 colonnes, testé en local ; ou aucun accès, l'administrateur transmettant deux CSV), clé OpenAgenda de lecture uniquement, données lues et leur usage, procédure de configuration, résultats attendus de chaque comparaison avec leurs critères d'invalidation.
 - `openagenda_export.py` : refuse une clé secrète (`oa_sk_`) ; ne demande plus les champs détaillés par défaut (option `--detailed`) ; s'arrête si les événements reçus n'ont pas de lieu, au lieu de produire un export vide à tort.
