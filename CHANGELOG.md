@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Vérification JEP / Fête de la science : accès préparés, aucune connexion
+- `VERIFICATION_JEP_FDS.md` : permissions exactes (rôle en lecture seule limité à 13 colonnes, testé en local ; ou aucun accès, l'administrateur transmettant deux CSV), clé OpenAgenda de lecture uniquement, données lues et leur usage, procédure de configuration, résultats attendus de chaque comparaison avec leurs critères d'invalidation.
+- `openagenda_export.py` : refuse une clé secrète (`oa_sk_`) ; ne demande plus les champs détaillés par défaut (option `--detailed`) ; s'arrête si les événements reçus n'ont pas de lieu, au lieu de produire un export vide à tort.
+- Les fichiers d'export de vérification sont ignorés par Git.
+
 ### Précision géographique (ADR-0011, phase A) : conception finalisée, sans changement de schéma
 - Règles en fonctions pures, testées, **non branchées** : `CoordinatePrecision` (`EXACT`, `APPROXIMATE`, `UNKNOWN`) et `CoordinatePrecisionPolicy` (un import ne pose jamais `EXACT` ; texte générique → `APPROXIMATE` ; un lieu approximatif n'est partagé qu'avec un lieu approximatif de même nom et même commune ; précision d'un lieu réutilisé inchangée).
 - Le collecteur DATAtourisme délègue sa règle des adresses génériques à `CoordinatePrecisionPolicy` (comportement inchangé).
