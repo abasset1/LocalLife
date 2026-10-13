@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Marchés et horaires (ADR-0011, phase C) : étude, rien d'intégré
+- Ontologie DATAtourisme reconstituée à partir des données (sonde `ntriples_ontology_probe.py`, 17 % de l'archive, sans compte) : périodes `core:Period` / `RecurrentPeriod` (`startDate`, `endDate`, `startTime`, `endTime`, `appliesOnDay`) et horaires `schema:openingHoursSpecification` portés par le lieu.
+- Jours de marché présents dans le N-Triples pour 58 à 95 des 107 marchés résolus (borne haute : recoupement non mesuré) (dates d'une séance ou `appliesOnDay`), mais perdus dans le CSV (périodes regroupées sur l'année). Part du Vaucluse non mesurée ; intérêt d'un compte diffuseur présenté.
+
 ### Doublons entre sources (ADR-0011, phase D) : mesure sans écriture
 - `DuplicateReport.java` : rapport de doublons qui appelle la règle de l'application telle quelle ; classes certaines (lien distinctif partagé), probables, ambiguës ; faux positifs sûrs et échantillon reproductible à relire. Autotest de 10 vérifications.
 - `events_for_matching.py` (DATAtourisme) et `infra/verification/phase_d_export_doublons.sql` (données de l'application, lecture seule, contributions exclues).

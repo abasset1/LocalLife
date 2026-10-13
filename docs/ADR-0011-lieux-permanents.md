@@ -13,7 +13,7 @@ documentaire.
 |---|---|
 | A — précision géographique | quatre points validés le 13/10/2026 ; conception finalisée, règles implémentées et testées **sans changement de schéma, non branchées** ; migration testée sur base jetable seulement ; hypothèses restantes au § 7.1.6 |
 | B — lieux permanents | liste blanche explicite et modération décidées le 13/10/2026 ; mécanisme, liste blanche mesurée et impacts proposés au § 7.2, **non implémentés** |
-| C — marchés et horaires | piste acceptée ; étude N-Triples terminée, **jours de marché non trouvés** dans la part lue (§ 2.8) : pas d'implémentation recommandée en l'état |
+| C — marchés et horaires | ontologie reconstituée à partir des données (§ 7.3) : jours de marché **présents dans le N-Triples** (dates d'une séance ou `appliesOnDay`), perdus dans le CSV ; part du Vaucluse non mesurée ; compte diffuseur à décider |
 | D — liens de doublons | mesure sans écriture outillée et étalonnée (0 faux positif sur 1 probable, 3 sur 14 ambiguës) ; mesure sur les données de l'application à faire ; règle **non branchée** |
 
 Révision du 13/10/2026 (retour d'audit de la PR #104) : précision
@@ -307,7 +307,11 @@ horaires est peut-être situé dans les 74 % non lus, ou passer par une
 propriété non suivie ici (par exemple sur le lieu plutôt que sur la
 période).
 
-**Recommandation (phase C) :** ne pas développer de connecteur N-Triples
+**Mise à jour du 13/10/2026 (après-midi)** : la propriété manquante est
+identifiée et les jours de marché sont bien présents dans le N-Triples :
+voir § 7.3, qui remplace la recommandation ci-dessous.
+
+**Recommandation initiale (phase C) :** ne pas développer de connecteur N-Triples
 pour les jours de marché à ce stade. Avant tout traitement complet :
 
 1. lire la définition de l'ontologie (dépôt framagit ou GitLab ADN
@@ -694,9 +698,100 @@ phase A).
 4. Périmètre de départ : **Vaucluse seul** (proposition).
 5. Qui modère, et à quel rythme : la file initiale est de 418 lieux.
 
-### 7.3 Phase C — marchés et horaires d'ouverture (§ 2.7)
+### 7.3 Phase C — marchés et horaires : ontologie et N-Triples (13/10/2026)
+
+**Statut : étude terminée dans les limites fixées (aucun compte, aucun
+traitement complet). Aucune intégration.**
+
+#### 7.3.1 Méthode
+
+L'ontologie publiée (framagit, GitLab ADN Tourisme, datatourisme.fr) n'est
+**pas joignable** depuis l'environnement de développement (politique
+réseau). Elle a donc été **reconstituée à partir des données** : la sonde
+`collectors/verification/ntriples_ontology_probe.py` lit un préfixe de
+l'archive N-Triples du 13/10/2026 (320 Mo compressés sur 1 930, **17 %**,
+12,5 millions de triplets, 35 min), sans rien écrire, et mesure les
+prédicats, les types et les liens réellement employés. Le fichier ne
+contient aucun triplet d'ontologie (`rdfs:domain`, `subClassOf`…).
+
+#### 7.3.2 Concepts, propriétés et relations identifiés
+
+```
+core:Market (événement)
+ ├─ core:takesPlaceAt ──▶ core:Period            (5 181 nœuds lus)
+ │                         ├─ core:startDate, core:endDate
+ │                         ├─ core:startTime, core:endTime   (2 123 périodes avec heures)
+ │                         └─ sous-type core:RecurrentPeriod (41)
+ │                              └─ core:appliesOnDay          (jour de la semaine)
+ └─ core:isLocatedAt ───▶ schema:Place
+                           └─ schema:openingHoursSpecification ──▶ schema:OpeningHoursSpecification
+                                                                     ├─ schema:dayOfWeek
+                                                                     ├─ schema:opens, schema:closes
+                                                                     └─ schema:validFrom, schema:validThrough
+```
+
+La propriété qui manquait à l'étude du § 2.8 est
+**`schema:openingHoursSpecification`, portée par le lieu
+(`schema:Place`, cible de `isLocatedAt`)**, et non par la période : 396
+liens observés, tous de cette forme. Pour un événement comme un marché,
+les jours et heures sont portés par les **périodes**.
+
+#### 7.3.3 Les jours de marché sont-ils dans le N-Triples ?
+
+**Oui, en partie.** Dans la part lue (2 625 marchés, France entière), 107
+ont des périodes présentes dans le préfixe :
+
+| Ce que portent les périodes du marché | Marchés (sur 107) | Jours exploitables |
+|---|---|---|
+| dates d'un jour seulement, toutes le même jour de semaine (ex. « Marché à Latronquière » : 52 vendredis) | 53 | **oui**, déduits des dates |
+| dates d'un jour seulement, deux jours de semaine | 5 | oui |
+| périodes longues seulement | 49 | non, sauf `appliesOnDay` |
+| `core:appliesOnDay` sur une période récurrente | 37 (recoupement avec les lignes précédentes non mesuré) | **oui**, explicite |
+| `core:startTime` / `endTime` | 73 | heures de marché |
+
+Chemin par les horaires du lieu : 215 lieux de marché lus, **aucun**
+avec des horaires (`openingHoursSpecification`). Pour les marchés, ce
+chemin n'est pas celui qui porte les jours.
+
+**Pourquoi le CSV ne les a pas** : la colonne `Periodes_regroupees` du
+CSV regroupe les périodes. En PACA, 485 des 531 marchés n'y ont qu'une
+période couvrant l'année (d'où les 88 marchés du Vaucluse écartés par la
+règle des 31 jours), alors que le N-Triples porte, pour des marchés
+comparables, une date par séance ou une période récurrente avec son jour.
+
+#### 7.3.4 Informations manquantes
+
+1. **Valeurs de `appliesOnDay`** : propriété observée, valeurs non relevées
+   (probablement des individus `schema:Monday`…) ; à vérifier.
+2. **Proportion réelle** : 107 marchés résolus sur 2 625 lus (périodes
+   dispersées dans le fichier), France entière ; **la part du Vaucluse
+   n'est pas mesurée**.
+3. **Ontologie officielle** non lue : définitions, cardinalités, sens exact
+   de `RecurrentPeriod` (exceptions, fermetures) non confirmés.
+4. Fraîcheur : les dates d'un jour couvrent l'année en cours ; leur
+   prolongation l'année suivante n'est pas observée.
+
+#### 7.3.5 Intérêt d'un compte diffuseur DATAtourisme (à décider)
+
+Un compte gratuit sur la plateforme diffuseur permet de créer un **flux
+filtré** (type `Market`, département 84) au format JSON, où chaque marché
+est **complet** (périodes, `appliesOnDay`, heures, lieu) dans un petit
+fichier : il répondrait aux points 1 et 2 pour le Vaucluse sans traiter
+1,9 Go, et deviendrait la source naturelle d'un futur import. Inconvénients :
+un compte et une clé de plus à gérer, conditions d'utilisation de la
+plateforme à relire. Alternative sans compte : traitement complet ponctuel
+du N-Triples sur un serveur au débit normal (deux passes, quelques
+heures), non autorisé à ce stade.
+
+#### 7.3.6 Conséquence pour la conception (non implémentée)
+
+La table du projet (`location_opening_hours`) reste adaptée ; ses lignes
+viendraient des périodes (jour de la semaine déduit ou `appliesOnDay`,
+heures `startTime`/`endTime`), avec `valid_from`/`valid_until`. Un marché
+sans jour exploitable reste « Jours de marché à confirmer ».
 
 ```sql
+-- PROJET, non créé.
 CREATE TABLE location_opening_hours (
     id BIGSERIAL PRIMARY KEY,
     location_id BIGINT NOT NULL REFERENCES location (id) ON DELETE CASCADE,
@@ -708,9 +803,6 @@ CREATE TABLE location_opening_hours (
     source_id BIGINT REFERENCES source (id) ON DELETE SET NULL
 );
 ```
-
-Un marché sans ligne d'horaires s'affiche « Jours de marché à confirmer ».
-Phase conditionnée au résultat de l'étude N-Triples (§ 2.8).
 
 ### 7.4 Phase D — liens de doublons : présentation pour décision
 

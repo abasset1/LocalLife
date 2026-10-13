@@ -1,5 +1,6 @@
 # Phase C (ADR-0011, § 7.3) : sonde ponctuelle de l'ontologie DATAtourisme telle qu'employée dans les données.
 # Usage : python3 -I ntriples_ontology_probe.py OCTETS_COMPRESSES_A_LIRE [URL | début d'archive déjà téléchargé]
+# Exécution du 13/10/2026 : 335544320 (320 Mo, 17 % de l'archive, 35 min) ; résultats dans ADR-0011, § 7.3.
 # Lecture partielle seulement (requêtes HTTP partielles, ou fichier local), décompression à la volée, rien n'est
 # écrit. Ne pas lancer sur le fichier entier sans décision.
 """L'ontologie (framagit, GitLab ADN Tourisme, datatourisme.fr) n'est pas joignable depuis l'environnement de
