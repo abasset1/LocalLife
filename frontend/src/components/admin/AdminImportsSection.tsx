@@ -18,6 +18,8 @@ interface ImportResult {
     errors: number;
     /** Activités disparues non archivées : disparition massive jugée suspecte (garde-fou backend). */
     archiveWithheld: number;
+    /** Pourquoi l'import de cette source a été bloqué (collecte en échec, archivage suspendu), sinon `null`. */
+    blockedReason: string | null;
 }
 
 /** `AgendaDiscoveryResult` (backend). */
@@ -33,7 +35,7 @@ interface AdminImportsSectionProps {
     onSourcesChanged: () => void;
 }
 
-const RESULT_COLUMNS: { key: keyof ImportResult; label: string; title: string }[] = [
+const RESULT_COLUMNS: { key: Exclude<keyof ImportResult, "blockedReason">; label: string; title: string }[] = [
     { key: "fetched", label: "Collectées", title: "Activités renvoyées par la source" },
     { key: "created", label: "Créées", title: "Nouvelles activités" },
     { key: "updated", label: "Mises à jour", title: "Activités existantes modifiées" },
@@ -243,6 +245,17 @@ function AdminImportsSection({ onSourcesChanged }: AdminImportsSectionProps) {
                             sur {importResults.length}{" "}
                             source(s).
                         </p>
+                        {importResults.some((result) => result.blockedReason) && (
+                            <ul className="admin-import-blocked">
+                                {importResults
+                                    .filter((result) => result.blockedReason)
+                                    .map((result) => (
+                                        <li key={result.sourceName}>
+                                            <strong>{result.sourceName}</strong> : {result.blockedReason}
+                                        </li>
+                                    ))}
+                            </ul>
+                        )}
                         <div className="admin-import-table-wrapper">
                             <table className="admin-import-table">
                                 <thead>

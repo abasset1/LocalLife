@@ -34,7 +34,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class SourceDryRunService {
 
-    /** Au-delà, la normalisation rejette trop d'éléments : format ou correspondance de champs à vérifier. */
+    /**
+     * Au-delà (strictement plus de la moitié des éléments collectés), la normalisation rejette trop d'éléments :
+     * format ou correspondance de champs à vérifier. 2 sur 4 n'est pas suspect, 3 sur 4 l'est. Valeur initiale
+     * de protection technique, pas une règle métier.
+     */
     static final double MAX_INVALID_RATIO = 0.5;
 
     private static final int SAMPLE_SIZE = 5;

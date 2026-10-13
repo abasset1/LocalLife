@@ -2,6 +2,7 @@ package com.locallife.backend.collector.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -722,6 +723,8 @@ class ImportServiceTest {
         assertEquals(0, result.fetched());
         assertEquals(0, result.created());
         assertEquals(1, result.errors());
+        assertTrue(result.blockedReason().startsWith("Collecte en échec"));
+        assertTrue(result.blockedReason().endsWith("panne réseau"));
         verify(activityRepository, never()).findBySourceId(any());
     }
 
@@ -817,6 +820,7 @@ class ImportServiceTest {
 
         assertEquals(0, result.archived());
         assertEquals(ImportService.MASS_ARCHIVE_MIN_COUNT, result.archiveWithheld());
+        assertTrue(result.blockedReason().startsWith("Archivage suspendu : 10 activités à venir sur 10"));
         verify(activityRepository, never()).save(any());
     }
 
@@ -836,6 +840,7 @@ class ImportServiceTest {
 
         assertEquals(past.size(), result.archived());
         assertEquals(0, result.archiveWithheld());
+        assertNull(result.blockedReason());
     }
 
     /** Archivage suspendu : seules les activités à venir sont retenues, les passées s'archivent quand même. */
@@ -869,6 +874,12 @@ class ImportServiceTest {
         // Volume atteint mais moitié ou moins : renouvellement normal d'une grosse source.
         assertFalse(ImportService.isSuspiciousArchive(10, 20));
         assertFalse(ImportService.isSuspiciousArchive(40, 200));
+        // Limites exactes : strictement plus de la moitié.
+        assertTrue(ImportService.isSuspiciousArchive(10, 19));
+        assertFalse(ImportService.isSuspiciousArchive(11, 22));
+        assertTrue(ImportService.isSuspiciousArchive(11, 21));
+        assertEquals(10, ImportService.MASS_ARCHIVE_MIN_COUNT);
+        assertEquals(0.5, ImportService.MASS_ARCHIVE_MAX_RATIO);
     }
 
     @Test

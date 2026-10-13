@@ -160,6 +160,27 @@ class SourceDryRunServiceTest {
         assertNothingWritten();
     }
 
+    /** Limite exacte : la moitié des éléments rejetés n'est pas suspecte, plus de la moitié l'est. */
+    @Test
+    void dryRun_ShouldApplyInvalidRatio_AtItsBoundary() {
+        when(collector.collect()).thenReturn(List.of(item("1"), item("2"), item("3"), item("4")));
+        when(activityRepository.findBySourceId(SOURCE.id())).thenReturn(List.of());
+        Activity valid = imported("x", LocalDateTime.now());
+        when(normalizationService.normalize(any()))
+                .thenReturn(Optional.empty(), Optional.empty(), Optional.of(valid), Optional.of(valid))
+                .thenReturn(Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(valid));
+
+        SourceDryRunReport half = dryRunService.dryRun(SOURCE.id()).orElseThrow();
+        SourceDryRunReport threeQuarters = dryRunService.dryRun(SOURCE.id()).orElseThrow();
+
+        assertEquals(0.5, SourceDryRunService.MAX_INVALID_RATIO);
+        assertEquals(2, half.invalid());
+        assertEquals(Verdict.OK, half.verdict());
+        assertEquals(3, threeQuarters.invalid());
+        assertEquals(Verdict.SUSPICIOUS, threeQuarters.verdict());
+        assertNothingWritten();
+    }
+
     @Test
     void dryRun_ShouldBeSuspicious_WhenUpcomingActivitiesWouldMassivelyDisappear() {
         when(collector.collect()).thenReturn(List.of(item("nouveau")));

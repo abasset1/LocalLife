@@ -126,6 +126,9 @@ class DataTourismeImportSafetyTest {
     private void assertNothingArchived(ImportResult result) {
         assertEquals(1, result.errors());
         assertEquals(0, result.archived());
+        // Le bilan dit pourquoi l'import a été bloqué, avec la raison donnée par le collecteur.
+        assertTrue(result.blockedReason().startsWith("Collecte en échec"));
+        assertTrue(result.blockedReason().length() > "Collecte en échec".length() + 40);
         verify(activityRepository, never()).findBySourceId(any());
         verify(activityRepository, never()).save(any());
         verify(sourceService, never()).recordSync(any(), any());
@@ -172,6 +175,7 @@ class DataTourismeImportSafetyTest {
 
         assertEquals(0, result.archived());
         assertEquals(12, result.archiveWithheld());
+        assertTrue(result.blockedReason().startsWith("Archivage suspendu : 12 activités à venir sur 12"));
         verify(activityRepository, never()).save(any());
     }
 

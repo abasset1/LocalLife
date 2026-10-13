@@ -211,6 +211,10 @@ public class ImportService {
      * la source, la collecte est jugée suspecte (fichier tronqué, filtre mal saisi, panne côté source) :
      * aucune activité à venir n'est archivée pour cette exécution. Les activités passées ne comptent pas et
      * sont archivées dans tous les cas : leur disparition de la source est normale.
+     *
+     * <p>Limites exactes : suspect si {@code disparues >= 10} <b>et</b> {@code disparues > 0,5 × publiées à
+     * venir} (strictement plus de la moitié : 10 sur 20 n'est pas suspect, 10 sur 19 l'est). Valeurs initiales
+     * de protection technique, pas des règles métier : à ajuster sur l'observation des imports réels.
      */
     static final int MASS_ARCHIVE_MIN_COUNT = 10;
 
@@ -360,7 +364,9 @@ public class ImportService {
             LocalDateTime endedAt = LocalDateTime.now();
             LOGGER.error("Échec de la collecte pour la source '{}' : {}", source.name(), exception.getMessage(),
                     exception);
-            return new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0, 0);
+            return new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+                    "Collecte en échec, import interrompu sans rien créer, modifier ni archiver : "
+                            + exception.getMessage());
         }
 
         int created = 0;
@@ -504,7 +510,7 @@ public class ImportService {
 
         ImportResult result = new ImportResult(
                 source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors,
-                archive.archived(), needsReview, unchanged, duplicates, archive.withheld());
+                archive.archived(), needsReview, unchanged, duplicates, archive.withheld(), archive.reason());
         LOGGER.info("Import terminé pour la source '{}' : {}", source.name(), result);
 
         return result;
@@ -658,8 +664,12 @@ public class ImportService {
                 activityRepository.findBySourceId(source.id()), seenImportKeys, LocalDate.now().atStartOfDay());
         List<Activity> toArchive = new ArrayList<>(plan.past());
         int withheld = 0;
+        String reason = null;
         if (plan.suspicious()) {
             withheld = plan.upcoming().size();
+            reason = "Archivage suspendu : " + withheld + " activités à venir sur " + plan.upcomingPublished()
+                    + " ont disparu de la collecte (garde-fou : au moins " + MASS_ARCHIVE_MIN_COUNT
+                    + " et plus de " + Math.round(MASS_ARCHIVE_MAX_RATIO * 100) + " %). Elles restent publiées.";
             LOGGER.warn("Archivage suspendu pour la source '{}' : {} activités à venir sur {} ont disparu de la "
                     + "collecte, disparition jugée suspecte. Elles restent publiées.",
                     source.name(), withheld, plan.upcomingPublished());
@@ -669,7 +679,7 @@ public class ImportService {
         for (Activity activity : toArchive) {
             activityRepository.save(withStatus(activity, ARCHIVED_STATUS));
         }
-        return new ArchiveOutcome(toArchive.size(), withheld);
+        return new ArchiveOutcome(toArchive.size(), withheld, reason);
     }
 
     /**
@@ -718,8 +728,8 @@ public class ImportService {
         return last == null || !last.isBefore(startOfToday);
     }
 
-    /** Bilan de l'archivage : archivées, ou retenues par le garde-fou. */
-    private record ArchiveOutcome(int archived, int withheld) {
+    /** Bilan de l'archivage : archivées, ou retenues par le garde-fou (avec le motif). */
+    private record ArchiveOutcome(int archived, int withheld, String reason) {
     }
 
     private Activity withSourceAndKey(Activity activity, Long id, Long sourceId, String importKey) {
