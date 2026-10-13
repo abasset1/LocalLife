@@ -6,9 +6,13 @@
 - Nouveau type de source `DATATOURISME` : lit l'export CSV quotidien DATAtourisme publié par ADN Tourisme sur data.gouv.fr, sans clé API, et n'en garde que les événements à venir.
 - Source ajoutée par la migration `V60` : `DATAtourisme PACA (data.gouv.fr)`, active, filtrée sur le Vaucluse (`84`). URL et départements modifiables depuis l'administration (type `DATATOURISME` ajouté au formulaire).
 - Chaque période (dates seules) devient un créneau de 00:00 le premier jour à 23:59 le dernier. Les types DATAtourisme sont traduits en mots-clés français (concert, théâtre, marché…) pour la classification ; à défaut, le titre sert de repli.
-- Vérifié sur le fichier réel du 13/10/2026 : 213 événements à venir dans le Vaucluse, lus en environ 4 s.
+- Fichier suspect (vide, colonne manquante, plus de 1 % de lignes mal formées, aucun événement, téléchargement interrompu) : la collecte échoue, rien n'est archivé. Un fichier valide sans événement retenu reste un import vide normal.
+- Période de validité : une période de plus de 31 jours pour un type non continu (marché, visite, spectacle…) décrit une saison, pas des dates. Elle est écartée plutôt que présentée comme continue, et aucune récurrence n'est déduite. Les expositions, festivals et salons gardent leur période.
+- Adresse générique (« Divers lieux », « Centre ville », « Dans le village »…) : reprise comme nom du lieu, sans adresse. Les coordonnées restent celles de la source, sans précision garantie.
+- Liens triés : site de l'événement, puis tiers (organisateur, lieu), puis billetterie. L'URL principale suit cet ordre.
+- Vérifié sur le fichier réel du 13/10/2026, Vaucluse : 239 événements, 118 retenus, 100 écartés comme périodes de validité, 21 passés ; 4 adresses génériques.
 - Inventaire des sources data.gouv utiles (événements nationaux, lieux, food trucks) : `docs/02_Architecture/DATAGOUV_SOURCES.md`.
-- Tests : `DataTourismeCollectorTest` (8 cas, sur un extrait réel du fichier) et `ImportServiceTest` (1 cas : sélection du collecteur). `mvn verify` passe (1209 tests, PostGIS local).
+- Tests : `DataTourismeCollectorTest` (16 cas, sur un extrait réel du fichier et des fichiers invalides) et `ImportServiceTest` (1 cas : sélection du collecteur). `mvn verify` passe (1217 tests, PostGIS local).
 
 ## 0.9.56 — 2026-10-11
 

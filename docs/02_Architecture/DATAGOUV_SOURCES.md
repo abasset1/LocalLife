@@ -147,8 +147,20 @@ Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
   élargir : modifier le filtre (ou le vider) depuis l'administration, ou
   pointer l'URL vers `datatourisme-fma.csv`
   (`2c6023f2-ffce-4c1a-9728-bdc020e463b5`) pour la France entière.
+* Garde-fous et règles de qualité (détail dans la Javadoc du collecteur) :
+  * fichier suspect (vide, colonne manquante, plus de 1 % de lignes mal
+    formées, aucun événement, téléchargement interrompu) → échec de
+    collecte, donc aucun archivage ;
+  * période de plus de 31 jours pour un type non continu → période de
+    validité, écartée (pas de récurrence inventée) ;
+  * adresse générique → nom du lieu, sans adresse ;
+  * liens : site de l'événement, puis tiers, puis billetterie.
+* Fichier réel du 13/10/2026, Vaucluse : 239 événements, 118 retenus, 100
+  périodes de validité seulement (surtout des marchés publiés pour toute
+  l'année), 21 passés.
 * Tests : `DataTourismeCollectorTest`, sur un extrait réel du fichier
-  (`src/test/resources/datatourisme/datatourisme-extrait.csv`).
+  (`src/test/resources/datatourisme/datatourisme-extrait.csv`) et des
+  fichiers invalides construits dans le test.
 
 Non couvert : lieux DATAtourisme, Data ES, Basilic, JEP, Fête de la
 science (voir § 5).

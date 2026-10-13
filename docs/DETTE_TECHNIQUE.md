@@ -458,7 +458,7 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 * **Détecté** : 13/10/2026, audit de la PR #104 (ADR-0011).
 * **Où** : `ActivityRepository#findWithinRadius`, `#findWithinBounds` (filtre sans `date`).
 * **Nature** : une occurrence n'est retenue que si son début ou sa fin tombe dans les 7 prochains jours ; une occurrence qui couvre toute la fenêtre est exclue.
-* **Impact réel** : Vaucluse, 13/10/2026 : 103 des 159 événements DATAtourisme actifs dans la semaine absents de la carte par défaut (marchés encodés du 1er janvier au 31 décembre). Touche aussi les expositions longues OpenAgenda.
+* **Impact réel** : Vaucluse, 13/10/2026 : 103 des 159 événements DATAtourisme actifs dans la semaine absents de la carte par défaut ; 9 sur 64 depuis que le collecteur écarte les périodes de validité (restent surtout des expositions longues). Touche aussi les expositions longues OpenAgenda.
 * **Correctif disponible** : condition de chevauchement (`début <= fin de fenêtre ET fin >= aujourd'hui`).
 * **Pourquoi pas corrigé immédiatement** : change le comportement des recherches publiques ; décision d'Alex attendue.
 * **Statut** : ouvert.

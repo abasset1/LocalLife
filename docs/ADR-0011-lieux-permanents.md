@@ -56,7 +56,9 @@ Données chiffrées : export DATAtourisme PACA publié sur data.gouv.fr le
    toute la fenêtre est exclue. DATAtourisme encode souvent les marchés
    hebdomadaires sur une seule période annuelle (`2026-01-01<->2026-12-31`) :
    dans le Vaucluse, **103 des 159 événements actifs dans les 7 prochains
-   jours n'apparaissent pas** sur la carte par défaut. À l'inverse, avec une
+   jours n'apparaissaient pas** sur la carte par défaut. Depuis que le
+   collecteur écarte les périodes de validité (marchés publiés pour toute
+   l'année), il en reste 9 sur 64, surtout des expositions longues. À l'inverse, avec une
    date choisie, un marché du jeudi apparaît tous les jours.
 
 ## 2. Décision proposée
