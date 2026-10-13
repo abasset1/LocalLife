@@ -2,6 +2,24 @@
 
 ## 0.9.59 — non publiée
 
+### Marchés et horaires (ADR-0011, phase C) : étude, rien d'intégré
+- Ontologie DATAtourisme reconstituée à partir des données (sonde `ntriples_ontology_probe.py`, 17 % de l'archive, sans compte) : périodes `core:Period` / `RecurrentPeriod` (`startDate`, `endDate`, `startTime`, `endTime`, `appliesOnDay`) et horaires `schema:openingHoursSpecification` portés par le lieu.
+- Jours de marché présents dans le N-Triples pour 58 à 95 des 107 marchés résolus (borne haute : recoupement non mesuré) (dates d'une séance ou `appliesOnDay`), mais perdus dans le CSV (périodes regroupées sur l'année). Part du Vaucluse non mesurée ; intérêt d'un compte diffuseur présenté.
+
+### Doublons entre sources (ADR-0011, phase D) : mesure sans écriture
+- `DuplicateReport.java` : rapport de doublons qui appelle la règle de l'application telle quelle ; classes certaines (lien distinctif partagé), probables, ambiguës ; faux positifs sûrs et échantillon reproductible à relire. Autotest de 10 vérifications.
+- `events_for_matching.py` (DATAtourisme) et `infra/verification/phase_d_export_doublons.sql` (données de l'application, lecture seule, contributions exclues).
+- Étalonnage sur l'export DATAtourisme PACA (producteurs comme sources) : aucune paire certaine ; 1 probable, juste ; 14 ambiguës dont 3 faux positifs (21 %). Détail : `docs/02_Architecture/VERIFICATION_DOUBLONS.md`.
+
+### Lieux permanents (ADR-0011, phase B) : proposition, rien d'implémenté
+- Mécanisme de modération proposé : `location.place_status` (`PENDING`, `PUBLISHED`, `REJECTED`, `ARCHIVED`), distinct du lieu d'événement ; tout nouveau lieu importé en attente ; aucun événement masqué par le statut d'un lieu ; refus durable ; retour en attente sur changement important.
+- Liste blanche explicite mesurée sur l'export DATAtourisme PACA : 46 types proposés (418 lieux dans le Vaucluse, 4 741 en PACA), 17 à trancher, exclusions explicites. Mesure reproductible : `collectors/verification/place_types_report.py`.
+
+### Vérification JEP / Fête de la science : accès préparés, aucune connexion
+- `VERIFICATION_JEP_FDS.md` : permissions exactes (rôle en lecture seule limité à 13 colonnes, testé en local ; ou aucun accès, l'administrateur transmettant deux CSV), clé OpenAgenda de lecture uniquement, données lues et leur usage, procédure de configuration, résultats attendus de chaque comparaison avec leurs critères d'invalidation.
+- `openagenda_export.py` : refuse une clé secrète (`oa_sk_`) ; ne demande plus les champs détaillés par défaut (option `--detailed`) ; s'arrête si les événements reçus n'ont pas de lieu, au lieu de produire un export vide à tort.
+- Les fichiers d'export de vérification sont ignorés par Git.
+
 ### Précision géographique (ADR-0011, phase A) : conception finalisée, sans changement de schéma
 - Règles en fonctions pures, testées, **non branchées** : `CoordinatePrecision` (`EXACT`, `APPROXIMATE`, `UNKNOWN`) et `CoordinatePrecisionPolicy` (un import ne pose jamais `EXACT` ; texte générique → `APPROXIMATE` ; un lieu approximatif n'est partagé qu'avec un lieu approximatif de même nom et même commune ; précision d'un lieu réutilisé inchangée).
 - Le collecteur DATAtourisme délègue sa règle des adresses génériques à `CoordinatePrecisionPolicy` (comportement inchangé).
