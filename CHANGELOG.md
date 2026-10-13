@@ -17,6 +17,9 @@ Suite de la PR #104, fusionnée avec ses deux premiers commits seulement (0.9.57
 - Configuration d'une source `DATATOURISME` validée à l'enregistrement (URL stable data.gouv.fr, départements) ; une modification ne peut pas l'activer, ni changer sa configuration en la laissant active.
 - Boutons « Essai à blanc » et « Activer après vérification » dans l'administration des agendas.
 
+### Étude de faisabilité N-Triples (marchés)
+- Lecture en flux de 26 % de l'archive DATAtourisme N-Triples (480 Mo, 18,9 millions de triplets, 55 min) : 3 168 marchés, aucun relié à des jours ou horaires de présence. Pas de connecteur recommandé en l'état ; méthode, coûts, limites et étapes suivantes dans ADR-0011, § 2.8 ; script : `collectors/verification/ntriples_market_study.py`.
+
 ### Doublons entre sources : règle de rapprochement (non branchée)
 - `CrossSourceDuplicateMatcher` : niveaux probable / possible / aucun (jour commun, distance de 300 m, titre identique ou proche, titres génériques jamais suffisants). Fonction pure, sans écriture ; testée sur les faux positifs mesurés dans DATAtourisme (« Fête de la musique » dans trois communes, « Octobre Rose »).
 

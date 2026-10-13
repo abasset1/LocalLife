@@ -13,7 +13,7 @@ documentaire.
 |---|---|
 | A — précision géographique | priorité haute ; dossier de validation au § 7.1 |
 | B — lieux permanents | principe accepté ; impacts présentés au § 7.2 |
-| C — marchés et horaires | piste acceptée ; décision après l'étude N-Triples (§ 2.8) |
+| C — marchés et horaires | piste acceptée ; étude N-Triples terminée, **jours de marché non trouvés** dans la part lue (§ 2.8) : pas d'implémentation recommandée en l'état |
 | D — liens de doublons | règle implémentée et testée mais **non branchée, donc non opérationnelle** ; branchement présenté au § 7.4 |
 
 Révision du 13/10/2026 (retour d'audit de la PR #104) : précision
@@ -254,26 +254,75 @@ sont connus, crée une activité par saison, et mélange un lieu permanent
 avec un événement daté. Elle reste envisageable plus tard pour un marché
 exceptionnel (marché de Noël).
 
-### 2.8 Données DATAtourisme complètes (N-Triples) : évaluation
+### 2.8 Données DATAtourisme complètes (N-Triples) : étude de faisabilité
 
-Piste pour obtenir les jours de marché. Évaluée le 13/10/2026 sur un
-extrait réel (60 premiers Mo de l'archive, lus par requête HTTP partielle),
-sans présumer de la qualité.
+Étude ponctuelle et limitée (13/10/2026), sans traitement complet ni
+connecteur : lecture en flux du **premier quart de l'archive** (480 Mo
+compressés sur 1,93 Go, 26 %), par requêtes HTTP partielles, décompression
+à la volée, rien n'est écrit sur disque.
 
-| Axe | Constat |
+**Méthode d'extraction.** L'archive `datatourisme.nt.zip` ne contient
+qu'un fichier, `dataset.nt` (N-Triples). Le serveur accepte les requêtes
+partielles (206), ce qui permet de lire un préfixe sans tout télécharger.
+Mais la compression (deflate) impose de lire depuis le début : on ne peut
+pas sauter au milieu du fichier. Dans le flux, on garde les marchés
+(`core#Market`) et leurs liens `core#takesPlaceAt`, les nœuds datés, et
+les nœuds `schema:OpeningHoursSpecification`. On tente ensuite la jointure
+marché → période → horaires.
+
+**Résultats mesurés :**
+
+| Mesure | Valeur |
 |---|---|
-| Accès | Public, sans compte : `datatourisme.nt.zip`, ressource du même jeu data.gouv.fr. Le serveur accepte les requêtes partielles (réponse 206). Une seule entrée, `dataset.nt`, au format N-Triples. |
-| Volume | 1,93 Go compressé. Rapport mesuré sur l'extrait : 60 Mo → 459 Mo, 2,39 millions de triplets. Estimation pour le fichier entier : environ 15 Go décompressés, environ 77 millions de triplets. |
-| Structure | Présente : un marché (`core#Market`) pointe par `core#takesPlaceAt` vers des nœuds de période ; l'extrait contient des nœuds `schema:OpeningHoursSpecification` avec `schema:dayOfWeek`, `schema:opens`, `schema:closes` (ex. jeudi 14:00–18:00). 446 marchés dans l'extrait. |
-| Qualité | **Non mesurée.** Dans l'extrait, aucun des 446 marchés n'a sa période présente : les nœuds liés sont dispersés dans le fichier. La part de marchés dont les jours sont réellement renseignés ne peut être connue qu'après traitement du fichier complet. |
-| Coût | Téléchargement quotidien de 1,93 Go ; jointure entre nœuds dispersés (deux passes ou tri externe) sur environ 15 Go. Incompatible avec l'import horaire ; envisageable en traitement hebdomadaire séparé. |
+| Triplets lus | 18,9 millions |
+| Marchés (`core#Market`) | 3 168 (France entière, part lue) |
+| Marchés dont la période est retrouvée dans la part lue | 255 (8 %) |
+| Marchés reliés à des horaires (jours, ouverture, fermeture) | **0** |
+| Nœuds d'horaires (`schema:OpeningHoursSpecification`, avec `schema:dayOfWeek`, `opens`, `closes`) | 2 769 |
+| Liens trouvés d'un nœud daté vers un nœud d'horaires | **0** |
 
-Recommandation : avant toute intégration, un traitement ponctuel du
-fichier complet, hors de l'environnement de développement (environ 20 Go
-de disque), pour mesurer la part des marchés du Vaucluse et de PACA qui
-ont des jours et des horaires exploitables. À comparer avec les flux
-personnalisés DATAtourisme (JSON par point d'intérêt, compte gratuit sur
-la plateforme diffuseur), non évalués ici.
+**Organisation du fichier**, mesurée sur un extrait de 60 Mo : les
+triplets d'un même sujet sont contigus, mais les nœuds liés d'un point
+d'intérêt (description, localisation, période) sont rangés **ailleurs**
+dans le fichier : 0 retrouvé à proximité sur 1 241 liens de période. Les
+nœuds d'horaires existent, avec les bons champs (exemple : jeudi
+14:00-18:00), mais aucun nœud de l'extrait n'y renvoie. La propriété qui
+relie une période ou un lieu à ses horaires **n'a pas pu être
+identifiée**. La documentation de l'ontologie (framagit) n'est pas
+joignable depuis l'environnement de développement.
+
+**Coût :** 55 minutes pour 26 % du fichier ici, limitées par le réseau
+(0,15 Mo/s à travers le proxy de l'environnement de développement).
+Estimations pour le fichier entier : environ 15 Go décompressés et
+77 millions de triplets. Sur un serveur au débit normal, le téléchargement
+prend quelques minutes, mais l'analyse en Python d'un fichier dont les
+nœuds liés sont dispersés demande soit de garder en mémoire tous les nœuds
+utiles, soit deux passes complètes.
+
+**Qualité :** non démontrée. Rien, dans la part lue, ne montre qu'un
+marché ait des jours de présence exploitables.
+
+**Limites de l'étude :** préfixe de 26 % seulement ; le lien vers les
+horaires est peut-être situé dans les 74 % non lus, ou passer par une
+propriété non suivie ici (par exemple sur le lieu plutôt que sur la
+période).
+
+**Recommandation (phase C) :** ne pas développer de connecteur N-Triples
+pour les jours de marché à ce stade. Avant tout traitement complet :
+
+1. lire la définition de l'ontologie (dépôt framagit ou GitLab ADN
+   Tourisme), pour identifier la propriété qui porte les jours d'un
+   marché ;
+2. ou ouvrir un compte gratuit sur la plateforme diffuseur DATAtourisme,
+   créer un flux limité aux marchés du Vaucluse, et examiner à la main une
+   dizaine de fiches complètes (JSON). C'est le moyen le moins coûteux de
+   savoir si les jours sont renseignés ;
+3. seulement si l'une de ces deux étapes montre des jours exploitables,
+   décider d'un traitement complet ponctuel, sur un serveur au débit
+   normal, pour mesurer la proportion de marchés concernés.
+
+En attendant, la phase C reste au niveau du principe : marché comme lieu
+permanent, « Jours de marché à confirmer ».
 
 ### 2.9 Doublons OpenAgenda / DATAtourisme : stratégie proposée
 
