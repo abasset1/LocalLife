@@ -66,9 +66,13 @@ Pourquoi prioritaire :
   utiles (PACA d'abord, ~29 Mo au lieu de ~59 + 273 Mo).
 
 Point d'attention : recouvrement probable avec les agendas OpenAgenda
-déjà importés (certains offices de tourisme alimentent les deux). Le
-mécanisme existant `isDuplicateOfAnotherSource` d'`ImportService` est
-censé le gérer — à vérifier sur un import réel.
+déjà importés (certains offices de tourisme alimentent les deux). ⚠️ Le
+mécanisme existant `isDuplicateOfAnotherSource` d'`ImportService` **ne
+couvre pas ce cas** : il exige le même identifiant externe dans les deux
+sources (slug OpenAgenda ≠ URI DATAtourisme) et la même heure de début
+(DATAtourisme n'a pas d'heure). Voir `docs/ADR-0011-lieux-permanents.md`,
+§ 1.3 (doublons entre sources, événements longs masqués par la fenêtre
+de 7 jours).
 
 Alternative plus riche si le CSV simplifié s'avère insuffisant : les
 flux personnalisés de l'API DATAtourisme (diffuseur.datatourisme.fr),

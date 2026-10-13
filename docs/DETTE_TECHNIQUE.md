@@ -429,6 +429,42 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 
 ---
 
+## Backend — rapprochement de lieux sur l'adresse seule
+
+* **Détecté** : 13/10/2026, audit du modèle `Location` (ADR-0011).
+* **Où** : `LocationService#findOrCreate`, `LocationRepository#findFirstByAddressAndCityAndPostalCodeOrderByIdAsc`.
+* **Nature** : un lieu de même adresse/ville/code postal est réutilisé sans comparer les coordonnées.
+* **Impact réel** : export DATAtourisme PACA du 13/10/2026 : 37 événements à venir sur 3 171 (2 dans le Vaucluse) rattachés à un lieu situé jusqu'à 5,6 km. Les recherches rayon/zone les filtrent sur la mauvaise position.
+* **Correctif disponible** : n'accepter le rapprochement qu'à moins de 100 m (ADR-0011, § 2.3).
+* **Pourquoi pas corrigé immédiatement** : lié à la refonte des lieux, en attente de validation de l'ADR-0011.
+* **Statut** : ouvert.
+
+---
+
+## Backend — doublons OpenAgenda / DATAtourisme non détectés
+
+* **Détecté** : 13/10/2026, audit de la PR #104 (ADR-0011).
+* **Où** : `ImportFingerprintService#existsLiveDuplicateInAnotherSource`.
+* **Nature** : la déduplication entre sources exige le même identifiant externe et la même date de début exacte. Slug OpenAgenda et URI DATAtourisme diffèrent toujours ; DATAtourisme n'a pas d'heure.
+* **Impact réel** : non mesuré (pas d'accès OpenAgenda depuis l'environnement de développement). Tout événement publié par les deux sources apparaîtra en double.
+* **Correctif disponible** : règle complémentaire titre normalisé + même jour + moins de 300 m (à concevoir et tester).
+* **Pourquoi pas corrigé immédiatement** : décision d'Alex attendue (ADR-0011, § 6).
+* **Statut** : ouvert.
+
+---
+
+## Backend — occurrences longues masquées par la fenêtre de 7 jours
+
+* **Détecté** : 13/10/2026, audit de la PR #104 (ADR-0011).
+* **Où** : `ActivityRepository#findWithinRadius`, `#findWithinBounds` (filtre sans `date`).
+* **Nature** : une occurrence n'est retenue que si son début ou sa fin tombe dans les 7 prochains jours ; une occurrence qui couvre toute la fenêtre est exclue.
+* **Impact réel** : Vaucluse, 13/10/2026 : 103 des 159 événements DATAtourisme actifs dans la semaine absents de la carte par défaut (marchés encodés du 1er janvier au 31 décembre). Touche aussi les expositions longues OpenAgenda.
+* **Correctif disponible** : condition de chevauchement (`début <= fin de fenêtre ET fin >= aujourd'hui`).
+* **Pourquoi pas corrigé immédiatement** : change le comportement des recherches publiques ; décision d'Alex attendue.
+* **Statut** : ouvert.
+
+---
+
 <!--
 Modèle pour une nouvelle entrée :
 
