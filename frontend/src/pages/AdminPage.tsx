@@ -48,7 +48,9 @@ interface ApiErrorBody {
  * `AdminActivity` pour `Activity`). `agendaUid`/`regionFilter` ne sont
  * significatifs que pour une source de type `API` destinée à la collecte
  * OpenAgenda (voir `OpenAgendaCollectorFactory` côté backend) —
- * `null` pour `RSS`/`MANUAL`.
+ * `null` pour `RSS`/`MANUAL`. Une source `DATATOURISME` (export CSV
+ * data.gouv.fr, voir `DataTourismeCollector`) utilise `url` et
+ * `regionFilter` (départements, ex. `84,13`).
  */
 interface Source {
     id: number;
@@ -65,7 +67,7 @@ interface Source {
  * Décision Alex (LL-EF-005) : CRUD générique sur tous les types de source
  * existants, pas seulement OpenAgenda — voir `SOURCE_CONTRACT.md`.
  */
-const SOURCE_TYPES = ["API", "RSS", "MANUAL"];
+const SOURCE_TYPES = ["API", "DATATOURISME", "RSS", "MANUAL"];
 const SOURCE_STATUSES = ["ACTIVE", "INACTIVE", "ERROR"];
 
 /** Sections principales de l'interface d'administration (LL-EF-004 + LL-EF-005, imports). */
@@ -641,6 +643,7 @@ function AdminPage() {
                                         <input
                                             id="source-url"
                                             onChange={(event) => setSourceUrl(event.target.value)}
+                                            placeholder="DATATOURISME : https://www.data.gouv.fr/api/1/datasets/r/<id de ressource>"
                                             type="text"
                                             value={sourceUrl}
                                         />
@@ -662,6 +665,7 @@ function AdminPage() {
                                         <input
                                             id="source-region-filter"
                                             onChange={(event) => setSourceRegionFilter(event.target.value)}
+                                            placeholder="DATATOURISME : départements, ex. 84,13"
                                             type="text"
                                             value={sourceRegionFilter}
                                         />

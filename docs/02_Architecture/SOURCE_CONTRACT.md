@@ -30,6 +30,11 @@ Java, pour rester extensible sans migration de code) :
 
 - `API` — source exposant une API structurée (JSON/XML) ;
 - `RSS` — flux RSS/Atom ;
+- `DATATOURISME` — export CSV DATAtourisme publié sur data.gouv.fr :
+  `url` = URL stable de la ressource
+  (`https://www.data.gouv.fr/api/1/datasets/r/{resourceId}`),
+  `regionFilter` = départements retenus (ex. `84,13`, vide = tout le
+  fichier). Voir `DATAGOUV_SOURCES.md` et `DataTourismeCollector` ;
 - `MANUAL` — réservée à la compatibilité avec les activités créées
   manuellement (voir section dédiée ci-dessous).
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.57 — 2026-10-13
+
+### Import : événements DATAtourisme depuis data.gouv.fr
+- Nouveau type de source `DATATOURISME` : lit l'export CSV quotidien DATAtourisme publié par ADN Tourisme sur data.gouv.fr, sans clé API, et n'en garde que les événements à venir.
+- Source ajoutée par la migration `V60` : `DATAtourisme PACA (data.gouv.fr)`, active, filtrée sur le Vaucluse (`84`). URL et départements modifiables depuis l'administration (type `DATATOURISME` ajouté au formulaire).
+- Chaque période (dates seules) devient un créneau de 00:00 le premier jour à 23:59 le dernier. Les types DATAtourisme sont traduits en mots-clés français (concert, théâtre, marché…) pour la classification ; à défaut, le titre sert de repli.
+- Vérifié sur le fichier réel du 13/10/2026 : 213 événements à venir dans le Vaucluse, lus en environ 4 s.
+- Inventaire des sources data.gouv utiles (événements nationaux, lieux, food trucks) : `docs/02_Architecture/DATAGOUV_SOURCES.md`.
+- Tests : `DataTourismeCollectorTest` (8 cas, sur un extrait réel du fichier) et `ImportServiceTest` (1 cas : sélection du collecteur). `mvn verify` passe (1209 tests, PostGIS local).
+
 ## 0.9.56 — 2026-10-11
 
 ### Import : une annulation par un administrateur n'est plus écrasée

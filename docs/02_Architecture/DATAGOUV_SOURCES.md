@@ -4,14 +4,13 @@ Demande d'Alex (13/10/2026) : récupérer les sources data.gouv.fr utiles à
 LocalLife. Périmètre retenu : **jeux nationaux** (événements) et **lieux /
 food trucks**. Livrable demandé : inventaire + collecteur.
 
-Ce document est l'inventaire. Le collecteur n'est **pas encore codé** :
-voir « Blocage » en fin de document.
+Ce document est l'inventaire. Le collecteur DATAtourisme (événements)
+est implémenté : voir § 4.
 
 Toutes les métadonnées ci-dessous (identifiants, organisations,
 fréquences, licences, URL) ont été relevées le 13/10/2026 via l'API
-catalogue `https://www.data.gouv.fr/api/1/datasets/`. Les colonnes
-réelles des fichiers n'ont pas pu être lues (voir « Blocage ») : aucun
-mapping de colonnes n'est donc proposé ici, pour ne pas en inventer.
+catalogue `https://www.data.gouv.fr/api/1/datasets/`. Le format CSV
+DATAtourisme a été vérifié sur le fichier PACA réel du même jour.
 
 ## 1. Événements nationaux
 
@@ -30,18 +29,32 @@ export quotidien — toujours les résoudre via l'API, voir § 4) :
 
 | Ressource | Id ressource | Taille | Contenu |
 |---|---|---|---|
-| `datatourisme-fma.csv` | `2c6023f2-…` (à confirmer via l'API) | ~59 Mo | tous les événements (FMA), France entière |
+| `datatourisme-fma.csv` | `2c6023f2-ffce-4c1a-9728-bdc020e463b5` | ~59 Mo | tous les événements (FMA), France entière |
 | `datatourisme-place.csv` | `cf247ad9-5bcd-4c8a-8f4d-f49f0803bca1` | ~273 Mo | tous les lieux (PLACE) |
 | `datatourisme-reg-pac.csv` | `83a1f131-9e23-4c3b-b1c6-e58f33fe7b80` | ~29 Mo | PACA, tous types (FMA, PLACE, PRODUCT, TOUR) |
 | `datatourisme-reg-<code>.csv` | un par région | | idem par région |
 
-Format documenté par le producteur : CSV UTF-8, séparateur virgule,
+Format (vérifié sur le fichier réel) : CSV UTF-8, séparateur virgule,
+champs entre guillemets si besoin (descriptions sur plusieurs lignes) ;
 `|` sépare plusieurs objets, `#` les propriétés d'un objet, `<>` les
-valeurs d'une même propriété. Colonnes décrites (libellés exacts non
-encore vérifiés) : nom, type(s) de POI (identifiants de l'ontologie
-DATAtourisme), coordonnées WGS84, adresse, commune et code postal,
-périodes (événements uniquement), producteur et SIT, date de mise à
-jour, URL de contact, classements, description, URI DATAtourisme.
+valeurs d'une même propriété. En-tête :
+
+```
+Nom_du_POI,Categories_de_POI,Latitude,Longitude,Adresse_postale,
+Code_postal_et_commune,Periodes_regroupees,Covid19_mesures_specifiques,
+Createur_de_la_donnee,SIT_diffuseur,Date_de_mise_a_jour,Contacts_du_POI,
+Classements_du_POI,Description,URI_ID_du_POI
+```
+
+Exemples : `Categories_de_POI` = URI de l'ontologie
+(`https://www.datatourisme.fr/ontology/core#Festival|…`, un événement
+porte `EntertainmentAndEvent`) ; `Code_postal_et_commune` =
+`84000#Avignon` ; `Periodes_regroupees` =
+`2026-10-24<->2026-10-24|2026-11-07<->2026-11-07` (dates seules, sans
+heure) ; `Contacts_du_POI` = `libellé#url<>url|…`.
+
+Fichier PACA du 13/10/2026 : 37 483 lignes dont 3 565 événements,
+tous géolocalisés et datés ; 213 événements à venir dans le Vaucluse.
 
 Pourquoi prioritaire :
 * national, quotidien, déjà géocodé, sans clé API (contrairement à
@@ -109,44 +122,38 @@ d'Avignon/Marseille — le module `foodtruck` reste alimenté
 manuellement (cohérent avec `FOOD_TRUCK_CONTRACT.md` : « aucun import
 externe prévu »).
 
-## 4. Collecteur proposé
+## 4. Collecteur DATAtourisme (implémenté)
 
 Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
 
-* `DataGouvResourceResolver` : `GET https://www.data.gouv.fr/api/1/datasets/{datasetId}/`,
-  retrouve la ressource par identifiant (ou titre) et renvoie son URL
-  courante — indispensable car l'URL `static.data.gouv.fr` change à
-  chaque export quotidien.
-* `DataTourismeCsvCollector implements Collector` : télécharge le CSV en
-  flux (pas en mémoire d'un bloc : jusqu'à 273 Mo), filtre sur le type
-  FMA et éventuellement un département / code postal
-  (`Source.regionFilter`), découpe les champs multivalués (`|`, `#`,
-  `<>`) et produit des `CollectedActivity` (une `CollectedTiming` par
-  période).
-* Configuration par la table `source`, sans redémarrage, comme
-  OpenAgenda : une nouvelle valeur de `Source.type` (ex. `DATAGOUV`) et
-  l'identifiant de ressource, avec une migration pour les colonnes
-  nécessaires. `ImportService#isCollectible` et la sélection de la
-  factory devront dispatcher selon le type au lieu de supposer
-  OpenAgenda.
-* Tests sur un extrait **réel** du CSV en fixture, avec
-  `MockRestServiceServer` (comme `OpenAgendaCollectorTest`).
+* `DataTourismeCollector` (`collector/infrastructure`) : télécharge le
+  CSV en flux (seuls les événements retenus restent en mémoire), garde
+  les lignes `EntertainmentAndEvent` à venir, géolocalisées, dans les
+  départements configurés, et produit des `CollectedActivity`. Détail
+  des choix de mapping dans sa Javadoc.
+* `DataTourismeCollectorFactory` : client HTTP qui suit les
+  redirections. Pas de résolution par l'API catalogue : l'URL stable
+  `https://www.data.gouv.fr/api/1/datasets/r/{resourceId}` redirige
+  (302) vers le fichier du jour.
+* Configuration par la table `source`, sans nouvelle colonne : type
+  `DATATOURISME`, `url` = URL stable ci-dessus, `regionFilter` =
+  départements (`84,13`…). `ImportService` choisit le collecteur selon le
+  type.
+* Source créée par la migration `V60` : fichier PACA, filtre `84`. Pour
+  élargir : modifier le filtre (ou le vider) depuis l'administration, ou
+  pointer l'URL vers `datatourisme-fma.csv`
+  (`2c6023f2-ffce-4c1a-9728-bdc020e463b5`) pour la France entière.
+* Tests : `DataTourismeCollectorTest`, sur un extrait réel du fichier
+  (`src/test/resources/datatourisme/datatourisme-extrait.csv`).
+
+Non couvert : lieux DATAtourisme, Data ES, Basilic, JEP, Fête de la
+science (voir § 5).
 
 ## 5. Décisions à prendre (Alex)
 
-1. Région(s) DATAtourisme à importer d'abord : PACA seule
-   (`datatourisme-reg-pac.csv`) ou France entière (`datatourisme-fma.csv`) ?
+1. Zone DATAtourisme : par défaut PACA filtrée sur le Vaucluse (zone de
+   la bêta). Élargir à la région, ou à la France entière ?
 2. Lieux : les publier comme activités sans date, créer une entité
    « lieu » dédiée, ou les reporter ? (Impact modèle → ADR.)
 3. JEP / Fête de la science : à intégrer maintenant (configuration
    annuelle) ou laisser à OpenAgenda ?
-
-## Blocage
-
-La politique réseau de l'environnement de développement bloque
-`www.data.gouv.fr`, `static.data.gouv.fr`, `tabular-api.data.gouv.fr`,
-`data.education.gouv.fr` et `data.enseignementsup-recherche.gouv.fr`.
-Impossible donc de lire les en-têtes et un échantillon réel des CSV,
-nécessaires pour écrire le parseur et ses fixtures. Une fois ces
-domaines autorisés, le collecteur DATAtourisme (§ 4) peut être codé et
-testé sur données réelles.
