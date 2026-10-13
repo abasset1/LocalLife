@@ -11,22 +11,32 @@
  * Priorité explicite du ticket : coordonnées GPS d'abord, adresse en
  * secours — `destination` accepte aussi bien `latitude,longitude` qu'une
  * adresse en texte libre.
+ *
+ * Exception (ADR-0011, phase A, non encore alimentée par l'API) : une
+ * position `APPROXIMATE` (« Divers lieux », « Centre ville ») ne désigne pas
+ * le lieu ; l'itinéraire vise alors l'adresse ou la commune en texte, et non
+ * le point. Sans `coordinatePrecision`, comportement inchangé.
  */
+
+export type CoordinatePrecision = "EXACT" | "APPROXIMATE" | "UNKNOWN";
 
 export interface DirectionsDestinationInput {
     latitude: number | null;
     longitude: number | null;
     address: string | null;
     city: string | null;
+    coordinatePrecision?: CoordinatePrecision | null;
 }
 
 export function buildDirectionsUrl(destination: DirectionsDestinationInput): string {
-    const hasCoordinates = destination.latitude !== null && destination.longitude !== null
+    const textDestination = [destination.address, destination.city].filter(Boolean).join(", ");
+    const approximate = destination.coordinatePrecision === "APPROXIMATE" && textDestination !== "";
+    const hasCoordinates = !approximate && destination.latitude !== null && destination.longitude !== null
         && !Number.isNaN(destination.latitude) && !Number.isNaN(destination.longitude);
 
     const destinationParam = hasCoordinates
         ? `${destination.latitude},${destination.longitude}`
-        : [destination.address, destination.city].filter(Boolean).join(", ");
+        : textDestination;
 
     const params = new URLSearchParams({
         api: "1",

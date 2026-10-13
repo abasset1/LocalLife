@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.9.59 — non publiée
+
+### Précision géographique (ADR-0011, phase A) : conception finalisée, sans changement de schéma
+- Règles en fonctions pures, testées, **non branchées** : `CoordinatePrecision` (`EXACT`, `APPROXIMATE`, `UNKNOWN`) et `CoordinatePrecisionPolicy` (un import ne pose jamais `EXACT` ; texte générique → `APPROXIMATE` ; un lieu approximatif n'est partagé qu'avec un lieu approximatif de même nom et même commune ; précision d'un lieu réutilisé inchangée).
+- Le collecteur DATAtourisme délègue sa règle des adresses génériques à `CoordinatePrecisionPolicy` (comportement inchangé).
+- `infra/verification/phase_a_precision_mesure.sql` : mesure en lecture seule du rattrapage (lieux et activités concernés, liste à relire), avant toute migration. Sa classification SQL est testée contre la règle Java sur PostgreSQL (`GenericPlaceSqlParityIntegrationTest`).
+- Frontend : `buildDirectionsUrl` accepte une précision facultative ; pour `APPROXIMATE`, l'itinéraire vise l'adresse ou la commune. Sans ce champ, que l'API n'envoie pas encore, rien ne change.
+- Migration et rattrapage : projet dans l'ADR (§ 7.1.3), testé sur une base jetable uniquement, **non créé** dans `db/migration`.
+
+## 0.9.58 — 2026-10-13
+
+Suite de la PR #104, fusionnée avec ses deux premiers commits seulement (0.9.57) : ces corrections n'étaient pas dans `main`.
+
+### Import DATAtourisme : fiabilisation du collecteur
+- Fichier suspect (vide, colonne manquante, plus de 1 % de lignes mal formées, aucun événement, téléchargement interrompu) : la collecte échoue, rien n'est archivé. Un fichier valide sans événement retenu reste un import vide normal.
+- Période de validité : une période de plus de 31 jours pour un type non continu (marché, visite, spectacle…) décrit une saison, pas des dates. Elle est écartée plutôt que présentée comme continue, et aucune récurrence n'est déduite. Les expositions, festivals et salons gardent leur période.
+- Adresse générique (« Divers lieux », « Centre ville », « Dans le village »…) : reprise comme nom du lieu, sans adresse. Les coordonnées restent celles de la source, sans précision garantie.
+- Liens triés : site de l'événement, puis tiers (organisateur, lieu), puis billetterie. L'URL principale suit cet ordre.
+- Vérifié sur le fichier réel du 13/10/2026, Vaucluse : 239 événements, 118 retenus, 100 écartés comme périodes de validité (dont 88 marchés), 21 passés ; 4 adresses génériques.
+
+### Administration : essai à blanc et activation vérifiée des sources DATAtourisme
+- Essai à blanc d'une source (`POST /api/v1/admin/import/sources/{id}/dry-run`) : collecte réelle et bilan de ce qu'un import ferait (créations, mises à jour, archivage), sans aucune écriture. Verdict `OK`, `FAILED` ou `SUSPICIOUS`.
+- Activation vérifiée (`POST /api/v1/admin/import/sources/{id}/activate`) : la source n'est activée que si l'essai est `OK` ; sinon 409 avec le bilan. Seul chemin d'activation d'une source `DATATOURISME`.
+- Configuration d'une source `DATATOURISME` validée à l'enregistrement (URL stable data.gouv.fr, départements) ; une modification ne peut pas l'activer, ni changer sa configuration en la laissant active.
+- Boutons « Essai à blanc » et « Activer après vérification » dans l'administration des agendas.
+
+### Étude de faisabilité N-Triples (marchés)
+- Lecture en flux de 26 % de l'archive DATAtourisme N-Triples (480 Mo, 18,9 millions de triplets, 55 min) : 3 168 marchés, aucun relié à des jours ou horaires de présence. Pas de connecteur recommandé en l'état ; méthode, coûts, limites et étapes suivantes dans ADR-0011, § 2.8 ; script : `collectors/verification/ntriples_market_study.py`.
+
+### Doublons entre sources : règle de rapprochement (non branchée)
+- `CrossSourceDuplicateMatcher` : niveaux probable / possible / aucun (jour commun, distance de 300 m, titre identique ou proche, titres génériques jamais suffisants). Fonction pure, sans écriture ; testée sur les faux positifs mesurés dans DATAtourisme (« Fête de la musique » dans trois communes, « Octobre Rose »).
+
+### Vérification de couverture JEP / Fête de la science (préparée)
+- Listes officielles du Vaucluse (JEP 2025 : 234 événements, tous sur l'agenda OpenAgenda national `2883956` ; Fête de la science 2026 : 114) et script de comparaison `collectors/verification/coverage_check.py`. Procédure et accès nécessaires : `docs/02_Architecture/VERIFICATION_JEP_FDS.md`.
+- Export d'un agenda OpenAgenda au même format (`openagenda_export.py`, clé lue dans l'environnement, jamais affichée) ; procédure en trois comparaisons (officiel ↔ OpenAgenda ↔ base LocalLife) et accès en lecture seule limité. Couverture réelle **non mesurée** à ce jour.
+
+### Import : garde-fou contre l'archivage massif (toutes sources)
+- Si au moins 10 activités publiées à venir disparaissent d'un coup d'une source, et plus de la moitié de ses activités à venir, aucune activité à venir n'est archivée pour cette exécution (fichier tronqué, filtre mal saisi, panne côté source). Le bilan d'import indique le nombre d'activités retenues (`archiveWithheld`, colonne « Archivage suspendu » de l'administration). Les activités passées s'archivent toujours.
+
+### Carte : expositions longues de nouveau visibles
+- Sans date choisie, `/nearby` et `/within-bounds` retiennent une occurrence qui chevauche les 7 prochains jours. Avant, il fallait que son début ou sa fin y tombe : une exposition commencée avant aujourd'hui et finissant après la fenêtre était masquée (9 événements DATAtourisme sur 64 dans le Vaucluse). Rien de ce qui était visible ne disparaît.
+- Tests : `DataTourismeCollectorTest` (18 cas, sur un extrait réel du fichier et des fichiers invalides, dont les bornes de la règle des 31 jours), `DataTourismeImportSafetyTest` (6 cas : vrai collecteur branché sur l'import, aucun archivage sur fichier invalide), `ImportServiceTest` (5 cas : sélection du collecteur, garde-fou d'archivage), `DefaultDateWindowIntegrationTest` (2 cas, PostGIS, échouent sur l'ancienne requête).
+- Bilan d'import : motif en clair d'un blocage (`blockedReason` : collecte en échec, ou archivage suspendu), affiché dans l'administration des imports. Seul le message rédigé par le collecteur est affiché (comme dans l'essai à blanc) ; celui d'une exception inattendue, qui peut contenir l'URL d'appel et donc une clé d'API, ne va que dans les journaux.
+- La migration `V60` n'est pas modifiée (déjà fusionnée) : la source `DATAtourisme PACA` qu'elle crée reste **active** là où elle a été appliquée. Diagnostic en lecture seule (`infra/verification/v60_diagnostic.sql`, verdicts A, B0, B1, B2, C) et désactivation ciblée de la seule source jamais utilisée (`infra/verification/v60_desactivation_conditionnelle.sql`, sans effet sur une source ayant alimenté la base), testés sur des bases simulées ; procédure dans `DATAGOUV_SOURCES.md` (« Migration V60 »). Bêta et production non vérifiées : diagnostic à exécuter par l'administrateur.
+
 ## 0.9.57 — 2026-10-13
 
 ### Import : événements DATAtourisme depuis data.gouv.fr

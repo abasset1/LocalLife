@@ -150,6 +150,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/foodtrucks").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/import").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/import/discover-agendas").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/admin/import/sources/*/dry-run").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/admin/import/sources/*/activate").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/sources").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/sources/*").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/sources/*/default-categories").hasRole("ADMIN")

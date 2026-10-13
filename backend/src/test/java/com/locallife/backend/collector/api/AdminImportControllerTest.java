@@ -10,11 +10,15 @@ import com.locallife.backend.collector.application.AgendaDiscoveryService;
 import com.locallife.backend.collector.application.ImportAlreadyRunningException;
 import com.locallife.backend.collector.application.ImportResult;
 import com.locallife.backend.collector.application.ImportService;
+import com.locallife.backend.collector.application.SourceActivationService;
+import com.locallife.backend.collector.application.SourceDryRunReport;
+import com.locallife.backend.collector.application.SourceDryRunService;
 import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.common.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -32,8 +36,44 @@ class AdminImportControllerTest {
     @Mock
     private AgendaDiscoveryService agendaDiscoveryService;
 
+    @Mock
+    private SourceDryRunService sourceDryRunService;
+
+    @Mock
+    private SourceActivationService sourceActivationService;
+
     @InjectMocks
     private AdminImportController adminImportController;
+
+    private static SourceDryRunReport report(SourceDryRunReport.Verdict verdict, boolean activated) {
+        return new SourceDryRunReport(20L, "DATAtourisme PACA", verdict, List.of(), 3, 0, 3, 0, 0, 0,
+                List.of("Concert"), activated);
+    }
+
+    @Test
+    void dryRun_ShouldReturnReport_OrNotFound() {
+        SourceDryRunReport suspicious = report(SourceDryRunReport.Verdict.SUSPICIOUS, false);
+        when(sourceDryRunService.dryRun(20L)).thenReturn(Optional.of(suspicious));
+        when(sourceDryRunService.dryRun(99L)).thenReturn(Optional.empty());
+
+        assertThat(adminImportController.dryRun(20L).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(adminImportController.dryRun(20L).getBody()).isEqualTo(suspicious);
+        assertThat(adminImportController.dryRun(99L).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void activate_ShouldReturnOk_WhenActivated_AndConflict_WhenRefused() {
+        when(sourceActivationService.activate(20L))
+                .thenReturn(Optional.of(report(SourceDryRunReport.Verdict.OK, true)));
+        when(sourceActivationService.activate(21L))
+                .thenReturn(Optional.of(report(SourceDryRunReport.Verdict.FAILED, false)));
+        when(sourceActivationService.activate(99L)).thenReturn(Optional.empty());
+
+        assertThat(adminImportController.activate(20L).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(adminImportController.activate(21L).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(adminImportController.activate(21L).getBody().activated()).isFalse();
+        assertThat(adminImportController.activate(99L).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
 
     @Test
     void triggerImport_ShouldReturnOkWithResults_WhenImportSucceeds() {

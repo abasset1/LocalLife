@@ -5,6 +5,7 @@ import com.locallife.backend.collector.domain.CollectedLink;
 import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.place.domain.CoordinatePrecisionPolicy;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -14,6 +15,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,6 +26,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -59,11 +65,34 @@ import org.springframework.web.client.RestClientException;
  * ({@code libellé#url<>url|...}), {@code Description},
  * {@code URI_ID_du_POI}.
  *
+ * <p><b>Fichier suspect</b> : {@link #collect()} lève une
+ * {@link CollectorException} si le fichier est vide, si une colonne de
+ * {@link #REQUIRED_COLUMNS} manque, si plus de 1 % des lignes n'ont pas le
+ * nombre de champs de l'en-tête, ou si le fichier ne contient aucun
+ * événement. {@code ImportService} n'archive alors rien (échec de collecte).
+ * À l'inverse, un fichier valide dont aucun événement ne correspond aux
+ * filtres (départements, dates) est un import vide légitime : la liste vide
+ * est renvoyée et les activités disparues sont archivées normalement.
+ *
  * <p>Décisions :
  * <ul>
  *   <li>les périodes ne portent que des dates : chaque période devient un
  *       {@link CollectedTiming} de {@code 00:00} le premier jour à
  *       {@code 23:59} le dernier ;</li>
+ *   <li><b>période de validité</b> : une période de plus de
+ *       {@value #MAX_OCCURRENCE_DAYS} jours, pour un type qui n'est pas
+ *       continu par nature ({@link #CONTINUOUS_TYPES} : exposition,
+ *       festival, salon), décrit la saison pendant laquelle l'événement a
+ *       lieu, pas une occurrence (ex. un marché du jeudi publié du 1er
+ *       janvier au 31 décembre). Le CSV ne dit pas quels jours : elle est
+ *       écartée plutôt que présentée comme continue, et aucune récurrence
+ *       n'est déduite. Un événement qui n'a que des périodes de validité
+ *       n'est pas importé ;</li>
+ *   <li><b>adresse générique</b> (« Divers lieux », « Centre ville »,
+ *       « Dans le village »…) : reprise comme {@code name} du lieu, sans
+ *       {@code address}. Les coordonnées de la source sont conservées
+ *       (exigées par le modèle) mais ne désignent pas un lieu précis ; sans
+ *       adresse, ce lieu n'est jamais fusionné par adresse avec un autre ;</li>
  *   <li>{@code externalId} = URI DATAtourisme (stable d'un export à
  *       l'autre) ; une URI répétée dans le fichier n'est retenue qu'une
  *       fois ;</li>
@@ -71,8 +100,11 @@ import org.springframework.web.client.RestClientException;
  *       connus ({@link #TYPE_LABELS}), pour être reconnus par le
  *       référentiel de mots-clés de classification ; les types génériques
  *       ou non traduits sont ignorés ;</li>
- *   <li>{@code sourceUrl} = premier site web des contacts, à défaut l'URI
- *       DATAtourisme ;</li>
+ *   <li>liens, par priorité : site de l'événement (contact sans libellé
+ *       dans la source), puis sites de tiers (contact avec libellé :
+ *       organisateur, lieu), puis billetterie ({@link #BOOKING}, sur le
+ *       libellé ou l'URL) ; {@code sourceUrl} = premier lien de cet ordre,
+ *       à défaut l'URI DATAtourisme ;</li>
  *   <li>événements entièrement passés ou sans coordonnées ignorés, comme
  *       pour {@link OpenAgendaCollector}.</li>
  * </ul>
@@ -81,6 +113,28 @@ import org.springframework.web.client.RestClientException;
  * les événements retenus sont gardés en mémoire.
  */
 public class DataTourismeCollector implements Collector {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DataTourismeCollector.class);
+
+    /** Colonnes lues par ce collecteur ; l'absence d'une seule signale un changement de format. */
+    static final List<String> REQUIRED_COLUMNS = List.of(
+            "Nom_du_POI", "Categories_de_POI", "Latitude", "Longitude", "Adresse_postale",
+            "Code_postal_et_commune", "Periodes_regroupees", "Contacts_du_POI", "Description", "URI_ID_du_POI");
+
+    /** Part maximale de lignes dont le nombre de champs diffère de l'en-tête. */
+    private static final double MAX_MALFORMED_RATIO = 0.01;
+
+    /** Au-delà, une période d'un type non continu est une période de validité (voir la javadoc). */
+    static final int MAX_OCCURRENCE_DAYS = 31;
+
+    /** Types dont une longue période est bien continue (ouvert tous les jours de la période). */
+    private static final Set<String> CONTINUOUS_TYPES = Set.of("Exhibition", "Festival", "FairOrShow");
+
+    /** Billetterie, reconnue sur le libellé ou l'URL d'un contact. */
+    private static final Pattern BOOKING = Pattern.compile(
+            "reserv|billet|ticket|booking|shotgun|helloasso|weezevent|mapado", Pattern.CASE_INSENSITIVE);
+
+    private static final String BOOKING_LABEL = "Réservation";
 
     private static final String EVENT_TYPE = "EntertainmentAndEvent";
     private static final String LINK_TYPE_WEBSITE = "WEBSITE";
@@ -189,59 +243,110 @@ public class DataTourismeCollector implements Collector {
         CsvReader csv = new CsvReader(reader);
         List<String> header = csv.next();
         if (header == null) {
-            return List.of();
+            throw new CollectorException("Fichier DATAtourisme vide : import interrompu.", null);
         }
         Map<String, Integer> columns = new HashMap<>();
         for (int i = 0; i < header.size(); i++) {
             columns.put(header.get(i).replace("\uFEFF", "").trim(), i);
         }
+        List<String> missing = REQUIRED_COLUMNS.stream().filter(column -> !columns.containsKey(column)).toList();
+        if (!missing.isEmpty()) {
+            throw new CollectorException("Format DATAtourisme inattendu, colonnes absentes : " + missing, null);
+        }
         LocalDate today = LocalDate.now(clock.withZone(METROPOLE_ZONE));
         Set<String> seenUris = new HashSet<>();
         List<CollectedActivity> activities = new ArrayList<>();
+        Map<String, Integer> rejected = new TreeMap<>();
+        int rows = 0;
+        int malformed = 0;
+        int events = 0;
         List<String> values;
         while ((values = csv.next()) != null) {
+            rows++;
+            if (values.size() != header.size()) {
+                malformed++;
+                continue;
+            }
             Row row = new Row(columns, values);
-            CollectedActivity activity = toCollectedActivity(row, today);
-            if (activity != null && seenUris.add(activity.externalId())) {
+            if (!types(row.get("Categories_de_POI")).contains(EVENT_TYPE)) {
+                continue;
+            }
+            events++;
+            CollectedActivity activity = toCollectedActivity(row, today, rejected);
+            if (activity == null) {
+                continue;
+            }
+            if (seenUris.add(activity.externalId())) {
                 activities.add(activity);
+            } else {
+                rejected.merge("URI en double", 1, Integer::sum);
             }
         }
+        if (rows == 0) {
+            throw new CollectorException(
+                    "Fichier DATAtourisme sans aucune ligne de données : import interrompu.", null);
+        }
+        if (malformed > rows * MAX_MALFORMED_RATIO) {
+            throw new CollectorException("Fichier DATAtourisme mal formé : " + malformed + " lignes sur " + rows
+                    + " n'ont pas le nombre de colonnes de l'en-tête.", null);
+        }
+        if (events == 0) {
+            throw new CollectorException("Aucun événement dans le fichier DATAtourisme (" + rows
+                    + " lignes) : ressource ou format inattendu.", null);
+        }
+        LOGGER.info("DATAtourisme '{}' : {} lignes, {} événements, {} retenus, écartés : {}",
+                sourceName, rows, events, activities.size(), rejected);
         return activities;
     }
 
-    /** {@code null} si la ligne n'est pas un événement à retenir (voir la javadoc de la classe). */
-    private CollectedActivity toCollectedActivity(Row row, LocalDate today) {
+    /**
+     * {@code null} si l'événement n'est pas à retenir, la raison étant comptée dans {@code rejected}
+     * (voir la javadoc de la classe).
+     */
+    private CollectedActivity toCollectedActivity(Row row, LocalDate today, Map<String, Integer> rejected) {
         String uri = row.get("URI_ID_du_POI");
-        List<String> types = types(row.get("Categories_de_POI"));
-        if (isBlank(uri) || !types.contains(EVENT_TYPE)) {
-            return null;
+        if (isBlank(uri)) {
+            return reject(rejected, "sans URI");
         }
+        List<String> types = types(row.get("Categories_de_POI"));
         String[] postalCodeAndCity = firstObject(row.get("Code_postal_et_commune")).split("#", -1);
         String postalCode = postalCodeAndCity[0].trim();
         if (!matchesDepartments(postalCode)) {
-            return null;
+            return reject(rejected, "hors départements");
         }
         Double latitude = parseDouble(row.get("Latitude"));
         Double longitude = parseDouble(row.get("Longitude"));
         if (latitude == null || longitude == null) {
-            return null;
+            return reject(rejected, "sans coordonnées");
         }
-        List<CollectedTiming> timings = timings(row.get("Periodes_regroupees"));
-        boolean upcoming = timings.stream().anyMatch(timing -> !timing.end().toLocalDate().isBefore(today));
-        if (!upcoming) {
-            return null;
+        List<Period> periods = periods(row.get("Periodes_regroupees"));
+        boolean continuous = types.stream().anyMatch(CONTINUOUS_TYPES::contains);
+        List<Period> occurrences = periods.stream()
+                .filter(period -> continuous || period.days() <= MAX_OCCURRENCE_DAYS)
+                .toList();
+        if (occurrences.isEmpty()) {
+            return reject(rejected, periods.isEmpty() ? "sans période lisible" : "période de validité seulement");
         }
-        String city = postalCodeAndCity.length > 1 ? postalCodeAndCity[1].trim() : null;
+        if (occurrences.stream().allMatch(period -> period.end().isBefore(today))) {
+            return reject(rejected, "passé");
+        }
+        String city = postalCodeAndCity.length > 1 ? emptyToNull(postalCodeAndCity[1]) : null;
         List<String> tags = TYPE_LABELS.keySet().stream()
                 .filter(types::contains)
                 .map(TYPE_LABELS::get)
                 .toList();
         List<CollectedLink> links = links(row.get("Contacts_du_POI"));
-        String sourceUrl = links.isEmpty() ? uri : links.get(0).value();
+        String sourceUrl = links.isEmpty() ? uri.trim() : links.get(0).value();
+        String address = emptyToNull(row.get("Adresse_postale"));
+        String locationName = null;
+        if (address != null && isGenericAddress(address, city)) {
+            locationName = address;
+            address = null;
+        }
         CollectedLocation location = new CollectedLocation(
-                null,
-                emptyToNull(row.get("Adresse_postale")),
-                emptyToNull(city),
+                locationName,
+                address,
+                city,
                 emptyToNull(postalCode),
                 null,
                 COUNTRY_CODE,
@@ -260,13 +365,27 @@ public class DataTourismeCollector implements Collector {
                 null,
                 null,
                 location,
-                timings,
+                occurrences.stream().map(Period::toTiming).toList(),
                 null,
                 List.of(),
                 links,
                 null,
                 tags,
                 null);
+    }
+
+    private static CollectedActivity reject(Map<String, Integer> rejected, String reason) {
+        rejected.merge(reason, 1, Integer::sum);
+        return null;
+    }
+
+    /**
+     * Vrai si l'adresse désigne plusieurs lieux ou une zone (« Divers lieux », « Centre ville
+     * Saint-Rémy-de-Provence ») plutôt qu'un lieu. Règle partagée avec la précision géographique
+     * ({@link CoordinatePrecisionPolicy#isGenericPlaceText}, ADR-0011, phase A).
+     */
+    static boolean isGenericAddress(String address, String city) {
+        return CoordinatePrecisionPolicy.isGenericPlaceText(address, city);
     }
 
     private boolean matchesDepartments(String postalCode) {
@@ -284,45 +403,59 @@ public class DataTourismeCollector implements Collector {
     }
 
     /** {@code 2026-10-16<->2026-10-25|2026-11-01<->2026-11-01}, trié par date de début. */
-    private List<CollectedTiming> timings(String value) {
+    private List<Period> periods(String value) {
         if (isBlank(value)) {
             return List.of();
         }
-        List<CollectedTiming> timings = new ArrayList<>();
+        List<Period> periods = new ArrayList<>();
         for (String period : value.split("\\|")) {
             String[] bounds = period.split("<->", -1);
             try {
                 LocalDate begin = LocalDate.parse(bounds[0].trim());
                 LocalDate end = bounds.length > 1 && !bounds[1].isBlank() ? LocalDate.parse(bounds[1].trim()) : begin;
-                timings.add(new CollectedTiming(begin.atStartOfDay(), end.atTime(END_OF_DAY)));
+                periods.add(new Period(begin, end));
             } catch (DateTimeParseException exception) {
                 // Période illisible : ignorée, les autres périodes de l'événement restent exploitables.
             }
         }
-        timings.sort(Comparator.comparing(CollectedTiming::begin));
-        return timings;
+        periods.sort(Comparator.comparing(Period::begin));
+        return periods;
     }
 
-    /** {@code libellé#url<>url|libellé#url} : un lien par URL web, dans l'ordre, sans doublon. */
+    /**
+     * {@code libellé#url<>url|libellé#url} : un lien par URL web, sans doublon, triés par priorité
+     * (site de l'événement, tiers, billetterie — voir la javadoc de la classe), ordre de la source
+     * conservé à priorité égale.
+     */
     private List<CollectedLink> links(String value) {
         if (isBlank(value)) {
             return List.of();
         }
-        Map<String, String> labelsByUrl = new LinkedHashMap<>();
+        Map<String, RankedLink> byUrl = new LinkedHashMap<>();
         for (String contact : value.split("\\|")) {
             int separator = contact.indexOf('#');
-            String label = separator > 0 ? contact.substring(0, separator).trim() : null;
+            String label = separator > 0 ? emptyToNull(contact.substring(0, separator)) : null;
             String urls = separator >= 0 ? contact.substring(separator + 1) : contact;
             for (String url : urls.split("<>")) {
                 String trimmed = url.trim();
                 if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-                    labelsByUrl.putIfAbsent(trimmed, label);
+                    RankedLink candidate = new RankedLink(trimmed, label, rank(label, trimmed));
+                    byUrl.merge(trimmed, candidate, (kept, other) -> other.rank() < kept.rank() ? other : kept);
                 }
             }
         }
-        List<CollectedLink> links = new ArrayList<>();
-        labelsByUrl.forEach((url, label) -> links.add(new CollectedLink(LINK_TYPE_WEBSITE, label, url)));
-        return links;
+        return byUrl.values().stream()
+                .sorted(Comparator.comparingInt(RankedLink::rank))
+                .map(RankedLink::toLink)
+                .toList();
+    }
+
+    /** 0 : site de l'événement (sans libellé) ; 1 : tiers (avec libellé) ; 2 : billetterie. */
+    private static int rank(String label, String url) {
+        if (BOOKING.matcher(url).find() || (label != null && BOOKING.matcher(label).find())) {
+            return 2;
+        }
+        return label == null ? 0 : 1;
     }
 
     private String timezone(String postalCode) {
@@ -374,6 +507,25 @@ public class DataTourismeCollector implements Collector {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    /** Période de la source, bornes incluses. */
+    private record Period(LocalDate begin, LocalDate end) {
+
+        long days() {
+            return ChronoUnit.DAYS.between(begin, end) + 1;
+        }
+
+        CollectedTiming toTiming() {
+            return new CollectedTiming(begin.atStartOfDay(), end.atTime(END_OF_DAY));
+        }
+    }
+
+    private record RankedLink(String url, String label, int rank) {
+
+        CollectedLink toLink() {
+            return new CollectedLink(LINK_TYPE_WEBSITE, label == null && rank == 2 ? BOOKING_LABEL : label, url);
+        }
     }
 
     /** Ligne CSV accessible par nom de colonne ; colonne absente ou ligne courte → chaîne vide. */

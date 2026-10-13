@@ -8,6 +8,7 @@ import com.locallife.backend.activityclassification.application.ClassificationOu
 import com.locallife.backend.activityclassification.application.ClassificationService;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.collector.infrastructure.DataTourismeCollectorFactory;
 import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
 import com.locallife.backend.link.application.ActivityLinkService;
@@ -25,7 +26,9 @@ import com.locallife.backend.source.application.SourceDefaultCategoryService;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.tag.application.ActivityTagService;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -203,6 +206,21 @@ public class ImportService {
     private static final String ARCHIVED_STATUS = "ARCHIVED";
     private static final String PUBLISHED_STATUS = "PUBLISHED";
 
+    /**
+     * Garde-fou d'archivage : si au moins {@value #MASS_ARCHIVE_MIN_COUNT} activités publiées <b>à venir</b>
+     * disparaissent d'un coup, et qu'elles représentent plus de la moitié des activités publiées à venir de
+     * la source, la collecte est jugée suspecte (fichier tronqué, filtre mal saisi, panne côté source) :
+     * aucune activité à venir n'est archivée pour cette exécution. Les activités passées ne comptent pas et
+     * sont archivées dans tous les cas : leur disparition de la source est normale.
+     *
+     * <p>Limites exactes : suspect si {@code disparues >= 10} <b>et</b> {@code disparues > 0,5 × publiées à
+     * venir} (strictement plus de la moitié : 10 sur 20 n'est pas suspect, 10 sur 19 l'est). Valeurs initiales
+     * de protection technique, pas des règles métier : à ajuster sur l'observation des imports réels.
+     */
+    static final int MASS_ARCHIVE_MIN_COUNT = 10;
+
+    static final double MASS_ARCHIVE_MAX_RATIO = 0.5;
+
     private final SourceService sourceService;
     private final OpenAgendaCollectorFactory openAgendaCollectorFactory;
     private final DataTourismeCollectorFactory dataTourismeCollectorFactory;
@@ -307,10 +325,28 @@ public class ImportService {
     }
 
     private Collector collectorFor(Source source) {
+        return collectorFor(source, openAgendaCollectorFactory, dataTourismeCollectorFactory);
+    }
+
+    /** Collecteur d'une source selon son type ; partagé avec l'essai à blanc ({@code SourceDryRunService}). */
+    static Collector collectorFor(
+            Source source, OpenAgendaCollectorFactory openAgenda, DataTourismeCollectorFactory dataTourisme) {
         if (DATATOURISME_SOURCE_TYPE.equals(source.type())) {
-            return dataTourismeCollectorFactory.create(source);
+            return dataTourisme.create(source);
         }
-        return openAgendaCollectorFactory.create(source);
+        return openAgenda.create(source);
+    }
+
+    /**
+     * Cause affichée dans le bilan : seul le message d'une {@link CollectorException}, rédigé par le collecteur,
+     * est repris. Une autre exception peut porter l'URL d'appel, donc une clé d'API : son message ne va que
+     * dans les journaux.
+     */
+    static String displayableCause(RuntimeException exception) {
+        if (exception instanceof CollectorException) {
+            return exception.getMessage();
+        }
+        return "erreur inattendue (" + exception.getClass().getSimpleName() + "), détail dans les journaux.";
     }
 
     private static boolean hasText(String value) {
@@ -341,7 +377,9 @@ public class ImportService {
             LocalDateTime endedAt = LocalDateTime.now();
             LOGGER.error("Échec de la collecte pour la source '{}' : {}", source.name(), exception.getMessage(),
                     exception);
-            return new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0, 0);
+            return new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+                    "Collecte en échec, import interrompu sans rien créer, modifier ni archiver : "
+                            + displayableCause(exception));
         }
 
         int created = 0;
@@ -474,7 +512,7 @@ public class ImportService {
         }
 
         duplicates += archiveDuplicatesOfOtherSources(source.id());
-        int archived = archiveActivitiesNoLongerInSource(source.id(), seenKeys);
+        ArchiveOutcome archive = archiveActivitiesNoLongerInSource(source, seenKeys);
         LocalDateTime endedAt = LocalDateTime.now();
 
         // Bug corrigé : lastSyncAt restait toujours null (jamais reporté sur la Source),
@@ -484,8 +522,8 @@ public class ImportService {
         sourceService.recordSync(source.id(), endedAt);
 
         ImportResult result = new ImportResult(
-                source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors, archived,
-                needsReview, unchanged, duplicates);
+                source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors,
+                archive.archived(), needsReview, unchanged, duplicates, archive.withheld(), archive.reason());
         LOGGER.info("Import terminé pour la source '{}' : {}", source.name(), result);
 
         return result;
@@ -634,19 +672,77 @@ public class ImportService {
         return archivedDuplicates;
     }
 
-    private int archiveActivitiesNoLongerInSource(Long sourceId, Set<String> seenImportKeys) {
-        int archived = 0;
-        for (Activity activity : activityRepository.findBySourceId(sourceId)) {
+    private ArchiveOutcome archiveActivitiesNoLongerInSource(Source source, Set<String> seenImportKeys) {
+        ArchivePlan plan = planArchive(
+                activityRepository.findBySourceId(source.id()), seenImportKeys, LocalDate.now().atStartOfDay());
+        List<Activity> toArchive = new ArrayList<>(plan.past());
+        int withheld = 0;
+        String reason = null;
+        if (plan.suspicious()) {
+            withheld = plan.upcoming().size();
+            reason = "Archivage suspendu : " + withheld + " activités à venir sur " + plan.upcomingPublished()
+                    + " ont disparu de la collecte (garde-fou : au moins " + MASS_ARCHIVE_MIN_COUNT
+                    + " et plus de " + Math.round(MASS_ARCHIVE_MAX_RATIO * 100) + " %). Elles restent publiées.";
+            LOGGER.warn("Archivage suspendu pour la source '{}' : {} activités à venir sur {} ont disparu de la "
+                    + "collecte, disparition jugée suspecte. Elles restent publiées.",
+                    source.name(), withheld, plan.upcomingPublished());
+        } else {
+            toArchive.addAll(plan.upcoming());
+        }
+        for (Activity activity : toArchive) {
+            activityRepository.save(withStatus(activity, ARCHIVED_STATUS));
+        }
+        return new ArchiveOutcome(toArchive.size(), withheld, reason);
+    }
+
+    /**
+     * Activités publiées d'une source absentes de la collecte, séparées en passées et à venir, sans rien
+     * écrire. Seules les activités publiées sont concernées : une activité annulée par un administrateur garde
+     * ce statut, sinon son retour dans la source la republierait. Partagé avec l'essai à blanc
+     * ({@code SourceDryRunService}), pour que l'essai applique exactement la règle de l'import.
+     */
+    static ArchivePlan planArchive(List<Activity> activities, Set<String> seenImportKeys, LocalDateTime startOfToday) {
+        List<Activity> past = new ArrayList<>();
+        List<Activity> upcoming = new ArrayList<>();
+        int upcomingPublished = 0;
+        for (Activity activity : activities) {
+            if (!PUBLISHED_STATUS.equals(activity.status())) {
+                continue;
+            }
+            boolean isUpcoming = isUpcoming(activity, startOfToday);
+            if (isUpcoming) {
+                upcomingPublished++;
+            }
             boolean stillPresent = activity.importKey() != null && seenImportKeys.contains(activity.importKey());
-            // Seules les activités publiées sont archivées : une activité annulée par un administrateur
-            // garde ce statut, sinon son retour dans la source la republierait.
-            boolean published = PUBLISHED_STATUS.equals(activity.status());
-            if (!stillPresent && published) {
-                activityRepository.save(withStatus(activity, ARCHIVED_STATUS));
-                archived++;
+            if (!stillPresent) {
+                (isUpcoming ? upcoming : past).add(activity);
             }
         }
-        return archived;
+        return new ArchivePlan(past, upcoming, upcomingPublished);
+    }
+
+    /** Résultat de {@link #planArchive} : activités à archiver, et volume de référence du garde-fou. */
+    record ArchivePlan(List<Activity> past, List<Activity> upcoming, int upcomingPublished) {
+
+        boolean suspicious() {
+            return isSuspiciousArchive(upcoming.size(), upcomingPublished);
+        }
+    }
+
+    /** Voir {@link #MASS_ARCHIVE_MIN_COUNT}. */
+    static boolean isSuspiciousArchive(int upcomingCandidates, int upcomingPublished) {
+        return upcomingCandidates >= MASS_ARCHIVE_MIN_COUNT
+                && upcomingCandidates > upcomingPublished * MASS_ARCHIVE_MAX_RATIO;
+    }
+
+    /** À venir : fin (ou, à défaut, début) aujourd'hui ou plus tard ; sans date, comptée comme à venir. */
+    private static boolean isUpcoming(Activity activity, LocalDateTime startOfToday) {
+        LocalDateTime last = activity.endDate() != null ? activity.endDate() : activity.startDate();
+        return last == null || !last.isBefore(startOfToday);
+    }
+
+    /** Bilan de l'archivage : archivées, ou retenues par le garde-fou (avec le motif). */
+    private record ArchiveOutcome(int archived, int withheld, String reason) {
     }
 
     private Activity withSourceAndKey(Activity activity, Long id, Long sourceId, String importKey) {

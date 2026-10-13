@@ -5,3 +5,7 @@ dist/
 infra/.env.beta
 infra/backups/
 *.log
+
+# Python
+__pycache__/
+*.pyc
