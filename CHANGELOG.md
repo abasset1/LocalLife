@@ -10,9 +10,16 @@
 - Période de validité : une période de plus de 31 jours pour un type non continu (marché, visite, spectacle…) décrit une saison, pas des dates. Elle est écartée plutôt que présentée comme continue, et aucune récurrence n'est déduite. Les expositions, festivals et salons gardent leur période.
 - Adresse générique (« Divers lieux », « Centre ville », « Dans le village »…) : reprise comme nom du lieu, sans adresse. Les coordonnées restent celles de la source, sans précision garantie.
 - Liens triés : site de l'événement, puis tiers (organisateur, lieu), puis billetterie. L'URL principale suit cet ordre.
-- Vérifié sur le fichier réel du 13/10/2026, Vaucluse : 239 événements, 118 retenus, 100 écartés comme périodes de validité, 21 passés ; 4 adresses génériques.
+- Vérifié sur le fichier réel du 13/10/2026, Vaucluse : 239 événements, 118 retenus, 100 écartés comme périodes de validité (dont 88 marchés), 21 passés ; 4 adresses génériques.
+- La source `DATAtourisme PACA` est créée **inactive** : un administrateur l'active après vérification (procédure dans `DATAGOUV_SOURCES.md`, « Activation »).
+
+### Import : garde-fou contre l'archivage massif (toutes sources)
+- Si au moins 10 activités publiées à venir disparaissent d'un coup d'une source, et plus de la moitié de ses activités à venir, aucune activité à venir n'est archivée pour cette exécution (fichier tronqué, filtre mal saisi, panne côté source). Le bilan d'import indique le nombre d'activités retenues (`archiveWithheld`, colonne « Archivage suspendu » de l'administration). Les activités passées s'archivent toujours.
+
+### Carte : expositions longues de nouveau visibles
+- Sans date choisie, `/nearby` et `/within-bounds` retiennent une occurrence qui chevauche les 7 prochains jours. Avant, il fallait que son début ou sa fin y tombe : une exposition commencée avant aujourd'hui et finissant après la fenêtre était masquée (9 événements DATAtourisme sur 64 dans le Vaucluse). Rien de ce qui était visible ne disparaît.
 - Inventaire des sources data.gouv utiles (événements nationaux, lieux, food trucks) : `docs/02_Architecture/DATAGOUV_SOURCES.md`.
-- Tests : `DataTourismeCollectorTest` (16 cas, sur un extrait réel du fichier et des fichiers invalides) et `ImportServiceTest` (1 cas : sélection du collecteur). `mvn verify` passe (1217 tests, PostGIS local).
+- Tests : `DataTourismeCollectorTest` (18 cas, sur un extrait réel du fichier et des fichiers invalides, dont les bornes de la règle des 31 jours), `DataTourismeImportSafetyTest` (6 cas : vrai collecteur branché sur l'import, aucun archivage sur fichier invalide), `ImportServiceTest` (5 cas : sélection du collecteur, garde-fou d'archivage), `DefaultDateWindowIntegrationTest` (2 cas, PostGIS, échouent sur l'ancienne requête).
 
 ## 0.9.56 — 2026-10-11
 

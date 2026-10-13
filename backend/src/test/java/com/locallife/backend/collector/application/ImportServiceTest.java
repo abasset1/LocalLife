@@ -3,6 +3,7 @@ package com.locallife.backend.collector.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -40,6 +41,7 @@ import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.tag.application.ActivityTagService;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -789,6 +791,84 @@ class ImportServiceTest {
 
         assertEquals(0, results.get(0).archived());
         verify(activityRepository, never()).save(any());
+    }
+
+    private static Activity publishedActivity(long id, LocalDateTime startDate) {
+        return new Activity(
+                id, "Activité " + id, "description", "marché",
+                43.2965, 5.3698, startDate, null, "PUBLISHED",
+                10L, "external:OpenAgenda Marseille:ext-" + id, "https://example.com",
+                null, null, null, null, null, null, null, null);
+    }
+
+    /** Garde-fou : une collecte qui fait disparaître d'un coup toutes les activités à venir n'archive rien. */
+    @Test
+    void importAll_ShouldWithholdArchiving_WhenUpcomingActivitiesMassivelyDisappear() {
+        givenOneCollectibleSource();
+        when(collector.collect()).thenReturn(List.of());
+        LocalDateTime nextWeek = LocalDateTime.now().plusDays(7);
+        List<Activity> upcoming = new ArrayList<>();
+        for (long id = 1; id <= ImportService.MASS_ARCHIVE_MIN_COUNT; id++) {
+            upcoming.add(publishedActivity(id, nextWeek));
+        }
+        when(activityRepository.findBySourceId(10L)).thenReturn(upcoming);
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(0, result.archived());
+        assertEquals(ImportService.MASS_ARCHIVE_MIN_COUNT, result.archiveWithheld());
+        verify(activityRepository, never()).save(any());
+    }
+
+    /** Les activités passées disparaissent normalement de la source : leur archivage n'est jamais suspendu. */
+    @Test
+    void importAll_ShouldArchivePastActivities_EvenInLargeNumbers() {
+        givenOneCollectibleSource();
+        when(collector.collect()).thenReturn(List.of());
+        LocalDateTime lastMonth = LocalDateTime.now().minusDays(30);
+        List<Activity> past = new ArrayList<>();
+        for (long id = 1; id <= 3L * ImportService.MASS_ARCHIVE_MIN_COUNT; id++) {
+            past.add(publishedActivity(id, lastMonth));
+        }
+        when(activityRepository.findBySourceId(10L)).thenReturn(past);
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(past.size(), result.archived());
+        assertEquals(0, result.archiveWithheld());
+    }
+
+    /** Archivage suspendu : seules les activités à venir sont retenues, les passées s'archivent quand même. */
+    @Test
+    void importAll_ShouldStillArchivePastActivities_WhenUpcomingArchivingIsWithheld() {
+        givenOneCollectibleSource();
+        when(collector.collect()).thenReturn(List.of());
+        List<Activity> activities = new ArrayList<>();
+        for (long id = 1; id <= ImportService.MASS_ARCHIVE_MIN_COUNT; id++) {
+            activities.add(publishedActivity(id, LocalDateTime.now().plusDays(7)));
+        }
+        activities.add(publishedActivity(100L, LocalDateTime.now().minusDays(30)));
+        activities.add(publishedActivity(101L, LocalDateTime.now().minusDays(30)));
+        when(activityRepository.findBySourceId(10L)).thenReturn(activities);
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(2, result.archived());
+        assertEquals(ImportService.MASS_ARCHIVE_MIN_COUNT, result.archiveWithheld());
+        verify(activityRepository, times(2)).save(argThat(activity -> "ARCHIVED".equals(activity.status())));
+        verify(activityRepository, never()).save(argThat(activity -> activity.id() < 100L));
+    }
+
+    @Test
+    void isSuspiciousArchive_ShouldRequireBothVolumeAndProportion() {
+        // Sous le volume minimal : archivage normal, même si tout disparaît.
+        assertFalse(ImportService.isSuspiciousArchive(9, 9));
+        // Volume atteint et plus de la moitié des activités à venir : suspect.
+        assertTrue(ImportService.isSuspiciousArchive(10, 10));
+        assertTrue(ImportService.isSuspiciousArchive(11, 20));
+        // Volume atteint mais moitié ou moins : renouvellement normal d'une grosse source.
+        assertFalse(ImportService.isSuspiciousArchive(10, 20));
+        assertFalse(ImportService.isSuspiciousArchive(40, 200));
     }
 
     @Test

@@ -162,6 +162,39 @@ class DataTourismeCollectorTest {
                 LocalDateTime.of(2026, 9, 4, 0, 0), LocalDateTime.of(2026, 10, 31, 23, 59))), exhibition.timings());
     }
 
+    /**
+     * Règle métier validée : au-delà de 31 jours, la période d'un type non continu est une période de
+     * validité et l'événement n'est pas importé ; de 8 à 31 jours, la période est gardée telle quelle.
+     */
+    @Test
+    void collect_ShouldApplyThirtyOneDayRule_AtItsBoundaries() {
+        String eightDays = EVENT_ROW.replace("2026-11-01<->2026-11-01", "2026-11-01<->2026-11-08")
+                .replace("13/concert", "13/huit-jours");
+        String thirtyOneDays = EVENT_ROW.replace("2026-11-01<->2026-11-01", "2026-11-01<->2026-12-01")
+                .replace("13/concert", "13/trente-et-un-jours");
+        String thirtyTwoDays = EVENT_ROW.replace("2026-11-01<->2026-11-01", "2026-11-01<->2026-12-02")
+                .replace("13/concert", "13/trente-deux-jours");
+
+        List<CollectedActivity> result = collectBody(HEADER + eightDays + thirtyOneDays + thirtyTwoDays, null);
+
+        assertEquals(31, DataTourismeCollector.MAX_OCCURRENCE_DAYS);
+        assertEquals(List.of("https://data.datatourisme.fr/13/huit-jours",
+                "https://data.datatourisme.fr/13/trente-et-un-jours"),
+                result.stream().map(CollectedActivity::externalId).toList());
+        assertEquals(LocalDateTime.of(2026, 12, 1, 23, 59), result.get(1).timings().get(0).end());
+    }
+
+    @Test
+    void collect_ShouldKeepContinuousTypes_BeyondThirtyOneDays() {
+        String longExhibition = EVENT_ROW.replace("core#Concert", "core#Exhibition")
+                .replace("2026-11-01<->2026-11-01", "2026-11-01<->2027-03-31");
+
+        List<CollectedActivity> result = collectBody(HEADER + longExhibition, null);
+
+        assertEquals(1, result.size());
+        assertEquals(LocalDateTime.of(2027, 3, 31, 23, 59), result.get(0).timings().get(0).end());
+    }
+
     @Test
     void collect_ShouldKeepShortPeriods_WhenMixedWithValidityWindow() {
         String row = EVENT_ROW.replace("2026-11-01<->2026-11-01", "2026-01-01<->2026-12-31|2026-11-01<->2026-11-01");

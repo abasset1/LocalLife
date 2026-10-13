@@ -447,8 +447,8 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 * **Où** : `ImportFingerprintService#existsLiveDuplicateInAnotherSource`.
 * **Nature** : la déduplication entre sources exige le même identifiant externe et la même date de début exacte. Slug OpenAgenda et URI DATAtourisme diffèrent toujours ; DATAtourisme n'a pas d'heure.
 * **Impact réel** : non mesuré (pas d'accès OpenAgenda depuis l'environnement de développement). Tout événement publié par les deux sources apparaîtra en double.
-* **Correctif disponible** : règle complémentaire titre normalisé + même jour + moins de 300 m (à concevoir et tester).
-* **Pourquoi pas corrigé immédiatement** : décision d'Alex attendue (ADR-0011, § 6).
+* **Correctif disponible** : stratégie graduée, sans fusion destructive, ADR-0011, § 2.9 (mesure préalable sur DATAtourisme : titre + date seuls donnent des faux positifs, la distance est indispensable).
+* **Pourquoi pas corrigé immédiatement** : décision d'Alex attendue (ADR-0011, § 6) ; en attendant, la source DATAtourisme est créée inactive.
 * **Statut** : ouvert.
 
 ---
@@ -461,7 +461,7 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 * **Impact réel** : Vaucluse, 13/10/2026 : 103 des 159 événements DATAtourisme actifs dans la semaine absents de la carte par défaut ; 9 sur 64 depuis que le collecteur écarte les périodes de validité (restent surtout des expositions longues). Touche aussi les expositions longues OpenAgenda.
 * **Correctif disponible** : condition de chevauchement (`début <= fin de fenêtre ET fin >= aujourd'hui`).
 * **Pourquoi pas corrigé immédiatement** : change le comportement des recherches publiques ; décision d'Alex attendue.
-* **Statut** : ouvert.
+* **Statut** : résolu le 13/10/2026 (PR #104) : condition de chevauchement dans les deux requêtes et les deux branches, `DefaultDateWindowIntegrationTest` (échoue sur l'ancienne requête). Le seuil métier de 31 jours du collecteur DATAtourisme n'est pas concerné.
 
 ---
 

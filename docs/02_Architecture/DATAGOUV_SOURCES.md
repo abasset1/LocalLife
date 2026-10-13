@@ -143,7 +143,8 @@ Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
   `DATATOURISME`, `url` = URL stable ci-dessus, `regionFilter` =
   départements (`84,13`…). `ImportService` choisit le collecteur selon le
   type.
-* Source créée par la migration `V60` : fichier PACA, filtre `84`. Pour
+* Source créée par la migration `V60`, **inactive** (voir « Activation »
+  ci-dessous) : fichier PACA, filtre `84`. Pour
   élargir : modifier le filtre (ou le vider) depuis l'administration, ou
   pointer l'URL vers `datatourisme-fma.csv`
   (`2c6023f2-ffce-4c1a-9728-bdc020e463b5`) pour la France entière.
@@ -155,15 +156,67 @@ Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
     validité, écartée (pas de récurrence inventée) ;
   * adresse générique → nom du lieu, sans adresse ;
   * liens : site de l'événement, puis tiers, puis billetterie.
+* Garde-fou d'archivage, dans `ImportService` (toutes sources) : si au
+  moins 10 activités publiées **à venir** disparaissent d'un coup et
+  qu'elles représentent plus de la moitié des activités à venir de la
+  source, aucune activité à venir n'est archivée pour cette exécution. Le nombre retenu est
+  remonté dans le bilan d'import (`archiveWithheld`, colonne « Archivage
+  suspendu » de l'administration) et journalisé en avertissement. Les
+  activités passées s'archivent toujours normalement. Le garde-fou se
+  relâche de lui-même quand les activités retenues deviennent passées.
 * Fichier réel du 13/10/2026, Vaucluse : 239 événements, 118 retenus, 100
-  périodes de validité seulement (surtout des marchés publiés pour toute
-  l'année), 21 passés.
+  périodes de validité seulement (88 marchés publiés pour toute l'année),
+  21 passés.
 * Tests : `DataTourismeCollectorTest`, sur un extrait réel du fichier
   (`src/test/resources/datatourisme/datatourisme-extrait.csv`) et des
   fichiers invalides construits dans le test.
 
 Non couvert : lieux DATAtourisme, Data ES, Basilic, JEP, Fête de la
 science (voir § 5).
+
+### Activation d'une source DATAtourisme
+
+**Constat (audit du 13/10/2026).** Dans la première version de la PR #104,
+la migration V60 créait la source **active** : dès le déploiement,
+l'import horaire (`ImportScheduler`) l'aurait collectée sans relecture,
+avec publication directe des activités (`PUBLISHED`) et sans détection
+des doublons avec OpenAgenda (ADR-0011, § 1.3.2). Rien ne vérifie non
+plus la configuration d'une source avant son activation : une URL vers
+une autre ressource, ou un filtre mal saisi, n'est détecté qu'au premier
+import.
+
+**Solution retenue (PR #104)** : la source est créée **inactive**. Comme
+la PR n'est pas encore fusionnée, la migration V60 n'a été appliquée à
+aucune base partagée, et sa modification ne pose pas de problème de
+somme de contrôle Flyway. Si elle a été appliquée sur une base locale de
+développement, `flyway repair` (ou la recréation de la base locale) est
+nécessaire.
+
+Conséquence : aucune activité DATAtourisme n'est importée tant qu'un
+administrateur n'a pas passé la source à `ACTIVE` depuis l'administration.
+
+Procédure d'activation :
+
+1. vérifier l'URL (ressource régionale ou nationale voulue) et le filtre
+   de départements ;
+2. lancer un import manuel juste après l'activation et lire son bilan :
+   collectées, créées, doublons, erreurs, « Archivage suspendu » ;
+3. vérifier sur la carte quelques événements de la zone, et repérer les
+   doublons évidents avec les agendas OpenAgenda (non détectés
+   automatiquement, voir ADR-0011, § 2.9) ;
+4. en cas de problème, repasser la source à `INACTIVE`.
+
+**Proposition, non implémentée** (à valider) :
+
+- un **essai à blanc** depuis l'administration : collecte sans aucune
+  écriture, bilan (nombre d'événements, raisons d'exclusion, exemples,
+  doublons probables avec les autres sources) ; l'activation n'est
+  proposée qu'après un essai réussi ;
+- une **validation de configuration** à l'enregistrement d'une source
+  `DATATOURISME` : URL `https://www.data.gouv.fr/api/1/datasets/r/…`,
+  filtre composé de codes de département ;
+- en option, une **première publication en `PENDING`** (modération) pour
+  une source nouvellement activée, si le volume reste relisible.
 
 ## 5. Décisions à prendre (Alex)
 

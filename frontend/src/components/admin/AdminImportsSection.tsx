@@ -16,6 +16,8 @@ interface ImportResult {
     duplicates: number;
     needsReview: number;
     errors: number;
+    /** Activités disparues non archivées : disparition massive jugée suspecte (garde-fou backend). */
+    archiveWithheld: number;
 }
 
 /** `AgendaDiscoveryResult` (backend). */
@@ -37,6 +39,11 @@ const RESULT_COLUMNS: { key: keyof ImportResult; label: string; title: string }[
     { key: "updated", label: "Mises à jour", title: "Activités existantes modifiées" },
     { key: "unchanged", label: "Inchangées", title: "Déjà à jour" },
     { key: "archived", label: "Archivées", title: "Activités disparues de la source" },
+    {
+        key: "archiveWithheld",
+        label: "Archivage suspendu",
+        title: "Activités disparues non archivées : disparition massive jugée suspecte, à vérifier",
+    },
     { key: "needsReview", label: "À relire", title: "Classification à vérifier" },
     { key: "duplicates", label: "Doublons", title: "Doublons écartés" },
     { key: "ignored", label: "Ignorées", title: "Activités écartées (passées, incomplètes…)" },
@@ -222,12 +229,18 @@ function AdminImportsSection({ onSourcesChanged }: AdminImportsSectionProps) {
                     <div className="admin-import-results" role="status">
                         <p
                             className={`admin-import-message ${
-                                total("errors") > 0 ? "admin-import-message-warning" : "admin-import-message-success"
+                                total("errors") > 0 || total("archiveWithheld") > 0
+                                    ? "admin-import-message-warning"
+                                    : "admin-import-message-success"
                             }`}
                         >
                             Import terminé : <strong>{total("created")} activité(s) créée(s)</strong>,{" "}
                             {total("updated")} mise(s) à jour, {total("archived")} archivée(s)
-                            {total("errors") > 0 ? `, ${total("errors")} erreur(s)` : ""} sur {importResults.length}{" "}
+                            {total("errors") > 0 ? `, ${total("errors")} erreur(s)` : ""}
+                            {total("archiveWithheld") > 0
+                                ? `, archivage suspendu pour ${total("archiveWithheld")} activité(s) (disparition massive à vérifier)`
+                                : ""}{" "}
+                            sur {importResults.length}{" "}
                             source(s).
                         </p>
                         <div className="admin-import-table-wrapper">

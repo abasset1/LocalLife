@@ -4,6 +4,11 @@
 migration ni endpoint n'est créé tant que cette proposition n'est pas
 validée.
 
+Révision du 13/10/2026 (retour d'audit de la PR #104) : précision
+géographique (§ 2.6), marchés et lieux permanents (§ 2.7), données
+N-Triples (§ 2.8), stratégie de doublons OpenAgenda / DATAtourisme
+(§ 2.9). Le défaut 1.3.3 est corrigé dans la PR #104.
+
 Données chiffrées : export DATAtourisme PACA publié sur data.gouv.fr le
 13/10/2026 (`datatourisme-reg-pac.csv`), date de référence 13/10/2026.
 
@@ -58,8 +63,19 @@ Données chiffrées : export DATAtourisme PACA publié sur data.gouv.fr le
    dans le Vaucluse, **103 des 159 événements actifs dans les 7 prochains
    jours n'apparaissaient pas** sur la carte par défaut. Depuis que le
    collecteur écarte les périodes de validité (marchés publiés pour toute
-   l'année), il en reste 9 sur 64, surtout des expositions longues. À l'inverse, avec une
-   date choisie, un marché du jeudi apparaît tous les jours.
+   l'année), il en reste 9 sur 64 : 8 expositions de 16 à 214 jours et
+   « Le Festival TOUTIFESTI » (typé spectacle, 18 jours). Tous sont
+   importés (la règle des 31 jours ne les concerne pas : type continu, ou
+   période de 31 jours au plus) ;
+   seule la fenêtre les masque, chacun ayant commencé avant aujourd'hui et
+   finissant après la fenêtre.
+   **Corrigé (PR #104)** : la fenêtre retient désormais une occurrence qui
+   la chevauche (début au plus tard dans 7 jours, fin aujourd'hui ou plus
+   tard), dans `findWithinRadius` et `findWithinBounds`, pour les deux
+   branches (occurrences et colonnes plates). La nouvelle condition
+   contient l'ancienne : rien de ce qui était visible ne disparaît.
+   `DefaultDateWindowIntegrationTest` échoue sur l'ancienne requête et
+   passe sur la nouvelle. Le seuil de 31 jours n'est pas modifié.
 
 ## 2. Décision proposée
 
@@ -156,6 +172,145 @@ Ordre des sources, selon les décisions d'Alex :
 | Data ES (équipements sportifs) | Non encore analysé (étape 3). Données quotidiennes, nationales, filtrables côté serveur. | Quels équipements : tous, ou seulement ceux ouverts au public ? |
 | Basilic (lieux culturels) | Non encore analysé (étape 3). Publication ponctuelle. | Fréquence de mise à jour acceptable. |
 
+### 2.6 Précision géographique des coordonnées
+
+**Constat.** Une `Location` a toujours des coordonnées traitées comme
+exactes : marqueur, rayon de recherche, bouton d'itinéraire. Or certaines
+ne désignent pas un lieu précis : adresses génériques DATAtourisme
+(« Divers lieux », « Centre ville » : 4 événements retenus dans le
+Vaucluse le 13/10/2026), géocodage d'une contribution manuelle qui
+n'aboutit qu'à la rue ou à la commune.
+
+**Proposition.** Colonne `location.coordinate_precision VARCHAR(16) NOT
+NULL DEFAULT 'UNKNOWN'`, contrainte `CHECK` sur trois valeurs :
+
+| Valeur | Sens | Qui la pose |
+|---|---|---|
+| `EXACT` | Position du lieu lui-même (bâtiment, entrée). | Source qui le garantit, ou validation manuelle. |
+| `APPROXIMATE` | Position estimée : centre de commune, zone, lieu multiple. | Collecteur qui le détecte (adresse générique DATAtourisme), géocodage de niveau rue ou commune. |
+| `UNKNOWN` | Précision non établie. | Valeur par défaut, et toutes les lignes existantes. |
+
+Règle d'affichage : `EXACT` et `UNKNOWN` s'affichent comme aujourd'hui
+(rien ne change pour les données existantes) ; seul `APPROXIMATE` change.
+
+| Zone | Impact |
+|---|---|
+| Modèle `Location` | Un champ. `CollectedLocation` (domaine collecteur) porte la précision jusqu'à `NormalizationService`. |
+| DATAtourisme | Adresse générique → `APPROXIMATE` (règle déjà en place : nom du lieu, sans adresse). Sinon `UNKNOWN` : le CSV ne dit pas si le point est géocodé à l'adresse ou au centre de la commune. Une vérification contre le centre de commune (référentiel géographique) pourrait affiner, non retenue à ce stade. |
+| OpenAgenda | `UNKNOWN` : l'API ne qualifie pas la précision. Ne pas présumer `EXACT`. |
+| Contributions | Géocodage Nominatim : le type de résultat (maison, rue, commune) permettrait `EXACT`/`APPROXIMATE`. Second temps. |
+| Données existantes | Toutes `UNKNOWN` par la valeur par défaut. Pas de rattrapage déduit : aucune ligne n'a de provenance fiable (§ 1.1). |
+| Mise à jour | `findOrCreate` ne modifie jamais un lieu existant : un lieu déjà créé garderait `UNKNOWN`. Il faut une règle « une source peut abaisser `EXACT`/`UNKNOWN` vers `APPROXIMATE` pour un lieu qu'elle a créé », ou reprendre les lieux génériques déjà importés. |
+| Rapprochement | Un lieu `APPROXIMATE` n'est jamais fusionné par coordonnées avec un autre, et n'est jamais promu en lieu permanent (§ 2.3). |
+| Recherche | Inchangée : un lieu approximatif reste dans le rayon calculé sur son point. |
+| Carte | Marqueur distinct (contour ou halo) et mention « Emplacement approximatif » au survol. |
+| Liste et fiche | Mention « Emplacement approximatif » ; le bouton d'itinéraire vise la commune, pas le point. |
+| Colonnes plates d'`Activity` | `activity.latitude`/`longitude` restent obligatoires et inchangées ; la précision est lue sur le lieu effectif. L'API d'activité expose un champ `coordinatePrecision` (ajout, non cassant). |
+
+Migration : une colonne, valeur par défaut, `CHECK` ; aucun rattrapage de
+données. Tests : migration (lignes existantes en `UNKNOWN`, valeur hors
+liste refusée), collecteur DATAtourisme (générique → `APPROXIMATE`,
+adresse précise → `UNKNOWN`), `findOrCreate` (un lieu approximatif n'est
+pas réutilisé par coordonnées), API (champ exposé), frontend (marqueur et
+mention, itinéraire vers la commune), non-régression des recherches.
+
+### 2.7 Marchés : lieux permanents, jours de présence à confirmer
+
+**Constat.** La règle des 31 jours (validée, non modifiable) écarte de
+l'import d'événements les marchés publiés pour toute une saison : 100
+événements sur 239 dans le Vaucluse le 13/10/2026, dont 88 marchés
+(« Marché de Châteauneuf-du-Pape », 2026-01-01 → 2026-12-31), 3 visites
+et 9 autres.
+Le CSV simplifié ne donne pas les jours.
+
+**Proposition**, dans le cadre du § 2.2, sans nouvelle entité :
+
+- un marché est une `Location` de `place_type = 'MARKET'` ;
+- ses jours de présence sont des **horaires d'ouverture** du lieu, pas des
+  occurrences d'activité : table `location_opening_hours` (`location_id`,
+  `day_of_week`, `opens`, `closes`, `valid_from`, `valid_until`, `source_id`),
+  calquée sur `schema:OpeningHoursSpecification` qu'utilise DATAtourisme ;
+- sans horaires connus, le lieu s'affiche avec « Jours de marché à
+  confirmer » et la saison de la source (« publié du 1er janvier au 31
+  décembre ») ; aucune date ni récurrence n'est déduite ;
+- jamais d'occurrence générée à partir d'horaires d'ouverture : un marché
+  reste un lieu, consultable sur la carte et dans la liste « Lieux ».
+
+Alternative écartée : un marché comme activité récurrente (`Schedule`
+avec une règle `RRULE` hebdomadaire). Elle n'est possible que si les jours
+sont connus, crée une activité par saison, et mélange un lieu permanent
+avec un événement daté. Elle reste envisageable plus tard pour un marché
+exceptionnel (marché de Noël).
+
+### 2.8 Données DATAtourisme complètes (N-Triples) : évaluation
+
+Piste pour obtenir les jours de marché. Évaluée le 13/10/2026 sur un
+extrait réel (60 premiers Mo de l'archive, lus par requête HTTP partielle),
+sans présumer de la qualité.
+
+| Axe | Constat |
+|---|---|
+| Accès | Public, sans compte : `datatourisme.nt.zip`, ressource du même jeu data.gouv.fr. Le serveur accepte les requêtes partielles (réponse 206). Une seule entrée, `dataset.nt`, au format N-Triples. |
+| Volume | 1,93 Go compressé. Rapport mesuré sur l'extrait : 60 Mo → 459 Mo, 2,39 millions de triplets. Estimation pour le fichier entier : environ 15 Go décompressés, environ 77 millions de triplets. |
+| Structure | Présente : un marché (`core#Market`) pointe par `core#takesPlaceAt` vers des nœuds de période ; l'extrait contient des nœuds `schema:OpeningHoursSpecification` avec `schema:dayOfWeek`, `schema:opens`, `schema:closes` (ex. jeudi 14:00–18:00). 446 marchés dans l'extrait. |
+| Qualité | **Non mesurée.** Dans l'extrait, aucun des 446 marchés n'a sa période présente : les nœuds liés sont dispersés dans le fichier. La part de marchés dont les jours sont réellement renseignés ne peut être connue qu'après traitement du fichier complet. |
+| Coût | Téléchargement quotidien de 1,93 Go ; jointure entre nœuds dispersés (deux passes ou tri externe) sur environ 15 Go. Incompatible avec l'import horaire ; envisageable en traitement hebdomadaire séparé. |
+
+Recommandation : avant toute intégration, un traitement ponctuel du
+fichier complet, hors de l'environnement de développement (environ 20 Go
+de disque), pour mesurer la part des marchés du Vaucluse et de PACA qui
+ont des jours et des horaires exploitables. À comparer avec les flux
+personnalisés DATAtourisme (JSON par point d'intérêt, compte gratuit sur
+la plateforme diffuseur), non évalués ici.
+
+### 2.9 Doublons OpenAgenda / DATAtourisme : stratégie proposée
+
+**Constat.** La règle actuelle (même `external_id`) ne peut pas rapprocher
+ces deux sources (§ 1.3.2). Mesure sur DATAtourisme PACA seul, faute
+d'accès à OpenAgenda : parmi les événements à venir, les paires de **même
+titre normalisé et même jour** se répartissent ainsi :
+
+| Distance | Paires | Exemples |
+|---|---|---|
+| ≤ 300 m | 26 | « Cendrillon », même salle (0 m) ; « Cinéma », Saintes-Maries (2 m) |
+| 300 m – 5 km | 3 | « Jouer la mouette », Marseille 3e et 2e (1,9 km) |
+| > 5 km | 5 | « Fête de la musique » à Port-de-Bouc, Marignane et Salon (18 à 27 km) ; « Octobre Rose », Lambesc et Barbentane (50 km) |
+
+Conséquences : le titre et la date seuls donnent des faux positifs ; la
+distance est indispensable. Même à moins de 300 m, un même titre peut
+désigner deux séances distinctes, et DATAtourisme n'a pas d'heure.
+
+**Critères**, du plus fiable au moins fiable :
+
+1. même jour pour au moins une occurrence de chaque côté (comparaison au
+   jour : DATAtourisme n'a pas d'heure) ;
+2. distance ≤ 300 m entre lieux effectifs, si aucun n'est `APPROXIMATE`
+   (§ 2.6) ; sinon même commune ;
+3. titre : normalisé identique (`ll_search_normalize`), ou un titre
+   contenant au moins 80 % des mots de l'autre ;
+4. titres génériques (« Marché », « Cinéma », « Visite guidée »,
+   « Concert »…) : jamais suffisants, même avec 1 et 2.
+
+**Décisions graduées, sans fusion destructive :**
+
+| Niveau | Condition | Effet |
+|---|---|---|
+| Probable | 1 + 2 (300 m) + titre identique, non générique | L'événement DATAtourisme est **masqué** au profit de celui d'OpenAgenda (source prioritaire) : lien enregistré, réversible, visible par un administrateur. Rien n'est supprimé ni fusionné. |
+| Possible | 1 + 2, titre proche ou générique ; ou lieu approximatif dans la même commune | Les deux restent publiés ; paire proposée à la relecture d'un administrateur. |
+| Aucun | Autres cas | Rien. |
+
+Mise en œuvre en deux temps :
+
+- **Mesure** : calcul des paires, sans aucune écriture, sur les données
+  réelles importées ; revue des faux positifs avant tout masquage
+  automatique.
+- **Application** : une table de liens (`activity_duplicate_link` :
+  activité, doublon de, règle, niveau, statut auto/confirmé/rejeté). C'est
+  un changement de modèle, soumis à validation.
+
+Le mécanisme actuel (même `external_id`, archivage du doublon le plus
+récent) reste en place pour les doublons d'une même plateforme.
+
 ## 3. Impacts
 
 | Zone | Impact |
@@ -203,19 +358,26 @@ Ordre des sources, selon les décisions d'Alex :
 ## 6. Décisions et blocages pour Alex
 
 1. **Valider ce modèle cible** (§ 2.2) avant toute migration.
-2. **Défaut 1.3.2 (doublons OpenAgenda / DATAtourisme)** : la source
-   DATAtourisme de la PR #104 est créée active. Proposition : la créer
-   **inactive** tant qu'une règle de rapprochement entre sources (titre
-   normalisé + même jour + moins de 300 m) n'est pas en place, ou accepter
-   des doublons temporaires. À trancher.
-3. **Défaut 1.3.3 (fenêtre de 7 jours)** : corriger la règle (occurrence
-   qui chevauche la fenêtre, et non qui y commence ou finit). Changement
-   de comportement des recherches publiques existantes : à valider.
-4. **Mesure du recouvrement réel OpenAgenda / DATAtourisme, et de la
+2. **Défaut 1.3.2 (doublons OpenAgenda / DATAtourisme)** : valider la
+   stratégie du § 2.9 (seuils, masquage réversible, table de liens). En
+   attendant, la source DATAtourisme est créée **inactive** par la
+   migration V60 (PR #104) : aucun import tant qu'un administrateur ne
+   l'active pas.
+3. **Défaut 1.3.3 (fenêtre de 7 jours)** : corrigé dans la PR #104.
+4. **Précision géographique** (§ 2.6) : valider les trois valeurs, la
+   règle d'affichage et l'absence de rattrapage des données existantes.
+5. **Marchés** (§ 2.7) : valider le principe « lieu `MARKET` + horaires
+   d'ouverture, jours à confirmer », et décider du traitement ponctuel du
+   fichier N-Triples complet (§ 2.8).
+6. **Mesure du recouvrement réel OpenAgenda / DATAtourisme, et de la
    couverture JEP / Fête de la science** : impossible ici. L'environnement
    n'a pas de clé OpenAgenda et bloque `openagenda.com`. Il faut soit une
    clé de lecture et l'accès réseau à `openagenda.com`, soit un export des
    événements importés en base de production. La liste des agendas
    réellement configurés en production est aussi inconnue d'ici (seuls les
    deux de la migration V14 sont versionnés).
-5. **Types de lieux DATAtourisme à importer** (liste blanche, § 2.5).
+7. **Types de lieux DATAtourisme à importer** (liste blanche, § 2.5).
+
+Non décidés, hors de cet ADR : couverture OpenAgenda des Journées
+européennes du patrimoine et de la Fête de la science ; stratégie des food
+trucks (manuelle à ce jour).
