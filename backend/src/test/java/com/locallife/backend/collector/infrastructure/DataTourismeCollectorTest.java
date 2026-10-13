@@ -290,6 +290,24 @@ class DataTourismeCollectorTest {
         assertRejected(HEADER + EVENT_ROW + "ligne,tronquée\n");
     }
 
+    /** Lignes mal formées : 1 % est toléré (limite exacte), au-delà la collecte échoue. */
+    @Test
+    void collect_ShouldApplyMalformedRowRatio_AtItsBoundary() {
+        String onePercent = HEADER + validRows(99) + "ligne,tronquée\n";
+        String twoPercent = HEADER + validRows(98) + "ligne,tronquée\n" + "autre,ligne,tronquée\n";
+
+        assertEquals(99, collectBody(onePercent, null).size());
+        assertRejected(twoPercent);
+    }
+
+    private static String validRows(int count) {
+        StringBuilder rows = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            rows.append(EVENT_ROW.replace("13/concert", "13/concert-" + i));
+        }
+        return rows.toString();
+    }
+
     @Test
     void collect_ShouldThrow_WhenDownloadIsCutOff() {
         DataTourismeCollector collector = newCollector(RESOURCE_URL, null);

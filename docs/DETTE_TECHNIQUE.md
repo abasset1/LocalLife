@@ -448,7 +448,7 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 * **Nature** : la déduplication entre sources exige le même identifiant externe et la même date de début exacte. Slug OpenAgenda et URI DATAtourisme diffèrent toujours ; DATAtourisme n'a pas d'heure.
 * **Impact réel** : non mesuré (pas d'accès OpenAgenda depuis l'environnement de développement). Tout événement publié par les deux sources apparaîtra en double.
 * **Correctif disponible** : stratégie graduée, sans fusion destructive, ADR-0011, § 2.9 (mesure préalable sur DATAtourisme : titre + date seuls donnent des faux positifs, la distance est indispensable).
-* **Pourquoi pas corrigé immédiatement** : décision d'Alex attendue (ADR-0011, § 6) ; en attendant, la source DATAtourisme est créée inactive.
+* **Pourquoi pas corrigé immédiatement** : décision d'Alex attendue (ADR-0011, § 6) ; en attendant, une source DATAtourisme ne s'active qu'après un essai à blanc réussi (source de la migration V60 : voir `DATAGOUV_SOURCES.md`, « Migration V60 »).
 * **Statut** : ouvert.
 
 ---

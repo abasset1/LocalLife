@@ -1,17 +1,15 @@
 # Changelog
 
-## 0.9.57 — 2026-10-13
+## 0.9.58 — 2026-10-13
 
-### Import : événements DATAtourisme depuis data.gouv.fr
-- Nouveau type de source `DATATOURISME` : lit l'export CSV quotidien DATAtourisme publié par ADN Tourisme sur data.gouv.fr, sans clé API, et n'en garde que les événements à venir.
-- Source ajoutée par la migration `V60` : `DATAtourisme PACA (data.gouv.fr)`, active, filtrée sur le Vaucluse (`84`). URL et départements modifiables depuis l'administration (type `DATATOURISME` ajouté au formulaire).
-- Chaque période (dates seules) devient un créneau de 00:00 le premier jour à 23:59 le dernier. Les types DATAtourisme sont traduits en mots-clés français (concert, théâtre, marché…) pour la classification ; à défaut, le titre sert de repli.
+Suite de la PR #104, fusionnée avec ses deux premiers commits seulement (0.9.57) : ces corrections n'étaient pas dans `main`.
+
+### Import DATAtourisme : fiabilisation du collecteur
 - Fichier suspect (vide, colonne manquante, plus de 1 % de lignes mal formées, aucun événement, téléchargement interrompu) : la collecte échoue, rien n'est archivé. Un fichier valide sans événement retenu reste un import vide normal.
 - Période de validité : une période de plus de 31 jours pour un type non continu (marché, visite, spectacle…) décrit une saison, pas des dates. Elle est écartée plutôt que présentée comme continue, et aucune récurrence n'est déduite. Les expositions, festivals et salons gardent leur période.
 - Adresse générique (« Divers lieux », « Centre ville », « Dans le village »…) : reprise comme nom du lieu, sans adresse. Les coordonnées restent celles de la source, sans précision garantie.
 - Liens triés : site de l'événement, puis tiers (organisateur, lieu), puis billetterie. L'URL principale suit cet ordre.
 - Vérifié sur le fichier réel du 13/10/2026, Vaucluse : 239 événements, 118 retenus, 100 écartés comme périodes de validité (dont 88 marchés), 21 passés ; 4 adresses génériques.
-- La source `DATAtourisme PACA` est créée **inactive** : un administrateur l'active après vérification (procédure dans `DATAGOUV_SOURCES.md`, « Activation »).
 
 ### Administration : essai à blanc et activation vérifiée des sources DATAtourisme
 - Essai à blanc d'une source (`POST /api/v1/admin/import/sources/{id}/dry-run`) : collecte réelle et bilan de ce qu'un import ferait (créations, mises à jour, archivage), sans aucune écriture. Verdict `OK`, `FAILED` ou `SUSPICIOUS`.
@@ -30,8 +28,19 @@
 
 ### Carte : expositions longues de nouveau visibles
 - Sans date choisie, `/nearby` et `/within-bounds` retiennent une occurrence qui chevauche les 7 prochains jours. Avant, il fallait que son début ou sa fin y tombe : une exposition commencée avant aujourd'hui et finissant après la fenêtre était masquée (9 événements DATAtourisme sur 64 dans le Vaucluse). Rien de ce qui était visible ne disparaît.
-- Inventaire des sources data.gouv utiles (événements nationaux, lieux, food trucks) : `docs/02_Architecture/DATAGOUV_SOURCES.md`.
 - Tests : `DataTourismeCollectorTest` (18 cas, sur un extrait réel du fichier et des fichiers invalides, dont les bornes de la règle des 31 jours), `DataTourismeImportSafetyTest` (6 cas : vrai collecteur branché sur l'import, aucun archivage sur fichier invalide), `ImportServiceTest` (5 cas : sélection du collecteur, garde-fou d'archivage), `DefaultDateWindowIntegrationTest` (2 cas, PostGIS, échouent sur l'ancienne requête).
+- Bilan d'import : motif en clair d'un blocage (`blockedReason` : collecte en échec, ou archivage suspendu), affiché dans l'administration des imports.
+- La migration `V60` n'est pas modifiée (déjà fusionnée) : la source `DATAtourisme PACA` qu'elle crée reste **active** là où elle a été appliquée. Procédure par environnement dans `DATAGOUV_SOURCES.md` (« Migration V60 »).
+
+## 0.9.57 — 2026-10-13
+
+### Import : événements DATAtourisme depuis data.gouv.fr
+- Nouveau type de source `DATATOURISME` : lit l'export CSV quotidien DATAtourisme publié par ADN Tourisme sur data.gouv.fr, sans clé API, et n'en garde que les événements à venir.
+- Source ajoutée par la migration `V60` : `DATAtourisme PACA (data.gouv.fr)`, active, filtrée sur le Vaucluse (`84`). URL et départements modifiables depuis l'administration (type `DATATOURISME` ajouté au formulaire).
+- Chaque période (dates seules) devient un créneau de 00:00 le premier jour à 23:59 le dernier. Les types DATAtourisme sont traduits en mots-clés français (concert, théâtre, marché…) pour la classification ; à défaut, le titre sert de repli.
+- Vérifié sur le fichier réel du 13/10/2026 : 213 événements à venir dans le Vaucluse, lus en environ 4 s.
+- Inventaire des sources data.gouv utiles (événements nationaux, lieux, food trucks) : `docs/02_Architecture/DATAGOUV_SOURCES.md`.
+- Tests : `DataTourismeCollectorTest` (8 cas, sur un extrait réel du fichier) et `ImportServiceTest` (1 cas : sélection du collecteur). `mvn verify` passe (1209 tests, PostGIS local).
 
 ## 0.9.56 — 2026-10-11
 

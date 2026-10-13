@@ -143,8 +143,9 @@ Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
   `DATATOURISME`, `url` = URL stable ci-dessus, `regionFilter` =
   départements (`84,13`…). `ImportService` choisit le collecteur selon le
   type.
-* Source créée par la migration `V60`, **inactive** (voir « Activation »
-  ci-dessous) : fichier PACA, filtre `84`. Pour
+* Source créée par la migration `V60` (fusionnée), **active** là où elle
+  a été appliquée : voir « Migration V60 » ci-dessous. Fichier PACA,
+  filtre `84`. Pour
   élargir : modifier le filtre (ou le vider) depuis l'administration, ou
   pointer l'URL vers `datatourisme-fma.csv`
   (`2c6023f2-ffce-4c1a-9728-bdc020e463b5`) pour la France entière.
@@ -156,14 +157,7 @@ Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
     validité, écartée (pas de récurrence inventée) ;
   * adresse générique → nom du lieu, sans adresse ;
   * liens : site de l'événement, puis tiers, puis billetterie.
-* Garde-fou d'archivage, dans `ImportService` (toutes sources) : si au
-  moins 10 activités publiées **à venir** disparaissent d'un coup et
-  qu'elles représentent plus de la moitié des activités à venir de la
-  source, aucune activité à venir n'est archivée pour cette exécution. Le nombre retenu est
-  remonté dans le bilan d'import (`archiveWithheld`, colonne « Archivage
-  suspendu » de l'administration) et journalisé en avertissement. Les
-  activités passées s'archivent toujours normalement. Le garde-fou se
-  relâche de lui-même quand les activités retenues deviennent passées.
+* Garde-fous techniques : voir « Garde-fous de l'import » ci-dessous.
 * Fichier réel du 13/10/2026, Vaucluse : 239 événements, 118 retenus, 100
   périodes de validité seulement (88 marchés publiés pour toute l'année),
   21 passés.
@@ -174,23 +168,86 @@ Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
 Non couvert : lieux DATAtourisme, Data ES, Basilic, JEP, Fête de la
 science (voir § 5).
 
+### Garde-fous de l'import
+
+Valeurs **initiales de protection technique**, pas des règles métier : à
+ajuster sur l'observation des imports réels (décision d'Alex du
+13/10/2026). Toutes sont testées à leurs limites exactes.
+
+| Garde-fou | Où | Déclenchement exact | Effet | Ce que montre le bilan |
+|---|---|---|---|---|
+| Fichier vide, colonne obligatoire absente, aucun événement | `DataTourismeCollector` | dès l'en-tête ou en fin de lecture | collecte en échec : rien n'est créé, modifié ni archivé ; dernière synchronisation inchangée | `errors = 1`, `blockedReason` = « Collecte en échec… » + cause |
+| Lignes mal formées | `DataTourismeCollector` | strictement plus de 1 % des lignes n'ont pas le nombre de colonnes de l'en-tête | idem | idem, avec le nombre de lignes |
+| Téléchargement interrompu, erreur HTTP | `DataTourismeCollector` | exception réseau ou statut non 2xx | idem | idem |
+| Disparition massive (toutes sources) | `ImportService` | activités publiées **à venir** absentes de la collecte : **au moins 10** et **strictement plus de 50 %** des activités publiées à venir de la source (10 sur 19 : bloqué ; 10 sur 20 : non) | les activités à venir ne sont pas archivées ; les passées le sont ; créations et mises à jour appliquées | `archiveWithheld` = nombre retenu, `blockedReason` = « Archivage suspendu… » avec les deux nombres |
+| Rejets à la normalisation (essai à blanc) | `SourceDryRunService` | **strictement plus de 50 %** des éléments collectés rejetés (2 sur 4 : non ; 3 sur 4 : oui) | verdict `SUSPICIOUS` : pas d'activation | problème listé dans le bilan d'essai |
+| Aucun élément (essai à blanc) | `SourceDryRunService` | collecte réussie mais vide | verdict `SUSPICIOUS` | idem |
+
+Un import en échec ou suspect ne provoque donc jamais d'archivage massif :
+l'échec s'arrête avant l'archivage, la disparition massive le suspend. Le
+garde-fou se relâche de lui-même quand les activités retenues deviennent
+passées ; une suppression réelle et massive côté source laisse donc ces
+activités visibles jusqu'à leur date.
+
 ### Activation d'une source DATAtourisme
 
-**Constat (audit du 13/10/2026).** Dans la première version de la PR #104,
-la migration V60 créait la source **active** : dès le déploiement,
-l'import horaire (`ImportScheduler`) l'aurait collectée sans relecture,
-avec publication directe des activités (`PUBLISHED`) et sans détection
-des doublons avec OpenAgenda (ADR-0011, § 1.3.2). Rien ne vérifie non
-plus la configuration d'une source avant son activation : une URL vers
-une autre ressource, ou un filtre mal saisi, n'est détecté qu'au premier
-import.
+**Constat (13/10/2026).** La PR #104 a été fusionnée dans `main` le
+13/10/2026 à 10:01 avec ses **deux premiers commits seulement** (0.9.57) :
+la migration V60 y crée la source `DATAtourisme PACA` **active**, et le
+collecteur n'a ni contrôle du fichier, ni règle des 31 jours, ni garde-fou
+d'archivage. Les corrections (0.9.58) sont sur la branche, rejouée sur
+`main`, et **ne modifient pas V60** : une migration fusionnée ne doit plus
+changer, sous peine d'échec de Flyway au démarrage sur toute base qui l'a
+appliquée.
 
-**Solution retenue (PR #104)** : la source est créée **inactive**. Comme
-la PR n'est pas encore fusionnée, la migration V60 n'a été appliquée à
-aucune base partagée, et sa modification ne pose pas de problème de
-somme de contrôle Flyway. Si elle a été appliquée sur une base locale de
-développement, `flyway repair` (ou la recréation de la base locale) est
-nécessaire.
+### Migration V60 : situation et procédure par environnement
+
+Sommes de contrôle Flyway mesurées le 13/10/2026 sur PostgreSQL/PostGIS 16 :
+
+| Version de V60 | Statut de la source | `checksum` |
+|---|---|---|
+| fusionnée dans `main` (seule version à garder) | `ACTIVE` | `-753629161` |
+| abandonnée, jamais fusionnée (branche avant le 13/10 vers 14 h) | `INACTIVE` | `1901026672` |
+
+**1. Vérifier, dans chaque environnement (bêta, production, bases locales).**
+Le déploiement de la bêta est manuel (images reconstruites sur le VPS) : on
+ne peut pas savoir d'ici si `main` y a été redéployé depuis la fusion.
+
+```sql
+SELECT version, checksum, installed_on, success
+FROM flyway_schema_history WHERE version = '60';
+
+SELECT id, name, status, last_sync_at
+FROM source WHERE type = 'DATATOURISME';
+
+SELECT status, count(*)
+FROM activity
+WHERE source_id = (SELECT id FROM source WHERE type = 'DATATOURISME')
+GROUP BY status;
+```
+
+**2. Agir selon le cas.**
+
+| Cas | Constat | Action | Réparation Flyway |
+|---|---|---|---|
+| A | V60 absente | Rien avant déploiement. Après le déploiement de la 0.9.58, la source sera `ACTIVE` (V60 de `main`) : la passer à `INACTIVE`, puis « Essai à blanc » et « Activer après vérification ». | Non |
+| B1 | Checksum `-753629161`, `last_sync_at` vide | Source active mais jamais collectée. Avant le prochain import horaire : la passer à `INACTIVE` ; après déploiement de la 0.9.58, activation vérifiée. | Non |
+| B2 | Checksum `-753629161`, `last_sync_at` renseigné | La source a déjà été importée avec le collecteur sans garde-fou. Contrôler le nombre d'activités `ARCHIVED` (un archivage massif est possible si un fichier invalide a été reçu). Déployer la 0.9.58 au plus vite, ou passer la source à `INACTIVE` en attendant. Au premier import 0.9.58, les marchés publiés pour l'année (règle des 31 jours) ne sont plus collectés et seront archivés, sauf si le garde-fou juge leur disparition massive. | Non |
+| C | Checksum `1901026672` | Base qui a exécuté la branche avant sa reconstruction (développement uniquement). Le démarrage échoue sur ce code (« Migration checksum mismatch », vérifié). Recréer la base locale ; ou, si ses données comptent, `flyway repair` **après sauvegarde** : il aligne la somme de contrôle sur le fichier sans toucher aux données (la source reste `INACTIVE`, ce qui est l'état voulu). | Seulement ici |
+
+**Précautions** : sauvegarde avant toute intervention (`infra/backup.sh`) ;
+jamais de `flyway repair` sans avoir lu la somme de contrôle en base et
+identifié le cas ; jamais de `repair` en production pour faire disparaître
+une erreur non comprise.
+
+**Option non retenue sans ta décision** : une migration de données (V61)
+qui passerait la source à `INACTIVE` là où elle n'a jamais été collectée
+(`last_sync_at IS NULL`), pour ne plus dépendre d'une action manuelle :
+
+```sql
+UPDATE source SET status = 'INACTIVE'
+WHERE type = 'DATATOURISME' AND status = 'ACTIVE' AND last_sync_at IS NULL;
+```
 
 **Activation vérifiée (implémentée, décision d'Alex du 13/10/2026).**
 
@@ -200,8 +257,9 @@ nécessaire.
   liste de départements écrits comme des préfixes de code postal (`84`,
   `13`, `20` pour la Corse, `971`…), pas d'identifiant d'agenda. Une
   configuration invalide est refusée (400) avec la raison.
-- **Jamais active sans vérification** : une source `DATATOURISME` est
-  créée inactive ; une modification ne peut ni la passer à `ACTIVE`, ni
+- **Jamais activée sans vérification** : une source `DATATOURISME` créée
+  depuis l'administration l'est inactive (seule exception : celle de la
+  migration V60, voir plus haut) ; une modification ne peut ni la passer à `ACTIVE`, ni
   changer son URL, son type ou son filtre en la laissant active (400). Le
   renommage et la désactivation restent libres.
 - **Essai à blanc** (`POST /api/v1/admin/import/sources/{id}/dry-run`,

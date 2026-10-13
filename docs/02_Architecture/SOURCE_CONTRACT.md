@@ -34,7 +34,8 @@ Java, pour rester extensible sans migration de code) :
   `url` = URL stable de la ressource
   (`https://www.data.gouv.fr/api/1/datasets/r/{resourceId}`),
   `regionFilter` = départements retenus (ex. `84,13`, vide = tout le
-  fichier). Créée inactive, elle ne s'active qu'après un essai à blanc
+  fichier). Créée inactive depuis l'administration (sauf la source de la
+  migration V60, active), elle ne s'active qu'après un essai à blanc
   réussi ; configuration validée à l'enregistrement. Voir
   `DATAGOUV_SOURCES.md` (« Activation ») et `DataTourismeCollector` ;
 - `MANUAL` — réservée à la compatibilité avec les activités créées

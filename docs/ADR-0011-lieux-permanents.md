@@ -461,8 +461,9 @@ nom du lieu, sans adresse » du collecteur DATAtourisme.
 2. **Défaut 1.3.2 (doublons OpenAgenda / DATAtourisme)** : stratégie
    acceptée (§ 2.9) ; règle implémentée et testée, non branchée. Reste à
    valider la phase D (§ 7.4) après mesure sur les données de production.
-   En attendant, la source DATAtourisme est créée **inactive** et ne
-   s'active qu'après un essai à blanc réussi (PR #104).
+   En attendant, une source DATAtourisme ne s'active qu'après un essai à
+   blanc réussi ; celle de la migration V60, fusionnée active, est à
+   traiter selon `DATAGOUV_SOURCES.md` (« Migration V60 »).
 3. **Défaut 1.3.3 (fenêtre de 7 jours)** : corrigé dans la PR #104.
 4. **Précision géographique** (§ 2.6) : valider les trois valeurs, la
    règle d'affichage et l'absence de rattrapage des données existantes.

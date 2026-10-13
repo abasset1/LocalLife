@@ -9,18 +9,12 @@
 -- d'administration (ex. « 84,13 », ou vide pour toute la région ; ou une autre
 -- ressource, ex. datatourisme-fma.csv 2c6023f2-ffce-4c1a-9728-bdc020e463b5 pour
 -- la France entière).
---
--- Créée INACTIVE : aucun import n'a lieu tant qu'un administrateur ne l'a pas
--- activée depuis l'interface d'administration, après les vérifications de
--- DATAGOUV_SOURCES.md (« Activation »). Raisons : les doublons avec les agendas
--- OpenAgenda ne sont pas encore détectés, et les activités importées sont
--- publiées directement.
 INSERT INTO source (name, type, url, status, last_sync_at, agenda_uid, region_filter)
 VALUES (
     'DATAtourisme PACA (data.gouv.fr)',
     'DATATOURISME',
     'https://www.data.gouv.fr/api/1/datasets/r/83a1f131-9e23-4c3b-b1c6-e58f33fe7b80',
-    'INACTIVE',
+    'ACTIVE',
     NULL,
     NULL,
     '84');
