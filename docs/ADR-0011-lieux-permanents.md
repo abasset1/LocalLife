@@ -5,7 +5,16 @@ détaillée (§ 7) en attente de validation.** Principes acceptés :
 réutiliser `Location` sans entité concurrente, précision géographique
 `EXACT`/`APPROXIMATE`/`UNKNOWN`, marchés comme lieux permanents aux jours
 éventuellement à confirmer, stratégie de doublons sans fusion destructive.
-Aucune migration de modèle n'est écrite avant validation du § 7.
+Validation **phase par phase** (décision du 13/10/2026) : aucune migration
+de modèle n'est écrite avant la validation de sa phase ; le SQL du § 7 est
+documentaire.
+
+| Phase | Statut |
+|---|---|
+| A — précision géographique | priorité haute ; dossier de validation au § 7.1 |
+| B — lieux permanents | principe accepté ; impacts présentés au § 7.2 |
+| C — marchés et horaires | piste acceptée ; décision après l'étude N-Triples (§ 2.8) |
+| D — liens de doublons | règle implémentée et testée mais **non branchée, donc non opérationnelle** ; branchement présenté au § 7.4 |
 
 Révision du 13/10/2026 (retour d'audit de la PR #104) : précision
 géographique (§ 2.6), marchés et lieux permanents (§ 2.7), données
@@ -320,15 +329,87 @@ Le SQL ci-dessous est un **projet** : aucun fichier de migration n'existe.
 Livraison en quatre phases indépendantes, chacune avec sa migration, ses
 tests et sa validation.
 
-### 7.1 Phase A — précision géographique (§ 2.6)
+### 7.1 Phase A — précision géographique : dossier de validation
+
+**Priorité haute (décision d'Alex du 13/10/2026). Statut : à valider.**
+Rien n'est implémenté de cette phase, en dehors de la règle du collecteur
+DATAtourisme qui met déjà le texte d'une adresse générique en nom de lieu.
+
+**Audit des usages des coordonnées** (13/10/2026) :
+
+| Usage | Coordonnées lues | Effet d'une position approximative aujourd'hui |
+|---|---|---|
+| Carte web et mobile (`/nearby`, `/within-bounds`) | marqueur : `activity.latitude/longitude` ; filtre : `location.geo_location` | marqueur présenté comme exact |
+| Bouton d'itinéraire (`frontend/src/utils/directions.ts`) | coordonnées de l'activité | guidage vers un point qui n'est pas le lieu |
+| Recherche globale (`ActivitySearchRepository`) | `location.geo_location` | distance affichée et tri présentés comme exacts |
+| Alertes (`ActivityAlertRepository`) | `location.geo_location`, repli `activity.location` | alerte déclenchée (ou non) sur un point approximatif |
+| Rapprochement de lieux (`LocationService#findOrCreate`) | coordonnées exactes en repli de l'adresse | deux événements « Divers lieux » d'une même commune peuvent partager un lieu |
+| Application mobile (`mobile/src/api/types.ts`) | `latitude`/`longitude` des réponses | idem carte web |
+
+**Choix proposés, avec leurs compromis :**
+
+| # | Question | Proposition | Alternative | Compromis |
+|---|---|---|---|---|
+| A1 | Où stocker la précision | `location.coordinate_precision` (le lieu porte les coordonnées) **et** copie sur `activity` (`activity.coordinate_precision`), comme `latitude`/`longitude` y sont déjà copiées | calcul à la lecture par jointure sur le lieu effectif | la copie évite une jointure par activité dans les listes et la carte, au prix d'une colonne dupliquée à tenir cohérente à l'import |
+| A2 | Valeurs | `EXACT`, `APPROXIMATE`, `UNKNOWN` ; défaut `UNKNOWN` | deux valeurs (exact / approximatif) | `UNKNOWN` évite d'affirmer une précision qu'aucune source ne garantit |
+| A3 | Qui pose `EXACT` | personne au départ ; plus tard : géocodage de niveau « adresse » d'une contribution, ou validation par un administrateur | OpenAgenda en `EXACT` | aucune source actuelle ne garantit la précision ; `EXACT` resterait vide au début, sans effet visible |
+| A4 | Qui pose `APPROXIMATE` | collecteur DATAtourisme (adresse générique, règle déjà en place) ; géocodage limité à la rue ou à la commune | détection du « centre de commune » par comparaison à un référentiel | la comparaison au centre de commune demande un référentiel externe ; écartée pour l'instant |
+| A5 | Données existantes | toutes `UNKNOWN` par défaut ; **rattrapage ciblé optionnel** : les lieux sans adresse dont le nom est générique (même règle que le collecteur) passent en `APPROXIMATE` | aucun rattrapage | le rattrapage est heuristique ; il ne vise que des cas reconnus par la règle déjà testée |
+| A6 | Rapprochement | la précision fait partie du rapprochement : un lieu `APPROXIMATE` n'est jamais réutilisé par coordonnées pour un autre événement, ni l'inverse | aucune règle | quelques lieux supplémentaires en base pour les événements multi-lieux |
+| A7 | Affichage | `APPROXIMATE` : marqueur distinct, mention « Emplacement approximatif » (carte, liste, fiche), itinéraire vers la commune ; `EXACT` et `UNKNOWN` : inchangés | marqueur masqué | un point reste nécessaire pour situer l'événement sur la carte |
+| A8 | Alertes | une activité `APPROXIMATE` déclenche l'alerte si son point est dans le rayon, avec la mention « emplacement approximatif » dans le message | exclure les positions approximatives | ne rien envoyer ferait manquer des événements réels de la commune |
+| A9 | API | champ `coordinatePrecision` ajouté aux réponses d'activité (ajout, non cassant) | — | les anciennes versions de l'application mobile ignorent le champ et continuent d'afficher un point exact jusqu'à leur mise à jour |
+
+**Projet de migration (non créée) :**
 
 ```sql
-ALTER TABLE location
-    ADD COLUMN coordinate_precision VARCHAR(16) NOT NULL DEFAULT 'UNKNOWN'
-        CHECK (coordinate_precision IN ('EXACT', 'APPROXIMATE', 'UNKNOWN'));
+ALTER TABLE location ADD COLUMN coordinate_precision VARCHAR(16) NOT NULL DEFAULT 'UNKNOWN'
+    CHECK (coordinate_precision IN ('EXACT', 'APPROXIMATE', 'UNKNOWN'));
+ALTER TABLE activity ADD COLUMN coordinate_precision VARCHAR(16) NOT NULL DEFAULT 'UNKNOWN'
+    CHECK (coordinate_precision IN ('EXACT', 'APPROXIMATE', 'UNKNOWN'));
+-- A5, seulement si retenu : rattrapage ciblé (requête exacte à figer avec la règle du collecteur).
 ```
 
-### 7.2 Phase B — lieux permanents et provenance (§ 2.2 à 2.5)
+**Fichiers concernés** : migration ; `Location`, `Activity`, `CollectedLocation` ;
+`DataTourismeCollector` (pose `APPROXIMATE`), `OpenAgendaCollector`
+(`UNKNOWN`), `NormalizationService`, `LocationService#findOrCreate` (A6),
+`GeocodingService` (plus tard, A3/A4) ; réponses d'API d'activité ;
+`ActivityAlertService` (mention) ; frontend : `ExplorerMap`, `ActivityList`,
+`ActivityDetailModal`, `directions.ts` ; mobile : types et carte.
+
+**Tests à écrire** : migration (lignes existantes `UNKNOWN`, valeur hors
+liste refusée) ; collecteur (générique → `APPROXIMATE`, adresse précise →
+`UNKNOWN`) ; normalisation (copie sur l'activité) ; `findOrCreate` (pas de
+réutilisation croisée) ; API (champ présent sur les cinq réponses) ; alertes
+(mention) ; frontend (marqueur, mention, itinéraire vers la commune) ;
+non-régression des recherches géographiques.
+
+**Décisions demandées pour la phase A** : A1 (copie sur l'activité), A5
+(rattrapage ciblé ou non), A8 (alertes incluses avec mention), et le
+calendrier de la mise à jour de l'application mobile (A9).
+
+### 7.2 Phase B — lieux permanents et provenance : présentation pour décision
+
+**Principe accepté (réutiliser `Location`). Statut : à valider.**
+
+**Impacts sur l'architecture et les fonctionnalités existantes :**
+
+| Zone | Impact | Compromis |
+|---|---|---|
+| Module `place` | passe d'un simple modèle à un module complet : API publique (`PlaceController`), service de lieux, modération | un module de plus à maintenir, mais pas de doublon d'entité |
+| Recherches d'activités, alertes | inchangées : elles ignorent `place_type`/`status` | — |
+| Lieux partagés existants | inchangés ; un lieu d'événement peut être promu en lieu permanent, sans changer d'`id` | une promotion modifie la fiche d'un lieu déjà utilisé : règle « ne jamais déplacer un lieu qui porte des programmations » (§ 2.3) |
+| Suppression d'activités (administration) | inchangée : les lieux restent (déjà le cas) | les lieux permanents ne sont jamais supprimés avec une activité |
+| Suppression d'une source | provenance supprimée en cascade, lieux conservés | un lieu peut rester sans provenance : à archiver par une règle explicite |
+| Import | nouveau `PlaceImportService` séparé de l'import d'événements ; mêmes garde-fous (fichier suspect, disparition massive, essai à blanc) | duplication partielle de l'orchestration, à factoriser si un troisième import apparaît |
+| Carte web et mobile | nouvelle couche « Lieux », activable ; l'application mobile ne la verra qu'après mise à jour | volume : 3 619 lieux DATAtourisme dans le seul Vaucluse avant liste blanche |
+| Administration | modération des lieux `PENDING` (fusions ambiguës) | charge de relecture à mesurer sur un essai à blanc |
+
+**Décisions demandées** : liste blanche des types de lieux DATAtourisme
+(§ 2.5 ; proposition : sites culturels, patrimoine, sports et loisirs,
+galeries) ; publication directe (`PUBLISHED`) ou modération (`PENDING`) des
+lieux importés ; ordre des sources (DATAtourisme, puis Data ES, puis
+Basilic).
 
 ```sql
 ALTER TABLE location
@@ -373,7 +454,41 @@ CREATE TABLE location_opening_hours (
 Un marché sans ligne d'horaires s'affiche « Jours de marché à confirmer ».
 Phase conditionnée au résultat de l'étude N-Triples (§ 2.8).
 
-### 7.4 Phase D — liens de doublons entre sources (§ 2.9)
+### 7.4 Phase D — liens de doublons : présentation pour décision
+
+**Conception poursuivie. Statut : la règle existe et est testée, mais elle
+n'est pas branchée : elle n'est pas opérationnelle.**
+
+État réel :
+
+- implémenté et testé : `CrossSourceDuplicateMatcher` (fonction pure,
+  9 tests, dont les faux positifs mesurés) ;
+- non implémenté : calcul des paires candidates sur les données en base,
+  enregistrement des liens, masquage, écran de relecture.
+
+**Conception du branchement**, en deux étapes :
+
+1. **Mesure, sans écriture** : un service d'application calcule les paires
+   candidates entre activités publiées de sources différentes. Il ne
+   compare que des activités qui ont un jour d'occurrence commun et le même
+   département, pour éviter une comparaison de toutes les paires. Il
+   produit un rapport (paires probables et possibles, avec titres, lieux et
+   distance) consultable par un administrateur, et des tests d'intégration
+   PostGIS sur des cas réels. Aucune table nouvelle n'est nécessaire.
+2. **Liens**, après revue du rapport sur les données de production :
+   table `activity_duplicate_link` (SQL ci-dessous), masquage des seuls
+   liens `PROBABLE` non rejetés, écran de relecture des liens `POSSIBLE`,
+   annulation possible.
+
+| Choix | Proposition | Compromis |
+|---|---|---|
+| Quand calculer | après chaque import, pour les activités créées ou modifiées | un calcul complet périodique serait plus simple mais plus coûteux |
+| Activité conservée | celle de la source prioritaire (OpenAgenda) | une fiche DATAtourisme plus riche peut être masquée ; la relecture permet d'inverser |
+| Masquage | exclusion des recherches publiques, fiche toujours accessible par son lien | les requêtes de recherche gagnent une condition (`NOT EXISTS` sur les liens) |
+| Faux positifs | jamais de masquage pour un titre générique, une position approximative ou une distance supérieure à 300 m | des doublons réels restent visibles en attendant leur relecture |
+
+**Décisions demandées** : autoriser l'étape 1 (mesure sans écriture,
+aucune migration) ; accès aux données de production pour la revue.
 
 ```sql
 CREATE TABLE activity_duplicate_link (
@@ -406,9 +521,9 @@ Phase conditionnée à la mesure sur les données réelles de production.
 | Suppressions | — | cascade de provenance | cascade d'horaires | cascade de liens |
 | Tests | § 2.6 | § 4 | migration, affichage sans horaires | `CrossSourceDuplicateMatcherTest` (déjà écrit), mesure à blanc, masquage réversible |
 
-**Déjà implémenté sans changement de modèle** (PR #104) : la règle de
-doublons (`CrossSourceDuplicateMatcher`, fonction pure, non branchée,
-9 tests dont les faux positifs mesurés) ; la règle « adresse générique →
+**Déjà implémenté sans changement de modèle** : la règle de doublons
+(`CrossSourceDuplicateMatcher`, fonction pure, 9 tests dont les faux
+positifs mesurés ; non branchée, donc sans effet sur l'application) ; la règle « adresse générique →
 nom du lieu, sans adresse » du collecteur DATAtourisme.
 
 ## 3. Impacts

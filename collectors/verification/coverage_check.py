@@ -56,8 +56,17 @@ def load(path):
         return list(csv.DictReader(handle))
 
 
+# Une référence peut aussi être un export d'activités (openagenda_export.py) : comparaison n° 2.
+REFERENCE_ALIASES = {"titre_fr": "title", "premiere_date": "start_date", "derniere_date": "end_date",
+                     "code_postal": "postal_code"}
+
+
+def as_reference(row):
+    return {key: row[key] if key in row else row.get(alias, "") for key, alias in REFERENCE_ALIASES.items()} | row
+
+
 def main(reference_path, activities_path, missing_path=None):
-    reference = load(reference_path)
+    reference = [as_reference(row) for row in load(reference_path)]
     activities = load(activities_path)
     by_department = defaultdict(list)
     for activity in activities:

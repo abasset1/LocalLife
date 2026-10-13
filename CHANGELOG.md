@@ -22,6 +22,7 @@ Suite de la PR #104, fusionnée avec ses deux premiers commits seulement (0.9.57
 
 ### Vérification de couverture JEP / Fête de la science (préparée)
 - Listes officielles du Vaucluse (JEP 2025 : 234 événements, tous sur l'agenda OpenAgenda national `2883956` ; Fête de la science 2026 : 114) et script de comparaison `collectors/verification/coverage_check.py`. Procédure et accès nécessaires : `docs/02_Architecture/VERIFICATION_JEP_FDS.md`.
+- Export d'un agenda OpenAgenda au même format (`openagenda_export.py`, clé lue dans l'environnement, jamais affichée) ; procédure en trois comparaisons (officiel ↔ OpenAgenda ↔ base LocalLife) et accès en lecture seule limité. Couverture réelle **non mesurée** à ce jour.
 
 ### Import : garde-fou contre l'archivage massif (toutes sources)
 - Si au moins 10 activités publiées à venir disparaissent d'un coup d'une source, et plus de la moitié de ses activités à venir, aucune activité à venir n'est archivée pour cette exécution (fichier tronqué, filtre mal saisi, panne côté source). Le bilan d'import indique le nombre d'activités retenues (`archiveWithheld`, colonne « Archivage suspendu » de l'administration). Les activités passées s'archivent toujours.
