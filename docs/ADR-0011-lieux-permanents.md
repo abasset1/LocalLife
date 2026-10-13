@@ -11,7 +11,7 @@ documentaire.
 
 | Phase | Statut |
 |---|---|
-| A — précision géographique | priorité haute ; dossier de validation au § 7.1 |
+| A — précision géographique | quatre points validés le 13/10/2026 ; conception finalisée, règles implémentées et testées **sans changement de schéma, non branchées** ; migration testée sur base jetable seulement ; hypothèses restantes au § 7.1.6 |
 | B — lieux permanents | principe accepté ; impacts présentés au § 7.2 |
 | C — marchés et horaires | piste acceptée ; étude N-Triples terminée, **jours de marché non trouvés** dans la part lue (§ 2.8) : pas d'implémentation recommandée en l'état |
 | D — liens de doublons | règle implémentée et testée mais **non branchée, donc non opérationnelle** ; branchement présenté au § 7.4 |
@@ -380,9 +380,8 @@ tests et sa validation.
 
 ### 7.1 Phase A — précision géographique : dossier de validation
 
-**Priorité haute (décision d'Alex du 13/10/2026). Statut : à valider.**
-Rien n'est implémenté de cette phase, en dehors de la règle du collecteur
-DATAtourisme qui met déjà le texte d'une adresse générique en nom de lieu.
+**Priorité haute. Statut : conception finalisée ; règles implémentées et
+testées sans changement de schéma, non branchées ; migration non créée.**
 
 **Audit des usages des coordonnées** (13/10/2026) :
 
@@ -409,33 +408,128 @@ DATAtourisme qui met déjà le texte d'une adresse générique en nom de lieu.
 | A8 | Alertes | une activité `APPROXIMATE` déclenche l'alerte si son point est dans le rayon, avec la mention « emplacement approximatif » dans le message | exclure les positions approximatives | ne rien envoyer ferait manquer des événements réels de la commune |
 | A9 | API | champ `coordinatePrecision` ajouté aux réponses d'activité (ajout, non cassant) | — | les anciennes versions de l'application mobile ignorent le champ et continuent d'afficher un point exact jusqu'à leur mise à jour |
 
-**Projet de migration (non créée) :**
+#### 7.1.1 Décisions d'Alex (13/10/2026)
+
+Validés : les trois niveaux `EXACT`/`APPROXIMATE`/`UNKNOWN` ; une stratégie
+explicite pour les données existantes, **sans attribuer arbitrairement une
+précision exacte** ; l'étude des impacts sur `Location`, les imports, la
+carte et les listes ; SQL et migration préparés ici, **non appliqués** avant
+validation de l'implémentation détaillée.
+
+#### 7.1.2 Conception finalisée
+
+| Règle | Décision de conception | Où (implémenté, non branché) |
+|---|---|---|
+| Valeurs | `EXACT`, `APPROXIMATE`, `UNKNOWN` ; défaut `UNKNOWN` | `place.domain.CoordinatePrecision` |
+| Import | jamais `EXACT` ; `APPROXIMATE` si le texte du lieu est générique, sinon `UNKNOWN` | `CoordinatePrecisionPolicy.inferFromText` |
+| Texte examiné | l'adresse, ou le nom à défaut (le collecteur DATAtourisme range une adresse générique dans le nom et vide l'adresse) ; une adresse précise l'emporte sur un nom générique | idem |
+| Texte générique | règle unique, partagée avec le collecteur DATAtourisme (déplacée, comportement inchangé) | `CoordinatePrecisionPolicy.isGenericPlaceText` |
+| Données existantes (A5) | **même règle**, appliquée en SQL : `APPROXIMATE` pour les lieux reconnus, `UNKNOWN` pour tous les autres ; jamais `EXACT` | § 7.1.3, parité Java / SQL testée |
+| Réutilisation (A6, **précisée**) | entre lieux non approximatifs : règle actuelle ; dès qu'un lieu est approximatif : réutilisé **seulement** par un lieu approximatif de même nom et même commune (normalisés) | `CoordinatePrecisionPolicy.mayReuse` |
+| Lieu réutilisé | précision inchangée : un import n'abaisse pas une validation humaine et n'élève rien | `CoordinatePrecisionPolicy.onReuse` |
+| Copie sur l'activité (A1) | celle du lieu dont l'activité affiche le point (mêmes coordonnées) | rattrapage § 7.1.3 ; à l'import : `NormalizationService` (à brancher) |
+| Affichage (A7) | seul `APPROXIMATE` change : mention « Emplacement approximatif », marqueur distinct, itinéraire vers l'adresse ou la commune | `CoordinatePrecisionPolicy.isShownAsApproximate` ; frontend : `buildDirectionsUrl` (champ optionnel) |
+
+**Pourquoi A6 a été précisée.** L'import rattache le lieu par
+`LocationService#findOrCreate` à **chaque** réimport (`ImportService#enrichActivity`
+supprime puis recrée programmations et occurrences). La règle initiale (« un
+lieu approximatif n'est jamais réutilisé par coordonnées ») créerait donc un
+nouveau lieu à chaque import horaire pour chaque événement approximatif. La
+règle retenue réutilise le lieu approximatif de même nom et même commune,
+et sépare toujours deux zones distinctes (« Divers lieux » et « Centre
+ville » d'une même commune, géocodés au même centre).
+
+#### 7.1.3 Projet de migration et rattrapage (non créés dans `db/migration`)
 
 ```sql
 ALTER TABLE location ADD COLUMN coordinate_precision VARCHAR(16) NOT NULL DEFAULT 'UNKNOWN'
+    CONSTRAINT chk_location_coordinate_precision
     CHECK (coordinate_precision IN ('EXACT', 'APPROXIMATE', 'UNKNOWN'));
 ALTER TABLE activity ADD COLUMN coordinate_precision VARCHAR(16) NOT NULL DEFAULT 'UNKNOWN'
+    CONSTRAINT chk_activity_coordinate_precision
     CHECK (coordinate_precision IN ('EXACT', 'APPROXIMATE', 'UNKNOWN'));
--- A5, seulement si retenu : rattrapage ciblé (requête exacte à figer avec la règle du collecteur).
+
+-- Rattrapage ciblé (A5). <bloc de classification> : le bloc « classification » de
+-- infra/verification/phase_a_precision_mesure.sql, repris à l'identique (testé par
+-- GenericPlaceSqlParityIntegrationTest).
+WITH <bloc de classification>
+UPDATE location l SET coordinate_precision = 'APPROXIMATE'
+FROM precision_candidate p
+WHERE p.id = l.id AND p.approximate AND l.coordinate_precision = 'UNKNOWN';
+
+-- Copie sur l'activité (A1) : celle dont le point affiché est celui d'un lieu approximatif rattaché.
+UPDATE activity a SET coordinate_precision = 'APPROXIMATE'
+WHERE a.coordinate_precision = 'UNKNOWN'
+  AND EXISTS (
+      SELECT 1
+      FROM schedule s
+      LEFT JOIN occurrence o ON o.schedule_id = s.id
+      JOIN location l ON l.id = COALESCE(o.location_id, s.location_id)
+      WHERE s.activity_id = a.id
+        AND l.coordinate_precision = 'APPROXIMATE'
+        AND l.latitude = a.latitude AND l.longitude = a.longitude);
 ```
 
-**Fichiers concernés** : migration ; `Location`, `Activity`, `CollectedLocation` ;
-`DataTourismeCollector` (pose `APPROXIMATE`), `OpenAgendaCollector`
-(`UNKNOWN`), `NormalizationService`, `LocationService#findOrCreate` (A6),
-`GeocodingService` (plus tard, A3/A4) ; réponses d'API d'activité ;
-`ActivityAlertService` (mention) ; frontend : `ExplorerMap`, `ActivityList`,
-`ActivityDetailModal`, `directions.ts` ; mobile : types et carte.
+Le bloc de classification normalise en SQL comme en Java : minuscules,
+accents retirés (`translate` sur les lettres accentuées françaises, en
+minuscules et en majuscules, indépendant de la collation), ponctuation en
+espaces, nom de commune retiré.
 
-**Tests à écrire** : migration (lignes existantes `UNKNOWN`, valeur hors
-liste refusée) ; collecteur (générique → `APPROXIMATE`, adresse précise →
-`UNKNOWN`) ; normalisation (copie sur l'activité) ; `findOrCreate` (pas de
-réutilisation croisée) ; API (champ présent sur les cinq réponses) ; alertes
-(mention) ; frontend (marqueur, mention, itinéraire vers la commune) ;
-non-régression des recherches géographiques.
+**Mesure préalable, en lecture seule** : `infra/verification/phase_a_precision_mesure.sql`
+compte, avant toute migration, les lieux qui passeraient `APPROXIMATE`,
+les activités rattachées et celles qui seraient marquées. Il liste aussi
+les 100 premiers lieux concernés, pour relire les faux positifs. À exécuter
+en bêta et en production avant de valider le rattrapage.
 
-**Décisions demandées pour la phase A** : A1 (copie sur l'activité), A5
-(rattrapage ciblé ou non), A8 (alertes incluses avec mention), et le
-calendrier de la mise à jour de l'application mobile (A9).
+#### 7.1.4 Tests exécutés (13/10/2026)
+
+| Test | Résultat |
+|---|---|
+| `CoordinatePrecisionPolicyTest` (9 cas : textes génériques et précis, adresse avant nom, jamais `EXACT`, réutilisation, précision inchangée, affichage) | réussi |
+| `GenericPlaceSqlParityIntegrationTest` (PostgreSQL réel) : 21 lieux classés à l'identique par le SQL et par Java ; copies du bloc identiques ; script sans écriture | réussi ; **contrôle par mutation** : en retirant `le village` du SQL, le test échoue sur « Le Village / Gordes » |
+| `DataTourismeCollectorTest` après délégation de la règle générique | 19 cas réussis, comportement inchangé |
+| `directions.test.ts` : coordonnées sans précision, `UNKNOWN` ou `EXACT` ; commune pour `APPROXIMATE` ; point conservé sans commune | 4 cas réussis |
+| Migration et rattrapage sur **base jetable** (copie de la base de test, jamais un environnement réel) | valeur hors liste refusée ; « Centre ville / Apt » et « Dans les rues du village / Gordes » → `APPROXIMATE` ; « Divers lieux » avec adresse « Place de l'Horloge » → `UNKNOWN` ; autres lieux `UNKNOWN` ; activité au point du lieu → `APPROXIMATE` ; activité au point différent → `UNKNOWN` ; second passage : 0 ligne modifiée |
+
+#### 7.1.5 Impacts du branchement (après validation)
+
+| Zone | Changement |
+|---|---|
+| `Location`, `Activity`, `CollectedLocation` | un champ `coordinatePrecision` |
+| `DataTourismeCollector`, `OpenAgendaCollector` | posent `inferFromText` (OpenAgenda : `UNKNOWN` sauf texte générique) |
+| `LocationRepository` / `LocationService#findOrCreate` | recherche par coordonnées filtrée par `mayReuse` (requête : même précision, et pour `APPROXIMATE` même nom et même commune) |
+| `NormalizationService` | copie la précision du lieu sur l'activité |
+| `ActivityResponse` et réponses de carte, de liste et de recherche | champ `coordinatePrecision` (ajout non cassant) |
+| `ActivityAlertService` | mention « emplacement approximatif » (A8) |
+| Frontend | `ExplorerMap` (marqueur), `ActivityList` et `ActivityDetailModal` (mention), `buildDirectionsUrl` (prêt) |
+| Mobile | types et carte ; les anciennes versions ignorent le champ |
+| Recherche géographique | inchangée (même point, même rayon) |
+
+#### 7.1.6 Hypothèses restantes, à trancher avant toute modification du schéma
+
+1. **Ampleur réelle du rattrapage** : inconnue tant que le script de mesure
+   n'a pas tourné en bêta et en production. Seul chiffre réel : 4 événements
+   DATAtourisme retenus sur 118 dans le Vaucluse ont une adresse générique.
+   Les lieux OpenAgenda et les contributions n'ont jamais été mesurés.
+2. **Faux positifs et négatifs de la règle** : elle ne reconnaît que des
+   formulations relevées dans DATAtourisme. « Cœur de ville » ou « Dans la
+   ville d'Avignon » restent `UNKNOWN` (choix prudent : une omission laisse
+   l'affichage actuel ; un faux positif dégraderait un lieu précis). Faut-il
+   élargir la liste après relecture de la mesure ?
+3. **Activité dont le point affiché diffère de son lieu approximatif** (cas
+   testé : activité à plusieurs lieux) : elle reste `UNKNOWN`. Acceptable,
+   ou faut-il la marquer `APPROXIMATE` dès qu'un de ses lieux l'est ?
+4. **Lieux en double existants** : avant la phase A, des événements
+   génériques d'une même commune ont pu partager un même lieu par
+   coordonnées. Le rattrapage les marque `APPROXIMATE` sans les séparer.
+   Ensuite, `mayReuse` en créera un par nom au réimport, et l'ancien lieu
+   restera orphelin (aucune suppression prévue).
+5. **Alertes (A8)** : inclure les activités approximatives avec une mention
+   reste la proposition. À confirmer.
+6. **Application mobile (A9)** : calendrier de mise à jour. Les versions
+   publiées afficheront un point exact jusqu'à leur mise à jour.
+7. **Géocodage des contributions (A3/A4)** : hors de cette phase. Les
+   contributions restent `UNKNOWN`.
 
 ### 7.2 Phase B — lieux permanents et provenance : présentation pour décision
 

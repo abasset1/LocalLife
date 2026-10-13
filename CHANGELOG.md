@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.59 — non publiée
+
+### Précision géographique (ADR-0011, phase A) : conception finalisée, sans changement de schéma
+- Règles en fonctions pures, testées, **non branchées** : `CoordinatePrecision` (`EXACT`, `APPROXIMATE`, `UNKNOWN`) et `CoordinatePrecisionPolicy` (un import ne pose jamais `EXACT` ; texte générique → `APPROXIMATE` ; un lieu approximatif n'est partagé qu'avec un lieu approximatif de même nom et même commune ; précision d'un lieu réutilisé inchangée).
+- Le collecteur DATAtourisme délègue sa règle des adresses génériques à `CoordinatePrecisionPolicy` (comportement inchangé).
+- `infra/verification/phase_a_precision_mesure.sql` : mesure en lecture seule du rattrapage (lieux et activités concernés, liste à relire), avant toute migration. Sa classification SQL est testée contre la règle Java sur PostgreSQL (`GenericPlaceSqlParityIntegrationTest`).
+- Frontend : `buildDirectionsUrl` accepte une précision facultative ; pour `APPROXIMATE`, l'itinéraire vise l'adresse ou la commune. Sans ce champ, que l'API n'envoie pas encore, rien ne change.
+- Migration et rattrapage : projet dans l'ADR (§ 7.1.3), testé sur une base jetable uniquement, **non créé** dans `db/migration`.
+
 ## 0.9.58 — 2026-10-13
 
 Suite de la PR #104, fusionnée avec ses deux premiers commits seulement (0.9.57) : ces corrections n'étaient pas dans `main`.

@@ -5,12 +5,12 @@ import com.locallife.backend.collector.domain.CollectedLink;
 import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.place.domain.CoordinatePrecisionPolicy;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.text.Normalizer;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -130,14 +129,6 @@ public class DataTourismeCollector implements Collector {
 
     /** Types dont une longue période est bien continue (ouvert tous les jours de la période). */
     private static final Set<String> CONTINUOUS_TYPES = Set.of("Exhibition", "Festival", "FairOrShow");
-
-    /** Adresse désignant plusieurs lieux (texte normalisé, voir {@link #normalize}). */
-    private static final Pattern MULTIPLE_PLACES = Pattern.compile("\\b(divers|differents|plusieurs) lieux\\b");
-
-    /** Adresse désignant une zone et non un lieu (texte normalisé, nom de commune retiré). */
-    private static final Pattern GENERIC_AREA = Pattern.compile(
-            "(en )?(centre ville|centre village|centre du village|le village|dans le village|dans la ville"
-                    + "|dans tout le village|dans les rues( du village| de la ville)?)");
 
     /** Billetterie, reconnue sur le libellé ou l'URL d'un contact. */
     private static final Pattern BOOKING = Pattern.compile(
@@ -390,27 +381,11 @@ public class DataTourismeCollector implements Collector {
 
     /**
      * Vrai si l'adresse désigne plusieurs lieux ou une zone (« Divers lieux », « Centre ville
-     * Saint-Rémy-de-Provence ») plutôt qu'un lieu : comparaison sur le texte normalisé, nom de la
-     * commune retiré.
+     * Saint-Rémy-de-Provence ») plutôt qu'un lieu. Règle partagée avec la précision géographique
+     * ({@link CoordinatePrecisionPolicy#isGenericPlaceText}, ADR-0011, phase A).
      */
     static boolean isGenericAddress(String address, String city) {
-        String normalized = normalize(address);
-        if (MULTIPLE_PLACES.matcher(normalized).find()) {
-            return true;
-        }
-        if (city != null) {
-            String normalizedCity = normalize(city);
-            if (!normalizedCity.isEmpty()) {
-                normalized = normalized.replace(normalizedCity, " ").replaceAll("\\s+", " ").trim();
-            }
-        }
-        return GENERIC_AREA.matcher(normalized).matches();
-    }
-
-    /** Minuscules, sans accents ni ponctuation, espaces simples. */
-    private static String normalize(String value) {
-        String withoutAccents = Normalizer.normalize(value, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
-        return withoutAccents.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").trim();
+        return CoordinatePrecisionPolicy.isGenericPlaceText(address, city);
     }
 
     private boolean matchesDepartments(String postalCode) {
