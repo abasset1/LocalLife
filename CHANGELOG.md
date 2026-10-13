@@ -13,6 +13,18 @@
 - Vérifié sur le fichier réel du 13/10/2026, Vaucluse : 239 événements, 118 retenus, 100 écartés comme périodes de validité (dont 88 marchés), 21 passés ; 4 adresses génériques.
 - La source `DATAtourisme PACA` est créée **inactive** : un administrateur l'active après vérification (procédure dans `DATAGOUV_SOURCES.md`, « Activation »).
 
+### Administration : essai à blanc et activation vérifiée des sources DATAtourisme
+- Essai à blanc d'une source (`POST /api/v1/admin/import/sources/{id}/dry-run`) : collecte réelle et bilan de ce qu'un import ferait (créations, mises à jour, archivage), sans aucune écriture. Verdict `OK`, `FAILED` ou `SUSPICIOUS`.
+- Activation vérifiée (`POST /api/v1/admin/import/sources/{id}/activate`) : la source n'est activée que si l'essai est `OK` ; sinon 409 avec le bilan. Seul chemin d'activation d'une source `DATATOURISME`.
+- Configuration d'une source `DATATOURISME` validée à l'enregistrement (URL stable data.gouv.fr, départements) ; une modification ne peut pas l'activer, ni changer sa configuration en la laissant active.
+- Boutons « Essai à blanc » et « Activer après vérification » dans l'administration des agendas.
+
+### Doublons entre sources : règle de rapprochement (non branchée)
+- `CrossSourceDuplicateMatcher` : niveaux probable / possible / aucun (jour commun, distance de 300 m, titre identique ou proche, titres génériques jamais suffisants). Fonction pure, sans écriture ; testée sur les faux positifs mesurés dans DATAtourisme (« Fête de la musique » dans trois communes, « Octobre Rose »).
+
+### Vérification de couverture JEP / Fête de la science (préparée)
+- Listes officielles du Vaucluse (JEP 2025 : 234 événements, tous sur l'agenda OpenAgenda national `2883956` ; Fête de la science 2026 : 114) et script de comparaison `collectors/verification/coverage_check.py`. Procédure et accès nécessaires : `docs/02_Architecture/VERIFICATION_JEP_FDS.md`.
+
 ### Import : garde-fou contre l'archivage massif (toutes sources)
 - Si au moins 10 activités publiées à venir disparaissent d'un coup d'une source, et plus de la moitié de ses activités à venir, aucune activité à venir n'est archivée pour cette exécution (fichier tronqué, filtre mal saisi, panne côté source). Le bilan d'import indique le nombre d'activités retenues (`archiveWithheld`, colonne « Archivage suspendu » de l'administration). Les activités passées s'archivent toujours.
 

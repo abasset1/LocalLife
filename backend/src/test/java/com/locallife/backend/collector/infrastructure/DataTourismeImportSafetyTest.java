@@ -1,6 +1,8 @@
 package com.locallife.backend.collector.infrastructure;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
@@ -20,6 +22,9 @@ import com.locallife.backend.collector.application.ImportFingerprintService;
 import com.locallife.backend.collector.application.ImportResult;
 import com.locallife.backend.collector.application.ImportService;
 import com.locallife.backend.collector.application.NormalizationService;
+import com.locallife.backend.collector.application.SourceActivationService;
+import com.locallife.backend.collector.application.SourceDryRunReport;
+import com.locallife.backend.collector.application.SourceDryRunService;
 import com.locallife.backend.link.application.ActivityLinkService;
 import com.locallife.backend.media.application.ActivityMediaService;
 import com.locallife.backend.media.application.MediaService;
@@ -35,6 +40,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -52,7 +58,8 @@ import org.springframework.web.client.RestClient;
 @ExtendWith(MockitoExtension.class)
 class DataTourismeImportSafetyTest {
 
-    private static final String URL = "https://www.data.gouv.fr/api/1/datasets/r/pac";
+    private static final String URL =
+            "https://www.data.gouv.fr/api/1/datasets/r/83a1f131-9e23-4c3b-b1c6-e58f33fe7b80";
 
     private static final Source SOURCE = new Source(
             20L, "DATAtourisme PACA", "DATATOURISME", URL, "ACTIVE", null, null, "84");
@@ -165,6 +172,45 @@ class DataTourismeImportSafetyTest {
 
         assertEquals(0, result.archived());
         assertEquals(12, result.archiveWithheld());
+        verify(activityRepository, never()).save(any());
+    }
+
+    /** Activation vérifiée avec le vrai collecteur, qui reçoit {@code body}. */
+    private SourceDryRunReport activateWithFile(String body) {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(URL)).andRespond(withSuccess(body, MediaType.parseMediaType("text/csv")));
+        Source inactive = new Source(SOURCE.id(), SOURCE.name(), SOURCE.type(), URL, "INACTIVE", null, null, null);
+        when(sourceService.getSourceById(SOURCE.id())).thenReturn(Optional.of(inactive));
+        when(dataTourismeCollectorFactory.create(inactive))
+                .thenReturn(new DataTourismeCollector(builder, URL, SOURCE.name(), null));
+        SourceDryRunService dryRun = new SourceDryRunService(sourceService, openAgendaCollectorFactory,
+                dataTourismeCollectorFactory, normalizationService, deduplicationService, activityRepository);
+        return new SourceActivationService(dryRun, sourceService).activate(SOURCE.id()).orElseThrow();
+    }
+
+    @Test
+    void activation_ShouldBeRefused_WhenFileIsInvalid() {
+        SourceDryRunReport report = activateWithFile(HEADER);
+
+        assertFalse(report.activated());
+        assertEquals(SourceDryRunReport.Verdict.FAILED, report.verdict());
+        verify(sourceService, never()).activateAfterVerification(any());
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void activation_ShouldSucceed_WhenFileIsValid() {
+        when(activityRepository.findBySourceId(SOURCE.id())).thenReturn(List.of());
+        when(deduplicationService.computeDeduplicationKey(any())).thenReturn("external:concert");
+        when(normalizationService.normalize(any()))
+                .thenReturn(Optional.of(upcomingImportedActivities(1).get(0)));
+
+        SourceDryRunReport report = activateWithFile(HEADER + EVENT_OUTSIDE_FILTER);
+
+        assertTrue(report.activated());
+        assertEquals(1, report.collected());
+        verify(sourceService).activateAfterVerification(SOURCE.id());
         verify(activityRepository, never()).save(any());
     }
 }

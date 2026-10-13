@@ -192,37 +192,54 @@ somme de contrôle Flyway. Si elle a été appliquée sur une base locale de
 développement, `flyway repair` (ou la recréation de la base locale) est
 nécessaire.
 
-Conséquence : aucune activité DATAtourisme n'est importée tant qu'un
-administrateur n'a pas passé la source à `ACTIVE` depuis l'administration.
+**Activation vérifiée (implémentée, décision d'Alex du 13/10/2026).**
+
+- **Validation de configuration** (`SourceService`), à la création comme à
+  la modification d'une source `DATATOURISME` : URL stable
+  `https://www.data.gouv.fr/api/1/datasets/r/{identifiant}`, filtre vide ou
+  liste de départements écrits comme des préfixes de code postal (`84`,
+  `13`, `20` pour la Corse, `971`…), pas d'identifiant d'agenda. Une
+  configuration invalide est refusée (400) avec la raison.
+- **Jamais active sans vérification** : une source `DATATOURISME` est
+  créée inactive ; une modification ne peut ni la passer à `ACTIVE`, ni
+  changer son URL, son type ou son filtre en la laissant active (400). Le
+  renommage et la désactivation restent libres.
+- **Essai à blanc** (`POST /api/v1/admin/import/sources/{id}/dry-run`,
+  `SourceDryRunService`) : collecte réelle, puis ce qu'un import ferait
+  (créations, mises à jour, archivage, garde-fou), **sans aucune
+  écriture**. Verdict `OK`, `FAILED` (configuration invalide, collecte en
+  échec : fichier vide, colonnes absentes, lignes mal formées, aucun
+  événement, téléchargement interrompu, erreur HTTP) ou `SUSPICIOUS`
+  (aucun élément, plus de la moitié rejetés par la normalisation, ou
+  disparition massive d'activités à venir).
+- **Activation** (`POST /api/v1/admin/import/sources/{id}/activate`,
+  `SourceActivationService`) : relance un essai à blanc et n'active la
+  source que si le verdict est `OK` ; sinon 409 avec le bilan, source
+  inchangée. C'est le seul chemin d'activation d'une source `DATATOURISME`.
+- **Administration** : boutons « Essai à blanc » et « Activer après
+  vérification » sur la fiche d'une source `DATATOURISME`, bilan affiché
+  (verdict, volumes, problèmes, exemples de titres).
+- **Archivage** : un import invalide échoue avant tout archivage ; un
+  import valide mais suspect est retenu par le garde-fou (voir plus haut).
 
 Procédure d'activation :
 
-1. vérifier l'URL (ressource régionale ou nationale voulue) et le filtre
-   de départements ;
-2. lancer un import manuel juste après l'activation et lire son bilan :
-   collectées, créées, doublons, erreurs, « Archivage suspendu » ;
-3. vérifier sur la carte quelques événements de la zone, et repérer les
-   doublons évidents avec les agendas OpenAgenda (non détectés
-   automatiquement, voir ADR-0011, § 2.9) ;
-4. en cas de problème, repasser la source à `INACTIVE`.
+1. vérifier l'URL et le filtre de départements ;
+2. « Essai à blanc », lire le bilan ;
+3. « Activer après vérification » ;
+4. lancer un import manuel et vérifier sur la carte quelques événements
+   de la zone, en repérant les doublons évidents avec OpenAgenda (non
+   masqués automatiquement, voir ADR-0011, § 2.9) ;
+5. en cas de problème, repasser la source à `INACTIVE`.
 
-**Proposition, non implémentée** (à valider) :
-
-- un **essai à blanc** depuis l'administration : collecte sans aucune
-  écriture, bilan (nombre d'événements, raisons d'exclusion, exemples,
-  doublons probables avec les autres sources) ; l'activation n'est
-  proposée qu'après un essai réussi ;
-- une **validation de configuration** à l'enregistrement d'une source
-  `DATATOURISME` : URL `https://www.data.gouv.fr/api/1/datasets/r/…`,
-  filtre composé de codes de département ;
-- en option, une **première publication en `PENDING`** (modération) pour
-  une source nouvellement activée, si le volume reste relisible.
+Non retenu à ce stade : première publication en `PENDING` (modération) pour
+une source nouvellement activée.
 
 ## 5. Décisions à prendre (Alex)
 
 1. Zone DATAtourisme : par défaut PACA filtrée sur le Vaucluse (zone de
    la bêta). Élargir à la région, ou à la France entière ?
-2. Lieux : les publier comme activités sans date, créer une entité
-   « lieu » dédiée, ou les reporter ? (Impact modèle → ADR.)
-3. JEP / Fête de la science : à intégrer maintenant (configuration
-   annuelle) ou laisser à OpenAgenda ?
+2. Lieux : tranché (réutiliser `Location`), proposition détaillée dans
+   ADR-0011, § 7.
+3. JEP / Fête de la science : OpenAgenda reste prioritaire ; vérification
+   préparée dans `VERIFICATION_JEP_FDS.md`.

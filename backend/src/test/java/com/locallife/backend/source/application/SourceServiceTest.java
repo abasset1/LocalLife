@@ -280,4 +280,92 @@ class SourceServiceTest {
         verify(sourceRepository, never()).deleteById(any());
     }
 
+
+    private static final String DATATOURISME_URL =
+            "https://www.data.gouv.fr/api/1/datasets/r/83a1f131-9e23-4c3b-b1c6-e58f33fe7b80";
+
+    private static Source dataTourisme(String status, String url, String regionFilter) {
+        return new Source(5L, "DATAtourisme PACA", "DATATOURISME", url, status, null, null, regionFilter);
+    }
+
+    @Test
+    void createSource_ShouldCreateDataTourismeSourceInactive() {
+        when(sourceRepository.save(any(Source.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Source created = sourceService.createSource("DATAtourisme PACA", "DATATOURISME", DATATOURISME_URL, null,
+                "84, 13");
+
+        assertEquals("INACTIVE", created.status());
+    }
+
+    @Test
+    void createSource_ShouldRejectInvalidDataTourismeConfiguration() {
+        // URL qui n'est pas l'URL stable d'une ressource data.gouv.fr (ex. lien direct au fichier du jour).
+        assertThrows(IllegalArgumentException.class, () -> sourceService.createSource("DT", "DATATOURISME",
+                "https://static.data.gouv.fr/resources/x/20261013-030448/datatourisme-reg-pac.csv", null, "84"));
+        assertThrows(IllegalArgumentException.class,
+                () -> sourceService.createSource("DT", "DATATOURISME", null, null, null));
+        // Filtre : un département s'écrit comme un préfixe de code postal.
+        assertThrows(IllegalArgumentException.class,
+                () -> sourceService.createSource("DT", "DATATOURISME", DATATOURISME_URL, null, "Vaucluse"));
+        assertThrows(IllegalArgumentException.class,
+                () -> sourceService.createSource("DT", "DATATOURISME", DATATOURISME_URL, null, "84,2A"));
+        assertThrows(IllegalArgumentException.class,
+                () -> sourceService.createSource("DT", "DATATOURISME", DATATOURISME_URL, null, "96"));
+        // Pas d'identifiant d'agenda OpenAgenda sur une source DATAtourisme.
+        assertThrows(IllegalArgumentException.class,
+                () -> sourceService.createSource("DT", "DATATOURISME", DATATOURISME_URL, "79839448", null));
+        verify(sourceRepository, never()).save(any());
+    }
+
+    @Test
+    void validateDataTourismeConfiguration_ShouldAcceptDepartmentPostalPrefixes() {
+        SourceService.validateDataTourismeConfiguration(DATATOURISME_URL, null, null);
+        SourceService.validateDataTourismeConfiguration(DATATOURISME_URL, "", "84,13, 20 ,971");
+    }
+
+    @Test
+    void updateSource_ShouldRefuseToActivateDataTourismeSourceDirectly() {
+        when(sourceRepository.findById(5L)).thenReturn(Optional.of(dataTourisme("INACTIVE", DATATOURISME_URL, "84")));
+
+        assertThrows(IllegalArgumentException.class, () -> sourceService.updateSource(
+                5L, "DATAtourisme PACA", "DATATOURISME", DATATOURISME_URL, "ACTIVE", null, "84"));
+        verify(sourceRepository, never()).save(any());
+    }
+
+    @Test
+    void updateSource_ShouldRefuseToChangeConfigurationOfActiveDataTourismeSource() {
+        when(sourceRepository.findById(5L)).thenReturn(Optional.of(dataTourisme("ACTIVE", DATATOURISME_URL, "84")));
+
+        // Le filtre vérifié était « 84 » : l'élargir sans nouvel essai reviendrait à collecter sans vérification.
+        assertThrows(IllegalArgumentException.class, () -> sourceService.updateSource(
+                5L, "DATAtourisme PACA", "DATATOURISME", DATATOURISME_URL, "ACTIVE", null, "84,13"));
+        verify(sourceRepository, never()).save(any());
+    }
+
+    @Test
+    void updateSource_ShouldAllowRenamingOrDeactivatingDataTourismeSource() {
+        when(sourceRepository.findById(5L)).thenReturn(Optional.of(dataTourisme("ACTIVE", DATATOURISME_URL, "84")));
+        when(sourceRepository.save(any(Source.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Source renamed = sourceService.updateSource(
+                5L, "DATAtourisme Vaucluse", "DATATOURISME", DATATOURISME_URL, "ACTIVE", null, " 84 ").orElseThrow();
+        Source deactivated = sourceService.updateSource(
+                5L, "DATAtourisme PACA", "DATATOURISME", DATATOURISME_URL, "INACTIVE", null, "84,13").orElseThrow();
+
+        assertEquals("ACTIVE", renamed.status());
+        assertEquals("INACTIVE", deactivated.status());
+    }
+
+    @Test
+    void activateAfterVerification_ShouldSetActiveAndKeepConfiguration() {
+        when(sourceRepository.findById(5L)).thenReturn(Optional.of(dataTourisme("INACTIVE", DATATOURISME_URL, "84")));
+        when(sourceRepository.save(any(Source.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Source activated = sourceService.activateAfterVerification(5L).orElseThrow();
+
+        assertEquals("ACTIVE", activated.status());
+        assertEquals(DATATOURISME_URL, activated.url());
+        assertEquals("84", activated.regionFilter());
+    }
 }

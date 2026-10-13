@@ -1,8 +1,11 @@
 # ADR-0011 — Lieux permanents : faire évoluer `Location` en référentiel consultable
 
-**Statut : proposé, en attente de validation par Alex.** Aucune entité,
-migration ni endpoint n'est créé tant que cette proposition n'est pas
-validée.
+**Statut : principes acceptés par Alex le 13/10/2026 ; proposition
+détaillée (§ 7) en attente de validation.** Principes acceptés :
+réutiliser `Location` sans entité concurrente, précision géographique
+`EXACT`/`APPROXIMATE`/`UNKNOWN`, marchés comme lieux permanents aux jours
+éventuellement à confirmer, stratégie de doublons sans fusion destructive.
+Aucune migration de modèle n'est écrite avant validation du § 7.
 
 Révision du 13/10/2026 (retour d'audit de la PR #104) : précision
 géographique (§ 2.6), marchés et lieux permanents (§ 2.7), données
@@ -311,6 +314,103 @@ Mise en œuvre en deux temps :
 Le mécanisme actuel (même `external_id`, archivage du doublon le plus
 récent) reste en place pour les doublons d'une même plateforme.
 
+## 7. Proposition détaillée (à valider avant toute migration)
+
+Le SQL ci-dessous est un **projet** : aucun fichier de migration n'existe.
+Livraison en quatre phases indépendantes, chacune avec sa migration, ses
+tests et sa validation.
+
+### 7.1 Phase A — précision géographique (§ 2.6)
+
+```sql
+ALTER TABLE location
+    ADD COLUMN coordinate_precision VARCHAR(16) NOT NULL DEFAULT 'UNKNOWN'
+        CHECK (coordinate_precision IN ('EXACT', 'APPROXIMATE', 'UNKNOWN'));
+```
+
+### 7.2 Phase B — lieux permanents et provenance (§ 2.2 à 2.5)
+
+```sql
+ALTER TABLE location
+    ADD COLUMN place_type VARCHAR(50),
+    ADD COLUMN status VARCHAR(20),
+    ADD COLUMN description TEXT,
+    ADD COLUMN published_at TIMESTAMPTZ;
+ALTER TABLE location ADD CONSTRAINT chk_location_permanent_place CHECK (
+    (place_type IS NULL AND status IS NULL)
+    OR (place_type IS NOT NULL AND status IN ('PENDING', 'PUBLISHED', 'REJECTED', 'ARCHIVED')));
+CREATE INDEX idx_location_published_place ON location (place_type) WHERE status = 'PUBLISHED';
+
+CREATE TABLE location_source (
+    id BIGSERIAL PRIMARY KEY,
+    location_id BIGINT NOT NULL REFERENCES location (id) ON DELETE CASCADE,
+    source_id BIGINT NOT NULL REFERENCES source (id) ON DELETE CASCADE,
+    external_id VARCHAR(255) NOT NULL,
+    content_hash VARCHAR(64),
+    last_seen_at TIMESTAMPTZ,
+    UNIQUE (source_id, external_id)
+);
+```
+
+`ON DELETE CASCADE` sur la source : la suppression d'une source
+(`SourceService#deleteSource`) retire sa provenance, pas les lieux.
+
+### 7.3 Phase C — marchés et horaires d'ouverture (§ 2.7)
+
+```sql
+CREATE TABLE location_opening_hours (
+    id BIGSERIAL PRIMARY KEY,
+    location_id BIGINT NOT NULL REFERENCES location (id) ON DELETE CASCADE,
+    day_of_week SMALLINT NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
+    opens TIME,
+    closes TIME,
+    valid_from DATE,
+    valid_until DATE,
+    source_id BIGINT REFERENCES source (id) ON DELETE SET NULL
+);
+```
+
+Un marché sans ligne d'horaires s'affiche « Jours de marché à confirmer ».
+Phase conditionnée au résultat de l'étude N-Triples (§ 2.8).
+
+### 7.4 Phase D — liens de doublons entre sources (§ 2.9)
+
+```sql
+CREATE TABLE activity_duplicate_link (
+    id BIGSERIAL PRIMARY KEY,
+    activity_id BIGINT NOT NULL REFERENCES activity (id) ON DELETE CASCADE,
+    duplicate_of_id BIGINT NOT NULL REFERENCES activity (id) ON DELETE CASCADE,
+    level VARCHAR(16) NOT NULL CHECK (level IN ('PROBABLE', 'POSSIBLE')),
+    rule VARCHAR(64) NOT NULL,
+    status VARCHAR(16) NOT NULL CHECK (status IN ('AUTO', 'CONFIRMED', 'REJECTED')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (activity_id, duplicate_of_id)
+);
+```
+
+Masquage : une activité liée `PROBABLE` + `AUTO` ou `CONFIRMED` est exclue
+des recherches publiques ; `REJECTED` annule le lien. Rien n'est supprimé.
+Phase conditionnée à la mesure sur les données réelles de production.
+
+### 7.5 Impacts
+
+| Zone | Phase A | Phase B | Phase C | Phase D |
+|---|---|---|---|---|
+| Modèle | 1 colonne | 4 colonnes, 1 table | 1 table | 1 table |
+| Import OpenAgenda | précision `UNKNOWN` | rattachement d'événements aux lieux permanents existants | — | liens calculés |
+| Import DATAtourisme (événements) | générique → `APPROXIMATE` | idem | — | liens calculés |
+| Import DATAtourisme (lieux) | — | nouveau collecteur, liste blanche de types | horaires si disponibles | — |
+| Contributions manuelles | `UNKNOWN` (puis niveau Nominatim) | — | — | — |
+| Carte et liste | marqueur et mention « approximatif » | couche « Lieux », onglet liste, fiche | « Jours à confirmer » / horaires | doublons masqués |
+| Données existantes | toutes `UNKNOWN`, aucun rattrapage | lignes existantes inchangées (`place_type` nul) | — | aucune activité modifiée |
+| Suppressions | — | cascade de provenance | cascade d'horaires | cascade de liens |
+| Tests | § 2.6 | § 4 | migration, affichage sans horaires | `CrossSourceDuplicateMatcherTest` (déjà écrit), mesure à blanc, masquage réversible |
+
+**Déjà implémenté sans changement de modèle** (PR #104) : la règle de
+doublons (`CrossSourceDuplicateMatcher`, fonction pure, non branchée,
+9 tests dont les faux positifs mesurés) ; la règle « adresse générique →
+nom du lieu, sans adresse » du collecteur DATAtourisme.
+
 ## 3. Impacts
 
 | Zone | Impact |
@@ -358,11 +458,11 @@ récent) reste en place pour les doublons d'une même plateforme.
 ## 6. Décisions et blocages pour Alex
 
 1. **Valider ce modèle cible** (§ 2.2) avant toute migration.
-2. **Défaut 1.3.2 (doublons OpenAgenda / DATAtourisme)** : valider la
-   stratégie du § 2.9 (seuils, masquage réversible, table de liens). En
-   attendant, la source DATAtourisme est créée **inactive** par la
-   migration V60 (PR #104) : aucun import tant qu'un administrateur ne
-   l'active pas.
+2. **Défaut 1.3.2 (doublons OpenAgenda / DATAtourisme)** : stratégie
+   acceptée (§ 2.9) ; règle implémentée et testée, non branchée. Reste à
+   valider la phase D (§ 7.4) après mesure sur les données de production.
+   En attendant, la source DATAtourisme est créée **inactive** et ne
+   s'active qu'après un essai à blanc réussi (PR #104).
 3. **Défaut 1.3.3 (fenêtre de 7 jours)** : corrigé dans la PR #104.
 4. **Précision géographique** (§ 2.6) : valider les trois valeurs, la
    règle d'affichage et l'absence de rattrapage des données existantes.
@@ -370,14 +470,12 @@ récent) reste en place pour les doublons d'une même plateforme.
    d'ouverture, jours à confirmer », et décider du traitement ponctuel du
    fichier N-Triples complet (§ 2.8).
 6. **Mesure du recouvrement réel OpenAgenda / DATAtourisme, et de la
-   couverture JEP / Fête de la science** : impossible ici. L'environnement
-   n'a pas de clé OpenAgenda et bloque `openagenda.com`. Il faut soit une
-   clé de lecture et l'accès réseau à `openagenda.com`, soit un export des
-   événements importés en base de production. La liste des agendas
-   réellement configurés en production est aussi inconnue d'ici (seuls les
-   deux de la migration V14 sont versionnés).
+   couverture JEP / Fête de la science** : non réalisée faute d'accès ;
+   accès nécessaires et vérifications préparées dans
+   `docs/02_Architecture/VERIFICATION_JEP_FDS.md`.
 7. **Types de lieux DATAtourisme à importer** (liste blanche, § 2.5).
 
 Non décidés, hors de cet ADR : couverture OpenAgenda des Journées
-européennes du patrimoine et de la Fête de la science ; stratégie des food
-trucks (manuelle à ce jour).
+européennes du patrimoine et de la Fête de la science (vérification
+préparée) ; les food trucks restent gérés manuellement jusqu'à nouvelle
+décision.

@@ -320,10 +320,16 @@ public class ImportService {
     }
 
     private Collector collectorFor(Source source) {
+        return collectorFor(source, openAgendaCollectorFactory, dataTourismeCollectorFactory);
+    }
+
+    /** Collecteur d'une source selon son type ; partagé avec l'essai à blanc ({@code SourceDryRunService}). */
+    static Collector collectorFor(
+            Source source, OpenAgendaCollectorFactory openAgenda, DataTourismeCollectorFactory dataTourisme) {
         if (DATATOURISME_SOURCE_TYPE.equals(source.type())) {
-            return dataTourismeCollectorFactory.create(source);
+            return dataTourisme.create(source);
         }
-        return openAgendaCollectorFactory.create(source);
+        return openAgenda.create(source);
     }
 
     private static boolean hasText(String value) {
@@ -648,39 +654,56 @@ public class ImportService {
     }
 
     private ArchiveOutcome archiveActivitiesNoLongerInSource(Source source, Set<String> seenImportKeys) {
-        LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
-        List<Activity> pastCandidates = new ArrayList<>();
-        List<Activity> upcomingCandidates = new ArrayList<>();
-        int upcomingPublished = 0;
-        for (Activity activity : activityRepository.findBySourceId(source.id())) {
-            // Seules les activités publiées sont archivées : une activité annulée par un administrateur
-            // garde ce statut, sinon son retour dans la source la republierait.
-            if (!PUBLISHED_STATUS.equals(activity.status())) {
-                continue;
-            }
-            boolean upcoming = isUpcoming(activity, startOfToday);
-            if (upcoming) {
-                upcomingPublished++;
-            }
-            boolean stillPresent = activity.importKey() != null && seenImportKeys.contains(activity.importKey());
-            if (!stillPresent) {
-                (upcoming ? upcomingCandidates : pastCandidates).add(activity);
-            }
-        }
-        List<Activity> toArchive = new ArrayList<>(pastCandidates);
+        ArchivePlan plan = planArchive(
+                activityRepository.findBySourceId(source.id()), seenImportKeys, LocalDate.now().atStartOfDay());
+        List<Activity> toArchive = new ArrayList<>(plan.past());
         int withheld = 0;
-        if (isSuspiciousArchive(upcomingCandidates.size(), upcomingPublished)) {
-            withheld = upcomingCandidates.size();
+        if (plan.suspicious()) {
+            withheld = plan.upcoming().size();
             LOGGER.warn("Archivage suspendu pour la source '{}' : {} activités à venir sur {} ont disparu de la "
                     + "collecte, disparition jugée suspecte. Elles restent publiées.",
-                    source.name(), withheld, upcomingPublished);
+                    source.name(), withheld, plan.upcomingPublished());
         } else {
-            toArchive.addAll(upcomingCandidates);
+            toArchive.addAll(plan.upcoming());
         }
         for (Activity activity : toArchive) {
             activityRepository.save(withStatus(activity, ARCHIVED_STATUS));
         }
         return new ArchiveOutcome(toArchive.size(), withheld);
+    }
+
+    /**
+     * Activités publiées d'une source absentes de la collecte, séparées en passées et à venir, sans rien
+     * écrire. Seules les activités publiées sont concernées : une activité annulée par un administrateur garde
+     * ce statut, sinon son retour dans la source la republierait. Partagé avec l'essai à blanc
+     * ({@code SourceDryRunService}), pour que l'essai applique exactement la règle de l'import.
+     */
+    static ArchivePlan planArchive(List<Activity> activities, Set<String> seenImportKeys, LocalDateTime startOfToday) {
+        List<Activity> past = new ArrayList<>();
+        List<Activity> upcoming = new ArrayList<>();
+        int upcomingPublished = 0;
+        for (Activity activity : activities) {
+            if (!PUBLISHED_STATUS.equals(activity.status())) {
+                continue;
+            }
+            boolean isUpcoming = isUpcoming(activity, startOfToday);
+            if (isUpcoming) {
+                upcomingPublished++;
+            }
+            boolean stillPresent = activity.importKey() != null && seenImportKeys.contains(activity.importKey());
+            if (!stillPresent) {
+                (isUpcoming ? upcoming : past).add(activity);
+            }
+        }
+        return new ArchivePlan(past, upcoming, upcomingPublished);
+    }
+
+    /** Résultat de {@link #planArchive} : activités à archiver, et volume de référence du garde-fou. */
+    record ArchivePlan(List<Activity> past, List<Activity> upcoming, int upcomingPublished) {
+
+        boolean suspicious() {
+            return isSuspiciousArchive(upcoming.size(), upcomingPublished);
+        }
     }
 
     /** Voir {@link #MASS_ARCHIVE_MIN_COUNT}. */

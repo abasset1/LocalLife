@@ -4,6 +4,9 @@ import com.locallife.backend.collector.application.AgendaDiscoveryService;
 import com.locallife.backend.collector.application.ImportAlreadyRunningException;
 import com.locallife.backend.collector.application.ImportResult;
 import com.locallife.backend.collector.application.ImportService;
+import com.locallife.backend.collector.application.SourceActivationService;
+import com.locallife.backend.collector.application.SourceDryRunReport;
+import com.locallife.backend.collector.application.SourceDryRunService;
 import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.common.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +19,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -67,10 +71,59 @@ public class AdminImportController {
 
     private final ImportService importService;
     private final AgendaDiscoveryService agendaDiscoveryService;
+    private final SourceDryRunService sourceDryRunService;
+    private final SourceActivationService sourceActivationService;
 
-    public AdminImportController(ImportService importService, AgendaDiscoveryService agendaDiscoveryService) {
+    public AdminImportController(
+            ImportService importService,
+            AgendaDiscoveryService agendaDiscoveryService,
+            SourceDryRunService sourceDryRunService,
+            SourceActivationService sourceActivationService) {
         this.importService = importService;
         this.agendaDiscoveryService = agendaDiscoveryService;
+        this.sourceDryRunService = sourceDryRunService;
+        this.sourceActivationService = sourceActivationService;
+    }
+
+    @Operation(
+            summary = "Essai à blanc d'une source (réservé aux administrateurs)",
+            description = "Collecte la source et calcule ce qu'un import ferait (créations, mises à jour, "
+                    + "archivage), sans aucune écriture. Verdict OK, FAILED (configuration invalide ou collecte "
+                    + "en échec) ou SUSPICIOUS (résultat à vérifier).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Essai effectué ; voir le verdict dans la réponse."),
+        @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide)."),
+        @ApiResponse(responseCode = "403", description = "Rôle ADMIN requis."),
+        @ApiResponse(responseCode = "404", description = "Aucune source ne correspond à cet id.")
+    })
+    @PostMapping("/sources/{id}/dry-run")
+    public ResponseEntity<SourceDryRunReport> dryRun(
+            @Parameter(description = "Identifiant de la source.", required = true) @PathVariable Long id) {
+        return sourceDryRunService.dryRun(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @Operation(
+            summary = "Active une source après un essai à blanc réussi (réservé aux administrateurs)",
+            description = "Lance un essai à blanc ; la source n'est activée que si son verdict est OK. Seul "
+                    + "moyen d'activer une source DATATOURISME.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Source activée ; bilan de l'essai dans la réponse."),
+        @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide)."),
+        @ApiResponse(responseCode = "403", description = "Rôle ADMIN requis."),
+        @ApiResponse(responseCode = "404", description = "Aucune source ne correspond à cet id."),
+        @ApiResponse(responseCode = "409",
+                description = "Activation refusée (verdict FAILED ou SUSPICIOUS) ; bilan dans la réponse.")
+    })
+    @PostMapping("/sources/{id}/activate")
+    public ResponseEntity<SourceDryRunReport> activate(
+            @Parameter(description = "Identifiant de la source.", required = true) @PathVariable Long id) {
+        return sourceActivationService.activate(id)
+                .map(report -> report.activated()
+                        ? ResponseEntity.ok(report)
+                        : ResponseEntity.status(HttpStatus.CONFLICT).body(report))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @Operation(

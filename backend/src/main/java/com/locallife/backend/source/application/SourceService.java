@@ -7,6 +7,7 @@ import com.locallife.backend.source.infrastructure.SourceRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
 /**
@@ -29,6 +30,26 @@ public class SourceService {
      */
     private static final String RESERVED_MANUAL_TYPE = "MANUAL";
 
+    /**
+     * Source collectée depuis l'export CSV DATAtourisme de data.gouv.fr ({@code DataTourismeCollector}).
+     * Sa configuration est validée ({@link #validateDataTourismeConfiguration}) et elle n'est jamais active
+     * sans vérification : créée {@code INACTIVE}, elle ne passe à {@code ACTIVE} que par
+     * {@link #activateAfterVerification}, après un essai à blanc réussi ({@code SourceActivationService},
+     * module {@code collector}).
+     */
+    public static final String DATATOURISME_TYPE = "DATATOURISME";
+
+    private static final String ACTIVE_STATUS = "ACTIVE";
+    private static final String INACTIVE_STATUS = "INACTIVE";
+
+    /** URL stable d'une ressource data.gouv.fr, qui redirige vers le fichier du jour. */
+    private static final Pattern DATA_GOUV_RESOURCE_URL = Pattern.compile(
+            "https://www\\.data\\.gouv\\.fr/api/1/datasets/r/"
+                    + "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+
+    /** Département, sous forme de préfixe de code postal : 01 à 95 (Corse : 20), 971 à 976. */
+    private static final Pattern DEPARTMENT_POSTAL_PREFIX = Pattern.compile("0[1-9]|[1-8][0-9]|9[0-5]|97[1-6]");
+
     private final SourceRepository sourceRepository;
     private final ActivityRepository activityRepository;
 
@@ -38,7 +59,8 @@ public class SourceService {
     }
 
     /**
-     * Crée une source active. {@code lastSyncAt} démarre à {@code null}
+     * Crée une source active (sauf {@code DATATOURISME}, créée inactive :
+     * voir {@link #DATATOURISME_TYPE}). {@code lastSyncAt} démarre à {@code null}
      * (aucun import n'a encore eu lieu), conformément à
      * {@code SOURCE_CONTRACT.md}. {@code agendaUid}/{@code regionFilter}
      * (LL-EF-005) ne sont significatifs que pour une source de type
@@ -47,7 +69,13 @@ public class SourceService {
      */
     public Source createSource(String name, String type, String url, String agendaUid, String regionFilter) {
         validate(name, type);
-        Source source = new Source(null, name, type, url, "ACTIVE", null, agendaUid, regionFilter);
+        boolean dataTourisme = DATATOURISME_TYPE.equals(type);
+        if (dataTourisme) {
+            validateDataTourismeConfiguration(url, agendaUid, regionFilter);
+        }
+        // Une source DATATOURISME n'est jamais créée active : voir DATATOURISME_TYPE.
+        String status = dataTourisme ? INACTIVE_STATUS : ACTIVE_STATUS;
+        Source source = new Source(null, name, type, url, status, null, agendaUid, regionFilter);
         return sourceRepository.save(source);
     }
 
@@ -81,9 +109,78 @@ public class SourceService {
             Long id, String name, String type, String url, String status, String agendaUid, String regionFilter) {
         validate(name, type);
         return sourceRepository.findById(id).map(existing -> {
+            if (DATATOURISME_TYPE.equals(type)) {
+                validateDataTourismeConfiguration(url, agendaUid, regionFilter);
+                requireVerifiedActivation(existing, type, url, status, regionFilter);
+            }
             Source updated = new Source(id, name, type, url, status, existing.lastSyncAt(), agendaUid, regionFilter);
             return sourceRepository.save(updated);
         });
+    }
+
+    /**
+     * Configuration d'une source {@code DATATOURISME} : URL stable d'une ressource data.gouv.fr
+     * ({@code https://www.data.gouv.fr/api/1/datasets/r/{identifiant}}), filtre vide ou liste de départements
+     * séparés par des virgules (préfixes de code postal : {@code 84}, {@code 13}, {@code 20} pour la Corse,
+     * {@code 971}…), pas d'identifiant d'agenda.
+     *
+     * @throws IllegalArgumentException avec la raison, si la configuration est invalide
+     */
+    public static void validateDataTourismeConfiguration(String url, String agendaUid, String regionFilter) {
+        if (url == null || !DATA_GOUV_RESOURCE_URL.matcher(url.trim()).matches()) {
+            throw new IllegalArgumentException("URL DATAtourisme invalide : attendu "
+                    + "https://www.data.gouv.fr/api/1/datasets/r/{identifiant de ressource}.");
+        }
+        if (agendaUid != null && !agendaUid.isBlank()) {
+            throw new IllegalArgumentException("Une source DATATOURISME n'a pas d'identifiant d'agenda OpenAgenda.");
+        }
+        if (regionFilter != null && !regionFilter.isBlank()) {
+            for (String department : regionFilter.split(",")) {
+                if (!DEPARTMENT_POSTAL_PREFIX.matcher(department.trim()).matches()) {
+                    throw new IllegalArgumentException("Filtre DATAtourisme invalide : '" + department.trim()
+                            + "' n'est pas un département (ex. 84, 13, 20 pour la Corse, 971).");
+                }
+            }
+        }
+    }
+
+    /**
+     * Une modification ne peut pas rendre active une source {@code DATATOURISME} non vérifiée : ni la passer de
+     * inactive à active, ni changer son URL, son type ou son filtre en la laissant active (la configuration
+     * vérifiée ne serait plus celle collectée). L'activation passe par {@link #activateAfterVerification}.
+     */
+    private static void requireVerifiedActivation(
+            Source existing, String type, String url, String status, String regionFilter) {
+        if (!ACTIVE_STATUS.equals(status)) {
+            return;
+        }
+        boolean alreadyActive = ACTIVE_STATUS.equals(existing.status());
+        boolean sameConfiguration = type.equals(existing.type())
+                && sameText(url, existing.url())
+                && sameText(regionFilter, existing.regionFilter());
+        if (!alreadyActive || !sameConfiguration) {
+            throw new IllegalArgumentException("Une source DATATOURISME s'active après un essai à blanc réussi "
+                    + "(activation vérifiée depuis l'administration des imports). Enregistrez-la inactive.");
+        }
+    }
+
+    private static boolean sameText(String left, String right) {
+        String a = left == null ? "" : left.trim();
+        String b = right == null ? "" : right.trim();
+        return a.equals(b);
+    }
+
+    /**
+     * Passe une source à {@code ACTIVE} sans autre contrôle. Réservé à {@code SourceActivationService}
+     * (module {@code collector}), qui ne l'appelle qu'après un essai à blanc réussi : c'est le seul chemin
+     * d'activation d'une source {@code DATATOURISME}.
+     *
+     * @return {@link Optional#empty()} si aucune source ne correspond à {@code id}
+     */
+    public Optional<Source> activateAfterVerification(Long id) {
+        return sourceRepository.findById(id).map(existing -> sourceRepository.save(new Source(
+                id, existing.name(), existing.type(), existing.url(), ACTIVE_STATUS, existing.lastSyncAt(),
+                existing.agendaUid(), existing.regionFilter())));
     }
 
     /**

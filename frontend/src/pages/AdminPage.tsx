@@ -64,6 +64,33 @@ interface Source {
 }
 
 /**
+ * `SourceDryRunReport` (backend) : bilan d'un essai à blanc ou d'une activation
+ * vérifiée (`POST /api/v1/admin/import/sources/{id}/dry-run` ou `.../activate`).
+ * Aucune écriture n'a eu lieu, sauf l'activation elle-même quand `activated`.
+ */
+interface SourceDryRunReport {
+    verdict: "OK" | "FAILED" | "SUSPICIOUS";
+    problems: string[];
+    collected: number;
+    invalid: number;
+    wouldCreate: number;
+    wouldUpdate: number;
+    wouldArchive: number;
+    archiveWithheld: number;
+    sampleTitles: string[];
+    activated: boolean;
+}
+
+/** Type de source qui ne s'active qu'après un essai à blanc réussi (backend : `SourceActivationService`). */
+const VERIFIED_SOURCE_TYPE = "DATATOURISME";
+
+const DRY_RUN_VERDICT_LABELS: Record<SourceDryRunReport["verdict"], string> = {
+    OK: "Essai réussi",
+    FAILED: "Échec",
+    SUSPICIOUS: "Résultat suspect",
+};
+
+/**
  * Décision Alex (LL-EF-005) : CRUD générique sur tous les types de source
  * existants, pas seulement OpenAgenda — voir `SOURCE_CONTRACT.md`.
  */
@@ -119,6 +146,9 @@ function AdminPage() {
     const [isLoadingSources, setIsLoadingSources] = useState(true);
     const [sourcesError, setSourcesError] = useState<string | null>(null);
     const [deletingSourceId, setDeletingSourceId] = useState<number | null>(null);
+    // Essai à blanc / activation vérifiée d'une source DATATOURISME : source en cours, dernier bilan par source.
+    const [verifyingSourceId, setVerifyingSourceId] = useState<number | null>(null);
+    const [dryRunReports, setDryRunReports] = useState<Record<number, SourceDryRunReport>>({});
     // Formulaire de création/édition : `isSourceFormOpen` pilote sa visibilité,
     // `editingSource` distingue édition (non `null`, pré-remplit les champs) de
     // création (`null`) — voir `openCreateSourceForm`/`openEditSourceForm` ci-dessous.
@@ -451,6 +481,34 @@ function AdminPage() {
         }
     }
 
+    /**
+     * Essai à blanc (`dry-run`) ou activation vérifiée (`activate`) d'une source. Le backend ne passe la
+     * source à « ACTIVE » que si l'essai est réussi ; un refus (409) renvoie aussi le bilan, affiché tel quel.
+     */
+    async function handleVerifySource(source: Source, action: "dry-run" | "activate") {
+        setVerifyingSourceId(source.id);
+        setSourcesError(null);
+        try {
+            const response = await apiFetch(`/api/v1/admin/import/sources/${source.id}/${action}`, {
+                method: "POST",
+            });
+            if (response.ok || response.status === 409) {
+                const report = (await response.json()) as SourceDryRunReport;
+                setDryRunReports((current) => ({ ...current, [source.id]: report }));
+                if (report.activated) {
+                    setSourcesRefreshKey((current) => current + 1);
+                }
+            } else {
+                const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+                setSourcesError(body?.message ?? "Impossible de vérifier cette source, réessaie.");
+            }
+        } catch {
+            setSourcesError("Impossible de contacter le serveur, réessaie plus tard.");
+        } finally {
+            setVerifyingSourceId(null);
+        }
+    }
+
     return (
         <div className="admin-shell">
             <header className="admin-header">
@@ -636,6 +694,12 @@ function AdminPage() {
                                                     </option>
                                                 ))}
                                             </select>
+                                            {sourceType === VERIFIED_SOURCE_TYPE && (
+                                                <small>
+                                                    Une source DATATOURISME s'active avec « Activer après
+                                                    vérification », après un essai à blanc réussi.
+                                                </small>
+                                            )}
                                         </div>
                                     )}
                                     <div className="form-field">
@@ -756,7 +820,64 @@ function AdminPage() {
                                         >
                                             Supprimer
                                         </button>
+                                        {source.type === VERIFIED_SOURCE_TYPE && (
+                                            <>
+                                                <button
+                                                    disabled={verifyingSourceId === source.id}
+                                                    onClick={() => void handleVerifySource(source, "dry-run")}
+                                                    type="button"
+                                                >
+                                                    Essai à blanc
+                                                </button>
+                                                {source.status !== "ACTIVE" && (
+                                                    <button
+                                                        className="admin-approve-button"
+                                                        disabled={verifyingSourceId === source.id}
+                                                        onClick={() => void handleVerifySource(source, "activate")}
+                                                        type="button"
+                                                    >
+                                                        Activer après vérification
+                                                    </button>
+                                                )}
+                                            </>
+                                        )}
                                     </div>
+                                    {verifyingSourceId === source.id && (
+                                        <p className="activities-status" role="status">
+                                            Collecte en cours, sans aucune écriture…
+                                        </p>
+                                    )}
+                                    {dryRunReports[source.id] && (
+                                        <div className="admin-dry-run-report" role="status">
+                                            <p>
+                                                <strong>{DRY_RUN_VERDICT_LABELS[dryRunReports[source.id].verdict]}</strong>
+                                                {dryRunReports[source.id].activated
+                                                    ? " : source activée."
+                                                    : " : aucune écriture, source inchangée."}{" "}
+                                                {dryRunReports[source.id].collected} collectée(s),{" "}
+                                                {dryRunReports[source.id].wouldCreate} à créer,{" "}
+                                                {dryRunReports[source.id].wouldUpdate} à mettre à jour,{" "}
+                                                {dryRunReports[source.id].wouldArchive} à archiver
+                                                {dryRunReports[source.id].archiveWithheld > 0
+                                                    ? `, ${dryRunReports[source.id].archiveWithheld} retenue(s) par le garde-fou`
+                                                    : ""}
+                                                {dryRunReports[source.id].invalid > 0
+                                                    ? `, ${dryRunReports[source.id].invalid} invalide(s)`
+                                                    : ""}
+                                                .
+                                            </p>
+                                            {dryRunReports[source.id].problems.length > 0 && (
+                                                <ul>
+                                                    {dryRunReports[source.id].problems.map((problem) => (
+                                                        <li key={problem}>{problem}</li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                            {dryRunReports[source.id].sampleTitles.length > 0 && (
+                                                <p>Exemples : {dryRunReports[source.id].sampleTitles.join(" · ")}</p>
+                                            )}
+                                        </div>
+                                    )}
                                 </li>
                             ))}
                         </ul>
