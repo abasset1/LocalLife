@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Doublons entre sources (ADR-0011, phase D) : mesure sans écriture
+- `DuplicateReport.java` : rapport de doublons qui appelle la règle de l'application telle quelle ; classes certaines (lien distinctif partagé), probables, ambiguës ; faux positifs sûrs et échantillon reproductible à relire. Autotest de 10 vérifications.
+- `events_for_matching.py` (DATAtourisme) et `infra/verification/phase_d_export_doublons.sql` (données de l'application, lecture seule, contributions exclues).
+- Étalonnage sur l'export DATAtourisme PACA (producteurs comme sources) : aucune paire certaine ; 1 probable, juste ; 14 ambiguës dont 3 faux positifs (21 %). Détail : `docs/02_Architecture/VERIFICATION_DOUBLONS.md`.
+
 ### Lieux permanents (ADR-0011, phase B) : proposition, rien d'implémenté
 - Mécanisme de modération proposé : `location.place_status` (`PENDING`, `PUBLISHED`, `REJECTED`, `ARCHIVED`), distinct du lieu d'événement ; tout nouveau lieu importé en attente ; aucun événement masqué par le statut d'un lieu ; refus durable ; retour en attente sur changement important.
 - Liste blanche explicite mesurée sur l'export DATAtourisme PACA : 46 types proposés (418 lieux dans le Vaucluse, 4 741 en PACA), 17 à trancher, exclusions explicites. Mesure reproductible : `collectors/verification/place_types_report.py`.

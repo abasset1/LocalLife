@@ -14,7 +14,7 @@ documentaire.
 | A — précision géographique | quatre points validés le 13/10/2026 ; conception finalisée, règles implémentées et testées **sans changement de schéma, non branchées** ; migration testée sur base jetable seulement ; hypothèses restantes au § 7.1.6 |
 | B — lieux permanents | liste blanche explicite et modération décidées le 13/10/2026 ; mécanisme, liste blanche mesurée et impacts proposés au § 7.2, **non implémentés** |
 | C — marchés et horaires | piste acceptée ; étude N-Triples terminée, **jours de marché non trouvés** dans la part lue (§ 2.8) : pas d'implémentation recommandée en l'état |
-| D — liens de doublons | règle implémentée et testée mais **non branchée, donc non opérationnelle** ; branchement présenté au § 7.4 |
+| D — liens de doublons | mesure sans écriture outillée et étalonnée (0 faux positif sur 1 probable, 3 sur 14 ambiguës) ; mesure sur les données de l'application à faire ; règle **non branchée** |
 
 Révision du 13/10/2026 (retour d'audit de la PR #104) : précision
 géographique (§ 2.6), marchés et lieux permanents (§ 2.7), données
@@ -714,8 +714,11 @@ Phase conditionnée au résultat de l'étude N-Triples (§ 2.8).
 
 ### 7.4 Phase D — liens de doublons : présentation pour décision
 
-**Conception poursuivie. Statut : la règle existe et est testée, mais elle
-n'est pas branchée : elle n'est pas opérationnelle.**
+**Statut : étape 1 (mesure sans écriture, autorisée le 13/10/2026) outillée
+et étalonnée sur données publiques ; mesure sur les données de
+l'application à faire ; étape 2 non autorisée.** Procédure, critères et
+résultats : `docs/02_Architecture/VERIFICATION_DOUBLONS.md`. La règle n'est
+toujours pas branchée dans l'application.
 
 État réel :
 

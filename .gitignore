@@ -13,3 +13,4 @@ __pycache__/
 # Exports de vérification (données de production, jamais versionnées)
 collectors/verification/*.csv
 !collectors/verification/reference/*.csv
+activites-doublons-*.csv
