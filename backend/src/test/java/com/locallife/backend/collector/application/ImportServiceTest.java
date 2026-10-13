@@ -729,6 +729,23 @@ class ImportServiceTest {
     }
 
     @Test
+    void importAll_ShouldNotDisplayUnexpectedExceptionMessage_WhichMayContainApiKey() {
+        // Given : une exception non prévue par le collecteur, dont le message porte l'URL d'appel.
+        givenOneCollectibleSource();
+        when(collector.collect()).thenThrow(new IllegalStateException("GET https://api.example/events?key=SECRET"));
+
+        // When
+        ImportResult result = importService().importAll().get(0);
+
+        // Then : le bilan affiché ne reprend pas ce message.
+        assertEquals(1, result.errors());
+        assertTrue(result.blockedReason().startsWith("Collecte en échec"));
+        assertFalse(result.blockedReason().contains("SECRET"));
+        assertTrue(result.blockedReason().contains("IllegalStateException"));
+        verify(activityRepository, never()).findBySourceId(any());
+    }
+
+    @Test
     void importAll_ShouldRecordSync_WhenCollectSucceeds() {
         // Given : bug corrigé — lastSyncAt restait toujours null (voir SourceService#recordSync).
         givenOneCollectibleSource();

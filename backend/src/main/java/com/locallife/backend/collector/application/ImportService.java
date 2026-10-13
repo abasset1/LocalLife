@@ -8,6 +8,7 @@ import com.locallife.backend.activityclassification.application.ClassificationOu
 import com.locallife.backend.activityclassification.application.ClassificationService;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.collector.infrastructure.DataTourismeCollectorFactory;
 import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
 import com.locallife.backend.link.application.ActivityLinkService;
@@ -336,6 +337,18 @@ public class ImportService {
         return openAgenda.create(source);
     }
 
+    /**
+     * Cause affichée dans le bilan : seul le message d'une {@link CollectorException}, rédigé par le collecteur,
+     * est repris. Une autre exception peut porter l'URL d'appel, donc une clé d'API : son message ne va que
+     * dans les journaux.
+     */
+    static String displayableCause(RuntimeException exception) {
+        if (exception instanceof CollectorException) {
+            return exception.getMessage();
+        }
+        return "erreur inattendue (" + exception.getClass().getSimpleName() + "), détail dans les journaux.";
+    }
+
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
     }
@@ -366,7 +379,7 @@ public class ImportService {
                     exception);
             return new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
                     "Collecte en échec, import interrompu sans rien créer, modifier ni archiver : "
-                            + exception.getMessage());
+                            + displayableCause(exception));
         }
 
         int created = 0;

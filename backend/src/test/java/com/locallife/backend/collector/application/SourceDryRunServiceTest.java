@@ -137,6 +137,18 @@ class SourceDryRunServiceTest {
     }
 
     @Test
+    void dryRun_ShouldNotDisplayUnexpectedExceptionMessage_WhichMayContainApiKey() {
+        when(collector.collect()).thenThrow(new IllegalStateException("GET https://api.example/events?key=SECRET"));
+
+        SourceDryRunReport report = dryRunService.dryRun(SOURCE.id()).orElseThrow();
+
+        assertEquals(Verdict.FAILED, report.verdict());
+        assertFalse(report.problems().get(0).contains("SECRET"));
+        assertTrue(report.problems().get(0).contains("IllegalStateException"));
+        assertNothingWritten();
+    }
+
+    @Test
     void dryRun_ShouldBeSuspicious_WhenNothingIsCollected() {
         when(collector.collect()).thenReturn(List.of());
         when(activityRepository.findBySourceId(SOURCE.id())).thenReturn(List.of());

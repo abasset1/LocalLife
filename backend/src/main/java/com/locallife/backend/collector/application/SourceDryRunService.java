@@ -13,6 +13,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -33,6 +35,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class SourceDryRunService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(SourceDryRunService.class);
 
     /**
      * Au-delà (strictement plus de la moitié des éléments collectés), la normalisation rejette trop d'éléments :
@@ -81,8 +85,9 @@ public class SourceDryRunService {
             collected = ImportService.collectorFor(source, openAgendaCollectorFactory, dataTourismeCollectorFactory)
                     .collect();
         } catch (RuntimeException exception) {
+            LOGGER.warn("Essai à blanc : échec de la collecte pour la source '{}'", source.name(), exception);
             return SourceDryRunReport.failed(source.id(), source.name(),
-                    "Collecte en échec : " + exception.getMessage());
+                    "Collecte en échec : " + ImportService.displayableCause(exception));
         }
 
         List<Activity> existing = activityRepository.findBySourceId(source.id());
