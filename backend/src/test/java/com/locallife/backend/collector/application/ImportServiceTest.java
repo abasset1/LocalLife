@@ -25,6 +25,7 @@ import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.CollectorException;
+import com.locallife.backend.collector.infrastructure.DataTourismeCollectorFactory;
 import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
 import com.locallife.backend.link.application.ActivityLinkService;
 import com.locallife.backend.media.application.ActivityMediaService;
@@ -78,6 +79,9 @@ class ImportServiceTest {
 
     @Mock
     private OpenAgendaCollectorFactory openAgendaCollectorFactory;
+
+    @Mock
+    private DataTourismeCollectorFactory dataTourismeCollectorFactory;
 
     @Mock
     private ActivityRepository activityRepository;
@@ -159,7 +163,8 @@ class ImportServiceTest {
         lenient().when(importFingerprintService.computeQuarantined(eq(FINGERPRINT), any()))
                 .thenReturn(QUARANTINE_FINGERPRINT);
         return new ImportService(
-                sourceService, openAgendaCollectorFactory, normalizationService, deduplicationService,
+                sourceService, openAgendaCollectorFactory, dataTourismeCollectorFactory, normalizationService,
+                deduplicationService,
                 activityRepository, locationService, scheduleService, occurrenceService, mediaService,
                 activityMediaService, activityLinkService, accessibilityService, activityTagService,
                 activityMetadataService, classificationService, activityClassificationService,
@@ -839,6 +844,27 @@ class ImportServiceTest {
 
         // Then
         assertEquals(0, results.size());
+        verify(openAgendaCollectorFactory, never()).create(any());
+    }
+
+    @Test
+    void importAll_ShouldUseDataTourismeCollector_ForActiveDataTourismeSourceWithUrl() {
+        // Given
+        Source dataTourisme = new Source(
+                20L, "DATAtourisme PACA", "DATATOURISME", "https://www.data.gouv.fr/api/1/datasets/r/abc",
+                "ACTIVE", null, null, "84");
+        Source withoutUrl = new Source(21L, "DATAtourisme vide", "DATATOURISME", null, "ACTIVE", null, null, null);
+        when(sourceService.getAllSources()).thenReturn(List.of(dataTourisme, withoutUrl));
+        when(dataTourismeCollectorFactory.create(dataTourisme)).thenReturn(collector);
+        when(collector.collect()).thenReturn(List.of());
+
+        // When
+        List<ImportResult> results = importService().importAll();
+
+        // Then
+        assertEquals(1, results.size());
+        verify(dataTourismeCollectorFactory, times(1)).create(dataTourisme);
+        verify(dataTourismeCollectorFactory, never()).create(withoutUrl);
         verify(openAgendaCollectorFactory, never()).create(any());
     }
 

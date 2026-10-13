@@ -8,6 +8,7 @@ import com.locallife.backend.activityclassification.application.ClassificationOu
 import com.locallife.backend.activityclassification.application.ClassificationService;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.Collector;
+import com.locallife.backend.collector.infrastructure.DataTourismeCollectorFactory;
 import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
 import com.locallife.backend.link.application.ActivityLinkService;
 import com.locallife.backend.media.application.ActivityMediaService;
@@ -53,11 +54,11 @@ import org.springframework.stereotype.Service;
  * chaque source {@link #isCollectible(Source) collectible} trouvée.
  * Ajouter, modifier ou supprimer un agenda depuis l'interface
  * d'administration prend donc effet dès le prochain import (planifié ou
- * déclenché manuellement), sans redémarrage. Un seul type de collecteur
- * existe à ce jour (OpenAgenda) : {@link #isCollectible(Source)} retient
- * toute source de type {@code API}, active, avec un {@code agendaUid}
- * renseigné — voir sa Javadoc si un second type de collecteur devait être
- * ajouté un jour (ex. RSS).
+ * déclenché manuellement), sans redémarrage. Deux types de collecteur
+ * existent : OpenAgenda (type {@code API} avec un {@code agendaUid}) et
+ * DATAtourisme via data.gouv.fr (type {@code DATATOURISME} avec une
+ * {@code url}, voir {@code DataTourismeCollector}) — voir
+ * {@link #isCollectible(Source)}.
  *
  * Critères LL-5008 :
  * <ul>
@@ -193,6 +194,9 @@ public class ImportService {
      */
     private static final String COLLECTIBLE_SOURCE_TYPE = "API";
 
+    /** Type de source collecté via l'export CSV DATAtourisme de data.gouv.fr. */
+    private static final String DATATOURISME_SOURCE_TYPE = "DATATOURISME";
+
     private static final String ACTIVE_STATUS = "ACTIVE";
 
     /** Statut de suppression douce, voir la javadoc de la classe. */
@@ -201,6 +205,7 @@ public class ImportService {
 
     private final SourceService sourceService;
     private final OpenAgendaCollectorFactory openAgendaCollectorFactory;
+    private final DataTourismeCollectorFactory dataTourismeCollectorFactory;
     private final NormalizationService normalizationService;
     private final DeduplicationService deduplicationService;
     private final ActivityRepository activityRepository;
@@ -224,6 +229,7 @@ public class ImportService {
     public ImportService(
             SourceService sourceService,
             OpenAgendaCollectorFactory openAgendaCollectorFactory,
+            DataTourismeCollectorFactory dataTourismeCollectorFactory,
             NormalizationService normalizationService,
             DeduplicationService deduplicationService,
             ActivityRepository activityRepository,
@@ -242,6 +248,7 @@ public class ImportService {
             SourceDefaultCategoryService sourceDefaultCategoryService) {
         this.sourceService = sourceService;
         this.openAgendaCollectorFactory = openAgendaCollectorFactory;
+        this.dataTourismeCollectorFactory = dataTourismeCollectorFactory;
         this.normalizationService = normalizationService;
         this.deduplicationService = deduplicationService;
         this.activityRepository = activityRepository;
@@ -286,13 +293,28 @@ public class ImportService {
      * sources {@code RSS}/{@code MANUAL}, inactives, ou {@code API} sans
      * {@code agendaUid} (créées pour un futur type de collecteur non
      * encore implémenté) sont silencieusement ignorées, plutôt que de
-     * tenter une collecte vouée à échouer.
+     * tenter une collecte vouée à échouer. Une source {@code DATATOURISME}
+     * est collectible si elle est active et porte une {@code url}.
      */
     private boolean isCollectible(Source source) {
-        return COLLECTIBLE_SOURCE_TYPE.equals(source.type())
-                && ACTIVE_STATUS.equals(source.status())
-                && source.agendaUid() != null
-                && !source.agendaUid().isBlank();
+        if (!ACTIVE_STATUS.equals(source.status())) {
+            return false;
+        }
+        if (DATATOURISME_SOURCE_TYPE.equals(source.type())) {
+            return hasText(source.url());
+        }
+        return COLLECTIBLE_SOURCE_TYPE.equals(source.type()) && hasText(source.agendaUid());
+    }
+
+    private Collector collectorFor(Source source) {
+        if (DATATOURISME_SOURCE_TYPE.equals(source.type())) {
+            return dataTourismeCollectorFactory.create(source);
+        }
+        return openAgendaCollectorFactory.create(source);
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     /**
@@ -310,7 +332,7 @@ public class ImportService {
 
     private ImportResult importFromWithinBatch(Source source) {
         LocalDateTime startedAt = LocalDateTime.now();
-        Collector collector = openAgendaCollectorFactory.create(source);
+        Collector collector = collectorFor(source);
 
         List<CollectedActivity> collected;
         try {
