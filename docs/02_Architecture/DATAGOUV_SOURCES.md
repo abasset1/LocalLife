@@ -209,45 +209,82 @@ Sommes de contrôle Flyway mesurées le 13/10/2026 sur PostgreSQL/PostGIS 16 :
 | fusionnée dans `main` (seule version à garder) | `ACTIVE` | `-753629161` |
 | abandonnée, jamais fusionnée (branche avant le 13/10 vers 14 h) | `INACTIVE` | `1901026672` |
 
-**1. Vérifier, dans chaque environnement (bêta, production, bases locales).**
-Le déploiement de la bêta est manuel (images reconstruites sur le VPS) : on
-ne peut pas savoir d'ici si `main` y a été redéployé depuis la fusion.
+**État de la vérification (13/10/2026).** Seules des bases locales ont été
+vérifiées. **La bêta et la production n'ont pas pu l'être** : aucun accès
+depuis l'environnement de développement, et le déploiement de la bêta est
+manuel (images reconstruites sur le VPS), donc on ne sait pas si `main` y a
+été redéployé depuis la fusion. Le diagnostic ci-dessous doit y être exécuté
+par l'administrateur avant tout déploiement de la 0.9.58.
 
-```sql
-SELECT version, checksum, installed_on, success
-FROM flyway_schema_history WHERE version = '60';
+**1. Diagnostiquer, dans chaque environnement** (lecture seule : transaction
+`READ ONLY`, uniquement des `SELECT`, aucune donnée personnelle affichée) :
 
-SELECT id, name, status, last_sync_at
-FROM source WHERE type = 'DATATOURISME';
-
-SELECT status, count(*)
-FROM activity
-WHERE source_id = (SELECT id FROM source WHERE type = 'DATATOURISME')
-GROUP BY status;
+```sh
+cd infra && set -a && . ./.env.beta && set +a   # comme infra/backup.sh
+docker compose -f docker-compose.beta.yml exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < verification/v60_diagnostic.sql
 ```
 
-**2. Agir selon le cas.**
+Le script affiche la ligne V60 de `flyway_schema_history`, les sources
+`DATATOURISME` avec leur nombre d'activités et d'empreintes d'import
+(`import_fingerprint`), les activités par statut, puis un **verdict**. Une
+source « ayant alimenté la base » est une source qui a une date de
+synchronisation, **ou** au moins une activité, **ou** au moins une empreinte :
+les trois traces sont écrites par un import réussi, une seule suffit.
 
-| Cas | Constat | Action | Réparation Flyway |
+**2. Agir selon le verdict.**
+
+| Verdict | Constat | Action | Réparation Flyway |
 |---|---|---|---|
-| A | V60 absente | Rien avant déploiement. Après le déploiement de la 0.9.58, la source sera `ACTIVE` (V60 de `main`) : la passer à `INACTIVE`, puis « Essai à blanc » et « Activer après vérification ». | Non |
-| B1 | Checksum `-753629161`, `last_sync_at` vide | Source active mais jamais collectée. Avant le prochain import horaire : la passer à `INACTIVE` ; après déploiement de la 0.9.58, activation vérifiée. | Non |
-| B2 | Checksum `-753629161`, `last_sync_at` renseigné | La source a déjà été importée avec le collecteur sans garde-fou. Contrôler le nombre d'activités `ARCHIVED` (un archivage massif est possible si un fichier invalide a été reçu). Déployer la 0.9.58 au plus vite, ou passer la source à `INACTIVE` en attendant. Au premier import 0.9.58, les marchés publiés pour l'année (règle des 31 jours) ne sont plus collectés et seront archivés, sauf si le garde-fou juge leur disparition massive. | Non |
+| A | V60 absente | Rien avant déploiement. Après le déploiement de la 0.9.58, V60 crée la source `ACTIVE` : relancer le diagnostic (verdict B1), puis la désactivation ciblée avant le prochain import horaire. | Non |
+| B0 | V60 appliquée, source de V60 introuvable (supprimée ou URL modifiée depuis l'administration) | Rien d'automatique : examiner les sources listées. | Non |
+| B1 | Checksum `-753629161`, source de V60 jamais utilisée | **Désactivation ciblée** (ci-dessous), puis « Essai à blanc » et « Activer après vérification » une fois la 0.9.58 déployée. | Non |
+| B2 | Checksum `-753629161`, source ayant alimenté la base | **Pas de désactivation par script** : ses activités restent publiées. Contrôler le nombre d'activités `ARCHIVED` (un archivage massif est possible si un fichier invalide a été reçu avec l'ancien collecteur). Déployer la 0.9.58 au plus vite ; si le déploiement doit attendre, la passer à `INACTIVE` depuis l'administration (aucune activité n'est touchée : une source inactive n'est simplement plus collectée). Au premier import 0.9.58, les marchés publiés pour l'année (règle des 31 jours) ne sont plus collectés et seront archivés, sauf si le garde-fou juge leur disparition massive. | Non |
 | C | Checksum `1901026672` | Base qui a exécuté la branche avant sa reconstruction (développement uniquement). Le démarrage échoue sur ce code (« Migration checksum mismatch », vérifié). Recréer la base locale ; ou, si ses données comptent, `flyway repair` **après sauvegarde** : il aligne la somme de contrôle sur le fichier sans toucher aux données (la source reste `INACTIVE`, ce qui est l'état voulu). | Seulement ici |
+| INCONNU | Autre somme de contrôle | Ne rien réparer : analyser (V60 modifiée à la main ?). | Non |
+
+**Désactivation ciblée** (`infra/verification/v60_desactivation_conditionnelle.sql`),
+à exécuter seulement au verdict B1 :
+
+```sh
+docker compose -f docker-compose.beta.yml exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
+  < verification/v60_desactivation_conditionnelle.sql
+```
+
+Elle ne passe à `INACTIVE` que la source de V60 (type et URL exacts), active,
+sans date de synchronisation, sans activité ni empreinte d'import. Elle ne
+modifie ni ne supprime aucune activité, et ne touche aucune autre source.
+Exécutée par erreur sur une base B2, elle ne modifie rien (`UPDATE 0`).
+
+**Pourquoi une procédure ciblée plutôt qu'une migration V61.** Une migration
+s'exécuterait sans regard humain dans tous les environnements, y compris
+ceux où la source a déjà alimenté la base. Même conditionnelle, elle
+figerait la décision sans diagnostic préalable. La procédure ciblée garde
+l'humain dans la boucle et ne coûte rien là où la source n'existe pas. Si
+tu préfères ne plus dépendre d'une action manuelle, le même `UPDATE`, avec
+les mêmes conditions, peut devenir une V61 : sur une base B2, il ne modifie
+rien. Elle n'est pas créée sans ta décision.
+
+**Tests effectués (13/10/2026, PostgreSQL/PostGIS 16 local).** Une base
+migrée par le code de la branche, puis copiée pour simuler chaque cas :
+
+| Base simulée | Verdict obtenu | Désactivation ciblée |
+|---|---|---|
+| V60 retirée de l'historique | A | — |
+| V60 appliquée, source neuve (+ une seconde source DATAtourisme active, autre URL) | B1 | `UPDATE 1` : source de V60 `INACTIVE`, seconde source restée `ACTIVE` ; second passage : `UPDATE 0` |
+| Source synchronisée, 2 activités (1 publiée, 1 archivée), 1 empreinte | B2 | `UPDATE 0` : source `ACTIVE`, 2 activités intactes |
+| Source de V60 supprimée | B0 | — |
+| Checksum `1901026672` | C | — |
+| Checksum arbitraire | INCONNU | — |
+
+Le diagnostic refuse toute écriture (essai d'`UPDATE` dans sa transaction :
+« cannot execute UPDATE in a read-only transaction »).
 
 **Précautions** : sauvegarde avant toute intervention (`infra/backup.sh`) ;
 jamais de `flyway repair` sans avoir lu la somme de contrôle en base et
 identifié le cas ; jamais de `repair` en production pour faire disparaître
 une erreur non comprise.
-
-**Option non retenue sans ta décision** : une migration de données (V61)
-qui passerait la source à `INACTIVE` là où elle n'a jamais été collectée
-(`last_sync_at IS NULL`), pour ne plus dépendre d'une action manuelle :
-
-```sql
-UPDATE source SET status = 'INACTIVE'
-WHERE type = 'DATATOURISME' AND status = 'ACTIVE' AND last_sync_at IS NULL;
-```
 
 **Activation vérifiée (implémentée, décision d'Alex du 13/10/2026).**
 
