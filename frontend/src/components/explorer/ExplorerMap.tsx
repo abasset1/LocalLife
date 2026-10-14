@@ -10,6 +10,7 @@ import { MAP_BOUNDS_DEBOUNCE_MS, MARSEILLE_COORDINATES } from "./constants";
 import { APPROXIMATE_LOCATION_LABEL, isApproximateLocation } from "./activityUtils";
 import { hasCoordinates } from "./globalSearch";
 import PlacesLayer from "../places/PlacesLayer";
+import type { Place } from "../places/types";
 import type { Activity, FoodTruck, MapBounds, UserPosition } from "./types";
 
 /**
@@ -211,6 +212,8 @@ interface ExplorerMapProps {
     foodTrucks: FoodTruck[];
     /** Couche « Lieux » (ADR-0011, phase B) : lieux permanents publiés de la zone affichée. */
     showPlaces?: boolean;
+    /** Lieux de la couche « Lieux » chargés pour la zone affichée. */
+    onPlacesChange?: (places: Place[]) => void;
     userPosition: UserPosition | null;
     /** Rayon actif (km) : la carte est cadrée dessus autour de `userPosition`, et il est tracé. */
     radiusKm: number | null;
@@ -225,6 +228,7 @@ function ExplorerMap({
     activities,
     foodTrucks,
     showPlaces = false,
+    onPlacesChange,
     userPosition,
     radiusKm,
     selectedActivity,
@@ -275,7 +279,7 @@ function ExplorerMap({
                     />
                 ))}
             </MarkerClusterGroup>
-            <PlacesLayer enabled={showPlaces} onSelectActivity={onSelectActivity} />
+            <PlacesLayer enabled={showPlaces} onPlacesChange={onPlacesChange} onSelectActivity={onSelectActivity} />
             {foodTrucks.map((foodTruck) => (
                 <Marker
                     icon={FOOD_TRUCK_MARKER_ICON}

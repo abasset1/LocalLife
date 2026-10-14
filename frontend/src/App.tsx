@@ -20,6 +20,8 @@ import { useActivitySearch } from "./components/explorer/useActivitySearch";
 import { formatCityLabel } from "./components/explorer/useCitySuggestions";
 import type { CitySuggestion } from "./components/explorer/useCitySuggestions";
 import OnboardingModal from "./components/onboarding/OnboardingModal";
+import PlaceList from "./components/places/PlaceList";
+import type { Place } from "./components/places/types";
 import type {
     Activity,
     ActivityDetail,
@@ -137,6 +139,9 @@ function App() {
     // Couche « Lieux » (ADR-0011, phase B) : affichée sur demande, chargée par la carte (PlacesLayer). Le choix est
     // mémorisé dans le navigateur (confort seulement : tout fonctionne sans stockage).
     const [showPlaces, setShowPlaces] = useState<boolean>(() => readShowPlaces());
+    /** Lieux de la couche « Lieux » pour la zone affichée, et onglet du panneau de liste (ADR-0011, § 2.4). */
+    const [places, setPlaces] = useState<Place[]>([]);
+    const [listTab, setListTab] = useState<"activities" | "places">("activities");
     const [viewMode, setViewMode] = useState<"map" | "list">("map");
     /** Saisie de la barre de recherche ; seul un envoi explicite lance une recherche (`handleSearchSubmit`). */
     const [searchQuery, setSearchQuery] = useState("");
@@ -454,6 +459,8 @@ function App() {
 
     const mapActivities = isTextSearch ? searchActivities : activities;
     const panelActivities = isTextSearch ? searchActivities : listedActivities;
+    // Onglet « Lieux » : seulement quand la couche est affichée, et hors recherche textuelle.
+    const showPlacesTab = showPlaces && !isTextSearch;
 
     let emptyMessage = "Aucune activité trouvée dans cette zone.";
     if (isTextSearch) {
@@ -1048,6 +1055,7 @@ function App() {
                             foodTrucks={foodTrucks}
                             onBoundsChange={setMapBounds}
                             showPlaces={showPlaces}
+                            onPlacesChange={setPlaces}
                             onSelectActivity={handleSelectActivity}
                             selectedActivity={previewActivity}
                             userPosition={userPosition}
@@ -1073,6 +1081,31 @@ function App() {
                     </div>
 
                     <div className="explorer-list-panel" ref={searchListRef}>
+                        {showPlacesTab && (
+                            <div aria-label="Contenu de la liste" className="explorer-list-tabs" role="tablist">
+                                <button
+                                    aria-selected={listTab === "activities"}
+                                    className={listTab === "activities" ? "explorer-list-tab explorer-list-tab-active" : "explorer-list-tab"}
+                                    onClick={() => setListTab("activities")}
+                                    role="tab"
+                                    type="button"
+                                >
+                                    Activités
+                                </button>
+                                <button
+                                    aria-selected={listTab === "places"}
+                                    className={listTab === "places" ? "explorer-list-tab explorer-list-tab-active" : "explorer-list-tab"}
+                                    onClick={() => setListTab("places")}
+                                    role="tab"
+                                    type="button"
+                                >
+                                    Lieux ({places.length})
+                                </button>
+                            </div>
+                        )}
+                        {showPlacesTab && listTab === "places" ? (
+                            <PlaceList onSelectActivity={handleSelectActivity} places={places} />
+                        ) : (
                         <ActivityList
                             activities={panelActivities}
                             categories={categories}
@@ -1083,6 +1116,7 @@ function App() {
                             onSelectActivity={handleSelectActivity}
                             ordered={isTextSearch}
                         />
+                        )}
                     </div>
                 </div>
             </div>
