@@ -4,7 +4,8 @@
 
 ### Administration : catégories et mots-clés
 - API d'administration (`/api/v1/admin/categories`, rôle ADMIN) : liste de toutes les catégories (actives ou non) avec tous leurs mots-clés ; ajout d'une catégorie (code `SCREAMING_SNAKE_CASE`, libellé et description fr-FR) ; modification du libellé, de la description et activation / désactivation ; ajout d'un mot-clé (portée « titres et sources » ou « sources seulement », un mot-clé désactivé identique est réactivé) ; activation / désactivation et portée d'un mot-clé. Aucune suppression ; pas de migration.
-- Une catégorie désactivée n'est plus proposée (filtres, préférences, alertes) ni attribuée par la classification ; les activités qui la portent la gardent. Les changements s'appliquent aux prochains imports (la version du référentiel change).
+- Une catégorie désactivée n'est plus proposée (filtres, préférences, alertes) ni attribuée par la classification ; les activités qui la portent la gardent.
+- Contributions : une catégorie désactivée est refusée (400 « Catégorie désactivée »). En modification, elle reste acceptée si l'activité la porte déjà, pour ne pas bloquer la correction du reste. Les changements s'appliquent aux prochains imports (la version du référentiel change).
 - Administration : onglet « Catégories » (ajout de catégorie, désactivation / réactivation après confirmation, mots-clés par catégorie avec ajout, désactivation et réactivation, recherche de mot-clé).
 
 ### Lieux permanents (ADR-0011, phase B) : backend et interface
