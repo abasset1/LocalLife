@@ -16,6 +16,7 @@ import { Region, pointInBounds, regionForRadius, regionForZoom, regionToBounds, 
 import { ActivityMarker, ClusterMarker, FoodTruckMarker, PlaceMarker } from './markers';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData, type RadiusSearch } from './useMapData';
+import { loadShowPlaces, saveShowPlaces } from './placesPreference';
 import { usePlaces } from './usePlaces';
 import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
@@ -137,8 +138,21 @@ export default function MapScreen() {
   );
 
   const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(region, categoryCodes, radiusSearch);
-  // Couche « Lieux » (ADR-0011, phase B) : désactivée par défaut, choix gardé pour la session.
+  // Couche « Lieux » (ADR-0011, phase B) : désactivée par défaut, choix mémorisé sur l'appareil.
   const [showPlaces, setShowPlaces] = useState(false);
+  useEffect(() => {
+    let active = true;
+    loadShowPlaces().then((shown) => {
+      if (active && shown) setShowPlaces(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const toggleShowPlaces = useCallback(() => {
+    setShowPlaces(!showPlaces);
+    saveShowPlaces(!showPlaces);
+  }, [showPlaces]);
   const places = usePlaces(region, showPlaces);
   const location = useUserLocation();
   const [showUser, setShowUser] = useState(false);
@@ -370,7 +384,7 @@ export default function MapScreen() {
                 <Button
                   label={showPlaces ? '🏛 Masquer les lieux' : '🏛 Lieux'}
                   variant="secondary"
-                  onPress={() => setShowPlaces((shown) => !shown)}
+                  onPress={toggleShowPlaces}
                 />
               </View>
               <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
