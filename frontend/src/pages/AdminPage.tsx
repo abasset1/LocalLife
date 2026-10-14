@@ -5,6 +5,7 @@ import { apiFetch } from "../api/apiClient";
 import { getPayload } from "../auth/authStorage";
 import AdminDeletionSection from "../components/admin/AdminDeletionSection";
 import AdminImportsSection from "../components/admin/AdminImportsSection";
+import AdminPlaceMatchesSection from "../components/admin/AdminPlaceMatchesSection";
 import AdminPlacesSection from "../components/admin/AdminPlacesSection";
 
 /**
@@ -103,6 +104,7 @@ const ADMIN_SECTIONS = [
     { value: "moderation", label: "Modération des activités" },
     { value: "agendas", label: "Agendas" },
     { value: "places", label: "Lieux" },
+    { value: "placeMatches", label: "Rapprochements" },
     { value: "imports", label: "Imports" },
     { value: "deletion", label: "Suppression" },
 ] as const;
@@ -890,6 +892,12 @@ function AdminPage() {
             {activeSection === "places" && (
                 <main className="admin-content">
                     <AdminPlacesSection />
+                </main>
+            )}
+
+            {activeSection === "placeMatches" && (
+                <main className="admin-content">
+                    <AdminPlaceMatchesSection />
                 </main>
             )}
 
