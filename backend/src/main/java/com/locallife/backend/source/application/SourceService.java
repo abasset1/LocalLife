@@ -39,6 +39,12 @@ public class SourceService {
      */
     public static final String DATATOURISME_TYPE = "DATATOURISME";
 
+    /**
+     * Lieux DATAtourisme (ADR-0011, phase B) : même fichier, mêmes règles de configuration et d'activation que
+     * {@link #DATATOURISME_TYPE} ; importés par {@code PlaceImportService}, jamais par l'import d'événements.
+     */
+    public static final String DATATOURISME_PLACES_TYPE = "DATATOURISME_LIEUX";
+
     private static final String ACTIVE_STATUS = "ACTIVE";
     private static final String INACTIVE_STATUS = "INACTIVE";
 
@@ -69,7 +75,7 @@ public class SourceService {
      */
     public Source createSource(String name, String type, String url, String agendaUid, String regionFilter) {
         validate(name, type);
-        boolean dataTourisme = DATATOURISME_TYPE.equals(type);
+        boolean dataTourisme = isDataTourismeType(type);
         if (dataTourisme) {
             validateDataTourismeConfiguration(url, agendaUid, regionFilter);
         }
@@ -109,7 +115,7 @@ public class SourceService {
             Long id, String name, String type, String url, String status, String agendaUid, String regionFilter) {
         validate(name, type);
         return sourceRepository.findById(id).map(existing -> {
-            if (DATATOURISME_TYPE.equals(type)) {
+            if (isDataTourismeType(type)) {
                 validateDataTourismeConfiguration(url, agendaUid, regionFilter);
                 requireVerifiedActivation(existing, type, url, status, regionFilter);
             }
@@ -162,6 +168,11 @@ public class SourceService {
             throw new IllegalArgumentException("Une source DATATOURISME s'active après un essai à blanc réussi "
                     + "(activation vérifiée depuis l'administration des imports). Enregistrez-la inactive.");
         }
+    }
+
+    /** Sources DATAtourisme (événements ou lieux) : validation et activation vérifiée. */
+    public static boolean isDataTourismeType(String type) {
+        return DATATOURISME_TYPE.equals(type) || DATATOURISME_PLACES_TYPE.equals(type);
     }
 
     private static boolean sameText(String left, String right) {

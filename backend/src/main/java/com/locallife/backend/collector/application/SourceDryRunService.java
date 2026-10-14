@@ -146,6 +146,10 @@ public class SourceDryRunService {
             return hasAgenda ? Optional.empty()
                     : Optional.of("Configuration invalide : identifiant d'agenda OpenAgenda manquant.");
         }
+        if (SourceService.DATATOURISME_PLACES_TYPE.equals(source.type())) {
+            return Optional.of("Source de lieux : utiliser l'essai à blanc et l'activation de l'administration "
+                    + "des lieux (/api/v1/admin/places/sources/{id}).");
+        }
         return Optional.of("Type de source non collectable : " + source.type() + ".");
     }
 }

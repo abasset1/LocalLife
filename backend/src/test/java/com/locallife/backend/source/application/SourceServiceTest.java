@@ -298,6 +298,18 @@ class SourceServiceTest {
         assertEquals("INACTIVE", created.status());
     }
 
+    /** ADR-0011, phase B : une source de lieux suit les mêmes règles qu'une source DATAtourisme d'événements. */
+    @Test
+    void createSource_ShouldApplyDataTourismeRules_ToPlaceSources() {
+        when(sourceRepository.save(any(Source.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Source created = sourceService.createSource("Lieux PACA", "DATATOURISME_LIEUX", DATATOURISME_URL, null, null);
+
+        assertEquals("INACTIVE", created.status());
+        assertThrows(IllegalArgumentException.class,
+                () -> sourceService.createSource("Lieux", "DATATOURISME_LIEUX", "https://example.org/x", null, null));
+    }
+
     @Test
     void createSource_ShouldRejectInvalidDataTourismeConfiguration() {
         // URL qui n'est pas l'URL stable d'une ressource data.gouv.fr (ex. lien direct au fichier du jour).
