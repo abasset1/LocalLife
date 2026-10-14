@@ -793,7 +793,19 @@ reporté : rapprochement avec les lieux d'événement existants (§ 2.3, étapes
 | Libellés français des 46 types | `placeTypes.ts` |
 
 Vérifié dans un navigateur réel (Chromium, API simulée) : onglet, bilan d'essai,
-signalements ; couche, marqueurs et fiche. Application mobile : inchangée.
+signalements ; couche, marqueurs et fiche.
+
+Application mobile (14/10/2026, après la PR du rapprochement) : champ
+`coordinatePrecision` lu (facultatif, un backend antérieur reste compatible) ;
+mention « emplacement approximatif » sur la fiche et l'aperçu, marqueur atténué ;
+bouton « Itinéraire » (coordonnées, ou adresse ou commune si la position est
+approximative, même règle que le site) ; couche « Lieux » activable (losange
+violet, aperçu : type, adresse, itinéraire, site). Choix de la couche mémorisé sur
+l'appareil (clé `locallife.showPlaces`, comme le site) avec
+`@react-native-async-storage/async-storage` 2.2.0, version associée au SDK Expo 57
+(décision d'Alex, 14/10/2026) ; un stockage indisponible laisse la couche masquée. Vérifié par typecheck,
+lint et tests unitaires (helpers, appel API) ; **non vérifié sur appareil ni
+émulateur** (pas d'émulateur dans l'environnement de développement).
 
 #### 7.2.9 Rapprochement lieux d'événement ↔ lieux permanents : mesure (14/10/2026)
 

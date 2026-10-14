@@ -8,13 +8,16 @@ import type { Activity } from '@/api';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { isApproximateLocation } from '@/features/activity/location';
 import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
 import { useTheme } from '@/hooks/use-theme';
 
 import { Region, pointInBounds, regionForRadius, regionForZoom, regionToBounds, zoomForRegion } from './geo';
-import { ActivityMarker, ClusterMarker, FoodTruckMarker } from './markers';
+import { ActivityMarker, ClusterMarker, FoodTruckMarker, PlaceMarker } from './markers';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData, type RadiusSearch } from './useMapData';
+import { loadShowPlaces, saveShowPlaces } from './placesPreference';
+import { usePlaces } from './usePlaces';
 import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
 
@@ -135,6 +138,22 @@ export default function MapScreen() {
   );
 
   const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(region, categoryCodes, radiusSearch);
+  // Couche « Lieux » (ADR-0011, phase B) : désactivée par défaut, choix mémorisé sur l'appareil.
+  const [showPlaces, setShowPlaces] = useState(false);
+  useEffect(() => {
+    let active = true;
+    loadShowPlaces().then((shown) => {
+      if (active && shown) setShowPlaces(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const toggleShowPlaces = useCallback(() => {
+    setShowPlaces(!showPlaces);
+    saveShowPlaces(!showPlaces);
+  }, [showPlaces]);
+  const places = usePlaces(region, showPlaces);
   const location = useUserLocation();
   const [showUser, setShowUser] = useState(false);
 
@@ -168,6 +187,11 @@ export default function MapScreen() {
     () =>
       bounds ? foodTrucks.filter((t) => pointInBounds(bounds, t.latitude, t.longitude)) : [],
     [foodTrucks, bounds],
+  );
+
+  const visiblePlaces = useMemo(
+    () => (bounds ? places.filter((p) => pointInBounds(bounds, p.latitude, p.longitude)) : []),
+    [places, bounds],
   );
 
   const zoomIntoCluster = useCallback(
@@ -252,6 +276,7 @@ export default function MapScreen() {
               key={`a-${activity.id}`}
               coordinate={coordinate}
               title={activity.title}
+              approximate={isApproximateLocation(activity)}
               onPress={() => setSelection({ kind: 'activity', activity })}
             />
           );
@@ -263,6 +288,15 @@ export default function MapScreen() {
             coordinate={{ latitude: foodTruck.latitude, longitude: foodTruck.longitude }}
             name={foodTruck.name}
             onPress={() => setSelection({ kind: 'foodTruck', foodTruck })}
+          />
+        ))}
+
+        {visiblePlaces.map((place) => (
+          <PlaceMarker
+            key={`p-${place.id}`}
+            coordinate={{ latitude: place.latitude, longitude: place.longitude }}
+            name={place.name}
+            onPress={() => setSelection({ kind: 'place', place })}
           />
         ))}
       </MapView>
@@ -346,6 +380,13 @@ export default function MapScreen() {
           )}
           {!selection && (
             <View style={styles.bottomActions} pointerEvents="box-none">
+              <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
+                <Button
+                  label={showPlaces ? '🏛 Masquer les lieux' : '🏛 Lieux'}
+                  variant="secondary"
+                  onPress={toggleShowPlaces}
+                />
+              </View>
               <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
                 <Button
                   label={activeRadiusKm === null ? '◎ Rayon' : `◎ ${activeRadiusKm} km`}

@@ -1,15 +1,21 @@
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
-import type { Activity, FoodTruck } from '@/api';
+import type { Activity, FoodTruck, Place } from '@/api';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { isSafeWebUrl } from '@/features/activity/format';
+import { buildDirectionsUrl, withApproximateMention } from '@/features/activity/location';
 import { useTheme } from '@/hooks/use-theme';
+
+import { placeTypeLabel } from './placeTypes';
 
 export type Selection =
   | { kind: 'activity'; activity: Activity }
-  | { kind: 'foodTruck'; foodTruck: FoodTruck };
+  | { kind: 'foodTruck'; foodTruck: FoodTruck }
+  | { kind: 'place'; place: Place };
 
 function formatDate(iso: string | null): string | null {
   if (!iso) return null;
@@ -20,13 +26,82 @@ function formatDate(iso: string | null): string | null {
 
 /** Consultation rapide d'un élément touché sur la carte. */
 export function PreviewCard({ selection, onClose }: { selection: Selection; onClose: () => void }) {
+  if (selection.kind === 'place') return <PlacePreview place={selection.place} onClose={onClose} />;
+  return <ItemPreview selection={selection} onClose={onClose} />;
+}
+
+function CardHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <View style={styles.header}>
+      <ThemedText type="smallBold" style={styles.title} numberOfLines={2}>
+        {title}
+      </ThemedText>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Fermer l'aperçu"
+        hitSlop={12}
+        onPress={onClose}
+        style={styles.close}>
+        <ThemedText>✕</ThemedText>
+      </Pressable>
+    </View>
+  );
+}
+
+/** Lieu permanent (couche « Lieux ») : pas de fiche dédiée, l'aperçu suffit. */
+function PlacePreview({ place, onClose }: { place: Place; onClose: () => void }) {
+  const theme = useTheme();
+  const location = withApproximateMention(
+    [place.address, [place.postalCode, place.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null,
+    place,
+  );
+  const directions = buildDirectionsUrl(place);
+  return (
+    <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+      <CardHeader title={place.name} onClose={onClose} />
+      <ThemedText type="small" themeColor="textSecondary">
+        {placeTypeLabel(place.placeType)}
+      </ThemedText>
+      {location ? <ThemedText type="small">{location}</ThemedText> : null}
+      {place.description ? (
+        <ThemedText type="small" numberOfLines={3}>
+          {place.description}
+        </ThemedText>
+      ) : null}
+      <View style={styles.actions}>
+        {directions ? (
+          <Button
+            label="Itinéraire"
+            variant="secondary"
+            onPress={() => Linking.openURL(directions).catch(() => undefined)}
+          />
+        ) : null}
+        {isSafeWebUrl(place.website) ? (
+          <Button
+            label="Site du lieu"
+            variant="secondary"
+            onPress={() => WebBrowser.openBrowserAsync(place.website as string).catch(() => undefined)}
+          />
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function ItemPreview({
+  selection,
+  onClose,
+}: {
+  selection: Exclude<Selection, { kind: 'place' }>;
+  onClose: () => void;
+}) {
   const theme = useTheme();
   const router = useRouter();
 
   const isActivity = selection.kind === 'activity';
   const title = isActivity ? selection.activity.title : selection.foodTruck.name;
   const category = isActivity ? selection.activity.category : selection.foodTruck.category;
-  const place = isActivity ? selection.activity.city : null;
+  const place = isActivity ? withApproximateMention(selection.activity.city, selection.activity) : null;
   const date = isActivity ? formatDate(selection.activity.startDate) : null;
   const description = isActivity ? null : selection.foodTruck.description;
   const contact = isActivity ? null : selection.foodTruck.contact;
@@ -37,19 +112,7 @@ export function PreviewCard({ selection, onClose }: { selection: Selection; onCl
 
   return (
     <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-      <View style={styles.header}>
-        <ThemedText type="smallBold" style={styles.title} numberOfLines={2}>
-          {title}
-        </ThemedText>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Fermer l'aperçu"
-          hitSlop={12}
-          onPress={onClose}
-          style={styles.close}>
-          <ThemedText>✕</ThemedText>
-        </Pressable>
-      </View>
+      <CardHeader title={title} onClose={onClose} />
       <ThemedText type="small" themeColor="textSecondary">
         {meta}
       </ThemedText>
@@ -97,6 +160,11 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
+  },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
   },
   close: {
     minWidth: 32,
