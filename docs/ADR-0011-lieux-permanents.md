@@ -875,6 +875,25 @@ Recommandation : **C**, migration `V63` (colonne nullable, clé étrangère, ind
 automatique tant que le taux d'erreur n'est pas mesuré par l'usage. Les doublons de
 lieux permanents se traitent par refus en modération.
 
+#### 7.2.10 Liaison : décision et implémentation (14/10/2026)
+
+**Décision d'Alex (14/10/2026)** : option C (lien réversible), liaison par un administrateur.
+
+| Élément | Où |
+|---|---|
+| Migration `V63` : `location.place_id` (clé étrangère vers `location`, `ON DELETE SET NULL`), `place_linked_by`, `place_linked_at` ; contrainte `chk_location_place_link` (seul un lieu d'événement se relie, jamais à lui-même) ; index partiel. Aucune donnée existante modifiée. | `V63__link_event_locations_to_places.sql` |
+| Liaison groupée (≤ 500) : une paire n'est reliée que si elle est encore candidate (lieu d'événement utilisé, lieu permanent `PENDING`/`PUBLISHED` à ≤ 100 m) et que la règle ne la classe pas `NONE` ; sinon refusée avec sa raison. Seul `place_id` change. | `PlaceLinkService`, `POST /api/v1/admin/places/links` |
+| Délier : `place_id` remis à vide | `DELETE /api/v1/admin/places/links/{eventLocationId}` |
+| Rapport : lien existant (`linkedPlaceId`) | `GET /api/v1/admin/places/matches` |
+| Onglet « Rapprochements » : paires par niveau et département, sélection, « Relier la sélection » et « Délier » après confirmation | `AdminPlaceMatchesSection` |
+
+Testé : contrainte, liaison (paires refusées : inutilisée, lieu refusé, doublon, lieu permanent),
+lieu d'événement inchangé après liaison, délier, accès réservé aux administrateurs ; interface (vitest).
+**Non déployé** : la migration V63 s'applique au prochain déploiement du backend.
+
+Pas encore exploité côté public : la fiche d'un lieu permanent n'affiche pas encore les activités
+des lieux reliés (§ 2.4, `GET /api/v1/places/{id}`), étape suivante proposée.
+
 ### 7.3 Phase C — marchés et horaires : ontologie et N-Triples (13/10/2026)
 
 **Statut : étude terminée dans les limites fixées (aucun compte, aucun
@@ -1127,9 +1146,8 @@ nom du lieu, sans adresse » du collecteur DATAtourisme.
    accès nécessaires et vérifications préparées dans
    `docs/02_Architecture/VERIFICATION_JEP_FDS.md`.
 7. **Types de lieux DATAtourisme à importer** (liste blanche, § 2.5).
-8. **Liaison lieux d'événement ↔ lieux permanents** (§ 7.2.9) : choisir le
-   mécanisme (recommandé : lien réversible `location.place_id`, migration
-   `V63` à valider) et la règle de validation (lot pour `CERTAIN`).
+8. **Liaison lieux d'événement ↔ lieux permanents** : décidée le 14/10/2026
+   (lien réversible, `V63`, par un administrateur) et implémentée (§ 7.2.10).
 
 Non décidés, hors de cet ADR : couverture OpenAgenda des Journées
 européennes du patrimoine et de la Fête de la science (vérification

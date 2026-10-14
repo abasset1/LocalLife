@@ -1,6 +1,7 @@
 package com.locallife.backend.place.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 import com.locallife.backend.place.api.PlaceMatchResponse.Item;
@@ -20,6 +21,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -62,12 +64,17 @@ class PlaceMatchIntegrationTest {
             });
         });
         locationIds.forEach(id -> jdbcTemplate.update("DELETE FROM location WHERE id = ?", id));
+        jdbcTemplate.update("DELETE FROM users WHERE email = 'match-link@example.com'");
     }
 
     private String admin() {
+        return admin(1L);
+    }
+
+    private String admin(Long userId) {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return "Bearer " + Jwts.builder()
-                .claim("userId", 1L).claim("email", "match-test@example.com").claim("role", "ADMIN")
+                .claim("userId", userId).claim("email", "match-test@example.com").claim("role", "ADMIN")
                 .issuedAt(new Date()).expiration(new Date(System.currentTimeMillis() + 3_600_000L))
                 .signWith(key, SignatureAlgorithm.HS256).compact();
     }
@@ -153,5 +160,70 @@ class PlaceMatchIntegrationTest {
         client().get().uri("/api/v1/admin/places/matches?department=" + POSTAL + "&level=certain")
                 .header(HttpHeaders.AUTHORIZATION, admin()).exchange().expectStatus().isOk()
                 .expectBody().jsonPath("$.matches").isArray();
+    }
+
+    @Test
+    void link_ShouldSetAReversibleLink_OnlyForCandidatePairs() {
+        Long adminId = jdbcTemplate.queryForObject(
+                "INSERT INTO users (username, email, role, created_at, email_verified) "
+                        + "VALUES ('match-link', 'match-link@example.com', 'ADMIN', now(), true) RETURNING id",
+                Long.class);
+        Long theatre = location("Théâtre du Chêne Noir", "8 bis rue Sainte-Catherine", 0, "EXACT", "PUBLISHED");
+        Long rejected = location("Musée Calvet", null, 5, "EXACT", "REJECTED");
+        Long certain = eventLocation("", "8 bis rue Sainte-Catherine Théâtre du Chêne Noir", 10, "UNKNOWN");
+        Long unrelated = eventLocation("Salle des fêtes", null, 40, "UNKNOWN");
+        Long unused = location("Théâtre du Chêne Noir", null, 12, "UNKNOWN", null);
+        String before = jdbcTemplate.queryForObject(
+                "SELECT name || address || latitude FROM location WHERE id = ?", String.class, certain);
+
+        client().post().uri("/api/v1/admin/places/links").header(HttpHeaders.AUTHORIZATION, admin(adminId))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"links\":[{\"eventLocationId\":" + certain + ",\"placeId\":" + theatre + "},"
+                        + "{\"eventLocationId\":" + unrelated + ",\"placeId\":" + theatre + "},"
+                        + "{\"eventLocationId\":" + unused + ",\"placeId\":" + theatre + "},"
+                        + "{\"eventLocationId\":" + certain + ",\"placeId\":" + rejected + "},"
+                        + "{\"eventLocationId\":" + theatre + ",\"placeId\":" + theatre + "}]}")
+                .exchange().expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.linked.length()").isEqualTo(1)
+                .jsonPath("$.linked[0].eventLocationId").isEqualTo(certain)
+                .jsonPath("$.refused.length()").isEqualTo(4);
+
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT id FROM location WHERE place_id IS NOT NULL AND postal_code = ?", Long.class, POSTAL))
+                .containsExactly(certain);
+        assertThat(jdbcTemplate.queryForObject("SELECT place_linked_by FROM location WHERE id = ?", Long.class,
+                certain)).isEqualTo(adminId);
+        assertThat(jdbcTemplate.queryForObject("SELECT name || address || latitude FROM location WHERE id = ?",
+                String.class, certain)).as("le lieu d'événement n'est pas modifié").isEqualTo(before);
+
+        client().get().uri("/api/v1/admin/places/matches?department=" + POSTAL + "&level=CERTAIN")
+                .header(HttpHeaders.AUTHORIZATION, admin()).exchange().expectStatus().isOk()
+                .expectBody().jsonPath("$.matches[0].linkedPlaceId").isEqualTo(theatre);
+
+        client().delete().uri("/api/v1/admin/places/links/" + certain).header(HttpHeaders.AUTHORIZATION, admin())
+                .exchange().expectStatus().isNoContent();
+        client().delete().uri("/api/v1/admin/places/links/" + certain).header(HttpHeaders.AUTHORIZATION, admin())
+                .exchange().expectStatus().isNotFound();
+        assertThat(jdbcTemplate.queryForObject("SELECT place_id FROM location WHERE id = ?", Long.class, certain))
+                .isNull();
+    }
+
+    @Test
+    void link_ShouldBeReservedToAdmins_AndValidated() {
+        client().post().uri("/api/v1/admin/places/links").contentType(MediaType.APPLICATION_JSON)
+                .body("{\"links\":[]}").exchange().expectStatus().isUnauthorized();
+        client().post().uri("/api/v1/admin/places/links").header(HttpHeaders.AUTHORIZATION, admin())
+                .contentType(MediaType.APPLICATION_JSON).body("{\"links\":[]}")
+                .exchange().expectStatus().isBadRequest();
+    }
+
+    @Test
+    void constraint_ShouldForbidLinkingAPermanentPlace() {
+        Long place = location("Théâtre du Chêne Noir", null, 0, "EXACT", "PUBLISHED");
+        Long other = location("Musée Calvet", null, 5, "EXACT", "PUBLISHED");
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "UPDATE location SET place_id = ? WHERE id = ?", other, place))
+                .hasMessageContaining("chk_location_place_link");
     }
 }

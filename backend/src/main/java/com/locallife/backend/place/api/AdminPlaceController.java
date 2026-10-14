@@ -6,6 +6,7 @@ import com.locallife.backend.place.api.AdminPlaceResponse.BulkModerationRequest;
 import com.locallife.backend.place.api.AdminPlaceResponse.ModerationResult;
 import com.locallife.backend.place.application.PlaceImportReport;
 import com.locallife.backend.place.application.PlaceImportService;
+import com.locallife.backend.place.application.PlaceLinkService;
 import com.locallife.backend.place.application.PlaceMatchReportService;
 import com.locallife.backend.place.application.PlaceModerationService;
 import com.locallife.backend.place.application.PlaceModerationService.ModerationPage;
@@ -22,6 +23,7 @@ import java.util.Locale;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -48,14 +50,45 @@ public class AdminPlaceController {
     private final PlaceImportService importService;
     private final SourceService sourceService;
     private final PlaceMatchReportService matchReportService;
+    private final PlaceLinkService linkService;
 
     public AdminPlaceController(
             PlaceModerationService moderationService, PlaceImportService importService, SourceService sourceService,
-            PlaceMatchReportService matchReportService) {
+            PlaceMatchReportService matchReportService, PlaceLinkService linkService) {
         this.moderationService = moderationService;
         this.importService = importService;
         this.sourceService = sourceService;
         this.matchReportService = matchReportService;
+        this.linkService = linkService;
+    }
+
+    /** Liaisons demandées (paires du rapport de rapprochement). */
+    public record LinkBody(List<PlaceLinkService.LinkRequest> links) {
+    }
+
+    @Operation(summary = "Relier des lieux d'événement à des lieux permanents",
+            description = "Lien réversible (ADR-0011, § 7.2.9) : seul location.place_id change, aucune fusion. "
+                    + "Jusqu'à 500 paires ; une paire qui n'est plus candidate ou que la règle classe NONE est "
+                    + "refusée, avec sa raison.")
+    @PostMapping("/links")
+    public ResponseEntity<Object> link(@RequestBody LinkBody body, Authentication authentication,
+            HttpServletRequest request) {
+        if (body == null || body.links() == null || body.links().isEmpty()) {
+            return error(HttpStatus.BAD_REQUEST, "'links' est obligatoire et non vide.", request);
+        }
+        try {
+            return ResponseEntity.ok(linkService.link(body.links(), adminId(authentication)));
+        } catch (IllegalArgumentException exception) {
+            return error(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+        }
+    }
+
+    @Operation(summary = "Délier un lieu d'événement", description = "Remet place_id à vide. 404 s'il n'était pas "
+            + "relié.")
+    @DeleteMapping("/links/{eventLocationId}")
+    public ResponseEntity<Object> unlink(@PathVariable Long eventLocationId) {
+        return linkService.unlink(eventLocationId) ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 
     @Operation(summary = "Rapprochement lieux d'événement ↔ lieux permanents (lecture seule)",
