@@ -7,6 +7,7 @@ import { Colors } from '@/constants/theme';
 const ACTIVITY_COLOR = Colors.light.primary;
 const FOOD_TRUCK_COLOR = '#C2410C';
 const CLUSTER_COLOR = '#0F3D82';
+const PLACE_COLOR = '#6D28D9';
 
 /**
  * Sur Android, un marqueur personnalisé doit être « suivi » le temps de
@@ -24,13 +25,16 @@ function useTracksViewChanges(): boolean {
 
 type Coordinate = { latitude: number; longitude: number };
 
+/** Position approximative (une zone, pas le lieu) : marqueur atténué, comme sur le site web. */
 export function ActivityMarker({
   coordinate,
   title,
+  approximate = false,
   onPress,
 }: {
   coordinate: Coordinate;
   title: string;
+  approximate?: boolean;
   onPress: () => void;
 }) {
   const tracks = useTracksViewChanges();
@@ -39,8 +43,34 @@ export function ActivityMarker({
       coordinate={coordinate}
       onPress={onPress}
       tracksViewChanges={tracks}
-      accessibilityLabel={`Activité : ${title}`}>
-      <View style={[styles.activity, { backgroundColor: ACTIVITY_COLOR }]} />
+      accessibilityLabel={`Activité : ${title}${approximate ? ' (emplacement approximatif)' : ''}`}>
+      <View
+        style={[styles.activity, { backgroundColor: ACTIVITY_COLOR }, approximate && styles.approximate]}
+      />
+    </Marker>
+  );
+}
+
+/** Losange violet avec pictogramme : forme distincte des activités et des food trucks. */
+export function PlaceMarker({
+  coordinate,
+  name,
+  onPress,
+}: {
+  coordinate: Coordinate;
+  name: string;
+  onPress: () => void;
+}) {
+  const tracks = useTracksViewChanges();
+  return (
+    <Marker
+      coordinate={coordinate}
+      onPress={onPress}
+      tracksViewChanges={tracks}
+      accessibilityLabel={`Lieu : ${name}`}>
+      <View style={[styles.place, { backgroundColor: PLACE_COLOR }]}>
+        <Text style={styles.placeIcon}>🏛</Text>
+      </View>
     </Marker>
   );
 }
@@ -104,6 +134,24 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     borderWidth: 3,
     borderColor: '#ffffff',
+  },
+  approximate: {
+    opacity: 0.5,
+    borderStyle: 'dashed',
+  },
+  place: {
+    width: 26,
+    height: 26,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '45deg' }],
+  },
+  placeIcon: {
+    fontSize: 13,
+    transform: [{ rotate: '-45deg' }],
   },
   foodTruck: {
     width: 34,

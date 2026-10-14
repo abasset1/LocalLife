@@ -1,7 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef } from 'react';
 import * as WebBrowser from 'expo-web-browser';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { isActivityDetail } from '@/api';
@@ -12,6 +12,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateRange, formatPlace, isSafeWebUrl } from '@/features/activity/format';
+import { buildDirectionsUrl, withApproximateMention } from '@/features/activity/location';
 import { useActivity } from '@/features/activity/useActivity';
 import { useAuth } from '@/auth';
 import { ContributorActions, STATUS_LABELS } from '@/features/contribution';
@@ -74,11 +75,12 @@ export default function ActiviteDetailScreen() {
           const date = isActivityDetail(activity)
             ? formatDateRange(activity.startDate, activity.endDate)
             : formatDateRange(activity.date);
-          const place = formatPlace(
-            activity.address,
-            detail ? detail.postalCode : null,
-            activity.city,
+          // Position approximative (une zone) : mention, et itinéraire vers l'adresse ou la commune.
+          const place = withApproximateMention(
+            formatPlace(activity.address, detail ? detail.postalCode : null, activity.city),
+            activity,
           );
+          const directions = buildDirectionsUrl(activity);
           const url = detail?.url;
           const publishedOn = detail ? formatDateRange(detail.publishedAt) : null;
 
@@ -109,6 +111,13 @@ export default function ActiviteDetailScreen() {
                 </View>
               ) : null}
 
+              {directions && (
+                <Button
+                  label="Itinéraire"
+                  variant="secondary"
+                  onPress={() => Linking.openURL(directions).catch(() => undefined)}
+                />
+              )}
               {isSafeWebUrl(url) && (
                 <Button
                   label="Ouvrir le site de l'activité"

@@ -6,6 +6,13 @@
  * (`2026-09-23T10:00:00`), les `Instant` avec fuseau (`...Z`).
  */
 
+/**
+ * Précision de la position (ADR-0011, phase A) : `APPROXIMATE` = une zone
+ * (« Divers lieux », « Centre ville »), pas le lieu. Facultatif : absent d'un
+ * backend antérieur, traité comme `UNKNOWN`.
+ */
+export type CoordinatePrecision = 'EXACT' | 'APPROXIMATE' | 'UNKNOWN';
+
 /** `ActivitySummaryResponse` — liste (`GET /activities`) et fiche résumée. */
 export interface ActivitySummary {
   id: number;
@@ -19,6 +26,7 @@ export interface ActivitySummary {
   mainImageUrl: string | null;
   /** Contributeur (`null` pour une activité importée). */
   createdBy?: number | null;
+  coordinatePrecision?: CoordinatePrecision;
 }
 
 /** `ActivityResponse` — résultats de `nearby` et `within-bounds`. */
@@ -43,6 +51,7 @@ export interface Activity {
   mainImageUrl: string | null;
   /** Premier passage au statut publié ; `null` si publiée avant le suivi de cette date. */
   publishedAt: string | null;
+  coordinatePrecision?: CoordinatePrecision;
 }
 
 export interface ScheduleSummary {
@@ -75,6 +84,7 @@ export interface LocationSummary {
   latitude: number | null;
   longitude: number | null;
   timezone: string | null;
+  coordinatePrecision?: CoordinatePrecision;
 }
 
 export interface MediaSummary {
@@ -134,6 +144,23 @@ export interface ActivityDetail {
   publishedAt: string | null;
   /** Contributeur (`null` pour une activité importée). */
   createdBy?: number | null;
+  coordinatePrecision?: CoordinatePrecision;
+}
+
+/** `PlaceResponse` — lieu permanent publié (ADR-0011, phase B), couche « Lieux » de la carte. */
+export interface Place {
+  id: number;
+  name: string;
+  /** Type DATAtourisme (`Museum`, `Theater`…). */
+  placeType: string;
+  address: string | null;
+  postalCode: string | null;
+  city: string | null;
+  latitude: number;
+  longitude: number;
+  description: string | null;
+  website: string | null;
+  coordinatePrecision: CoordinatePrecision;
 }
 
 /**
