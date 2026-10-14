@@ -3224,3 +3224,42 @@ body {
 .place-activities-empty {
     margin: 0.25rem 0 0;
 }
+
+/* ADR-0011, § 2.4 : onglets « Activités » / « Lieux » du panneau de liste. */
+.explorer-list-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.explorer-list-tab {
+    border: 1px solid var(--ll-line);
+    border-radius: 999px;
+    background: #ffffff;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.3rem 0.9rem;
+}
+
+.explorer-list-tab-active {
+    border-color: var(--ll-green);
+    background: var(--ll-green);
+    color: #ffffff;
+}
+
+.place-list-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.place-list-details {
+    padding: 0.4rem 0.9rem 0.6rem;
+    font-size: 0.9rem;
+}
+
+.place-list-details p {
+    margin: 0 0 0.35rem;
+}

@@ -9,11 +9,26 @@ import App from "./App";
  * par une version qui indique si la couche lui est demandée ; le chargement des lieux (PlacesLayer) est vérifié à
  * part et dans un navigateur réel.
  */
-vi.mock("./components/explorer/ExplorerMap", () => ({
-    default: ({ showPlaces = false }: { showPlaces?: boolean }) => (
-        <div data-testid="map">{showPlaces ? "couche lieux visible" : "couche lieux masquée"}</div>
-    ),
-}));
+const MOCK_PLACES = [
+    { id: 1, name: "Palais des Papes", placeType: "Palace", address: null, postalCode: "84000", city: "Avignon",
+        latitude: 43.95, longitude: 4.8, description: null, website: null, coordinatePrecision: "UNKNOWN" },
+];
+
+vi.mock("./components/explorer/ExplorerMap", async () => {
+    const { useEffect } = await import("react");
+    return {
+        default: ({ showPlaces = false, onPlacesChange }: {
+            showPlaces?: boolean;
+            onPlacesChange?: (places: unknown[]) => void;
+        }) => {
+            // Comme PlacesLayer : lieux de la zone transmis quand la couche est affichée.
+            useEffect(() => {
+                onPlacesChange?.(showPlaces ? MOCK_PLACES : []);
+            }, [showPlaces, onPlacesChange]);
+            return <div data-testid="map">{showPlaces ? "couche lieux visible" : "couche lieux masquée"}</div>;
+        },
+    };
+});
 
 beforeEach(() => {
     try {
@@ -40,5 +55,17 @@ describe("App — bouton de la couche « Lieux »", () => {
 
         await user.click(toggle);
         expect(screen.getByTestId("map")).toHaveTextContent("couche lieux masquée");
+    });
+
+    it("propose l'onglet « Lieux » dans la liste quand la couche est affichée", async () => {
+        const user = userEvent.setup();
+        render(<MemoryRouter><App /></MemoryRouter>);
+        expect(screen.queryByRole("tab", { name: /Lieux/ })).not.toBeInTheDocument();
+
+        await user.click(await screen.findByRole("button", { name: /Lieux/ }));
+        await user.click(await screen.findByRole("tab", { name: "Lieux (1)" }));
+
+        expect(screen.getByRole("tab", { name: "Lieux (1)" })).toHaveAttribute("aria-selected", "true");
+        expect(screen.getByRole("button", { name: /Palais des Papes/ })).toBeInTheDocument();
     });
 });

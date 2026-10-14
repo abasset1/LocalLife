@@ -905,6 +905,18 @@ ou d'un lieu non relié, ordre ; 404 pour un lieu non publié), site (vitest, et
 Chromium avec une API simulée), mobile (typecheck, lint, appel API). **Non vérifié sur appareil.**
 Aucune migration. Un lieu sans lien ni programmation affiche « Aucune activité à venir connue ici. »
 
+#### 7.2.12 Liste « Lieux » (14/10/2026)
+
+| Élément | Où |
+|---|---|
+| Site : quand la couche « Lieux » est affichée (hors recherche textuelle), le panneau de liste propose les onglets « Activités » et « Lieux (N) » ; les lieux sont ceux de la couche pour la zone affichée, filtrables par type, groupés par commune et triés par nom ; un lieu se déplie (adresse, description, site, activités à venir) | `PlaceList`, `App`, `PlacesLayer` (`onPlacesChange`) |
+| Mobile : bouton « Liste (N) » quand la couche est affichée ; liste des lieux visibles par commune puis par nom ; un appui ouvre l'aperçu du lieu | `PlaceListPanel`, `placeList.ts`, `MapScreen` |
+
+Aucun appel réseau supplémentaire : la liste réutilise les lieux déjà chargés par la couche.
+Testé : site (vitest, rendu vérifié dans Chromium avec une API simulée), mobile (typecheck, lint,
+tri). **Non vérifié sur appareil.** Non fait : `GET /api/v1/places/nearby` (§ 2.4), sans usage
+tant que la liste suit la zone de la carte.
+
 ### 7.3 Phase C — marchés et horaires : ontologie et N-Triples (13/10/2026)
 
 **Statut : étude terminée dans les limites fixées (aucun compte, aucun

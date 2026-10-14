@@ -40,12 +40,18 @@ export function placesWithinBoundsUrl(bounds: Bounds): string {
  * son activation puis à chaque déplacement, indépendamment du chargement des activités. Carte utilisable sans
  * lieux si la requête échoue.
  */
-function PlacesLayer({ enabled, onSelectActivity }: {
+function PlacesLayer({ enabled, onSelectActivity, onPlacesChange }: {
     enabled: boolean;
     onSelectActivity?: (activity: Activity) => void;
+    /** Lieux chargés pour la zone affichée : alimente la liste « Lieux ». */
+    onPlacesChange?: (places: Place[]) => void;
 }) {
     const map = useMap();
     const [places, setPlaces] = useState<Place[]>([]);
+
+    useEffect(() => {
+        onPlacesChange?.(places);
+    }, [places, onPlacesChange]);
 
     useEffect(() => {
         if (!enabled) {

@@ -14,6 +14,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 import { Region, pointInBounds, regionForRadius, regionForZoom, regionToBounds, zoomForRegion } from './geo';
 import { ActivityMarker, ClusterMarker, FoodTruckMarker, PlaceMarker } from './markers';
+import { PlaceListPanel } from './PlaceListPanel';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData, type RadiusSearch } from './useMapData';
 import { loadShowPlaces, saveShowPlaces } from './placesPreference';
@@ -106,6 +107,7 @@ export default function MapScreen() {
       ? radiusOverride.radiusKm
       : (preferences?.defaultRadiusKm ?? null);
   const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
+  const [placeListOpen, setPlaceListOpen] = useState(false);
 
   const radiusSearch = useMemo<RadiusSearch | null>(() => {
     if (activeRadiusKm === null) return null;
@@ -364,6 +366,15 @@ export default function MapScreen() {
         </View>
 
         <View style={styles.bottom} pointerEvents="box-none">
+          {!selection && placeListOpen && showPlaces && visiblePlaces.length > 0 && (
+            <PlaceListPanel
+              places={visiblePlaces}
+              onSelect={(place) => {
+                setPlaceListOpen(false);
+                setSelection({ kind: 'place', place });
+              }}
+            />
+          )}
           {!selection && radiusPanelOpen && (
             <View style={[styles.radiusPanel, { backgroundColor: theme.background }]}>
               <ChipGroup
@@ -380,6 +391,18 @@ export default function MapScreen() {
           )}
           {!selection && (
             <View style={styles.bottomActions} pointerEvents="box-none">
+              {showPlaces && visiblePlaces.length > 0 && (
+                <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
+                  <Button
+                    label={placeListOpen ? 'Fermer la liste' : `Liste (${visiblePlaces.length})`}
+                    variant="secondary"
+                    onPress={() => {
+                      setRadiusPanelOpen(false);
+                      setPlaceListOpen((open) => !open);
+                    }}
+                  />
+                </View>
+              )}
               <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
                 <Button
                   label={showPlaces ? '🏛 Masquer les lieux' : '🏛 Lieux'}
@@ -391,7 +414,10 @@ export default function MapScreen() {
                 <Button
                   label={activeRadiusKm === null ? '◎ Rayon' : `◎ ${activeRadiusKm} km`}
                   variant="secondary"
-                  onPress={() => setRadiusPanelOpen((open) => !open)}
+                  onPress={() => {
+                    setPlaceListOpen(false);
+                    setRadiusPanelOpen((open) => !open);
+                  }}
                 />
               </View>
               <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
@@ -430,6 +456,7 @@ const styles = StyleSheet.create({
   },
   bottomActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: Spacing.two,
   },
