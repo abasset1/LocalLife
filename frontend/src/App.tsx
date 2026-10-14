@@ -43,6 +43,24 @@ import type {
  * ticket : ExplorerMenu, ExplorerSearch, ExplorerFilters, ExplorerMap,
  * ActivityPreview, ActivityList, ActivityDetailModal, ContributionModal.
  */
+const SHOW_PLACES_STORAGE_KEY = "locallife.showPlaces";
+
+function readShowPlaces(): boolean {
+    try {
+        return window.localStorage.getItem(SHOW_PLACES_STORAGE_KEY) === "true";
+    } catch {
+        return false;
+    }
+}
+
+function writeShowPlaces(value: boolean) {
+    try {
+        window.localStorage.setItem(SHOW_PLACES_STORAGE_KEY, String(value));
+    } catch {
+        // Stockage indisponible (navigation privée…) : le choix vaut pour la session seulement.
+    }
+}
+
 function App() {
     const navigate = useNavigate();
     const [activities, setActivities] = useState<Activity[]>([]);
@@ -116,6 +134,9 @@ function App() {
     }
     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
     const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
+    // Couche « Lieux » (ADR-0011, phase B) : affichée sur demande, chargée par la carte (PlacesLayer). Le choix est
+    // mémorisé dans le navigateur (confort seulement : tout fonctionne sans stockage).
+    const [showPlaces, setShowPlaces] = useState<boolean>(() => readShowPlaces());
     const [viewMode, setViewMode] = useState<"map" | "list">("map");
     /** Saisie de la barre de recherche ; seul un envoi explicite lance une recherche (`handleSearchSubmit`). */
     const [searchQuery, setSearchQuery] = useState("");
@@ -329,6 +350,13 @@ function App() {
 
         return () => abortController.abort();
     }, [arePreferencesApplied, isTextSearch, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
+
+    function toggleShowPlaces() {
+        setShowPlaces((current) => {
+            writeShowPlaces(!current);
+            return !current;
+        });
+    }
 
     // Récupération des food trucks (LL-6009), isolée de celle des activités — inchangée.
     useEffect(() => {
@@ -1019,11 +1047,21 @@ function App() {
                             fitKey={searchFitKey}
                             foodTrucks={foodTrucks}
                             onBoundsChange={setMapBounds}
+                            showPlaces={showPlaces}
                             onSelectActivity={handleSelectActivity}
                             selectedActivity={previewActivity}
                             userPosition={userPosition}
                             radiusKm={activeRadiusKm}
                         />
+                        <button
+                            aria-pressed={showPlaces}
+                            className={showPlaces ? "explorer-places-toggle explorer-places-toggle-active" : "explorer-places-toggle"}
+                            onClick={toggleShowPlaces}
+                            title="Afficher les lieux : musées, monuments, équipements…"
+                            type="button"
+                        >
+                            🏛 Lieux
+                        </button>
                         {previewActivity && (
                             <ActivityPreview
                                 activity={previewActivity}

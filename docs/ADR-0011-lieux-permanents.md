@@ -12,7 +12,7 @@ documentaire.
 | Phase | Statut |
 |---|---|
 | A — précision géographique | **validée le 14/10/2026** (§ 7.1.7) ; **implémentée et testée** (§ 7.1.8, migration V61) ; déployée après validation de la PR |
-| B — lieux permanents | **décisions du 14/10/2026** (§ 7.2.6) ; **backend implémenté et testé** (§ 7.2.7, migration V62) ; interface (modération, couche « Lieux ») à venir |
+| B — lieux permanents | **décisions du 14/10/2026** (§ 7.2.6) ; **implémentée et testée** : backend (§ 7.2.7, migration V62) et interface (§ 7.2.8) ; rapprochement avec les lieux d'événement reporté |
 | C — marchés et horaires | ontologie reconstituée à partir des données (§ 7.3) : jours de marché **présents dans le N-Triples** (dates d'une séance ou `appliesOnDay`), perdus dans le CSV ; **compte diffuseur décidé le 14/10/2026** (§ 7.3.6), mesure à faire avant tout import |
 | D — liens de doublons | mesure sans écriture outillée et étalonnée (0 faux positif sur 1 probable, 3 sur 14 ambiguës) ; mesure sur les données de l'application à faire ; règle **non branchée** |
 
@@ -782,6 +782,18 @@ signalements, lecture publique, activation vérifiée), API (4 : accès, validat
 Non fait (B2) : écran de modération et couche « Lieux » de la carte. Non fait,
 reporté : rapprochement avec les lieux d'événement existants (§ 2.3, étapes 2 et
 3) ; un même lieu peut donc exister en lieu d'événement et en lieu permanent.
+
+#### 7.2.8 Interface (14/10/2026)
+
+| Élément | Où |
+|---|---|
+| Onglet « Lieux » de l'administration : source des lieux (essai à blanc, activation vérifiée, import, bilan) ; file de modération par statut, type, département et signalements ; publication et refus unitaires ou de la page sélectionnée, après confirmation ; pagination de 50 | `AdminPlacesSection` |
+| Type `DATATOURISME_LIEUX` dans le formulaire des agendas | `AdminPage` |
+| Couche « Lieux » de la carte : bouton (choix mémorisé dans le navigateur), lieux publiés de la zone affichée chargés dès l'activation puis à chaque déplacement, marqueur distinct et fiche courte (type, adresse, mention d'emplacement approximatif, site) | `PlacesLayer`, `ExplorerMap`, `App` |
+| Libellés français des 46 types | `placeTypes.ts` |
+
+Vérifié dans un navigateur réel (Chromium, API simulée) : onglet, bilan d'essai,
+signalements ; couche, marqueurs et fiche. Application mobile : inchangée.
 
 ### 7.3 Phase C — marchés et horaires : ontologie et N-Triples (13/10/2026)
 

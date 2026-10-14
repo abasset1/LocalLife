@@ -2,11 +2,12 @@
 
 ## 0.9.59 — non publiée
 
-### Lieux permanents (ADR-0011, phase B) : backend
+### Lieux permanents (ADR-0011, phase B) : backend et interface
 - **Migration V62** : colonnes de lieu permanent sur `location` (type, statut de modération, description, dates de publication et de modération), table de provenance `location_source`, source « DATAtourisme PACA — lieux » créée **inactive**. Les lieux d'événement existants ne changent pas.
 - Import des lieux DATAtourisme de PACA selon la liste blanche (46 types ; 4 771 lieux, dont 418 dans le Vaucluse) : tout nouveau lieu est **en attente de modération** ; refus durable ; retour en attente si un lieu publié bouge de plus de 100 m, perd son adresse ou sort de la liste ; archivage des lieux disparus avec garde-fou ; essai à blanc sans écriture ; activation seulement après un essai réussi.
 - API d'administration (`/api/v1/admin/places`, rôle ADMIN) : file de modération filtrable avec signalements (sans adresse, itinéraire, doublon, position approximative), publication et refus unitaires ou groupés. API publique : lieux publiés dans une zone (`/api/v1/places/within-bounds`).
-- Interface d'administration et couche « Lieux » de la carte : à venir.
+- Administration : onglet « Lieux » (source : essai à blanc, activation vérifiée, import ; file de modération filtrable par statut, type, département et signalements ; publication et refus unitaires ou groupés, après confirmation).
+- Carte : bouton « 🏛 Lieux » qui affiche les lieux publiés de la zone, avec leur type, leur adresse et leur site ; le choix est mémorisé dans le navigateur.
 
 ### Précision géographique (ADR-0011, phase A) : implémentée
 - **Migration V61** : colonnes `location.coordinate_precision` et `activity.coordinate_precision` (`EXACT`, `APPROXIMATE`, `UNKNOWN`, défaut `UNKNOWN`, contrainte `CHECK`). Rattrapage ciblé : seuls les lieux au texte générique (« Centre ville », « Divers lieux »…) passent `APPROXIMATE`, ainsi que les activités dont le point affiché est celui d'un tel lieu. Aucun `EXACT` déduit. Testée sur une base en V60 avec des données.
