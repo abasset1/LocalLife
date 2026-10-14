@@ -1,6 +1,7 @@
 package com.locallife.backend.activity.api;
 
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.place.domain.CoordinatePrecision;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -94,7 +95,8 @@ public record ActivityResponse(
         boolean likedByCurrentUser,
         String mainImageUrl,
         List<String> categoryCodes,
-        LocalDateTime publishedAt) {
+        LocalDateTime publishedAt,
+        String coordinatePrecision) {
 
     public static ActivityResponse from(Activity activity, String sourceName) {
         return from(activity, sourceName, null, false, null);
@@ -157,6 +159,19 @@ public record ActivityResponse(
                 likedByCurrentUser,
                 mainImageUrl,
                 categoryCodes,
-                activity.publishedAt());
+                activity.publishedAt(),
+                CoordinatePrecision.UNKNOWN.name());
+    }
+
+    /**
+     * Précision géographique de la position (ADR-0011, phase A) : {@code EXACT}, {@code APPROXIMATE} ou {@code
+     * UNKNOWN}. Seule {@code APPROXIMATE} change l'affichage (mention « Emplacement approximatif », itinéraire vers
+     * la commune). Les variantes de {@code from} valent {@code UNKNOWN}.
+     */
+    public ActivityResponse withCoordinatePrecision(CoordinatePrecision precision) {
+        return new ActivityResponse(id, title, description, category, latitude, longitude, startDate, endDate,
+                status, sourceName, url, address, city, postalCode, createdBy, createdByUsername, likedByCurrentUser,
+                mainImageUrl, categoryCodes, publishedAt,
+                (precision == null ? CoordinatePrecision.UNKNOWN : precision).name());
     }
 }

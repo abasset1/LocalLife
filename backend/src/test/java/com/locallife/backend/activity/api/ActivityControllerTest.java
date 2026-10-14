@@ -1,5 +1,6 @@
 package com.locallife.backend.activity.api;
 
+import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
@@ -20,6 +21,7 @@ import com.locallife.backend.media.application.ActivityMediaService;
 import com.locallife.backend.media.application.MediaService;
 import com.locallife.backend.metadata.application.ActivityMetadataService;
 import com.locallife.backend.place.application.LocationService;
+import com.locallife.backend.place.domain.CoordinatePrecision;
 import com.locallife.backend.premium.application.PremiumAccessPolicy;
 import com.locallife.backend.schedule.application.OccurrenceService;
 import com.locallife.backend.schedule.application.ScheduleService;
@@ -32,6 +34,7 @@ import com.locallife.backend.user.domain.User;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -120,6 +123,9 @@ class ActivityControllerTest {
 
     @Mock
     private HttpServletRequest httpRequest;
+
+    @Mock
+    private ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
 
     @InjectMocks
     private ActivityController activityController;
@@ -697,6 +703,27 @@ class ActivityControllerTest {
         // LL-8006 : sourceId (technique) est résolu en sourceName (lisible) dans la réponse.
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(List.of(ActivityResponse.from(nearby, "OpenAgenda — Avignon")), response.getBody());
+    }
+
+    /** ADR-0011, phase A : la précision géographique de chaque activité est exposée par la carte. */
+    @Test
+    void getNearbyActivities_ShouldExposeCoordinatePrecision() {
+        Activity zone = new Activity(1L, "Fête au village", "Description", "fete", 43.91, 5.20,
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null);
+        Activity theatre = new Activity(2L, "Concert", "Description", "concert", 43.95, 4.81,
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, null);
+        when(activityService.findNearby("43.9", "5.0", "50", null, null, null)).thenReturn(List.of(zone, theatre));
+        when(sourceService.getAllSources()).thenReturn(List.of());
+        when(coordinatePrecisionRepository.findByActivityIds(List.of(1L, 2L)))
+                .thenReturn(Map.of(1L, CoordinatePrecision.APPROXIMATE));
+
+        ResponseEntity<Object> response = activityController.getNearbyActivities(
+                "43.9", "5.0", "50", null, null, null, null, httpRequest);
+
+        @SuppressWarnings("unchecked")
+        List<ActivityResponse> body = (List<ActivityResponse>) response.getBody();
+        assertEquals("APPROXIMATE", body.get(0).coordinatePrecision());
+        assertEquals("UNKNOWN", body.get(1).coordinatePrecision());
     }
 
     @Test

@@ -39,17 +39,18 @@ public interface LocationRepository extends Repository<Location, Long> {
      * fois par des imports simultanés). Avec un Optional simple, un doublon faisait échouer la recherche,
      * donc tout l'enrichissement des activités de ce lieu, à chaque import. Le plus ancien est retenu.
      */
-    Optional<Location> findFirstByAddressAndCityAndPostalCodeOrderByIdAsc(
-            String address, String city, String postalCode);
+    List<Location> findByAddressAndCityAndPostalCodeOrderByIdAsc(String address, String city, String postalCode);
 
     /**
      * Retrouve un lieu déjà connu par coordonnées exactes (LL-11011),
      * repli de {@code findOrCreate} quand aucune adresse complète n'est
      * disponible — comparaison d'égalité stricte, suffisante pour
      * reconnaître un même lieu réimporté depuis la même source (mêmes
-     * coordonnées à chaque collecte).
+     * coordonnées à chaque collecte). Tous les lieux de ces coordonnées sont renvoyés, du plus ancien au plus
+     * récent : {@code findOrCreate} retient le premier que la précision géographique autorise à réutiliser
+     * (ADR-0011, phase A).
      */
-    Optional<Location> findFirstByLatitudeAndLongitudeOrderByIdAsc(Double latitude, Double longitude);
+    List<Location> findByLatitudeAndLongitudeOrderByIdAsc(Double latitude, Double longitude);
 
     Location save(Location location);
 }

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.locallife.backend.place.domain.CoordinatePrecision;
 import com.locallife.backend.place.domain.Location;
 import com.locallife.backend.place.infrastructure.LocationRepository;
 import java.util.List;
@@ -123,5 +124,66 @@ class LocationServiceTest {
         List<Location> result = locationService.findAll();
 
         assertThat(result).containsExactly(location);
+    }
+
+    // ---- findOrCreate et précision géographique (ADR-0011, phase A) ----
+
+    private static Location place(Long id, String name, String city, CoordinatePrecision precision) {
+        return new Location(id, name, null, null, city, null, null, null, null, 43.876, 5.396, null, null, null, null,
+                precision);
+    }
+
+    @Test
+    void findOrCreate_ShouldReusePreciseLocation_ForPreciseCandidate() {
+        Location existing = place(1L, "Théâtre", "Apt", CoordinatePrecision.UNKNOWN);
+        when(locationRepository.findByLatitudeAndLongitudeOrderByIdAsc(43.876, 5.396)).thenReturn(List.of(existing));
+
+        Location result = locationService.findOrCreate(place(null, "Salle des fêtes", "Apt", CoordinatePrecision.UNKNOWN));
+
+        assertThat(result).isSameAs(existing);
+        verify(locationRepository, never()).save(any());
+    }
+
+    @Test
+    void findOrCreate_ShouldNotShareLocation_BetweenApproximateAndPrecise() {
+        Location precise = place(1L, "Mairie", "Apt", CoordinatePrecision.UNKNOWN);
+        Location candidate = place(null, "Centre ville", "Apt", CoordinatePrecision.APPROXIMATE);
+        when(locationRepository.findByLatitudeAndLongitudeOrderByIdAsc(43.876, 5.396)).thenReturn(List.of(precise));
+        when(locationRepository.save(candidate)).thenReturn(place(2L, "Centre ville", "Apt",
+                CoordinatePrecision.APPROXIMATE));
+
+        Location result = locationService.findOrCreate(candidate);
+
+        assertThat(result.id()).isEqualTo(2L);
+        assertThat(result.coordinatePrecision()).isEqualTo(CoordinatePrecision.APPROXIMATE);
+    }
+
+    @Test
+    void findOrCreate_ShouldReuseApproximateLocation_WithSameNameAndCity_OnReimport() {
+        Location otherZone = place(1L, "Divers lieux", "Apt", CoordinatePrecision.APPROXIMATE);
+        Location sameZone = place(2L, "Centre-ville", "APT", CoordinatePrecision.APPROXIMATE);
+        when(locationRepository.findByLatitudeAndLongitudeOrderByIdAsc(43.876, 5.396))
+                .thenReturn(List.of(otherZone, sameZone));
+
+        Location result = locationService.findOrCreate(place(null, "Centre ville", "Apt", CoordinatePrecision.APPROXIMATE));
+
+        assertThat(result).isSameAs(sameZone);
+        verify(locationRepository, never()).save(any());
+    }
+
+    @Test
+    void findOrCreate_ShouldKeepPrecisionOfReusedLocation() {
+        Location validated = place(1L, "Théâtre", "Apt", CoordinatePrecision.EXACT);
+        when(locationRepository.findByLatitudeAndLongitudeOrderByIdAsc(43.876, 5.396)).thenReturn(List.of(validated));
+
+        Location result = locationService.findOrCreate(place(null, "Théâtre", "Apt", CoordinatePrecision.UNKNOWN));
+
+        assertThat(result.coordinatePrecision()).isEqualTo(CoordinatePrecision.EXACT);
+    }
+
+    @Test
+    void location_ShouldDefaultToUnknownPrecision() {
+        assertThat(emptyLocation().coordinatePrecision()).isEqualTo(CoordinatePrecision.UNKNOWN);
+        assertThat(place(null, "x", "y", null).coordinatePrecision()).isEqualTo(CoordinatePrecision.UNKNOWN);
     }
 }

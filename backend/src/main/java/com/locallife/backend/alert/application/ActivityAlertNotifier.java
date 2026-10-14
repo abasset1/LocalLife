@@ -211,6 +211,9 @@ public class ActivityAlertNotifier {
                 if (activity.startDate() != null) {
                     text.append(", le ").append(DATE_FORMAT.format(activity.startDate()));
                 }
+                if (activity.approximatePosition()) {
+                    text.append(" (emplacement approximatif)");
+                }
                 text.append('\n');
             });
             if (activities.size() > MAX_ACTIVITIES_LISTED) {

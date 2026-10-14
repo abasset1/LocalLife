@@ -11,7 +11,7 @@ documentaire.
 
 | Phase | Statut |
 |---|---|
-| A — précision géographique | **validée le 14/10/2026** (§ 7.1.7) : implémentation autorisée, migration déployée seulement après validation finale de la PR |
+| A — précision géographique | **validée le 14/10/2026** (§ 7.1.7) ; **implémentée et testée** (§ 7.1.8, migration V61) ; déployée après validation de la PR |
 | B — lieux permanents | **décisions du 14/10/2026** (§ 7.2.6) : groupe 1, groupe 2 exclu, PACA, deux règles de modération ; non implémentée |
 | C — marchés et horaires | ontologie reconstituée à partir des données (§ 7.3) : jours de marché **présents dans le N-Triples** (dates d'une séance ou `appliesOnDay`), perdus dans le CSV ; **compte diffuseur décidé le 14/10/2026** (§ 7.3.6), mesure à faire avant tout import |
 | D — liens de doublons | mesure sans écriture outillée et étalonnée (0 faux positif sur 1 probable, 3 sur 14 ambiguës) ; mesure sur les données de l'application à faire ; règle **non branchée** |
@@ -443,7 +443,7 @@ règle retenue réutilise le lieu approximatif de même nom et même commune,
 et sépare toujours deux zones distinctes (« Divers lieux » et « Centre
 ville » d'une même commune, géocodés au même centre).
 
-#### 7.1.3 Projet de migration et rattrapage (non créés dans `db/migration`)
+#### 7.1.3 Migration et rattrapage (créés le 14/10/2026 : V61, § 7.1.8)
 
 ```sql
 ALTER TABLE location ADD COLUMN coordinate_precision VARCHAR(16) NOT NULL DEFAULT 'UNKNOWN'
@@ -554,6 +554,27 @@ Recommandations du § 7.1.6 validées :
 
 Implémentation autorisée (migration, import, API, affichage web). La
 migration n'est déployée qu'après validation finale de la PR.
+
+#### 7.1.8 Implémentation (14/10/2026)
+
+| Élément | Où |
+|---|---|
+| Migration (colonnes, `CHECK`, rattrapage ciblé, copie sur l'activité) | `V61__add_coordinate_precision.sql` ; bloc de classification identique au script de mesure (test de concordance) |
+| Précision d'un lieu | `Location.coordinatePrecision` (défaut `UNKNOWN`) |
+| Précision d'une activité | colonne hors du modèle `Activity`, écrite par `ActivityCoordinatePrecisionRepository.update` après le rattachement du lieu : les nombreuses copies d'`Activity` ne peuvent pas la remettre à `UNKNOWN` |
+| Import | `NormalizationService.normalizeLocation` (`inferFromText`), `LocationService.findOrCreate` (`mayReuse`), `ImportService.enrichActivity` (copie sur l'activité) |
+| API | `coordinatePrecision` dans `ActivityResponse`, `ActivitySummaryResponse`, `ActivityDetailResponse` (et `LocationSummary`), `ActivitySearchResponse.Item` (lieu effectif) |
+| Alertes | `AlertActivity.approximatePosition`, mention dans l'e-mail |
+| Web | `ExplorerMap` (marqueur atténué, info-bulle), `ActivityList`, `formatActivityLocation` (fiche, aperçu), `buildDirectionsUrl` |
+
+Tests : migration appliquée sur une base en V60 avec données (lieux génériques →
+`APPROXIMATE`, adresse précise → `UNKNOWN`, activité au point du lieu →
+`APPROXIMATE`, activité au point différent → `UNKNOWN`) ; persistance et
+contrainte sur PostgreSQL ; précision conservée après une copie d'`Activity` ;
+réutilisation des lieux ; import ; API ; alertes ; frontend.
+
+Non fait, conformément aux décisions : application mobile, géocodage des
+contributions, élargissement de la liste des formulations génériques.
 
 ### 7.2 Phase B — lieux permanents et provenance
 

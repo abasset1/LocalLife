@@ -117,6 +117,17 @@ class ActivityAlertNotifierTest {
     }
 
     @Test
+    void body_ShouldMentionApproximatePosition_OnlyForApproximateActivities() {
+        String body = notifier.body(alice, List.of(
+                new AlertActivity(1L, "Fête au village", "Gordes", null, true),
+                new AlertActivity(2L, "Concert au théâtre", "Apt", null)),
+                List.of(), java.util.Map.of("SPORT", "Sport"));
+
+        assertTrue(body.contains("- Fête au village — Gordes (emplacement approximatif)\n"));
+        assertTrue(body.contains("- Concert au théâtre — Apt\n"));
+    }
+
+    @Test
     void body_ShouldListAtMostTwentyActivities() {
         List<AlertActivity> activities = LongStream.rangeClosed(1, 25)
                 .mapToObj(id -> new AlertActivity(id, "Activité " + id, null, null))

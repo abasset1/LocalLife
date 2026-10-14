@@ -10,6 +10,7 @@ import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.link.domain.ActivityLink;
 import com.locallife.backend.media.domain.Media;
 import com.locallife.backend.metadata.domain.ActivityMetadata;
+import com.locallife.backend.place.domain.CoordinatePrecisionPolicy;
 import com.locallife.backend.place.domain.Location;
 import com.locallife.backend.schedule.application.OccurrenceService;
 import com.locallife.backend.schedule.application.RecurrenceRuleService;
@@ -191,7 +192,9 @@ public class NormalizationService {
                 source.timezone(),
                 null,
                 null,
-                null));
+                null,
+                // ADR-0011, phase A : jamais EXACT à l'import ; APPROXIMATE si le texte du lieu est générique.
+                CoordinatePrecisionPolicy.inferFromText(source.name(), source.address(), source.city())));
     }
 
     /**

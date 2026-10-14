@@ -40,7 +40,7 @@ public class ActivityAlertRepository {
      * </ul>
      */
     private static final String NEW_MATCHING_ACTIVITIES = """
-            SELECT a.id, a.title, a.city, a.start_date
+            SELECT a.id, a.title, a.city, a.start_date, a.coordinate_precision
             FROM activity_alert al
             JOIN activity a ON (a.published_at > al.created_at
                                 OR (a.published_at IS NULL AND a.id > al.min_activity_id))
@@ -179,7 +179,8 @@ public class ActivityAlertRepository {
                 (resultSet, rowNumber) -> {
                     Timestamp startDate = resultSet.getTimestamp("start_date");
                     return new AlertActivity(resultSet.getLong("id"), resultSet.getString("title"),
-                            resultSet.getString("city"), startDate == null ? null : startDate.toLocalDateTime());
+                            resultSet.getString("city"), startDate == null ? null : startDate.toLocalDateTime(),
+                            "APPROXIMATE".equals(resultSet.getString("coordinate_precision")));
                 },
                 alertId, limit);
     }

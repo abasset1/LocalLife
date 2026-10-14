@@ -2,6 +2,7 @@ package com.locallife.backend.collector.application;
 
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.activityclassification.application.ActivityClassificationService;
 import com.locallife.backend.activityclassification.application.ClassificationOutcome;
@@ -18,6 +19,7 @@ import com.locallife.backend.media.domain.ActivityMedia;
 import com.locallife.backend.media.domain.Media;
 import com.locallife.backend.metadata.application.ActivityMetadataService;
 import com.locallife.backend.place.application.LocationService;
+import com.locallife.backend.place.domain.CoordinatePrecision;
 import com.locallife.backend.place.domain.Location;
 import com.locallife.backend.schedule.application.OccurrenceService;
 import com.locallife.backend.schedule.application.ScheduleService;
@@ -240,6 +242,7 @@ public class ImportService {
     private final ActivityClassificationService activityClassificationService;
     private final ImportFingerprintService importFingerprintService;
     private final SourceDefaultCategoryService sourceDefaultCategoryService;
+    private final ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository;
 
     /** Vrai pendant un import, voir la javadoc de la classe (« un seul import à la fois »). */
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -263,7 +266,8 @@ public class ImportService {
             ClassificationService classificationService,
             ActivityClassificationService activityClassificationService,
             ImportFingerprintService importFingerprintService,
-            SourceDefaultCategoryService sourceDefaultCategoryService) {
+            SourceDefaultCategoryService sourceDefaultCategoryService,
+            ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository) {
         this.sourceService = sourceService;
         this.openAgendaCollectorFactory = openAgendaCollectorFactory;
         this.dataTourismeCollectorFactory = dataTourismeCollectorFactory;
@@ -283,6 +287,7 @@ public class ImportService {
         this.activityClassificationService = activityClassificationService;
         this.importFingerprintService = importFingerprintService;
         this.sourceDefaultCategoryService = sourceDefaultCategoryService;
+        this.activityCoordinatePrecisionRepository = activityCoordinatePrecisionRepository;
     }
 
     /**
@@ -581,10 +586,11 @@ public class ImportService {
             clearEnrichment(activityId);
         }
 
-        Long locationId = normalizationService.normalizeLocation(item)
-                .map(locationService::findOrCreate)
-                .map(Location::id)
-                .orElse(null);
+        Optional<Location> location = normalizationService.normalizeLocation(item).map(locationService::findOrCreate);
+        Long locationId = location.map(Location::id).orElse(null);
+        // ADR-0011, phase A : l'activité affiche le point de ce lieu, elle en prend la précision.
+        activityCoordinatePrecisionRepository.update(activityId,
+                location.map(Location::coordinatePrecision).orElse(CoordinatePrecision.UNKNOWN));
 
         Optional<Schedule> schedule = normalizationService.normalizeSchedule(item, activityId, locationId);
         if (schedule.isPresent()) {

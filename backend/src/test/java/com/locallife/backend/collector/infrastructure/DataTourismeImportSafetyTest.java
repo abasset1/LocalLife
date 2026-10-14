@@ -14,6 +14,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.activityclassification.application.ActivityClassificationService;
 import com.locallife.backend.activityclassification.application.ClassificationService;
@@ -92,6 +93,7 @@ class DataTourismeImportSafetyTest {
     @Mock private ActivityClassificationService activityClassificationService;
     @Mock private ImportFingerprintService importFingerprintService;
     @Mock private SourceDefaultCategoryService sourceDefaultCategoryService;
+    @Mock private ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository;
 
     /** Importe {@link #SOURCE} avec le vrai collecteur, qui reçoit {@code body}. */
     private ImportResult importWithFile(String body) {
@@ -108,7 +110,7 @@ class DataTourismeImportSafetyTest {
                 deduplicationService, activityRepository, locationService, scheduleService, occurrenceService,
                 mediaService, activityMediaService, activityLinkService, accessibilityService, activityTagService,
                 activityMetadataService, classificationService, activityClassificationService,
-                importFingerprintService, sourceDefaultCategoryService);
+                importFingerprintService, sourceDefaultCategoryService, activityCoordinatePrecisionRepository);
         return importService.importAll().get(0);
     }
 

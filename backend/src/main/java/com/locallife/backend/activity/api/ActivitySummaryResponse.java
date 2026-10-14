@@ -1,6 +1,7 @@
 package com.locallife.backend.activity.api;
 
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.place.domain.CoordinatePrecision;
 import java.time.LocalDateTime;
 
 /**
@@ -51,7 +52,8 @@ public record ActivitySummaryResponse(
         double latitude,
         double longitude,
         String mainImageUrl,
-        Long createdBy) {
+        Long createdBy,
+        String coordinatePrecision) {
 
     public static ActivitySummaryResponse from(Activity activity, String mainImageUrl) {
         return new ActivitySummaryResponse(
@@ -64,6 +66,13 @@ public record ActivitySummaryResponse(
                 activity.latitude(),
                 activity.longitude(),
                 mainImageUrl,
-                activity.createdBy());
+                activity.createdBy(),
+                CoordinatePrecision.UNKNOWN.name());
+    }
+
+    /** Précision géographique de la position (ADR-0011, phase A) ; {@code from} vaut {@code UNKNOWN}. */
+    public ActivitySummaryResponse withCoordinatePrecision(CoordinatePrecision precision) {
+        return new ActivitySummaryResponse(id, title, category, date, city, address, latitude, longitude,
+                mainImageUrl, createdBy, (precision == null ? CoordinatePrecision.UNKNOWN : precision).name());
     }
 }

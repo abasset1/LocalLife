@@ -30,6 +30,9 @@ class GenericPlaceSqlParityIntegrationTest {
 
     private static final Path SCRIPT = Path.of("..", "infra", "verification", "phase_a_precision_mesure.sql");
 
+    private static final Path MIGRATION = Path.of("src", "main", "resources", "db", "migration",
+            "V61__add_coordinate_precision.sql");
+
     private static final Pattern BLOCK = Pattern.compile(
             "-- classification:début\\n(.*?)\\n-- classification:fin", Pattern.DOTALL);
 
@@ -101,6 +104,13 @@ class GenericPlaceSqlParityIntegrationTest {
         List<String> blocks = classificationBlocks();
         assertEquals(2, blocks.size());
         assertEquals(blocks.get(0), blocks.get(1));
+    }
+
+    @Test
+    void migration_ShouldUseTheSameClassificationBlock() throws IOException {
+        Matcher matcher = BLOCK.matcher(Files.readString(MIGRATION, StandardCharsets.UTF_8));
+        assertEquals(true, matcher.find(), "bloc de classification absent de V61");
+        assertEquals(classificationBlocks().get(0), matcher.group(1));
     }
 
     @Test

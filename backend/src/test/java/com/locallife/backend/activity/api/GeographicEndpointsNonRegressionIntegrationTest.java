@@ -32,16 +32,19 @@ class GeographicEndpointsNonRegressionIntegrationTest {
     private static final double[] LYON = {45.7640, 4.8357};
     private static final double[] BORDEAUX = {44.8378, -0.5792};
 
-    /** Élément de {@code /nearby} et {@code /within-bounds} ({@code ActivityResponse}). */
+    /**
+     * Élément de {@code /nearby} et {@code /within-bounds} ({@code ActivityResponse}). {@code coordinatePrecision} :
+     * ajout non cassant de l'ADR-0011, phase A.
+     */
     private static final Set<String> MAP_ITEM_FIELDS = Set.of(
             "id", "title", "description", "category", "categoryCodes", "latitude", "longitude", "startDate",
             "endDate", "status", "url", "address", "city", "postalCode", "sourceName", "createdBy",
-            "createdByUsername", "likedByCurrentUser", "mainImageUrl", "publishedAt");
+            "createdByUsername", "likedByCurrentUser", "mainImageUrl", "publishedAt", "coordinatePrecision");
 
-    /** Élément de {@code GET /api/v1/activities} (résumé). */
+    /** Élément de {@code GET /api/v1/activities} (résumé) ; {@code coordinatePrecision} : ADR-0011, phase A. */
     private static final Set<String> LIST_ITEM_FIELDS = Set.of(
             "id", "title", "category", "date", "latitude", "longitude", "address", "city", "createdBy",
-            "mainImageUrl");
+            "mainImageUrl", "coordinatePrecision");
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 

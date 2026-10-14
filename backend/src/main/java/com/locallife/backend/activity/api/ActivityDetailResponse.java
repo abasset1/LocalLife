@@ -4,6 +4,7 @@ import com.locallife.backend.accessibility.domain.Accessibility;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.link.domain.ActivityLink;
 import com.locallife.backend.media.domain.Media;
+import com.locallife.backend.place.domain.CoordinatePrecision;
 import com.locallife.backend.place.domain.Location;
 import com.locallife.backend.schedule.domain.Occurrence;
 import com.locallife.backend.schedule.domain.Schedule;
@@ -70,7 +71,8 @@ public record ActivityDetailResponse(
         String additionalInfo,
         List<String> categoryCodes,
         LocalDateTime publishedAt,
-        Long createdBy) {
+        Long createdBy,
+        String coordinatePrecision) {
 
     public static ActivityDetailResponse from(
             Activity activity,
@@ -126,7 +128,16 @@ public record ActivityDetailResponse(
                 additionalInfo,
                 categoryCodes,
                 activity.publishedAt(),
-                activity.createdBy());
+                activity.createdBy(),
+                CoordinatePrecision.UNKNOWN.name());
+    }
+
+    /** Précision géographique de la position affichée (ADR-0011, phase A) ; {@code from} vaut {@code UNKNOWN}. */
+    public ActivityDetailResponse withCoordinatePrecision(CoordinatePrecision precision) {
+        return new ActivityDetailResponse(id, title, description, longDescription, category, latitude, longitude,
+                startDate, endDate, status, url, address, city, postalCode, conditions, ageMin, ageMax, schedules,
+                occurrences, locations, media, links, accessibility, tags, additionalInfo, categoryCodes, publishedAt,
+                createdBy, (precision == null ? CoordinatePrecision.UNKNOWN : precision).name());
     }
 
     /** Programmation d'une activité — voir {@link Schedule}. */
@@ -175,12 +186,14 @@ public record ActivityDetailResponse(
             String region,
             Double latitude,
             Double longitude,
-            String timezone) {
+            String timezone,
+            String coordinatePrecision) {
 
         public static LocationSummary from(Location location) {
             return new LocationSummary(
                     location.id(), location.name(), location.address(), location.city(), location.postalCode(),
-                    location.region(), location.latitude(), location.longitude(), location.timezone());
+                    location.region(), location.latitude(), location.longitude(), location.timezone(),
+                    location.coordinatePrecision().name());
         }
     }
 

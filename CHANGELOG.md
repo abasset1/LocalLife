@@ -2,6 +2,14 @@
 
 ## 0.9.59 — non publiée
 
+### Précision géographique (ADR-0011, phase A) : implémentée
+- **Migration V61** : colonnes `location.coordinate_precision` et `activity.coordinate_precision` (`EXACT`, `APPROXIMATE`, `UNKNOWN`, défaut `UNKNOWN`, contrainte `CHECK`). Rattrapage ciblé : seuls les lieux au texte générique (« Centre ville », « Divers lieux »…) passent `APPROXIMATE`, ainsi que les activités dont le point affiché est celui d'un tel lieu. Aucun `EXACT` déduit. Testée sur une base en V60 avec des données.
+- Import : le lieu importé reçoit sa précision (`APPROXIMATE` si son texte est générique, sinon `UNKNOWN`, jamais `EXACT`) ; l'activité prend celle de son lieu. Un lieu approximatif n'est réutilisé que par un lieu approximatif de même nom et même commune ; la précision d'un lieu réutilisé ne change pas.
+- La précision de l'activité est une colonne hors du modèle `Activity` (`ActivityCoordinatePrecisionRepository`) : les copies de l'activité (changement de statut, mise à jour d'import) ne peuvent pas la remettre à `UNKNOWN` (testé sur PostgreSQL).
+- API : champ `coordinatePrecision` ajouté (non cassant) aux réponses de la carte, de la liste, de la fiche (résumé et détail, et chaque lieu du détail), des activités aimées et de la recherche globale (précision du lieu effectif).
+- Alertes : une activité approximative est envoyée avec la mention « (emplacement approximatif) ».
+- Web : marqueur atténué avec l'info-bulle « Emplacement approximatif », mention dans la liste, la fiche et l'aperçu ; « Y aller » vise l'adresse ou la commune. Application mobile : inchangée pour l'instant (le champ est ignoré).
+
 ### Marchés et horaires (ADR-0011, phase C) : étude, rien d'intégré
 - Ontologie DATAtourisme reconstituée à partir des données (sonde `ntriples_ontology_probe.py`, 17 % de l'archive, sans compte) : périodes `core:Period` / `RecurrentPeriod` (`startDate`, `endDate`, `startTime`, `endTime`, `appliesOnDay`) et horaires `schema:openingHoursSpecification` portés par le lieu.
 - Jours de marché présents dans le N-Triples pour 58 à 95 des 107 marchés résolus (borne haute : recoupement non mesuré) (dates d'une séance ou `appliesOnDay`), mais perdus dans le CSV (périodes regroupées sur l'année). Part du Vaucluse non mesurée ; intérêt d'un compte diffuseur présenté.

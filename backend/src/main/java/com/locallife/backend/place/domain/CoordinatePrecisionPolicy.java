@@ -8,9 +8,8 @@ import java.util.regex.Pattern;
 /**
  * Règles de la précision géographique (ADR-0011, § 7.1, phase A), en fonctions pures.
  *
- * <p><b>Non branchée</b> : rien ne l'appelle encore en dehors du collecteur DATAtourisme, qui lui délègue la
- * reconnaissance des textes génériques (comportement inchangé). Le branchement suppose la migration du
- * § 7.1, non appliquée.
+ * <p>Utilisée par le collecteur DATAtourisme (textes génériques), {@code NormalizationService} (précision d'un lieu
+ * importé) et {@code LocationService#findOrCreate} (réutilisation d'un lieu).
  *
  * <p>Règles :
  * <ul>
@@ -23,7 +22,7 @@ import java.util.regex.Pattern;
  * </ul>
  *
  * <p>Le rattrapage SQL du § 7.1 reproduit {@link #isGenericPlaceText} ; leur équivalence est vérifiée par
- * {@code GenericPlaceSqlParityIntegrationTest}.
+ * {@code GenericPlaceSqlParityIntegrationTest}, qui vérifie aussi la migration V61.
  */
 public final class CoordinatePrecisionPolicy {
 

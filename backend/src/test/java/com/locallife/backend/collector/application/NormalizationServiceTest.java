@@ -16,6 +16,7 @@ import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.link.domain.ActivityLink;
 import com.locallife.backend.media.domain.Media;
 import com.locallife.backend.metadata.domain.ActivityMetadata;
+import com.locallife.backend.place.domain.CoordinatePrecision;
 import com.locallife.backend.place.domain.Location;
 import com.locallife.backend.schedule.application.RecurrenceRuleService;
 import com.locallife.backend.schedule.domain.Occurrence;
@@ -319,6 +320,22 @@ class NormalizationServiceTest {
         assertEquals("Vieux-Port", result.get().name());
         assertEquals(43.2965, result.get().latitude());
         assertEquals(5.3698, result.get().longitude());
+    }
+
+    @Test
+    void normalizeLocation_ShouldMarkGenericPlaceAsApproximate_AndNeverExact() {
+        // ADR-0011, phase A : texte générique (nom, adresse vidée par le collecteur DATAtourisme) → APPROXIMATE.
+        CollectedLocation generic = new CollectedLocation(
+                "Centre ville", null, "Apt", "84400", null, "FR", 43.876, 5.396, null);
+        CollectedLocation precise = new CollectedLocation(
+                "Théâtre des Halles", "Rue du Roi René", "Avignon", "84000", null, "FR", 43.946, 4.809, null);
+
+        assertEquals(CoordinatePrecision.APPROXIMATE,
+                normalizationService.normalizeLocation(withLocation(generic)).orElseThrow().coordinatePrecision());
+        assertEquals(CoordinatePrecision.UNKNOWN,
+                normalizationService.normalizeLocation(withLocation(precise)).orElseThrow().coordinatePrecision());
+        assertEquals(CoordinatePrecision.UNKNOWN,
+                normalizationService.normalizeLocation(validCollectedActivity()).orElseThrow().coordinatePrecision());
     }
 
     @Test
