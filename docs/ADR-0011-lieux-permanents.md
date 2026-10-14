@@ -795,6 +795,74 @@ reporté : rapprochement avec les lieux d'événement existants (§ 2.3, étapes
 Vérifié dans un navigateur réel (Chromium, API simulée) : onglet, bilan d'essai,
 signalements ; couche, marqueurs et fiche. Application mobile : inchangée.
 
+#### 7.2.9 Rapprochement lieux d'événement ↔ lieux permanents : mesure (14/10/2026)
+
+**Statut** : règle et rapport **implémentés et testés** ; mesure faite **en local** sur
+des données réelles ; **aucune liaison écrite**, aucun lieu modifié ni fusionné ; rien
+de déployé. Le mécanisme de liaison est à décider (ci-dessous).
+
+**Règle** (`PlaceMatcher`, fonction pure) — jamais de rapprochement si une position est
+`APPROXIMATE`, si les codes postaux diffèrent ou au-delà de 100 m. Sinon :
+
+| Niveau | Condition |
+|---|---|
+| `CERTAIN` | ≤ 30 m et même nom normalisé, ou même adresse et nom proche ; ou lieu d'événement **sans nom** dont l'adresse contient le nom du lieu permanent (≥ 2 mots significatifs), ≤ 30 m |
+| `PROBABLE` | nom proche (≥ 80 % des mots significatifs du plus court dans l'autre), ou nom contenu dans l'adresse, de 30 à 100 m |
+| `AMBIGUOUS` | même adresse mais noms différents ; ou plusieurs lieux permanents `CERTAIN`/`PROBABLE` pour un même lieu d'événement (« plusieurs candidats ») |
+
+Le cas « nom dans l'adresse » vient de la mesure : **64 des 67** lieux d'événement
+DATAtourisme du Vaucluse n'ont pas de nom, celui-ci est noyé dans l'adresse
+(« 31 rue Giraud Cinéma Le Luberon ») ; sans ce cas, la règle ne trouvait qu'une paire.
+Un lieu permanent nommé comme une voie (« Place Saint-Pierre », « Le cours Mirabeau »)
+en est exclu : les adresses le citent sans le désigner (2 faux positifs observés puis
+corrigés).
+
+**Rapport** : `GET /api/v1/admin/places/matches?department=84&level=CERTAIN&limit=200`
+(administrateurs, lecture seule) : paires classées, distance, nombre d'activités
+concernées, totaux par niveau. Paires candidates calculées en PostGIS (`ST_DWithin`
+100 m) entre les lieux utilisés par au moins une programmation et les lieux permanents
+`PENDING` ou `PUBLISHED`.
+
+**Procédure de mesure** (reproductible, base locale) : sources pointées sur l'export
+DATAtourisme PACA de data.gouv.fr du 13/10/2026 servi localement ; import des
+événements (filtre 84, puis 13) ; essai à blanc puis import des lieux (4 771 lieux
+`PENDING`) ; appel du rapport ; relecture manuelle.
+
+**Résultats** (événements DATAtourisme seulement ; ni OpenAgenda ni la base bêta) :
+
+| | Vaucluse (84) | Bouches-du-Rhône (13) |
+|---|---|---|
+| Lieux d'événement utilisés / activités | 67 / 102 | 643 / 1 664 |
+| `CERTAIN` : lieux d'événement (activités) | 8 (13) | 130 (580) |
+| `PROBABLE` | 3 (4) | 18 (26) |
+| `AMBIGUOUS` | 2 (2) | 8 (34) |
+| Lieux permanents distincts reliés (`CERTAIN`) | 4 | 121 |
+
+**Relecture** (faite par l'assistant, à confirmer par un administrateur) : 84 —
+11/11 paires `CERTAIN` ou `PROBABLE` justes ; 13 — échantillon aléatoire de 40
+`CERTAIN` sur 130 : 40 justes (dont une discutable : « Presqu'île du cirque romain »
+→ « Le cirque romain ») ; `PROBABLE` : 17/18 justes, 1 douteuse (centre culturel
+arménien → cathédrale arménienne, 67 m). Les `AMBIGUOUS` sont de vrais cas à trancher :
+musée dans un bâtiment lui-même lieu permanent (Hôtel de Porcelet / Musée Yves Brayer),
+**doublons dans DATAtourisme** (« Cinéma Le Luberon » ×2, « Musée des Enfants » ×2).
+
+Constats annexes : un même lieu réel a souvent plusieurs lignes de lieu d'événement
+(Palais des Papes ×5, Château de Simiane ×2) ; la liaison doit donc être plusieurs-à-un.
+
+**Mécanisme de liaison — options (décision demandée, aucune écrite)** :
+
+| Option | Effet | Réversible | Risque |
+|---|---|---|---|
+| A. Promotion (§ 2.3, étape 3) | le lieu d'événement devient le lieu permanent | non : il faut fusionner deux lignes, le lieu importé existe déjà | fusion destructive |
+| B. Réaffecter les programmations au lieu permanent | `schedule`/`occurrence.location_id` changent | seulement avec un journal | l'adresse et la position affichées de l'événement changent (jusqu'à 100 m) |
+| **C. Lien réversible (recommandé)** | colonne `location.place_id` (lieu d'événement → lieu permanent), nulle par défaut | oui : remettre à nul | aucun sur l'affichage des événements ; la fiche du lieu liste les activités des lieux reliés |
+
+Recommandation : **C**, migration `V63` (colonne nullable, clé étrangère, index ;
+à valider explicitement avant création), et **liaison par un administrateur** :
+`CERTAIN` proposés en lot, `PROBABLE` et `AMBIGUOUS` un par un ; aucune liaison
+automatique tant que le taux d'erreur n'est pas mesuré par l'usage. Les doublons de
+lieux permanents se traitent par refus en modération.
+
 ### 7.3 Phase C — marchés et horaires : ontologie et N-Triples (13/10/2026)
 
 **Statut : étude terminée dans les limites fixées (aucun compte, aucun
@@ -1047,6 +1115,9 @@ nom du lieu, sans adresse » du collecteur DATAtourisme.
    accès nécessaires et vérifications préparées dans
    `docs/02_Architecture/VERIFICATION_JEP_FDS.md`.
 7. **Types de lieux DATAtourisme à importer** (liste blanche, § 2.5).
+8. **Liaison lieux d'événement ↔ lieux permanents** (§ 7.2.9) : choisir le
+   mécanisme (recommandé : lien réversible `location.place_id`, migration
+   `V63` à valider) et la règle de validation (lot pour `CERTAIN`).
 
 Non décidés, hors de cet ADR : couverture OpenAgenda des Journées
 européennes du patrimoine et de la Fête de la science (vérification

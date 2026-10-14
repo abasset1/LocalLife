@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
  *   <li>{@link Level#CERTAIN} : même nom normalisé, ou même adresse normalisée et nom proche, à
  *       {@value #CERTAIN_DISTANCE_METERS} m au plus ;</li>
  *   <li>{@link Level#PROBABLE} : nom proche (mots significatifs du plus court presque tous dans l'autre) ;</li>
+ *   <li>lieu d'événement sans nom : nom du lieu permanent contenu dans son adresse — {@link Level#CERTAIN} à
+ *       {@value #CERTAIN_DISTANCE_METERS} m au plus, {@link Level#PROBABLE} au-delà ;</li>
  *   <li>{@link Level#AMBIGUOUS} : même adresse mais noms différents, à relire (une salle dans un bâtiment, un
  *       événement nommé d'après le lieu…) ;</li>
  *   <li>{@link Level#NONE} sinon.</li>
@@ -25,11 +27,19 @@ public final class PlaceMatcher {
     public static final double MAX_DISTANCE_METERS = 100;
     public static final double CERTAIN_DISTANCE_METERS = 30;
     public static final double MIN_WORD_OVERLAP = 0.8;
+    public static final int MIN_NAME_WORDS_IN_ADDRESS = 2;
 
     /** Mots sans valeur d'identification d'un lieu. */
     static final Set<String> STOP_WORDS = Set.of(
             "le", "la", "les", "l", "de", "du", "des", "d", "et", "a", "au", "aux", "en", "sur", "saint", "sainte",
             "st", "ste");
+
+    /** Premier mot d'un nom de voie : un tel nom figure dans les adresses sans désigner le lieu. */
+    static final Set<String> STREET_WORDS = Set.of(
+            "place", "placette", "rue", "avenue", "av", "boulevard", "bd", "cours", "quai", "chemin", "route",
+            "allee", "allees", "impasse", "square", "esplanade", "parvis", "promenade");
+
+    private static final Set<String> ARTICLES = Set.of("le", "la", "les", "l");
 
     private PlaceMatcher() {
     }
@@ -74,7 +84,31 @@ public final class PlaceMatcher {
         if (closeName) {
             return Level.PROBABLE;
         }
+        if (name1.isEmpty() && nameInAddress(name2, address1)) {
+            return distance <= CERTAIN_DISTANCE_METERS ? Level.CERTAIN : Level.PROBABLE;
+        }
         return sameAddress ? Level.AMBIGUOUS : Level.NONE;
+    }
+
+    /** Nom de voie, article initial ignoré : « Place Saint-Pierre », « Le cours Mirabeau ». */
+    static boolean isStreetName(String normalizedName) {
+        String[] words = normalizedName.split(" ");
+        int first = words.length > 1 && ARTICLES.contains(words[0]) ? 1 : 0;
+        return STREET_WORDS.contains(words[first]);
+    }
+
+    /**
+     * Lieu d'événement sans nom dont l'adresse contient le nom du lieu permanent (cas DATAtourisme : « 31 rue
+     * Giraud Cinéma Le Luberon »). Au moins {@value #MIN_NAME_WORDS_IN_ADDRESS} mots significatifs, tous présents ;
+     * jamais pour un lieu nommé comme une voie (« Place Saint-Pierre »), que les adresses citent sans le désigner.
+     */
+    static boolean nameInAddress(String placeName, String eventAddress) {
+        if (isStreetName(placeName)) {
+            return false;
+        }
+        Set<String> nameWords = significantWords(placeName);
+        return nameWords.size() >= MIN_NAME_WORDS_IN_ADDRESS
+                && significantWords(eventAddress).containsAll(nameWords);
     }
 
     static boolean closeNames(String first, String second) {

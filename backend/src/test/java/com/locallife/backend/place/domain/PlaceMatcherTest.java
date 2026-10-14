@@ -59,4 +59,21 @@ class PlaceMatcherTest {
         assertEquals(Level.NONE, PlaceMatcher.compare(
                 at("Chapelle Saint-Michel", null, 0), at("Église Saint-Pierre", null, 50)));
     }
+
+    @Test
+    void unnamedEventLocation_ShouldMatchAPlaceNamedInItsAddress() {
+        Candidate cinema = at("Cinéma Le Luberon", "31 rue Giraud", 0);
+        assertEquals(Level.CERTAIN, PlaceMatcher.compare(at("", "31 rue Giraud Cinéma Le Luberon", 7), cinema));
+        assertEquals(Level.PROBABLE, PlaceMatcher.compare(at(null, "6 rue de Croze Cinéma Le Luberon", 90), cinema));
+        assertEquals(Level.NONE, PlaceMatcher.compare(at(null, "Espace de Croze Amphithéâtre", 7), cinema));
+        assertEquals(Level.NONE, PlaceMatcher.compare(at(null, "2 rue Vox", 5), at("Vox", null, 0)),
+                "un seul mot significatif ne suffit pas");
+        assertEquals(Level.NONE,
+                PlaceMatcher.compare(at("Salle des fêtes", "31 rue Giraud Cinéma Le Luberon", 7), cinema),
+                "un lieu d'événement nommé garde la règle des noms");
+        assertEquals(Level.NONE, PlaceMatcher.compare(at(null, "Eglise des Célestins Place des Corps Saints", 19),
+                at("Place des Corps Saints", null, 0)), "une place est citée par les adresses sans être le lieu");
+        assertEquals(Level.NONE, PlaceMatcher.compare(at(null, "21 cours Mirabeau Espace culturel", 10),
+                at("Le cours Mirabeau", null, 0)), "article initial ignoré");
+    }
 }
