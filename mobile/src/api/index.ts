@@ -14,6 +14,7 @@ export {
   getActivity,
   getContribution,
   listActivities,
+  listActivitiesAtPlace,
   listMyContributions,
   searchNearby,
   searchWithinBounds,

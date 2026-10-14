@@ -1,6 +1,7 @@
 package com.locallife.backend.place.api;
 
 import com.locallife.backend.common.ErrorResponse;
+import com.locallife.backend.place.domain.PlaceStatus;
 import com.locallife.backend.place.infrastructure.PlaceRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -11,6 +12,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,5 +51,16 @@ public class PlaceController {
                 : Arrays.stream(types.split(",")).map(String::trim).filter(type -> !type.isEmpty()).toList();
         return ResponseEntity.ok(placeRepository.findPublishedWithinBounds(
                 minLat, maxLat, minLng, maxLng, placeTypes, MAX_RESULTS).stream().map(PlaceResponse::from).toList());
+    }
+
+    @Operation(summary = "Fiche d'un lieu publié",
+            description = "404 si le lieu n'existe pas ou n'est pas publié. Ses activités à venir : "
+                    + "GET /api/v1/activities/at-place/{id}.")
+    @GetMapping("/{id}")
+    public ResponseEntity<Object> getPlace(@PathVariable Long id) {
+        return placeRepository.findById(id)
+                .filter(place -> place.status() == PlaceStatus.PUBLISHED)
+                .<ResponseEntity<Object>>map(place -> ResponseEntity.ok(PlaceResponse.from(place)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

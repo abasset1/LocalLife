@@ -1,4 +1,5 @@
 import { configureApiClient } from '../http';
+import { listActivitiesAtPlace } from '../activities';
 import { searchPlacesWithinBounds } from '../places';
 
 jest.mock('@/config/env', () => ({ apiUrl: 'https://api.test/' }));
@@ -22,5 +23,13 @@ describe('searchPlacesWithinBounds', () => {
     expect(fetchMock.mock.calls[0][0]).toBe(
       'https://api.test/api/v1/places/within-bounds?minLat=43.9&maxLat=44&minLng=4.7&maxLng=4.9',
     );
+  });
+});
+
+describe('listActivitiesAtPlace', () => {
+  it('appelle `/activities/at-place/{id}`', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve('[]') });
+    await expect(listActivitiesAtPlace(7)).resolves.toEqual([]);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/api/v1/activities/at-place/7');
   });
 });

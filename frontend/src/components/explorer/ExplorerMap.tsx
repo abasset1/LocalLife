@@ -275,7 +275,7 @@ function ExplorerMap({
                     />
                 ))}
             </MarkerClusterGroup>
-            <PlacesLayer enabled={showPlaces} />
+            <PlacesLayer enabled={showPlaces} onSelectActivity={onSelectActivity} />
             {foodTrucks.map((foodTruck) => (
                 <Marker
                     icon={FOOD_TRUCK_MARKER_ICON}
