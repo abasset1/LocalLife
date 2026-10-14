@@ -8,6 +8,7 @@ import com.locallife.backend.activity.application.ContributionRecurrence;
 import com.locallife.backend.activity.application.ContributionService;
 import com.locallife.backend.activity.application.RecurringContributionService;
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.infrastructure.ActivityAtPlaceRepository;
 import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.category.domain.Category;
@@ -117,6 +118,10 @@ public class ActivityController {
     private final ContributionService contributionService;
 
     private final ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
+    private final ActivityAtPlaceRepository activityAtPlaceRepository;
+
+    /** Plafond de la liste des activités d'un lieu permanent. */
+    static final int MAX_ACTIVITIES_AT_PLACE = 50;
 
     public ActivityController(
             ActivityService activityService, SourceService sourceService, UserService userService,
@@ -126,7 +131,8 @@ public class ActivityController {
             ActivityTagService activityTagService, ActivityMetadataService activityMetadataService,
             PremiumAccessPolicy premiumAccessPolicy, CategoryRepository categoryRepository,
             RecurringContributionService recurringContributionService, ContributionService contributionService,
-            ActivityCoordinatePrecisionRepository coordinatePrecisionRepository) {
+            ActivityCoordinatePrecisionRepository coordinatePrecisionRepository,
+            ActivityAtPlaceRepository activityAtPlaceRepository) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -145,6 +151,26 @@ public class ActivityController {
         this.recurringContributionService = recurringContributionService;
         this.contributionService = contributionService;
         this.coordinatePrecisionRepository = coordinatePrecisionRepository;
+        this.activityAtPlaceRepository = activityAtPlaceRepository;
+    }
+
+    @Operation(summary = "Activités à venir d'un lieu permanent",
+            description = "Activités publiées et non terminées qui se déroulent au lieu permanent publié ou à un "
+                    + "lieu d'événement relié par un administrateur (ADR-0011, § 7.2.10), au plus 50, de la plus "
+                    + "proche à la plus lointaine. Même format que la carte. 404 si le lieu n'est pas publié.")
+    @GetMapping("/at-place/{placeId}")
+    public ResponseEntity<Object> getActivitiesAtPlace(
+            @Parameter(description = "Identifiant du lieu permanent.", required = true) @PathVariable Long placeId,
+            Authentication authentication) {
+        if (!activityAtPlaceRepository.isPublishedPlace(placeId)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        List<Activity> activities = activityAtPlaceRepository
+                .findUpcomingActivityIds(placeId, MAX_ACTIVITIES_AT_PLACE).stream()
+                .map(activityService::findById)
+                .flatMap(Optional::stream)
+                .toList();
+        return ResponseEntity.ok(withSourceNames(activities, authentication));
     }
 
     /**

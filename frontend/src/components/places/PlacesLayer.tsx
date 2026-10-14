@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import L from "leaflet";
 import { Marker, Popup, useMap } from "react-leaflet";
 import { APPROXIMATE_LOCATION_LABEL } from "../explorer/activityUtils";
+import type { Activity } from "../explorer/types";
 import { MAP_BOUNDS_DEBOUNCE_MS } from "../explorer/constants";
+import PlaceActivities from "./PlaceActivities";
 import { placeTypeLabel } from "./placeTypes";
 import type { Place } from "./types";
 
@@ -38,7 +40,10 @@ export function placesWithinBoundsUrl(bounds: Bounds): string {
  * son activation puis à chaque déplacement, indépendamment du chargement des activités. Carte utilisable sans
  * lieux si la requête échoue.
  */
-function PlacesLayer({ enabled }: { enabled: boolean }) {
+function PlacesLayer({ enabled, onSelectActivity }: {
+    enabled: boolean;
+    onSelectActivity?: (activity: Activity) => void;
+}) {
     const map = useMap();
     const [places, setPlaces] = useState<Place[]>([]);
 
@@ -100,7 +105,7 @@ function PlacesLayer({ enabled }: { enabled: boolean }) {
                     position={[place.latitude, place.longitude]}
                     title={place.name}
                 >
-                    <Popup>
+                    <Popup maxWidth={300} minWidth={220}>
                         <strong>{place.name}</strong>
                         <br />
                         {placeTypeLabel(place.placeType)}
@@ -124,6 +129,14 @@ function PlacesLayer({ enabled }: { enabled: boolean }) {
                                 </a>
                             </>
                         )}
+                        <PlaceActivities
+                            onSelectActivity={onSelectActivity && ((activity) => {
+                                // L'aperçu de l'activité remplace la fiche du lieu.
+                                map.closePopup();
+                                onSelectActivity(activity);
+                            })}
+                            placeId={place.id}
+                        />
                     </Popup>
                 </Marker>
             ))}

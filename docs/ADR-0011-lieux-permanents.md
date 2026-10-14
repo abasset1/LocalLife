@@ -891,8 +891,19 @@ Testé : contrainte, liaison (paires refusées : inutilisée, lieu refusé, doub
 lieu d'événement inchangé après liaison, délier, accès réservé aux administrateurs ; interface (vitest).
 **Non déployé** : la migration V63 s'applique au prochain déploiement du backend.
 
-Pas encore exploité côté public : la fiche d'un lieu permanent n'affiche pas encore les activités
-des lieux reliés (§ 2.4, `GET /api/v1/places/{id}`), étape suivante proposée.
+#### 7.2.11 Fiche des lieux (14/10/2026)
+
+| Élément | Où |
+|---|---|
+| Fiche d'un lieu publié (404 sinon) | `GET /api/v1/places/{id}` |
+| Activités à venir d'un lieu publié : celles du lieu et des lieux d'événement reliés (`place_id`), lieu effectif = programmation ou occurrence non annulée ; publiées et non terminées ; au plus 50, de la plus proche à la plus lointaine ; même format que la carte (404 si le lieu n'est pas publié) | `GET /api/v1/activities/at-place/{placeId}`, `ActivityAtPlaceRepository` |
+| Site : la fiche courte du lieu (carte) charge ses activités à venir à l'ouverture ; 5 affichées, la suite résumée ; un clic ferme la fiche et ouvre l'aperçu de l'activité | `PlaceActivities`, `PlacesLayer` |
+| Mobile : l'aperçu du lieu liste 3 activités à venir, un appui ouvre la fiche de l'activité | `usePlaceActivities`, `PreviewCard` |
+
+Testé : backend (activités du lieu et d'un lieu relié, exclusion des activités passées, en attente
+ou d'un lieu non relié, ordre ; 404 pour un lieu non publié), site (vitest, et rendu vérifié dans
+Chromium avec une API simulée), mobile (typecheck, lint, appel API). **Non vérifié sur appareil.**
+Aucune migration. Un lieu sans lien ni programmation affiche « Aucune activité à venir connue ici. »
 
 ### 7.3 Phase C — marchés et horaires : ontologie et N-Triples (13/10/2026)
 

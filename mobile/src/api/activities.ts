@@ -47,6 +47,14 @@ export function searchNearby(
   });
 }
 
+/**
+ * `GET /activities/at-place/{placeId}` — activités à venir d'un lieu permanent publié et des lieux d'événement
+ * reliés (au plus 50), même format que la carte. 404 si le lieu n'est pas publié.
+ */
+export function listActivitiesAtPlace(placeId: number, options: CallOptions = {}): Promise<Activity[]> {
+  return request<Activity[]>(`${BASE}/at-place/${placeId}`, { signal: options.signal });
+}
+
 /** `GET /activities/within-bounds` — activités publiées dans la zone visible de la carte. */
 export function searchWithinBounds(
   params: WithinBoundsSearchParams,

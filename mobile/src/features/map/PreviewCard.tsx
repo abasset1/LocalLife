@@ -11,6 +11,10 @@ import { buildDirectionsUrl, withApproximateMention } from '@/features/activity/
 import { useTheme } from '@/hooks/use-theme';
 
 import { placeTypeLabel } from './placeTypes';
+import { usePlaceActivities } from './usePlaceActivities';
+
+/** Activités affichées dans l'aperçu d'un lieu ; la suite est résumée par un nombre. */
+const PLACE_ACTIVITIES_SHOWN = 3;
 
 export type Selection =
   | { kind: 'activity'; activity: Activity }
@@ -51,6 +55,8 @@ function CardHeader({ title, onClose }: { title: string; onClose: () => void }) 
 /** Lieu permanent (couche « Lieux ») : pas de fiche dédiée, l'aperçu suffit. */
 function PlacePreview({ place, onClose }: { place: Place; onClose: () => void }) {
   const theme = useTheme();
+  const router = useRouter();
+  const activities = usePlaceActivities(place.id);
   const location = withApproximateMention(
     [place.address, [place.postalCode, place.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null,
     place,
@@ -67,6 +73,43 @@ function PlacePreview({ place, onClose }: { place: Place; onClose: () => void })
         <ThemedText type="small" numberOfLines={3}>
           {place.description}
         </ThemedText>
+      ) : null}
+      {activities && activities.length === 0 ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Aucune activité à venir connue ici.
+        </ThemedText>
+      ) : null}
+      {activities && activities.length > 0 ? (
+        <View style={styles.activities}>
+          <ThemedText type="smallBold">À venir</ThemedText>
+          {activities.slice(0, PLACE_ACTIVITIES_SHOWN).map((activity) => (
+            <Pressable
+              key={activity.id}
+              accessibilityRole="link"
+              accessibilityLabel={`Voir l'activité ${activity.title}`}
+              hitSlop={6}
+              onPress={() =>
+                router.push({
+                  pathname: '/activite/[id]',
+                  params: {
+                    id: String(activity.id),
+                    ...(activity.sourceName ? { source: activity.sourceName } : {}),
+                  },
+                })
+              }>
+              <ThemedText type="small" numberOfLines={1}>
+                • {activity.title}
+                {formatDate(activity.startDate) ? ` · ${formatDate(activity.startDate)}` : ''}
+              </ThemedText>
+            </Pressable>
+          ))}
+          {activities.length > PLACE_ACTIVITIES_SHOWN ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              et {activities.length - PLACE_ACTIVITIES_SHOWN} autre
+              {activities.length - PLACE_ACTIVITIES_SHOWN > 1 ? 's' : ''}
+            </ThemedText>
+          ) : null}
+        </View>
       ) : null}
       <View style={styles.actions}>
         {directions ? (
@@ -160,6 +203,9 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
+  },
+  activities: {
+    gap: Spacing.one,
   },
   actions: {
     flexDirection: 'row',
