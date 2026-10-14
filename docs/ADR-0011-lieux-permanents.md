@@ -12,7 +12,7 @@ documentaire.
 | Phase | Statut |
 |---|---|
 | A — précision géographique | **validée le 14/10/2026** (§ 7.1.7) ; **implémentée et testée** (§ 7.1.8, migration V61) ; déployée après validation de la PR |
-| B — lieux permanents | **décisions du 14/10/2026** (§ 7.2.6) : groupe 1, groupe 2 exclu, PACA, deux règles de modération ; non implémentée |
+| B — lieux permanents | **décisions du 14/10/2026** (§ 7.2.6) ; **backend implémenté et testé** (§ 7.2.7, migration V62) ; interface (modération, couche « Lieux ») à venir |
 | C — marchés et horaires | ontologie reconstituée à partir des données (§ 7.3) : jours de marché **présents dans le N-Triples** (dates d'une séance ou `appliesOnDay`), perdus dans le CSV ; **compte diffuseur décidé le 14/10/2026** (§ 7.3.6), mesure à faire avant tout import |
 | D — liens de doublons | mesure sans écriture outillée et étalonnée (0 faux positif sur 1 probable, 3 sur 14 ambiguës) ; mesure sur les données de l'application à faire ; règle **non branchée** |
 
@@ -751,6 +751,37 @@ phase A).
    (type, département, signalements) sont donc indispensables dès la
    première version.
 5. Modération : **les administrateurs** (rôle `ADMIN`).
+
+#### 7.2.7 Implémentation du backend (14/10/2026)
+
+| Élément | Où |
+|---|---|
+| Migration : colonnes `place_type`, `place_status`, `description`, `published_at`, `moderated_by`, `moderated_at` ; contrainte `CHECK` ; table `location_source` ; source `DATATOURISME_LIEUX` créée **inactive** | `V62__add_permanent_places.sql` |
+| Liste blanche (46 types, règle des types précis, exclusions) | `PlaceTypeWhitelist` |
+| Règles de modération (refus durable, retour en attente, réapparition, disparition, garde-fou 10 / 50 %) | `PlaceModerationPolicy` |
+| Collecte (même fichier et mêmes contrôles que les événements ; types schema.org ignorés) | `DataTourismePlaceCollector` |
+| Import (création `PENDING`, mises à jour, archivage, essai à blanc, une transaction) ; import quotidien des sources actives à 4 h 30 | `PlaceImportService` |
+| Modération (file filtrée par statut, type, département, signalements ; publier, refuser, actions groupées jusqu'à 500) ; essai à blanc, import, activation vérifiée d'une source | `AdminPlaceController` (`/api/v1/admin/places`, rôle `ADMIN`) |
+| Lecture publique des lieux publiés dans une zone | `PlaceController` (`/api/v1/places/within-bounds`) |
+
+Les colonnes des lieux permanents ne sont pas des champs de `Location` : l'import
+d'événements ne peut ni les lire ni les modifier. Un lieu permanent peut être
+réutilisé comme lieu d'un événement de mêmes coordonnées (règle existante de
+`findOrCreate`) ; son statut ne masque jamais l'événement.
+
+Mesure sur le fichier réel (collecteur Java + liste blanche) : 32 332 lieux
+lus en PACA, **4 771 retenus** (Vaucluse : **418**), les 2 écarts avec la
+mesure Python étant des URI en double.
+
+Tests : règles (10), collecteur sur extrait réel (5), import et modération sur
+PostgreSQL (6 : création, réimport, refus durable, retour en attente,
+disparition massive et normale, réapparition, échec, essai à blanc,
+signalements, lecture publique, activation vérifiée), API (4 : accès, validations,
+409, 404), source de lieux (1), migration V62 sur une base V61 avec données.
+
+Non fait (B2) : écran de modération et couche « Lieux » de la carte. Non fait,
+reporté : rapprochement avec les lieux d'événement existants (§ 2.3, étapes 2 et
+3) ; un même lieu peut donc exister en lieu d'événement et en lieu permanent.
 
 ### 7.3 Phase C — marchés et horaires : ontologie et N-Triples (13/10/2026)
 

@@ -25,14 +25,23 @@ public class DataTourismeCollectorFactory {
     private static final Duration READ_TIMEOUT = Duration.ofMinutes(10);
 
     public Collector create(Source source) {
+        return new DataTourismeCollector(
+                restClientBuilder(), source.url(), source.name(), source.regionFilter());
+    }
+
+    /** Collecteur des lieux d'une source {@code DATATOURISME_LIEUX} (ADR-0011, phase B), même client HTTP. */
+    public DataTourismePlaceCollector createPlaceCollector(Source source) {
+        return new DataTourismePlaceCollector(
+                restClientBuilder(), source.url(), source.name(), source.regionFilter());
+    }
+
+    private static RestClient.Builder restClientBuilder() {
         HttpClient httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(CONNECT_TIMEOUT)
                 .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(READ_TIMEOUT);
-        return new DataTourismeCollector(
-                RestClient.builder().requestFactory(requestFactory), source.url(), source.name(),
-                source.regionFilter());
+        return RestClient.builder().requestFactory(requestFactory);
     }
 }
