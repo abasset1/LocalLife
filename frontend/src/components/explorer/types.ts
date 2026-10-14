@@ -1,3 +1,5 @@
+import type { CoordinatePrecision } from "../../utils/directions";
+
 /**
  * Types partagés de l'écran Explorer (LL-EF-017), extraits de App.tsx lors
  * de la refonte pour être réutilisables par les composants dédiés
@@ -46,6 +48,11 @@ export interface Activity {
     mainImageUrl: string | null;
     /** Recherche globale (#92) : distance au lieu retenu, `null` sans position de référence ou sans lieu. */
     distanceMeters?: number | null;
+    /**
+     * ADR-0011, phase A : précision de la position. Seule `APPROXIMATE` change l'affichage (mention,
+     * marqueur atténué, itinéraire vers la commune). Absente (anciennes réponses) : traitée comme `UNKNOWN`.
+     */
+    coordinatePrecision?: CoordinatePrecision | null;
 }
 
 export interface ScheduleSummary {

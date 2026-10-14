@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.activityclassification.application.ActivityClassificationService;
 import com.locallife.backend.activityclassification.application.ActivityClassifier.Decision;
@@ -34,6 +35,8 @@ import com.locallife.backend.media.application.ActivityMediaService;
 import com.locallife.backend.media.application.MediaService;
 import com.locallife.backend.metadata.application.ActivityMetadataService;
 import com.locallife.backend.place.application.LocationService;
+import com.locallife.backend.place.domain.CoordinatePrecision;
+import com.locallife.backend.place.domain.Location;
 import com.locallife.backend.schedule.application.OccurrenceService;
 import com.locallife.backend.schedule.application.ScheduleService;
 import com.locallife.backend.schedule.domain.Schedule;
@@ -138,6 +141,9 @@ class ImportServiceTest {
     @Mock
     private SourceDefaultCategoryService sourceDefaultCategoryService;
 
+    @Mock
+    private ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository;
+
     private static final ClassificationOutcome AUTO_CLASSIFIED_AS_MARKETS = new ClassificationOutcome(
             new Decision(ClassificationStatus.AUTO_CLASSIFIED, List.of("MARKETS"), null, List.of(), "AUTO:MARKETS"),
             List.of(7L));
@@ -171,7 +177,7 @@ class ImportServiceTest {
                 activityRepository, locationService, scheduleService, occurrenceService, mediaService,
                 activityMediaService, activityLinkService, accessibilityService, activityTagService,
                 activityMetadataService, classificationService, activityClassificationService,
-                importFingerprintService, sourceDefaultCategoryService);
+                importFingerprintService, sourceDefaultCategoryService, activityCoordinatePrecisionRepository);
     }
 
     private static final Source SOURCE = new Source(
@@ -258,6 +264,46 @@ class ImportServiceTest {
                 activity.id() == null
                         && activity.sourceId().equals(10L)
                         && "external:OpenAgenda Marseille:ext-1".equals(activity.importKey()));
+    }
+
+    /** ADR-0011, phase A : l'activité prend la précision du lieu rattaché, et UNKNOWN sans lieu. */
+    @Test
+    void importAll_ShouldCopyLocationPrecisionOnActivity() {
+        givenOneCollectibleSource();
+        CollectedActivity item = collectedActivity("ext-1");
+        when(collector.collect()).thenReturn(List.of(item));
+        when(deduplicationService.computeDeduplicationKey(item)).thenReturn("external:OpenAgenda Marseille:ext-1");
+        when(normalizationService.normalize(item)).thenReturn(Optional.of(normalizedActivity()));
+        when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
+                .thenReturn(Optional.empty());
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        givenSaveAssignsId();
+        Location zone = new Location(7L, "Centre ville", null, null, "Marseille", null, null, null, null,
+                43.2965, 5.3698, null, null, null, null, CoordinatePrecision.APPROXIMATE);
+        when(normalizationService.normalizeLocation(item)).thenReturn(Optional.of(zone));
+        when(locationService.findOrCreate(zone)).thenReturn(zone);
+
+        importService().importAll();
+
+        verify(activityCoordinatePrecisionRepository).update(99L, CoordinatePrecision.APPROXIMATE);
+    }
+
+    @Test
+    void importAll_ShouldSetUnknownPrecision_WhenActivityHasNoLocation() {
+        givenOneCollectibleSource();
+        CollectedActivity item = collectedActivity("ext-1");
+        when(collector.collect()).thenReturn(List.of(item));
+        when(deduplicationService.computeDeduplicationKey(item)).thenReturn("external:OpenAgenda Marseille:ext-1");
+        when(normalizationService.normalize(item)).thenReturn(Optional.of(normalizedActivity()));
+        when(activityRepository.findBySourceIdAndImportKey(10L, "external:OpenAgenda Marseille:ext-1"))
+                .thenReturn(Optional.empty());
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        givenSaveAssignsId();
+        when(normalizationService.normalizeLocation(item)).thenReturn(Optional.empty());
+
+        importService().importAll();
+
+        verify(activityCoordinatePrecisionRepository).update(99L, CoordinatePrecision.UNKNOWN);
     }
 
     /**

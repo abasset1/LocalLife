@@ -294,6 +294,7 @@ function ActivityDetailModal({
                                     longitude: activity.longitude,
                                     address: activity.address,
                                     city: activity.city,
+                                    coordinatePrecision: activity.coordinatePrecision,
                                 })}
                                 rel="noreferrer"
                                 target="_blank"

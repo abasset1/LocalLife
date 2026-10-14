@@ -26,7 +26,19 @@ export const UNKNOWN_ADDRESS_LABEL = "Adresse non renseignée";
  * `address` (la plus précise et la plus lisible) puis `city` seule, puis
  * enfin les coordonnées.
  */
+/** Mention affichée pour une position `APPROXIMATE` (ADR-0011, phase A). */
+export const APPROXIMATE_LOCATION_LABEL = "Emplacement approximatif";
+
+export function isApproximateLocation(activity: Pick<Activity, "coordinatePrecision">): boolean {
+    return activity.coordinatePrecision === "APPROXIMATE";
+}
+
 export function formatActivityLocation(activity: Activity): string {
+    const place = formatPlaceOnly(activity);
+    return isApproximateLocation(activity) ? `${place} (${APPROXIMATE_LOCATION_LABEL.toLowerCase()})` : place;
+}
+
+function formatPlaceOnly(activity: Activity): string {
     if (activity.address) {
         return activity.address;
     }

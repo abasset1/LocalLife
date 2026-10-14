@@ -113,3 +113,26 @@ describe("ActivityList — liste de la carte (non-régression)", () => {
         expect(screen.getByText("Rien ici.")).toBeInTheDocument();
     });
 });
+
+describe("ActivityList — précision de la position (ADR-0011, phase A)", () => {
+    it("signale un emplacement approximatif, et seulement lui", () => {
+        render(
+            <ActivityList
+                activities={[
+                    activity(1, { title: "Fête au village", address: null, city: "Gordes", coordinatePrecision: "APPROXIMATE" }),
+                    activity(2, { title: "Concert", coordinatePrecision: "UNKNOWN" }),
+                    activity(3, { title: "Ancienne réponse" }),
+                ]}
+                categories={CATEGORIES}
+                error={null}
+                isLoading={false}
+                label="Résultats"
+                onSelectActivity={() => undefined}
+                ordered
+            />,
+        );
+
+        expect(screen.getByText(/Gordes · Emplacement approximatif/)).toBeInTheDocument();
+        expect(screen.getAllByText(/Emplacement approximatif/)).toHaveLength(1);
+    });
+});

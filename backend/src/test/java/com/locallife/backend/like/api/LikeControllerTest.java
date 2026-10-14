@@ -3,6 +3,7 @@ package com.locallife.backend.like.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
+import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
 import com.locallife.backend.activity.api.ActivityResponse;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.application.JwtAuthentication;
@@ -34,6 +35,9 @@ class LikeControllerTest {
 
     @Mock
     private MediaService mediaService;
+
+    @Mock
+    private ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
 
     @InjectMocks
     private LikeController likeController;

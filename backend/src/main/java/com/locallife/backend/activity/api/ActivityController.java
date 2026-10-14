@@ -8,6 +8,7 @@ import com.locallife.backend.activity.application.ContributionRecurrence;
 import com.locallife.backend.activity.application.ContributionService;
 import com.locallife.backend.activity.application.RecurringContributionService;
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
@@ -23,6 +24,7 @@ import com.locallife.backend.media.domain.ActivityMedia;
 import com.locallife.backend.media.domain.Media;
 import com.locallife.backend.metadata.application.ActivityMetadataService;
 import com.locallife.backend.place.application.LocationService;
+import com.locallife.backend.place.domain.CoordinatePrecision;
 import com.locallife.backend.place.domain.Location;
 import com.locallife.backend.premium.application.PremiumAccessPolicy;
 import com.locallife.backend.schedule.application.OccurrenceService;
@@ -114,6 +116,8 @@ public class ActivityController {
     private final RecurringContributionService recurringContributionService;
     private final ContributionService contributionService;
 
+    private final ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
+
     public ActivityController(
             ActivityService activityService, SourceService sourceService, UserService userService,
             LikeService likeService, ScheduleService scheduleService, OccurrenceService occurrenceService,
@@ -121,7 +125,8 @@ public class ActivityController {
             ActivityLinkService activityLinkService, AccessibilityService accessibilityService,
             ActivityTagService activityTagService, ActivityMetadataService activityMetadataService,
             PremiumAccessPolicy premiumAccessPolicy, CategoryRepository categoryRepository,
-            RecurringContributionService recurringContributionService, ContributionService contributionService) {
+            RecurringContributionService recurringContributionService, ContributionService contributionService,
+            ActivityCoordinatePrecisionRepository coordinatePrecisionRepository) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -139,6 +144,7 @@ public class ActivityController {
         this.categoryRepository = categoryRepository;
         this.recurringContributionService = recurringContributionService;
         this.contributionService = contributionService;
+        this.coordinatePrecisionRepository = coordinatePrecisionRepository;
     }
 
     /**
@@ -188,8 +194,11 @@ public class ActivityController {
             HttpServletRequest httpRequest) {
         try {
             List<Activity> activities = activityService.findAll(city, sort, date);
+            Map<Long, CoordinatePrecision> precisions = resolveCoordinatePrecisions(
+                    activities.stream().map(Activity::id).toList());
             List<ActivitySummaryResponse> summaries = activities.stream()
-                    .map(activity -> ActivitySummaryResponse.from(activity, resolveMainImageUrl(activity.id())))
+                    .map(activity -> ActivitySummaryResponse.from(activity, resolveMainImageUrl(activity.id()))
+                            .withCoordinatePrecision(precisions.get(activity.id())))
                     .toList();
             return ResponseEntity.ok(summaries);
         } catch (IllegalArgumentException exception) {
@@ -371,14 +380,27 @@ public class ActivityController {
         Map<Long, List<String>> categoryCodesByActivityId = resolveCategoryCodes(
                 activities.stream().map(Activity::id).toList());
 
+        Map<Long, CoordinatePrecision> precisions = resolveCoordinatePrecisions(
+                activities.stream().map(Activity::id).toList());
+
         return activities.stream()
                 .map(activity -> ActivityResponse.from(
                         activity, sourceNamesById.getOrDefault(activity.sourceId(), UNKNOWN_SOURCE_NAME),
                         usernamesByCreatedBy.get(activity.createdBy()),
                         likedActivityIdsSet.contains(activity.id()),
                         resolveMainImageUrl(activity.id()),
-                        categoryCodesByActivityId.getOrDefault(activity.id(), List.of())))
+                        categoryCodesByActivityId.getOrDefault(activity.id(), List.of()))
+                        .withCoordinatePrecision(precisions.get(activity.id())))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Précision géographique par activité (ADR-0011, phase A), en une requête pour toute la liste. Une
+     * activité absente du résultat est traitée comme {@code UNKNOWN} par les réponses.
+     */
+    private Map<Long, CoordinatePrecision> resolveCoordinatePrecisions(List<Long> activityIds) {
+        Map<Long, CoordinatePrecision> precisions = coordinatePrecisionRepository.findByActivityIds(activityIds);
+        return precisions == null ? Map.of() : precisions;
     }
 
     /**
@@ -453,9 +475,14 @@ public class ActivityController {
             Authentication authentication) {
         return activityService.findById(id)
                 .filter(activity -> isVisibleTo(activity, authentication))
-                .map(activity -> ResponseEntity.ok(premiumAccessPolicy.hasPremiumAccess(authentication)
-                        ? toDetailResponse(activity)
-                        : (Object) ActivitySummaryResponse.from(activity, resolveMainImageUrl(activity.id()))))
+                .map(activity -> {
+                    CoordinatePrecision precision = resolveCoordinatePrecisions(List.of(activity.id()))
+                            .get(activity.id());
+                    return ResponseEntity.ok(premiumAccessPolicy.hasPremiumAccess(authentication)
+                            ? toDetailResponse(activity).withCoordinatePrecision(precision)
+                            : (Object) ActivitySummaryResponse.from(activity, resolveMainImageUrl(activity.id()))
+                                    .withCoordinatePrecision(precision));
+                })
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 

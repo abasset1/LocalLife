@@ -81,7 +81,8 @@ public class ActivitySearchRepository {
                 SELECT s.activity_id, o.id AS occurrence_id,
                        (o.start_at AT TIME ZONE tz.zone) AS local_start,
                        (o.end_at AT TIME ZONE tz.zone) AS local_end,
-                       l.city, l.address, l.latitude, l.longitude, l.geo_location, l.search_place
+                       l.city, l.address, l.latitude, l.longitude, l.geo_location, l.search_place,
+                       l.coordinate_precision
                 FROM published p
                 JOIN schedule s ON s.activity_id = p.id
                 JOIN occurrence o ON o.schedule_id = s.id
@@ -171,7 +172,7 @@ public class ActivitySearchRepository {
             ),
             retained AS (
                 SELECT DISTINCT ON (occ.activity_id) occ.activity_id, occ.local_start, occ.local_end,
-                       occ.city, occ.address, occ.latitude, occ.longitude,
+                       occ.city, occ.address, occ.latitude, occ.longitude, occ.coordinate_precision,
                        CASE WHEN occ.geo_location IS NOT NULL AND ref.point IS NOT NULL
                             THEN ST_Distance(occ.geo_location, ref.point) END AS distance
                 FROM occ
@@ -189,6 +190,8 @@ public class ActivitySearchRepository {
                        CASE WHEN e.has_schedule THEN r.address ELSE e.address END AS address,
                        CASE WHEN e.has_schedule THEN r.latitude ELSE e.latitude END AS latitude,
                        CASE WHEN e.has_schedule THEN r.longitude ELSE e.longitude END AS longitude,
+                       -- ADR-0011, phase A : précision du lieu effectif ; à défaut, celle de l'activité.
+                       CASE WHEN e.has_schedule THEN r.coordinate_precision END AS place_precision,
                        CASE WHEN e.has_schedule THEN r.local_start ELSE e.start_date END AS start_date,
                        CASE WHEN e.has_schedule THEN r.local_end ELSE e.end_date END AS end_date,
                        CASE WHEN e.has_schedule THEN r.distance
@@ -201,6 +204,7 @@ public class ActivitySearchRepository {
             )
             SELECT (SELECT COUNT(*) FROM ranked) AS total, page.*,
                    a.title, a.description, a.category,
+                   COALESCE(page.place_precision, a.coordinate_precision) AS coordinate_precision,
                    (SELECT string_agg(c.code, ',' ORDER BY c.code)
                     FROM activity_category ac JOIN category c ON c.id = ac.category_id
                     WHERE ac.activity_id = page.id) AS category_codes
@@ -232,7 +236,7 @@ public class ActivitySearchRepository {
     public record SearchRow(
             long id, String title, String description, String category, List<String> categoryCodes, String city,
             String address, Double latitude, Double longitude, LocalDateTime startDate, LocalDateTime endDate,
-            int relevanceRank, Double distanceMeters) {
+            int relevanceRank, Double distanceMeters, String coordinatePrecision) {
     }
 
     /** Page de résultats et nombre total de résultats (tous filtres appliqués, avant pagination). */
@@ -278,7 +282,8 @@ public class ActivitySearchRepository {
                 toLocalDateTime(rs.getTimestamp("start_date")),
                 toLocalDateTime(rs.getTimestamp("end_date")),
                 rs.getInt("relevance_rank"),
-                (Double) rs.getObject("distance", Double.class));
+                (Double) rs.getObject("distance", Double.class),
+                rs.getString("coordinate_precision"));
     }
 
     private static LocalDateTime toLocalDateTime(Timestamp timestamp) {

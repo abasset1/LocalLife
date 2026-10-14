@@ -2,12 +2,14 @@ package com.locallife.backend.like.api;
 
 import com.locallife.backend.activity.api.ActivityResponse;
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.like.application.LikeService;
 import com.locallife.backend.media.application.ActivityMediaService;
 import com.locallife.backend.media.application.MediaService;
 import com.locallife.backend.media.domain.ActivityMedia;
 import com.locallife.backend.media.domain.Media;
+import com.locallife.backend.place.domain.CoordinatePrecision;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
 import java.util.List;
@@ -39,13 +41,16 @@ public class LikeController {
     private final ActivityMediaService activityMediaService;
     private final MediaService mediaService;
 
+    private final ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
+
     public LikeController(
             LikeService likeService, SourceService sourceService, ActivityMediaService activityMediaService,
-            MediaService mediaService) {
+            MediaService mediaService, ActivityCoordinatePrecisionRepository coordinatePrecisionRepository) {
         this.likeService = likeService;
         this.sourceService = sourceService;
         this.activityMediaService = activityMediaService;
         this.mediaService = mediaService;
+        this.coordinatePrecisionRepository = coordinatePrecisionRepository;
     }
 
     /**
@@ -75,10 +80,14 @@ public class LikeController {
         Map<Long, String> sourceNamesById = sourceService.getAllSources().stream()
                 .collect(Collectors.toMap(Source::id, Source::name));
 
+        Map<Long, CoordinatePrecision> precisions = coordinatePrecisionRepository.findByActivityIds(
+                likedActivities.stream().map(Activity::id).toList());
+
         return likedActivities.stream()
                 .map(activity -> ActivityResponse.from(
                         activity, sourceNamesById.getOrDefault(activity.sourceId(), UNKNOWN_SOURCE_NAME),
-                        null, true, resolveMainImageUrl(activity.id())))
+                        null, true, resolveMainImageUrl(activity.id()))
+                        .withCoordinatePrecision(precisions == null ? null : precisions.get(activity.id())))
                 .collect(Collectors.toList());
     }
 

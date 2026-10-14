@@ -1,5 +1,6 @@
 package com.locallife.backend.place.application;
 
+import com.locallife.backend.place.domain.CoordinatePrecisionPolicy;
 import com.locallife.backend.place.domain.Location;
 import com.locallife.backend.place.infrastructure.LocationRepository;
 import java.util.List;
@@ -75,14 +76,27 @@ public class LocationService {
                 && hasText(candidate.city())
                 && hasText(candidate.postalCode());
         if (hasFullAddress) {
-            return locationRepository.findFirstByAddressAndCityAndPostalCodeOrderByIdAsc(
-                    candidate.address(), candidate.city(), candidate.postalCode());
+            return firstReusable(candidate, locationRepository.findByAddressAndCityAndPostalCodeOrderByIdAsc(
+                    candidate.address(), candidate.city(), candidate.postalCode()));
         }
         if (candidate.latitude() != null && candidate.longitude() != null) {
-            return locationRepository.findFirstByLatitudeAndLongitudeOrderByIdAsc(
-                    candidate.latitude(), candidate.longitude());
+            return firstReusable(candidate, locationRepository.findByLatitudeAndLongitudeOrderByIdAsc(
+                    candidate.latitude(), candidate.longitude()));
         }
         return Optional.empty();
+    }
+
+    /**
+     * Premier lieu existant que la précision géographique autorise à réutiliser (ADR-0011, phase A) : un lieu
+     * approximatif n'est partagé qu'avec un lieu approximatif de même nom et de même commune, voir {@link
+     * CoordinatePrecisionPolicy#mayReuse}. La précision du lieu réutilisé n'est jamais modifiée.
+     */
+    private static Optional<Location> firstReusable(Location candidate, List<Location> existing) {
+        return existing.stream()
+                .filter(location -> CoordinatePrecisionPolicy.mayReuse(
+                        candidate.coordinatePrecision(), candidate.name(), candidate.city(),
+                        location.coordinatePrecision(), location.name(), location.city()))
+                .findFirst();
     }
 
     private boolean hasText(String value) {

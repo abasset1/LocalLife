@@ -1,6 +1,7 @@
 package com.locallife.backend.place.domain;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.PersistenceCreator;
 
 /**
  * Entité de domaine Location (LL-11001, Sprint 11) : un lieu, indépendant
@@ -54,5 +55,32 @@ public record Location(
         String timezone,
         String website,
         String email,
-        String phone) {
+        String phone,
+        CoordinatePrecision coordinatePrecision) {
+
+    /**
+     * Constructeur canonique (ADR-0011, phase A) : une précision absente vaut {@link CoordinatePrecision#UNKNOWN},
+     * jamais {@code null} (colonne {@code NOT NULL}).
+     */
+    @PersistenceCreator
+    public Location {
+        if (coordinatePrecision == null) {
+            coordinatePrecision = CoordinatePrecision.UNKNOWN;
+        }
+    }
+
+    /** Lieu de précision non établie ({@link CoordinatePrecision#UNKNOWN}) : forme antérieure à la phase A. */
+    public Location(
+            Long id, String name, String address, String postalCode, String city, String department, String region,
+            String countryCode, String insee, Double latitude, Double longitude, String timezone, String website,
+            String email, String phone) {
+        this(id, name, address, postalCode, city, department, region, countryCode, insee, latitude, longitude,
+                timezone, website, email, phone, CoordinatePrecision.UNKNOWN);
+    }
+
+    /** Même lieu, avec une autre précision. */
+    public Location withCoordinatePrecision(CoordinatePrecision precision) {
+        return new Location(id, name, address, postalCode, city, department, region, countryCode, insee, latitude,
+                longitude, timezone, website, email, phone, precision);
+    }
 }

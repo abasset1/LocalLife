@@ -7,6 +7,7 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { MAP_BOUNDS_DEBOUNCE_MS, MARSEILLE_COORDINATES } from "./constants";
+import { APPROXIMATE_LOCATION_LABEL, isApproximateLocation } from "./activityUtils";
 import { hasCoordinates } from "./globalSearch";
 import type { Activity, FoodTruck, MapBounds, UserPosition } from "./types";
 
@@ -263,7 +264,10 @@ function ExplorerMap({
                     <Marker
                         eventHandlers={{ click: () => onSelectActivity(activity) }}
                         key={activity.id}
+                        // ADR-0011, phase A : position approximative signalée (marqueur atténué, info-bulle).
+                        opacity={isApproximateLocation(activity) ? 0.55 : 1}
                         position={[activity.latitude, activity.longitude]}
+                        title={isApproximateLocation(activity) ? APPROXIMATE_LOCATION_LABEL : undefined}
                     />
                 ))}
             </MarkerClusterGroup>

@@ -1,4 +1,4 @@
-import { formatCategoryLabels, groupActivitiesByCity } from "./activityUtils";
+import { APPROXIMATE_LOCATION_LABEL, formatCategoryLabels, groupActivitiesByCity, isApproximateLocation } from "./activityUtils";
 import { UNKNOWN_ADDRESS_LABEL } from "./activityUtils";
 import { formatDistance, hasCoordinates, UNKNOWN_PLACE_LABEL } from "./globalSearch";
 import type { Activity, Category } from "./types";
@@ -86,6 +86,7 @@ function ActivityList({
                     <span className="explorer-list-item-title">{activity.title}</span>
                     <span className="explorer-list-item-address">
                         {formatPlace(activity, ordered)}
+                        {isApproximateLocation(activity) ? ` · ${APPROXIMATE_LOCATION_LABEL}` : ""}
                         {distance ? ` · ${distance}` : ""}
                     </span>
                     <span className="explorer-list-item-meta">

@@ -22,19 +22,20 @@ public record ActivitySearchResponse(List<Item> items, int limit, int offset, lo
      * Résultat. Lieu, coordonnées, dates et distance sont ceux du lieu effectif retenu (occurrence la plus
      * proche de la position de référence, sinon la plus tôt) ; champs de lieu {@code null} s'ils sont
      * inconnus. {@code distanceMeters} est {@code null} sans position de référence ou sans position
-     * effective.
+     * effective. {@code coordinatePrecision} : précision géographique de cette position (ADR-0011, phase A).
      */
     public record Item(
             Long id, String title, String description, String category, List<String> categoryCodes, String city,
             String address, Double latitude, Double longitude, LocalDateTime startDate, LocalDateTime endDate,
-            SearchRelevance relevance, Long distanceMeters) {
+            SearchRelevance relevance, Long distanceMeters, String coordinatePrecision) {
 
         static Item from(SearchRow row) {
             return new Item(
                     row.id(), row.title(), row.description(), row.category(), row.categoryCodes(), row.city(),
                     row.address(), row.latitude(), row.longitude(), row.startDate(), row.endDate(),
                     SearchRelevance.fromRank(row.relevanceRank()),
-                    row.distanceMeters() == null ? null : Math.round(row.distanceMeters()));
+                    row.distanceMeters() == null ? null : Math.round(row.distanceMeters()),
+                    row.coordinatePrecision() == null ? "UNKNOWN" : row.coordinatePrecision());
         }
     }
 }

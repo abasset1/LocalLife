@@ -3,8 +3,8 @@ package com.locallife.backend.place.domain;
 /**
  * Précision géographique des coordonnées d'un lieu (ADR-0011, § 2.6 et § 7.1, phase A).
  *
- * <p>Aucune valeur n'est encore persistée : la colonne {@code coordinate_precision} est un projet de
- * migration, non appliqué tant que l'implémentation détaillée n'est pas validée.
+ * <p>Persistée dans {@code location.coordinate_precision} et {@code activity.coordinate_precision} (migration V61),
+ * sous son nom.
  */
 public enum CoordinatePrecision {
 
