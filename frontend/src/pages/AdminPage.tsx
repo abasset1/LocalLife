@@ -5,6 +5,7 @@ import { apiFetch } from "../api/apiClient";
 import { getPayload } from "../auth/authStorage";
 import AdminDeletionSection from "../components/admin/AdminDeletionSection";
 import AdminImportsSection from "../components/admin/AdminImportsSection";
+import AdminPlacesSection from "../components/admin/AdminPlacesSection";
 
 /**
  * LL-EF-004 : représentation d'une activité pour l'interface
@@ -94,13 +95,14 @@ const DRY_RUN_VERDICT_LABELS: Record<SourceDryRunReport["verdict"], string> = {
  * Décision Alex (LL-EF-005) : CRUD générique sur tous les types de source
  * existants, pas seulement OpenAgenda — voir `SOURCE_CONTRACT.md`.
  */
-const SOURCE_TYPES = ["API", "DATATOURISME", "RSS", "MANUAL"];
+const SOURCE_TYPES = ["API", "DATATOURISME", "DATATOURISME_LIEUX", "RSS", "MANUAL"];
 const SOURCE_STATUSES = ["ACTIVE", "INACTIVE", "ERROR"];
 
 /** Sections principales de l'interface d'administration (LL-EF-004 + LL-EF-005, imports). */
 const ADMIN_SECTIONS = [
     { value: "moderation", label: "Modération des activités" },
     { value: "agendas", label: "Agendas" },
+    { value: "places", label: "Lieux" },
     { value: "imports", label: "Imports" },
     { value: "deletion", label: "Suppression" },
 ] as const;
@@ -884,6 +886,12 @@ function AdminPage() {
                     )}
                 </main>
             ) : null}
+
+            {activeSection === "places" && (
+                <main className="admin-content">
+                    <AdminPlacesSection />
+                </main>
+            )}
 
             {activeSection === "deletion" && (
                 <main className="admin-content">

@@ -9,6 +9,7 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import { MAP_BOUNDS_DEBOUNCE_MS, MARSEILLE_COORDINATES } from "./constants";
 import { APPROXIMATE_LOCATION_LABEL, isApproximateLocation } from "./activityUtils";
 import { hasCoordinates } from "./globalSearch";
+import PlacesLayer from "../places/PlacesLayer";
 import type { Activity, FoodTruck, MapBounds, UserPosition } from "./types";
 
 /**
@@ -208,6 +209,8 @@ function MapInvalidateOnResize() {
 interface ExplorerMapProps {
     activities: Activity[];
     foodTrucks: FoodTruck[];
+    /** Couche « Lieux » (ADR-0011, phase B) : lieux permanents publiés de la zone affichée. */
+    showPlaces?: boolean;
     userPosition: UserPosition | null;
     /** Rayon actif (km) : la carte est cadrée dessus autour de `userPosition`, et il est tracé. */
     radiusKm: number | null;
@@ -221,6 +224,7 @@ interface ExplorerMapProps {
 function ExplorerMap({
     activities,
     foodTrucks,
+    showPlaces = false,
     userPosition,
     radiusKm,
     selectedActivity,
@@ -271,6 +275,7 @@ function ExplorerMap({
                     />
                 ))}
             </MarkerClusterGroup>
+            <PlacesLayer enabled={showPlaces} />
             {foodTrucks.map((foodTruck) => (
                 <Marker
                     icon={FOOD_TRUCK_MARKER_ICON}
