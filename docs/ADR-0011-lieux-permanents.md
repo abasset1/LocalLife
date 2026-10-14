@@ -11,9 +11,9 @@ documentaire.
 
 | Phase | Statut |
 |---|---|
-| A — précision géographique | quatre points validés le 13/10/2026 ; conception finalisée, règles implémentées et testées **sans changement de schéma, non branchées** ; migration testée sur base jetable seulement ; hypothèses restantes au § 7.1.6 |
-| B — lieux permanents | liste blanche explicite et modération décidées le 13/10/2026 ; mécanisme, liste blanche mesurée et impacts proposés au § 7.2, **non implémentés** |
-| C — marchés et horaires | ontologie reconstituée à partir des données (§ 7.3) : jours de marché **présents dans le N-Triples** (dates d'une séance ou `appliesOnDay`), perdus dans le CSV ; part du Vaucluse non mesurée ; compte diffuseur à décider |
+| A — précision géographique | **validée le 14/10/2026** (§ 7.1.7) : implémentation autorisée, migration déployée seulement après validation finale de la PR |
+| B — lieux permanents | **décisions du 14/10/2026** (§ 7.2.6) : groupe 1, groupe 2 exclu, PACA, deux règles de modération ; non implémentée |
+| C — marchés et horaires | ontologie reconstituée à partir des données (§ 7.3) : jours de marché **présents dans le N-Triples** (dates d'une séance ou `appliesOnDay`), perdus dans le CSV ; **compte diffuseur décidé le 14/10/2026** (§ 7.3.6), mesure à faire avant tout import |
 | D — liens de doublons | mesure sans écriture outillée et étalonnée (0 faux positif sur 1 probable, 3 sur 14 ambiguës) ; mesure sur les données de l'application à faire ; règle **non branchée** |
 
 Révision du 13/10/2026 (retour d'audit de la PR #104) : précision
@@ -535,6 +535,26 @@ en bêta et en production avant de valider le rattrapage.
 7. **Géocodage des contributions (A3/A4)** : hors de cette phase. Les
    contributions restent `UNKNOWN`.
 
+#### 7.1.7 Décisions d'Alex (14/10/2026)
+
+Recommandations du § 7.1.6 validées :
+
+1. Liste des formulations génériques conservée telle quelle ; élargie
+   seulement après relecture de la mesure en bêta
+   (`phase_a_precision_mesure.sql`).
+2. Activité à plusieurs lieux dont le point affiché n'est pas celui du lieu
+   approximatif : reste `UNKNOWN`.
+3. Lieux partagés existants : pas de séparation forcée ; l'ancien lieu peut
+   rester orphelin.
+4. Alertes : envoyées pour une activité approximative, avec la mention
+   « emplacement approximatif ».
+5. Application mobile : mise à jour plus tard ; le champ ajouté à l'API est
+   ignoré par les versions publiées.
+6. Géocodage des contributions : hors de cette phase.
+
+Implémentation autorisée (migration, import, API, affichage web). La
+migration n'est déployée qu'après validation finale de la PR.
+
 ### 7.2 Phase B — lieux permanents et provenance
 
 **Statut : proposition pour décision (13/10/2026). Rien n'est implémenté.**
@@ -698,6 +718,19 @@ phase A).
 4. Périmètre de départ : **Vaucluse seul** (proposition).
 5. Qui modère, et à quel rythme : la file initiale est de 418 lieux.
 
+#### 7.2.6 Décisions d'Alex (14/10/2026)
+
+1. **Groupe 1 validé** (46 types).
+2. **Groupe 2 exclu au départ** ; à revoir après un premier cycle de
+   modération.
+3. Règles 4 (refus durable) et 5 (retour en attente sur changement
+   important) **conservées**.
+4. Périmètre de départ : **toute la région PACA** (4 741 lieux à modérer au
+   départ) : les actions groupées et les filtres de la file de modération
+   (type, département, signalements) sont donc indispensables dès la
+   première version.
+5. Modération : **les administrateurs** (rôle `ADMIN`).
+
 ### 7.3 Phase C — marchés et horaires : ontologie et N-Triples (13/10/2026)
 
 **Statut : étude terminée dans les limites fixées (aucun compte, aucun
@@ -771,7 +804,7 @@ comparables, une date par séance ou une période récurrente avec son jour.
 4. Fraîcheur : les dates d'un jour couvrent l'année en cours ; leur
    prolongation l'année suivante n'est pas observée.
 
-#### 7.3.5 Intérêt d'un compte diffuseur DATAtourisme (à décider)
+#### 7.3.5 Intérêt d'un compte diffuseur DATAtourisme
 
 Un compte gratuit sur la plateforme diffuseur permet de créer un **flux
 filtré** (type `Market`, département 84) au format JSON, où chaque marché
@@ -783,7 +816,14 @@ plateforme à relire. Alternative sans compte : traitement complet ponctuel
 du N-Triples sur un serveur au débit normal (deux passes, quelques
 heures), non autorisé à ce stade.
 
-#### 7.3.6 Conséquence pour la conception (non implémentée)
+#### 7.3.6 Décision d'Alex (14/10/2026)
+
+Créer un compte diffuseur DATAtourisme au nom du projet, avec un flux
+« Marchés, Vaucluse » en JSON, aux conditions du § 7.3.5 : conditions
+d'utilisation relues, clé dans les paramètres de l'environnement, mesure
+des jours de marché **avant** toute décision d'import.
+
+#### 7.3.7 Conséquence pour la conception (non implémentée)
 
 La table du projet (`location_opening_hours`) reste adaptée ; ses lignes
 viendraient des périodes (jour de la semaine déduit ou `appliesOnDay`,
