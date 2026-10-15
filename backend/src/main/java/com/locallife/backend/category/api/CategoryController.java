@@ -10,8 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Contrôleur REST pour la consultation du référentiel des catégories
- * (CAT-001). Endpoint de consultation uniquement — pas d'écriture (les 9
- * catégories V1 sont fixées par migration, voir {@code CategoryRepository}).
+ * (CAT-001). Endpoint de consultation uniquement — l'écriture (ajout,
+ * désactivation) passe par {@link AdminCategoryController}, réservé aux
+ * administrateurs.
  *
  * Expose {@link CategoryResponse} (code + label/description résolus),
  * jamais l'entité {@code Category} brute : conformément à la règle

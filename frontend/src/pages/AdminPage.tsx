@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 import { getPayload } from "../auth/authStorage";
+import AdminCategoriesSection from "../components/admin/AdminCategoriesSection";
 import AdminDeletionSection from "../components/admin/AdminDeletionSection";
 import AdminImportsSection from "../components/admin/AdminImportsSection";
 import AdminPlaceMatchesSection from "../components/admin/AdminPlaceMatchesSection";
@@ -105,6 +106,7 @@ const ADMIN_SECTIONS = [
     { value: "agendas", label: "Agendas" },
     { value: "places", label: "Lieux" },
     { value: "placeMatches", label: "Rapprochements" },
+    { value: "categories", label: "Catégories" },
     { value: "imports", label: "Imports" },
     { value: "deletion", label: "Suppression" },
 ] as const;
@@ -898,6 +900,12 @@ function AdminPage() {
             {activeSection === "placeMatches" && (
                 <main className="admin-content">
                     <AdminPlaceMatchesSection />
+                </main>
+            )}
+
+            {activeSection === "categories" && (
+                <main className="admin-content">
+                    <AdminCategoriesSection />
                 </main>
             )}
 

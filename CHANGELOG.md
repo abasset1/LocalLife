@@ -7,6 +7,12 @@
 - Contributions : sans date fournie, le début par défaut est « maintenant » à Paris, et non plus dans le fuseau du serveur (UTC). Après 22 h UTC, une contribution du jour passait pour une activité de la veille et n'apparaissait pas sur la carte.
 - Tests : `ActivityRepositoryIntegrationTest` et `ImportedActivityVisibilityIntegrationTest` calculent « maintenant » à Paris ; ils échouaient en CI entre 22 h et minuit UTC.
 
+### Administration : catégories et mots-clés
+- API d'administration (`/api/v1/admin/categories`, rôle ADMIN) : liste de toutes les catégories (actives ou non) avec tous leurs mots-clés ; ajout d'une catégorie (code `SCREAMING_SNAKE_CASE`, libellé et description fr-FR) ; modification du libellé, de la description et activation / désactivation ; ajout d'un mot-clé (portée « titres et sources » ou « sources seulement », un mot-clé désactivé identique est réactivé) ; activation / désactivation et portée d'un mot-clé. Aucune suppression ; pas de migration.
+- Une catégorie désactivée n'est plus proposée (filtres, préférences, alertes) ni attribuée par la classification ; les activités qui la portent la gardent.
+- Contributions : une catégorie désactivée est refusée (400 « Catégorie désactivée »). En modification, elle reste acceptée si l'activité la porte déjà, pour ne pas bloquer la correction du reste. Les changements s'appliquent aux prochains imports (la version du référentiel change).
+- Administration : onglet « Catégories » (ajout de catégorie, désactivation / réactivation après confirmation, mots-clés par catégorie avec ajout, désactivation et réactivation, recherche de mot-clé).
+
 ### Lieux permanents (ADR-0011, phase B) : backend et interface
 - **Migration V62** : colonnes de lieu permanent sur `location` (type, statut de modération, description, dates de publication et de modération), table de provenance `location_source`, source « DATAtourisme PACA — lieux » créée **inactive**. Les lieux d'événement existants ne changent pas.
 - Import des lieux DATAtourisme de PACA selon la liste blanche (46 types ; 4 771 lieux, dont 418 dans le Vaucluse) : tout nouveau lieu est **en attente de modération** ; refus durable ; retour en attente si un lieu publié bouge de plus de 100 m, perd son adresse ou sort de la liste ; archivage des lieux disparus avec garde-fou ; essai à blanc sans écriture ; activation seulement après un essai réussi.
