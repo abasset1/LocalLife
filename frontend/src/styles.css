@@ -3322,3 +3322,14 @@ body {
 .admin-keyword-inactive span {
     text-decoration: line-through;
 }
+
+/* ADR-0011, § 7.2.13 : lignes d'un même lieu dans l'écran des doublons. */
+.admin-duplicate-locations {
+    margin: 0.5rem 0 0;
+    padding-left: 1.1rem;
+    font-size: 0.9rem;
+}
+
+.admin-duplicate-locations li {
+    margin-bottom: 0.25rem;
+}

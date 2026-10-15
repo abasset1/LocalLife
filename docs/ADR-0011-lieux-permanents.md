@@ -12,7 +12,7 @@ documentaire.
 | Phase | Statut |
 |---|---|
 | A — précision géographique | **validée le 14/10/2026** (§ 7.1.7) ; **implémentée et testée** (§ 7.1.8, migration V61) ; déployée après validation de la PR |
-| B — lieux permanents | **décisions du 14/10/2026** (§ 7.2.6) ; **implémentée et testée** : backend (§ 7.2.7, migration V62) et interface (§ 7.2.8) ; rapprochement avec les lieux d'événement reporté |
+| B — lieux permanents | **décisions du 14/10/2026** (§ 7.2.6) ; **implémentée et testée** : backend (§ 7.2.7, V62), interface (§ 7.2.8), rapprochement et lien réversible (§ 7.2.9-7.2.10, V63), fiche et liste (§ 7.2.11-7.2.12), doublons de lieux d'événement (§ 7.2.13) ; non déployée |
 | C — marchés et horaires | ontologie reconstituée à partir des données (§ 7.3) : jours de marché **présents dans le N-Triples** (dates d'une séance ou `appliesOnDay`), perdus dans le CSV ; **compte diffuseur décidé le 14/10/2026** (§ 7.3.6), mesure à faire avant tout import |
 | D — liens de doublons | mesure sans écriture outillée et étalonnée (0 faux positif sur 1 probable, 3 sur 14 ambiguës) ; mesure sur les données de l'application à faire ; règle **non branchée** |
 
@@ -1212,28 +1212,46 @@ nom du lieu, sans adresse » du collecteur DATAtourisme.
 
 ## 6. Décisions et blocages pour Alex
 
-1. **Valider ce modèle cible** (§ 2.2) avant toute migration.
-2. **Défaut 1.3.2 (doublons OpenAgenda / DATAtourisme)** : stratégie
-   acceptée (§ 2.9) ; règle implémentée et testée, non branchée. Reste à
-   valider la phase D (§ 7.4) après mesure sur les données de production.
-   En attendant, une source DATAtourisme ne s'active qu'après un essai à
-   blanc réussi ; celle de la migration V60, fusionnée active, est à
-   traiter selon `DATAGOUV_SOURCES.md` (« Migration V60 »).
-3. **Défaut 1.3.3 (fenêtre de 7 jours)** : corrigé dans la PR #104.
-4. **Précision géographique** (§ 2.6) : valider les trois valeurs, la
-   règle d'affichage et l'absence de rattrapage des données existantes.
-5. **Marchés** (§ 2.7) : valider le principe « lieu `MARKET` + horaires
-   d'ouverture, jours à confirmer », et décider du traitement ponctuel du
-   fichier N-Triples complet (§ 2.8).
-6. **Mesure du recouvrement réel OpenAgenda / DATAtourisme, et de la
-   couverture JEP / Fête de la science** : non réalisée faute d'accès ;
-   accès nécessaires et vérifications préparées dans
-   `docs/02_Architecture/VERIFICATION_JEP_FDS.md`.
-7. **Types de lieux DATAtourisme à importer** (liste blanche, § 2.5).
-8. **Liaison lieux d'événement ↔ lieux permanents** : décidée le 14/10/2026
-   (lien réversible, `V63`, par un administrateur) et implémentée (§ 7.2.10).
+État au 15/10/2026. « Implémenté » veut dire fusionné dans `main` et testé ;
+rien de cet ADR n'est encore déployé (les migrations V61 à V63 s'appliqueront
+au prochain déploiement du backend).
 
-Non décidés, hors de cet ADR : couverture OpenAgenda des Journées
-européennes du patrimoine et de la Fête de la science (vérification
-préparée) ; les food trucks restent gérés manuellement jusqu'à nouvelle
-décision.
+### 6.1 Décidé et implémenté
+
+| Sujet | Décision | Où |
+|---|---|---|
+| Modèle cible : `Location` sans entité concurrente | principes acceptés le 13/10/2026 | § 2.2 |
+| Défaut 1.3.3 (fenêtre de 7 jours) | corrigé | PR #104 |
+| Précision géographique (phase A) | validée le 14/10/2026 | § 7.1.7-7.1.8, V61 |
+| Lieux permanents (phase B) : liste blanche du groupe 1, toute la région PACA, modération par les administrateurs, refus durable | décidés le 14/10/2026 | § 7.2.6-7.2.8, V62 |
+| Lien lieu d'événement → lieu permanent, réversible, posé par un administrateur | décidé le 14/10/2026 | § 7.2.9-7.2.10, V63 |
+| Fiche et liste des lieux, site et application | demandées le 14/10/2026 | § 7.2.11-7.2.12 |
+| Doublons de lieux d'événement : réutilisation à l'import (option A) | décidée le 15/10/2026 | § 7.2.13 |
+
+### 6.2 Décidé, en attente d'un élément extérieur
+
+| Sujet | Bloqué par | Préparé |
+|---|---|---|
+| Marchés et jours de marché (phase C) | compte diffuseur DATAtourisme et premier flux « Marchés, Vaucluse » à examiner (décision du 14/10/2026) | § 7.3 |
+| Doublons OpenAgenda / DATAtourisme (phase D, défaut 1.3.2) | mesure sur les données de l'application (bêta) ; règle implémentée et testée, **non branchée** | § 2.9, § 7.4, `VERIFICATION_DOUBLONS.md` |
+| Couverture des Journées du patrimoine et de la Fête de la science | nouvelle clé OpenAgenda dans l'environnement du serveur, et export des activités de la bêta (décision du 13/10/2026 : option A, exports fournis par l'administrateur) | `VERIFICATION_JEP_FDS.md` |
+
+### 6.3 À décider
+
+| Sujet | Options | Recommandation |
+|---|---|---|
+| Doublons de lieux d'événement déjà en base | B : lien réversible (migration) ; C : réaffectation des programmations avec journal ; ou les laisser | les laisser tant qu'ils ne gênent pas : le lien vers les lieux permanents s'en accommode (§ 7.2.13) |
+| Doublons probables de lieux d'événement | relecture humaine dans l'onglet « Doublons de lieux » ; aucun traitement automatique | — |
+| Groupe 2 de la liste blanche (exclu au départ) | à rouvrir après les premières modérations | mesurer le taux de refus par type d'abord (§ 7.2.3) |
+
+### 6.4 Points de vigilance
+
+- Source DATAtourisme de la migration V60 : à garder inactive tant qu'un
+  essai à blanc n'a pas été fait (`DATAGOUV_SOURCES.md`, « Migration V60 »).
+- Clés OpenAgenda exposées (conversation et ancien `backend/.env.example`) :
+  à désactiver dans le compte OpenAgenda ; aucune clé dans le dépôt.
+- Application mobile : nouveau build nécessaire (dépendance native ajoutée) ;
+  rendu non vérifié sur appareil.
+
+Hors de cet ADR : les food trucks restent gérés manuellement jusqu'à
+nouvelle décision.
