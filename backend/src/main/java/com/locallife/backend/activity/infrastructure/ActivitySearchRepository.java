@@ -92,7 +92,7 @@ public class ActivitySearchRepository {
                     SELECT (o.start_at AT TIME ZONE tz.zone)::date AS day_start,
                            (COALESCE(o.end_at, o.start_at) AT TIME ZONE tz.zone)::date AS day_end) d
                 WHERE o.status <> 'CANCELLED'
-                  AND ((CAST(:date AS date) IS NULL AND d.day_end >= CURRENT_DATE)
+                  AND ((CAST(:date AS date) IS NULL AND d.day_end >= (now() AT TIME ZONE :defaultTimezone)::date)
                        OR (CAST(:date AS date) IS NOT NULL AND CAST(:dateTo AS date) IS NULL
                            AND CAST(:date AS date) BETWEEN d.day_start AND d.day_end)
                        OR (CAST(:date AS date) IS NOT NULL AND CAST(:dateTo AS date) IS NOT NULL
@@ -113,7 +113,7 @@ public class ActivitySearchRepository {
                 WHERE CASE
                     WHEN sc.activity_id IS NOT NULL THEN op.activity_id IS NOT NULL
                     ELSE (CAST(:date AS date) IS NULL
-                          AND COALESCE(p.end_date, p.start_date)::date >= CURRENT_DATE)
+                          AND COALESCE(p.end_date, p.start_date)::date >= (now() AT TIME ZONE :defaultTimezone)::date)
                       OR (CAST(:date AS date) IS NOT NULL AND CAST(:dateTo AS date) IS NULL
                           AND CAST(:date AS date) BETWEEN p.start_date::date
                               AND COALESCE(p.end_date, p.start_date)::date)

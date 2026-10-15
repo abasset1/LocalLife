@@ -709,9 +709,10 @@ public class ActivityService {
      * {@code null} ; ajoutés comme paramètres du formulaire à la demande
      * d'Alex, chacun optionnel (chaîne vide ou {@code null} acceptée)) :
      * <ul>
-     *   <li>{@code startDate} absent → valeur par défaut {@link
-     *       LocalDateTime#now()} (« sysdate »), comportement historique
-     *       inchangé pour un appelant qui ne fournit rien ;</li>
+     *   <li>{@code startDate} absent → valeur par défaut « maintenant »
+     *       à Paris ({@link RecurringContributionService#CONTRIBUTION_ZONE}),
+     *       pas dans le fuseau de la JVM : les dates d'activité sont des
+     *       heures locales de Paris ;</li>
      *   <li>{@code endDate} absent → valeur par défaut le début de la
      *       journée de {@code startDate} (« trunc(date de début) », au
      *       sens SQL du terme : même jour, heure remise à minuit) — pas
@@ -766,7 +767,7 @@ public class ActivityService {
             throw new IllegalArgumentException("Au moins une catégorie est obligatoire.");
         }
         LocalDateTime resolvedStartDate = parseFlexibleDate("startDate", startDate)
-                .orElseGet(LocalDateTime::now);
+                .orElseGet(() -> LocalDateTime.now(RecurringContributionService.CONTRIBUTION_ZONE));
         LocalDateTime resolvedEndDate = parseFlexibleDate("endDate", endDate)
                 .orElseGet(() -> resolvedStartDate.toLocalDate().atStartOfDay());
         Coordinates coordinates = geocodingService.geocode(address);
@@ -801,7 +802,7 @@ public class ActivityService {
             throw new IllegalArgumentException("Au moins une catégorie est obligatoire.");
         }
         LocalDateTime resolvedStartDate = parseFlexibleDate("startDate", startDate)
-                .orElseGet(LocalDateTime::now);
+                .orElseGet(() -> LocalDateTime.now(RecurringContributionService.CONTRIBUTION_ZONE));
         LocalDateTime resolvedEndDate = parseFlexibleDate("endDate", endDate)
                 .orElseGet(() -> resolvedStartDate.toLocalDate().atStartOfDay());
         boolean sameAddress = address != null && existing.address() != null

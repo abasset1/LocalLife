@@ -72,7 +72,7 @@ public class ActivityAlertRepository {
                             ST_SetSRID(ST_MakePoint(al.longitude, al.latitude), 4326)::geography,
                             al.radius_km * 1000)
                       AND (COALESCE(a.end_date, a.start_date) IS NULL
-                           OR COALESCE(a.end_date, a.start_date) >= CURRENT_DATE)))
+                           OR COALESCE(a.end_date, a.start_date) >= (now() AT TIME ZONE 'Europe/Paris')::date)))
             ORDER BY a.start_date NULLS LAST, a.id
             LIMIT ?
             """;

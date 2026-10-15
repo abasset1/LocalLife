@@ -15,6 +15,7 @@ import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -55,6 +56,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Import(SingleMockCollectorConfig.class)
 @Transactional
 class ImportedActivityVisibilityIntegrationTest {
+
+    /** Dates collectées = heures locales de Paris : « maintenant » se calcule à Paris, pas en UTC (CI). */
+    private static final ZoneId PARIS_ZONE = ZoneId.of("Europe/Paris");
 
     @Autowired
     private ImportService importService;
@@ -109,7 +113,7 @@ class ImportedActivityVisibilityIntegrationTest {
     void importedActivity_ShouldAppearInNearbySearch() {
         // Given : LL-9001 — l'activité doit être "en cours aujourd'hui" pour apparaître sans
         // paramètre 'date' explicite (sinon désormais filtrée par défaut, voir ActivityService).
-        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now());
+        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now(PARIS_ZONE));
 
         // When : recherche géographique (LL-4002/LL-4003), rayon 5 km autour du point exact.
         List<Activity> results = activityService.findNearby(
@@ -122,7 +126,7 @@ class ImportedActivityVisibilityIntegrationTest {
     @Test
     void importedActivity_ShouldAppearInBoundingBoxSearch() {
         // Given : voir importedActivity_ShouldAppearInNearbySearch (LL-9001).
-        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now());
+        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now(PARIS_ZONE));
 
         // When : recherche par zone cartographique (LL-4006/LL-4007), zone englobant Marseille.
         List<Activity> results = activityService.findWithinBounds(
@@ -135,7 +139,7 @@ class ImportedActivityVisibilityIntegrationTest {
     @Test
     void importedActivity_ShouldBeFilterableByCategory() {
         // Given : voir importedActivity_ShouldAppearInNearbySearch (LL-9001).
-        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now());
+        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now(PARIS_ZONE));
 
         // When / Then : filtre catégorie correspondant (LL-4004).
         List<Activity> matching = activityService.findNearby(
@@ -172,7 +176,7 @@ class ImportedActivityVisibilityIntegrationTest {
         // vérifie qu'une activité importée (PUBLISHED) apparaît bien sans qu'il faille rien demander de
         // particulier — c'est précisément le seul statut que ces endpoints publics retournent désormais.
         // Voir aussi importedActivity_ShouldAppearInNearbySearch pour la date (LL-9001).
-        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now());
+        importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now(PARIS_ZONE));
 
         // When / Then
         List<Activity> matching = activityService.findNearby(
@@ -183,7 +187,7 @@ class ImportedActivityVisibilityIntegrationTest {
     @Test
     void importedActivity_ShouldBeConsultableById_LikeAnyOtherActivity() {
         // Given
-        Activity imported = importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now().plusDays(1));
+        Activity imported = importOneActivity(uniqueSourceName(), "marché", LocalDateTime.now(PARIS_ZONE).plusDays(1));
 
         // When : consultation individuelle (LL-1007), même endpoint qu'une activité manuelle.
         Optional<Activity> found = activityService.findById(imported.id());

@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Correctif : « aujourd'hui » calculé à Paris
+- Carte (fenêtre des 7 prochains jours), recherche, activités d'un lieu et alertes : la date du jour était `CURRENT_DATE`, prise dans le fuseau de la session PostgreSQL (UTC), alors que les dates des activités et des occurrences sont comparées en heure de Paris. Entre minuit et 1 h ou 2 h du matin à Paris, la fenêtre restait sur la veille (activités terminées la veille encore affichées). Remplacée par la date du jour à Paris.
+- Contributions : sans date fournie, le début par défaut est « maintenant » à Paris, et non plus dans le fuseau du serveur (UTC). Après 22 h UTC, une contribution du jour passait pour une activité de la veille et n'apparaissait pas sur la carte.
+- Tests : `ActivityRepositoryIntegrationTest` et `ImportedActivityVisibilityIntegrationTest` calculent « maintenant » à Paris ; ils échouaient en CI entre 22 h et minuit UTC.
+
 ### Administration : catégories et mots-clés
 - API d'administration (`/api/v1/admin/categories`, rôle ADMIN) : liste de toutes les catégories (actives ou non) avec tous leurs mots-clés ; ajout d'une catégorie (code `SCREAMING_SNAKE_CASE`, libellé et description fr-FR) ; modification du libellé, de la description et activation / désactivation ; ajout d'un mot-clé (portée « titres et sources » ou « sources seulement », un mot-clé désactivé identique est réactivé) ; activation / désactivation et portée d'un mot-clé. Aucune suppression ; pas de migration.
 - Une catégorie désactivée n'est plus proposée (filtres, préférences, alertes) ni attribuée par la classification ; les activités qui la portent la gardent.
