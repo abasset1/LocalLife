@@ -51,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.doThrow;
@@ -120,6 +121,10 @@ class ActivityControllerTest {
      */
     private static final Category CULTURE_CATEGORY =
             new Category(1L, "CULTURE", true, null, null, Set.of());
+
+    /** Catégorie désactivée depuis l'administration : refusée pour une nouvelle contribution. */
+    private static final Category INACTIVE_SPORT_CATEGORY =
+            new Category(5L, "SPORT", false, null, null, Set.of());
 
     @Mock
     private HttpServletRequest httpRequest;
@@ -403,6 +408,29 @@ class ActivityControllerTest {
     }
 
     @Test
+    void updateActivity_ShouldKeepAnInactiveCategoryAlreadyAttached_ButRejectANewOne() {
+        Activity updated = new Activity(1L, "Food truck", "Burgers", null, 43.29, 5.37,
+                LocalDateTime.now(), null, "PUBLISHED", 1L, null, null, null, null, null, null, null, null, null, 7L);
+        when(categoryRepository.findByCode("SPORT")).thenReturn(Optional.of(INACTIVE_SPORT_CATEGORY));
+        when(activityService.findCategoryIds(List.of(1L))).thenReturn(Map.of(1L, List.of(5L)));
+        when(activityService.findCategoryIds(List.of(2L))).thenReturn(Map.of(2L, List.of(1L)));
+        when(contributionService.update(1L, 7L, false, "Food truck", "Burgers", null, "1 rue de la Paix, Marseille",
+                null, null, List.of(5L), null))
+                .thenReturn(Optional.of(updated));
+        ActivityController.CreateActivityRequest request = new ActivityController.CreateActivityRequest(
+                "Food truck", "Burgers", null, "1 rue de la Paix, Marseille",
+                null, null, null, null, null, "SPORT");
+
+        ResponseEntity<Object> kept = activityController.updateActivity(1L, request, authentication, httpRequest);
+        ResponseEntity<Object> rejected = activityController.updateActivity(2L, request, authentication, httpRequest);
+
+        assertEquals(HttpStatus.OK, kept.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, rejected.getStatusCode());
+        verify(contributionService, never()).update(eq(2L), any(), anyBoolean(), any(), any(), any(), any(), any(),
+                any(), any(), any());
+    }
+
+    @Test
     void updateActivity_ShouldReturnForbidden_WhenRequesterIsNotTheCreator() {
         when(categoryRepository.findByCode("CULTURE")).thenReturn(Optional.of(CULTURE_CATEGORY));
         when(contributionService.update(any(), any(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(),
@@ -500,6 +528,22 @@ class ActivityControllerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void createActivity_ShouldReturnBadRequest_WhenACategoryIsInactive() {
+        when(categoryRepository.findByCode("SPORT")).thenReturn(Optional.of(INACTIVE_SPORT_CATEGORY));
+
+        ResponseEntity<Object> response = activityController.createActivity(
+                new ActivityController.CreateActivityRequest(
+                        "Pique-nique", "Pique-nique au parc", null, "1 rue de la Paix, Marseille",
+                        null, null, null, null, null,
+                        null, List.of("SPORT")),
+                authentication, httpRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("Catégorie désactivée : SPORT", ((ErrorResponse) response.getBody()).message());
+        verify(activityService, never()).createActivity(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

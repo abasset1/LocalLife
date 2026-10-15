@@ -692,7 +692,7 @@ public class ActivityController {
         JwtAuthentication jwtAuthentication = (JwtAuthentication) authentication;
         try {
             validateContactLinks(request);
-            List<Long> categoryIds = resolveRequestedCategoryIds(request);
+            List<Long> categoryIds = resolveRequestedCategoryIds(request, id);
             RecurrenceRequest recurrence = request.recurrence();
             Optional<Activity> updated = contributionService.update(
                     id, jwtAuthentication.getUserId(), jwtAuthentication.getRole() == Role.ADMIN,
@@ -777,10 +777,22 @@ public class ActivityController {
     /**
      * Catégories choisies par le contributeur : {@code categoryCodes} s'il contient au moins un
      * code non blanc, sinon l'ancien {@code categoryCode} unique. Doublons ignorés, ordre conservé.
+     * Une catégorie désactivée depuis l'administration est refusée.
      *
-     * @throws IllegalArgumentException si aucun code n'est fourni ou si l'un d'eux est inconnu
+     * @throws IllegalArgumentException si aucun code n'est fourni ou si l'un d'eux est inconnu ou inactif
      */
     private List<Long> resolveRequestedCategoryIds(CreateActivityRequest request) {
+        return resolveRequestedCategoryIds(request, null);
+    }
+
+    /**
+     * Comme {@link #resolveRequestedCategoryIds(CreateActivityRequest)}, mais pour la modification d'une
+     * contribution : une catégorie désactivée que l'activité porte déjà reste acceptée, pour que son créateur
+     * puisse corriger le reste sans devoir changer de catégorie.
+     *
+     * @param activityId activité modifiée, {@code null} pour une création
+     */
+    private List<Long> resolveRequestedCategoryIds(CreateActivityRequest request, Long activityId) {
         List<String> codes = request.categoryCodes() == null ? List.of() : request.categoryCodes().stream()
                 .filter(this::hasText)
                 .map(String::trim)
@@ -790,10 +802,20 @@ public class ActivityController {
             codes = Collections.singletonList(request.categoryCode());
         }
         List<Long> categoryIds = new ArrayList<>();
+        List<Long> currentCategoryIds = null;
         for (String code : codes) {
-            categoryIds.add(categoryRepository.findByCode(code)
-                    .orElseThrow(() -> new IllegalArgumentException("Catégorie inconnue : " + code))
-                    .id());
+            Category category = categoryRepository.findByCode(code)
+                    .orElseThrow(() -> new IllegalArgumentException("Catégorie inconnue : " + code));
+            if (!category.active()) {
+                if (activityId != null && currentCategoryIds == null) {
+                    currentCategoryIds = activityService.findCategoryIds(List.of(activityId))
+                            .getOrDefault(activityId, List.of());
+                }
+                if (currentCategoryIds == null || !currentCategoryIds.contains(category.id())) {
+                    throw new IllegalArgumentException("Catégorie désactivée : " + code);
+                }
+            }
+            categoryIds.add(category.id());
         }
         return categoryIds;
     }

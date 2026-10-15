@@ -6,10 +6,10 @@ import java.util.Optional;
 import org.springframework.data.repository.Repository;
 
 /**
- * Repository Category — uniquement des opérations de lecture (CAT-001 ne
- * demande pas de CRUD : les 9 catégories V1 sont créées une fois pour
- * toutes par migration, pas par une API d'écriture — voir
- * {@code V32__refactor_category_referential.sql}).
+ * Repository Category — uniquement des opérations de lecture. Les catégories
+ * V1 sont créées par migration ({@code V32__refactor_category_referential.sql}) ;
+ * l'administration en ajoute ou en désactive via {@link CategoryAdminRepository},
+ * seul point d'écriture.
  *
  * Étend {@link Repository} (interface marqueur, sans méthode) plutôt que
  * {@code CrudRepository} : aucune méthode d'écriture n'est disponible, même

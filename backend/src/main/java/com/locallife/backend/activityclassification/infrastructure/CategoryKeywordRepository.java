@@ -5,8 +5,8 @@ import java.util.List;
 import org.springframework.data.repository.Repository;
 
 /**
- * Lecture seule des mots-clés métier (comme {@code CategoryRepository}) : ils sont gérés par
- * migration, pas par une API d'écriture.
+ * Lecture seule des mots-clés métier (comme {@code CategoryRepository}). Ils sont créés par migration ou
+ * depuis l'administration ({@code CategoryAdminRepository}, seul point d'écriture).
  */
 public interface CategoryKeywordRepository extends Repository<CategoryKeyword, Long> {
 
