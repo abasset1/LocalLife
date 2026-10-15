@@ -5,6 +5,7 @@ import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.place.api.AdminPlaceResponse.BulkModerationRequest;
 import com.locallife.backend.place.api.AdminPlaceResponse.ModerationResult;
 import com.locallife.backend.place.application.PlaceImportReport;
+import com.locallife.backend.place.application.EventLocationDuplicateReportService;
 import com.locallife.backend.place.application.PlaceImportService;
 import com.locallife.backend.place.application.PlaceLinkService;
 import com.locallife.backend.place.application.PlaceMatchReportService;
@@ -51,15 +52,41 @@ public class AdminPlaceController {
     private final SourceService sourceService;
     private final PlaceMatchReportService matchReportService;
     private final PlaceLinkService linkService;
+    private final EventLocationDuplicateReportService duplicateReportService;
 
     public AdminPlaceController(
             PlaceModerationService moderationService, PlaceImportService importService, SourceService sourceService,
-            PlaceMatchReportService matchReportService, PlaceLinkService linkService) {
+            PlaceMatchReportService matchReportService, PlaceLinkService linkService,
+            EventLocationDuplicateReportService duplicateReportService) {
         this.moderationService = moderationService;
         this.importService = importService;
         this.sourceService = sourceService;
         this.matchReportService = matchReportService;
         this.linkService = linkService;
+        this.duplicateReportService = duplicateReportService;
+    }
+
+    @Operation(summary = "Doublons de lieux d'événement (lecture seule)",
+            description = "Mesure sans écriture (ADR-0011, § 7.2.13) : lieux d'événement qui désignent un même lieu "
+                    + "réel, regroupés en grappes CERTAIN ou PROBABLE, avec les totaux. Aucun lieu n'est modifié.")
+    @GetMapping("/event-location-duplicates")
+    public ResponseEntity<Object> eventLocationDuplicates(
+            @RequestParam(required = false) String department,
+            @Parameter(description = "CERTAIN ou PROBABLE.") @RequestParam(required = false) String level,
+            @RequestParam(required = false) Integer limit,
+            HttpServletRequest request) {
+        PlaceMatcher.Level onlyLevel;
+        try {
+            onlyLevel = level == null ? null : PlaceMatcher.Level.valueOf(level.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            return error(HttpStatus.BAD_REQUEST, "Niveau inconnu : " + level + ".", request);
+        }
+        int effectiveLimit = limit == null ? DEFAULT_LIMIT : limit;
+        if (effectiveLimit < 1 || effectiveLimit > MAX_LIMIT) {
+            return error(HttpStatus.BAD_REQUEST, "'limit' doit être entre 1 et " + MAX_LIMIT + ".", request);
+        }
+        return ResponseEntity.ok(EventLocationDuplicateResponse.from(
+                duplicateReportService.report(blankToNull(department), onlyLevel, effectiveLimit)));
     }
 
     /** Liaisons demandées (paires du rapport de rapprochement). */
