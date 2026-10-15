@@ -6,6 +6,7 @@ import { getPayload } from "../auth/authStorage";
 import AdminCategoriesSection from "../components/admin/AdminCategoriesSection";
 import AdminDeletionSection from "../components/admin/AdminDeletionSection";
 import AdminImportsSection from "../components/admin/AdminImportsSection";
+import AdminEventLocationDuplicatesSection from "../components/admin/AdminEventLocationDuplicatesSection";
 import AdminPlaceMatchesSection from "../components/admin/AdminPlaceMatchesSection";
 import AdminPlacesSection from "../components/admin/AdminPlacesSection";
 
@@ -106,6 +107,7 @@ const ADMIN_SECTIONS = [
     { value: "agendas", label: "Agendas" },
     { value: "places", label: "Lieux" },
     { value: "placeMatches", label: "Rapprochements" },
+    { value: "placeDuplicates", label: "Doublons de lieux" },
     { value: "categories", label: "Catégories" },
     { value: "imports", label: "Imports" },
     { value: "deletion", label: "Suppression" },
@@ -894,6 +896,12 @@ function AdminPage() {
             {activeSection === "places" && (
                 <main className="admin-content">
                     <AdminPlacesSection />
+                </main>
+            )}
+
+            {activeSection === "placeDuplicates" && (
+                <main className="admin-content">
+                    <AdminEventLocationDuplicatesSection />
                 </main>
             )}
 
