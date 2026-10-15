@@ -4,6 +4,7 @@
 
 ### Correctif : « aujourd'hui » calculé à Paris
 - Carte (fenêtre des 7 prochains jours), recherche, activités d'un lieu et alertes : la date du jour était `CURRENT_DATE`, prise dans le fuseau de la session PostgreSQL (UTC), alors que les dates des activités et des occurrences sont comparées en heure de Paris. Entre minuit et 1 h ou 2 h du matin à Paris, la fenêtre restait sur la veille (activités terminées la veille encore affichées). Remplacée par la date du jour à Paris.
+- Contributions : sans date fournie, le début par défaut est « maintenant » à Paris, et non plus dans le fuseau du serveur (UTC). Après 22 h UTC, une contribution du jour passait pour une activité de la veille et n'apparaissait pas sur la carte.
 - Tests : `ActivityRepositoryIntegrationTest` et `ImportedActivityVisibilityIntegrationTest` calculent « maintenant » à Paris ; ils échouaient en CI entre 22 h et minuit UTC.
 
 ### Lieux permanents (ADR-0011, phase B) : backend et interface

@@ -951,11 +951,11 @@ class ActivityServiceTest {
         when(sourceService.findByType("MANUAL")).thenReturn(Optional.of(manualSource()));
         when(activityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        LocalDateTime before = LocalDateTime.now();
+        LocalDateTime before = LocalDateTime.now(RecurringContributionService.CONTRIBUTION_ZONE);
         Activity result = activityService()
                 .createActivity("Pique-nique", "desc", "loisir", "1 rue de la Paix, Marseille", null, null, 1L,
                 List.of(1L));
-        LocalDateTime after = LocalDateTime.now();
+        LocalDateTime after = LocalDateTime.now(RecurringContributionService.CONTRIBUTION_ZONE);
 
         assertThat(result.startDate()).isBetween(before, after);
     }
