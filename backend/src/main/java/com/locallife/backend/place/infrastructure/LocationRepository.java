@@ -3,7 +3,9 @@ package com.locallife.backend.place.infrastructure;
 import com.locallife.backend.place.domain.Location;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Repository Location (LL-11001). Même patron que
@@ -51,6 +53,24 @@ public interface LocationRepository extends Repository<Location, Long> {
      * (ADR-0011, phase A).
      */
     List<Location> findByLatitudeAndLongitudeOrderByIdAsc(Double latitude, Double longitude);
+
+    /**
+     * Lieux d'événement (sans statut de lieu permanent) du même code postal, à {@code meters} mètres au plus d'un
+     * point, du plus ancien au plus récent : candidats de {@code LocationService#findOrCreate} quand l'adresse
+     * n'est pas identique au caractère près (ADR-0011, § 7.2.13, option A).
+     */
+    @Query("""
+            SELECT * FROM location
+            WHERE place_status IS NULL
+              AND postal_code = :postalCode
+              AND geo_location IS NOT NULL
+              AND ST_DWithin(geo_location,
+                             ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :meters)
+            ORDER BY id
+            """)
+    List<Location> findEventLocationsNear(
+            @Param("postalCode") String postalCode, @Param("latitude") double latitude,
+            @Param("longitude") double longitude, @Param("meters") double meters);
 
     Location save(Location location);
 }

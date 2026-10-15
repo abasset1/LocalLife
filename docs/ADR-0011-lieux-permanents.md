@@ -966,6 +966,18 @@ le musée qui s'y trouve). Les probables demandent donc une décision humaine.
 Les `PROBABLE` ne seraient jamais traités automatiquement. Pour le rapprochement avec les lieux
 permanents (§ 7.2.10), les doublons sont sans gravité : chaque ligne se relie au même lieu.
 
+**Décision d'Alex (15/10/2026)** : option A. **Implémentée** : `LocationService#findOrCreate`, quand
+aucun lieu n'a l'adresse identique (ou les coordonnées identiques sans adresse complète), cherche les
+lieux d'événement du même code postal à 30 m au plus (`LocationRepository#findEventLocationsNear`) et
+réutilise le plus ancien que la règle classe `CERTAIN` (et que la précision autorise). Jamais un lieu
+permanent, jamais une position approximative ; le texte du lieu réutilisé n'est pas modifié. Les
+lignes en double déjà en base restent (options B et C non retenues à ce stade).
+
+Vérifié en local, import complet sur base vide (mêmes données) : doublons `CERTAIN` 5 + 15 grappes →
+**0** ; lieux d'événement 64 → 59 (84) et 646 → 630 (13), soit les 21 lignes en trop mesurées ; mêmes
+activités importées (2 206 lues, 1 759 créées) ; doublons `PROBABLE` inchangés (9 et 51), qui restent
+à relire. **Non déployé.**
+
 ### 7.3 Phase C — marchés et horaires : ontologie et N-Triples (13/10/2026)
 
 **Statut : étude terminée dans les limites fixées (aucun compte, aucun
