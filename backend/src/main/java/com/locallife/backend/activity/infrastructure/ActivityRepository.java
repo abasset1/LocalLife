@@ -205,9 +205,9 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                             ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
                       AND ((:date::date IS NULL
                             AND (o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date
-                                  <= CURRENT_DATE + INTERVAL '7 days'
+                                  <= (now() AT TIME ZONE 'Europe/Paris')::date + INTERVAL '7 days'
                             AND (COALESCE(o.end_at, o.start_at) AT TIME ZONE COALESCE(l.timezone,
-                                  'Europe/Paris'))::date >= CURRENT_DATE)
+                                  'Europe/Paris'))::date >= (now() AT TIME ZONE 'Europe/Paris')::date)
                            OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
                                AND :date::date BETWEEN
                                    (o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date
@@ -225,8 +225,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                     AND ST_DWithin(a.location,
                           ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
                     AND ((:date::date IS NULL
-                          AND a.start_date::date <= CURRENT_DATE + INTERVAL '7 days'
-                          AND COALESCE(a.end_date, a.start_date)::date >= CURRENT_DATE)
+                          AND a.start_date::date <= (now() AT TIME ZONE 'Europe/Paris')::date + INTERVAL '7 days'
+                          AND COALESCE(a.end_date, a.start_date)::date >= (now() AT TIME ZONE 'Europe/Paris')::date)
                          OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
                              AND :date::date BETWEEN a.start_date::date AND COALESCE(a.end_date, a.start_date)::date)
                          OR (:date::date IS NOT NULL AND :dateTo::date IS NOT NULL
@@ -302,9 +302,9 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                             AND ST_Y(l.geo_location::geometry) BETWEEN :swLatitude AND :neLatitude))
                       AND ((:date::date IS NULL
                             AND (o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date
-                                  <= CURRENT_DATE + INTERVAL '7 days'
+                                  <= (now() AT TIME ZONE 'Europe/Paris')::date + INTERVAL '7 days'
                             AND (COALESCE(o.end_at, o.start_at) AT TIME ZONE COALESCE(l.timezone,
-                                  'Europe/Paris'))::date >= CURRENT_DATE)
+                                  'Europe/Paris'))::date >= (now() AT TIME ZONE 'Europe/Paris')::date)
                            OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
                                AND :date::date BETWEEN
                                    (o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date
@@ -325,8 +325,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                          OR (:neLongitude - :swLongitude >= 180
                           AND ST_Y(a.location::geometry) BETWEEN :swLatitude AND :neLatitude))
                     AND ((:date::date IS NULL
-                          AND a.start_date::date <= CURRENT_DATE + INTERVAL '7 days'
-                          AND COALESCE(a.end_date, a.start_date)::date >= CURRENT_DATE)
+                          AND a.start_date::date <= (now() AT TIME ZONE 'Europe/Paris')::date + INTERVAL '7 days'
+                          AND COALESCE(a.end_date, a.start_date)::date >= (now() AT TIME ZONE 'Europe/Paris')::date)
                          OR (:date::date IS NOT NULL AND :dateTo::date IS NULL
                              AND :date::date BETWEEN a.start_date::date AND COALESCE(a.end_date, a.start_date)::date)
                          OR (:date::date IS NOT NULL AND :dateTo::date IS NOT NULL

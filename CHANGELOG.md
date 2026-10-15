@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Correctif : « aujourd'hui » calculé à Paris
+- Carte (fenêtre des 7 prochains jours), recherche, activités d'un lieu et alertes : la date du jour était `CURRENT_DATE`, prise dans le fuseau de la session PostgreSQL (UTC), alors que les dates des activités et des occurrences sont comparées en heure de Paris. Entre minuit et 1 h ou 2 h du matin à Paris, la fenêtre restait sur la veille (activités terminées la veille encore affichées). Remplacée par la date du jour à Paris.
+- Tests : `ActivityRepositoryIntegrationTest` et `ImportedActivityVisibilityIntegrationTest` calculent « maintenant » à Paris ; ils échouaient en CI entre 22 h et minuit UTC.
+
 ### Lieux permanents (ADR-0011, phase B) : backend et interface
 - **Migration V62** : colonnes de lieu permanent sur `location` (type, statut de modération, description, dates de publication et de modération), table de provenance `location_source`, source « DATAtourisme PACA — lieux » créée **inactive**. Les lieux d'événement existants ne changent pas.
 - Import des lieux DATAtourisme de PACA selon la liste blanche (46 types ; 4 771 lieux, dont 418 dans le Vaucluse) : tout nouveau lieu est **en attente de modération** ; refus durable ; retour en attente si un lieu publié bouge de plus de 100 m, perd son adresse ou sort de la liste ; archivage des lieux disparus avec garde-fou ; essai à blanc sans écriture ; activation seulement après un essai réussi.

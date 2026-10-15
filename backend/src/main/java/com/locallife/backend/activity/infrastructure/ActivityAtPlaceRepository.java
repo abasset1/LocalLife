@@ -29,7 +29,8 @@ public class ActivityAtPlaceRepository {
             SELECT a.id
             FROM activity a JOIN hits h ON h.activity_id = a.id
             WHERE a.status = 'PUBLISHED'
-              AND (COALESCE(a.end_date, a.start_date) IS NULL OR COALESCE(a.end_date, a.start_date) >= CURRENT_DATE)
+              AND (COALESCE(a.end_date, a.start_date) IS NULL
+                   OR COALESCE(a.end_date, a.start_date) >= (now() AT TIME ZONE 'Europe/Paris')::date)
             ORDER BY a.start_date NULLS LAST, a.id
             LIMIT :limit
             """;
