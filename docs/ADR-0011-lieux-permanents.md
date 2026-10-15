@@ -917,6 +917,55 @@ Testé : site (vitest, rendu vérifié dans Chromium avec une API simulée), mob
 tri). **Non vérifié sur appareil.** Non fait : `GET /api/v1/places/nearby` (§ 2.4), sans usage
 tant que la liste suit la zone de la carte.
 
+#### 7.2.13 Doublons de lieux d'événement : mesure (15/10/2026)
+
+**Statut** : règle et rapport **implémentés et testés** ; mesure faite **en local** ; **aucune
+écriture**, aucun lieu fusionné ; rien de déployé. Correction à décider (ci-dessous).
+
+**Cause** : `LocationService#findOrCreate` ne réutilise un lieu d'événement que pour une adresse
+**identique au caractère près** (même commune et code postal) : « 8 Place Aristide Briand » et
+« 8 place Aristide Briand », ou les mêmes mots dans un autre ordre, créent deux lignes.
+
+**Règle** (`EventLocationDuplicateMatcher`, fonction pure) : on compare les mots significatifs du nom
+et de l'adresse (sans accents, casse, ponctuation ni mots vides, ordre ignoré, numéros gardés).
+Jamais de doublon si une position est approximative, si les codes postaux diffèrent, au-delà de
+100 m, ou avec moins de 2 mots.
+
+| Niveau | Condition | Présentation |
+|---|---|---|
+| `CERTAIN` | mêmes mots, à 30 m au plus | regroupés en grappes (un lieu réel, plusieurs lignes) |
+| `PROBABLE` | mêmes mots plus loin, ou tous les mots de l'un dans l'autre | paire par paire, **jamais par ricochet** : « Château de Simiane » relierait sinon le n° 5 et le n° 8 de la même place |
+
+**Rapport** : `GET /api/v1/admin/places/event-location-duplicates?department=84&level=CERTAIN`
+(administrateurs, lecture seule) : grappes et paires, lieux et activités concernés, lignes en trop.
+
+**Mesure** (base locale, événements DATAtourisme de l'export PACA du 13/10/2026 ; ni OpenAgenda ni
+la bêta) :
+
+| | Vaucluse (84) | Bouches-du-Rhône (13) |
+|---|---|---|
+| Lieux d'événement utilisés | 64 | 646 |
+| `CERTAIN` : grappes / lieux / lignes en trop / activités | 5 / 10 / 5 / 29 | 15 / 31 / 16 / 135 |
+| `PROBABLE` : paires / activités | 9 / 24 | 51 / 276 |
+
+**Relecture** (faite par l'assistant, à confirmer) : `CERTAIN` **20/20 justes** (variantes de casse,
+de ponctuation ou d'ordre : « 90 Boulevard / boulevard Victor Hugo Théâtre de Pertuis », « Badaboum
+Théâtre / Théâtre Badaboum ») ; `PROBABLE`, 84 : 8 à 9 sur 9 ; 13, échantillon aléatoire de 25 sur 51 :
+16 vrais doublons, 6 **salles d'un même bâtiment** (« Espace culturel Saint-Exupéry » et son
+« Auditorium Beethoven », « Opéra de Marseille » et son « Foyer »), 3 douteux ou faux (une place et
+le musée qui s'y trouve). Les probables demandent donc une décision humaine.
+
+**Options — décision demandée, rien n'est écrit** :
+
+| Option | Effet | Risque |
+|---|---|---|
+| **A. Prévenir (recommandé)** : `findOrCreate` réutilise aussi un lieu que la règle classe `CERTAIN` | plus de nouveaux doublons de ce type aux imports ; aucune migration, aucune donnée existante modifiée | nul sur l'échantillon (20/20) ; le lieu réutilisé garde son texte d'origine |
+| B. Résorber l'existant par un lien réversible : lieu d'événement → lieu d'événement de référence (même principe que V63) | grappes affichées comme un seul lieu, défaisable | migration ; à valider |
+| C. Résorber l'existant en réaffectant les programmations à la ligne la plus ancienne d'une grappe `CERTAIN`, avec journal | plus de lignes en trop | l'adresse affichée change de casse ou d'ordre des mots ; écriture à valider |
+
+Les `PROBABLE` ne seraient jamais traités automatiquement. Pour le rapprochement avec les lieux
+permanents (§ 7.2.10), les doublons sont sans gravité : chaque ligne se relie au même lieu.
+
 ### 7.3 Phase C — marchés et horaires : ontologie et N-Triples (13/10/2026)
 
 **Statut : étude terminée dans les limites fixées (aucun compte, aucun
