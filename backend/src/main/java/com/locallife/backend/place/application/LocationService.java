@@ -1,7 +1,10 @@
 package com.locallife.backend.place.application;
 
+import com.locallife.backend.place.domain.CoordinatePrecision;
 import com.locallife.backend.place.domain.CoordinatePrecisionPolicy;
+import com.locallife.backend.place.domain.EventLocationDuplicateMatcher;
 import com.locallife.backend.place.domain.Location;
+import com.locallife.backend.place.domain.PlaceMatcher;
 import com.locallife.backend.place.infrastructure.LocationRepository;
 import java.util.List;
 import java.util.Optional;
@@ -75,15 +78,40 @@ public class LocationService {
         boolean hasFullAddress = hasText(candidate.address())
                 && hasText(candidate.city())
                 && hasText(candidate.postalCode());
+        Optional<Location> exact = Optional.empty();
         if (hasFullAddress) {
-            return firstReusable(candidate, locationRepository.findByAddressAndCityAndPostalCodeOrderByIdAsc(
+            exact = firstReusable(candidate, locationRepository.findByAddressAndCityAndPostalCodeOrderByIdAsc(
                     candidate.address(), candidate.city(), candidate.postalCode()));
-        }
-        if (candidate.latitude() != null && candidate.longitude() != null) {
-            return firstReusable(candidate, locationRepository.findByLatitudeAndLongitudeOrderByIdAsc(
+        } else if (candidate.latitude() != null && candidate.longitude() != null) {
+            exact = firstReusable(candidate, locationRepository.findByLatitudeAndLongitudeOrderByIdAsc(
                     candidate.latitude(), candidate.longitude()));
         }
-        return Optional.empty();
+        return exact.isPresent() ? exact : findSameEventLocation(candidate);
+    }
+
+    /**
+     * Repli (ADR-0011, § 7.2.13, option A, décision d'Alex du 15/10/2026) : un lieu d'événement que la règle des
+     * doublons classe {@link PlaceMatcher.Level#CERTAIN} — mêmes mots du nom et de l'adresse, à casse, ponctuation
+     * et ordre près, même code postal, à 30 m au plus — est réutilisé au lieu d'en créer un nouveau. Le plus ancien
+     * est retenu ; son texte n'est pas modifié. Jamais pour une position approximative.
+     */
+    private Optional<Location> findSameEventLocation(Location candidate) {
+        if (!hasText(candidate.postalCode()) || candidate.latitude() == null || candidate.longitude() == null
+                || candidate.coordinatePrecision() == CoordinatePrecision.APPROXIMATE) {
+            return Optional.empty();
+        }
+        PlaceMatcher.Candidate wanted = toCandidate(candidate);
+        return firstReusable(candidate, locationRepository.findEventLocationsNear(
+                        candidate.postalCode(), candidate.latitude(), candidate.longitude(),
+                        PlaceMatcher.CERTAIN_DISTANCE_METERS).stream()
+                .filter(existing -> EventLocationDuplicateMatcher.compare(wanted, toCandidate(existing))
+                        == PlaceMatcher.Level.CERTAIN)
+                .toList());
+    }
+
+    private static PlaceMatcher.Candidate toCandidate(Location location) {
+        return new PlaceMatcher.Candidate(location.name(), location.address(), location.postalCode(),
+                location.latitude(), location.longitude(), location.coordinatePrecision());
     }
 
     /**
