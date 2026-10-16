@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ApiError } from '@/api';
+import { ApiError, HttpError, resendVerification } from '@/api';
 import { BrandMark } from '@/components/brand-mark';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -42,18 +42,37 @@ export default function CompteScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  /** Connexion refusée car l'adresse n'est pas confirmée (403) : propose de renvoyer le lien. */
+  const [unverified, setUnverified] = useState(false);
+  const [resending, setResending] = useState(false);
   const usernameStatus = useUsernameAvailability(mode === 'register' ? username : '');
 
   function switchMode(next: Mode) {
     setMode(next);
     setError(null);
     setInfo(null);
+    setUnverified(false);
     setPassword('');
+  }
+
+  async function resend() {
+    setResending(true);
+    setError(null);
+    try {
+      const { message } = await resendVerification(email.trim());
+      setUnverified(false);
+      setInfo(message);
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setResending(false);
+    }
   }
 
   async function submit() {
     setError(null);
     setInfo(null);
+    setUnverified(false);
 
     if (!email.trim() || !password || (mode === 'register' && !username.trim())) {
       setError('Renseignez tous les champs.');
@@ -79,6 +98,7 @@ export default function CompteScreen() {
       }
     } catch (e) {
       setError(messageFor(e));
+      if (mode === 'login' && e instanceof HttpError && e.isForbidden) setUnverified(true);
     } finally {
       setSubmitting(false);
     }
@@ -115,6 +135,12 @@ export default function CompteScreen() {
             </Card>
 
             <Card style={styles.menu}>
+              <MenuRow
+                icon={{ ios: 'heart', android: 'favorite', web: 'favorite' }}
+                label="Mes favoris"
+                description="Les activités que vous aimez"
+                onPress={() => router.push('/favoris')}
+              />
               <MenuRow
                 icon={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }}
                 label="Paramètres de recherche"
@@ -239,12 +265,30 @@ export default function CompteScreen() {
               />
 
               {error && <Notice tone="danger">Erreur : {error}</Notice>}
+              {unverified && (
+                <Button
+                  label="Renvoyer l'e-mail de confirmation"
+                  variant="secondary"
+                  loading={resending}
+                  onPress={() => void resend()}
+                />
+              )}
 
               <Button
                 label={isLogin ? 'Se connecter' : "S'inscrire"}
                 loading={submitting}
                 onPress={() => void submit()}
               />
+              {isLogin && (
+                <Button
+                  label="Mot de passe oublié ?"
+                  variant="ghost"
+                  disabled={submitting}
+                  onPress={() =>
+                    router.push({ pathname: '/mot-de-passe-oublie', params: email.trim() ? { email: email.trim() } : {} })
+                  }
+                />
+              )}
             </Card>
 
             <Button

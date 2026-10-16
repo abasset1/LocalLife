@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Application mobile : favoris, photos et mot de passe oublié
+- **Favoris** : cœur « J'aime » sur les cartes de la liste et sur la fiche (`POST`/`DELETE /activities/{id}/like`), état partagé par tous les écrans, mis à jour tout de suite et rétabli si l'appel échoue ; écran « Mes favoris » (Compte), tirer pour actualiser. Un visiteur est invité à se connecter.
+- **Photos** : photo principale sur les cartes de la liste ; photo en tête de la fiche avec son crédit, et autres photos en galerie. Seules les URL http(s) sont chargées ; une photo qui ne se charge pas est masquée.
+- **Mot de passe oublié** : écran d'envoi du lien de réinitialisation (`POST /auth/forgot-password`), accessible depuis la connexion ; le lien reçu ouvre la page du site pour choisir le nouveau mot de passe.
+- **Adresse non confirmée** : quand la connexion est refusée pour cette raison (403), un bouton renvoie l'e-mail de confirmation (`POST /auth/resend-verification`).
+- `app.config.ts` : identifiant Android `com.locallife.mobile`, nécessaire à un build natif (`expo prebuild` / `expo run:android`).
+
 ### Application mobile : onglet « Liste » et fiches accessibles depuis la carte
 - Carte : toucher un marqueur ouvre de nouveau son aperçu, et donc la fiche. La carte recevait aussi ce toucher (`action: 'marker-press'`) et effaçait aussitôt la sélection ; ce toucher est désormais ignoré.
 - Nouvel onglet **Liste** : activités publiées autour de vous (« Autour de moi »), de votre ville par défaut ou de Marseille, triées par distance (`GET /activities/nearby`). Filtres période (tout, aujourd'hui, ce week-end, 7 jours) et rayon, recherche texte sans accents ni casse, catégories par défaut des paramètres (désactivables), tirer pour actualiser. Un appui ouvre la fiche de l'activité.
