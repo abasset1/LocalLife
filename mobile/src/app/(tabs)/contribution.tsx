@@ -6,12 +6,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError, createActivity } from '@/api';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { Notice } from '@/components/notice';
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { ContributionFields, EMPTY_FORM, inform, toRequest, useActiveCategories } from '@/features/contribution';
 import type { ContributionForm } from '@/features/contribution';
-import { useTheme } from '@/hooks/use-theme';
 
 /**
  * Onglet « Contribution » : proposer une activité, ponctuelle ou qui revient chaque semaine (food
@@ -19,7 +21,6 @@ import { useTheme } from '@/hooks/use-theme';
  * permet ensuite de la modifier ou de la supprimer.
  */
 export default function ContributionScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const { state } = useAuth();
   const { categories, error: categoriesError } = useActiveCategories();
@@ -56,10 +57,23 @@ export default function ContributionScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.centered}>
-          <ThemedText type="title">Contribution</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Connectez-vous depuis l’onglet Compte pour proposer une activité.
-          </ThemedText>
+          <ScreenHeader
+            eyebrow="Contribuer"
+            title="Faites vivre votre quartier"
+            lead="Un marché, un concert, un food truck… Partagez ce qui se passe près de chez vous."
+          />
+          <Card style={styles.emptyCard}>
+            <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
+              ✍️
+            </ThemedText>
+            <ThemedText type="heading" style={styles.emptyText}>
+              Connexion requise
+            </ThemedText>
+            <ThemedText themeColor="textSecondary" style={styles.emptyText}>
+              Connectez-vous depuis l’onglet Compte pour proposer une activité.
+            </ThemedText>
+            <Button label="Aller à mon compte" onPress={() => router.navigate('/compte')} />
+          </Card>
         </SafeAreaView>
       </ThemedView>
     );
@@ -70,36 +84,39 @@ export default function ContributionScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-            <ThemedText type="title">Proposer une activité</ThemedText>
-            <Button label="Mes contributions" variant="secondary" onPress={() => router.push('/contributions')} />
-            <ThemedText style={[styles.notice, { backgroundColor: theme.backgroundElement }]}>
-              ℹ️ Votre activité sera soumise à validation par un modérateur avant d’apparaître sur la carte : elle
-              sera publiée d’ici 2 à 3 jours.
-            </ThemedText>
-            {categoriesError && (
-              <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
-                Erreur : {categoriesError}
-              </ThemedText>
-            )}
-
-            <ContributionFields
-              form={form}
-              categories={categories}
-              onChange={(next) => {
-                setForm(next);
-                setSubmitted(false);
-              }}
+            <ScreenHeader
+              eyebrow="Contribuer"
+              title="Proposer une activité"
+              lead="Partagez un événement ou un rendez-vous régulier avec la communauté."
             />
+            <Button
+              label="Mes contributions"
+              variant="secondary"
+              icon={{ ios: 'square.and.pencil', android: 'edit_note', web: 'edit_note' }}
+              onPress={() => router.push('/contributions')}
+            />
+            <Notice>
+              Votre activité sera soumise à validation par un modérateur avant d’apparaître sur la carte : elle
+              sera publiée d’ici 2 à 3 jours.
+            </Notice>
+            {categoriesError && <Notice tone="danger">Erreur : {categoriesError}</Notice>}
 
-            {error && (
-              <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
-                Erreur : {error}
-              </ThemedText>
-            )}
+            <Card style={styles.form}>
+              <ContributionFields
+                form={form}
+                categories={categories}
+                onChange={(next) => {
+                  setForm(next);
+                  setSubmitted(false);
+                }}
+              />
+            </Card>
+
+            {error && <Notice tone="danger">Erreur : {error}</Notice>}
             {submitted && (
-              <ThemedText accessibilityLiveRegion="polite">
-                ✓ Activité proposée. Elle est soumise à validation et sera publiée d’ici 2 à 3 jours.
-              </ThemedText>
+              <Notice tone="success">
+                Activité proposée. Elle est soumise à validation et sera publiée d’ici 2 à 3 jours.
+              </Notice>
             )}
             <Button label="Proposer l'activité" loading={submitting} onPress={() => void submit()} />
           </ScrollView>
@@ -115,17 +132,29 @@ const styles = StyleSheet.create({
   },
   centered: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.six,
-    gap: Spacing.three,
+    padding: Spacing.four,
+    gap: Spacing.four,
   },
   content: {
-    gap: Spacing.four,
+    gap: Spacing.three,
     padding: Spacing.four,
     paddingBottom: Spacing.six,
   },
-  notice: {
-    padding: Spacing.three,
-    borderRadius: 8,
+  form: {
+    gap: Spacing.four - Spacing.one,
+    padding: Spacing.four - Spacing.one,
+  },
+  emptyCard: {
+    alignItems: 'stretch',
+    padding: Spacing.four,
+    gap: Spacing.three,
+  },
+  emptyIcon: {
+    fontSize: 40,
+    lineHeight: 48,
+    textAlign: 'center',
+  },
+  emptyText: {
+    textAlign: 'center',
   },
 });

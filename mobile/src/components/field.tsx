@@ -7,7 +7,7 @@ import { Spacing } from '@/constants/theme';
 export function Field({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.field} accessible accessibilityLabel={`${label} : ${value}`}>
-      <ThemedText type="smallBold" themeColor="textSecondary">
+      <ThemedText type="eyebrow" themeColor="textSecondary">
         {label}
       </ThemedText>
       <ThemedText>{value}</ThemedText>

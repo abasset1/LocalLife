@@ -88,7 +88,7 @@ export function ContributionFields({ form, categories, onChange }: ContributionF
         keyboardType="numbers-and-punctuation"
       />
 
-      <ThemedText type="smallBold">Contact (facultatif)</ThemedText>
+      <ThemedText type="heading">Contact (facultatif)</ThemedText>
       <TextField
         label="Site web"
         value={form.url}

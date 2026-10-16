@@ -1,7 +1,8 @@
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ButtonProps = {
@@ -10,15 +11,26 @@ export type ButtonProps = {
   /** Affiche un indicateur et désactive le bouton pendant une action en cours. */
   loading?: boolean;
   disabled?: boolean;
-  /** `secondary` : bouton discret (bordure), pour les actions non principales. */
-  variant?: 'primary' | 'secondary';
+  /**
+   * `primary` : action principale (vert plein) ; `secondary` : action non principale (fond clair,
+   * bordure) ; `ghost` : action discrète, sans fond ; `danger` : action destructive.
+   */
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  /** Pictogramme placé avant le libellé (SF Symbol sur iOS, Material Symbol ailleurs). */
+  icon?: SymbolViewProps['name'];
 };
 
 /** Bouton tactile (zone ≥ 48 px) avec rôle et état accessibles. */
-export function Button({ label, onPress, loading = false, disabled = false, variant = 'primary' }: ButtonProps) {
+export function Button({ label, onPress, loading = false, disabled = false, variant = 'primary', icon }: ButtonProps) {
   const theme = useTheme();
   const inactive = disabled || loading;
-  const primary = variant === 'primary';
+
+  const palette = {
+    primary: { background: theme.primary, border: theme.primary, label: theme.onPrimary },
+    secondary: { background: theme.backgroundElement, border: theme.border, label: theme.text },
+    ghost: { background: 'transparent', border: 'transparent', label: theme.primary },
+    danger: { background: theme.dangerSoft, border: theme.dangerSoft, label: theme.danger },
+  }[variant];
 
   return (
     <Pressable
@@ -29,15 +41,19 @@ export function Button({ label, onPress, loading = false, disabled = false, vari
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        primary ? { backgroundColor: Colors.light.primary } : { borderWidth: 1, borderColor: theme.textSecondary },
-        (pressed || inactive) && styles.dimmed,
+        { backgroundColor: palette.background, borderColor: palette.border },
+        pressed && styles.pressed,
+        inactive && styles.inactive,
       ]}>
       {loading ? (
-        <ActivityIndicator color={primary ? '#ffffff' : theme.text} />
+        <ActivityIndicator color={palette.label} />
       ) : (
-        <ThemedText type="smallBold" style={primary ? styles.primaryLabel : undefined}>
-          {label}
-        </ThemedText>
+        <View style={styles.content}>
+          {icon ? <SymbolView name={icon} tintColor={palette.label} size={18} /> : null}
+          <ThemedText type="smallBold" style={[styles.label, { color: palette.label }]}>
+            {label}
+          </ThemedText>
+        </View>
       )}
     </Pressable>
   );
@@ -45,16 +61,26 @@ export function Button({ label, onPress, loading = false, disabled = false, vari
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
-    borderRadius: 8,
+    minHeight: 50,
+    borderRadius: Radius.md,
+    borderWidth: 1,
     paddingHorizontal: Spacing.four,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dimmed: {
-    opacity: 0.6,
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
-  primaryLabel: {
-    color: '#ffffff',
+  label: {
+    fontSize: 15,
+  },
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  inactive: {
+    opacity: 0.5,
   },
 });

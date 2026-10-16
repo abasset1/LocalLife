@@ -128,14 +128,17 @@ export function CityPicker({ label, picker }: { label: string; picker: CityPicke
         returnKeyType="done"
       />
       <Button
-        label="📍 Utiliser ma position"
+        label="Utiliser ma position"
+        icon={{ ios: 'location.fill', android: 'my_location', web: 'my_location' }}
         variant="secondary"
         loading={picker.locating || status.kind === 'checking'}
         onPress={() => void picker.locateCity()}
       />
       <View accessibilityLiveRegion="polite">
         {status.kind === 'valid' && status.message && (
-          <ThemedText type="small">✓ {status.message}</ThemedText>
+          <ThemedText type="small" style={{ color: theme.success }}>
+            ✓ {status.message}
+          </ThemedText>
         )}
         {status.kind === 'invalid' && (
           <ThemedText type="small" accessibilityRole="alert" style={{ color: theme.danger }}>

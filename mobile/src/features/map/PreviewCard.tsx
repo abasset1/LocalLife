@@ -5,7 +5,7 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import type { Activity, FoodTruck, Place } from '@/api';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Shadows, Spacing } from '@/constants/theme';
 import { isSafeWebUrl } from '@/features/activity/format';
 import { buildDirectionsUrl, withApproximateMention } from '@/features/activity/location';
 import { useTheme } from '@/hooks/use-theme';
@@ -34,21 +34,33 @@ export function PreviewCard({ selection, onClose }: { selection: Selection; onCl
   return <ItemPreview selection={selection} onClose={onClose} />;
 }
 
-function CardHeader({ title, onClose }: { title: string; onClose: () => void }) {
+/** Poignée, sur-titre (type d'élément), titre et bouton de fermeture de l'aperçu. */
+function CardHeader({ eyebrow, title, onClose }: { eyebrow: string; title: string; onClose: () => void }) {
+  const theme = useTheme();
   return (
-    <View style={styles.header}>
-      <ThemedText type="smallBold" style={styles.title} numberOfLines={2}>
-        {title}
-      </ThemedText>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Fermer l'aperçu"
-        hitSlop={12}
-        onPress={onClose}
-        style={styles.close}>
-        <ThemedText>✕</ThemedText>
-      </Pressable>
-    </View>
+    <>
+      <View style={[styles.handle, { backgroundColor: theme.border }]} importantForAccessibility="no" />
+      <View style={styles.header}>
+        <View style={styles.title}>
+          <ThemedText type="eyebrow" numberOfLines={1}>
+            {eyebrow}
+          </ThemedText>
+          <ThemedText type="heading" numberOfLines={2}>
+            {title}
+          </ThemedText>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Fermer l'aperçu"
+          hitSlop={12}
+          onPress={onClose}
+          style={[styles.close, { backgroundColor: theme.backgroundSelected }]}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            ✕
+          </ThemedText>
+        </Pressable>
+      </View>
+    </>
   );
 }
 
@@ -64,11 +76,12 @@ function PlacePreview({ place, onClose }: { place: Place; onClose: () => void })
   const directions = buildDirectionsUrl(place);
   return (
     <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-      <CardHeader title={place.name} onClose={onClose} />
-      <ThemedText type="small" themeColor="textSecondary">
-        {placeTypeLabel(place.placeType)}
-      </ThemedText>
-      {location ? <ThemedText type="small">{location}</ThemedText> : null}
+      <CardHeader eyebrow={`🏛 ${placeTypeLabel(place.placeType)}`} title={place.name} onClose={onClose} />
+      {location ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          📍 {location}
+        </ThemedText>
+      ) : null}
       {place.description ? (
         <ThemedText type="small" numberOfLines={3}>
           {place.description}
@@ -80,7 +93,7 @@ function PlacePreview({ place, onClose }: { place: Place; onClose: () => void })
         </ThemedText>
       ) : null}
       {activities && activities.length > 0 ? (
-        <View style={styles.activities}>
+        <View style={[styles.activities, { backgroundColor: theme.background }]}>
           <ThemedText type="smallBold">À venir</ThemedText>
           {activities.slice(0, PLACE_ACTIVITIES_SHOWN).map((activity) => (
             <Pressable
@@ -98,8 +111,15 @@ function PlacePreview({ place, onClose }: { place: Place; onClose: () => void })
                 })
               }>
               <ThemedText type="small" numberOfLines={1}>
-                • {activity.title}
-                {formatDate(activity.startDate) ? ` · ${formatDate(activity.startDate)}` : ''}
+                <ThemedText type="smallBold" themeColor="accent">
+                  ›{' '}
+                </ThemedText>
+                {activity.title}
+                {formatDate(activity.startDate) ? (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {` · ${formatDate(activity.startDate)}`}
+                  </ThemedText>
+                ) : null}
               </ThemedText>
             </Pressable>
           ))}
@@ -116,6 +136,7 @@ function PlacePreview({ place, onClose }: { place: Place; onClose: () => void })
           <Button
             label="Itinéraire"
             variant="secondary"
+            icon={{ ios: 'arrow.triangle.turn.up.right.diamond', android: 'directions', web: 'directions' }}
             onPress={() => Linking.openURL(directions).catch(() => undefined)}
           />
         ) : null}
@@ -123,6 +144,7 @@ function PlacePreview({ place, onClose }: { place: Place; onClose: () => void })
           <Button
             label="Site du lieu"
             variant="secondary"
+            icon={{ ios: 'safari', android: 'language', web: 'language' }}
             onPress={() => WebBrowser.openBrowserAsync(place.website as string).catch(() => undefined)}
           />
         ) : null}
@@ -149,16 +171,17 @@ function ItemPreview({
   const description = isActivity ? null : selection.foodTruck.description;
   const contact = isActivity ? null : selection.foodTruck.contact;
 
-  const meta = [isActivity ? category : `Food truck · ${category}`, place, date]
-    .filter(Boolean)
-    .join(' · ');
+  const eyebrow = isActivity ? category : `🚚 Food truck · ${category}`;
+  const meta = [place ? `📍 ${place}` : null, date ? `📅 ${date}` : null].filter(Boolean).join('   ');
 
   return (
     <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-      <CardHeader title={title} onClose={onClose} />
-      <ThemedText type="small" themeColor="textSecondary">
-        {meta}
-      </ThemedText>
+      <CardHeader eyebrow={eyebrow} title={title} onClose={onClose} />
+      {meta ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          {meta}
+        </ThemedText>
+      ) : null}
       {description ? (
         <ThemedText type="small" numberOfLines={3}>
           {description}
@@ -171,6 +194,7 @@ function ItemPreview({
       ) : null}
       <Button
         label={isActivity ? 'Voir la fiche' : 'Voir la fiche du food truck'}
+        icon={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
         onPress={() =>
           isActivity
             ? router.push({
@@ -192,9 +216,17 @@ function ItemPreview({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     padding: Spacing.three,
-    gap: Spacing.two,
+    paddingTop: Spacing.two,
+    gap: Spacing.three - Spacing.one,
+    ...Shadows.floating,
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
   },
   header: {
     flexDirection: 'row',
@@ -203,9 +235,12 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
+    gap: Spacing.one,
   },
   activities: {
     gap: Spacing.one,
+    padding: Spacing.three - Spacing.one,
+    borderRadius: Radius.md,
   },
   actions: {
     flexDirection: 'row',
@@ -213,8 +248,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   close: {
-    minWidth: 32,
-    minHeight: 32,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },

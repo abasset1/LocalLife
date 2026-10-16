@@ -8,7 +8,9 @@ import type { Category, UserPreferences } from '@/api';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Spacing } from '@/constants/theme';
+import { BrandMark } from '@/components/brand-mark';
+import { Notice } from '@/components/notice';
+import { Brand, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/auth';
 import { alertError, preferencesError } from '@/features/onboarding';
 import {
@@ -21,7 +23,6 @@ import {
   toggleCode,
   useCityPicker,
 } from '@/features/settings';
-import { useTheme } from '@/hooks/use-theme';
 import { enablePushOrExplain } from '@/notifications';
 
 function messageFor(error: unknown): string {
@@ -38,7 +39,6 @@ function messageFor(error: unknown): string {
  *    ce téléphone par défaut, e-mail en option), ou « Plus tard ».
  */
 export default function BienvenueScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const { state, logout } = useAuth();
   const [step, setStep] = useState<'preferences' | 'alert'>('preferences');
@@ -153,8 +153,13 @@ export default function BienvenueScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <ThemedText type="small" style={styles.headerStep}>
-            ÉTAPE {step === 'preferences' ? 1 : 2} SUR 2
+          <BrandMark inverted />
+          <View style={styles.progress} importantForAccessibility="no">
+            <View style={[styles.progressStep, styles.progressDone]} />
+            <View style={[styles.progressStep, step === 'alert' && styles.progressDone]} />
+          </View>
+          <ThemedText type="eyebrow" style={styles.headerStep}>
+            Étape {step === 'preferences' ? 1 : 2} sur 2
           </ThemedText>
           <ThemedText type="subtitle" accessibilityRole="header" style={styles.headerTitle}>
             {step === 'preferences' ? 'Bienvenue sur LocalLife 👋' : 'Créer une alerte ?'}
@@ -190,9 +195,7 @@ export default function BienvenueScreen() {
                   }}
                 />
                 {saveError && (
-                  <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
-                    {saveError}
-                  </ThemedText>
+                  <Notice tone="danger">{saveError}</Notice>
                 )}
                 <Button
                   label="Continuer"
@@ -214,10 +217,10 @@ export default function BienvenueScreen() {
             {step === 'alert' && saved && (
               <>
                 {created ? (
-                  <ThemedText accessibilityLiveRegion="polite">
-                    ✓ C’est prêt ! Vous serez prévenu chaque matin des nouveautés à moins de {saved.defaultRadiusKm}{' '}
+                  <Notice tone="success">
+                    C’est prêt ! Vous serez prévenu chaque matin des nouveautés à moins de {saved.defaultRadiusKm}{' '}
                     km de {saved.defaultCity}.
-                  </ThemedText>
+                  </Notice>
                 ) : (
                   <>
                     <ThemedText themeColor="textSecondary">
@@ -252,9 +255,7 @@ export default function BienvenueScreen() {
                       }}
                     />
                     {createError && (
-                      <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
-                        {createError}
-                      </ThemedText>
+                      <Notice tone="danger">{createError}</Notice>
                     )}
                   </>
                 )}
@@ -280,19 +281,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    gap: Spacing.one,
+    gap: Spacing.two,
+    marginHorizontal: Spacing.three,
+    marginTop: Spacing.two,
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.four,
-    backgroundColor: Colors.light.primary,
+    borderRadius: Radius.xl,
+    backgroundColor: Brand.green,
+  },
+  progress: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginTop: Spacing.three,
+  },
+  progressStep: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  progressDone: {
+    backgroundColor: Brand.coral,
   },
   headerStep: {
-    color: '#dbe6fb',
-    letterSpacing: 1,
+    color: '#C8D7D1',
+    marginTop: Spacing.one,
   },
   headerTitle: {
     color: '#ffffff',
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 26,
+    lineHeight: 32,
   },
   content: {
     gap: Spacing.four,

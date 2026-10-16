@@ -2,7 +2,7 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import type { Place } from '@/api';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 import { sortPlacesForList } from './placeList';
@@ -15,8 +15,8 @@ import { placeTypeLabel } from './placeTypes';
 export function PlaceListPanel({ places, onSelect }: { places: Place[]; onSelect: (place: Place) => void }) {
   const theme = useTheme();
   return (
-    <View style={[styles.panel, { backgroundColor: theme.background }]}>
-      <ThemedText type="smallBold">Lieux visibles ({places.length})</ThemedText>
+    <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
+      <ThemedText type="heading">Lieux visibles ({places.length})</ThemedText>
       <FlatList
         data={sortPlacesForList(places)}
         keyExtractor={(place) => String(place.id)}
@@ -25,8 +25,12 @@ export function PlaceListPanel({ places, onSelect }: { places: Place[]; onSelect
             accessibilityRole="button"
             accessibilityLabel={`${item.name}, ${placeTypeLabel(item.placeType)}`}
             onPress={() => onSelect(item)}
-            style={[styles.item, { borderColor: theme.backgroundElement }]}>
-            <ThemedText type="small" numberOfLines={1}>
+            style={({ pressed }) => [
+              styles.item,
+              { borderColor: theme.border },
+              pressed && { backgroundColor: theme.backgroundSelected },
+            ]}>
+            <ThemedText type="smallBold" numberOfLines={1}>
               🏛 {item.name}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
@@ -44,12 +48,16 @@ const styles = StyleSheet.create({
     maxHeight: 320,
     marginBottom: Spacing.two,
     padding: Spacing.three,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     gap: Spacing.two,
+    ...Shadows.floating,
   },
   item: {
     paddingVertical: Spacing.two,
-    borderBottomWidth: 1,
-    minHeight: 44,
+    paddingHorizontal: Spacing.one,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.sm,
+    minHeight: 48,
+    justifyContent: 'center',
   },
 });

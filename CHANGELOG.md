@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Application mobile : nouvelle charte visuelle
+- Couleurs de la maquette d'accueil (vert forêt, corail, sable, papier) en mode clair et sombre ; arrondis, ombres et typographie unifiés (`src/constants/theme.ts`).
+- Nouveaux composants partagés : carte (`Card`), message encadré (`Notice` : info, succès, avertissement, erreur), en-tête d'écran, ligne de menu, logo « L LocalLife ». Boutons avec icône et variantes « discret » et « destructif » ; champs dont la bordure passe au vert pendant la saisie ; puces et interrupteurs aux couleurs de la marque.
+- Compte : bandeau d'accueil, bascule Connexion / Inscription, formulaire en carte ; une fois connecté, carte de profil et menu (paramètres, alertes, contributions).
+- Carte : boutons flottants ronds et ombrés (« Lieux » et « Rayon » en vert quand ils sont actifs, bouton rond « Ma position »), marqueurs ombrés aux couleurs de la marque, aperçu en panneau avec poignée et sur-titre.
+- Fiches activité et food truck, Contribution, Mes contributions (statut en pastille colorée), Mes alertes, Paramètres et Bienvenue (barre de progression) reprennent cette présentation. Aucun changement de comportement ni d'API.
+
 ### Correctif : « aujourd'hui » calculé à Paris
 - Carte (fenêtre des 7 prochains jours), recherche, activités d'un lieu et alertes : la date du jour était `CURRENT_DATE`, prise dans le fuseau de la session PostgreSQL (UTC), alors que les dates des activités et des occurrences sont comparées en heure de Paris. Entre minuit et 1 h ou 2 h du matin à Paris, la fenêtre restait sur la veille (activités terminées la veille encore affichées). Remplacée par la date du jour à Paris.
 - Contributions : sans date fournie, le début par défaut est « maintenant » à Paris, et non plus dans le fuseau du serveur (UTC). Après 22 h UTC, une contribution du jour passait pour une activité de la veille et n'apparaissait pas sur la carte.

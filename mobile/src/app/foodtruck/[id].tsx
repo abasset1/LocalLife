@@ -4,12 +4,14 @@ import { ActivityIndicator, Linking, ScrollView, StyleSheet, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
 import { Field } from '@/components/field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { contactAction } from '@/features/foodtruck/contact';
 import { useFoodTruck } from '@/features/foodtruck/useFoodTruck';
+import { useTheme } from '@/hooks/use-theme';
 
 /**
  * Fiche d'un food truck (LL-MOB-0009), atteinte depuis son marqueur sur la
@@ -19,6 +21,7 @@ import { useFoodTruck } from '@/features/foodtruck/useFoodTruck';
 export default function FoodTruckDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const theme = useTheme();
   const { state, retry } = useFoodTruck(id);
 
   return (
@@ -26,7 +29,7 @@ export default function FoodTruckDetailScreen() {
       <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
         {state.status === 'loading' && (
           <View style={styles.center} accessibilityLiveRegion="polite">
-            <ActivityIndicator size="large" accessibilityLabel="Chargement du food truck" />
+            <ActivityIndicator size="large" color={theme.primary} accessibilityLabel="Chargement du food truck" />
           </View>
         )}
 
@@ -56,19 +59,25 @@ export default function FoodTruckDetailScreen() {
 
           return (
             <ScrollView contentContainerStyle={styles.content}>
-              <ThemedText type="subtitle" accessibilityRole="header">
-                {name}
-              </ThemedText>
-              <ThemedText themeColor="textSecondary">Food truck</ThemedText>
+              <View style={[styles.hero, { backgroundColor: theme.accentSoft }]}>
+                <ThemedText style={styles.heroIcon} importantForAccessibility="no">
+                  🚚
+                </ThemedText>
+                <ThemedText type="eyebrow">Food truck</ThemedText>
+                <ThemedText type="subtitle" accessibilityRole="header">
+                  {name}
+                </ThemedText>
+              </View>
 
-              <Field label="Cuisine" value={category} />
-              {description ? <Field label="Description" value={description} /> : null}
-              {contact?.trim() ? <Field label="Contact" value={contact.trim()} /> : null}
+              <Card style={styles.fields}>
+                <Field label="Cuisine" value={category} />
+                {description ? <Field label="Description" value={description} /> : null}
+                {contact?.trim() ? <Field label="Contact" value={contact.trim()} /> : null}
+              </Card>
 
               {action && action.kind !== 'text' && (
                 <Button
                   label={action.label}
-                  variant="secondary"
                   onPress={() => {
                     if (action.kind === 'web') {
                       WebBrowser.openBrowserAsync(action.url).catch(() => undefined);
@@ -78,7 +87,7 @@ export default function FoodTruckDetailScreen() {
                   }}
                 />
               )}
-              <Button label="Retour à la carte" onPress={() => router.back()} />
+              <Button label="Retour à la carte" variant="ghost" onPress={() => router.back()} />
             </ScrollView>
           );
         })()}
@@ -95,8 +104,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: Spacing.four,
+    padding: Spacing.three,
+    paddingBottom: Spacing.five,
     gap: Spacing.three,
+  },
+  hero: {
+    borderRadius: Radius.xl,
+    padding: Spacing.four,
+    gap: Spacing.two,
+  },
+  heroIcon: {
+    fontSize: 36,
+    lineHeight: 44,
+  },
+  fields: {
+    gap: Spacing.three,
+    padding: Spacing.four - Spacing.one,
   },
   center: {
     flex: 1,
