@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Application mobile : fiche enrichie, agenda, partage et « Voir sur la carte »
+- Fiche d'une activité : section **Quand ?** (horaires réguliers en clair, « Tous les samedis · 10h00 – 18h00 · jusqu'au 19 décembre », et prochaines dates non annulées, dépliables) et **Infos pratiques** (tarifs et conditions, âge, accessibilité, autres lieux, compléments, mots-clés).
+- Liens de la fiche : appeler, envoyer un e-mail, billetterie ou site (seuls `tel:`, `mailto:` et http(s) sont ouverts).
+- Actions rapides : **Itinéraire**, **Voir sur la carte** (la carte se centre sur l'activité et ouvre son aperçu ; un cadrage d'après les préférences arrivant ensuite ne l'écrase pas), **Ajouter à l'agenda** (Google Agenda pré-rempli, prochaine date réelle ou date de début) et **Partager** (titre, date, lieu et lien de l'organisateur).
+
 ### Application mobile : favoris, photos et mot de passe oublié
 - **Favoris** : cœur « J'aime » sur les cartes de la liste et sur la fiche (`POST`/`DELETE /activities/{id}/like`), état partagé par tous les écrans, mis à jour tout de suite et rétabli si l'appel échoue ; écran « Mes favoris » (Compte), tirer pour actualiser. Un visiteur est invité à se connecter.
 - **Photos** : photo principale sur les cartes de la liste ; photo en tête de la fiche avec son crédit, et autres photos en galerie. Seules les URL http(s) sont chargées ; une photo qui ne se charge pas est masquée.

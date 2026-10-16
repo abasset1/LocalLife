@@ -1,3 +1,4 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Circle } from 'react-native-maps';
@@ -42,6 +43,9 @@ const NO_CATEGORIES: string[] = [];
 /** Valeur de la puce « Sans rayon » du sélecteur de rayon. */
 const NO_RADIUS = 'none';
 
+/** Zoom après « Voir sur la carte » depuis une fiche (~ rue). */
+const FOCUS_ZOOM = 16;
+
 /** Au-delà de ce zoom, plus de regroupement : chaque activité a son marqueur. */
 const CLUSTER_MAX_ZOOM = 17;
 
@@ -55,6 +59,9 @@ export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
 
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
+  const router = useRouter();
+  /** « Voir sur la carte » depuis une fiche : centre et activité à sélectionner (paramètres de route). */
+  const focus = useLocalSearchParams<{ focusId?: string; focusLat?: string; focusLon?: string }>();
   const [selection, setSelection] = useState<Selection | null>(null);
   /** Heure du dernier appui sur un marqueur (iOS n'indique pas toujours `marker-press`). */
   const markerPressedAt = useRef(0);
@@ -80,10 +87,39 @@ export default function MapScreen() {
     regionRef.current = region;
   }, [region]);
 
+  const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
+  const [placeListOpen, setPlaceListOpen] = useState(false);
+
+  // Carte pas encore prête (premier affichage de l'onglet) : le cadrage demandé attend `onMapReady`.
+  const mapReady = useRef(false);
+  const pendingRegion = useRef<Region | null>(null);
+  const pendingFocusId = useRef<number | null>(null);
+  /** Carte cadrée sur une activité : le cadrage d'après les préférences, s'il arrive ensuite, est ignoré. */
+  const focusedOnActivity = useRef(false);
+  const moveTo = useCallback((target: Region) => {
+    if (mapReady.current) mapRef.current?.animateToRegion(target, 500);
+    else pendingRegion.current = target;
+  }, []);
+
+  useEffect(() => {
+    const latitude = Number(focus.focusLat);
+    const longitude = Number(focus.focusLon);
+    if (!focus.focusLat || !focus.focusLon || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+    pendingFocusId.current = focus.focusId ? Number(focus.focusId) : null;
+    focusedOnActivity.current = true;
+    setPlaceListOpen(false);
+    setRadiusPanelOpen(false);
+    moveTo(regionForZoom(latitude, longitude, FOCUS_ZOOM, regionRef.current));
+    // Paramètres consommés : revenir sur l'onglet ne recentre pas une seconde fois.
+    router.setParams({ focusId: undefined, focusLat: undefined, focusLon: undefined });
+  }, [focus.focusId, focus.focusLat, focus.focusLon, moveTo, router]);
+
   const centeredPreferences = useRef<string | null>(null);
   useEffect(() => {
     if (!preferences || centeredPreferences.current === preferencesKey) return;
+    const firstPreferences = centeredPreferences.current === null;
     centeredPreferences.current = preferencesKey;
+    if (firstPreferences && focusedOnActivity.current) return;
     const { defaultLatitude, defaultLongitude, defaultRadiusKm } = preferences;
     if (defaultLatitude !== null && defaultLongitude !== null) {
       // Ville favorite : cadrée sur le rayon favori (ou 50 km).
@@ -113,8 +149,6 @@ export default function MapScreen() {
     radiusOverride && radiusOverride.key === preferencesKey
       ? radiusOverride.radiusKm
       : (preferences?.defaultRadiusKm ?? null);
-  const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
-  const [placeListOpen, setPlaceListOpen] = useState(false);
 
   const radiusSearch = useMemo<RadiusSearch | null>(() => {
     if (activeRadiusKm === null) return null;
@@ -147,6 +181,14 @@ export default function MapScreen() {
   );
 
   const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(region, categoryCodes, radiusSearch);
+  // Activité demandée par « Voir sur la carte » : son aperçu s'ouvre dès qu'elle est chargée.
+  useEffect(() => {
+    if (pendingFocusId.current === null) return;
+    const activity = activities.find((a) => a.id === pendingFocusId.current);
+    if (!activity) return;
+    pendingFocusId.current = null;
+    select({ kind: 'activity', activity });
+  }, [activities, select]);
   // Couche « Lieux » (ADR-0011, phase B) : désactivée par défaut, choix mémorisé sur l'appareil.
   const [showPlaces, setShowPlaces] = useState(false);
   useEffect(() => {
@@ -244,6 +286,13 @@ export default function MapScreen() {
         style={StyleSheet.absoluteFill}
         initialRegion={INITIAL_REGION}
         onRegionChangeComplete={setRegion}
+        onMapReady={() => {
+          mapReady.current = true;
+          if (pendingRegion.current) {
+            mapRef.current?.animateToRegion(pendingRegion.current, 500);
+            pendingRegion.current = null;
+          }
+        }}
         // Toucher un marqueur déclenche aussi `onPress` de la carte (`action: 'marker-press'`) : sans ce
         // filtre, la sélection était aussitôt effacée et l'aperçu (donc la fiche) restait inaccessible.
         onPress={(event) => {
