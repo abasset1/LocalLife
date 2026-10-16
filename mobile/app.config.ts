@@ -40,13 +40,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: "locallife",
   userInterfaceStyle: "automatic",
   ios: {
-    icon: "./assets/expo.icon",
+    icon: "./assets/images/icon.png",
   },
   android: {
     // Identifiant de l'application Android (définitif une fois publiée sur le Play Store).
     package: "com.locallife.mobile",
     adaptiveIcon: {
-      backgroundColor: "#E6F4FE",
+      backgroundColor: "#173F35",
       foregroundImage: "./assets/images/android-icon-foreground.png",
       backgroundImage: "./assets/images/android-icon-background.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
@@ -64,7 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // Alertes en notification push (voir src/notifications/push.ts).
       "expo-notifications",
       {
-        color: "#1A5FC8",
+        color: "#173F35",
       },
     ],
     [
@@ -81,9 +81,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       "expo-splash-screen",
       {
-        backgroundColor: "#208AEF",
+        // Vert forêt de la charte ; logo LocalLife (« L » et point corail).
+        backgroundColor: "#173F35",
         image: "./assets/images/splash-icon.png",
-        imageWidth: 76,
+        imageWidth: 120,
       },
     ],
   ],

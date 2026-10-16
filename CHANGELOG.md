@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Application mobile : période sur la carte, icône et écran de démarrage
+- Carte : bouton **Quand ?** (Tout, Aujourd'hui, Ce week-end, 7 jours) qui filtre les activités affichées (`date` / `dateTo` de `within-bounds` et `nearby`). La période est **partagée avec l'onglet Liste** : un choix fait sur l'un s'applique à l'autre. « Voir sur la carte » repasse la période sur « Tout » pour que l'activité demandée apparaisse ; le message « aucune activité » précise la période choisie.
+- **Icône LocalLife** (« L » blanc et point corail sur vert forêt) à la place de celle d'Expo : icône iOS, icône adaptative et monochrome Android, favicon.
+- **Écran de démarrage** vert forêt avec le logo, et transition animée assortie (même couleur, même taille).
+- Couleur des notifications Android : vert forêt.
+- Build local : relancer `npx expo prebuild --platform android --clean` pour que le dossier `android/` existant prenne la nouvelle icône.
+
 ### Application mobile : fiche enrichie, agenda, partage et « Voir sur la carte »
 - Fiche d'une activité : section **Quand ?** (horaires réguliers en clair, « Tous les samedis · 10h00 – 18h00 · jusqu'au 19 décembre », et prochaines dates non annulées, dépliables) et **Infos pratiques** (tarifs et conditions, âge, accessibilité, autres lieux, compléments, mots-clés).
 - Liens de la fiche : appeler, envoyer un e-mail, billetterie ou site (seuls `tel:`, `mailto:` et http(s) sont ouverts).
