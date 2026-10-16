@@ -1,7 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef } from 'react';
 import * as WebBrowser from 'expo-web-browser';
-import { ActivityIndicator, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { isActivityDetail } from '@/api';
@@ -14,6 +14,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { buildCalendarUrl, shareMessage } from '@/features/activity/calendar';
+import { upcomingOccurrences } from '@/features/activity/details';
+import { LinksSection, PracticalSection, QuickAction, WhenSection } from '@/features/activity/DetailSections';
 import { formatDateRange, formatPlace, isSafeWebUrl } from '@/features/activity/format';
 import { buildDirectionsUrl, withApproximateMention } from '@/features/activity/location';
 import { useActivity } from '@/features/activity/useActivity';
@@ -94,6 +97,29 @@ export default function ActiviteDetailScreen() {
               ? [{ id: 0, url: activity.mainImageUrl, alt: null, credit: null }]
               : [];
           const [cover, ...morePhotos] = photos;
+          const next = detail ? upcomingOccurrences(detail.occurrences)[0] : undefined;
+          const calendarUrl = buildCalendarUrl({
+            title: activity.title,
+            description: detail?.description ?? null,
+            location: formatPlace(activity.address, detail ? detail.postalCode : null, activity.city),
+            occurrenceStartAt: next?.startAt ?? null,
+            occurrenceEndAt: next?.endAt ?? null,
+            startDate: isActivityDetail(activity) ? activity.startDate : activity.date,
+          });
+          const share = () =>
+            Share.share({
+              title: activity.title,
+              message: shareMessage({ title: activity.title, date, place, url: isSafeWebUrl(url) ? url : null }),
+            }).catch(() => undefined);
+          const showOnMap = () =>
+            router.navigate({
+              pathname: '/',
+              params: {
+                focusId: String(activity.id),
+                focusLat: String(activity.latitude),
+                focusLon: String(activity.longitude),
+              },
+            });
 
           return (
             <ScrollView contentContainerStyle={styles.content}>
@@ -125,6 +151,32 @@ export default function ActiviteDetailScreen() {
                   {activity.title}
                 </ThemedText>
               </View>
+              <View style={styles.quickActions}>
+                {directions ? (
+                  <QuickAction
+                    icon={{ ios: 'arrow.triangle.turn.up.right.diamond', android: 'directions', web: 'directions' }}
+                    label="Itinéraire"
+                    onPress={() => Linking.openURL(directions).catch(() => undefined)}
+                  />
+                ) : null}
+                <QuickAction
+                  icon={{ ios: 'map', android: 'map', web: 'map' }}
+                  label="Voir sur la carte"
+                  onPress={showOnMap}
+                />
+                {calendarUrl ? (
+                  <QuickAction
+                    icon={{ ios: 'calendar.badge.plus', android: 'calendar_add_on', web: 'calendar_add_on' }}
+                    label="Ajouter à l'agenda"
+                    onPress={() => WebBrowser.openBrowserAsync(calendarUrl).catch(() => undefined)}
+                  />
+                ) : null}
+                <QuickAction
+                  icon={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }}
+                  label="Partager"
+                  onPress={() => void share()}
+                />
+              </View>
               {morePhotos.length > 0 ? (
                 <ScrollView
                   horizontal
@@ -150,6 +202,7 @@ export default function ActiviteDetailScreen() {
                 {publishedOn && <Field label="Publiée le" value={publishedOn} />}
               </Card>
 
+              {detail ? <WhenSection detail={detail} /> : null}
 
               {description ? (
                 <Card style={styles.fields}>
@@ -158,22 +211,17 @@ export default function ActiviteDetailScreen() {
                 </Card>
               ) : null}
 
+              {detail ? <PracticalSection detail={detail} /> : null}
+
               <View style={styles.actions}>
-                {directions && (
-                  <Button
-                    label="Itinéraire"
-                    icon={{ ios: 'arrow.triangle.turn.up.right.diamond', android: 'directions', web: 'directions' }}
-                    onPress={() => Linking.openURL(directions).catch(() => undefined)}
-                  />
-                )}
                 {isSafeWebUrl(url) && (
                   <Button
                     label="Ouvrir le site de l'activité"
-                    variant="secondary"
                     icon={{ ios: 'safari', android: 'language', web: 'language' }}
                     onPress={() => WebBrowser.openBrowserAsync(url).catch(() => undefined)}
                   />
                 )}
+                {detail ? <LinksSection detail={detail} mainUrl={url ?? null} /> : null}
                 <ContributorActions
                   activityId={activity.id}
                   title={activity.title}
@@ -254,6 +302,12 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: Spacing.two,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    gap: Spacing.two,
+    paddingVertical: Spacing.one,
   },
   center: {
     flex: 1,
