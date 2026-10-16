@@ -40,3 +40,29 @@ export function checkUsernameAvailability(username: string, options: CallOptions
     signal: options.signal,
   });
 }
+
+/** Réponse générique des endpoints qui n'ont qu'un message à afficher. */
+export interface MessageResponse {
+  message: string;
+}
+
+/**
+ * `POST /auth/forgot-password` — envoie un lien de réinitialisation. Réponse identique que le compte
+ * existe ou non (pas d'énumération des comptes) ; 400 seulement si l'e-mail est malformé.
+ */
+export function forgotPassword(email: string, options: CallOptions = {}): Promise<MessageResponse> {
+  return request<MessageResponse>(`${BASE}/forgot-password`, {
+    method: 'POST',
+    body: { email },
+    signal: options.signal,
+  });
+}
+
+/** `POST /auth/resend-verification` — renvoie le lien de confirmation (au plus un par minute). */
+export function resendVerification(email: string, options: CallOptions = {}): Promise<MessageResponse> {
+  return request<MessageResponse>(`${BASE}/resend-verification`, {
+    method: 'POST',
+    body: { email },
+    signal: options.signal,
+  });
+}

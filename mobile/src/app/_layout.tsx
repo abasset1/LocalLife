@@ -6,6 +6,7 @@ import { useColorScheme } from 'react-native';
 import { AuthProvider } from '@/auth';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { Colors } from '@/constants/theme';
+import { FavoritesProvider } from '@/features/favorites';
 import { OnboardingGate } from '@/features/onboarding';
 import { useNotificationRouting } from '@/notifications';
 
@@ -47,32 +48,36 @@ export default function RootLayout() {
       <StatusBar style={dark ? 'light' : 'dark'} />
       <AnimatedSplashOverlay />
       <AuthProvider>
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.primary,
-            headerTitleStyle: { color: colors.text, fontWeight: '700' },
-            headerShadowVisible: false,
-            headerBackButtonDisplayMode: 'minimal',
-            contentStyle: { backgroundColor: colors.background },
-          }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="activite/[id]"
-            options={{ title: 'Activité' }}
-          />
-          <Stack.Screen name="foodtruck/[id]" options={{ title: 'Food truck' }} />
-          <Stack.Screen name="parametres" options={{ title: 'Paramètres de recherche' }} />
-          <Stack.Screen name="alertes" options={{ title: 'Mes alertes' }} />
-          <Stack.Screen name="contributions/index" options={{ title: 'Mes contributions' }} />
-          <Stack.Screen name="contributions/[id]" options={{ title: "Modifier l'activité" }} />
-          {/* Accueil de première connexion : plein écran, sans geste ni bouton de retour. */}
-          <Stack.Screen
-            name="bienvenue"
-            options={{ headerShown: false, gestureEnabled: false, presentation: 'fullScreenModal' }}
-          />
-        </Stack>
-        <OnboardingGate />
+        <FavoritesProvider>
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.primary,
+              headerTitleStyle: { color: colors.text, fontWeight: '700' },
+              headerShadowVisible: false,
+              headerBackButtonDisplayMode: 'minimal',
+              contentStyle: { backgroundColor: colors.background },
+            }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="activite/[id]"
+              options={{ title: 'Activité' }}
+            />
+            <Stack.Screen name="foodtruck/[id]" options={{ title: 'Food truck' }} />
+            <Stack.Screen name="parametres" options={{ title: 'Paramètres de recherche' }} />
+            <Stack.Screen name="alertes" options={{ title: 'Mes alertes' }} />
+            <Stack.Screen name="favoris" options={{ title: 'Mes favoris' }} />
+            <Stack.Screen name="mot-de-passe-oublie" options={{ title: 'Mot de passe oublié' }} />
+            <Stack.Screen name="contributions/index" options={{ title: 'Mes contributions' }} />
+            <Stack.Screen name="contributions/[id]" options={{ title: "Modifier l'activité" }} />
+            {/* Accueil de première connexion : plein écran, sans geste ni bouton de retour. */}
+            <Stack.Screen
+              name="bienvenue"
+              options={{ headerShown: false, gestureEnabled: false, presentation: 'fullScreenModal' }}
+            />
+          </Stack>
+          <OnboardingGate />
+        </FavoritesProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -9,6 +9,7 @@ import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { Field } from '@/components/field';
 import { Notice } from '@/components/notice';
+import { RemoteImage } from '@/components/remote-image';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
@@ -18,6 +19,7 @@ import { buildDirectionsUrl, withApproximateMention } from '@/features/activity/
 import { useActivity } from '@/features/activity/useActivity';
 import { useAuth } from '@/auth';
 import { ContributorActions, STATUS_LABELS } from '@/features/contribution';
+import { LikeButton } from '@/features/favorites';
 
 /**
  * Détail d'une activité (LL-MOB-0008), atteint depuis l'aperçu d'un marqueur
@@ -85,10 +87,30 @@ export default function ActiviteDetailScreen() {
           const directions = buildDirectionsUrl(activity);
           const url = detail?.url;
           const publishedOn = detail ? formatDateRange(detail.publishedAt) : null;
+          // Photos : médias de la fiche détaillée, sinon la photo principale du résumé.
+          const photos = detail
+            ? detail.media.map((m) => ({ id: m.id, url: m.url, alt: m.altText, credit: m.credit }))
+            : 'mainImageUrl' in activity && activity.mainImageUrl
+              ? [{ id: 0, url: activity.mainImageUrl, alt: null, credit: null }]
+              : [];
+          const [cover, ...morePhotos] = photos;
 
           return (
             <ScrollView contentContainerStyle={styles.content}>
+              {cover ? (
+                <View>
+                  <RemoteImage url={cover.url} alt={cover.alt ?? activity.title} style={styles.cover} />
+                  {cover.credit ? (
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.credit}>
+                      © {cover.credit}
+                    </ThemedText>
+                  ) : null}
+                </View>
+              ) : null}
               <View style={[styles.hero, { backgroundColor: theme.sand }]}>
+                <View style={styles.like}>
+                  <LikeButton activityId={activity.id} title={activity.title} floating />
+                </View>
                 <View style={[styles.badge, { backgroundColor: theme.backgroundElement }]}>
                   <ThemedText type="eyebrow" themeColor="primary">
                     {activity.category}
@@ -103,6 +125,17 @@ export default function ActiviteDetailScreen() {
                   {activity.title}
                 </ThemedText>
               </View>
+              {morePhotos.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.gallery}
+                  accessibilityLabel="Autres photos">
+                  {morePhotos.map((photo) => (
+                    <RemoteImage key={photo.id} url={photo.url} alt={photo.alt} style={styles.thumbnail} />
+                  ))}
+                </ScrollView>
+              ) : null}
               {detail && detail.status !== 'PUBLISHED' && (
                 <Notice tone="warning">
                   {STATUS_LABELS[detail.status] ?? detail.status} : visible seulement par vous (et les
@@ -116,6 +149,7 @@ export default function ActiviteDetailScreen() {
                 {source ? <Field label="Source" value={source} /> : null}
                 {publishedOn && <Field label="Publiée le" value={publishedOn} />}
               </Card>
+
 
               {description ? (
                 <Card style={styles.fields}>
@@ -177,6 +211,29 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
     padding: Spacing.four,
     gap: Spacing.two,
+  },
+  like: {
+    position: 'absolute',
+    top: Spacing.three,
+    right: Spacing.three,
+    zIndex: 1,
+  },
+  cover: {
+    height: 220,
+    borderRadius: Radius.xl,
+  },
+  credit: {
+    marginTop: Spacing.one,
+    marginHorizontal: Spacing.two,
+    fontSize: 12,
+  },
+  gallery: {
+    gap: Spacing.two,
+  },
+  thumbnail: {
+    width: 140,
+    height: 100,
+    borderRadius: Radius.md,
   },
   badge: {
     alignSelf: 'flex-start',
