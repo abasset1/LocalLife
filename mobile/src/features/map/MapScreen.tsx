@@ -56,6 +56,12 @@ export default function MapScreen() {
 
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
   const [selection, setSelection] = useState<Selection | null>(null);
+  /** Heure du dernier appui sur un marqueur (iOS n'indique pas toujours `marker-press`). */
+  const markerPressedAt = useRef(0);
+  const select = useCallback((next: Selection) => {
+    markerPressedAt.current = Date.now();
+    setSelection(next);
+  }, []);
 
   // Paramètres de recherche (utilisateur connecté) : cadrage sur la ville et
   // le rayon par défaut, et filtre sur les catégories par défaut. Appliqués à
@@ -238,7 +244,12 @@ export default function MapScreen() {
         style={StyleSheet.absoluteFill}
         initialRegion={INITIAL_REGION}
         onRegionChangeComplete={setRegion}
-        onPress={() => setSelection(null)}
+        // Toucher un marqueur déclenche aussi `onPress` de la carte (`action: 'marker-press'`) : sans ce
+        // filtre, la sélection était aussitôt effacée et l'aperçu (donc la fiche) restait inaccessible.
+        onPress={(event) => {
+          if (event.nativeEvent.action === 'marker-press' || Date.now() - markerPressedAt.current < 400) return;
+          setSelection(null);
+        }}
         showsUserLocation={showUser}
         showsMyLocationButton={false}
         toolbarEnabled={false}
@@ -268,7 +279,10 @@ export default function MapScreen() {
                 key={`c-${clusterId}-${count}`}
                 coordinate={coordinate}
                 count={count}
-                onPress={() => zoomIntoCluster(clusterId, longitude, latitude)}
+                onPress={() => {
+                  markerPressedAt.current = Date.now();
+                  zoomIntoCluster(clusterId, longitude, latitude);
+                }}
               />
             );
           }
@@ -280,7 +294,7 @@ export default function MapScreen() {
               coordinate={coordinate}
               title={activity.title}
               approximate={isApproximateLocation(activity)}
-              onPress={() => setSelection({ kind: 'activity', activity })}
+              onPress={() => select({ kind: 'activity', activity })}
             />
           );
         })}
@@ -290,7 +304,7 @@ export default function MapScreen() {
             key={`t-${foodTruck.id}`}
             coordinate={{ latitude: foodTruck.latitude, longitude: foodTruck.longitude }}
             name={foodTruck.name}
-            onPress={() => setSelection({ kind: 'foodTruck', foodTruck })}
+            onPress={() => select({ kind: 'foodTruck', foodTruck })}
           />
         ))}
 
@@ -299,12 +313,13 @@ export default function MapScreen() {
             key={`p-${place.id}`}
             coordinate={{ latitude: place.latitude, longitude: place.longitude }}
             name={place.name}
-            onPress={() => setSelection({ kind: 'place', place })}
+            onPress={() => select({ kind: 'place', place })}
           />
         ))}
       </MapView>
 
-      <SafeAreaView style={styles.overlay} pointerEvents="box-none">
+      {/* Le bas est déjà protégé par la barre d'onglets : seul le haut (encoche) est réservé. */}
+      <SafeAreaView style={styles.overlay} edges={['top', 'left', 'right']} pointerEvents="box-none">
         <View style={styles.top} pointerEvents="box-none">
           {loading && (
             <View

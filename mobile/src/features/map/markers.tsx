@@ -50,7 +50,11 @@ export function ActivityMarker({
   return (
     <Marker
       coordinate={coordinate}
-      onPress={onPress}
+      onPress={(event) => {
+        // Évite que la carte reçoive aussi ce toucher et ferme l’aperçu (iOS).
+        event.stopPropagation?.();
+        onPress();
+      }}
       tracksViewChanges={tracks}
       accessibilityLabel={`Activité : ${title}${approximate ? ' (emplacement approximatif)' : ''}`}>
       <View style={styles.markerPadding}>
@@ -77,7 +81,11 @@ export function PlaceMarker({
   return (
     <Marker
       coordinate={coordinate}
-      onPress={onPress}
+      onPress={(event) => {
+        // Évite que la carte reçoive aussi ce toucher et ferme l’aperçu (iOS).
+        event.stopPropagation?.();
+        onPress();
+      }}
       tracksViewChanges={tracks}
       accessibilityLabel={`Lieu : ${name}`}>
       <View style={styles.markerPadding}>
@@ -103,7 +111,11 @@ export function FoodTruckMarker({
   return (
     <Marker
       coordinate={coordinate}
-      onPress={onPress}
+      onPress={(event) => {
+        // Évite que la carte reçoive aussi ce toucher et ferme l’aperçu (iOS).
+        event.stopPropagation?.();
+        onPress();
+      }}
       tracksViewChanges={tracks}
       accessibilityLabel={`Food truck : ${name}`}>
       <View style={styles.markerPadding}>
@@ -129,7 +141,11 @@ export function ClusterMarker({
   return (
     <Marker
       coordinate={coordinate}
-      onPress={onPress}
+      onPress={(event) => {
+        // Évite que la carte reçoive aussi ce toucher et ferme l’aperçu (iOS).
+        event.stopPropagation?.();
+        onPress();
+      }}
       tracksViewChanges={tracks}
       accessibilityLabel={`Groupe de ${count} activités. Toucher pour zoomer.`}>
       <View style={styles.markerPadding}>

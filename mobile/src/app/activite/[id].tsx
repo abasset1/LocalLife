@@ -147,7 +147,11 @@ export default function ActiviteDetailScreen() {
                   // Fiche ouverte depuis une notification : pas d'écran précédent, retour à la carte.
                   onDeleted={() => (router.canGoBack() ? router.back() : router.replace('/'))}
                 />
-                <Button label="Retour à la carte" variant="ghost" onPress={() => router.back()} />
+                <Button
+                  label="Retour"
+                  variant="ghost"
+                  onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+                />
               </View>
             </ScrollView>
           );

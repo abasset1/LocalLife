@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Application mobile : onglet « Liste » et fiches accessibles depuis la carte
+- Carte : toucher un marqueur ouvre de nouveau son aperçu, et donc la fiche. La carte recevait aussi ce toucher (`action: 'marker-press'`) et effaçait aussitôt la sélection ; ce toucher est désormais ignoré.
+- Nouvel onglet **Liste** : activités publiées autour de vous (« Autour de moi »), de votre ville par défaut ou de Marseille, triées par distance (`GET /activities/nearby`). Filtres période (tout, aujourd'hui, ce week-end, 7 jours) et rayon, recherche texte sans accents ni casse, catégories par défaut des paramètres (désactivables), tirer pour actualiser. Un appui ouvre la fiche de l'activité.
+- Barre d'onglets : libellés toujours sous l'icône (ils passaient à côté et se chevauchaient sur les grands écrans), hauteur explicite incluant la zone de sécurité, fond opaque pour chaque écran.
+
 ### Application mobile : nouvelle charte visuelle
 - Couleurs de la maquette d'accueil (vert forêt, corail, sable, papier) en mode clair et sombre ; arrondis, ombres et typographie unifiés (`src/constants/theme.ts`).
 - Nouveaux composants partagés : carte (`Card`), message encadré (`Notice` : info, succès, avertissement, erreur), en-tête d'écran, ligne de menu, logo « L LocalLife ». Boutons avec icône et variantes « discret » et « destructif » ; champs dont la bordure passe au vert pendant la saisie ; puces et interrupteurs aux couleurs de la marque.
