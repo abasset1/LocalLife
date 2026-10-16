@@ -1,9 +1,10 @@
-import Constants, { ExecutionEnvironment } from 'expo-constants';
+import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { registerPushToken, unregisterPushToken } from '@/api';
+
+import { isExpoGoAndroid } from './availability';
 
 /**
  * Notifications push des alertes (service Expo Push).
@@ -30,15 +31,30 @@ const ANDROID_CHANNEL_ID = 'alerts';
 
 let currentToken: string | null = null;
 
-// Notification reçue application ouverte : affichée quand même.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+type NotificationsModule = typeof import('expo-notifications');
+let notificationsModule: NotificationsModule | null = null;
+
+/**
+ * Charge `expo-notifications` à la première utilisation, jamais dans Expo Go
+ * sur Android (voir `availability.ts`) : les appelants vérifient
+ * `unavailableReason()` avant.
+ */
+export function notifications(): NotificationsModule {
+  if (!notificationsModule) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    notificationsModule = require('expo-notifications') as NotificationsModule;
+    // Notification reçue application ouverte : affichée quand même.
+    notificationsModule.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+  }
+  return notificationsModule;
+}
 
 function projectId(): string | undefined {
   return Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
@@ -48,7 +64,7 @@ function projectId(): string | undefined {
 function unavailableReason(): string | null {
   if (Platform.OS === 'web') return 'Les notifications sont disponibles uniquement sur Android et iOS.';
   if (!Device.isDevice) return 'Les notifications nécessitent un téléphone (pas un émulateur).';
-  if (Platform.OS === 'android' && Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+  if (isExpoGoAndroid) {
     return "Les notifications ne fonctionnent pas dans Expo Go sur Android : utilisez une version installée de l'application.";
   }
   if (!projectId()) return "Les notifications ne sont pas configurées pour cette version de l'application.";
@@ -57,14 +73,14 @@ function unavailableReason(): string | null {
 
 async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
-  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+  await notifications().setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
     name: 'Alertes LocalLife',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: notifications().AndroidImportance.DEFAULT,
   });
 }
 
 async function sendTokenToBackend(): Promise<void> {
-  const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId: projectId() });
+  const { data: token } = await notifications().getExpoPushTokenAsync({ projectId: projectId() });
   currentToken = token;
   await registerPushToken(token, Platform.OS === 'ios' ? 'ios' : 'android');
 }
@@ -75,9 +91,9 @@ export async function enablePushNotifications(): Promise<PushRegistration> {
   if (reason) return { status: 'unavailable', reason };
   try {
     await ensureAndroidChannel();
-    let permission = await Notifications.getPermissionsAsync();
+    let permission = await notifications().getPermissionsAsync();
     if (!permission.granted && permission.canAskAgain) {
-      permission = await Notifications.requestPermissionsAsync();
+      permission = await notifications().requestPermissionsAsync();
     }
     if (!permission.granted) return { status: 'denied' };
     await sendTokenToBackend();
@@ -104,7 +120,7 @@ export async function enablePushOrExplain(): Promise<string | null> {
 export async function refreshPushRegistration(): Promise<void> {
   if (unavailableReason()) return;
   try {
-    const permission = await Notifications.getPermissionsAsync();
+    const permission = await notifications().getPermissionsAsync();
     if (!permission.granted) return;
     await ensureAndroidChannel();
     await sendTokenToBackend();
