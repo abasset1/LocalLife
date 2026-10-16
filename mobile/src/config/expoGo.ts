@@ -8,5 +8,6 @@ import { Platform } from 'react-native';
  * - fond de carte Google Maps parfois vide (clé fournie par Expo Go), d'où
  *   des tuiles OpenStreetMap à la place (voir `src/features/map`).
  */
-export const isExpoGoAndroid =
-  Platform.OS === 'android' && Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+export const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+export const isExpoGoAndroid = Platform.OS === 'android' && isExpoGo;

@@ -14,7 +14,15 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Shadows, Spacing } from '@/constants/theme';
-import { USERNAME_MAX_LENGTH, USERNAME_RULES, useAuth, useUsernameAvailability } from '@/auth';
+import {
+  GoogleSignInError,
+  USERNAME_MAX_LENGTH,
+  USERNAME_RULES,
+  googleSignInAvailable,
+  requestGoogleIdToken,
+  useAuth,
+  useUsernameAvailability,
+} from '@/auth';
 import { useTheme } from '@/hooks/use-theme';
 
 type Mode = 'login' | 'register';
@@ -31,7 +39,7 @@ function messageFor(error: unknown): string {
  * messages.
  */
 export default function CompteScreen() {
-  const { state, login, register, logout } = useAuth();
+  const { state, login, loginWithGoogle, register, logout } = useAuth();
   const theme = useTheme();
   const router = useRouter();
 
@@ -45,6 +53,7 @@ export default function CompteScreen() {
   /** Connexion refusée car l'adresse n'est pas confirmée (403) : propose de renvoyer le lien. */
   const [unverified, setUnverified] = useState(false);
   const [resending, setResending] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const usernameStatus = useUsernameAvailability(mode === 'register' ? username : '');
 
   function switchMode(next: Mode) {
@@ -53,6 +62,22 @@ export default function CompteScreen() {
     setInfo(null);
     setUnverified(false);
     setPassword('');
+  }
+
+  /** « Continuer avec Google » : connexion, ou création du compte s'il n'existe pas encore. */
+  async function continueWithGoogle() {
+    setError(null);
+    setInfo(null);
+    setUnverified(false);
+    setGoogleLoading(true);
+    try {
+      const idToken = await requestGoogleIdToken();
+      if (idToken) await loginWithGoogle(idToken);
+    } catch (e) {
+      setError(e instanceof GoogleSignInError ? e.message : messageFor(e));
+    } finally {
+      setGoogleLoading(false);
+    }
   }
 
   async function resend() {
@@ -277,8 +302,27 @@ export default function CompteScreen() {
               <Button
                 label={isLogin ? 'Se connecter' : "S'inscrire"}
                 loading={submitting}
+                disabled={googleLoading}
                 onPress={() => void submit()}
               />
+              {googleSignInAvailable && (
+                <>
+                  <View style={styles.separator} importantForAccessibility="no-hide-descendants">
+                    <View style={[styles.separatorLine, { backgroundColor: theme.border }]} />
+                    <ThemedText type="small" themeColor="textSecondary">
+                      ou
+                    </ThemedText>
+                    <View style={[styles.separatorLine, { backgroundColor: theme.border }]} />
+                  </View>
+                  <Button
+                    label="Continuer avec Google"
+                    variant="secondary"
+                    loading={googleLoading}
+                    disabled={submitting}
+                    onPress={() => void continueWithGoogle()}
+                  />
+                </>
+              )}
               {isLogin && (
                 <Button
                   label="Mot de passe oublié ?"
@@ -384,6 +428,15 @@ const styles = StyleSheet.create({
   form: {
     gap: Spacing.three,
     padding: Spacing.four - Spacing.one,
+  },
+  separator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  separatorLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
   },
   usernameGroup: {
     gap: Spacing.two,

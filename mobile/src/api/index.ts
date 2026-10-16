@@ -26,7 +26,7 @@ export { listCategories } from './categories';
 export { listFoodTrucks } from './foodTrucks';
 export { searchPlacesWithinBounds } from './places';
 export type { PlacesWithinBoundsParams } from './places';
-export { checkUsernameAvailability, forgotPassword, login, register, resendVerification } from './auth';
+export { checkUsernameAvailability, forgotPassword, login, loginWithGoogle, register, resendVerification } from './auth';
 export type { MessageResponse } from './auth';
 export { likeActivity, listLikedActivities, unlikeActivity } from './likes';
 export type { LikeStatus } from './likes';

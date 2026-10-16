@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Application mobile : connexion Google
+- Bouton **« Continuer avec Google »** dans l'onglet Compte (connexion, ou création du compte s'il n'existe pas) : connexion native (`@react-native-google-signin/google-signin`), ID token envoyé à `POST /auth/google`. Le token est demandé pour le client OAuth web du site, celui que vérifie déjà le backend : aucun changement côté serveur.
+- Masqué dans Expo Go, sur le web et tant que `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` n'est pas fourni ; le module natif n'est chargé qu'au premier appui. Annulation silencieuse, messages clairs si les services Google Play manquent ou si la connexion échoue ; déconnexion de Google en même temps que de LocalLife.
+- `app.config.ts` : identifiant iOS `com.locallife.mobile` ; plugin Google ajouté seulement si un client iOS est fourni (schéma d'URL déduit). Procédure de configuration dans `mobile/README.md`.
+
 ### Application mobile : période sur la carte, icône et écran de démarrage
 - Carte : bouton **Quand ?** (Tout, Aujourd'hui, Ce week-end, 7 jours) qui filtre les activités affichées (`date` / `dateTo` de `within-bounds` et `nearby`). La période est **partagée avec l'onglet Liste** : un choix fait sur l'un s'applique à l'autre. « Voir sur la carte » repasse la période sur « Tout » pour que l'activité demandée apparaisse ; le message « aucune activité » précise la période choisie.
 - **Icône LocalLife** (« L » blanc et point corail sur vert forêt) à la place de celle d'Expo : icône iOS, icône adaptative et monochrome Android, favicon.
