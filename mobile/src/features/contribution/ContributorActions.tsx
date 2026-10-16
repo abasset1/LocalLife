@@ -67,7 +67,7 @@ export function ContributorActions({
         disabled={deleting}
         onPress={() => router.push(`/contributions/${activityId}`)}
       />
-      <Button label="Supprimer" variant="secondary" loading={deleting} onPress={() => void remove()} />
+      <Button label="Supprimer" variant="danger" loading={deleting} onPress={() => void remove()} />
       {error && (
         <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
           Erreur : {error}

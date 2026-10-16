@@ -5,7 +5,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  View,
 } from 'react-native';
 
 import {
@@ -20,6 +19,8 @@ import {
 } from '@/api';
 import type { ActivityAlert, Category } from '@/api';
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { Notice } from '@/components/notice';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -35,7 +36,6 @@ import {
   toggleCode,
   useCityPicker,
 } from '@/features/settings';
-import { useTheme } from '@/hooks/use-theme';
 import { enablePushOrExplain } from '@/notifications';
 
 function messageFor(error: unknown): string {
@@ -51,7 +51,6 @@ function messageFor(error: unknown): string {
  * (récapitulatif quotidien côté backend).
  */
 export default function AlertesScreen() {
-  const theme = useTheme();
   const { state } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [alerts, setAlerts] = useState<ActivityAlert[]>([]);
@@ -201,12 +200,19 @@ export default function AlertesScreen() {
             vos critères.
           </ThemedText>
 
-          {alerts.length === 0 && <ThemedText>Aucune alerte pour l’instant.</ThemedText>}
+          {alerts.length === 0 && (
+            <Card style={styles.empty}>
+              <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
+                🔔
+              </ThemedText>
+              <ThemedText style={styles.emptyText}>Aucune alerte pour l’instant.</ThemedText>
+            </Card>
+          )}
           {alerts.map((alert) => (
-            <View key={alert.id} style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="smallBold">{alertCriteria(alert, categories)}</ThemedText>
-              <ThemedText type="small">
-                À moins de {alert.radiusKm} km de {alert.city}
+            <Card key={alert.id} style={styles.card}>
+              <ThemedText type="heading">{alertCriteria(alert, categories)}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                📍 À moins de {alert.radiusKm} km de {alert.city}
               </ThemedText>
               <ChannelSwitch
                 label="Notification"
@@ -226,18 +232,17 @@ export default function AlertesScreen() {
               />
               <Button
                 label="Supprimer"
-                variant="secondary"
+                variant="danger"
                 loading={busyAlertId === alert.id}
                 onPress={() => void remove(alert)}
               />
-            </View>
+            </Card>
           ))}
           {listError && (
-            <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
-              Erreur : {listError}
-            </ThemedText>
+            <Notice tone="danger">Erreur : {listError}</Notice>
           )}
 
+          <Card style={styles.form}>
           <ThemedText type="subtitle" style={styles.subtitle}>
             Nouvelle alerte
           </ThemedText>
@@ -269,11 +274,9 @@ export default function AlertesScreen() {
           <ChannelSwitch label="E-mail" value={notifyEmail} onValueChange={setNotifyEmail} />
 
           {createError && (
-            <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
-              Erreur : {createError}
-            </ThemedText>
+            <Notice tone="danger">Erreur : {createError}</Notice>
           )}
-          {created && <ThemedText accessibilityLiveRegion="polite">✓ Alerte créée.</ThemedText>}
+          {created && <Notice tone="success">Alerte créée.</Notice>}
 
           <Button
             label="Créer l'alerte"
@@ -281,6 +284,7 @@ export default function AlertesScreen() {
             disabled={cityPicker.blocksSubmit}
             onPress={() => void create()}
           />
+          </Card>
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>
@@ -308,7 +312,21 @@ const styles = StyleSheet.create({
   },
   card: {
     gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: 12,
+  },
+  form: {
+    gap: Spacing.four,
+    padding: Spacing.four - Spacing.one,
+  },
+  empty: {
+    padding: Spacing.four,
+    gap: Spacing.two,
+  },
+  emptyIcon: {
+    fontSize: 36,
+    lineHeight: 44,
+    textAlign: 'center',
+  },
+  emptyText: {
+    textAlign: 'center',
   },
 });

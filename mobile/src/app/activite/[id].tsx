@@ -6,10 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { isActivityDetail } from '@/api';
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
 import { Field } from '@/components/field';
+import { Notice } from '@/components/notice';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateRange, formatPlace, isSafeWebUrl } from '@/features/activity/format';
 import { buildDirectionsUrl, withApproximateMention } from '@/features/activity/location';
@@ -44,7 +46,7 @@ export default function ActiviteDetailScreen() {
       <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
         {state.status === 'loading' && (
           <View style={styles.center} accessibilityLiveRegion="polite">
-            <ActivityIndicator size="large" accessibilityLabel="Chargement de l'activité" />
+            <ActivityIndicator size="large" color={theme.primary} accessibilityLabel="Chargement de l'activité" />
           </View>
         )}
 
@@ -86,53 +88,71 @@ export default function ActiviteDetailScreen() {
 
           return (
             <ScrollView contentContainerStyle={styles.content}>
-              <ThemedText type="subtitle" accessibilityRole="header">
-                {activity.title}
-              </ThemedText>
-              <ThemedText themeColor="textSecondary">{activity.category}</ThemedText>
+              <View style={[styles.hero, { backgroundColor: theme.sand }]}>
+                <View style={[styles.badge, { backgroundColor: theme.backgroundElement }]}>
+                  <ThemedText type="eyebrow" themeColor="primary">
+                    {activity.category}
+                  </ThemedText>
+                </View>
+                {date ? (
+                  <ThemedText type="eyebrow" style={styles.heroDate}>
+                    {date}
+                  </ThemedText>
+                ) : null}
+                <ThemedText type="subtitle" accessibilityRole="header">
+                  {activity.title}
+                </ThemedText>
+              </View>
               {detail && detail.status !== 'PUBLISHED' && (
-                <ThemedText style={[styles.statusNotice, { backgroundColor: theme.backgroundElement }]}>
+                <Notice tone="warning">
                   {STATUS_LABELS[detail.status] ?? detail.status} : visible seulement par vous (et les
                   modérateurs) tant qu’elle n’est pas publiée.
-                </ThemedText>
+                </Notice>
               )}
 
-              {date && <Field label="Date" value={date} />}
-              {place && <Field label="Lieu" value={place} />}
-              {source ? <Field label="Source" value={source} /> : null}
-              {publishedOn && <Field label="Publiée le" value={publishedOn} />}
+              <Card style={styles.fields}>
+                {date && <Field label="Date" value={date} />}
+                {place && <Field label="Lieu" value={place} />}
+                {source ? <Field label="Source" value={source} /> : null}
+                {publishedOn && <Field label="Publiée le" value={publishedOn} />}
+              </Card>
 
               {description ? (
-                <View style={styles.field}>
-                  <ThemedText type="smallBold" themeColor="textSecondary">
-                    Description
-                  </ThemedText>
-                  <ThemedText>{description}</ThemedText>
-                </View>
+                <Card style={styles.fields}>
+                  <ThemedText type="heading">Description</ThemedText>
+                  <ThemedText style={styles.description}>{description}</ThemedText>
+                </Card>
               ) : null}
 
-              {directions && (
-                <Button
-                  label="Itinéraire"
-                  variant="secondary"
-                  onPress={() => Linking.openURL(directions).catch(() => undefined)}
+              <View style={styles.actions}>
+                {directions && (
+                  <Button
+                    label="Itinéraire"
+                    icon={{ ios: 'arrow.triangle.turn.up.right.diamond', android: 'directions', web: 'directions' }}
+                    onPress={() => Linking.openURL(directions).catch(() => undefined)}
+                  />
+                )}
+                {isSafeWebUrl(url) && (
+                  <Button
+                    label="Ouvrir le site de l'activité"
+                    variant="secondary"
+                    icon={{ ios: 'safari', android: 'language', web: 'language' }}
+                    onPress={() => WebBrowser.openBrowserAsync(url).catch(() => undefined)}
+                  />
+                )}
+                <ContributorActions
+                  activityId={activity.id}
+                  title={activity.title}
+                  createdBy={activity.createdBy}
+                  // Fiche ouverte depuis une notification : pas d'écran précédent, retour à la carte.
+                  onDeleted={() => (router.canGoBack() ? router.back() : router.replace('/'))}
                 />
-              )}
-              {isSafeWebUrl(url) && (
                 <Button
-                  label="Ouvrir le site de l'activité"
-                  variant="secondary"
-                  onPress={() => WebBrowser.openBrowserAsync(url).catch(() => undefined)}
+                  label="Retour"
+                  variant="ghost"
+                  onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
                 />
-              )}
-              <ContributorActions
-                activityId={activity.id}
-                title={activity.title}
-                createdBy={activity.createdBy}
-                // Fiche ouverte depuis une notification : pas d'écran précédent, retour à la carte.
-                onDeleted={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-              />
-              <Button label="Retour à la carte" onPress={() => router.back()} />
+              </View>
             </ScrollView>
           );
         })()}
@@ -149,8 +169,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: Spacing.four,
+    padding: Spacing.three,
+    paddingBottom: Spacing.five,
     gap: Spacing.three,
+  },
+  hero: {
+    borderRadius: Radius.xl,
+    padding: Spacing.four,
+    gap: Spacing.two,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.two + Spacing.one,
+    paddingVertical: Spacing.one + Spacing.half,
+    borderRadius: Radius.pill,
+    marginBottom: Spacing.two,
+  },
+  heroDate: {
+    letterSpacing: 0.7,
+  },
+  fields: {
+    gap: Spacing.three,
+    padding: Spacing.four - Spacing.one,
+  },
+  description: {
+    lineHeight: 26,
+  },
+  actions: {
+    gap: Spacing.two,
   },
   center: {
     flex: 1,
@@ -161,12 +207,5 @@ const styles = StyleSheet.create({
   },
   centerText: {
     textAlign: 'center',
-  },
-  field: {
-    gap: Spacing.one,
-  },
-  statusNotice: {
-    padding: Spacing.three,
-    borderRadius: 8,
   },
 });

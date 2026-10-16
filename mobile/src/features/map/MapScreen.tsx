@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Circle } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Supercluster from 'supercluster';
@@ -7,12 +7,13 @@ import Supercluster from 'supercluster';
 import type { Activity } from '@/api';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Radius, Shadows, Spacing } from '@/constants/theme';
 import { isApproximateLocation } from '@/features/activity/location';
 import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
 import { useTheme } from '@/hooks/use-theme';
 
 import { Region, pointInBounds, regionForRadius, regionForZoom, regionToBounds, zoomForRegion } from './geo';
+import { MapControl } from './MapControl';
 import { ActivityMarker, ClusterMarker, FoodTruckMarker, PlaceMarker } from './markers';
 import { PlaceListPanel } from './PlaceListPanel';
 import { PreviewCard, type Selection } from './PreviewCard';
@@ -55,6 +56,12 @@ export default function MapScreen() {
 
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
   const [selection, setSelection] = useState<Selection | null>(null);
+  /** Heure du dernier appui sur un marqueur (iOS n'indique pas toujours `marker-press`). */
+  const markerPressedAt = useRef(0);
+  const select = useCallback((next: Selection) => {
+    markerPressedAt.current = Date.now();
+    setSelection(next);
+  }, []);
 
   // Paramètres de recherche (utilisateur connecté) : cadrage sur la ville et
   // le rayon par défaut, et filtre sur les catégories par défaut. Appliqués à
@@ -237,7 +244,12 @@ export default function MapScreen() {
         style={StyleSheet.absoluteFill}
         initialRegion={INITIAL_REGION}
         onRegionChangeComplete={setRegion}
-        onPress={() => setSelection(null)}
+        // Toucher un marqueur déclenche aussi `onPress` de la carte (`action: 'marker-press'`) : sans ce
+        // filtre, la sélection était aussitôt effacée et l'aperçu (donc la fiche) restait inaccessible.
+        onPress={(event) => {
+          if (event.nativeEvent.action === 'marker-press' || Date.now() - markerPressedAt.current < 400) return;
+          setSelection(null);
+        }}
         showsUserLocation={showUser}
         showsMyLocationButton={false}
         toolbarEnabled={false}
@@ -249,10 +261,10 @@ export default function MapScreen() {
           <Circle
             center={{ latitude: radiusSearch.latitude, longitude: radiusSearch.longitude }}
             radius={radiusSearch.radiusKm * 1000}
-            strokeColor="rgba(26, 95, 200, 0.8)"
-            strokeWidth={1.5}
+            strokeColor={Brand.green2}
+            strokeWidth={2}
             lineDashPattern={[8, 8]}
-            fillColor="rgba(26, 95, 200, 0.05)"
+            fillColor="rgba(36, 84, 71, 0.07)"
           />
         )}
         {clusters.map((feature) => {
@@ -267,7 +279,10 @@ export default function MapScreen() {
                 key={`c-${clusterId}-${count}`}
                 coordinate={coordinate}
                 count={count}
-                onPress={() => zoomIntoCluster(clusterId, longitude, latitude)}
+                onPress={() => {
+                  markerPressedAt.current = Date.now();
+                  zoomIntoCluster(clusterId, longitude, latitude);
+                }}
               />
             );
           }
@@ -279,7 +294,7 @@ export default function MapScreen() {
               coordinate={coordinate}
               title={activity.title}
               approximate={isApproximateLocation(activity)}
-              onPress={() => setSelection({ kind: 'activity', activity })}
+              onPress={() => select({ kind: 'activity', activity })}
             />
           );
         })}
@@ -289,7 +304,7 @@ export default function MapScreen() {
             key={`t-${foodTruck.id}`}
             coordinate={{ latitude: foodTruck.latitude, longitude: foodTruck.longitude }}
             name={foodTruck.name}
-            onPress={() => setSelection({ kind: 'foodTruck', foodTruck })}
+            onPress={() => select({ kind: 'foodTruck', foodTruck })}
           />
         ))}
 
@@ -298,19 +313,20 @@ export default function MapScreen() {
             key={`p-${place.id}`}
             coordinate={{ latitude: place.latitude, longitude: place.longitude }}
             name={place.name}
-            onPress={() => setSelection({ kind: 'place', place })}
+            onPress={() => select({ kind: 'place', place })}
           />
         ))}
       </MapView>
 
-      <SafeAreaView style={styles.overlay} pointerEvents="box-none">
+      {/* Le bas est déjà protégé par la barre d'onglets : seul le haut (encoche) est réservé. */}
+      <SafeAreaView style={styles.overlay} edges={['top', 'left', 'right']} pointerEvents="box-none">
         <View style={styles.top} pointerEvents="box-none">
           {loading && (
             <View
               accessibilityLiveRegion="polite"
               style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
-              <ActivityIndicator size="small" />
-              <ThemedText type="small">Chargement…</ThemedText>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <ThemedText type="smallBold">Chargement…</ThemedText>
             </View>
           )}
           {error && (
@@ -340,27 +356,37 @@ export default function MapScreen() {
             </View>
           )}
           {categoryCodes.length > 0 && (
-            <View style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="small">
+            <View style={[styles.chip, styles.filterChip, { backgroundColor: theme.backgroundElement }]}>
+              <View style={[styles.filterDot, { backgroundColor: theme.accent }]} />
+              <ThemedText type="smallBold">
                 {categoryCodes.length === 1
                   ? 'Filtré sur 1 catégorie'
                   : `Filtré sur ${categoryCodes.length} catégories`}
               </ThemedText>
-              <Button label="Tout afficher" variant="secondary" onPress={() => setClearedFilterKey(preferencesKey)} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tout afficher"
+                hitSlop={8}
+                onPress={() => setClearedFilterKey(preferencesKey)}
+                style={[styles.chipAction, { backgroundColor: theme.primarySoft }]}>
+                <ThemedText type="smallBold" themeColor="primary">
+                  Tout afficher
+                </ThemedText>
+              </Pressable>
             </View>
           )}
           {tooWide && !loading && !error && (
             <View
               accessibilityLiveRegion="polite"
               style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="small">Zoomez pour voir les activités.</ThemedText>
+              <ThemedText type="smallBold">🔍 Zoomez pour voir les activités.</ThemedText>
             </View>
           )}
           {isEmpty && (
             <View
               accessibilityLiveRegion="polite"
               style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="small">Aucune activité dans cette zone.</ThemedText>
+              <ThemedText type="smallBold">Aucune activité dans cette zone.</ThemedText>
             </View>
           )}
         </View>
@@ -376,7 +402,7 @@ export default function MapScreen() {
             />
           )}
           {!selection && radiusPanelOpen && (
-            <View style={[styles.radiusPanel, { backgroundColor: theme.background }]}>
+            <View style={[styles.radiusPanel, { backgroundColor: theme.backgroundElement }]}>
               <ChipGroup
                 label="Afficher les activités dans un rayon de"
                 single
@@ -391,43 +417,47 @@ export default function MapScreen() {
           )}
           {!selection && (
             <View style={styles.bottomActions} pointerEvents="box-none">
-              {showPlaces && visiblePlaces.length > 0 && (
-                <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
-                  <Button
-                    label={placeListOpen ? 'Fermer la liste' : `Liste (${visiblePlaces.length})`}
-                    variant="secondary"
-                    onPress={() => {
-                      setRadiusPanelOpen(false);
-                      setPlaceListOpen((open) => !open);
-                    }}
-                  />
-                </View>
-              )}
-              <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
-                <Button
-                  label={showPlaces ? '🏛 Masquer les lieux' : '🏛 Lieux'}
-                  variant="secondary"
+              <View style={styles.pills} pointerEvents="box-none">
+                <MapControl
+                  icon={{ ios: 'building.columns', android: 'account_balance', web: 'account_balance' }}
+                  label="Lieux"
+                  accessibilityLabel={showPlaces ? 'Masquer les lieux' : 'Afficher les lieux'}
+                  active={showPlaces}
                   onPress={toggleShowPlaces}
                 />
-              </View>
-              <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
-                <Button
-                  label={activeRadiusKm === null ? '◎ Rayon' : `◎ ${activeRadiusKm} km`}
-                  variant="secondary"
+                <MapControl
+                  icon={{ ios: 'scope', android: 'radar', web: 'radar' }}
+                  label={activeRadiusKm === null ? 'Rayon' : `${activeRadiusKm} km`}
+                  accessibilityLabel={
+                    activeRadiusKm === null ? 'Choisir un rayon' : `Rayon de ${activeRadiusKm} km, modifier`
+                  }
+                  active={activeRadiusKm !== null || radiusPanelOpen}
                   onPress={() => {
                     setPlaceListOpen(false);
                     setRadiusPanelOpen((open) => !open);
                   }}
                 />
+                {showPlaces && visiblePlaces.length > 0 && (
+                  <MapControl
+                    icon={{ ios: 'list.bullet', android: 'list', web: 'list' }}
+                    label={placeListOpen ? 'Fermer' : `Liste (${visiblePlaces.length})`}
+                    accessibilityLabel={
+                      placeListOpen ? 'Fermer la liste' : `Liste des lieux (${visiblePlaces.length})`
+                    }
+                    active={placeListOpen}
+                    onPress={() => {
+                      setRadiusPanelOpen(false);
+                      setPlaceListOpen((open) => !open);
+                    }}
+                  />
+                )}
               </View>
-              <View style={[styles.locateWrapper, { backgroundColor: theme.background }]}>
-                <Button
-                  label="Ma position"
-                  variant="secondary"
-                  loading={location.status === 'locating'}
-                  onPress={centerOnUser}
-                />
-              </View>
+              <MapControl
+                icon={{ ios: 'location.fill', android: 'my_location', web: 'my_location' }}
+                accessibilityLabel="Ma position"
+                loading={location.status === 'locating'}
+                onPress={centerOnUser}
+              />
             </View>
           )}
           {selection && <PreviewCard selection={selection} onClose={() => setSelection(null)} />}
@@ -456,35 +486,57 @@ const styles = StyleSheet.create({
   },
   bottomActions: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  pills: {
+    flex: 1,
+    flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
     gap: Spacing.two,
   },
   radiusPanel: {
-    marginBottom: Spacing.two,
+    marginBottom: Spacing.three,
     padding: Spacing.three,
-    borderRadius: 12,
-  },
-  locateWrapper: {
-    alignSelf: 'flex-end',
-    borderRadius: 8,
+    borderRadius: Radius.xl,
+    ...Shadows.floating,
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.two,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+    minHeight: 40,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    borderRadius: 20,
+    borderRadius: Radius.pill,
+    ...Shadows.floating,
+  },
+  filterChip: {
+    paddingRight: Spacing.one + Spacing.half,
+  },
+  filterDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  chipAction: {
+    minHeight: 32,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.pill,
   },
   banner: {
     alignSelf: 'stretch',
-    gap: Spacing.two,
+    gap: Spacing.three,
     padding: Spacing.three,
-    borderRadius: 12,
+    borderRadius: Radius.lg,
+    ...Shadows.floating,
   },
 });
