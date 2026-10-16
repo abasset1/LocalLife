@@ -18,3 +18,11 @@ if (!apiUrl) {
     "EXPO_PUBLIC_API_URL introuvable : vérifiez app.config.ts et votre fichier .env (voir .env.example).",
   );
 }
+
+/**
+ * Identifiants OAuth Google (`app.config.ts`, variables `EXPO_PUBLIC_GOOGLE_*`). Le client « web »
+ * est celui du site et du backend (`GOOGLE_CLIENT_ID`) : l'ID token obtenu sur le téléphone lui est
+ * destiné, c'est ce que le backend vérifie. Absents : connexion Google masquée.
+ */
+export const googleWebClientId: string | undefined = Constants.expoConfig?.extra?.googleWebClientId || undefined;
+export const googleIosClientId: string | undefined = Constants.expoConfig?.extra?.googleIosClientId || undefined;

@@ -66,3 +66,15 @@ export function resendVerification(email: string, options: CallOptions = {}): Pr
     signal: options.signal,
   });
 }
+
+/**
+ * `POST /auth/google` — connexion (ou création de compte) avec l'ID token Google. Le backend vérifie
+ * le token (signature, audience = son `google.client-id`, e-mail vérifié) ; 401 s'il est refusé.
+ */
+export function loginWithGoogle(idToken: string, options: CallOptions = {}): Promise<LoginResponse> {
+  return request<LoginResponse>(`${BASE}/google`, {
+    method: 'POST',
+    body: { idToken },
+    signal: options.signal,
+  });
+}

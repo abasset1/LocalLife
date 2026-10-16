@@ -10,9 +10,16 @@ import {
 } from 'react';
 import { AppState } from 'react-native';
 
-import { ResponseFormatError, configureApiClient, login as apiLogin, register as apiRegister } from '@/api';
+import {
+  ResponseFormatError,
+  configureApiClient,
+  login as apiLogin,
+  loginWithGoogle as apiLoginWithGoogle,
+  register as apiRegister,
+} from '@/api';
 import { disablePushRegistration, refreshPushRegistration } from '@/notifications';
 
+import { signOutFromGoogle } from './googleSignIn';
 import { decodeJwtPayload, isTokenExpired } from './jwt';
 import { clearToken, loadToken, saveToken } from './tokenStorage';
 
@@ -37,6 +44,8 @@ interface AuthContextValue {
   state: AuthState;
   /** Connecte l'utilisateur. Lève une `ApiError` (401 identifiants, 403 e-mail non vérifié…). */
   login: (email: string, password: string) => Promise<void>;
+  /** Connecte avec l'ID token Google (compte créé au besoin). Lève une `ApiError` (401 token refusé…). */
+  loginWithGoogle: (idToken: string) => Promise<void>;
   /**
    * Crée le compte. Ne connecte PAS l'utilisateur : le backend exige la
    * confirmation de l'adresse e-mail avant la première connexion.
@@ -120,9 +129,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.remove();
   }, [endSession]);
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const { token } = await apiLogin({ email: email.trim(), password });
+  /** Ouvre la session avec le JWT LocalLife reçu (connexion classique ou Google). */
+  const openSession = useCallback(
+    async (token: string) => {
       const payload = decodeJwtPayload(token);
       if (!payload || isTokenExpired(payload)) throw new ResponseFormatError();
       // Stockage d'abord : on ne passe « connecté » que si la session peut survivre au redémarrage.
@@ -130,6 +139,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       startSession(token);
     },
     [startSession],
+  );
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const { token } = await apiLogin({ email: email.trim(), password });
+      await openSession(token);
+    },
+    [openSession],
+  );
+
+  const loginWithGoogle = useCallback(
+    async (idToken: string) => {
+      const { token } = await apiLoginWithGoogle(idToken);
+      await openSession(token);
+    },
+    [openSession],
   );
 
   // Session ouverte (connexion ou restauration) : l'appareil est rattaché au
@@ -143,6 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // compte. Retiré avant d'effacer le JWT, nécessaire à l'appel.
   const logout = useCallback(async () => {
     await disablePushRegistration();
+    // Sans effet hors connexion Google ; sinon, le prochain « Continuer avec Google » propose de choisir le compte.
+    await signOutFromGoogle();
     await endSession();
   }, [endSession]);
 
@@ -151,8 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ state, login, register, logout }),
-    [state, login, register, logout],
+    () => ({ state, login, loginWithGoogle, register, logout }),
+    [state, login, loginWithGoogle, register, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

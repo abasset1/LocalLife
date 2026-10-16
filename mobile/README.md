@@ -46,6 +46,37 @@ Scripts disponibles :
 Ces trois commandes tournent en CI à chaque modification de `mobile/`
 (`.github/workflows/mobile-ci.yml`).
 
+## Connexion Google
+
+Le bouton « Continuer avec Google » (onglet Compte) utilise la connexion
+native de Google (`@react-native-google-signin/google-signin`). Il **ne
+fonctionne pas dans Expo Go** : il faut un build (`npx expo run:android`).
+Il reste masqué tant que les identifiants ci-dessous ne sont pas fournis.
+
+Le téléphone demande à Google un ID token destiné au **client OAuth « web »**
+du site, celui que vérifie le backend (`GOOGLE_CLIENT_ID`) : aucun réglage
+backend en plus. Dans la console Google Cloud, même projet que le site :
+
+1. **Android** : créer un identifiant OAuth de type *Android*, nom de package
+   `com.locallife.mobile`, empreinte SHA-1 de la clé qui signe l'APK. Pour un
+   build local (signé avec la clé de debug du projet Android généré) :
+   `keytool -list -v -keystore android/app/debug.keystore -alias androiddebugkey -storepass android -keypass android`
+   (depuis `mobile/`, après un premier `npx expo prebuild`).
+2. **iOS** (facultatif) : créer un identifiant OAuth de type *iOS*, ID de
+   bundle `com.locallife.mobile`.
+3. Dans `mobile/.env` :
+   ```
+   EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=<client web, même valeur que GOOGLE_CLIENT_ID du backend>
+   EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=<client iOS, si besoin>
+   ```
+4. Regénérer le projet natif : `npx expo prebuild --clean`, puis
+   `npx expo run:android`.
+
+L'identifiant Android n'est jamais lu par l'application : Google le
+retrouve grâce au nom de package et à l'empreinte SHA-1. Une erreur
+`DEVELOPER_ERROR` signifie presque toujours une empreinte ou un nom de
+package qui ne correspond pas.
+
 ## Configuration de l'URL de l'API
 
 L'URL de l'API backend n'est **jamais** codée en dur dans les écrans. Elle

@@ -30,6 +30,19 @@ const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
  */
 const easProjectId = process.env.EAS_PROJECT_ID;
 
+/**
+ * Connexion Google (identifiants OAuth publics, pas des secrets). Le client
+ * « web » est celui du site et du backend (`GOOGLE_CLIENT_ID`). Sur iOS, il
+ * faut aussi le client iOS : son schéma d'URL (identifiant inversé) est
+ * déclaré par le plugin. Sans ces valeurs, le bouton Google est masqué.
+ */
+const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+/** `123-abc.apps.googleusercontent.com` → `com.googleusercontent.apps.123-abc`. */
+const googleIosUrlScheme = googleIosClientId
+  ? `com.googleusercontent.apps.${googleIosClientId.replace(/\.apps\.googleusercontent\.com$/, "")}`
+  : undefined;
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "LocalLife",
@@ -40,6 +53,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: "locallife",
   userInterfaceStyle: "automatic",
   ios: {
+    // Identifiant de l'application iOS (définitif une fois publiée sur l'App Store).
+    bundleIdentifier: "com.locallife.mobile",
     icon: "./assets/images/icon.png",
   },
   android: {
@@ -60,6 +75,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     "expo-router",
+    ...(googleIosUrlScheme
+      ? [["@react-native-google-signin/google-signin", { iosUrlScheme: googleIosUrlScheme }] as [string, object]]
+      : []),
     [
       // Alertes en notification push (voir src/notifications/push.ts).
       "expo-notifications",
@@ -94,6 +112,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? DEV_DEFAULT_API_URL,
+    googleWebClientId,
+    googleIosClientId,
     ...(easProjectId ? { eas: { projectId: easProjectId } } : {}),
   },
 });
