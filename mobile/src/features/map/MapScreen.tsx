@@ -1,13 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import MapView, { Circle } from 'react-native-maps';
+import MapView, { Circle, UrlTile } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Supercluster from 'supercluster';
 
 import type { Activity } from '@/api';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
+import { isExpoGoAndroid } from '@/config/expoGo';
 import { Brand, Radius, Shadows, Spacing } from '@/constants/theme';
 import { isApproximateLocation } from '@/features/activity/location';
 import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
@@ -387,7 +388,8 @@ export default function MapScreen() {
         </View>
       )}
 
-      <SafeAreaView style={styles.overlay} pointerEvents="box-none">
+      {/* Le bas est déjà protégé par la barre d'onglets : seul le haut (encoche) est réservé. */}
+      <SafeAreaView style={styles.overlay} edges={['top', 'left', 'right']} pointerEvents="box-none">
         <View style={styles.top} pointerEvents="box-none">
           {loading && (
             <View
@@ -598,7 +600,7 @@ const styles = StyleSheet.create({
     ...Shadows.floating,
   },
   filterChip: {
-    paddingRight: Spacing.one + Spacing.half,https://github.com/abasset1/LocalLife/pull/126/conflict?name=mobile%252Fsrc%252Ffeatures%252Fmap%252FMapScreen.tsx&ancestor_oid=4c3868c2969a184049f6ecfffe8a55b8c90dcecb&base_oid=b886bec15e62c4ae68c056eb9d48f6a2cc7fcc94&head_oid=c36fe94a5f422b79453f0d686a77b25bf85603eb
+    paddingRight: Spacing.one + Spacing.half,
   },
   filterDot: {
     width: 8,

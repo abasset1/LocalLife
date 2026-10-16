@@ -3,6 +3,8 @@ node_modules/
 dist/
 .env
 infra/.env.beta
+# Sauvegardes de base de données (pg_dump) : jamais dans le dépôt.
+infra/*.sql
 infra/backups/
 *.log
 
