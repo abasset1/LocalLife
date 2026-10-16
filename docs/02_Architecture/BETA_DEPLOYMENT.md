@@ -190,6 +190,10 @@ en bêta serait possible mais constitue un choix de contenu de données,
 pas une tâche d'infrastructure — hors périmètre de LL-9003/9002. À
 trancher explicitement par Alex si souhaité.
 
+> **Mise à jour vers les lieux permanents (migrations V61 à V63)** : suivre
+> [`DEPLOIEMENT_BETA_LIEUX.md`](DEPLOIEMENT_BETA_LIEUX.md) (sauvegarde,
+> contrôles, import des lieux, retour arrière).
+
 ## Procédure de déploiement — LL-9003 (backend + base de données)
 
 Mode opératoire détaillé pour ce ticket : rendre l'API et PostgreSQL/
