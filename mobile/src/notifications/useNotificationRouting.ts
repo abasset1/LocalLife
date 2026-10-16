@@ -1,16 +1,21 @@
-import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
+import { isExpoGoAndroid } from './availability';
+import { notifications } from './push';
 import { routeForNotification } from './routing';
 
 /**
  * Ouvre l'écran correspondant à la notification touchée, y compris quand
- * c'est elle qui a lancé l'application.
+ * c'est elle qui a lancé l'application. Rien à router dans Expo Go sur
+ * Android, où `expo-notifications` n'est pas chargé : le choix est fixé une
+ * fois pour toutes au chargement, l'ordre des hooks ne varie donc pas.
  */
-export function useNotificationRouting(): void {
+export const useNotificationRouting: () => void = isExpoGoAndroid ? () => {} : useRouteLastNotification;
+
+function useRouteLastNotification(): void {
   const router = useRouter();
-  const response = Notifications.useLastNotificationResponse();
+  const response = notifications().useLastNotificationResponse();
   const handled = useRef<string | null>(null);
 
   useEffect(() => {
