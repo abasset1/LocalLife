@@ -1,13 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import MapView, { Circle } from 'react-native-maps';
+import MapView, { Circle, UrlTile } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Supercluster from 'supercluster';
 
 import type { Activity } from '@/api';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
+import { isExpoGoAndroid } from '@/config/expoGo';
 import { Brand, Radius, Shadows, Spacing } from '@/constants/theme';
 import { isApproximateLocation } from '@/features/activity/location';
 import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
@@ -48,6 +49,15 @@ const FOCUS_ZOOM = 16;
 
 /** Au-delà de ce zoom, plus de regroupement : chaque activité a son marqueur. */
 const CLUSTER_MAX_ZOOM = 17;
+
+/**
+ * Dans Expo Go sur Android, le fond Google Maps peut rester vide (la clé est
+ * celle d'Expo Go, pas la nôtre) : tuiles OpenStreetMap à la place, pour le
+ * développement uniquement. Les builds (APK, iOS) gardent le fond natif ; la
+ * politique d'usage d'OpenStreetMap exclut un usage intensif en production.
+ */
+const USE_OSM_TILES = isExpoGoAndroid;
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 /**
  * Carte interactive de l'onglet « Découvrir » (LL-MOB-0005) : activités
@@ -304,7 +314,9 @@ export default function MapScreen() {
         toolbarEnabled={false}
         moveOnMarkerPress={false}
         rotateEnabled={false}
-        pitchEnabled={false}>
+        pitchEnabled={false}
+        mapType={USE_OSM_TILES ? 'none' : 'standard'}>
+        {USE_OSM_TILES && <UrlTile urlTemplate={OSM_TILE_URL} maximumZ={19} zIndex={-1} />}
         {radiusSearch && (
           // Rayon favori, matérialisé comme sur le site web.
           <Circle
@@ -366,6 +378,15 @@ export default function MapScreen() {
           />
         ))}
       </MapView>
+
+      {USE_OSM_TILES && (
+        // Attribution exigée par OpenStreetMap.
+        <View style={styles.attribution} pointerEvents="none">
+          <ThemedText type="small" style={styles.attributionText}>
+            © OpenStreetMap
+          </ThemedText>
+        </View>
+      )}
 
       {/* Le bas est déjà protégé par la barre d'onglets : seul le haut (encoche) est réservé. */}
       <SafeAreaView style={styles.overlay} edges={['top', 'left', 'right']} pointerEvents="box-none">
@@ -519,6 +540,17 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  attribution: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    paddingHorizontal: Spacing.one,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+  },
+  attributionText: {
+    fontSize: 10,
+    color: '#333',
   },
   overlay: {
     flex: 1,

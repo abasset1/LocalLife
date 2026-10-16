@@ -3,8 +3,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
 import { registerPushToken, unregisterPushToken } from '@/api';
-
-import { isExpoGoAndroid } from './availability';
+import { isExpoGoAndroid } from '@/config/expoGo';
 
 /**
  * Notifications push des alertes (service Expo Push).
@@ -36,7 +35,7 @@ let notificationsModule: NotificationsModule | null = null;
 
 /**
  * Charge `expo-notifications` à la première utilisation, jamais dans Expo Go
- * sur Android (voir `availability.ts`) : les appelants vérifient
+ * sur Android (voir `@/config/expoGo`) : les appelants vérifient
  * `unavailableReason()` avant.
  */
 export function notifications(): NotificationsModule {
