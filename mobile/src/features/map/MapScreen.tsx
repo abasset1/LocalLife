@@ -11,6 +11,8 @@ import { ThemedText } from '@/components/themed-text';
 import { isExpoGoAndroid } from '@/config/expoGo';
 import { Brand, Radius, Shadows, Spacing } from '@/constants/theme';
 import { isApproximateLocation } from '@/features/activity/location';
+import { PERIOD_OPTIONS } from '@/features/list/filters';
+import { usePeriod } from '@/features/list/periodStore';
 import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -98,6 +100,9 @@ export default function MapScreen() {
   }, [region]);
 
   const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
+  const [periodPanelOpen, setPeriodPanelOpen] = useState(false);
+  const [period, setPeriod] = usePeriod();
+  const periodLabel = PERIOD_OPTIONS.find((option) => option.value === period)?.label ?? 'Tout';
   const [placeListOpen, setPlaceListOpen] = useState(false);
 
   // Carte pas encore prête (premier affichage de l'onglet) : le cadrage demandé attend `onMapReady`.
@@ -119,10 +124,13 @@ export default function MapScreen() {
     focusedOnActivity.current = true;
     setPlaceListOpen(false);
     setRadiusPanelOpen(false);
+    setPeriodPanelOpen(false);
+    // L'activité demandée doit apparaître, même hors de la période choisie.
+    setPeriod('all');
     moveTo(regionForZoom(latitude, longitude, FOCUS_ZOOM, regionRef.current));
     // Paramètres consommés : revenir sur l'onglet ne recentre pas une seconde fois.
     router.setParams({ focusId: undefined, focusLat: undefined, focusLon: undefined });
-  }, [focus.focusId, focus.focusLat, focus.focusLon, moveTo, router]);
+  }, [focus.focusId, focus.focusLat, focus.focusLon, moveTo, router, setPeriod]);
 
   const centeredPreferences = useRef<string | null>(null);
   useEffect(() => {
@@ -190,7 +198,12 @@ export default function MapScreen() {
     [preferencesKey, radiusSearch, region],
   );
 
-  const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(region, categoryCodes, radiusSearch);
+  const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(
+    region,
+    categoryCodes,
+    radiusSearch,
+    period,
+  );
   // Activité demandée par « Voir sur la carte » : son aperçu s'ouvre dès qu'elle est chargée.
   useEffect(() => {
     if (pendingFocusId.current === null) return;
@@ -456,7 +469,11 @@ export default function MapScreen() {
             <View
               accessibilityLiveRegion="polite"
               style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="smallBold">Aucune activité dans cette zone.</ThemedText>
+              <ThemedText type="smallBold">
+                {period === 'all'
+                  ? 'Aucune activité dans cette zone.'
+                  : `Aucune activité ici pour « ${periodLabel} ».`}
+              </ThemedText>
             </View>
           )}
         </View>
@@ -485,6 +502,20 @@ export default function MapScreen() {
               />
             </View>
           )}
+          {!selection && periodPanelOpen && (
+            <View style={[styles.radiusPanel, { backgroundColor: theme.backgroundElement }]}>
+              <ChipGroup
+                label="Afficher les activités"
+                single
+                options={PERIOD_OPTIONS}
+                selected={[period]}
+                onToggle={(value) => {
+                  setPeriod(value as typeof period);
+                  setPeriodPanelOpen(false);
+                }}
+              />
+            </View>
+          )}
           {!selection && (
             <View style={styles.bottomActions} pointerEvents="box-none">
               <View style={styles.pills} pointerEvents="box-none">
@@ -496,6 +527,19 @@ export default function MapScreen() {
                   onPress={toggleShowPlaces}
                 />
                 <MapControl
+                  icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }}
+                  label={period === 'all' ? 'Quand ?' : periodLabel}
+                  accessibilityLabel={
+                    period === 'all' ? 'Choisir une période' : `Période : ${periodLabel}, modifier`
+                  }
+                  active={period !== 'all' || periodPanelOpen}
+                  onPress={() => {
+                    setPlaceListOpen(false);
+                    setRadiusPanelOpen(false);
+                    setPeriodPanelOpen((open) => !open);
+                  }}
+                />
+                <MapControl
                   icon={{ ios: 'scope', android: 'radar', web: 'radar' }}
                   label={activeRadiusKm === null ? 'Rayon' : `${activeRadiusKm} km`}
                   accessibilityLabel={
@@ -504,6 +548,7 @@ export default function MapScreen() {
                   active={activeRadiusKm !== null || radiusPanelOpen}
                   onPress={() => {
                     setPlaceListOpen(false);
+                    setPeriodPanelOpen(false);
                     setRadiusPanelOpen((open) => !open);
                   }}
                 />
@@ -517,6 +562,7 @@ export default function MapScreen() {
                     active={placeListOpen}
                     onPress={() => {
                       setRadiusPanelOpen(false);
+                      setPeriodPanelOpen(false);
                       setPlaceListOpen((open) => !open);
                     }}
                   />

@@ -17,7 +17,8 @@ import { useTheme } from '@/hooks/use-theme';
 
 import { ActivityCard } from './ActivityCard';
 import { FilterChips } from './FilterChips';
-import { PERIOD_OPTIONS, distanceKm, formatDistance, matchesQuery, type Period } from './filters';
+import { PERIOD_OPTIONS, distanceKm, formatDistance, matchesQuery } from './filters';
+import { usePeriod } from './periodStore';
 import { useActivityList } from './useActivityList';
 
 /** Centre par défaut, comme la carte : Marseille, périmètre du MVP. */
@@ -38,7 +39,7 @@ export default function ActivityListScreen() {
   const location = useUserLocation();
 
   const [userPosition, setUserPosition] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [period, setPeriod] = useState<Period>('all');
+  const [period, setPeriod] = usePeriod();
   const [radiusOverride, setRadiusOverride] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [showAllCategories, setShowAllCategories] = useState(false);

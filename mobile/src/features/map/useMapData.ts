@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, RequestAbortedError, listFoodTrucks, searchNearby, searchWithinBounds } from '@/api';
 import type { Activity, FoodTruck } from '@/api';
 
+import { periodRange, type Period } from '@/features/list/filters';
+
 import { Bounds, Region, boundsContain, isSearchable, regionToBounds } from './geo';
 
 /** Délai sans nouveau mouvement de carte avant de recharger les activités. */
@@ -20,8 +22,8 @@ function messageFor(error: unknown): string {
  * - Activités : `GET /activities/nearby` dans le rayon favori s'il y en a un
  *   (`radiusSearch`), sinon `GET /activities/within-bounds` sur la zone visible,
  *   filtrées par `categoryCodes` (catégories par défaut des paramètres de
- *   recherche ; vide = toutes). Le backend ne renvoie que les activités
- *   `PUBLISHED`.
+ *   recherche ; vide = toutes) et par `period` (période partagée avec l'onglet
+ *   « Liste »). Le backend ne renvoie que les activités `PUBLISHED`.
  * - Food trucks : `GET /foodtrucks` (pas de bounding box dans ce contrat),
  *   chargé une seule fois.
  *
@@ -43,6 +45,7 @@ export function useMapData(
   region: Region | null,
   categoryCodes: readonly string[] = [],
   radiusSearch: RadiusSearch | null = null,
+  period: Period = 'all',
 ) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
@@ -54,7 +57,9 @@ export function useMapData(
   const loadedBounds = useRef<Bounds | null>(null);
   /** Clé stable du filtre : un nouveau tableau aux mêmes codes ne relance rien. */
   const categoryKey = [...categoryCodes].sort().join(',');
-  const loadedCategoryKey = useRef(categoryKey);
+  /** Filtres de la dernière zone chargée : catégories et période (la date du jour fait partie de la clé). */
+  const filterKey = `${categoryKey}|${period}|${JSON.stringify(periodRange(period))}`;
+  const loadedFilterKey = useRef(filterKey);
   const radiusKey = radiusSearch
     ? `${radiusSearch.latitude},${radiusSearch.longitude},${radiusSearch.radiusKm}`
     : null;
@@ -86,7 +91,13 @@ export function useMapData(
     const controller = new AbortController();
     setActivitiesStatus('loading');
     searchNearby(
-      { latitude, longitude, radiusKm, category: categoryKey === '' ? undefined : categoryKey },
+      {
+        latitude,
+        longitude,
+        radiusKm,
+        category: categoryKey === '' ? undefined : categoryKey,
+        ...periodRange(period),
+      },
       { signal: controller.signal },
     )
       .then((result) => {
@@ -99,7 +110,7 @@ export function useMapData(
         setError(messageFor(e));
       });
     return () => controller.abort();
-  }, [radiusKey, categoryKey, retryCount]);
+  }, [radiusKey, categoryKey, period, retryCount]);
 
   // Activités de la zone visible (sans rayon favori).
   useEffect(() => {
@@ -116,7 +127,7 @@ export function useMapData(
     // Zone déjà couverte par le dernier chargement réussi, avec le même filtre : rien à faire.
     if (
       loadedBounds.current &&
-      loadedCategoryKey.current === categoryKey &&
+      loadedFilterKey.current === filterKey &&
       boundsContain(loadedBounds.current, bounds)
     ) {
       // Une requête précédente a pu être annulée par le nettoyage de cet effet.
@@ -129,12 +140,12 @@ export function useMapData(
 
     const timer = setTimeout(() => {
       searchWithinBounds(
-        { ...bounds, category: categoryKey === '' ? undefined : categoryKey },
+        { ...bounds, category: categoryKey === '' ? undefined : categoryKey, ...periodRange(period) },
         { signal: controller.signal },
       )
         .then((result) => {
           loadedBounds.current = bounds;
-          loadedCategoryKey.current = categoryKey;
+          loadedFilterKey.current = filterKey;
           setActivities(result);
           setActivitiesStatus('success');
         })
@@ -150,7 +161,7 @@ export function useMapData(
       clearTimeout(timer);
       controller.abort();
     };
-  }, [region, categoryKey, radiusKey, retryCount]);
+  }, [region, categoryKey, filterKey, period, radiusKey, retryCount]);
 
   const retry = useCallback(() => {
     setError(null);
