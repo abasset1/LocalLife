@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
-import { isExpoGoAndroid } from './availability';
+import { isExpoGoAndroid } from '@/config/expoGo';
+
 import { notifications } from './push';
 import { routeForNotification } from './routing';
 
