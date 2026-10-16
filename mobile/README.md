@@ -92,8 +92,9 @@ découpage par fonctionnalité (première fonctionnalité : `map/`).
 
 ## Navigation (LL-MOB-0002)
 
-3 onglets : **Découvrir**, **Contribution**, **Compte**. Le détail d'une
-activité n'est pas un onglet : il s'atteint depuis "Découvrir" via un écran
+4 onglets : **Découvrir** (carte), **Liste**, **Contribuer**, **Compte**. Le
+détail d'une activité n'est pas un onglet : il s'atteint depuis la carte ou la
+liste via un écran
 empilé au-dessus des onglets (`src/app/activite/[id].tsx`), avec un header
 natif portant le bouton retour. Le geste/bouton retour Android est géré
 nativement par le stack navigator, sans code additionnel.

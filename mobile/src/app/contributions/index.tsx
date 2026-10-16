@@ -6,9 +6,11 @@ import { ApiError, HttpError, deleteActivity, listMyContributions } from '@/api'
 import type { Contribution } from '@/api';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { Notice } from '@/components/notice';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing, type Theme } from '@/constants/theme';
 import { STATUS_LABELS, confirmDestructive, formatWhen, isEditable } from '@/features/contribution';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -93,23 +95,30 @@ export default function MyContributionsScreen() {
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         {error && (
-          <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
-            Erreur : {error}
-          </ThemedText>
+          <Notice tone="danger">Erreur : {error}</Notice>
         )}
         {contributions.length === 0 && !error && (
-          <ThemedText>Vous n’avez encore proposé aucune activité.</ThemedText>
+          <Card style={styles.empty}>
+            <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
+              ✍️
+            </ThemedText>
+            <ThemedText style={styles.emptyText}>Vous n’avez encore proposé aucune activité.</ThemedText>
+            <Button label="Proposer une activité" onPress={() => router.navigate('/contribution')} />
+          </Card>
         )}
         {contributions.map((contribution) => (
-          <View key={contribution.id} style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText type="smallBold">{contribution.title}</ThemedText>
-            <ThemedText type="small" style={{ color: statusColor(contribution.status, theme.danger) }}>
-              {STATUS_LABELS[contribution.status] ?? contribution.status}
-            </ThemedText>
+          <Card key={contribution.id} style={styles.card}>
+            <View style={[styles.status, statusStyle(contribution.status, theme)]}>
+              <ThemedText type="eyebrow" style={{ color: statusStyle(contribution.status, theme).color }}>
+                {STATUS_LABELS[contribution.status] ?? contribution.status}
+              </ThemedText>
+            </View>
+            <ThemedText type="heading">{contribution.title}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {formatWhen(contribution)}
               {contribution.city ? ` · ${contribution.city}` : ''}
             </ThemedText>
+            <View style={styles.cardActions}>
             {isEditable(contribution.status) && (
               <Button
                 label="Modifier"
@@ -120,22 +129,24 @@ export default function MyContributionsScreen() {
             )}
             <Button
               label="Supprimer"
-              variant="secondary"
+              variant="danger"
               loading={busyId === contribution.id}
               onPress={() => void remove(contribution)}
             />
-          </View>
+            </View>
+          </Card>
         ))}
       </ScrollView>
     </ThemedView>
   );
 }
 
-function statusColor(status: string, danger: string): string | undefined {
-  if (status === 'PENDING') return '#B45309';
-  if (status === 'PUBLISHED') return '#15803D';
-  if (status === 'REJECTED' || status === 'CANCELLED') return danger;
-  return undefined;
+/** Pastille de statut : orange en attente, vert publiée, rouge refusée ou annulée. */
+function statusStyle(status: string, theme: Theme): { backgroundColor: string; color: string } {
+  if (status === 'PENDING') return { backgroundColor: theme.warningSoft, color: theme.warning };
+  if (status === 'PUBLISHED') return { backgroundColor: theme.successSoft, color: theme.success };
+  if (status === 'REJECTED' || status === 'CANCELLED') return { backgroundColor: theme.dangerSoft, color: theme.danger };
+  return { backgroundColor: theme.backgroundSelected, color: theme.textSecondary };
 }
 
 const styles = StyleSheet.create({
@@ -155,7 +166,27 @@ const styles = StyleSheet.create({
   },
   card: {
     gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: 12,
+  },
+  status: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.two + Spacing.one,
+    paddingVertical: Spacing.one,
+    borderRadius: Radius.pill,
+  },
+  cardActions: {
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+  },
+  empty: {
+    padding: Spacing.four,
+    gap: Spacing.three,
+  },
+  emptyIcon: {
+    fontSize: 40,
+    lineHeight: 48,
+    textAlign: 'center',
+  },
+  emptyText: {
+    textAlign: 'center',
   },
 });

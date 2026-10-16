@@ -4,12 +4,13 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleShe
 import { ApiError, getPreferences, listCategories, updatePreferences } from '@/api';
 import type { Category } from '@/api';
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { Notice } from '@/components/notice';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/auth';
 import { ChipGroup, CityPicker, RADIUS_OPTIONS_KM, toggleCode, useCityPicker } from '@/features/settings';
-import { useTheme } from '@/hooks/use-theme';
 
 const DEFAULT_RADIUS = 'default';
 
@@ -23,7 +24,6 @@ function messageFor(error: unknown): string {
  * vide garde le comportement standard de la carte.
  */
 export default function ParametresScreen() {
-  const theme = useTheme();
   const { state } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryCodes, setCategoryCodes] = useState<string[]>([]);
@@ -102,15 +102,14 @@ export default function ParametresScreen() {
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           {loadError ? (
-            <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
-              Erreur : {loadError}
-            </ThemedText>
+            <Notice tone="danger">Erreur : {loadError}</Notice>
           ) : (
             <>
               <ThemedText themeColor="textSecondary">
                 Appliqués à l’ouverture de la carte. Laissez vide pour garder le comportement par défaut.
               </ThemedText>
 
+              <Card style={styles.form}>
               <CityPicker label="Ville par défaut" picker={cityPicker} />
 
               <ChipGroup
@@ -138,11 +137,10 @@ export default function ParametresScreen() {
               />
 
               {saveError && (
-                <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
-                  Erreur : {saveError}
-                </ThemedText>
+                <Notice tone="danger">Erreur : {saveError}</Notice>
               )}
-              {saved && <ThemedText accessibilityLiveRegion="polite">✓ Paramètres enregistrés.</ThemedText>}
+              </Card>
+              {saved && <Notice tone="success">Paramètres enregistrés.</Notice>}
 
               <Button
                 label="Enregistrer"
@@ -169,8 +167,12 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
   content: {
-    gap: Spacing.four,
+    gap: Spacing.three,
     padding: Spacing.four,
     paddingBottom: Spacing.six,
+  },
+  form: {
+    gap: Spacing.four,
+    padding: Spacing.four - Spacing.one,
   },
 });

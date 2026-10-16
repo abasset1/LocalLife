@@ -2,6 +2,30 @@
 
 ## 0.9.59 — non publiée
 
+### Application mobile : fiche enrichie, agenda, partage et « Voir sur la carte »
+- Fiche d'une activité : section **Quand ?** (horaires réguliers en clair, « Tous les samedis · 10h00 – 18h00 · jusqu'au 19 décembre », et prochaines dates non annulées, dépliables) et **Infos pratiques** (tarifs et conditions, âge, accessibilité, autres lieux, compléments, mots-clés).
+- Liens de la fiche : appeler, envoyer un e-mail, billetterie ou site (seuls `tel:`, `mailto:` et http(s) sont ouverts).
+- Actions rapides : **Itinéraire**, **Voir sur la carte** (la carte se centre sur l'activité et ouvre son aperçu ; un cadrage d'après les préférences arrivant ensuite ne l'écrase pas), **Ajouter à l'agenda** (Google Agenda pré-rempli, prochaine date réelle ou date de début) et **Partager** (titre, date, lieu et lien de l'organisateur).
+
+### Application mobile : favoris, photos et mot de passe oublié
+- **Favoris** : cœur « J'aime » sur les cartes de la liste et sur la fiche (`POST`/`DELETE /activities/{id}/like`), état partagé par tous les écrans, mis à jour tout de suite et rétabli si l'appel échoue ; écran « Mes favoris » (Compte), tirer pour actualiser. Un visiteur est invité à se connecter.
+- **Photos** : photo principale sur les cartes de la liste ; photo en tête de la fiche avec son crédit, et autres photos en galerie. Seules les URL http(s) sont chargées ; une photo qui ne se charge pas est masquée.
+- **Mot de passe oublié** : écran d'envoi du lien de réinitialisation (`POST /auth/forgot-password`), accessible depuis la connexion ; le lien reçu ouvre la page du site pour choisir le nouveau mot de passe.
+- **Adresse non confirmée** : quand la connexion est refusée pour cette raison (403), un bouton renvoie l'e-mail de confirmation (`POST /auth/resend-verification`).
+- `app.config.ts` : identifiant Android `com.locallife.mobile`, nécessaire à un build natif (`expo prebuild` / `expo run:android`).
+
+### Application mobile : onglet « Liste » et fiches accessibles depuis la carte
+- Carte : toucher un marqueur ouvre de nouveau son aperçu, et donc la fiche. La carte recevait aussi ce toucher (`action: 'marker-press'`) et effaçait aussitôt la sélection ; ce toucher est désormais ignoré.
+- Nouvel onglet **Liste** : activités publiées autour de vous (« Autour de moi »), de votre ville par défaut ou de Marseille, triées par distance (`GET /activities/nearby`). Filtres période (tout, aujourd'hui, ce week-end, 7 jours) et rayon, recherche texte sans accents ni casse, catégories par défaut des paramètres (désactivables), tirer pour actualiser. Un appui ouvre la fiche de l'activité.
+- Barre d'onglets : libellés toujours sous l'icône (ils passaient à côté et se chevauchaient sur les grands écrans), hauteur explicite incluant la zone de sécurité, fond opaque pour chaque écran.
+
+### Application mobile : nouvelle charte visuelle
+- Couleurs de la maquette d'accueil (vert forêt, corail, sable, papier) en mode clair et sombre ; arrondis, ombres et typographie unifiés (`src/constants/theme.ts`).
+- Nouveaux composants partagés : carte (`Card`), message encadré (`Notice` : info, succès, avertissement, erreur), en-tête d'écran, ligne de menu, logo « L LocalLife ». Boutons avec icône et variantes « discret » et « destructif » ; champs dont la bordure passe au vert pendant la saisie ; puces et interrupteurs aux couleurs de la marque.
+- Compte : bandeau d'accueil, bascule Connexion / Inscription, formulaire en carte ; une fois connecté, carte de profil et menu (paramètres, alertes, contributions).
+- Carte : boutons flottants ronds et ombrés (« Lieux » et « Rayon » en vert quand ils sont actifs, bouton rond « Ma position »), marqueurs ombrés aux couleurs de la marque, aperçu en panneau avec poignée et sur-titre.
+- Fiches activité et food truck, Contribution, Mes contributions (statut en pastille colorée), Mes alertes, Paramètres et Bienvenue (barre de progression) reprennent cette présentation. Aucun changement de comportement ni d'API.
+
 ### Correctif : « aujourd'hui » calculé à Paris
 - Carte (fenêtre des 7 prochains jours), recherche, activités d'un lieu et alertes : la date du jour était `CURRENT_DATE`, prise dans le fuseau de la session PostgreSQL (UTC), alors que les dates des activités et des occurrences sont comparées en heure de Paris. Entre minuit et 1 h ou 2 h du matin à Paris, la fenêtre restait sur la veille (activités terminées la veille encore affichées). Remplacée par la date du jour à Paris.
 - Contributions : sans date fournie, le début par défaut est « maintenant » à Paris, et non plus dans le fuseau du serveur (UTC). Après 22 h UTC, une contribution du jour passait pour une activité de la veille et n'apparaissait pas sur la carte.

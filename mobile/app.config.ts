@@ -43,7 +43,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     icon: "./assets/expo.icon",
   },
   android: {
-	package: "fr.locallife.app",
+    // Identifiant de l'application Android (définitif une fois publiée sur le Play Store).
+    package: "com.locallife.mobile",
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/android-icon-foreground.png",

@@ -2,12 +2,21 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
-import { Colors } from '@/constants/theme';
+import { Brand } from '@/constants/theme';
 
-const ACTIVITY_COLOR = Colors.light.primary;
-const FOOD_TRUCK_COLOR = '#C2410C';
-const CLUSTER_COLOR = '#0F3D82';
-const PLACE_COLOR = '#6D28D9';
+const ACTIVITY_COLOR = Brand.green2;
+const FOOD_TRUCK_COLOR = Brand.coral;
+const CLUSTER_COLOR = Brand.green;
+const PLACE_COLOR = '#6B5CA5';
+
+/** Ombre portée commune aux marqueurs, pour les détacher du fond de carte. */
+const MARKER_SHADOW = {
+  shadowColor: '#000000',
+  shadowOpacity: 0.25,
+  shadowRadius: 4,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 4,
+} as const;
 
 /**
  * Sur Android, un marqueur personnalisé doit être « suivi » le temps de
@@ -41,12 +50,19 @@ export function ActivityMarker({
   return (
     <Marker
       coordinate={coordinate}
-      onPress={onPress}
+      onPress={(event) => {
+        // Évite que la carte reçoive aussi ce toucher et ferme l’aperçu (iOS).
+        event.stopPropagation?.();
+        onPress();
+      }}
       tracksViewChanges={tracks}
       accessibilityLabel={`Activité : ${title}${approximate ? ' (emplacement approximatif)' : ''}`}>
-      <View
-        style={[styles.activity, { backgroundColor: ACTIVITY_COLOR }, approximate && styles.approximate]}
-      />
+      <View style={styles.markerPadding}>
+        <View
+          style={[styles.activity, { backgroundColor: ACTIVITY_COLOR }, approximate && styles.approximate]}>
+          <View style={styles.activityDot} />
+        </View>
+      </View>
     </Marker>
   );
 }
@@ -65,11 +81,17 @@ export function PlaceMarker({
   return (
     <Marker
       coordinate={coordinate}
-      onPress={onPress}
+      onPress={(event) => {
+        // Évite que la carte reçoive aussi ce toucher et ferme l’aperçu (iOS).
+        event.stopPropagation?.();
+        onPress();
+      }}
       tracksViewChanges={tracks}
       accessibilityLabel={`Lieu : ${name}`}>
-      <View style={[styles.place, { backgroundColor: PLACE_COLOR }]}>
-        <Text style={styles.placeIcon}>🏛</Text>
+      <View style={styles.markerPadding}>
+        <View style={[styles.place, { backgroundColor: PLACE_COLOR }]}>
+          <Text style={styles.placeIcon}>🏛</Text>
+        </View>
       </View>
     </Marker>
   );
@@ -89,11 +111,17 @@ export function FoodTruckMarker({
   return (
     <Marker
       coordinate={coordinate}
-      onPress={onPress}
+      onPress={(event) => {
+        // Évite que la carte reçoive aussi ce toucher et ferme l’aperçu (iOS).
+        event.stopPropagation?.();
+        onPress();
+      }}
       tracksViewChanges={tracks}
       accessibilityLabel={`Food truck : ${name}`}>
-      <View style={[styles.foodTruck, { backgroundColor: FOOD_TRUCK_COLOR }]}>
-        <Text style={styles.foodTruckIcon}>🚚</Text>
+      <View style={styles.markerPadding}>
+        <View style={[styles.foodTruck, { backgroundColor: FOOD_TRUCK_COLOR }]}>
+          <Text style={styles.foodTruckIcon}>🚚</Text>
+        </View>
       </View>
     </Marker>
   );
@@ -113,27 +141,46 @@ export function ClusterMarker({
   return (
     <Marker
       coordinate={coordinate}
-      onPress={onPress}
+      onPress={(event) => {
+        // Évite que la carte reçoive aussi ce toucher et ferme l’aperçu (iOS).
+        event.stopPropagation?.();
+        onPress();
+      }}
       tracksViewChanges={tracks}
       accessibilityLabel={`Groupe de ${count} activités. Toucher pour zoomer.`}>
-      <View
-        style={[
-          styles.cluster,
-          { width: size, height: size, borderRadius: size / 2, backgroundColor: CLUSTER_COLOR },
-        ]}>
-        <Text style={styles.clusterText}>{count}</Text>
+      <View style={styles.markerPadding}>
+        <View
+          style={[
+            styles.cluster,
+            { width: size, height: size, borderRadius: size / 2, backgroundColor: CLUSTER_COLOR },
+          ]}>
+          <Text style={styles.clusterText}>{count}</Text>
+        </View>
       </View>
     </Marker>
   );
 }
 
 const styles = StyleSheet.create({
+  // Marge autour du marqueur : sur Android, la vue rasterisée couperait sinon l'ombre.
+  markerPadding: {
+    padding: 4,
+  },
   activity: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 3,
     borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...MARKER_SHADOW,
+  },
+  activityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ffffff',
   },
   approximate: {
     opacity: 0.5,
@@ -142,38 +189,41 @@ const styles = StyleSheet.create({
   place: {
     width: 26,
     height: 26,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 2,
     borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     transform: [{ rotate: '45deg' }],
+    ...MARKER_SHADOW,
   },
   placeIcon: {
     fontSize: 13,
     transform: [{ rotate: '-45deg' }],
   },
   foodTruck: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    borderWidth: 2,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 2.5,
     borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    ...MARKER_SHADOW,
   },
   foodTruckIcon: {
     fontSize: 18,
   },
   cluster: {
-    borderWidth: 3,
-    borderColor: '#ffffff',
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...MARKER_SHADOW,
   },
   clusterText: {
     color: '#ffffff',
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 15,
   },
 });
