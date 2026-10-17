@@ -119,6 +119,8 @@ function App() {
      * présentée comme la position de l'utilisateur (spec P0-A).
      */
     const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
+    /** `userPosition` vient de « Autour de moi » (et non d'une ville) : le bouton l'indique. */
+    const [isAroundMe, setIsAroundMe] = useState(false);
     /** Dernière demande de position déclenchée par l'utilisateur (« Autour de moi »). */
     const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>("idle");
     /** Invitation à choisir un lieu refermée par l'utilisateur (pour la session). */
@@ -155,6 +157,7 @@ function App() {
         }
         if (isValidPosition(preferences.defaultLatitude, preferences.defaultLongitude)) {
             setUserPosition({ latitude: preferences.defaultLatitude!, longitude: preferences.defaultLongitude! });
+            setIsAroundMe(false);
             return true;
         }
         return false;
@@ -520,6 +523,7 @@ function App() {
         setTextSearch(null);
         setSearchHint(null);
         setUserPosition({ latitude: city.latitude, longitude: city.longitude });
+        setIsAroundMe(false);
         setGeolocationStatus("idle");
         setAppliedSearch({ kind: "city", city: formatCityLabel(city, query) });
     }
@@ -578,6 +582,7 @@ function App() {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 setGeolocationStatus("idle");
+                setIsAroundMe(true);
                 setUserPosition({
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
@@ -1094,6 +1099,7 @@ function App() {
                         onRadiusChange={handleRadiusChange}
                         radiusKm={activeRadiusKm}
                         onSelectedCategoryCodesChange={setSelectedCategoryCodes}
+                        isAroundMe={isAroundMe}
                         isLocating={geolocationStatus === "locating"}
                         onUseMyLocation={requestGeolocation}
                         onViewModeChange={setViewMode}

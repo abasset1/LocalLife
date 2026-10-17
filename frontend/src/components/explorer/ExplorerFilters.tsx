@@ -18,6 +18,8 @@ interface ExplorerFiltersProps {
     onUseMyLocation: () => void;
     /** Demande de position en cours (« Autour de moi »). */
     isLocating?: boolean;
+    /** La recherche est centrée sur la position obtenue par « Autour de moi ». */
+    isAroundMe?: boolean;
     /** Rayon actif (km), `null` = pas de rayon (recherche sur la zone visible). */
     radiusKm: number | null;
     onRadiusChange: (radiusKm: number | null) => void;
@@ -51,6 +53,7 @@ function ExplorerFilters({
     onClearDate,
     onUseMyLocation,
     isLocating = false,
+    isAroundMe = false,
     radiusKm,
     onRadiusChange,
     viewMode,
@@ -167,7 +170,8 @@ function ExplorerFilters({
                     )}
                 </div>
                 <button
-                    className="explorer-chip explorer-chip-location"
+                    aria-pressed={isAroundMe}
+                    className={`explorer-chip explorer-chip-location${isAroundMe ? " explorer-chip-active" : ""}`}
                     disabled={isLocating}
                     onClick={onUseMyLocation}
                     type="button"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent, KeyboardEvent, Ref } from "react";
 import { formatPostalCodes, useCitySuggestions } from "./useCitySuggestions";
 import type { CitySuggestion } from "./useCitySuggestions";
@@ -21,6 +21,29 @@ interface ExplorerSearchProps {
 }
 
 const LISTBOX_ID = "explorer-city-suggestions";
+
+/** Petit écran (spec P0-B) : le texte d'aide complet serait coupé après quelques mots. */
+const NARROW_SCREEN_QUERY = "(max-width: 480px)";
+const PLACEHOLDER = "Une ville, un code postal, une activité ou un lieu…";
+const NARROW_PLACEHOLDER = "Ville ou activité…";
+
+function useIsNarrowScreen(): boolean {
+    const [isNarrow, setIsNarrow] = useState(
+        () => typeof window.matchMedia === "function" && window.matchMedia(NARROW_SCREEN_QUERY).matches,
+    );
+
+    useEffect(() => {
+        if (typeof window.matchMedia !== "function") {
+            return;
+        }
+        const query = window.matchMedia(NARROW_SCREEN_QUERY);
+        const update = () => setIsNarrow(query.matches);
+        query.addEventListener("change", update);
+        return () => query.removeEventListener("change", update);
+    }, []);
+
+    return isNarrow;
+}
 
 /**
  * LL-EF-017, section 7 : barre de recherche du bandeau. Pendant la saisie, des communes sont proposées
@@ -45,6 +68,7 @@ function ExplorerSearch({
     const suggestions = useCitySuggestions(value, isFocused && !isDismissed && !isSearching);
     const isOpen = suggestions.length > 0;
     const activeIndex = highlighted < suggestions.length ? highlighted : -1;
+    const isNarrowScreen = useIsNarrowScreen();
 
     function handleChange(next: string) {
         onChange(next);
@@ -109,7 +133,7 @@ function ExplorerSearch({
                     onChange={(event) => handleChange(event.target.value)}
                     onFocus={() => setIsFocused(true)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Une activité, un lieu, une ville ou un code postal…"
+                    placeholder={isNarrowScreen ? NARROW_PLACEHOLDER : PLACEHOLDER}
                     ref={inputRef}
                     role="combobox"
                     type="search"
