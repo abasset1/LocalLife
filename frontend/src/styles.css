@@ -1667,6 +1667,48 @@ body {
     }
 }
 
+/* Spec P0-B : en-tête compact sur téléphone, pour laisser la place à la carte ou à la liste. Les
+   deux rangées de filtres n'en font qu'une, qui passe à la ligne si besoin ; les panneaux restent
+   ancrés à leur bouton. Desktop inchangé. */
+@media (max-width: 959px) {
+    .explorer-topbar {
+        gap: 0.5rem;
+        padding: 0.5rem 0.75rem 0.4rem;
+    }
+
+    .explorer-filters {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0 0.75rem 0.5rem;
+    }
+
+    .explorer-category-row,
+    .explorer-filters-secondary {
+        display: contents;
+    }
+
+    .explorer-active-period-hint {
+        flex-basis: 100%;
+    }
+
+    .explorer-chip {
+        padding: 0.4rem 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    /* La loupe décorative laisse sa place au texte d'aide. */
+    .explorer-search-icon {
+        display: none;
+    }
+
+    .explorer-search-submit {
+        padding: 0.35rem 0.7rem;
+    }
+}
+
 /* --- Zone carte + liste (section 3/4). --- */
 
 .explorer-content {
