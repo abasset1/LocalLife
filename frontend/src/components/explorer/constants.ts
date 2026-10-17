@@ -1,8 +1,12 @@
 import type { LatLngExpression } from "leaflet";
 
-export const MARSEILLE_LATITUDE = 43.2965;
-export const MARSEILLE_LONGITUDE = 5.3698;
-export const MARSEILLE_COORDINATES: LatLngExpression = [MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE];
+/**
+ * Vue d'ensemble affichée tant qu'aucun lieu n'est choisi (spec P0-A) : la zone couverte par les
+ * sources actuelles (Provence). Ce n'est jamais une position supposée de l'utilisateur : aucune
+ * recherche de proximité n'est centrée dessus, la recherche porte sur la zone affichée.
+ */
+export const DEFAULT_MAP_CENTER: LatLngExpression = [43.65, 5.2];
+export const DEFAULT_MAP_ZOOM = 8;
 
 /** Rayon de recherche (LL-4001, km, max 50) tant que la carte n'a pas été déplacée/zoomée. */
 export const DEFAULT_SEARCH_RADIUS_KM = 50;

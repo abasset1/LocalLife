@@ -2,6 +2,9 @@
 
 ## 0.9.59 — non publiée
 
+### Site : accueil de l'explorateur sur smartphone (lot P0, `docs/spec_front.md`)
+- **Localisation explicite (P0-A)** : la position n'est plus demandée automatiquement au chargement, seulement après « Autour de moi » (ou reprise sans fenêtre si le navigateur l'a déjà autorisée). Sans lieu choisi, la carte montre une **vue d'ensemble** de la zone couverte et cherche dans la zone affichée : plus de recherche `nearby` centrée en silence sur Marseille. Une invitation « Choisir ma ville » / « Autour de moi » l'indique ; un refus, une position indisponible ou un délai dépassé (10 s) sont expliqués, avec la ville comme autre méthode. La ville enregistrée dans les préférences reste le point de départ si ses coordonnées sont valides.
+
 ### Application mobile : connexion Google
 - Bouton **« Continuer avec Google »** dans l'onglet Compte (connexion, ou création du compte s'il n'existe pas) : connexion native (`@react-native-google-signin/google-signin`), ID token envoyé à `POST /auth/google`. Le token est demandé pour le client OAuth web du site, celui que vérifie déjà le backend : aucun changement côté serveur.
 - Masqué dans Expo Go, sur le web et tant que `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` n'est pas fourni ; le module natif n'est chargé qu'au premier appui. Annulation silencieuse, messages clairs si les services Google Play manquent ou si la connexion échoue ; déconnexion de Google en même temps que de LocalLife.

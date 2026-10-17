@@ -4,36 +4,47 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type { GlobalSearchItem, GlobalSearchPage } from "./components/explorer/globalSearch";
-import type { Activity } from "./components/explorer/types";
+import type { Activity, MapBounds } from "./components/explorer/types";
 
 /**
  * Leaflet ne s'affiche pas dans jsdom : la carte est remplacée par la liste de ses marqueurs, avec la
  * page de résultats sur laquelle elle se cadre et l'activité qu'elle centre.
  */
-vi.mock("./components/explorer/ExplorerMap", () => ({
-    default: ({
-        activities,
-        fitKey,
-        selectedActivity,
-        onSelectActivity,
-    }: {
-        activities: Activity[];
-        fitKey?: string | null;
-        selectedActivity: Activity | null;
-        onSelectActivity: (activity: Activity) => void;
-    }) => (
-        <div data-fit-key={fitKey ?? ""} data-testid="map">
-            {activities
-                .filter((activity) => Number.isFinite(activity.latitude))
-                .map((activity) => (
-                    <button key={activity.id} onClick={() => onSelectActivity(activity)} type="button">
-                        marqueur {activity.title}
-                    </button>
-                ))}
-            {selectedActivity && <span data-testid="map-centre">{selectedActivity.title}</span>}
-        </div>
-    ),
-}));
+vi.mock("./components/explorer/ExplorerMap", async () => {
+    const { useEffect } = await import("react");
+    return {
+        default: ({
+            activities,
+            fitKey,
+            selectedActivity,
+            onSelectActivity,
+            onBoundsChange,
+        }: {
+            activities: Activity[];
+            fitKey?: string | null;
+            selectedActivity: Activity | null;
+            onSelectActivity: (activity: Activity) => void;
+            onBoundsChange: (bounds: MapBounds) => void;
+        }) => {
+            // Comme la vraie carte : zone affichée transmise dès l'affichage.
+            useEffect(() => {
+                onBoundsChange({ swLatitude: 43, swLongitude: 5, neLatitude: 44, neLongitude: 6 });
+            }, []);
+            return (
+                <div data-fit-key={fitKey ?? ""} data-testid="map">
+                    {activities
+                        .filter((activity) => Number.isFinite(activity.latitude))
+                        .map((activity) => (
+                            <button key={activity.id} onClick={() => onSelectActivity(activity)} type="button">
+                                marqueur {activity.title}
+                            </button>
+                        ))}
+                    {selectedActivity && <span data-testid="map-centre">{selectedActivity.title}</span>}
+                </div>
+            );
+        },
+    };
+});
 
 interface Call {
     url: string;
@@ -279,7 +290,7 @@ describe("App — recherche globale (#92)", () => {
         expect(screen.getByRole("button", { name: "marqueur Visible sur la carte" })).toBeInTheDocument();
     });
 
-    it("position déjà connue (géolocalisation acceptée) : envoyée avec le texte", async () => {
+    it("position obtenue par « Autour de moi » : envoyée avec le texte", async () => {
         vi.stubGlobal("navigator", {
             ...navigator,
             geolocation: {
@@ -289,6 +300,7 @@ describe("App — recherche globale (#92)", () => {
         });
         try {
             const user = await renderApp();
+            await user.click(screen.getAllByRole("button", { name: "⌖ Autour de moi" })[0]);
             await submitSearch(user, "concert");
             await waitFor(() => expect(searchCalls()).toHaveLength(1));
             expect(lastSearchParams().get("latitude")).toBe("43.2965");
