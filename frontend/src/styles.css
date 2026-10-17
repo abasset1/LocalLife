@@ -1866,6 +1866,96 @@ body {
     opacity: 0.7;
 }
 
+/* --- Spec P0-D : chargement, erreur (avec « Réessayer ») et absence de résultat (avec actions). --- */
+
+/* Desktop : sans effet sur la mise en page, chaque message garde sa place (statut en haut de la carte,
+   invitation à choisir un lieu en bas). */
+.explorer-map-notices {
+    display: contents;
+}
+
+.explorer-status-floating {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.explorer-status-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    white-space: normal;
+}
+
+.explorer-status-floating.explorer-status-card {
+    width: max-content;
+    max-width: min(26rem, calc(100% - 1.5rem));
+    border-radius: 16px;
+    padding: 0.65rem 0.9rem;
+}
+
+.explorer-empty-help {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.explorer-empty-help-text {
+    margin: 0;
+    color: var(--ll-ink);
+}
+
+.explorer-empty-help-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+@media (max-width: 959px) {
+    /* Téléphone : le bandeau de recherche flotte en haut de la carte et masquerait les messages ; ils
+       s'empilent en bas, au-dessus du bouton « Lieux », avec l'invitation à choisir un lieu. */
+    .explorer-map-notices {
+        position: absolute;
+        left: 0.75rem;
+        right: 0.75rem;
+        bottom: 4.25rem;
+        z-index: 1100;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        pointer-events: none;
+    }
+
+    .explorer-map-notices > * {
+        pointer-events: auto;
+    }
+
+    .explorer-map-notices .explorer-status-floating,
+    .explorer-map-notices .explorer-location-prompt {
+        position: relative;
+        top: auto;
+        bottom: auto;
+        left: auto;
+        transform: none;
+    }
+
+    .explorer-map-notices .explorer-status-floating {
+        max-width: 100%;
+        white-space: normal;
+    }
+
+    .explorer-map-notices .explorer-location-prompt {
+        width: 100%;
+    }
+
+    /* Aperçu ouvert (bottom sheet) : il occupe le bas de l'écran. */
+    .explorer-map-wrapper:has(.explorer-preview) .explorer-map-notices {
+        display: none;
+    }
+}
+
 /* --- Food truck (LL-6009), icône dédiée. --- */
 
 .explorer-food-truck-marker {
