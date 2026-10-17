@@ -66,6 +66,32 @@ function writeShowPlaces(value: boolean) {
 }
 
 /** Coordonnées utilisables comme point de départ (préférence enregistrée) : nombres finis, dans les bornes. */
+/**
+ * Accueil de première connexion reporté (« Plus tard », spec P0-C) : mémorisé pour la session du
+ * navigateur seulement, par utilisateur — rien n'est enregistré côté serveur, l'accueil reviendra à
+ * une prochaine session tant que les préférences ne sont pas configurées.
+ */
+const ONBOARDING_POSTPONED_STORAGE_KEY = "locallife.onboardingPostponed";
+
+function isOnboardingPostponed(userId: number | undefined): boolean {
+    try {
+        return userId !== undefined
+            && window.sessionStorage.getItem(ONBOARDING_POSTPONED_STORAGE_KEY) === String(userId);
+    } catch {
+        return false;
+    }
+}
+
+function rememberOnboardingPostponed(userId: number | undefined) {
+    try {
+        if (userId !== undefined) {
+            window.sessionStorage.setItem(ONBOARDING_POSTPONED_STORAGE_KEY, String(userId));
+        }
+    } catch {
+        // Stockage indisponible : le report vaut jusqu'au rechargement de la page.
+    }
+}
+
 function isValidPosition(latitude: number | null, longitude: number | null): boolean {
     return latitude !== null
         && longitude !== null
@@ -248,7 +274,7 @@ function App() {
                 if (response.ok) {
                     const preferences: UserPreferences = await response.json();
                     hasDefaultCity = applyPreferences(preferences);
-                    if (preferences.configured === false) {
+                    if (preferences.configured === false && !isOnboardingPostponed(getPayload()?.userId)) {
                         setNeedsOnboarding(true);
                     }
                 }
@@ -1215,6 +1241,10 @@ function App() {
                     categories={categories}
                     onFinish={() => setNeedsOnboarding(false)}
                     onLogout={handleLogout}
+                    onPostpone={() => {
+                        rememberOnboardingPostponed(currentUser.userId);
+                        setNeedsOnboarding(false);
+                    }}
                     onPreferencesSaved={(preferences) => {
                         applyPreferences(preferences);
                     }}
