@@ -6,7 +6,7 @@ import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
-import { MAP_BOUNDS_DEBOUNCE_MS, MARSEILLE_COORDINATES } from "./constants";
+import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, MAP_BOUNDS_DEBOUNCE_MS } from "./constants";
 import { APPROXIMATE_LOCATION_LABEL, isApproximateLocation } from "./activityUtils";
 import { hasCoordinates } from "./globalSearch";
 import PlacesLayer from "../places/PlacesLayer";
@@ -90,6 +90,9 @@ function MapBoundsWatcher({ onBoundsChange }: { onBoundsChange: (bounds: MapBoun
     }
 
     useEffect(() => {
+        // Zone affichée transmise dès l'affichage, sans attendre un geste : sans lieu choisi, c'est elle
+        // qui fait la recherche (spec P0-A, pas de recherche autour d'une position inventée).
+        map.whenReady(() => scheduleBoundsUpdate());
         return () => {
             if (debounceTimer.current !== null) {
                 window.clearTimeout(debounceTimer.current);
@@ -238,12 +241,18 @@ function ExplorerMap({
 }: ExplorerMapProps) {
     const initialCenter: LatLngExpression = userPosition
         ? [userPosition.latitude, userPosition.longitude]
-        : MARSEILLE_COORDINATES;
+        : DEFAULT_MAP_CENTER;
 
     return (
         // zoomSnap fractionnaire : le cadrage sur le rayon favori (fitBounds) colle au rayon au lieu
         // d'arrondir au niveau de zoom entier inférieur (jusqu'à deux fois trop large).
-        <MapContainer center={initialCenter} className="explorer-map" zoom={13} zoomControl={false} zoomSnap={0.25}>
+        <MapContainer
+            center={initialCenter}
+            className="explorer-map"
+            zoom={userPosition ? 13 : DEFAULT_MAP_ZOOM}
+            zoomControl={false}
+            zoomSnap={0.25}
+        >
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

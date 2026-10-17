@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FormEvent, KeyboardEvent } from "react";
+import type { FormEvent, KeyboardEvent, Ref } from "react";
 import { formatPostalCodes, useCitySuggestions } from "./useCitySuggestions";
 import type { CitySuggestion } from "./useCitySuggestions";
 
@@ -16,6 +16,8 @@ interface ExplorerSearchProps {
     isSearching: boolean;
     /** Une recherche est appliquée à la carte : la barre est mise en évidence. */
     isActive: boolean;
+    /** Champ de saisie, mis au point par « Choisir ma ville ». */
+    inputRef?: Ref<HTMLInputElement>;
 }
 
 const LISTBOX_ID = "explorer-city-suggestions";
@@ -26,7 +28,16 @@ const LISTBOX_ID = "explorer-city-suggestions";
  * fermer. La recherche libre reste explicite (bouton « Rechercher » ou Entrée) et n'est jamais géocodée :
  * seule une commune choisie déplace la carte — voir `handleSearchSubmit` (App.tsx).
  */
-function ExplorerSearch({ value, onChange, onSubmit, onSelectCity, onClear, isSearching, isActive }: ExplorerSearchProps) {
+function ExplorerSearch({
+    value,
+    onChange,
+    onSubmit,
+    onSelectCity,
+    onClear,
+    isSearching,
+    isActive,
+    inputRef,
+}: ExplorerSearchProps) {
     const [isFocused, setIsFocused] = useState(false);
     // Fermée après un choix, Échap ou un envoi ; rouverte dès que l'on tape.
     const [isDismissed, setIsDismissed] = useState(false);
@@ -99,6 +110,7 @@ function ExplorerSearch({ value, onChange, onSubmit, onSelectCity, onClear, isSe
                     onFocus={() => setIsFocused(true)}
                     onKeyDown={handleKeyDown}
                     placeholder="Une activité, un lieu, une ville ou un code postal…"
+                    ref={inputRef}
                     role="combobox"
                     type="search"
                     value={value}

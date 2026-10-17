@@ -16,6 +16,8 @@ interface ExplorerFiltersProps {
     onPeriodChange: (period: string) => void;
     onClearDate: () => void;
     onUseMyLocation: () => void;
+    /** Demande de position en cours (« Autour de moi »). */
+    isLocating?: boolean;
     /** Rayon actif (km), `null` = pas de rayon (recherche sur la zone visible). */
     radiusKm: number | null;
     onRadiusChange: (radiusKm: number | null) => void;
@@ -48,6 +50,7 @@ function ExplorerFilters({
     onPeriodChange,
     onClearDate,
     onUseMyLocation,
+    isLocating = false,
     radiusKm,
     onRadiusChange,
     viewMode,
@@ -163,8 +166,13 @@ function ExplorerFilters({
                         </div>
                     )}
                 </div>
-                <button className="explorer-chip explorer-chip-location" onClick={onUseMyLocation} type="button">
-                    ⌖ Autour de moi
+                <button
+                    className="explorer-chip explorer-chip-location"
+                    disabled={isLocating}
+                    onClick={onUseMyLocation}
+                    type="button"
+                >
+                    {isLocating ? "Localisation…" : "⌖ Autour de moi"}
                 </button>
             </div>
 

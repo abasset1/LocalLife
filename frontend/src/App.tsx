@@ -7,12 +7,14 @@ import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
 import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
 import { isInBounds, toLocalDateString } from "./components/explorer/activityUtils";
-import { DEFAULT_SEARCH_RADIUS_KM, MARSEILLE_LATITUDE, MARSEILLE_LONGITUDE, NO_DATE_FILTER } from "./components/explorer/constants";
+import { DEFAULT_SEARCH_RADIUS_KM, NO_DATE_FILTER } from "./components/explorer/constants";
 import ContributionModal, { EMPTY_RECURRENCE, type ContributionRecurrence } from "./components/explorer/ContributionModal";
 import ExplorerFilters from "./components/explorer/ExplorerFilters";
 import ExplorerMap from "./components/explorer/ExplorerMap";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
 import ExplorerSearch from "./components/explorer/ExplorerSearch";
+import LocationPrompt from "./components/explorer/LocationPrompt";
+import type { GeolocationStatus } from "./components/explorer/LocationPrompt";
 import { hasCoordinates, SEARCH_PAGE_SIZE, toActivity } from "./components/explorer/globalSearch";
 import SearchResultBanner from "./components/explorer/SearchResultBanner";
 import type { AppliedSearch, TextSearchStatus } from "./components/explorer/SearchResultBanner";
@@ -63,6 +65,19 @@ function writeShowPlaces(value: boolean) {
     }
 }
 
+/** Coordonnées utilisables comme point de départ (préférence enregistrée) : nombres finis, dans les bornes. */
+function isValidPosition(latitude: number | null, longitude: number | null): boolean {
+    return latitude !== null
+        && longitude !== null
+        && Number.isFinite(latitude)
+        && Number.isFinite(longitude)
+        && Math.abs(latitude) <= 90
+        && Math.abs(longitude) <= 180;
+}
+
+/** Délai maximal d'une demande de position (« Autour de moi ») avant de proposer une autre méthode. */
+const GEOLOCATION_TIMEOUT_MS = 10000;
+
 function App() {
     const navigate = useNavigate();
     const [activities, setActivities] = useState<Activity[]>([]);
@@ -98,7 +113,17 @@ function App() {
     const [refreshKey, setRefreshKey] = useState(0);
     const [isLoadingActivities, setIsLoadingActivities] = useState(true);
     const [searchError, setSearchError] = useState<string | null>(null);
+    /**
+     * Position de recherche : ville choisie (suggestions, préférence enregistrée) ou position obtenue
+     * après « Autour de moi ». `null` = aucun lieu choisi : la carte montre une vue d'ensemble, jamais
+     * présentée comme la position de l'utilisateur (spec P0-A).
+     */
     const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
+    /** Dernière demande de position déclenchée par l'utilisateur (« Autour de moi »). */
+    const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>("idle");
+    /** Invitation à choisir un lieu refermée par l'utilisateur (pour la session). */
+    const [isLocationPromptDismissed, setIsLocationPromptDismissed] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
     /** Rayon de la recherche initiale `/nearby` : paramètre utilisateur s'il est défini (voir ci-dessous). */
     const [searchRadiusKm, setSearchRadiusKm] = useState(DEFAULT_SEARCH_RADIUS_KM);
     /**
@@ -120,7 +145,7 @@ function App() {
     /**
      * Applique des préférences à la carte : catégories cochées, rayon de
      * recherche et de cadrage, ville comme point de départ. Retourne `true` si
-     * elles contiennent une ville (pas de géolocalisation automatique alors).
+     * elles contiennent une ville aux coordonnées valides.
      */
     function applyPreferences(preferences: UserPreferences): boolean {
         setSelectedCategoryCodes(preferences.defaultCategoryCodes);
@@ -128,8 +153,8 @@ function App() {
             setSearchRadiusKm(preferences.defaultRadiusKm);
             setActiveRadiusKm(preferences.defaultRadiusKm);
         }
-        if (preferences.defaultLatitude !== null && preferences.defaultLongitude !== null) {
-            setUserPosition({ latitude: preferences.defaultLatitude, longitude: preferences.defaultLongitude });
+        if (isValidPosition(preferences.defaultLatitude, preferences.defaultLongitude)) {
+            setUserPosition({ latitude: preferences.defaultLatitude!, longitude: preferences.defaultLongitude! });
             return true;
         }
         return false;
@@ -196,14 +221,15 @@ function App() {
 
     /**
      * Paramètres utilisateur (`GET /api/v1/users/me/preferences`), chargés une fois.
-     * Ville par défaut : remplace la géolocalisation automatique comme point de
-     * départ de la carte (« Autour de moi » reste disponible). `fetch` direct avec
+     * Ville par défaut : point de départ de la carte (« Autour de moi » reste
+     * disponible). Sans ville, la position n'est reprise que si le navigateur l'a
+     * déjà autorisée (aucune demande d'autorisation sans action). `fetch` direct avec
      * le JWT plutôt que `apiFetch` : un token expiré ne doit pas rediriger vers
      * /login depuis la carte publique — on garde simplement le comportement standard.
      */
     useEffect(() => {
         if (arePreferencesApplied) {
-            requestGeolocation();
+            resumeGrantedGeolocation();
             return;
         }
         const token = getToken();
@@ -229,7 +255,7 @@ function App() {
                 if (!abortController.signal.aborted) {
                     setArePreferencesApplied(true);
                     if (!hasDefaultCity) {
-                        requestGeolocation();
+                        resumeGrantedGeolocation();
                     }
                 }
             }
@@ -292,6 +318,12 @@ function App() {
             setActivities([]);
         }
 
+        // Ni zone affichée ni lieu choisi : aucune requête de proximité autour d'une position inventée.
+        // La carte transmet sa zone dès son affichage, la recherche part alors de celle-ci.
+        if (!searchBounds && !userPosition) {
+            return () => abortController.abort();
+        }
+
         async function loadActivities() {
             const params = new URLSearchParams();
             let endpoint: string;
@@ -304,13 +336,11 @@ function App() {
                 params.set("neLatitude", String(searchBounds.neLatitude));
                 params.set("neLongitude", String(searchBounds.neLongitude));
             } else {
-                // Avant toute interaction avec la carte : rayon fixe (LL-4008/LL-4011).
+                // Avant que la carte ne transmette sa zone : rayon fixe autour du lieu choisi (LL-4008/LL-4011).
                 // Avec un rayon favori : toujours ce rayon, la carte ne fait que l'afficher.
                 endpoint = "/api/v1/activities/nearby";
-                const latitude = userPosition?.latitude ?? MARSEILLE_LATITUDE;
-                const longitude = userPosition?.longitude ?? MARSEILLE_LONGITUDE;
-                params.set("latitude", String(latitude));
-                params.set("longitude", String(longitude));
+                params.set("latitude", String(userPosition!.latitude));
+                params.set("longitude", String(userPosition!.longitude));
                 params.set("radius", String(searchRadiusKm));
             }
 
@@ -490,6 +520,7 @@ function App() {
         setTextSearch(null);
         setSearchHint(null);
         setUserPosition({ latitude: city.latitude, longitude: city.longitude });
+        setGeolocationStatus("idle");
         setAppliedSearch({ kind: "city", city: formatCityLabel(city, query) });
     }
 
@@ -532,46 +563,82 @@ function App() {
             current ? { ...current, offset: Math.max(0, offset), filtersKey: searchFiltersKey } : current);
     }
 
+    /**
+     * « Autour de moi » : seule demande d'autorisation de localisation, toujours à la suite d'un geste
+     * de l'utilisateur. Un refus, une position indisponible ou un délai dépassé sont expliqués
+     * (`LocationPrompt`), avec le choix d'une ville comme autre méthode ; la carte reste utilisable.
+     * ⚠️ La position n'est ni envoyée au backend hors recherche, ni stockée ailleurs qu'en état React local.
+     */
     function requestGeolocation() {
         if (!("geolocation" in navigator)) {
+            setGeolocationStatus("unsupported");
             return;
         }
+        setGeolocationStatus("locating");
         navigator.geolocation.getCurrentPosition(
             (position) => {
+                setGeolocationStatus("idle");
                 setUserPosition({
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
                 });
             },
-            () => {
-                // Permission refusée, position indisponible ou timeout : repli silencieux
-                // sur MARSEILLE_LATITUDE/MARSEILLE_LONGITUDE (comportement LL-4008).
+            (error) => {
+                setGeolocationStatus(error.code === error.PERMISSION_DENIED ? "denied" : "unavailable");
             },
+            { timeout: GEOLOCATION_TIMEOUT_MS, maximumAge: 60000 },
         );
     }
 
-    // LL-EF-002 : géolocalisation demandée automatiquement au chargement, sans action utilisateur
-    // (après lecture des paramètres utilisateur, sauf ville par défaut — voir leur chargement ci-dessus).
-    // ⚠️ Aucune position utilisateur n'est envoyée au backend ni stockée ailleurs qu'en état React local.
+    /**
+     * Au chargement, sans ville enregistrée : la position n'est reprise que si le navigateur l'a déjà
+     * autorisée pour LocalLife (aucune fenêtre d'autorisation). Un échec reste silencieux : l'invitation
+     * à choisir un lieu est déjà affichée.
+     */
+    function resumeGrantedGeolocation() {
+        if (!("geolocation" in navigator) || !navigator.permissions?.query) {
+            return;
+        }
+        navigator.permissions
+            .query({ name: "geolocation" })
+            .then((permission) => {
+                if (permission.state !== "granted") {
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        setUserPosition((current) => current ?? {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                        });
+                    },
+                    () => undefined,
+                    { timeout: GEOLOCATION_TIMEOUT_MS, maximumAge: 60000 },
+                );
+            })
+            .catch(() => undefined);
+    }
+
+    /** « Choisir ma ville » : la barre de recherche propose les communes dès la saisie. */
+    function focusCitySearch() {
+        setViewMode("map");
+        searchInputRef.current?.focus();
+    }
 
     /**
      * Rayon choisi depuis la barre de filtres. Avec un rayon : la recherche et le
      * cadrage se font dans ce rayon autour de la position de recherche (ville
      * favorite, « Autour de moi »), ou du centre actuel de la carte s'il n'y en a
-     * pas. Sans rayon : retour à la recherche par zone visible.
+     * pas (jamais d'une position inventée). Sans rayon : retour à la recherche par zone visible.
      */
     function handleRadiusChange(radiusKm: number | null) {
         setActiveRadiusKm(radiusKm);
         setSearchRadiusKm(radiusKm ?? DEFAULT_SEARCH_RADIUS_KM);
-        if (radiusKm !== null && userPosition === null) {
-            setUserPosition(
-                mapBounds
-                    ? {
-                          latitude: (mapBounds.swLatitude + mapBounds.neLatitude) / 2,
-                          longitude: (mapBounds.swLongitude + mapBounds.neLongitude) / 2,
-                      }
-                    : { latitude: MARSEILLE_LATITUDE, longitude: MARSEILLE_LONGITUDE },
-            );
+        if (radiusKm !== null && userPosition === null && mapBounds) {
+            setUserPosition({
+                latitude: (mapBounds.swLatitude + mapBounds.neLatitude) / 2,
+                longitude: (mapBounds.swLongitude + mapBounds.neLongitude) / 2,
+            });
         }
     }
 
@@ -991,6 +1058,7 @@ function App() {
                             ☰
                         </button>
                         <ExplorerSearch
+                            inputRef={searchInputRef}
                             isActive={appliedSearch !== null}
                             isSearching={textStatus?.status === "loading"}
                             onChange={handleSearchChange}
@@ -1026,6 +1094,7 @@ function App() {
                         onRadiusChange={handleRadiusChange}
                         radiusKm={activeRadiusKm}
                         onSelectedCategoryCodesChange={setSelectedCategoryCodes}
+                        isLocating={geolocationStatus === "locating"}
                         onUseMyLocation={requestGeolocation}
                         onViewModeChange={setViewMode}
                         selectedCategoryCodes={selectedCategoryCodes}
@@ -1070,6 +1139,20 @@ function App() {
                         >
                             🏛 Lieux
                         </button>
+                        {/* Après lecture des préférences : une ville enregistrée évite l'invitation. */}
+                        {arePreferencesApplied && !isTextSearch && !previewActivity && (
+                            <LocationPrompt
+                                hasLocation={userPosition !== null}
+                                isDismissed={isLocationPromptDismissed}
+                                onChooseCity={focusCitySearch}
+                                onDismiss={() => {
+                                    setIsLocationPromptDismissed(true);
+                                    setGeolocationStatus("idle");
+                                }}
+                                onUseMyLocation={requestGeolocation}
+                                status={geolocationStatus}
+                            />
+                        )}
                         {previewActivity && (
                             <ActivityPreview
                                 activity={previewActivity}
