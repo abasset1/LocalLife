@@ -12,22 +12,26 @@ interface OnboardingModalProps {
     categories: Category[];
     /** Préférences enregistrées : l'Explorer les applique aussitôt à la carte. */
     onPreferencesSaved: (preferences: UserPreferences) => void;
-    /** Fin de l'accueil (alerte créée ou « Plus tard »). */
+    /** Fin de l'accueil (alerte créée ou « Plus tard » sur l'alerte). */
     onFinish: () => void;
-    /** Seule autre sortie possible de l'étape obligatoire. */
+    /**
+     * Configuration reportée (« Plus tard », ✕ ou Échap à la première étape) : rien n'est enregistré,
+     * l'Explorer garde ses critères par défaut.
+     */
+    onPostpone: () => void;
     onLogout: () => void;
 }
 
 /**
  * Accueil de première connexion (l'utilisateur n'a encore jamais enregistré
  * de préférences, `configured: false`) :
- * 1. choix obligatoire de la ville, du rayon et d'au moins une catégorie —
- *    pas de bouton de fermeture ni de touche Échap, seule la déconnexion
- *    permet de sortir sans les enregistrer ;
+ * 1. choix de la ville, du rayon et d'au moins une catégorie — facultatif
+ *    (spec P0-C) : « Plus tard », ✕ ou Échap ferment l'accueil sans rien
+ *    enregistrer, la découverte reste immédiate ;
  * 2. proposition facultative de créer une alerte e-mail préremplie avec ces
  *    préférences.
  */
-function OnboardingModal({ categories, onPreferencesSaved, onFinish, onLogout }: OnboardingModalProps) {
+function OnboardingModal({ categories, onPreferencesSaved, onFinish, onPostpone, onLogout }: OnboardingModalProps) {
     const [step, setStep] = useState<"preferences" | "alert">("preferences");
     const [saved, setSaved] = useState<UserPreferences | null>(null);
 
@@ -47,9 +51,27 @@ function OnboardingModal({ categories, onPreferencesSaved, onFinish, onLogout }:
 
     const dialogRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
-        // Focus sur le premier champ de l'étape affichée (lecteurs d'écran, clavier).
-        dialogRef.current?.querySelector<HTMLElement>("input, button")?.focus();
+        // Focus sur le premier champ de l'étape affichée (lecteurs d'écran, clavier), pas sur « Fermer ».
+        dialogRef.current?.querySelector<HTMLElement>(".onboarding-body input, .onboarding-body button")?.focus();
     }, [step]);
+
+    // Échap : même sortie que « Plus tard » (report à la première étape, fin à la seconde).
+    // Pas pendant un enregistrement, pour ne pas fermer sur une réponse encore attendue.
+    useEffect(() => {
+        function handleKeyDown(event: KeyboardEvent) {
+            if (event.key !== "Escape" || isSaving || isCreating) {
+                return;
+            }
+            if (step === "preferences") {
+                onPostpone();
+            } else {
+                onFinish();
+            }
+        }
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [step, isSaving, isCreating, onPostpone, onFinish]);
 
     function toggle(codes: string[], code: string): string[] {
         return codes.includes(code) ? codes.filter((value) => value !== code) : [...codes, code];
@@ -148,13 +170,22 @@ function OnboardingModal({ categories, onPreferencesSaved, onFinish, onLogout }:
                             {step === "preferences" ? "Bienvenue sur LocalLife 👋" : "Créer une alerte ?"}
                         </h2>
                     </div>
+                    <button
+                        aria-label="Fermer"
+                        className="explorer-modal-close-button"
+                        disabled={isSaving || isCreating}
+                        onClick={step === "preferences" ? onPostpone : onFinish}
+                        type="button"
+                    >
+                        ✕
+                    </button>
                 </header>
 
                 {step === "preferences" && (
                     <form className="pp-form onboarding-body" onSubmit={(event) => void savePreferences(event)}>
                         <p className="pp-hint onboarding-intro">
-                            Pour commencer, dis-nous où et quoi chercher : la carte s'ouvrira toujours sur ces
-                            préférences. Tu pourras les modifier à tout moment depuis ton profil.
+                            Dis-nous où et quoi chercher : la carte s'ouvrira toujours sur ces préférences. C'est
+                            facultatif : tu peux explorer tout de suite et les régler plus tard depuis ton profil.
                         </p>
 
                         <CityField id="onboarding-city" label="Ta ville" picker={cityPicker} required />
@@ -191,6 +222,14 @@ function OnboardingModal({ categories, onPreferencesSaved, onFinish, onLogout }:
                         <div className="onboarding-footer">
                             <button className="onboarding-link" onClick={onLogout} type="button">
                                 Se déconnecter
+                            </button>
+                            <button
+                                className="pp-button pp-button-secondary"
+                                disabled={isSaving}
+                                onClick={onPostpone}
+                                type="button"
+                            >
+                                Plus tard
                             </button>
                             <button
                                 className="pp-button pp-button-primary"

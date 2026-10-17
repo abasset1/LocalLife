@@ -8,6 +8,7 @@ import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
 import { isInBounds, toLocalDateString } from "./components/explorer/activityUtils";
 import { DEFAULT_SEARCH_RADIUS_KM, NO_DATE_FILTER } from "./components/explorer/constants";
+import EmptyResultsHelp from "./components/explorer/EmptyResultsHelp";
 import ContributionModal, { EMPTY_RECURRENCE, type ContributionRecurrence } from "./components/explorer/ContributionModal";
 import ExplorerFilters from "./components/explorer/ExplorerFilters";
 import ExplorerMap from "./components/explorer/ExplorerMap";
@@ -66,6 +67,32 @@ function writeShowPlaces(value: boolean) {
 }
 
 /** Coordonnées utilisables comme point de départ (préférence enregistrée) : nombres finis, dans les bornes. */
+/**
+ * Accueil de première connexion reporté (« Plus tard », spec P0-C) : mémorisé pour la session du
+ * navigateur seulement, par utilisateur — rien n'est enregistré côté serveur, l'accueil reviendra à
+ * une prochaine session tant que les préférences ne sont pas configurées.
+ */
+const ONBOARDING_POSTPONED_STORAGE_KEY = "locallife.onboardingPostponed";
+
+function isOnboardingPostponed(userId: number | undefined): boolean {
+    try {
+        return userId !== undefined
+            && window.sessionStorage.getItem(ONBOARDING_POSTPONED_STORAGE_KEY) === String(userId);
+    } catch {
+        return false;
+    }
+}
+
+function rememberOnboardingPostponed(userId: number | undefined) {
+    try {
+        if (userId !== undefined) {
+            window.sessionStorage.setItem(ONBOARDING_POSTPONED_STORAGE_KEY, String(userId));
+        }
+    } catch {
+        // Stockage indisponible : le report vaut jusqu'au rechargement de la page.
+    }
+}
+
 function isValidPosition(latitude: number | null, longitude: number | null): boolean {
     return latitude !== null
         && longitude !== null
@@ -119,6 +146,8 @@ function App() {
      * présentée comme la position de l'utilisateur (spec P0-A).
      */
     const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
+    /** `userPosition` vient de « Autour de moi » (et non d'une ville) : le bouton l'indique. */
+    const [isAroundMe, setIsAroundMe] = useState(false);
     /** Dernière demande de position déclenchée par l'utilisateur (« Autour de moi »). */
     const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>("idle");
     /** Invitation à choisir un lieu refermée par l'utilisateur (pour la session). */
@@ -155,6 +184,7 @@ function App() {
         }
         if (isValidPosition(preferences.defaultLatitude, preferences.defaultLongitude)) {
             setUserPosition({ latitude: preferences.defaultLatitude!, longitude: preferences.defaultLongitude! });
+            setIsAroundMe(false);
             return true;
         }
         return false;
@@ -245,7 +275,7 @@ function App() {
                 if (response.ok) {
                     const preferences: UserPreferences = await response.json();
                     hasDefaultCity = applyPreferences(preferences);
-                    if (preferences.configured === false) {
+                    if (preferences.configured === false && !isOnboardingPostponed(getPayload()?.userId)) {
                         setNeedsOnboarding(true);
                     }
                 }
@@ -361,18 +391,29 @@ function App() {
                     signal: abortController.signal,
                 });
 
+                // Spec P0-D : une erreur n'est jamais présentée comme une zone sans activité ; lors d'un
+                // simple déplacement de carte, les activités déjà affichées restent visibles.
                 if (response.ok) {
                     const data: Activity[] = await response.json();
                     setActivities(data);
+                    setSearchError(null);
                 } else {
                     const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
-                    setSearchError(body?.message ?? "Impossible de charger les activités, réessaie.");
-                    setActivities([]);
+                    setSearchError(
+                        response.status < 500 && body?.message
+                            ? body.message
+                            : "Le chargement des activités a échoué.",
+                    );
+                    if (!isMapOnlyReload) {
+                        setActivities([]);
+                    }
                 }
             } catch {
                 if (!abortController.signal.aborted) {
-                    setSearchError("Impossible de contacter le serveur, réessaie plus tard.");
-                    setActivities([]);
+                    setSearchError("Connexion impossible : vérifie ton réseau.");
+                    if (!isMapOnlyReload) {
+                        setActivities([]);
+                    }
                 }
             } finally {
                 if (!abortController.signal.aborted) {
@@ -385,6 +426,11 @@ function App() {
 
         return () => abortController.abort();
     }, [arePreferencesApplied, isTextSearch, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
+
+    /** « Réessayer » après une erreur de chargement : mêmes filtres, même zone, sans recharger la page. */
+    function retryActivities() {
+        setRefreshKey((current) => current + 1);
+    }
 
     function toggleShowPlaces() {
         setShowPlaces((current) => {
@@ -499,6 +545,22 @@ function App() {
             : `Aucun résultat pour « ${textSearch.query} ».`;
     }
 
+    /** Aucune activité hors recherche texte : actions utiles selon les critères actifs (spec P0-D). */
+    const emptyResultsHelp = (
+        <EmptyResultsHelp
+            hasCategoryFilter={selectedCategoryCodes.length > 0}
+            hasDateFilter={selectedDate !== NO_DATE_FILTER}
+            onChooseCity={focusCitySearch}
+            onClearCategories={() => setSelectedCategoryCodes([])}
+            onClearDate={() => {
+                setSelectedDate(NO_DATE_FILTER);
+                setSelectedDateTo(NO_DATE_FILTER);
+            }}
+            onRadiusChange={handleRadiusChange}
+            radiusKm={activeRadiusKm}
+        />
+    );
+
     // Nouvelle page de résultats : la liste repart du haut.
     useEffect(() => {
         if (searchFitKey !== null && searchListRef.current) {
@@ -520,6 +582,7 @@ function App() {
         setTextSearch(null);
         setSearchHint(null);
         setUserPosition({ latitude: city.latitude, longitude: city.longitude });
+        setIsAroundMe(false);
         setGeolocationStatus("idle");
         setAppliedSearch({ kind: "city", city: formatCityLabel(city, query) });
     }
@@ -578,6 +641,7 @@ function App() {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 setGeolocationStatus("idle");
+                setIsAroundMe(true);
                 setUserPosition({
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
@@ -1094,6 +1158,7 @@ function App() {
                         onRadiusChange={handleRadiusChange}
                         radiusKm={activeRadiusKm}
                         onSelectedCategoryCodesChange={setSelectedCategoryCodes}
+                        isAroundMe={isAroundMe}
                         isLocating={geolocationStatus === "locating"}
                         onUseMyLocation={requestGeolocation}
                         onViewModeChange={setViewMode}
@@ -1106,18 +1171,6 @@ function App() {
 
                 <div className="explorer-content">
                     <div className="explorer-map-wrapper">
-                        {/* Pendant une recherche texte, le bandeau sous la barre donne son état. */}
-                        {!isTextSearch && isLoadingActivities && (
-                            <p className="explorer-status explorer-status-floating">Chargement des activités…</p>
-                        )}
-                        {!isTextSearch && !isLoadingActivities && searchError && (
-                            <p className="explorer-status explorer-status-error explorer-status-floating" role="alert">
-                                {searchError}
-                            </p>
-                        )}
-                        {!isTextSearch && !isLoadingActivities && !searchError && activities.length === 0 && (
-                            <p className="explorer-status explorer-status-floating">{emptyMessage}</p>
-                        )}
                         <ExplorerMap
                             activities={mapActivities}
                             fitKey={searchFitKey}
@@ -1139,20 +1192,49 @@ function App() {
                         >
                             🏛 Lieux
                         </button>
-                        {/* Après lecture des préférences : une ville enregistrée évite l'invitation. */}
-                        {arePreferencesApplied && !isTextSearch && !previewActivity && (
-                            <LocationPrompt
-                                hasLocation={userPosition !== null}
-                                isDismissed={isLocationPromptDismissed}
-                                onChooseCity={focusCitySearch}
-                                onDismiss={() => {
-                                    setIsLocationPromptDismissed(true);
-                                    setGeolocationStatus("idle");
-                                }}
-                                onUseMyLocation={requestGeolocation}
-                                status={geolocationStatus}
-                            />
-                        )}
+                        {/*
+                          Pendant une recherche texte, le bandeau sous la barre donne son état. Chargement,
+                          erreur et absence de résultat sont exclusifs (spec P0-D). Sur téléphone, ces messages
+                          et l'invitation à choisir un lieu s'empilent en bas de la carte (styles.css).
+                        */}
+                        <div className="explorer-map-notices">
+                            {!isTextSearch && isLoadingActivities && (
+                                <p className="explorer-status explorer-status-floating" role="status">
+                                    <span aria-hidden="true" className="explorer-search-spinner" />
+                                    Chargement des activités…
+                                </p>
+                            )}
+                            {!isTextSearch && !isLoadingActivities && searchError && (
+                                <div
+                                    className="explorer-status explorer-status-error explorer-status-floating explorer-status-card"
+                                    role="alert"
+                                >
+                                    <span>{searchError}</span>
+                                    <button className="explorer-chip" onClick={retryActivities} type="button">
+                                        Réessayer
+                                    </button>
+                                </div>
+                            )}
+                            {!isTextSearch && !isLoadingActivities && !searchError && activities.length === 0 && (
+                                <div className="explorer-status explorer-status-floating explorer-status-card" role="status">
+                                    {emptyResultsHelp}
+                                </div>
+                            )}
+                            {/* Après lecture des préférences : une ville enregistrée évite l'invitation. */}
+                            {arePreferencesApplied && !isTextSearch && !previewActivity && (
+                                <LocationPrompt
+                                    hasLocation={userPosition !== null}
+                                    isDismissed={isLocationPromptDismissed}
+                                    onChooseCity={focusCitySearch}
+                                    onDismiss={() => {
+                                        setIsLocationPromptDismissed(true);
+                                        setGeolocationStatus("idle");
+                                    }}
+                                    onUseMyLocation={requestGeolocation}
+                                    status={geolocationStatus}
+                                />
+                            )}
+                        </div>
                         {previewActivity && (
                             <ActivityPreview
                                 activity={previewActivity}
@@ -1192,8 +1274,11 @@ function App() {
                         <ActivityList
                             activities={panelActivities}
                             categories={categories}
+                            emptyActions={isTextSearch ? undefined : emptyResultsHelp}
                             emptyMessage={emptyMessage}
                             error={isTextSearch ? (textStatus?.status === "error" ? textStatus.message : null) : searchError}
+                            // Recherche texte : « Réessayer » est dans le bandeau sous la barre.
+                            onRetry={isTextSearch ? undefined : retryActivities}
                             isLoading={isTextSearch ? textStatus?.status === "loading" : isLoadingActivities}
                             label={isTextSearch ? "Résultats de la recherche" : undefined}
                             onSelectActivity={handleSelectActivity}
@@ -1209,6 +1294,10 @@ function App() {
                     categories={categories}
                     onFinish={() => setNeedsOnboarding(false)}
                     onLogout={handleLogout}
+                    onPostpone={() => {
+                        rememberOnboardingPostponed(currentUser.userId);
+                        setNeedsOnboarding(false);
+                    }}
                     onPreferencesSaved={(preferences) => {
                         applyPreferences(preferences);
                     }}

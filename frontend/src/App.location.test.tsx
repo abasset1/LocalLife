@@ -143,6 +143,8 @@ describe("App — localisation explicite (spec P0-A)", () => {
 
         await waitFor(() => expect(screen.getByTestId("map-position")).toHaveTextContent("45.1,5.7"));
         expect(prompt()).toBeUndefined();
+        // Spec P0-B : le bouton indique que la recherche part de la position.
+        expect(screen.getByRole("button", { name: "⌖ Autour de moi" })).toHaveAttribute("aria-pressed", "true");
     });
 
     it("permission refusée : message, choix d'une ville proposé, la carte reste utilisable", async () => {

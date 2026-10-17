@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { APPROXIMATE_LOCATION_LABEL, formatCategoryLabels, groupActivitiesByCity, isApproximateLocation } from "./activityUtils";
 import { UNKNOWN_ADDRESS_LABEL } from "./activityUtils";
 import { formatDistance, hasCoordinates, UNKNOWN_PLACE_LABEL } from "./globalSearch";
@@ -18,6 +19,10 @@ interface ActivityListProps {
     ordered?: boolean;
     /** Libellé accessible de la liste (recherche : « Résultats de la recherche »). */
     label?: string;
+    /** Erreur de chargement : relance la même recherche (« Réessayer »). */
+    onRetry?: () => void;
+    /** Aucune activité : aide affichée à la place de `emptyMessage` (actions utiles, spec P0-D). */
+    emptyActions?: ReactNode;
 }
 
 function formatWhen(startDate: string): string {
@@ -59,19 +64,32 @@ function ActivityList({
     emptyMessage = "Aucune activité trouvée dans cette zone.",
     ordered = false,
     label,
+    onRetry,
+    emptyActions,
 }: ActivityListProps) {
     if (isLoading) {
         return <p className="explorer-status">Chargement des activités…</p>;
     }
     if (error) {
         return (
-            <p className="explorer-status explorer-status-error" role="alert">
-                {error}
-            </p>
+            <div className="explorer-status explorer-status-error explorer-status-card" role="alert">
+                <span>{error}</span>
+                {onRetry && (
+                    <button className="explorer-chip" onClick={onRetry} type="button">
+                        Réessayer
+                    </button>
+                )}
+            </div>
         );
     }
     if (activities.length === 0) {
-        return <p className="explorer-status">{emptyMessage}</p>;
+        return emptyActions ? (
+            <div className="explorer-status" role="status">
+                {emptyActions}
+            </div>
+        ) : (
+            <p className="explorer-status">{emptyMessage}</p>
+        );
     }
 
     function renderItem(activity: Activity) {
