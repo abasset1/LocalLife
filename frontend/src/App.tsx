@@ -8,6 +8,7 @@ import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
 import { isInBounds, toLocalDateString } from "./components/explorer/activityUtils";
 import { DEFAULT_SEARCH_RADIUS_KM, NO_DATE_FILTER } from "./components/explorer/constants";
+import EmptyResultsHelp from "./components/explorer/EmptyResultsHelp";
 import ContributionModal, { EMPTY_RECURRENCE, type ContributionRecurrence } from "./components/explorer/ContributionModal";
 import ExplorerFilters from "./components/explorer/ExplorerFilters";
 import ExplorerMap from "./components/explorer/ExplorerMap";
@@ -390,18 +391,29 @@ function App() {
                     signal: abortController.signal,
                 });
 
+                // Spec P0-D : une erreur n'est jamais présentée comme une zone sans activité ; lors d'un
+                // simple déplacement de carte, les activités déjà affichées restent visibles.
                 if (response.ok) {
                     const data: Activity[] = await response.json();
                     setActivities(data);
+                    setSearchError(null);
                 } else {
                     const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
-                    setSearchError(body?.message ?? "Impossible de charger les activités, réessaie.");
-                    setActivities([]);
+                    setSearchError(
+                        response.status < 500 && body?.message
+                            ? body.message
+                            : "Le chargement des activités a échoué.",
+                    );
+                    if (!isMapOnlyReload) {
+                        setActivities([]);
+                    }
                 }
             } catch {
                 if (!abortController.signal.aborted) {
-                    setSearchError("Impossible de contacter le serveur, réessaie plus tard.");
-                    setActivities([]);
+                    setSearchError("Connexion impossible : vérifie ton réseau.");
+                    if (!isMapOnlyReload) {
+                        setActivities([]);
+                    }
                 }
             } finally {
                 if (!abortController.signal.aborted) {
@@ -414,6 +426,11 @@ function App() {
 
         return () => abortController.abort();
     }, [arePreferencesApplied, isTextSearch, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
+
+    /** « Réessayer » après une erreur de chargement : mêmes filtres, même zone, sans recharger la page. */
+    function retryActivities() {
+        setRefreshKey((current) => current + 1);
+    }
 
     function toggleShowPlaces() {
         setShowPlaces((current) => {
@@ -527,6 +544,22 @@ function App() {
             ? "Aucun résultat sur cette page."
             : `Aucun résultat pour « ${textSearch.query} ».`;
     }
+
+    /** Aucune activité hors recherche texte : actions utiles selon les critères actifs (spec P0-D). */
+    const emptyResultsHelp = (
+        <EmptyResultsHelp
+            hasCategoryFilter={selectedCategoryCodes.length > 0}
+            hasDateFilter={selectedDate !== NO_DATE_FILTER}
+            onChooseCity={focusCitySearch}
+            onClearCategories={() => setSelectedCategoryCodes([])}
+            onClearDate={() => {
+                setSelectedDate(NO_DATE_FILTER);
+                setSelectedDateTo(NO_DATE_FILTER);
+            }}
+            onRadiusChange={handleRadiusChange}
+            radiusKm={activeRadiusKm}
+        />
+    );
 
     // Nouvelle page de résultats : la liste repart du haut.
     useEffect(() => {
@@ -1138,18 +1171,6 @@ function App() {
 
                 <div className="explorer-content">
                     <div className="explorer-map-wrapper">
-                        {/* Pendant une recherche texte, le bandeau sous la barre donne son état. */}
-                        {!isTextSearch && isLoadingActivities && (
-                            <p className="explorer-status explorer-status-floating">Chargement des activités…</p>
-                        )}
-                        {!isTextSearch && !isLoadingActivities && searchError && (
-                            <p className="explorer-status explorer-status-error explorer-status-floating" role="alert">
-                                {searchError}
-                            </p>
-                        )}
-                        {!isTextSearch && !isLoadingActivities && !searchError && activities.length === 0 && (
-                            <p className="explorer-status explorer-status-floating">{emptyMessage}</p>
-                        )}
                         <ExplorerMap
                             activities={mapActivities}
                             fitKey={searchFitKey}
@@ -1171,20 +1192,49 @@ function App() {
                         >
                             🏛 Lieux
                         </button>
-                        {/* Après lecture des préférences : une ville enregistrée évite l'invitation. */}
-                        {arePreferencesApplied && !isTextSearch && !previewActivity && (
-                            <LocationPrompt
-                                hasLocation={userPosition !== null}
-                                isDismissed={isLocationPromptDismissed}
-                                onChooseCity={focusCitySearch}
-                                onDismiss={() => {
-                                    setIsLocationPromptDismissed(true);
-                                    setGeolocationStatus("idle");
-                                }}
-                                onUseMyLocation={requestGeolocation}
-                                status={geolocationStatus}
-                            />
-                        )}
+                        {/*
+                          Pendant une recherche texte, le bandeau sous la barre donne son état. Chargement,
+                          erreur et absence de résultat sont exclusifs (spec P0-D). Sur téléphone, ces messages
+                          et l'invitation à choisir un lieu s'empilent en bas de la carte (styles.css).
+                        */}
+                        <div className="explorer-map-notices">
+                            {!isTextSearch && isLoadingActivities && (
+                                <p className="explorer-status explorer-status-floating" role="status">
+                                    <span aria-hidden="true" className="explorer-search-spinner" />
+                                    Chargement des activités…
+                                </p>
+                            )}
+                            {!isTextSearch && !isLoadingActivities && searchError && (
+                                <div
+                                    className="explorer-status explorer-status-error explorer-status-floating explorer-status-card"
+                                    role="alert"
+                                >
+                                    <span>{searchError}</span>
+                                    <button className="explorer-chip" onClick={retryActivities} type="button">
+                                        Réessayer
+                                    </button>
+                                </div>
+                            )}
+                            {!isTextSearch && !isLoadingActivities && !searchError && activities.length === 0 && (
+                                <div className="explorer-status explorer-status-floating explorer-status-card" role="status">
+                                    {emptyResultsHelp}
+                                </div>
+                            )}
+                            {/* Après lecture des préférences : une ville enregistrée évite l'invitation. */}
+                            {arePreferencesApplied && !isTextSearch && !previewActivity && (
+                                <LocationPrompt
+                                    hasLocation={userPosition !== null}
+                                    isDismissed={isLocationPromptDismissed}
+                                    onChooseCity={focusCitySearch}
+                                    onDismiss={() => {
+                                        setIsLocationPromptDismissed(true);
+                                        setGeolocationStatus("idle");
+                                    }}
+                                    onUseMyLocation={requestGeolocation}
+                                    status={geolocationStatus}
+                                />
+                            )}
+                        </div>
                         {previewActivity && (
                             <ActivityPreview
                                 activity={previewActivity}
@@ -1224,8 +1274,11 @@ function App() {
                         <ActivityList
                             activities={panelActivities}
                             categories={categories}
+                            emptyActions={isTextSearch ? undefined : emptyResultsHelp}
                             emptyMessage={emptyMessage}
                             error={isTextSearch ? (textStatus?.status === "error" ? textStatus.message : null) : searchError}
+                            // Recherche texte : « Réessayer » est dans le bandeau sous la barre.
+                            onRetry={isTextSearch ? undefined : retryActivities}
                             isLoading={isTextSearch ? textStatus?.status === "loading" : isLoadingActivities}
                             label={isTextSearch ? "Résultats de la recherche" : undefined}
                             onSelectActivity={handleSelectActivity}
