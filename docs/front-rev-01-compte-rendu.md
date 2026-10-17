@@ -6,6 +6,23 @@
   - `main` : `5c1633a` (« Create Front-rev-01.md »).
   - `main` + PR #135 : `f942bc0`, branche `ccr-6235e9ce-xq52nh-p0-rattrapage`. C'est le reste du lot P0 (P0-B à P0-E), déjà relu dans les PR #131 à #134 mais **pas encore fusionné dans `main`**.
 
+## Mise à jour du 17 octobre 2026 : #135 fusionnée
+
+Depuis la rédaction de ce compte rendu, la PR #135 a été fusionnée dans `main` (`106ebdb`, puis `a402e21`). Les quatre commits P0-B à P0-E sont désormais dans `main`. Contrôles relancés sur `main` (`a402e21`) :
+
+- `npm ci` : OK, même vulnérabilité `source-map-js` dans l'outillage ;
+- `npm run test` : 23 fichiers, **100 tests réussis** ;
+- `npm run build` : OK ;
+- scénarios de bout en bout : **35 PASS / 0 FAIL**.
+
+**Décision mise à jour : `main` VALIDÉ AVEC RÉSERVES.** Les anomalies 1 à 6 de la section D sont corrigées. Les réserves restent les mêmes :
+
+- aucun appareil Android physique ;
+- aucun backend réel ;
+- la vulnérabilité `source-map-js` de l'outillage.
+
+La prochaine étape recommandée devient la recette sur téléphone Android réel (G.2). La suite du document décrit l'état au moment de l'audit initial.
+
 ## A. Résumé
 
 **`main` ne contient que P0-A (#130).** Les PR #131 à #134 étaient empilées. Elles ont été fusionnées chacune dans la branche de la PR précédente, et non dans `main`. Sur `main`, il manque donc :
@@ -132,7 +149,7 @@ Node v22.22.0 (le projet demande ≥ 20.19.0) et npm 10.9.4. Commandes lancées 
 
 ## G. Prochaine étape recommandée
 
-1. **Fusionner #135 dans `main`**, puis relancer `npm run test` sur `main` : on attend 100 tests réussis. C'est ce qui lève l'anomalie critique.
+1. ~~Fusionner #135 dans `main`~~ : **fait** (`106ebdb`). `main` compte désormais 100 tests réussis.
 2. **Recette sur un téléphone Android réel**, contre le backend de bêta. Vérifier :
    - la fenêtre de permission de localisation (accord, refus, refus définitif) ;
    - le clavier ouvert sur les suggestions ;
