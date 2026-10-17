@@ -15,6 +15,9 @@ body {
 
 #root {
     height: 100vh;
+    /* Spec P0-E : hauteur réellement visible sur Android (barre d'adresse affichée), sans quoi le bas
+       de l'explorateur (bouton « Lieux », messages, aperçu) passe sous la barre du navigateur. */
+    height: 100dvh;
 }
 
 .application-shell {
@@ -1283,6 +1286,8 @@ body {
     border-radius: 14px;
     box-shadow: 0 12px 28px rgba(23, 32, 29, 0.16);
     max-height: 22rem;
+    /* Clavier virtuel ouvert : la liste tient dans la hauteur visible et défile. */
+    max-height: min(22rem, calc(100dvh - 5rem));
     overflow-y: auto;
 }
 
@@ -1706,6 +1711,67 @@ body {
 
     .explorer-search-submit {
         padding: 0.35rem 0.7rem;
+    }
+}
+
+/* Spec P0-E : sur téléphone, les panneaux de filtres s'ouvrent sous la barre de filtres, sur toute sa
+   largeur, au lieu d'être ancrés à leur bouton (le panneau « Rayon » sortait de l'écran à droite). */
+@media (max-width: 959px) {
+    .explorer-filters {
+        position: relative;
+    }
+
+    .explorer-filters .explorer-categories,
+    .explorer-filters .explorer-dates,
+    .explorer-filters .explorer-radius {
+        position: static;
+    }
+
+    .explorer-filters .explorer-dates-panel,
+    .explorer-filters .explorer-categories-panel {
+        top: calc(100% - 0.1rem);
+        left: 0.75rem;
+        right: 0.75rem;
+        width: auto;
+        max-height: calc(100dvh - 12rem);
+        overflow-y: auto;
+    }
+}
+
+/* Spec P0-E : écrans tactiles, cibles d'au moins 40 px pour les commandes de l'explorateur. */
+@media (pointer: coarse) {
+    .explorer-chip,
+    .explorer-search-submit,
+    .explorer-places-toggle,
+    .explorer-search-banner-clear,
+    .explorer-search-pagination button {
+        min-height: 40px;
+    }
+
+    .explorer-menu-toggle {
+        width: 44px;
+        height: 44px;
+    }
+
+    .explorer-search-clear {
+        min-width: 40px;
+        min-height: 40px;
+    }
+
+    .explorer-location-prompt-close,
+    .explorer-preview-close,
+    .explorer-modal-close-button {
+        min-width: 40px;
+        min-height: 40px;
+    }
+
+    .explorer-category-option {
+        min-height: 40px;
+    }
+
+    .explorer-category-option input {
+        width: 1.25rem;
+        height: 1.25rem;
     }
 }
 
@@ -2149,6 +2215,7 @@ body {
     width: 100%;
     max-width: 520px;
     max-height: 90vh;
+    max-height: 90dvh;
     overflow-y: auto;
     background-color: var(--ll-paper);
     border-radius: 18px;
