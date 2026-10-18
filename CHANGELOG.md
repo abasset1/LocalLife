@@ -9,7 +9,7 @@
 - **Reprise sans rupture** (migration `V65`) : chaque food truck existant reçoit une présence permanente à sa position actuelle. Identifiants, affichage et alertes déjà envoyées inchangés. `POST /api/v1/foodtrucks` répond comme avant.
 - **Alertes** : un nouveau food truck est signalé si l'un de ses emplacements est dans le rayon.
 - **Site** : bascule « 🚚 Food trucks » (affichée par défaut), emplacement et horaires dans la bulle, onglet « Food trucks » dans la liste, « Food trucks présents aujourd'hui » sur la fiche d'un lieu.
-- **Application mobile** : bascule de la couche, emplacement et horaires dans l'aperçu, fiche avec « Où le trouver ». La fiche reste accessible même si le food truck n'est pas présent aujourd'hui.
+- **Application mobile** : bascule de la couche, emplacement et horaires dans l'aperçu, fiche avec « Où le trouver ». Onglet **« 🚚 Food trucks »** dans la vue Liste : food trucks présents aujourd'hui dans le rayon choisi, triés par distance, avec emplacement et horaires, filtrables par nom, cuisine ou emplacement ; un appui ouvre la fiche. La fiche reste accessible même si le food truck n'est pas présent aujourd'hui.
 
 ### Espace professionnel : revendiquer ou créer un lieu (PRO-01, ADR-0012)
 - **Compte professionnel** : nouveau rôle `PRO`, attribué ou retiré par un administrateur (Administration → Professionnels, `PATCH /api/v1/admin/users/{id}/role`). Le droit est relu en base à chaque appel : il prend effet sans nouvelle connexion. Point d'extension unique `ProAccessPolicy`, que BILLING-01 rattachera aux abonnements. Aucune facturation.

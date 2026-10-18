@@ -138,6 +138,15 @@ les horaires du jour. La fiche d'un lieu affiche « Food trucks présents ».
 
 Limites connues : la présence du jour est jugée à la journée (une présence
 dont l'horaire est passé reste listée ce jour-là, avec ses horaires) ;
-l'application mobile n'a pas d'onglet liste « Food trucks » ni de bloc sur
-la fiche d'un lieu ; la saisie des présences par le professionnel relève de
+l'application mobile n'a pas de bloc « Food trucks » sur la fiche d'un lieu
+(l'onglet liste « Food trucks » a été ajouté ensuite, voir ci-dessous) ; la saisie des présences par le professionnel relève de
 FOODTRUCK-01, la création du food truck par un pro de PRO-01 lot C.
+
+**Ajout du 18/10/2026 — onglet « Food trucks » de la liste mobile** :
+sélecteur « Activités | 🚚 Food trucks » en tête de la vue Liste. Même lieu,
+même rayon et même filtre texte que les activités ; période et catégories
+masquées (catégories d'activités ; une présence est celle du jour). Une carte
+par présence du jour, triée par distance, qui ouvre la fiche du food truck.
+Code : `features/list/foodTruckList.ts` (règle pure, testée),
+`useFoodTruckList.ts` (chargé seulement quand l'onglet est ouvert),
+`FoodTruckCard.tsx`.
