@@ -96,6 +96,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   connecté, même principe — voir {@code ActivityAlertController}.
  *   POST /api/v1/alerts/unsubscribe reste public (lien de l'email, le jeton
  *   suffit).
+ * Endpoints protégés (ADR-0012, PRO-01) :
+ * - /api/v1/pro/** : utilisateur connecté ; le droit professionnel et la
+ *   gestion de chaque lieu dépendent des données et sont vérifiés dans
+ *   {@code PlaceClaimService}/{@code ProPlaceService}, comme
+ *   {@code ActivityService#cancel} ci-dessus.
+ * - /api/v1/admin/users et /api/v1/admin/place-claims : rôle ADMIN, par la
+ *   règle générale /api/v1/admin/**.
  * Tous les autres endpoints restent accessibles sans JWT (consultation
  * publique des activités/catégories, inscription/connexion).
  */
@@ -158,6 +165,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/sources/*").hasRole("ADMIN")
                         // Filet de sécurité : tout endpoint d'administration oublié ci-dessus reste réservé.
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // Espace professionnel (ADR-0012) : connexion exigée ici ; le droit professionnel est relu
+                        // en base par ProAccessPolicy (un rôle PRO attribué prend effet sans nouvelle connexion).
+                        .requestMatchers("/api/v1/pro/**").authenticated()
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptions -> exceptions

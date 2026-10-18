@@ -47,6 +47,30 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
   connecté (email) avec un bouton de déconnexion, et le formulaire de
   contribution qui envoie automatiquement le JWT stocké.
 
+## Espace professionnel (PRO-01)
+
+Décisions et modèle : [`docs/ADR-0012-espace-professionnel-revendication.md`](docs/ADR-0012-espace-professionnel-revendication.md).
+
+* **Compte professionnel** : rôle `PRO`, attribué par un administrateur
+  (`GET /api/v1/admin/users?email=...`, `PATCH /api/v1/admin/users/{id}/role`
+  avec `{"role":"PRO"}` ou `{"role":"USER"}`). Relu en base à chaque appel.
+* **Espace pro** (page `/pro`, endpoints `/api/v1/pro/**`, connexion requise,
+  `403` sans rôle `PRO`, `404` pour la demande ou le lieu d'un autre) :
+  * demandes de gestion d'un lieu existant : `POST /pro/places/{id}/claims`
+    (brouillon), `PATCH /pro/claims/{id}`, `POST /pro/claims/{id}/submit`,
+    `POST /pro/claims/{id}/withdraw`, `GET /pro/claims` ;
+  * création d'un lieu : `GET /pro/places/similar` (recherche préalable),
+    `POST /pro/places` (brouillon, `409` avec les lieux proches tant que
+    `confirmNotDuplicate` n'est pas vrai), `PUT /pro/places/{id}`,
+    `POST /pro/places/{id}/submit` (vers la modération des lieux existante),
+    `GET /pro/places`.
+* **Modération des demandes** (rôle `ADMIN`) : `GET /api/v1/admin/place-claims`,
+  `GET /api/v1/admin/place-claims/{id}`, `POST .../{id}/start-review`,
+  `.../approve`, `.../reject` et `.../request-info` (motif obligatoire pour ces
+  deux derniers). Seule l'approbation ouvre un droit de gestion ; la fiche du
+  lieu n'est jamais modifiée par une demande.
+* Food truck : entrée distincte annoncée, en attente d'ARCHI-01.
+
 ## Géocodage
 
 * Le formulaire de contribution (`POST /api/v1/activities`) ne demande

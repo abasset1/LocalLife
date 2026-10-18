@@ -6,6 +6,9 @@ package com.locallife.backend.place.domain;
  */
 public enum PlaceStatus {
 
+    /** Créé par un professionnel, pas encore soumis à la modération (ADR-0012) ; visible de ses seuls gestionnaires. */
+    DRAFT,
+
     /** Importé, en attente de modération. Tout nouveau lieu importé l'est. */
     PENDING,
 

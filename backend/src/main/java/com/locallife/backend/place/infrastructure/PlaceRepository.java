@@ -50,7 +50,7 @@ public class PlaceRepository {
             PlaceStatus status, String placeType, String department, Boolean flagged, int limit, int offset) {
     }
 
-    private static final String PLACE_COLUMNS = "l.id, l.name, l.place_type, l.place_status, l.address, "
+    static final String PLACE_COLUMNS = "l.id, l.name, l.place_type, l.place_status, l.address, "
             + "l.postal_code, l.city, l.latitude, l.longitude, l.description, l.website, l.coordinate_precision, "
             + "l.published_at, l.moderated_at";
 
@@ -68,7 +68,8 @@ public class PlaceRepository {
                        (SELECT s.name FROM location_source ls JOIN source s ON s.id = ls.source_id
                         WHERE ls.location_id = l.id ORDER BY ls.id LIMIT 1) AS source_name
                 FROM location l
-                WHERE l.place_status IS NOT NULL
+                -- Un brouillon de professionnel (ADR-0012) n'entre en modération qu'à sa soumission.
+                WHERE l.place_status IS NOT NULL AND l.place_status <> 'DRAFT'
             ), filtered AS (
                 SELECT * FROM places p
                 WHERE (CAST(:status AS text) IS NULL OR p.place_status = :status)
@@ -263,7 +264,7 @@ public class PlaceRepository {
                 .addValue("precision", fields.coordinatePrecision().name());
     }
 
-    private static Place toPlace(ResultSet row) throws SQLException {
+    static Place toPlace(ResultSet row) throws SQLException {
         return new Place(
                 row.getLong("id"), row.getString("name"), row.getString("place_type"),
                 PlaceStatus.valueOf(row.getString("place_status")), row.getString("address"),
