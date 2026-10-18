@@ -172,7 +172,7 @@ export default function BienvenueScreen() {
               <>
                 <ThemedText themeColor="textSecondary">
                   Pour commencer, dites-nous où et quoi chercher : la carte s’ouvrira toujours sur ces préférences.
-                  Vous pourrez les modifier à tout moment depuis l’onglet Compte.
+                  Vous pourrez les modifier à tout moment depuis la rubrique Compte du menu.
                 </ThemedText>
                 <CityPicker label="Votre ville" picker={cityPicker} />
                 <ChipGroup
@@ -225,8 +225,8 @@ export default function BienvenueScreen() {
                   <>
                     <ThemedText themeColor="textSecondary">
                       Soyez prévenu chaque matin des nouveautés à moins de {saved.defaultRadiusKm} km de{' '}
-                      {saved.defaultCity}. C’est facultatif, et vous pourrez gérer vos alertes depuis l’onglet
-                      Compte.
+                      {saved.defaultCity}. C’est facultatif, et vous pourrez gérer vos alertes depuis la
+                      rubrique Compte du menu.
                     </ThemedText>
                     <ChipGroup
                       label="M’alerter pour"

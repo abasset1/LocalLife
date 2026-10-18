@@ -183,6 +183,15 @@ export interface Category {
   active: boolean;
 }
 
+/** Commune proposée par `GET /geocoding/city-suggestions` (nom, codes postaux, département, centre). */
+export interface CitySuggestion {
+  name: string;
+  postalCodes: string[];
+  department: string | null;
+  latitude: number;
+  longitude: number;
+}
+
 /** `UserPreferencesResponse` (`GET`/`PUT /users/me/preferences`) — paramètres de recherche par défaut. */
 export interface UserPreferences {
   defaultCity: string | null;

@@ -14,7 +14,7 @@ import { useFavorites } from '@/features/favorites';
 import { ActivityCard } from '@/features/list/ActivityCard';
 import { useTheme } from '@/hooks/use-theme';
 
-/** « Mes favoris » (onglet Compte) : les activités aimées, rechargées à chaque ouverture de l'écran. */
+/** « Mes favoris » (rubrique Compte) : les activités aimées, rechargées à chaque ouverture de l'écran. */
 export default function FavorisScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -38,7 +38,7 @@ export default function FavorisScreen() {
   if (!authenticated) {
     return (
       <ThemedView style={styles.centered}>
-        <ThemedText style={styles.centerText}>Connectez-vous depuis l’onglet Compte pour retrouver vos favoris.</ThemedText>
+        <ThemedText style={styles.centerText}>Connectez-vous depuis la rubrique Compte du menu pour retrouver vos favoris.</ThemedText>
       </ThemedView>
     );
   }

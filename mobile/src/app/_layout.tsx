@@ -31,8 +31,9 @@ function navigationTheme(dark: boolean) {
 }
 
 /**
- * Layout racine (LL-MOB-0002) : le groupe `(tabs)` porte la navigation par
- * onglets (Découvrir / Contribution / Compte), et le détail d'une activité
+ * Layout racine (LL-MOB-0002) : le groupe `(tabs)` porte les écrans
+ * principaux (Carte / Liste / Contribuer / Compte, atteints par le menu
+ * rétractable depuis FRONT-REV-02), et le détail d'une activité
  * est un écran empilé au-dessus, avec un header natif (bouton retour +
  * geste retour Android géré nativement par le stack navigator, aucun code
  * manuel requis).

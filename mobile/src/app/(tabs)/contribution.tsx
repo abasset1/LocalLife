@@ -9,6 +9,7 @@ import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { Notice } from '@/components/notice';
 import { ScreenHeader } from '@/components/screen-header';
+import { MenuButton } from '@/features/navigation/AppMenu';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -57,6 +58,7 @@ export default function ContributionScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.centered}>
+          <MenuButton />
           <ScreenHeader
             eyebrow="Contribuer"
             title="Faites vivre votre quartier"
@@ -70,7 +72,7 @@ export default function ContributionScreen() {
               Connexion requise
             </ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.emptyText}>
-              Connectez-vous depuis l’onglet Compte pour proposer une activité.
+              Connectez-vous depuis la rubrique Compte du menu pour proposer une activité.
             </ThemedText>
             <Button label="Aller à mon compte" onPress={() => router.navigate('/compte')} />
           </Card>
@@ -81,9 +83,10 @@ export default function ContributionScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+            <MenuButton />
             <ScreenHeader
               eyebrow="Contribuer"
               title="Proposer une activité"

@@ -10,6 +10,7 @@ import { Card } from '@/components/card';
 import { MenuRow } from '@/components/menu-row';
 import { Notice } from '@/components/notice';
 import { ScreenHeader } from '@/components/screen-header';
+import { MenuButton } from '@/features/navigation/AppMenu';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -141,8 +142,9 @@ export default function CompteScreen() {
     const initial = state.user.email.trim().charAt(0).toUpperCase() || '?';
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
           <ScrollView contentContainerStyle={styles.content}>
+            <MenuButton />
             <ScreenHeader eyebrow="Mon espace" title="Compte" />
 
             <Card style={styles.profile}>
@@ -198,9 +200,10 @@ export default function CompteScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+            <MenuButton />
             <View style={[styles.hero, { backgroundColor: theme.primary }]}>
               <BrandMark inverted />
               <ThemedText style={styles.heroTitle}>

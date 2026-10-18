@@ -2,6 +2,14 @@
 
 ## 0.9.59 — non publiée
 
+### Application mobile : ville, catégories et menu rétractable (FRONT-REV-02)
+- **Recherche de ville** sur la carte et dans la liste : communes proposées pendant la saisie (`GET /geocoding/city-suggestions`, public), même sans compte. La commune choisie recentre la carte et actualise la liste. Chargement, panne avec « Réessayer » et commune introuvable sont annoncés. Le champ texte de la liste disait « commune » mais ne filtrait que les activités déjà chargées ; il devient « Filtrer : concert, marché… ».
+- **Catégories** : nouveau choix d'une ou plusieurs catégories sur la carte (bouton « Catégories ») et dans la liste, avec « Toutes les catégories » pour retirer le filtre. Jusqu'ici, seules les catégories des paramètres s'appliquaient, avec un simple « Tout afficher ».
+- **Critères partagés** : lieu, catégories et rayon sont communs à la carte et à la liste, et conservés quand on change de vue. Auparavant, la liste avait son propre rayon et sa propre levée du filtre.
+- **Plus de ville par défaut silencieuse** : la liste n'affiche plus « Près de Marseille » sans choix. Elle invite à choisir une ville ou « Autour de moi », et la carte indique qu'elle montre une vue d'ensemble.
+- **Menu rétractable** à la place de la barre d'onglets : bouton « ☰ » en haut des écrans principaux, panneau latéral avec toutes les rubriques, fermeture par « ✕ », appui à côté ou retour Android. Boutons directs « Liste » et « Carte ».
+- Correctif : toucher une commune proposée pouvait retirer le focus du champ avant la fin de l'appui, ce qui refermait la liste et annulait le choix.
+
 ### Site : accueil de l'explorateur sur smartphone (lot P0, `docs/spec_front.md`)
 - **Localisation explicite (P0-A)** : la position n'est plus demandée automatiquement au chargement, seulement après « Autour de moi » (ou reprise sans fenêtre si le navigateur l'a déjà autorisée). Sans lieu choisi, la carte montre une **vue d'ensemble** de la zone couverte et cherche dans la zone affichée : plus de recherche `nearby` centrée en silence sur Marseille. Une invitation « Choisir ma ville » / « Autour de moi » l'indique ; un refus, une position indisponible ou un délai dépassé (10 s) sont expliqués, avec la ville comme autre méthode. La ville enregistrée dans les préférences reste le point de départ si ses coordonnées sont valides.
 - **Accueil sur téléphone (P0-B)** : en-tête plus compact (les filtres tiennent sur une rangée qui passe à la ligne au besoin), texte d'aide de la recherche raccourci sur petit écran (« Ville ou activité… ») et qui cite la ville en premier ailleurs, loupe décorative masquée sous 480 px. « Autour de moi » reste mis en évidence quand la recherche part de la position. Desktop inchangé.
