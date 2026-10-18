@@ -49,17 +49,18 @@ export function regionToBounds(region: Region): Bounds | null {
 }
 
 /**
- * Étendue maximale (en degrés, ~220 km en latitude) d'une zone envoyée à
- * `within-bounds`. L'endpoint n'a ni pagination ni plafond : au-delà, la
- * carte demande de zoomer plutôt que de charger des milliers d'activités.
+ * Étendue maximale (en degrés, ~650 km en latitude) d'une zone envoyée à
+ * `within-bounds`. Assez large pour la vue d'ensemble d'une région, comme sur
+ * le site web (qui n'a pas de limite) ; l'endpoint n'ayant ni pagination ni
+ * plafond, la carte demande encore de zoomer à l'échelle d'un pays.
  */
-export const MAX_SEARCH_SPAN_DEGREES = 2;
+export const MAX_SEARCH_SPAN_DEGREES = 6;
 
-export function isSearchable(bounds: Bounds): boolean {
-  return (
-    bounds.neLatitude - bounds.swLatitude <= MAX_SEARCH_SPAN_DEGREES &&
-    bounds.neLongitude - bounds.swLongitude <= MAX_SEARCH_SPAN_DEGREES
-  );
+/** Étendue maximale pour la couche « Lieux » (~220 km), plus dense : inchangée. */
+export const PLACES_MAX_SPAN_DEGREES = 2;
+
+export function isSearchable(bounds: Bounds, maxSpan: number = MAX_SEARCH_SPAN_DEGREES): boolean {
+  return bounds.neLatitude - bounds.swLatitude <= maxSpan && bounds.neLongitude - bounds.swLongitude <= maxSpan;
 }
 
 /** `true` si `inner` est entièrement contenue dans `outer`. */
@@ -111,4 +112,38 @@ export function regionForRadius(latitude: number, longitude: number, radiusKm: n
   const cosine = Math.cos((latitude * Math.PI) / 180);
   const longitudeDelta = cosine > 0.01 ? latitudeDelta / cosine : latitudeDelta;
   return { latitude, longitude, latitudeDelta, longitudeDelta };
+}
+
+/** En dessous de cette étendue (en degrés, ~50 m), des points sont considérés comme au même endroit. */
+export const SAME_PLACE_SPAN_DEGREES = 0.0005;
+
+/**
+ * Région qui cadre tous les points (avec une marge), en gardant le ratio de `like` : appui sur un
+ * groupe de marqueurs, comme sur le site web. `null` si les points sont au même endroit (adresse
+ * commune, position approximative au centre d'une commune) : zoomer ne les séparerait jamais.
+ */
+export function regionToFit(
+  points: readonly { latitude: number; longitude: number }[],
+  like: Region,
+): Region | null {
+  if (points.length === 0) return null;
+  const latitudes = points.map((p) => p.latitude);
+  const longitudes = points.map((p) => p.longitude);
+  const minLat = Math.min(...latitudes);
+  const maxLat = Math.max(...latitudes);
+  const minLon = Math.min(...longitudes);
+  const maxLon = Math.max(...longitudes);
+  const latSpan = maxLat - minLat;
+  const lonSpan = maxLon - minLon;
+  if (latSpan < SAME_PLACE_SPAN_DEGREES && lonSpan < SAME_PLACE_SPAN_DEGREES) return null;
+
+  const ratio = like.longitudeDelta > 0 ? like.latitudeDelta / like.longitudeDelta : 1;
+  // Marge de 40 % : les marqueurs du bord restent visibles et touchables.
+  const longitudeDelta = Math.max(lonSpan, latSpan / ratio) * 1.4;
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLon + maxLon) / 2,
+    latitudeDelta: longitudeDelta * ratio,
+    longitudeDelta,
+  };
 }

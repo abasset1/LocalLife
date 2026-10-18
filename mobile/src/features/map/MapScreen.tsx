@@ -27,7 +27,16 @@ import { MenuButton } from '@/features/navigation/AppMenu';
 import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
 import { useTheme } from '@/hooks/use-theme';
 
-import { Region, pointInBounds, regionForRadius, regionForZoom, regionToBounds, zoomForRegion } from './geo';
+import { ActivityGroupPanel } from './ActivityGroupPanel';
+import {
+  Region,
+  pointInBounds,
+  regionForRadius,
+  regionForZoom,
+  regionToBounds,
+  regionToFit,
+  zoomForRegion,
+} from './geo';
 import { MapControl } from './MapControl';
 import { ActivityMarker, ClusterMarker, FoodTruckMarker, PlaceMarker } from './markers';
 import { PlaceListPanel } from './PlaceListPanel';
@@ -39,15 +48,16 @@ import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
 
 /**
- * Vue de départ tant qu'aucun lieu n'est choisi : la zone couverte par les sources (périmètre du MVP,
- * voir `BOUNDING_BOX_SEARCH_CONTRACT.md`). Ce n'est jamais présenté comme la ville de l'utilisateur :
- * la carte invite alors à choisir une ville ou « Ma position » (FRONT-REV-02).
+ * Vue de départ tant qu'aucun lieu n'est choisi : vue d'ensemble de la zone couverte par les sources
+ * (Provence), comme le site web — les activités s'y affichent sans avoir à zoomer. Ce n'est jamais
+ * présenté comme la ville de l'utilisateur : la carte invite alors à choisir une ville ou « Ma
+ * position » (FRONT-REV-02).
  */
 const INITIAL_REGION: Region = {
-  latitude: 43.2965,
-  longitude: 5.3698,
-  latitudeDelta: 0.12,
-  longitudeDelta: 0.08,
+  latitude: 43.65,
+  longitude: 5.2,
+  latitudeDelta: 3,
+  longitudeDelta: 2.2,
 };
 
 /** Niveau de zoom après recentrage sur l'utilisateur (~ quartier, quelques centaines de mètres). */
@@ -117,12 +127,15 @@ export default function MapScreen() {
   const [periodPanelOpen, setPeriodPanelOpen] = useState(false);
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
   const [placeListOpen, setPlaceListOpen] = useState(false);
+  /** Activités d'un groupe de marqueurs au même endroit, listées après un appui sur ce groupe. */
+  const [activityGroup, setActivityGroup] = useState<Activity[] | null>(null);
   /** Un seul panneau ouvert à la fois. */
   const closePanels = useCallback(() => {
     setRadiusPanelOpen(false);
     setPeriodPanelOpen(false);
     setCategoryPanelOpen(false);
     setPlaceListOpen(false);
+    setActivityGroup(null);
   }, []);
   const [period, setPeriod] = usePeriod();
   const periodLabel = PERIOD_OPTIONS.find((option) => option.value === period)?.label ?? 'Tout';
@@ -274,12 +287,25 @@ export default function MapScreen() {
     [places, bounds],
   );
 
-  const zoomIntoCluster = useCallback(
-    (clusterId: number, longitude: number, latitude: number) => {
-      const target = index.getClusterExpansionZoom(clusterId);
-      mapRef.current?.animateToRegion(regionForZoom(latitude, longitude, target, region), 300);
+  /**
+   * Appui sur un groupe de marqueurs, comme sur le site web : la carte cadre toutes ses activités d'un
+   * coup (au lieu d'avancer d'un niveau de zoom à la fois). Si elles sont au même endroit, ou si le
+   * regroupement ne s'arrêterait qu'au-delà du zoom maximal, elles sont listées.
+   */
+  const openCluster = useCallback(
+    (clusterId: number) => {
+      const leaves = index
+        .getLeaves(clusterId, Infinity)
+        .map((feature) => (feature.properties as { activity: Activity }).activity);
+      const target = regionToFit(leaves, region);
+      if (!target || index.getClusterExpansionZoom(clusterId) > CLUSTER_MAX_ZOOM) {
+        closePanels();
+        setActivityGroup(leaves);
+        return;
+      }
+      mapRef.current?.animateToRegion(target, 300);
     },
-    [index, region],
+    [index, region, closePanels],
   );
 
   // « Ma position » : la position devient le lieu de recherche (carte et liste) ; la carte s'y cadre
@@ -316,6 +342,7 @@ export default function MapScreen() {
         onPress={(event) => {
           if (event.nativeEvent.action === 'marker-press' || Date.now() - markerPressedAt.current < 400) return;
           setSelection(null);
+          setActivityGroup(null);
         }}
         showsUserLocation={showUser}
         showsMyLocationButton={false}
@@ -350,7 +377,7 @@ export default function MapScreen() {
                 count={count}
                 onPress={() => {
                   markerPressedAt.current = Date.now();
-                  zoomIntoCluster(clusterId, longitude, latitude);
+                  openCluster(clusterId);
                 }}
               />
             );
@@ -487,6 +514,16 @@ export default function MapScreen() {
         </View>
 
         <View style={styles.bottom} pointerEvents="box-none">
+          {!selection && activityGroup && (
+            <ActivityGroupPanel
+              activities={activityGroup}
+              onClose={() => setActivityGroup(null)}
+              onSelect={(activity) => {
+                setActivityGroup(null);
+                select({ kind: 'activity', activity });
+              }}
+            />
+          )}
           {!selection && placeListOpen && showPlaces && visiblePlaces.length > 0 && (
             <PlaceListPanel
               places={visiblePlaces}

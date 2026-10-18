@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { RequestAbortedError, searchPlacesWithinBounds, type Place } from '@/api';
 
-import { boundsContain, isSearchable, regionToBounds, type Bounds, type Region } from './geo';
+import { PLACES_MAX_SPAN_DEGREES, boundsContain, isSearchable, regionToBounds, type Bounds, type Region } from './geo';
 
 /** Même délai que les activités : pas de requête pendant un déplacement. */
 const REGION_DEBOUNCE_MS = 500;
@@ -19,7 +19,7 @@ export function usePlaces(region: Region | null, enabled: boolean): Place[] {
   useEffect(() => {
     if (!enabled || !region) return;
     const bounds = regionToBounds(region);
-    if (!bounds || !isSearchable(bounds)) return;
+    if (!bounds || !isSearchable(bounds, PLACES_MAX_SPAN_DEGREES)) return;
     if (loadedBounds.current && boundsContain(loadedBounds.current, bounds)) return;
 
     const controller = new AbortController();
