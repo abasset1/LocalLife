@@ -9,6 +9,7 @@ import AdminImportsSection from "../components/admin/AdminImportsSection";
 import AdminEventLocationDuplicatesSection from "../components/admin/AdminEventLocationDuplicatesSection";
 import AdminPlaceMatchesSection from "../components/admin/AdminPlaceMatchesSection";
 import AdminPlacesSection from "../components/admin/AdminPlacesSection";
+import AdminProSection from "../components/admin/AdminProSection";
 
 /**
  * LL-EF-004 : représentation d'une activité pour l'interface
@@ -108,6 +109,7 @@ const ADMIN_SECTIONS = [
     { value: "places", label: "Lieux" },
     { value: "placeMatches", label: "Rapprochements" },
     { value: "placeDuplicates", label: "Doublons de lieux" },
+    { value: "pro", label: "Professionnels" },
     { value: "categories", label: "Catégories" },
     { value: "imports", label: "Imports" },
     { value: "deletion", label: "Suppression" },
@@ -896,6 +898,12 @@ function AdminPage() {
             {activeSection === "places" && (
                 <main className="admin-content">
                     <AdminPlacesSection />
+                </main>
+            )}
+
+            {activeSection === "pro" && (
+                <main className="admin-content">
+                    <AdminProSection />
                 </main>
             )}
 

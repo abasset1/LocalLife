@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { getPayload } from "../../auth/authStorage";
 import { APPROXIMATE_LOCATION_LABEL } from "../explorer/activityUtils";
 import type { Activity } from "../explorer/types";
 import PlaceActivities from "./PlaceActivities";
@@ -18,6 +20,8 @@ function PlaceList({ places, onSelectActivity }: {
 }) {
     const [type, setType] = useState("");
     const [openId, setOpenId] = useState<number | null>(null);
+    // Espace professionnel (ADR-0012) : le lien n'est qu'un raccourci, le backend vérifie le droit professionnel.
+    const isPro = getPayload()?.role === "PRO";
 
     const typeOptions = useMemo(
         () => [...new Set(places.map((place) => place.placeType))]
@@ -86,6 +90,9 @@ function PlaceList({ places, onSelectActivity }: {
                                             )}
                                             {place.website && (
                                                 <a href={place.website} rel="noreferrer" target="_blank">Site du lieu</a>
+                                            )}
+                                            {isPro && (
+                                                <Link to={`/pro?claim=${place.id}`}>Demander la gestion de ce lieu</Link>
                                             )}
                                             <PlaceActivities onSelectActivity={onSelectActivity} placeId={place.id} />
                                         </div>

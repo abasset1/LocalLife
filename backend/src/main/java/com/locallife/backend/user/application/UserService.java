@@ -6,6 +6,8 @@ import com.locallife.backend.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -18,6 +20,8 @@ public class UserService {
     // n'existe dans ce projet pour l'instant) : même règle qu'à
     // l'inscription, voir AuthService#validateCredentials.
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
     private final UsernamePolicy usernamePolicy;
@@ -68,6 +72,36 @@ public class UserService {
                 existing.id(), validUsername, email, existing.passwordHash(), existing.role(), existing.createdAt(),
                 existing.emailVerified());
         return usernamePolicy.saveGuarded(() -> userRepository.save(updated));
+    }
+
+    /**
+     * Attribue ou retire le rôle professionnel (ADR-0012, décision D1) : seules les bascules {@code USER} ↔
+     * {@code PRO} sont permises. Un compte {@code ADMIN} n'est jamais modifié, et aucun compte n'est promu
+     * {@code ADMIN} par cette voie (même règle que le bootstrap administrateur).
+     *
+     * @throws IllegalArgumentException rôle cible autre que {@code USER}/{@code PRO}, ou compte administrateur
+     * @throws java.util.NoSuchElementException si {@code id} ne correspond à aucun utilisateur
+     */
+    public User changeRole(Long id, Role role) {
+        if (role != Role.USER && role != Role.PRO) {
+            throw new IllegalArgumentException("Seuls les rôles USER et PRO peuvent être attribués.");
+        }
+        User existing = userRepository.findById(id).orElseThrow();
+        if (existing.role() == Role.ADMIN) {
+            throw new IllegalArgumentException("Le rôle d'un administrateur ne se modifie pas ici.");
+        }
+        if (existing.role() == role) {
+            return existing;
+        }
+        User updated = new User(
+                existing.id(), existing.username(), existing.email(), existing.passwordHash(), role,
+                existing.createdAt(), existing.emailVerified());
+        LOGGER.info("Rôle de l'utilisateur {} : {} → {}", id, existing.role(), role);
+        return userRepository.save(updated);
+    }
+
+    public Optional<User> findByEmail(String email) {
+        return email == null ? Optional.empty() : userRepository.findByEmail(email.trim());
     }
 
     private String validateProfileUpdate(String username, String email, Long currentUserId) {

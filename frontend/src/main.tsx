@@ -12,6 +12,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import MyContributionsPage from "./pages/MyContributionsPage";
 import ProfilePage from "./pages/ProfilePage";
+import ProPage from "./pages/ProPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import UnsubscribeAlertPage from "./pages/UnsubscribeAlertPage";
@@ -24,6 +25,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route element={<App />} path="/" />
                 <Route element={<AdminPage />} path="/admin" />
                 <Route element={<ProfilePage />} path="/profile" />
+                <Route element={<ProPage />} path="/pro" />
                 <Route element={<FavoritesPage />} path="/favorites" />
                 <Route element={<MyContributionsPage />} path="/contributions" />
                 <Route element={<LoginPage />} path="/login" />

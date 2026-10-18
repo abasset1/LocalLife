@@ -1,9 +1,8 @@
 # ADR-0012 — Espace professionnel : revendication de lieux, création de lieux et de food trucks (PRO-01)
 
-**Statut : proposition, en attente de validation par Alex.** Aucune
-migration ni aucun code n'est écrit avant la validation des décisions
-du § 4 (même démarche que ADR-0011, phase par phase). Le SQL ci-dessous
-est documentaire.
+**Statut : décisions D1 à D4 prises par Alex le 18/10/2026 (§ 4) ; lots 1, A
+et B implémentés et testés (§ 6) ; lot C (food truck) en attente
+d'ARCHI-01 ; D5 reste ouverte.**
 
 Ticket : [#144 PRO-01](https://github.com/abasset1/LocalLife/issues/144).
 Tickets liés, encore ouverts : #143 ARCHI-01 (séparer lieux, food trucks
@@ -83,8 +82,10 @@ CREATE TABLE place_claim_event (            -- trace d'audit, jamais modifiée
 ```
 
 Transitions : `DRAFT→SUBMITTED` (demandeur), `SUBMITTED→IN_REVIEW`
-(admin), `IN_REVIEW→APPROVED|REJECTED|INFO_REQUESTED` (admin, motif
-obligatoire pour refus et demande d'informations),
+(admin), `SUBMITTED|IN_REVIEW→APPROVED|REJECTED|INFO_REQUESTED` (admin,
+motif obligatoire pour refus et demande d'informations ; la prise en charge
+est facultative, elle signale aux autres modérateurs qu'une demande est
+examinée),
 `INFO_REQUESTED→SUBMITTED` (demandeur), `DRAFT|SUBMITTED|INFO_REQUESTED→WITHDRAWN`
 (demandeur). Toute transition écrit un `place_claim_event`.
 
@@ -147,12 +148,18 @@ pour compatibilité puis déprécié — voir D2.
 
 | # | Question | Proposition |
 |---|---|---|
-| **D1** | Qu'est-ce qu'un « compte professionnel » avant BILLING-01 ? | Nouveau rôle `PRO` attribué par un admin (`PATCH /admin/users/{id}/role`), lu à travers une interface `ProAccessPolicy` que BILLING-01 remplacera par les abonnements. Alternative : profil pro déclaratif (SIRET, raison sociale) sans vérification. |
-| **D2** | Ordre avec ARCHI-01 / FOODTRUCK-01 | Livrer PRO-01 en trois lots : **A (revendication)** et **B (nouveau lieu)** d'abord, indépendants des food trucks ; **C (food truck)** après ou avec ARCHI-01, pour ne pas figer un modèle « food truck = point fixe ». |
-| **D3** | Plusieurs gestionnaires pour un même lieu ? | Oui (`place_manager` multi-lignes), décision au cas par cas par le modérateur. Alternative : un seul gestionnaire, toute nouvelle demande refusée tant qu'il existe. |
-| **D4** | Justificatifs | Premier lot : texte et liens seulement (pas de fichiers), données visibles du demandeur et des admins uniquement, effacées 12 mois après décision. Le dépôt de fichiers privés demande un stockage dédié (ADR à part). |
+| **D1** ✅ | Qu'est-ce qu'un « compte professionnel » avant BILLING-01 ? | Nouveau rôle `PRO` attribué par un admin (`PATCH /admin/users/{id}/role`), lu à travers une interface `ProAccessPolicy` que BILLING-01 remplacera par les abonnements. Alternative : profil pro déclaratif (SIRET, raison sociale) sans vérification. |
+| **D2** ✅ | Ordre avec ARCHI-01 / FOODTRUCK-01 | Livrer PRO-01 en trois lots : **A (revendication)** et **B (nouveau lieu)** d'abord, indépendants des food trucks ; **C (food truck)** après ou avec ARCHI-01, pour ne pas figer un modèle « food truck = point fixe ». |
+| **D3** ✅ | Plusieurs gestionnaires pour un même lieu ? | Oui (`place_manager` multi-lignes), décision au cas par cas par le modérateur. Alternative : un seul gestionnaire, toute nouvelle demande refusée tant qu'il existe. |
+| **D4** ✅ | Justificatifs | Premier lot : texte et liens seulement (pas de fichiers), données visibles du demandeur et des admins uniquement, effacées 12 mois après décision. Le dépôt de fichiers privés demande un stockage dédié (ADR à part). |
 | **D5** | Que peut modifier un gestionnaire sur une fiche **importée**, et que devient sa modification au réimport ? | Hors premier lot. Proposition pour plus tard : champs gérés par le professionnel (description, contacts, horaires) prioritaires sur la source, la source continuant à alimenter les autres. |
 | **D6** | Modération des créations pro | Lieu : `PENDING` puis publication admin (comme les lieux importés). Food truck : publié directement (comportement actuel) mais suspendable par un admin. |
+
+Décisions du 18/10/2026 : **D1** rôle `PRO` attribué par un administrateur,
+via `ProAccessPolicy` ; **D2** lots A et B d'abord, lot C après ARCHI-01 ;
+**D3** plusieurs gestionnaires, au cas par cas ; **D4** texte et liens,
+effacés 12 mois après la clôture. D6 appliquée telle que proposée pour les
+lieux (le food truck attend le lot C). D5 reste ouverte.
 
 ## 5. Découpage de livraison proposé (après validation)
 
@@ -165,3 +172,19 @@ pour compatibilité puis déprécié — voir D2.
    aperçu ; tests ; écran « Créer un lieu ».
 4. Lot C : selon D2.
 5. Documentation : README, contrat d'API, `PROJECT_STATUS.md`.
+
+## 6. Implémentation (18/10/2026)
+
+| Élément | Où |
+|---|---|
+| Migration | `V64__professional_space.sql` : `DRAFT` ajouté au `CHECK` des lieux, `location.created_by`, `location.reported_similar_to`, `place_claim` (index unique partiel : une demande active par professionnel et par lieu), `place_claim_event`, `place_manager` (index unique partiel sur les droits actifs). Aucune ligne existante modifiée. |
+| Rôle | `Role.PRO` ; `UserService#changeRole` (USER ↔ PRO seulement, jamais un compte ADMIN) ; `AdminUserController`. |
+| Droit pro | `pro/application/ProAccessPolicy`, `RoleProAccessPolicy` (rôle relu en base). `SecurityConfig` : `/api/v1/pro/**` connecté ; le reste est vérifié dans les services. |
+| Lot A | `ClaimStatus`, `ClaimTransitions` (règles pures), `PlaceClaimRepository`, `PlaceManagerRepository`, `PlaceClaimService`, `PlaceClaimRetentionJob` (3 h 30, 12 mois), `ProPlaceController`, `AdminPlaceClaimController`. |
+| Lot B | `ProPlaceRepository` (création sans `location_source` : l'import ne voit jamais ces lieux ; recherche des lieux proches par `ST_DWithin` 100 m ou nom normalisé dans la commune), `ProPlaceService`. Types proposés : liste blanche de la couche « Lieux » (`PlaceTypeWhitelist.SPECIFIC_TYPES`). Un brouillon n'entre pas dans la file de modération ; la publication passe par `PlaceModerationService`, inchangé. |
+| Web | Page `/pro` (onglets Mes lieux, Demander la gestion, Créer un lieu, Créer un food truck), lien depuis la liste des lieux pour un compte `PRO`, menu « Espace professionnel », section Administration → Professionnels. |
+| Tests | `ProSpaceIntegrationTest` (droits, rôle sans nouvelle connexion, parcours A complet avec audit et fiche inchangée, confidentialité et demandes concurrentes, retrait, effacement, parcours B de la recherche à la publication), `ClaimTransitionsTest`, `ProPage.test.tsx`. |
+
+Limites connues, hors de ce lot : un gestionnaire ne modifie pas une fiche
+importée ni une fiche publiée (D5) ; pas de révocation d'un droit de gestion
+depuis l'interface ; l'application mobile n'a pas d'espace professionnel.
