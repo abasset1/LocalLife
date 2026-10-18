@@ -1,25 +1,22 @@
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Shadows, Spacing } from '@/constants/theme';
+import { Shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
- * Bouton flottant posé sur la carte (pastille blanche ombrée). `active` le passe en vert plein, pour
- * un réglage en cours (lieux affichés, rayon choisi). Sans libellé visible, c'est un bouton rond.
+ * Bouton rond posé sur la carte (pastille blanche ombrée), icône seule : les contrôles de la carte
+ * tiennent sur une seule rangée (FRONT-REV-02). `active` le passe en vert plein, pour un réglage en
+ * cours (lieux affichés, rayon choisi) ; le détail est donné par `accessibilityLabel`.
  */
 export function MapControl({
   icon,
-  label,
   accessibilityLabel,
   active = false,
   loading = false,
   onPress,
 }: {
   icon: SymbolViewProps['name'];
-  /** Libellé visible ; absent pour un bouton rond (icône seule). */
-  label?: string;
   accessibilityLabel: string;
   active?: boolean;
   loading?: boolean;
@@ -37,7 +34,6 @@ export function MapControl({
       hitSlop={4}
       style={({ pressed }) => [
         styles.control,
-        label ? styles.pill : styles.round,
         { backgroundColor: active ? theme.primary : theme.backgroundElement },
         Shadows.floating,
         pressed && styles.pressed,
@@ -45,33 +41,22 @@ export function MapControl({
       {loading ? (
         <ActivityIndicator color={foreground} />
       ) : (
-        <SymbolView name={icon} tintColor={foreground} size={20} />
+        <SymbolView name={icon} tintColor={foreground} size={22} />
       )}
-      {label ? (
-        <ThemedText type="smallBold" style={{ color: active ? theme.onPrimary : theme.text }}>
-          {label}
-        </ThemedText>
-      ) : null}
     </Pressable>
   );
 }
 
+/** Cible tactile minimale (44 px) : sept boutons tiennent sur une rangée d'un écran de 360 px. */
+const SIZE = 44;
+
 const styles = StyleSheet.create({
   control: {
-    height: 48,
-    flexDirection: 'row',
+    width: SIZE,
+    height: SIZE,
+    borderRadius: SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.two,
-  },
-  pill: {
-    paddingHorizontal: Spacing.three,
-    borderRadius: Radius.pill,
-  },
-  round: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
   },
   pressed: {
     opacity: 0.85,

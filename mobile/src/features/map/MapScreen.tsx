@@ -11,7 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { isExpoGoAndroid } from '@/config/expoGo';
 import { Brand, Radius, Shadows, Spacing } from '@/constants/theme';
 import { isApproximateLocation } from '@/features/activity/location';
-import { CategoryPanel, categoriesButtonLabel } from '@/features/explorer/CategoryPanel';
+import { CategoryPanel } from '@/features/explorer/CategoryPanel';
 import { CitySearch } from '@/features/explorer/CitySearch';
 import {
   applyPreferences,
@@ -530,86 +530,80 @@ export default function MapScreen() {
             </View>
           )}
           {!selection && (
+            // Une seule rangée d'icônes (FRONT-REV-02) : l'état choisi se lit à la couleur, le détail est
+            // annoncé par le libellé accessible.
             <View style={styles.bottomActions} pointerEvents="box-none">
-              <View style={styles.pills} pointerEvents="box-none">
-                <MapControl
-                  icon={{ ios: 'list.bullet.rectangle', android: 'view_list', web: 'view_list' }}
-                  label="Liste"
-                  accessibilityLabel="Afficher la liste des activités"
-                  onPress={() => {
-                    closePanels();
-                    router.navigate('/liste');
-                  }}
-                />
-                <MapControl
-                  icon={{ ios: 'square.grid.2x2', android: 'category', web: 'category' }}
-                  label={categoriesButtonLabel(categoryCodes.length)}
-                  accessibilityLabel={
-                    categoryCodes.length === 0
-                      ? 'Choisir des catégories'
-                      : `${categoryCodes.length} catégorie${categoryCodes.length > 1 ? 's' : ''} choisie${categoryCodes.length > 1 ? 's' : ''}, modifier`
-                  }
-                  active={categoryCodes.length > 0 || categoryPanelOpen}
-                  onPress={() => {
-                    const open = categoryPanelOpen;
-                    closePanels();
-                    setCategoryPanelOpen(!open);
-                  }}
-                />
-                <MapControl
-                  icon={{ ios: 'building.columns', android: 'account_balance', web: 'account_balance' }}
-                  label="Lieux"
-                  accessibilityLabel={showPlaces ? 'Masquer les lieux' : 'Afficher les lieux'}
-                  active={showPlaces}
-                  onPress={toggleShowPlaces}
-                />
-                <MapControl
-                  icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }}
-                  label={period === 'all' ? 'Quand ?' : periodLabel}
-                  accessibilityLabel={
-                    period === 'all' ? 'Choisir une période' : `Période : ${periodLabel}, modifier`
-                  }
-                  active={period !== 'all' || periodPanelOpen}
-                  onPress={() => {
-                    const open = periodPanelOpen;
-                    closePanels();
-                    setPeriodPanelOpen(!open);
-                  }}
-                />
-                <MapControl
-                  icon={{ ios: 'scope', android: 'radar', web: 'radar' }}
-                  label={activeRadiusKm === null ? 'Rayon' : `${activeRadiusKm} km`}
-                  accessibilityLabel={
-                    activeRadiusKm === null ? 'Choisir un rayon' : `Rayon de ${activeRadiusKm} km, modifier`
-                  }
-                  active={activeRadiusKm !== null || radiusPanelOpen}
-                  onPress={() => {
-                    const open = radiusPanelOpen;
-                    closePanels();
-                    setRadiusPanelOpen(!open);
-                  }}
-                />
-                {showPlaces && visiblePlaces.length > 0 && (
-                  <MapControl
-                    icon={{ ios: 'list.bullet', android: 'list', web: 'list' }}
-                    label={placeListOpen ? 'Fermer' : `Liste (${visiblePlaces.length})`}
-                    accessibilityLabel={
-                      placeListOpen ? 'Fermer la liste' : `Liste des lieux (${visiblePlaces.length})`
-                    }
-                    active={placeListOpen}
-                    onPress={() => {
-                      const open = placeListOpen;
-                      closePanels();
-                      setPlaceListOpen(!open);
-                    }}
-                  />
-                )}
-              </View>
               <MapControl
-                icon={{ ios: 'location.fill', android: 'my_location', web: 'my_location' }}
-                accessibilityLabel="Ma position"
-                loading={location.status === 'locating'}
-                onPress={centerOnUser}
+                icon={{ ios: 'list.bullet.rectangle', android: 'view_list', web: 'view_list' }}
+                accessibilityLabel="Afficher la liste des activités"
+                onPress={() => {
+                  closePanels();
+                  router.navigate('/liste');
+                }}
+              />
+              <MapControl
+                icon={{ ios: 'square.grid.2x2', android: 'category', web: 'category' }}
+                accessibilityLabel={
+                  categoryCodes.length === 0
+                    ? 'Choisir des catégories'
+                    : `${categoryCodes.length} catégorie${categoryCodes.length > 1 ? 's' : ''} choisie${categoryCodes.length > 1 ? 's' : ''}, modifier`
+                }
+                active={categoryCodes.length > 0 || categoryPanelOpen}
+                onPress={() => {
+                  const open = categoryPanelOpen;
+                  closePanels();
+                  setCategoryPanelOpen(!open);
+                }}
+              />
+              <MapControl
+                icon={{ ios: 'building.columns', android: 'account_balance', web: 'account_balance' }}
+                accessibilityLabel={showPlaces ? 'Masquer les lieux' : 'Afficher les lieux'}
+                active={showPlaces}
+                onPress={toggleShowPlaces}
+              />
+              <MapControl
+                icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }}
+                accessibilityLabel={
+                  period === 'all' ? 'Choisir une période' : `Période : ${periodLabel}, modifier`
+                }
+                active={period !== 'all' || periodPanelOpen}
+                onPress={() => {
+                  const open = periodPanelOpen;
+                  closePanels();
+                  setPeriodPanelOpen(!open);
+                }}
+              />
+              <MapControl
+                icon={{ ios: 'scope', android: 'radar', web: 'radar' }}
+                accessibilityLabel={
+                  activeRadiusKm === null ? 'Choisir un rayon' : `Rayon de ${activeRadiusKm} km, modifier`
+                }
+                active={activeRadiusKm !== null || radiusPanelOpen}
+                onPress={() => {
+                  const open = radiusPanelOpen;
+                  closePanels();
+                  setRadiusPanelOpen(!open);
+                }}
+              />
+              {showPlaces && visiblePlaces.length > 0 && (
+                <MapControl
+                  icon={{ ios: 'list.bullet', android: 'list', web: 'list' }}
+                  accessibilityLabel={
+                    placeListOpen ? 'Fermer la liste' : `Liste des lieux (${visiblePlaces.length})`
+                  }
+                  active={placeListOpen}
+                  onPress={() => {
+                    const open = placeListOpen;
+                    closePanels();
+                    setPlaceListOpen(!open);
+                  }}
+                />
+              )}
+              <MapControl
+              icon={{ ios: 'location.fill', android: 'my_location', web: 'my_location' }}
+              accessibilityLabel="Ma position"
+              loading={location.status === 'locating'}
+              onPress={centerOnUser}
               />
             </View>
           )}
@@ -659,16 +653,8 @@ const styles = StyleSheet.create({
   },
   bottomActions: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-  },
-  pills: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: Spacing.two,
+    justifyContent: 'space-between',
   },
   radiusPanel: {
     marginBottom: Spacing.three,
