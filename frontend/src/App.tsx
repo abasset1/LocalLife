@@ -23,6 +23,7 @@ import { useActivitySearch } from "./components/explorer/useActivitySearch";
 import { formatCityLabel } from "./components/explorer/useCitySuggestions";
 import type { CitySuggestion } from "./components/explorer/useCitySuggestions";
 import OnboardingModal from "./components/onboarding/OnboardingModal";
+import FoodTruckList from "./components/foodtrucks/FoodTruckList";
 import PlaceList from "./components/places/PlaceList";
 import type { Place } from "./components/places/types";
 import type {
@@ -49,6 +50,24 @@ import type {
  * ActivityPreview, ActivityList, ActivityDetailModal, ContributionModal.
  */
 const SHOW_PLACES_STORAGE_KEY = "locallife.showPlaces";
+/** Couche « Food trucks » (ADR-0013) : affichée par défaut, comme avant qu'elle ait sa bascule. */
+const SHOW_FOOD_TRUCKS_STORAGE_KEY = "locallife.showFoodTrucks";
+
+function readShowFoodTrucks(): boolean {
+    try {
+        return window.localStorage.getItem(SHOW_FOOD_TRUCKS_STORAGE_KEY) !== "false";
+    } catch {
+        return true;
+    }
+}
+
+function writeShowFoodTrucks(value: boolean) {
+    try {
+        window.localStorage.setItem(SHOW_FOOD_TRUCKS_STORAGE_KEY, String(value));
+    } catch {
+        // Stockage indisponible : le choix vaut pour la session seulement.
+    }
+}
 
 function readShowPlaces(): boolean {
     try {
@@ -196,7 +215,8 @@ function App() {
     const [showPlaces, setShowPlaces] = useState<boolean>(() => readShowPlaces());
     /** Lieux de la couche « Lieux » pour la zone affichée, et onglet du panneau de liste (ADR-0011, § 2.4). */
     const [places, setPlaces] = useState<Place[]>([]);
-    const [listTab, setListTab] = useState<"activities" | "places">("activities");
+    const [listTab, setListTab] = useState<"activities" | "places" | "foodTrucks">("activities");
+    const [showFoodTrucks, setShowFoodTrucks] = useState<boolean>(() => readShowFoodTrucks());
     const [viewMode, setViewMode] = useState<"map" | "list">("map");
     /** Saisie de la barre de recherche ; seul un envoi explicite lance une recherche (`handleSearchSubmit`). */
     const [searchQuery, setSearchQuery] = useState("");
@@ -439,7 +459,15 @@ function App() {
         });
     }
 
-    // Récupération des food trucks (LL-6009), isolée de celle des activités — inchangée.
+    function toggleShowFoodTrucks() {
+        setShowFoodTrucks((current) => {
+            writeShowFoodTrucks(!current);
+            return !current;
+        });
+    }
+
+    // Récupération des food trucks (LL-6009), isolée de celle des activités. Depuis ADR-0013 : présences du jour.
+
     useEffect(() => {
         const abortController = new AbortController();
 
@@ -537,6 +565,16 @@ function App() {
     const panelActivities = isTextSearch ? searchActivities : listedActivities;
     // Onglet « Lieux » : seulement quand la couche est affichée, et hors recherche textuelle.
     const showPlacesTab = showPlaces && !isTextSearch;
+    // Onglet « Food trucks » (ADR-0013) : même règle, avec ceux de la zone affichée.
+    const showFoodTrucksTab = showFoodTrucks && !isTextSearch;
+    const visibleFoodTrucks = mapBounds
+        ? foodTrucks.filter((foodTruck) => foodTruck.latitude >= mapBounds.swLatitude
+            && foodTruck.latitude <= mapBounds.neLatitude && foodTruck.longitude >= mapBounds.swLongitude
+            && foodTruck.longitude <= mapBounds.neLongitude)
+        : foodTrucks;
+    const showListTabs = showPlacesTab || showFoodTrucksTab;
+    const activeListTab = (listTab === "places" && !showPlacesTab) || (listTab === "foodTrucks" && !showFoodTrucksTab)
+        ? "activities" : listTab;
 
     let emptyMessage = "Aucune activité trouvée dans cette zone.";
     if (isTextSearch) {
@@ -1175,6 +1213,7 @@ function App() {
                             activities={mapActivities}
                             fitKey={searchFitKey}
                             foodTrucks={foodTrucks}
+                            showFoodTrucks={showFoodTrucks}
                             onBoundsChange={setMapBounds}
                             showPlaces={showPlaces}
                             onPlacesChange={setPlaces}
@@ -1191,6 +1230,17 @@ function App() {
                             type="button"
                         >
                             🏛 Lieux
+                        </button>
+                        <button
+                            aria-pressed={showFoodTrucks}
+                            className={showFoodTrucks
+                                ? "explorer-places-toggle explorer-food-trucks-toggle explorer-places-toggle-active"
+                                : "explorer-places-toggle explorer-food-trucks-toggle"}
+                            onClick={toggleShowFoodTrucks}
+                            title="Afficher les food trucks présents aujourd'hui"
+                            type="button"
+                        >
+                            🚚 Food trucks
                         </button>
                         {/*
                           Pendant une recherche texte, le bandeau sous la barre donne son état. Chargement,
@@ -1246,29 +1296,44 @@ function App() {
                     </div>
 
                     <div className="explorer-list-panel" ref={searchListRef}>
-                        {showPlacesTab && (
+                        {showListTabs && (
                             <div aria-label="Contenu de la liste" className="explorer-list-tabs" role="tablist">
                                 <button
-                                    aria-selected={listTab === "activities"}
-                                    className={listTab === "activities" ? "explorer-list-tab explorer-list-tab-active" : "explorer-list-tab"}
+                                    aria-selected={activeListTab === "activities"}
+                                    className={activeListTab === "activities" ? "explorer-list-tab explorer-list-tab-active" : "explorer-list-tab"}
                                     onClick={() => setListTab("activities")}
                                     role="tab"
                                     type="button"
                                 >
                                     Activités
                                 </button>
-                                <button
-                                    aria-selected={listTab === "places"}
-                                    className={listTab === "places" ? "explorer-list-tab explorer-list-tab-active" : "explorer-list-tab"}
-                                    onClick={() => setListTab("places")}
-                                    role="tab"
-                                    type="button"
-                                >
-                                    Lieux ({places.length})
-                                </button>
+                                {showPlacesTab && (
+                                    <button
+                                        aria-selected={activeListTab === "places"}
+                                        className={activeListTab === "places" ? "explorer-list-tab explorer-list-tab-active" : "explorer-list-tab"}
+                                        onClick={() => setListTab("places")}
+                                        role="tab"
+                                        type="button"
+                                    >
+                                        Lieux ({places.length})
+                                    </button>
+                                )}
+                                {showFoodTrucksTab && (
+                                    <button
+                                        aria-selected={activeListTab === "foodTrucks"}
+                                        className={activeListTab === "foodTrucks" ? "explorer-list-tab explorer-list-tab-active" : "explorer-list-tab"}
+                                        onClick={() => setListTab("foodTrucks")}
+                                        role="tab"
+                                        type="button"
+                                    >
+                                        Food trucks ({visibleFoodTrucks.length})
+                                    </button>
+                                )}
                             </div>
                         )}
-                        {showPlacesTab && listTab === "places" ? (
+                        {activeListTab === "foodTrucks" ? (
+                            <FoodTruckList foodTrucks={visibleFoodTrucks} />
+                        ) : activeListTab === "places" ? (
                             <PlaceList onSelectActivity={handleSelectActivity} places={places} />
                         ) : (
                         <ActivityList

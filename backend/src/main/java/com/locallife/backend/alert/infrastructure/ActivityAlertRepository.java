@@ -80,7 +80,9 @@ public class ActivityAlertRepository {
     /**
      * Nouveaux food trucks correspondant à l'alerte {@code ?} : alerte couvrant les food trucks,
      * food truck publié après la création de l'alerte (V55 ; {@code published_at} inconnu pour les
-     * food trucks antérieurs, jamais envoyés), jamais envoyé pour elle, et dans le rayon.
+     * food trucks antérieurs, jamais envoyés), jamais envoyé pour elle, et dans le rayon : au moins
+     * un emplacement de ses présences publiées dans le rayon (ADR-0013 — un food truck n'a plus de
+     * position propre).
      */
     private static final String NEW_MATCHING_FOOD_TRUCKS = """
             SELECT ft.id, ft.name, ft.category
@@ -92,9 +94,14 @@ public class ActivityAlertRepository {
               AND NOT EXISTS (
                   SELECT 1 FROM activity_alert_food_truck_sent sent
                   WHERE sent.alert_id = al.id AND sent.food_truck_id = ft.id)
-              AND ST_DWithin(ST_SetSRID(ST_MakePoint(ft.longitude, ft.latitude), 4326)::geography,
-                    ST_SetSRID(ST_MakePoint(al.longitude, al.latitude), 4326)::geography,
-                    al.radius_km * 1000)
+              AND EXISTS (
+                  SELECT 1 FROM food_truck_presence p
+                  JOIN location spot ON spot.id = p.location_id
+                  WHERE p.food_truck_id = ft.id AND p.status = 'PUBLISHED'
+                    AND (p.valid_until IS NULL OR p.valid_until >= CURRENT_DATE)
+                    AND ST_DWithin(spot.geo_location,
+                          ST_SetSRID(ST_MakePoint(al.longitude, al.latitude), 4326)::geography,
+                          al.radius_km * 1000))
             ORDER BY ft.id
             LIMIT ?
             """;

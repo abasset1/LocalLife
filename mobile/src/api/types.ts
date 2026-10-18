@@ -250,6 +250,13 @@ export interface CreateAlertRequest {
 }
 
 /** `FoodTruck` (`GET /foodtrucks`, uniquement ceux au statut `PUBLISHED`). */
+/** Type d'emplacement d'une présence (`SpotKind` backend, ADR-0013). */
+export type SpotKind = 'MARKET' | 'PRIVATE' | 'EVENT' | 'OTHER';
+
+/**
+ * Food truck présent aujourd'hui à un emplacement (`FoodTruckMapResponse` backend, ADR-0013) : un élément
+ * par présence ; `id` est celui du food truck, `latitude`/`longitude` celles de l'emplacement.
+ */
 export interface FoodTruck {
   id: number;
   name: string;
@@ -259,6 +266,33 @@ export interface FoodTruck {
   category: string;
   contact: string | null;
   status: string;
+  presenceId: number;
+  spotName: string | null;
+  spotKind: SpotKind;
+  daysOfWeek: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  validFrom: string | null;
+  validUntil: string | null;
+  /** Lieu LocalLife où se trouve l'emplacement, ou `null`. */
+  placeId: number | null;
+}
+
+/** Présence du planning d'un food truck (`PresenceResponse` backend). */
+export type FoodTruckPresence = Pick<
+  FoodTruck,
+  'latitude' | 'longitude' | 'spotName' | 'spotKind' | 'daysOfWeek' | 'startTime' | 'endTime' | 'validFrom'
+  | 'validUntil' | 'placeId'
+> & { id: number };
+
+/** Fiche d'un food truck (`GET /foodtrucks/{id}`) : profil et planning, distincts. */
+export interface FoodTruckDetail {
+  id: number;
+  name: string;
+  description: string | null;
+  category: string;
+  contact: string | null;
+  presences: FoodTruckPresence[];
 }
 
 /** Rôle utilisateur (`Role` backend). */

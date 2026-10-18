@@ -10,6 +10,8 @@ import { isSafeWebUrl } from '@/features/activity/format';
 import { buildDirectionsUrl, withApproximateMention } from '@/features/activity/location';
 import { useTheme } from '@/hooks/use-theme';
 
+import { describeToday } from '@/features/foodtruck/presence';
+
 import { placeTypeLabel } from './placeTypes';
 import { usePlaceActivities } from './usePlaceActivities';
 
@@ -169,10 +171,14 @@ function ItemPreview({
   const place = isActivity ? withApproximateMention(selection.activity.city, selection.activity) : null;
   const date = isActivity ? formatDate(selection.activity.startDate) : null;
   const description = isActivity ? null : selection.foodTruck.description;
+  // ADR-0013 : où et quand ce food truck est présent aujourd'hui.
+  const presence = isActivity ? null : describeToday(selection.foodTruck);
   const contact = isActivity ? null : selection.foodTruck.contact;
 
   const eyebrow = isActivity ? category : `🚚 Food truck · ${category}`;
-  const meta = [place ? `📍 ${place}` : null, date ? `📅 ${date}` : null].filter(Boolean).join('   ');
+  const meta = [place ? `📍 ${place}` : null, date ? `📅 ${date}` : null, presence ? `📍 ${presence}` : null]
+    .filter(Boolean)
+    .join('   ');
 
   return (
     <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>

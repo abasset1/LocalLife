@@ -69,7 +69,16 @@ Décisions et modèle : [`docs/ADR-0012-espace-professionnel-revendication.md`](
   `.../approve`, `.../reject` et `.../request-info` (motif obligatoire pour ces
   deux derniers). Seule l'approbation ouvre un droit de gestion ; la fiche du
   lieu n'est jamais modifiée par une demande.
-* Food truck : entrée distincte annoncée, en attente d'ARCHI-01.
+* Food truck : entrée distincte annoncée, en attente de PRO-01 lot C.
+
+## Food trucks (ARCHI-01)
+
+Un food truck est un profil ; sa position vient de ses **présences**
+(emplacement, type, jours, horaires, période) — voir
+[`docs/ADR-0013-food-trucks-emplacements-presences.md`](docs/ADR-0013-food-trucks-emplacements-presences.md).
+Endpoints publics : `GET /api/v1/foodtrucks?date=yyyy-MM-dd` (présences
+actives du jour, un élément par présence), `GET /api/v1/foodtrucks/{id}`
+(profil et planning), `GET /api/v1/places/{id}/foodtrucks`.
 
 ## Géocodage
 

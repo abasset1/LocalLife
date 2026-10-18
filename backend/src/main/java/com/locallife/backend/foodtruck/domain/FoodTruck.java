@@ -26,7 +26,14 @@ import org.springframework.data.annotation.ReadOnlyProperty;
  * la table (migration {@code V12__create_food_truck_table.sql}) — pas
  * besoin d'une migration séparée comme pour {@code Activity} (V11 est
  * arrivée après coup sur une colonne déjà existante, ici la table est
- * neuve). ⚠️ Décision, voir {@code FoodTruckService#createFoodTruck} :
+ * neuve).
+ *
+ * {@code latitude}/{@code longitude} (ADR-0013, ARCHI-01) : plus écrites
+ * depuis V65 — la position d'un food truck vit dans ses présences
+ * ({@code FoodTruckPresence}), un food truck n'est pas un lieu. Gardées en
+ * lecture seule pour les lignes antérieures, nulles pour les nouvelles.
+ *
+ * ⚠️ Décision, voir {@code FoodTruckService#createFoodTruck} :
  * contrairement à une activité créée manuellement (statut par défaut
  * {@code PENDING}), un food truck créé via ce ticket obtient directement
  * le statut {@code PUBLISHED} — aucun endpoint de modération
@@ -42,8 +49,8 @@ public record FoodTruck(
         @Id Long id,
         String name,
         String description,
-        double latitude,
-        double longitude,
+        Double latitude,
+        Double longitude,
         String category,
         String contact,
         String status,
@@ -62,7 +69,7 @@ public record FoodTruck(
 
     /** Food truck à écrire : {@code publishedAt} est géré par la base. */
     public FoodTruck(
-            Long id, String name, String description, double latitude, double longitude, String category,
+            Long id, String name, String description, Double latitude, Double longitude, String category,
             String contact, String status) {
         this(id, name, description, latitude, longitude, category, contact, status, null);
     }

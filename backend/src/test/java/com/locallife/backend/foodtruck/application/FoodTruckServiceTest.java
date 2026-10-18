@@ -8,10 +8,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.locallife.backend.foodtruck.domain.FoodTruck;
+import com.locallife.backend.foodtruck.infrastructure.FoodTruckPresenceRepository;
 import com.locallife.backend.foodtruck.infrastructure.FoodTruckRepository;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,13 +24,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * (LL-6009 : nom obligatoire et borné, catégorie obligatoire, coordonnées
  * dans les bornes valides, même style que
  * {@code ActivityServiceTest#createActivity}) et la restriction à
- * {@code PUBLISHED} de {@link FoodTruckService#findAllPublished}.
+ * présences de {@link FoodTruckService#findActiveOn} (ADR-0013).
  */
 @ExtendWith(MockitoExtension.class)
 class FoodTruckServiceTest {
 
     @Mock
     private FoodTruckRepository foodTruckRepository;
+
+    @Mock
+    private FoodTruckPresenceRepository presenceRepository;
 
     @InjectMocks
     private FoodTruckService foodTruckService;
@@ -45,6 +51,12 @@ class FoodTruckServiceTest {
         assertThat(result.name()).isEqualTo("Le Camion qui Fume");
         assertThat(result.status()).isEqualTo("PUBLISHED");
         assertThat(result.id()).isNull();
+        // ADR-0013 : la position n'est plus écrite sur le food truck, elle devient une présence permanente.
+        ArgumentCaptor<FoodTruck> saved = ArgumentCaptor.forClass(FoodTruck.class);
+        verify(foodTruckRepository).save(saved.capture());
+        assertThat(saved.getValue().latitude()).isNull();
+        verify(presenceRepository).insertPermanent(null, 43.29, 5.37);
+        assertThat(result.latitude()).isEqualTo(43.29);
     }
 
     @Test
@@ -110,17 +122,12 @@ class FoodTruckServiceTest {
     }
 
     @Test
-    void findAllPublished_ShouldDelegateToRepositoryWithPublishedStatus() {
-        // Given
-        FoodTruck published = new FoodTruck(
-                1L, "Le Camion qui Fume", "desc", 43.29, 5.37, "burger", null, "PUBLISHED");
-        when(foodTruckRepository.findByStatus("PUBLISHED")).thenReturn(List.of(published));
+    void findActiveOn_ShouldDelegateToPresencesOfThatDay() {
+        LocalDate day = LocalDate.of(2026, 10, 19);
+        when(presenceRepository.findActiveOn(day, null)).thenReturn(List.of());
 
-        // When
-        List<FoodTruck> result = foodTruckService.findAllPublished();
-
-        // Then
-        assertThat(result).containsExactly(published);
+        assertThat(foodTruckService.findActiveOn(day)).isEmpty();
+        verify(presenceRepository).findActiveOn(day, null);
     }
 
 }

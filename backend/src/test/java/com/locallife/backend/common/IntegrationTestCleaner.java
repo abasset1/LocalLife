@@ -108,7 +108,12 @@ public class IntegrationTestCleaner {
             }
             // Jetons, identités et likes de l'utilisateur partent en cascade.
             userIds.forEach(userId -> jdbcTemplate.update("DELETE FROM users WHERE id = ?", userId));
-            foodTruckNames.forEach(name -> jdbcTemplate.update("DELETE FROM food_truck WHERE name = ?", name));
+            for (String name : foodTruckNames) {
+                // Emplacements des présences (ADR-0013) : supprimés ensuite s'ils ne servent plus.
+                locationIds.addAll(jdbcTemplate.queryForList("SELECT p.location_id FROM food_truck_presence p "
+                        + "JOIN food_truck ft ON ft.id = p.food_truck_id WHERE ft.name = ?", Long.class, name));
+                jdbcTemplate.update("DELETE FROM food_truck WHERE name = ?", name);
+            }
 
             deleteUnreferencedMedia();
             deleteUnreferencedLocations();
@@ -144,7 +149,8 @@ public class IntegrationTestCleaner {
                 jdbcTemplate.update(
                         "DELETE FROM location l WHERE l.id = ? "
                                 + "AND NOT EXISTS (SELECT 1 FROM schedule s WHERE s.location_id = l.id) "
-                                + "AND NOT EXISTS (SELECT 1 FROM occurrence o WHERE o.location_id = l.id)",
+                                + "AND NOT EXISTS (SELECT 1 FROM occurrence o WHERE o.location_id = l.id) "
+                                + "AND NOT EXISTS (SELECT 1 FROM food_truck_presence p WHERE p.location_id = l.id)",
                         locationId);
             }
         }

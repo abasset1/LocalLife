@@ -1,8 +1,8 @@
 # ADR-0013 — Food trucks : séparer le profil, les emplacements et les présences (ARCHI-01)
 
-**Statut : proposition, en attente de validation par Alex.** Aucune
-migration ni aucun code avant la validation des décisions du § 4. Le SQL
-ci-dessous est documentaire.
+**Statut : décisions D1 à D5 prises par Alex le 18/10/2026 (toutes telles
+que proposées, § 4) ; implémenté et testé (§ 6).** Le SQL du § 3 est
+documentaire ; la migration réelle est `V65__food_truck_presences.sql`.
 
 Ticket : [#143 ARCHI-01](https://github.com/abasset1/LocalLife/issues/143).
 Tickets liés : #141 FOODTRUCK-01 (gestion des lieux de présence par le
@@ -105,11 +105,11 @@ les horaires du jour. La fiche d'un lieu affiche « Food trucks présents ».
 
 | # | Question | Proposition |
 |---|---|---|
-| **D1** | Où vit un emplacement ? | Dans `location` (ADR-0011), lié au lieu existant quand il y en a un. Alternative : table `food_truck_spot` dédiée avec un lien facultatif vers `location` (plus simple à isoler, mais recrée une entité « lieu » concurrente). |
-| **D2** | Que montre la carte un jour donné ? | Les présences actives ce jour-là (un marqueur par présence). Alternative : un seul marqueur par food truck, à sa prochaine présence. |
-| **D3** | Food trucks existants | Migration en présence permanente à leur position actuelle (affichage inchangé). Alternative : les masquer tant que le professionnel n'a pas saisi d'emplacement. |
-| **D4** | Périmètre d'ARCHI-01 | Modèle, migration, API publique compatible, alertes, couches et filtres séparés (web et mobile). La saisie et la gestion des présences par le professionnel restent dans FOODTRUCK-01, la création du food truck par un pro dans PRO-01 lot C. |
-| **D5** | Type d'emplacement | Porté par la présence (`spot_kind`), car un même parking peut servir de marché un jour et d'événement un autre. Alternative : porté par l'emplacement. |
+| **D1** ✅ | Où vit un emplacement ? | Dans `location` (ADR-0011), lié au lieu existant quand il y en a un. Alternative : table `food_truck_spot` dédiée avec un lien facultatif vers `location` (plus simple à isoler, mais recrée une entité « lieu » concurrente). |
+| **D2** ✅ | Que montre la carte un jour donné ? | Les présences actives ce jour-là (un marqueur par présence). Alternative : un seul marqueur par food truck, à sa prochaine présence. |
+| **D3** ✅ | Food trucks existants | Migration en présence permanente à leur position actuelle (affichage inchangé). Alternative : les masquer tant que le professionnel n'a pas saisi d'emplacement. |
+| **D4** ✅ | Périmètre d'ARCHI-01 | Modèle, migration, API publique compatible, alertes, couches et filtres séparés (web et mobile). La saisie et la gestion des présences par le professionnel restent dans FOODTRUCK-01, la création du food truck par un pro dans PRO-01 lot C. |
+| **D5** ✅ | Type d'emplacement | Porté par la présence (`spot_kind`), car un même parking peut servir de marché un jour et d'événement un autre. Alternative : porté par l'emplacement. |
 
 ## 5. Découpage proposé (après validation)
 
@@ -122,3 +122,22 @@ les horaires du jour. La fiche d'un lieu affiche « Food trucks présents ».
 4. Web : couche et onglet « Food trucks », bloc sur la fiche d'un lieu.
 5. Mobile : mêmes changements de lecture.
 6. Documentation : `FOOD_TRUCK_CONTRACT.md`, README, CHANGELOG.
+
+## 6. Implémentation (18/10/2026)
+
+| Élément | Où |
+|---|---|
+| Migration | `V65__food_truck_presences.sql` : table `food_truck_presence` (contraintes sur les jours, la période et les horaires), reprise des food trucks existants en présence permanente sur un emplacement non typé à leur position (vérifiée sur données d'essai : même position, emplacement sans `place_type`, food truck non publié toujours masqué), `food_truck.latitude/longitude` nullables et plus écrites. |
+| Domaine | `FoodTruckPresence` (vue), `SpotKind`, `PresenceStatus` ; `FoodTruck.latitude/longitude` en lecture seule. |
+| Lecture | `FoodTruckPresenceRepository` : présences actives un jour donné (statut, période, jour de la semaine), planning d'un food truck, présences à un lieu (le lieu lui-même ou un emplacement relié par `place_id`) ; `placeId` = lieu LocalLife publié de l'emplacement. |
+| API | `GET /api/v1/foodtrucks?date=` (un élément par présence, champs historiques conservés), `GET /api/v1/foodtrucks/{id}` (profil + planning), `GET /api/v1/places/{id}/foodtrucks`. `POST /api/v1/foodtrucks` crée la présence permanente à la position reçue ; sa réponse ne change pas. |
+| Alertes | `ActivityAlertRepository` : rayon calculé sur les emplacements des présences publiées non terminées. |
+| Web | Bascule « 🚚 Food trucks » (affichée par défaut, choix mémorisé), un marqueur par présence avec l'emplacement et les horaires, onglet « Food trucks » de la liste (zone affichée), bloc « Food trucks présents aujourd'hui » sur la fiche d'un lieu. |
+| Mobile | Bascule de la couche, un marqueur par présence, emplacement et horaires dans l'aperçu, fiche lue par `GET /foodtrucks/{id}` avec « Où le trouver » (planning). |
+| Tests | `FoodTruckPresenceIntegrationTest` (jours, période, suspension, food truck non publié, deux emplacements, emplacement partagé, lien avec un lieu, fiche et planning), tests existants adaptés (`FoodTruckControllerTest`, `FoodTruckServiceTest`, `FoodTruckControllerIntegrationTest`, `ActivityAlertRepositoryIntegrationTest`), `FoodTruckList.test.tsx`, `presence.test.ts`. |
+
+Limites connues : la présence du jour est jugée à la journée (une présence
+dont l'horaire est passé reste listée ce jour-là, avec ses horaires) ;
+l'application mobile n'a pas d'onglet liste « Food trucks » ni de bloc sur
+la fiche d'un lieu ; la saisie des présences par le professionnel relève de
+FOODTRUCK-01, la création du food truck par un pro de PRO-01 lot C.

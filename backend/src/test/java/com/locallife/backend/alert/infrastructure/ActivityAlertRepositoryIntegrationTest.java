@@ -180,11 +180,21 @@ class ActivityAlertRepositoryIntegrationTest {
                 .extracting(AlertActivity::id).containsExactly(contribution);
     }
 
+    /** Food truck publié, présent (ADR-0013) à un emplacement de la position donnée. */
     private Long insertFoodTruck(String name, double latitude, double longitude) {
-        return jdbcTemplate.queryForObject(
-                "INSERT INTO food_truck (name, latitude, longitude, category, status) "
-                        + "VALUES (?, ?, ?, 'Burgers', 'PUBLISHED') RETURNING id",
-                Long.class, name, latitude, longitude);
+        return insertFoodTruck(name, latitude, longitude, "PUBLISHED", null);
+    }
+
+    private Long insertFoodTruck(String name, double latitude, double longitude, String presenceStatus,
+            String validUntil) {
+        Long id = jdbcTemplate.queryForObject(
+                "INSERT INTO food_truck (name, category, status) VALUES (?, 'Burgers', 'PUBLISHED') RETURNING id",
+                Long.class, name);
+        Long spot = jdbcTemplate.queryForObject("INSERT INTO location (latitude, longitude, timezone) "
+                + "VALUES (?, ?, 'Europe/Paris') RETURNING id", Long.class, latitude, longitude);
+        jdbcTemplate.update("INSERT INTO food_truck_presence (food_truck_id, location_id, spot_kind, status, "
+                + "valid_until) VALUES (?, ?, 'OTHER', ?, CAST(? AS date))", id, spot, presenceStatus, validUntil);
+        return id;
     }
 
     @Test
@@ -196,6 +206,9 @@ class ActivityAlertRepositoryIntegrationTest {
                 LYON_LATITUDE, LYON_LONGITUDE);
         Long nearby = insertFoodTruck("Le Camion Bleu", 45.7719, 4.8902);
         insertFoodTruck("Trop loin (Grenoble)", 45.1885, 5.7245);
+        // La position compte par les présences : une présence suspendue ou terminée n'est pas un emplacement.
+        insertFoodTruck("Présence suspendue", 45.7719, 4.8902, "SUSPENDED", null);
+        insertFoodTruck("Présence terminée", 45.7719, 4.8902, "PUBLISHED", "2020-01-01");
 
         // Alerte sans l'option food trucks : rien.
         assertThat(activityAlertRepository.findNewMatchingFoodTrucks(alert.id(), 100)).isEmpty();

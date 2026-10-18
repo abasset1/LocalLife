@@ -2,6 +2,15 @@
 
 ## 0.9.59 — non publiée
 
+### Food trucks : profil, emplacements et présences (ARCHI-01, ADR-0013)
+- **Un food truck n'est plus un point fixe** : sa position vient de ses présences (un emplacement, un type — marché, espace privé, événement, autre — des jours, des horaires et une période). Un emplacement est une ligne de `location` ; il peut être un lieu LocalLife existant. Plusieurs food trucks peuvent partager un emplacement, un food truck peut en fréquenter plusieurs.
+- **Carte et liste du jour** : `GET /api/v1/foodtrucks` renvoie un élément par présence active (paramètre `date`, aujourd'hui par défaut, heure de Paris). Une présence expirée, à venir ou suspendue n'est jamais montrée comme actuelle. Les champs historiques sont conservés.
+- Nouveaux endpoints publics : `GET /api/v1/foodtrucks/{id}` (profil et planning) et `GET /api/v1/places/{id}/foodtrucks` (food trucks présents à un lieu).
+- **Reprise sans rupture** (migration `V65`) : chaque food truck existant reçoit une présence permanente à sa position actuelle. Identifiants, affichage et alertes déjà envoyées inchangés. `POST /api/v1/foodtrucks` répond comme avant.
+- **Alertes** : un nouveau food truck est signalé si l'un de ses emplacements est dans le rayon.
+- **Site** : bascule « 🚚 Food trucks » (affichée par défaut), emplacement et horaires dans la bulle, onglet « Food trucks » dans la liste, « Food trucks présents aujourd'hui » sur la fiche d'un lieu.
+- **Application mobile** : bascule de la couche, emplacement et horaires dans l'aperçu, fiche avec « Où le trouver ». La fiche reste accessible même si le food truck n'est pas présent aujourd'hui.
+
 ### Espace professionnel : revendiquer ou créer un lieu (PRO-01, ADR-0012)
 - **Compte professionnel** : nouveau rôle `PRO`, attribué ou retiré par un administrateur (Administration → Professionnels, `PATCH /api/v1/admin/users/{id}/role`). Le droit est relu en base à chaque appel : il prend effet sans nouvelle connexion. Point d'extension unique `ProAccessPolicy`, que BILLING-01 rattachera aux abonnements. Aucune facturation.
 - **Demander la gestion d'un lieu existant** (parcours A) : depuis la fiche d'un lieu (lien « Demander la gestion de ce lieu ») ou une recherche dans l'espace pro. Le professionnel explique son lien avec le lieu et joint des justificatifs (texte ou liens, sans fichier), enregistre un brouillon puis envoie. Statuts : brouillon, envoyée, en examen, informations demandées, approuvée, refusée, retirée. Une seule demande en cours par professionnel et par lieu.

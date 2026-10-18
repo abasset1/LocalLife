@@ -1,5 +1,14 @@
 # Contrat du modèle Food Truck (LL-6008)
 
+> **Mis à jour par ADR-0013 (ARCHI-01, 18/10/2026)** : un food truck n'a plus
+> de position propre. `latitude`/`longitude` ne sont plus écrites
+> (`V65`) ; la position affichée est celle de l'emplacement d'une
+> **présence** (`food_truck_presence` : food truck, emplacement =
+> `location`, type d'emplacement, jours, horaires, période, statut).
+> `GET /api/v1/foodtrucks` renvoie un élément par présence active du jour,
+> avec les champs ci-dessous plus la présence. Voir
+> [`../ADR-0013-food-trucks-emplacements-presences.md`](../ADR-0013-food-trucks-emplacements-presences.md).
+
 Définit le modèle minimal permettant de représenter un food truck sur la
 carte existante, sans créer un second système cartographique
 (`SPRINT_6.md` : « préparer l'intégration des food trucks sans créer un
