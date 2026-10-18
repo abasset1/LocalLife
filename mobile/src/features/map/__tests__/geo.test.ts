@@ -5,6 +5,7 @@ import {
   regionForRadius,
   regionForZoom,
   regionToBounds,
+  regionToFit,
   zoomForRegion,
 } from '../geo';
 
@@ -47,13 +48,15 @@ describe('boundsContain / pointInBounds', () => {
 });
 
 describe('isSearchable', () => {
-  it("accepte une zone à l'échelle d'une ville ou d'un département", () => {
+  it("accepte une zone à l'échelle d'une ville, d'un département ou d'une région (vue d'ensemble)", () => {
     expect(isSearchable(regionToBounds(marseille)!)).toBe(true);
     expect(isSearchable(regionToBounds({ ...marseille, latitudeDelta: 1.8, longitudeDelta: 1.5 })!)).toBe(true);
+    // Provence entière, comme la vue d'ensemble du site web (zoom 8).
+    expect(isSearchable(regionToBounds({ ...marseille, latitudeDelta: 3.2, longitudeDelta: 2.6 })!)).toBe(true);
   });
 
-  it('refuse une zone trop étendue dans une dimension', () => {
-    expect(isSearchable(regionToBounds({ ...marseille, latitudeDelta: 2.5 })!)).toBe(false);
+  it("refuse une zone trop étendue dans une dimension (échelle d'un pays)", () => {
+    expect(isSearchable(regionToBounds({ ...marseille, latitudeDelta: 7 })!)).toBe(false);
     expect(isSearchable(regionToBounds({ ...marseille, longitudeDelta: 10 })!)).toBe(false);
   });
 });
@@ -85,5 +88,38 @@ describe('regionForRadius', () => {
   it('reste cherchable au rayon maximal (50 km)', () => {
     const bounds = regionToBounds(regionForRadius(43.2965, 5.3698, 50));
     expect(bounds && isSearchable(bounds)).toBe(true);
+  });
+});
+
+describe('regionToFit', () => {
+  const like = { latitude: 43.3, longitude: 5.4, latitudeDelta: 0.2, longitudeDelta: 0.1 };
+
+  it('cadre tous les points avec une marge, au ratio de la carte', () => {
+    const region = regionToFit(
+      [
+        { latitude: 43.3, longitude: 5.37 },
+        { latitude: 43.32, longitude: 5.4 },
+      ],
+      like,
+    )!;
+    expect(region.latitude).toBeCloseTo(43.31);
+    expect(region.longitude).toBeCloseTo(5.385);
+    expect(region.latitudeDelta / region.longitudeDelta).toBeCloseTo(2);
+    expect(region.longitudeDelta).toBeGreaterThan(0.03);
+    expect(region.latitudeDelta).toBeGreaterThan(0.02);
+  });
+
+  it('renvoie null pour des points au même endroit : zoomer ne les séparerait pas', () => {
+    expect(
+      regionToFit(
+        [
+          { latitude: 43.3, longitude: 5.37 },
+          { latitude: 43.3, longitude: 5.37 },
+          { latitude: 43.30001, longitude: 5.37002 },
+        ],
+        like,
+      ),
+    ).toBeNull();
+    expect(regionToFit([], like)).toBeNull();
   });
 });

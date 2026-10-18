@@ -10,6 +10,11 @@
 - **Menu rétractable** à la place de la barre d'onglets : bouton « ☰ » en haut des écrans principaux, panneau latéral avec toutes les rubriques, fermeture par « ✕ », appui à côté ou retour Android. Boutons directs « Liste » et « Carte ».
 - Correctif : toucher une commune proposée pouvait retirer le focus du champ avant la fin de l'appui, ce qui refermait la liste et annulait le choix.
 - Carte : les contrôles du bas (Liste, Catégories, Lieux, Quand ?, Rayon, liste des lieux, Ma position) deviennent des **icônes seules de 44 px, sur une seule rangée**. L'état choisi se lit à la couleur (vert plein) et le détail reste annoncé aux lecteurs d'écran.
+- Carte : **les activités s'affichent sans zoomer autant, comme sur le site**.
+  - La carte s'ouvre sur une vue d'ensemble de la zone couverte (Provence) au lieu du centre de Marseille.
+  - Les activités se chargent jusqu'à une zone de 6° (2° avant, ce qui imposait de zoomer avant d'en voir une ; la couche « Lieux » garde 2°).
+  - Toucher un groupe de marqueurs cadre toutes ses activités d'un coup, au lieu d'avancer d'un niveau de zoom à la fois.
+  - Des activités au même endroit (même adresse, ou position approximative au centre d'une commune), que zoomer ne séparait jamais, sont listées. Un appui ouvre l'aperçu.
 
 ### Site : accueil de l'explorateur sur smartphone (lot P0, `docs/spec_front.md`)
 - **Localisation explicite (P0-A)** : la position n'est plus demandée automatiquement au chargement, seulement après « Autour de moi » (ou reprise sans fenêtre si le navigateur l'a déjà autorisée). Sans lieu choisi, la carte montre une **vue d'ensemble** de la zone couverte et cherche dans la zone affichée : plus de recherche `nearby` centrée en silence sur Marseille. Une invitation « Choisir ma ville » / « Autour de moi » l'indique ; un refus, une position indisponible ou un délai dépassé (10 s) sont expliqués, avec la ville comme autre méthode. La ville enregistrée dans les préférences reste le point de départ si ses coordonnées sont valides.
