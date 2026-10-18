@@ -48,7 +48,7 @@ Ces trois commandes tournent en CI à chaque modification de `mobile/`
 
 ## Connexion Google
 
-Le bouton « Continuer avec Google » (onglet Compte) utilise la connexion
+Le bouton « Continuer avec Google » (rubrique Compte) utilise la connexion
 native de Google (`@react-native-google-signin/google-signin`). Il **ne
 fonctionne pas dans Expo Go** : il faut un build (`npx expo run:android`).
 Il reste masqué tant que les identifiants ci-dessous ne sont pas fournis.
@@ -102,7 +102,7 @@ mobile/
 ├── src/
 │   ├── app/                # écrans et navigation (Expo Router)
 │   │   ├── _layout.tsx       # stack racine : (tabs) + détail activité
-│   │   ├── (tabs)/            # navigation par onglets
+│   │   ├── (tabs)/            # écrans principaux (menu rétractable, sans barre d'onglets)
 │   │   │   ├── index.tsx        # Découvrir
 │   │   │   ├── contribution.tsx # Contribution
 │   │   │   └── compte.tsx       # Compte
@@ -121,26 +121,44 @@ Cette structure sera enrichie au fil des tickets du sprint mobile
 (`docs/05_Sprints/SPRINT_MOBILE.md`), notamment `src/features/` pour le
 découpage par fonctionnalité (première fonctionnalité : `map/`).
 
-## Navigation (LL-MOB-0002)
+## Navigation (LL-MOB-0002, FRONT-REV-02)
 
-4 onglets : **Découvrir** (carte), **Liste**, **Contribuer**, **Compte**. Le
-détail d'une activité n'est pas un onglet : il s'atteint depuis la carte ou la
-liste via un écran
-empilé au-dessus des onglets (`src/app/activite/[id].tsx`), avec un header
-natif portant le bouton retour. Le geste/bouton retour Android est géré
-nativement par le stack navigator, sans code additionnel.
+4 écrans principaux : **Carte**, **Liste**, **Contribuer**, **Compte**. Depuis
+FRONT-REV-02, il n'y a plus de barre d'onglets : un **menu rétractable**
+(bouton « ☰ » en haut de chaque écran principal, `src/features/navigation/`)
+ouvre un panneau latéral avec toutes les rubriques (Carte, Liste, Proposer une
+activité, Compte et, connecté, Mes favoris, Mes contributions, Mes alertes,
+Paramètres de recherche). Il se ferme par « ✕ », un appui hors du panneau, le
+bouton retour d'Android ou le choix d'une rubrique. La carte et la liste ont en
+plus un bouton direct « Liste » / « Carte ».
 
-Icônes d'onglets via `expo-symbols` (SF Symbols sur iOS, Material
-Symbols sur Android).
+Le navigateur `Tabs` d'`expo-router` est conservé, sans sa barre
+(`tabBarStyle: { display: 'none' }`), pour que chaque vue garde son état
+(position de la carte, défilement de la liste) quand on en change.
 
-Implémentation avec le `Tabs` standard de `expo-router` (pas `NativeTabs`,
-qui est une API instable) : même comportement sur toutes les plateformes,
-pas de double implémentation à maintenir.
+Le détail d'une activité s'atteint depuis la carte ou la liste via un écran
+empilé (`src/app/activite/[id].tsx`), avec un header natif portant le bouton
+retour. Le geste/bouton retour Android est géré nativement par le stack
+navigator, sans code additionnel.
 
-Les écrans des 3 onglets et le détail d'activité sont pour l'instant des
-écrans de contenu (le contenu réel arrive avec LL-MOB-0004 authentification,
-LL-MOB-0005 carte, LL-MOB-0007 filtres, LL-MOB-0008 détail d'activité,
-LL-MOB-0010 contribution).
+## Explorateur : ville, catégories, critères partagés (FRONT-REV-02)
+
+- **Recherche de ville** (`src/features/explorer/CitySearch.tsx`), sur la carte
+  et dans la liste : communes proposées pendant la saisie par
+  `GET /api/v1/geocoding/city-suggestions` (public, sans compte, même source
+  que le site web). Chargement, panne (« Réessayer ») et commune introuvable
+  sont annoncés. La commune choisie devient le lieu de recherche ; « ✕ » le
+  retire.
+- **Catégories** (`CategoryPanel.tsx`) : une ou plusieurs catégories du
+  référentiel, cochées ou décochées, « Toutes les catégories » pour retirer le
+  filtre.
+- **Critères partagés** (`explorerStore.ts`) : lieu, catégories et rayon sont
+  communs à la carte et à la liste, et conservés quand on change de vue (la
+  période l'était déjà, `periodStore.ts`). Les paramètres de recherche de
+  l'utilisateur connecté les initialisent à chaque changement de ces
+  paramètres, sans écraser un choix fait entre-temps.
+- **Pas de ville supposée** : sans lieu choisi, la liste invite à en choisir un
+  (aucune requête) et la carte signale qu'elle montre une vue d'ensemble.
 
 ## Client API (LL-MOB-0003)
 
@@ -209,7 +227,7 @@ backend, l'écran n'affiche que ses messages.
 
 ## Carte (LL-MOB-0005)
 
-L'onglet **Découvrir** affiche une carte interactive (`src/features/map/`),
+L'écran **Carte** affiche une carte interactive (`src/features/map/`),
 centrée au départ sur Marseille (périmètre du MVP).
 
 - **Bibliothèque** : `react-native-maps` (version imposée par le SDK Expo,
@@ -308,7 +326,7 @@ l'aperçu d'un marqueur (`src/features/activity/`).
 
 ## Notifications push (alertes)
 
-Les alertes (onglet Compte → « Mes alertes ») peuvent être envoyées en
+Les alertes (menu → « Mes alertes ») peuvent être envoyées en
 notification sur le téléphone, via le service **Expo Push**.
 
 - `EAS_PROJECT_ID` (voir `.env.example`) est requis pour obtenir le jeton

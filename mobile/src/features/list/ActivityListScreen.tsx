@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,8 +10,12 @@ import { Notice } from '@/components/notice';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
+import { CategoryPanel, categoriesButtonLabel } from '@/features/explorer/CategoryPanel';
+import { CitySearch } from '@/features/explorer/CitySearch';
+import { applyPreferences, clearCategories, setPlace, setRadius, useExplorer } from '@/features/explorer/explorerStore';
 import { useSearchPreferences } from '@/features/map/useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from '@/features/map/useUserLocation';
+import { MenuButton } from '@/features/navigation/AppMenu';
 import { RADIUS_OPTIONS_KM } from '@/features/settings';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -21,49 +25,36 @@ import { PERIOD_OPTIONS, distanceKm, formatDistance, matchesQuery } from './filt
 import { usePeriod } from './periodStore';
 import { useActivityList } from './useActivityList';
 
-/** Centre par défaut, comme la carte : Marseille, périmètre du MVP. */
-const DEFAULT_CENTER = { latitude: 43.2965, longitude: 5.3698, label: 'Marseille' };
+/** Rayon de la liste tant qu'aucun rayon n'est choisi (la carte cherche alors dans la zone visible). */
 const DEFAULT_RADIUS_KM = 20;
-const NO_CATEGORIES: string[] = [];
 
 /**
- * Onglet « Liste » : les activités publiées autour de l'utilisateur (après « Autour de moi »), de sa
- * ville par défaut (paramètres de recherche) ou de Marseille, triées par distance. Filtres : période,
- * rayon, recherche texte ; les catégories par défaut des paramètres s'appliquent comme sur la carte.
- * Un appui ouvre la fiche de l'activité.
+ * Vue « Liste » : les activités publiées autour du lieu de recherche (ville choisie, « Autour de moi »
+ * ou ville des paramètres), triées par distance. Lieu, catégories et rayon sont partagés avec la carte
+ * (`explorerStore`, FRONT-REV-02) ; la période aussi (`periodStore`). Sans lieu choisi, la liste invite
+ * à en choisir un : aucune ville n'est supposée. Filtre texte local en plus. Un appui ouvre la fiche.
  */
 export default function ActivityListScreen() {
   const theme = useTheme();
   const router = useRouter();
   const preferences = useSearchPreferences();
+  useEffect(() => {
+    applyPreferences(preferences);
+  }, [preferences]);
   const location = useUserLocation();
 
-  const [userPosition, setUserPosition] = useState<{ latitude: number; longitude: number } | null>(null);
+  const { place, categoryCodes, radiusKm: chosenRadiusKm } = useExplorer();
   const [period, setPeriod] = usePeriod();
-  const [radiusOverride, setRadiusOverride] = useState<number | null>(null);
   const [query, setQuery] = useState('');
-  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
 
-  const center = userPosition
-    ? { ...userPosition, label: 'vous' }
-    : preferences && preferences.defaultLatitude !== null && preferences.defaultLongitude !== null
-      ? {
-          latitude: preferences.defaultLatitude,
-          longitude: preferences.defaultLongitude,
-          label: preferences.defaultCity ?? 'votre ville',
-        }
-      : DEFAULT_CENTER;
-  const radiusKm = radiusOverride ?? preferences?.defaultRadiusKm ?? DEFAULT_RADIUS_KM;
-  const preferredCategories = preferences?.defaultCategoryCodes ?? NO_CATEGORIES;
-  const categoryCodes = showAllCategories ? NO_CATEGORIES : preferredCategories;
+  const radiusKm = chosenRadiusKm ?? DEFAULT_RADIUS_KM;
 
-  const { state, refreshing, refresh } = useActivityList({
-    latitude: center.latitude,
-    longitude: center.longitude,
-    radiusKm,
-    period,
-    categoryCodes,
-  });
+  const { state, refreshing, refresh } = useActivityList(
+    place
+      ? { latitude: place.latitude, longitude: place.longitude, radiusKm, period, categoryCodes }
+      : null,
+  );
 
   const activities = useMemo(
     () => (state.status === 'success' ? state.activities.filter((a) => matchesQuery(a, query)) : []),
@@ -72,7 +63,9 @@ export default function ActivityListScreen() {
 
   async function aroundMe() {
     const position = await location.locate();
-    if (position) setUserPosition({ latitude: position.latitude, longitude: position.longitude });
+    if (position) {
+      setPlace({ label: 'votre position', latitude: position.latitude, longitude: position.longitude, source: 'position' });
+    }
   }
 
   function open(activity: Activity) {
@@ -89,19 +82,32 @@ export default function ActivityListScreen() {
 
   const header = (
     <View style={styles.header}>
-      <View style={styles.titleBlock}>
+      <View style={[styles.padded, styles.topRow]}>
+        <MenuButton />
+        <Button
+          label="Carte"
+          variant="secondary"
+          icon={{ ios: 'map', android: 'map', web: 'map' }}
+          onPress={() => router.navigate('/')}
+        />
+      </View>
+      <View style={[styles.padded, styles.titleBlock]}>
         <ThemedText type="eyebrow">À découvrir</ThemedText>
         <ThemedText type="title" accessibilityRole="header">
-          Près de {center.label}
+          {place ? `Près de ${place.label}` : 'Choisissez un lieu'}
         </ThemedText>
       </View>
 
       <View style={styles.padded}>
+        <CitySearch />
+      </View>
+
+      <View style={styles.padded}>
         <View style={[styles.search, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
-          <ThemedText importantForAccessibility="no">🔍</ThemedText>
+          <ThemedText importantForAccessibility="no">⌕</ThemedText>
           <TextInput
-            accessibilityLabel="Rechercher une activité"
-            placeholder="Concert, marché, commune…"
+            accessibilityLabel="Filtrer les activités de la liste"
+            placeholder="Filtrer : concert, marché…"
             placeholderTextColor={theme.textSecondary}
             selectionColor={theme.primary}
             value={query}
@@ -127,23 +133,33 @@ export default function ActivityListScreen() {
         label="Rayon de recherche"
         options={RADIUS_OPTIONS_KM.map((km) => ({ value: km as number, label: `${km} km` }))}
         value={radiusKm}
-        onChange={setRadiusOverride}
+        onChange={setRadius}
       />
 
       <View style={[styles.padded, styles.tools]}>
-        <Button
-          label={userPosition ? 'Actualiser ma position' : 'Autour de moi'}
-          variant="secondary"
-          icon={{ ios: 'location.fill', android: 'my_location', web: 'my_location' }}
-          loading={location.status === 'locating'}
-          onPress={() => void aroundMe()}
-        />
-        {preferredCategories.length > 0 && (
-          <Button
-            label={showAllCategories ? 'Mes catégories seulement' : 'Toutes les catégories'}
-            variant="ghost"
-            onPress={() => setShowAllCategories((all) => !all)}
-          />
+        <View style={styles.toolsRow}>
+          <View style={styles.tool}>
+            <Button
+              label={categoriesButtonLabel(categoryCodes.length)}
+              variant={categoryCodes.length > 0 ? 'primary' : 'secondary'}
+              icon={{ ios: 'square.grid.2x2', android: 'category', web: 'category' }}
+              onPress={() => setCategoryPanelOpen((open) => !open)}
+            />
+          </View>
+          <View style={styles.tool}>
+            <Button
+              label="Autour de moi"
+              variant="secondary"
+              icon={{ ios: 'location.fill', android: 'my_location', web: 'my_location' }}
+              loading={location.status === 'locating'}
+              onPress={() => void aroundMe()}
+            />
+          </View>
+        </View>
+        {categoryPanelOpen && (
+          <Card style={styles.panel}>
+            <CategoryPanel />
+          </Card>
         )}
       </View>
 
@@ -158,7 +174,9 @@ export default function ActivityListScreen() {
           {activities.length === 0
             ? 'Aucun résultat'
             : `${activities.length} activité${activities.length > 1 ? 's' : ''} à moins de ${radiusKm} km`}
-          {categoryCodes.length > 0 ? ' · filtrées sur vos catégories' : ''}
+          {categoryCodes.length > 0
+            ? ` · ${categoryCodes.length} catégorie${categoryCodes.length > 1 ? 's' : ''}`
+            : ''}
         </ThemedText>
       )}
     </View>
@@ -166,7 +184,7 @@ export default function ActivityListScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
         <FlatList
           data={activities}
           keyExtractor={(activity) => String(activity.id)}
@@ -182,13 +200,26 @@ export default function ActivityListScreen() {
             <View style={styles.padded}>
               <ActivityCard
                 activity={item}
-                distance={formatDistance(distanceKm(center, item))}
+                distance={place ? formatDistance(distanceKm(place, item)) : undefined}
                 onPress={() => open(item)}
               />
             </View>
           )}
           ListEmptyComponent={
             <View style={styles.padded}>
+              {state.status === 'idle' && (
+                <Card style={styles.empty}>
+                  <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
+                    📍
+                  </ThemedText>
+                  <ThemedText type="heading" style={styles.centerText}>
+                    Où cherchez-vous ?
+                  </ThemedText>
+                  <ThemedText themeColor="textSecondary" style={styles.centerText}>
+                    Recherchez une ville ci-dessus, ou touchez « Autour de moi ».
+                  </ThemedText>
+                </Card>
+              )}
               {state.status === 'loading' && (
                 <View style={styles.loading} accessibilityLiveRegion="polite">
                   <ActivityIndicator size="large" color={theme.primary} accessibilityLabel="Chargement des activités" />
@@ -210,9 +241,14 @@ export default function ActivityListScreen() {
                   </ThemedText>
                   <ThemedText themeColor="textSecondary" style={styles.centerText}>
                     {query
-                      ? 'Aucune activité ne correspond à votre recherche.'
-                      : 'Élargissez le rayon ou la période pour voir plus d’activités.'}
+                      ? 'Aucune activité ne correspond à votre filtre.'
+                      : categoryCodes.length > 0
+                        ? 'Aucune activité de ces catégories ici. Retirez des catégories, ou élargissez le rayon ou la période.'
+                        : 'Élargissez le rayon ou la période pour voir plus d’activités.'}
                   </ThemedText>
+                  {!query && categoryCodes.length > 0 && (
+                    <Button label="Toutes les catégories" variant="secondary" onPress={clearCategories} />
+                  )}
                 </Card>
               )}
             </View>
@@ -236,12 +272,19 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: Spacing.three,
-    paddingTop: Spacing.four,
+    paddingTop: Spacing.two,
     paddingBottom: Spacing.three,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   titleBlock: {
     gap: Spacing.one,
-    paddingHorizontal: Spacing.three,
+  },
+  panel: {
+    padding: Spacing.three,
   },
   padded: {
     paddingHorizontal: Spacing.three,
@@ -261,7 +304,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   tools: {
-    gap: Spacing.one,
+    gap: Spacing.two,
+  },
+  toolsRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  tool: {
+    flex: 1,
   },
   separator: {
     height: Spacing.three,

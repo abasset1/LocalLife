@@ -78,7 +78,7 @@ export default function MyContributionsScreen() {
   if (!authenticated) {
     return (
       <ThemedView style={styles.centered}>
-        <ThemedText>Connectez-vous depuis l’onglet Compte pour retrouver vos contributions.</ThemedText>
+        <ThemedText>Connectez-vous depuis la rubrique Compte du menu pour retrouver vos contributions.</ThemedText>
       </ThemedView>
     );
   }

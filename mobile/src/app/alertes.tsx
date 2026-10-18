@@ -178,7 +178,7 @@ export default function AlertesScreen() {
   if (!authenticated) {
     return (
       <ThemedView style={styles.centered}>
-        <ThemedText>Connectez-vous depuis l’onglet Compte pour gérer vos alertes.</ThemedText>
+        <ThemedText>Connectez-vous depuis la rubrique Compte du menu pour gérer vos alertes.</ThemedText>
       </ThemedView>
     );
   }

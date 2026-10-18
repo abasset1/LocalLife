@@ -84,7 +84,7 @@ export default function ParametresScreen() {
   if (!authenticated) {
     return (
       <ThemedView style={styles.centered}>
-        <ThemedText>Connectez-vous depuis l’onglet Compte pour choisir vos paramètres.</ThemedText>
+        <ThemedText>Connectez-vous depuis la rubrique Compte du menu pour choisir vos paramètres.</ThemedText>
       </ThemedView>
     );
   }

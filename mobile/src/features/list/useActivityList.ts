@@ -6,9 +6,13 @@ import type { Activity } from '@/api';
 import { periodRange, type Period } from './filters';
 
 export type ActivityListState =
+  /** Aucun lieu de recherche : rien n'est chargé. */
+  | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'success'; activities: Activity[] }
   | { status: 'error'; message: string };
+
+const IDLE: ActivityListState = { status: 'idle' };
 
 export interface ListSearch {
   latitude: number;
@@ -23,17 +27,22 @@ export interface ListSearch {
 /**
  * Activités publiées autour d'un point (`GET /activities/nearby`, triées par distance), pour l'onglet
  * « Liste ». Rechargées à chaque changement de critère ; la requête précédente est annulée.
- * `refresh` relance la même recherche (tirer pour actualiser, « Réessayer »).
+ * `refresh` relance la même recherche (tirer pour actualiser, « Réessayer »). Sans lieu de recherche
+ * (`search` à `null`), aucune requête : jamais de recherche autour d'une ville supposée.
  */
-export function useActivityList(search: ListSearch) {
-  const [state, setState] = useState<ActivityListState>({ status: 'loading' });
+export function useActivityList(search: ListSearch | null) {
+  const [state, setState] = useState<ActivityListState>({ status: search ? 'loading' : 'idle' });
   const [refreshing, setRefreshing] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
-  const { latitude, longitude, radiusKm, period } = search;
-  const categoryKey = [...search.categoryCodes].sort().join(',');
+  const latitude = search?.latitude ?? null;
+  const longitude = search?.longitude ?? null;
+  const radiusKm = search?.radiusKm ?? 0;
+  const period = search?.period ?? 'all';
+  const categoryKey = search ? [...search.categoryCodes].sort().join(',') : '';
 
   useEffect(() => {
+    if (latitude === null || longitude === null) return;
     const controller = new AbortController();
     setState((current) => (current.status === 'success' ? current : { status: 'loading' }));
     searchNearby(
@@ -65,5 +74,6 @@ export function useActivityList(search: ListSearch) {
     setAttempt((n) => n + 1);
   }, []);
 
+  if (latitude === null) return { state: IDLE, refreshing: false, refresh };
   return { state, refreshing, refresh };
 }

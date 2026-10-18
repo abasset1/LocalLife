@@ -11,8 +11,19 @@ import { ThemedText } from '@/components/themed-text';
 import { isExpoGoAndroid } from '@/config/expoGo';
 import { Brand, Radius, Shadows, Spacing } from '@/constants/theme';
 import { isApproximateLocation } from '@/features/activity/location';
+import { CategoryPanel, categoriesButtonLabel } from '@/features/explorer/CategoryPanel';
+import { CitySearch } from '@/features/explorer/CitySearch';
+import {
+  applyPreferences,
+  clearCategories,
+  setPlace,
+  setRadius,
+  useExplorer,
+  type ExplorerPlace,
+} from '@/features/explorer/explorerStore';
 import { PERIOD_OPTIONS } from '@/features/list/filters';
 import { usePeriod } from '@/features/list/periodStore';
+import { MenuButton } from '@/features/navigation/AppMenu';
 import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -27,7 +38,11 @@ import { usePlaces } from './usePlaces';
 import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
 
-/** Zone de départ : Marseille, périmètre du MVP (voir `BOUNDING_BOX_SEARCH_CONTRACT.md`). */
+/**
+ * Vue de départ tant qu'aucun lieu n'est choisi : la zone couverte par les sources (périmètre du MVP,
+ * voir `BOUNDING_BOX_SEARCH_CONTRACT.md`). Ce n'est jamais présenté comme la ville de l'utilisateur :
+ * la carte invite alors à choisir une ville ou « Ma position » (FRONT-REV-02).
+ */
 const INITIAL_REGION: Region = {
   latitude: 43.2965,
   longitude: 5.3698,
@@ -38,10 +53,11 @@ const INITIAL_REGION: Region = {
 /** Niveau de zoom après recentrage sur l'utilisateur (~ quartier, quelques centaines de mètres). */
 const USER_ZOOM = 14;
 
+/** Niveau de zoom sur une ville choisie sans rayon (~ commune entière). */
+const CITY_ZOOM = 12;
+
 /** Rayon de cadrage d'une ville par défaut sans rayon choisi (même valeur que le site web). */
 const DEFAULT_PREFERENCE_RADIUS_KM = 50;
-
-const NO_CATEGORIES: string[] = [];
 
 /** Valeur de la puce « Sans rayon » du sélecteur de rayon. */
 const NO_RADIUS = 'none';
@@ -82,16 +98,14 @@ export default function MapScreen() {
     setSelection(next);
   }, []);
 
-  // Paramètres de recherche (utilisateur connecté) : cadrage sur la ville et
-  // le rayon par défaut, et filtre sur les catégories par défaut. Appliqués à
-  // chaque changement de ces paramètres, pas à chaque retour sur la carte :
-  // un déplacement fait par l'utilisateur n'est pas écrasé.
+  // Critères partagés avec la liste (FRONT-REV-02) : lieu, catégories, rayon. Les paramètres de
+  // recherche (utilisateur connecté) les initialisent à chaque changement de ces paramètres, pas à
+  // chaque retour sur la carte : un choix fait par l'utilisateur n'est pas écrasé.
   const preferences = useSearchPreferences();
-  const preferencesKey = preferences ? JSON.stringify(preferences) : null;
-  // « Tout afficher » lève le filtre jusqu'au prochain changement des paramètres.
-  const [clearedFilterKey, setClearedFilterKey] = useState<string | null>(null);
-  const categoryCodes =
-    preferences && clearedFilterKey !== preferencesKey ? preferences.defaultCategoryCodes : NO_CATEGORIES;
+  useEffect(() => {
+    applyPreferences(preferences);
+  }, [preferences]);
+  const { place, categoryCodes, radiusKm: activeRadiusKm } = useExplorer();
 
   // Centre courant, lu sans relancer le cadrage à chaque déplacement de la carte.
   const regionRef = useRef(region);
@@ -101,9 +115,17 @@ export default function MapScreen() {
 
   const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
   const [periodPanelOpen, setPeriodPanelOpen] = useState(false);
+  const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
+  const [placeListOpen, setPlaceListOpen] = useState(false);
+  /** Un seul panneau ouvert à la fois. */
+  const closePanels = useCallback(() => {
+    setRadiusPanelOpen(false);
+    setPeriodPanelOpen(false);
+    setCategoryPanelOpen(false);
+    setPlaceListOpen(false);
+  }, []);
   const [period, setPeriod] = usePeriod();
   const periodLabel = PERIOD_OPTIONS.find((option) => option.value === period)?.label ?? 'Tout';
-  const [placeListOpen, setPlaceListOpen] = useState(false);
 
   // Carte pas encore prête (premier affichage de l'onglet) : le cadrage demandé attend `onMapReady`.
   const mapReady = useRef(false);
@@ -122,80 +144,65 @@ export default function MapScreen() {
     if (!focus.focusLat || !focus.focusLon || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
     pendingFocusId.current = focus.focusId ? Number(focus.focusId) : null;
     focusedOnActivity.current = true;
-    setPlaceListOpen(false);
-    setRadiusPanelOpen(false);
-    setPeriodPanelOpen(false);
+    closePanels();
     // L'activité demandée doit apparaître, même hors de la période choisie.
     setPeriod('all');
     moveTo(regionForZoom(latitude, longitude, FOCUS_ZOOM, regionRef.current));
     // Paramètres consommés : revenir sur l'onglet ne recentre pas une seconde fois.
     router.setParams({ focusId: undefined, focusLat: undefined, focusLon: undefined });
-  }, [focus.focusId, focus.focusLat, focus.focusLon, moveTo, router, setPeriod]);
+  }, [focus.focusId, focus.focusLat, focus.focusLon, moveTo, router, setPeriod, closePanels]);
 
-  const centeredPreferences = useRef<string | null>(null);
+  // Nouveau lieu de recherche (ville choisie, « Ma position », ville des paramètres) : la carte s'y
+  // cadre, sur le rayon s'il y en a un. Un lieu venant des paramètres n'écrase pas un cadrage déjà fait
+  // sur une activité (« Voir sur la carte »).
+  const framedPlace = useRef<ExplorerPlace | null>(null);
+  // Point bleu de l'appareil : seulement quand la recherche part de sa position.
+  const showUser = place?.source === 'position';
   useEffect(() => {
-    if (!preferences || centeredPreferences.current === preferencesKey) return;
-    const firstPreferences = centeredPreferences.current === null;
-    centeredPreferences.current = preferencesKey;
-    if (firstPreferences && focusedOnActivity.current) return;
-    const { defaultLatitude, defaultLongitude, defaultRadiusKm } = preferences;
-    if (defaultLatitude !== null && defaultLongitude !== null) {
-      // Ville favorite : cadrée sur le rayon favori (ou 50 km).
-      mapRef.current?.animateToRegion(
-        regionForRadius(defaultLatitude, defaultLongitude, defaultRadiusKm ?? DEFAULT_PREFERENCE_RADIUS_KM),
-        500,
-      );
-    } else if (defaultRadiusKm !== null) {
-      // Rayon favori sans ville : cadré autour du centre actuel de la carte.
-      const { latitude, longitude } = regionRef.current;
-      mapRef.current?.animateToRegion(regionForRadius(latitude, longitude, defaultRadiusKm), 500);
-    }
-  }, [preferences, preferencesKey]);
+    // Lieu retiré (« ✕ ») : la carte reste où elle est.
+    if (!place || framedPlace.current === place) return;
+    framedPlace.current = place;
+    if (place.source === 'map') return;
+    if (place.source === 'preferences' && focusedOnActivity.current) return;
+    setSelection(null);
+    const radius = activeRadiusKm ?? (place.source === 'preferences' ? DEFAULT_PREFERENCE_RADIUS_KM : null);
+    moveTo(
+      radius !== null
+        ? regionForRadius(place.latitude, place.longitude, radius)
+        : regionForZoom(
+            place.latitude,
+            place.longitude,
+            place.source === 'position' ? USER_ZOOM : CITY_ZOOM,
+            regionRef.current,
+          ),
+    );
+  }, [place, activeRadiusKm, moveTo]);
 
-  // Rayon favori : seules les activités dans ce rayon sont affichées, autour de
-  // la ville favorite ou, après « Ma position », de la position de l'utilisateur
-  // (jusqu'au prochain changement des paramètres).
-  const [userCenter, setUserCenter] = useState<{ key: string | null; latitude: number; longitude: number } | null>(
-    null,
+  // Rayon actif : seules les activités dans ce rayon autour du lieu de recherche sont affichées.
+  const radiusSearch = useMemo<RadiusSearch | null>(
+    () =>
+      activeRadiusKm !== null && place
+        ? { latitude: place.latitude, longitude: place.longitude, radiusKm: activeRadiusKm }
+        : null,
+    [activeRadiusKm, place],
   );
-  // Rayon choisi depuis la carte (bouton « Rayon »), pour la session : remplace
-  // le rayon favori jusqu'au prochain changement des paramètres ; `null` = sans rayon.
-  const [radiusOverride, setRadiusOverride] = useState<{ key: string | null; radiusKm: number | null } | null>(
-    null,
-  );
-  const activeRadiusKm =
-    radiusOverride && radiusOverride.key === preferencesKey
-      ? radiusOverride.radiusKm
-      : (preferences?.defaultRadiusKm ?? null);
-
-  const radiusSearch = useMemo<RadiusSearch | null>(() => {
-    if (activeRadiusKm === null) return null;
-    const center =
-      userCenter && userCenter.key === preferencesKey
-        ? userCenter
-        : preferences && preferences.defaultLatitude !== null && preferences.defaultLongitude !== null
-          ? { latitude: preferences.defaultLatitude, longitude: preferences.defaultLongitude }
-          : null;
-    return center ? { latitude: center.latitude, longitude: center.longitude, radiusKm: activeRadiusKm } : null;
-  }, [activeRadiusKm, preferences, preferencesKey, userCenter]);
 
   /**
-   * Rayon choisi depuis la carte : recherche et cadrage dans ce rayon autour de
-   * la ville favorite ou de la position (ou, à défaut, du centre actuel de la
-   * carte) ; « Sans rayon » revient à la recherche par zone visible.
+   * Rayon choisi depuis la carte : recherche et cadrage dans ce rayon autour du lieu de recherche (ou,
+   * sans lieu, du centre actuel de la carte) ; « Sans rayon » revient à la recherche par zone visible.
    */
   const changeRadius = useCallback(
     (radiusKm: number | null) => {
       setRadiusPanelOpen(false);
-      setRadiusOverride({ key: preferencesKey, radiusKm });
+      setRadius(radiusKm);
       if (radiusKm === null) return;
-      const center = radiusSearch ?? { latitude: region.latitude, longitude: region.longitude };
-      if (!radiusSearch) {
-        setUserCenter({ key: preferencesKey, latitude: center.latitude, longitude: center.longitude });
+      const center = place ?? { latitude: region.latitude, longitude: region.longitude };
+      if (!place) {
+        setPlace({ label: 'la zone de la carte', latitude: center.latitude, longitude: center.longitude, source: 'map' });
       }
       mapRef.current?.animateToRegion(regionForRadius(center.latitude, center.longitude, radiusKm), 500);
     },
-    [preferencesKey, radiusSearch, region],
+    [place, region],
   );
 
   const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(
@@ -229,7 +236,6 @@ export default function MapScreen() {
   }, [showPlaces]);
   const places = usePlaces(region, showPlaces);
   const location = useUserLocation();
-  const [showUser, setShowUser] = useState(false);
 
   const bounds = useMemo(() => regionToBounds(region), [region]);
   const zoom = zoomForRegion(region);
@@ -276,24 +282,13 @@ export default function MapScreen() {
     [index, region],
   );
 
-  // Recentre la carte sur l'utilisateur : la zone visible change, et
-  // `useMapData` recharge alors les activités autour de lui (within-bounds).
+  // « Ma position » : la position devient le lieu de recherche (carte et liste) ; la carte s'y cadre
+  // (effet ci-dessus) et `useMapData` recharge les activités autour.
   const centerOnUser = useCallback(async () => {
     const position = await location.locate();
     if (!position) return;
-    setShowUser(true);
-    setSelection(null);
-    if (activeRadiusKm !== null) {
-      // Rayon actif : il suit l'utilisateur, et la carte est cadrée dessus.
-      setUserCenter({ key: preferencesKey, latitude: position.latitude, longitude: position.longitude });
-      mapRef.current?.animateToRegion(regionForRadius(position.latitude, position.longitude, activeRadiusKm), 500);
-      return;
-    }
-    mapRef.current?.animateToRegion(
-      regionForZoom(position.latitude, position.longitude, USER_ZOOM, region),
-      500,
-    );
-  }, [location, region, activeRadiusKm, preferencesKey]);
+    setPlace({ label: 'votre position', latitude: position.latitude, longitude: position.longitude, source: 'position' });
+  }, [location]);
 
   const locationProblem =
     location.status === 'denied' || location.status === 'unavailable' || location.status === 'error'
@@ -401,9 +396,22 @@ export default function MapScreen() {
         </View>
       )}
 
-      {/* Le bas est déjà protégé par la barre d'onglets : seul le haut (encoche) est réservé. */}
-      <SafeAreaView style={styles.overlay} edges={['top', 'left', 'right']} pointerEvents="box-none">
+      {/* Plus de barre d'onglets (menu rétractable) : le bas (barre de gestes) est aussi réservé. */}
+      <SafeAreaView style={styles.overlay} edges={['top', 'bottom', 'left', 'right']} pointerEvents="box-none">
         <View style={styles.top} pointerEvents="box-none">
+          <View style={styles.searchRow} pointerEvents="box-none">
+            <MenuButton floating />
+            <View style={styles.search}>
+              <CitySearch floating />
+            </View>
+          </View>
+          {!place && !loading && !error && (
+            <View
+              accessibilityLiveRegion="polite"
+              style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
+              <ThemedText type="small">Vue d’ensemble : cherchez une ville ou touchez « Ma position ».</ThemedText>
+            </View>
+          )}
           {loading && (
             <View
               accessibilityLiveRegion="polite"
@@ -450,7 +458,7 @@ export default function MapScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Tout afficher"
                 hitSlop={8}
-                onPress={() => setClearedFilterKey(preferencesKey)}
+                onPress={clearCategories}
                 style={[styles.chipAction, { backgroundColor: theme.primarySoft }]}>
                 <ThemedText type="smallBold" themeColor="primary">
                   Tout afficher
@@ -488,6 +496,11 @@ export default function MapScreen() {
               }}
             />
           )}
+          {!selection && categoryPanelOpen && (
+            <View style={[styles.radiusPanel, { backgroundColor: theme.backgroundElement }]}>
+              <CategoryPanel />
+            </View>
+          )}
           {!selection && radiusPanelOpen && (
             <View style={[styles.radiusPanel, { backgroundColor: theme.backgroundElement }]}>
               <ChipGroup
@@ -520,6 +533,30 @@ export default function MapScreen() {
             <View style={styles.bottomActions} pointerEvents="box-none">
               <View style={styles.pills} pointerEvents="box-none">
                 <MapControl
+                  icon={{ ios: 'list.bullet.rectangle', android: 'view_list', web: 'view_list' }}
+                  label="Liste"
+                  accessibilityLabel="Afficher la liste des activités"
+                  onPress={() => {
+                    closePanels();
+                    router.navigate('/liste');
+                  }}
+                />
+                <MapControl
+                  icon={{ ios: 'square.grid.2x2', android: 'category', web: 'category' }}
+                  label={categoriesButtonLabel(categoryCodes.length)}
+                  accessibilityLabel={
+                    categoryCodes.length === 0
+                      ? 'Choisir des catégories'
+                      : `${categoryCodes.length} catégorie${categoryCodes.length > 1 ? 's' : ''} choisie${categoryCodes.length > 1 ? 's' : ''}, modifier`
+                  }
+                  active={categoryCodes.length > 0 || categoryPanelOpen}
+                  onPress={() => {
+                    const open = categoryPanelOpen;
+                    closePanels();
+                    setCategoryPanelOpen(!open);
+                  }}
+                />
+                <MapControl
                   icon={{ ios: 'building.columns', android: 'account_balance', web: 'account_balance' }}
                   label="Lieux"
                   accessibilityLabel={showPlaces ? 'Masquer les lieux' : 'Afficher les lieux'}
@@ -534,9 +571,9 @@ export default function MapScreen() {
                   }
                   active={period !== 'all' || periodPanelOpen}
                   onPress={() => {
-                    setPlaceListOpen(false);
-                    setRadiusPanelOpen(false);
-                    setPeriodPanelOpen((open) => !open);
+                    const open = periodPanelOpen;
+                    closePanels();
+                    setPeriodPanelOpen(!open);
                   }}
                 />
                 <MapControl
@@ -547,9 +584,9 @@ export default function MapScreen() {
                   }
                   active={activeRadiusKm !== null || radiusPanelOpen}
                   onPress={() => {
-                    setPlaceListOpen(false);
-                    setPeriodPanelOpen(false);
-                    setRadiusPanelOpen((open) => !open);
+                    const open = radiusPanelOpen;
+                    closePanels();
+                    setRadiusPanelOpen(!open);
                   }}
                 />
                 {showPlaces && visiblePlaces.length > 0 && (
@@ -561,9 +598,9 @@ export default function MapScreen() {
                     }
                     active={placeListOpen}
                     onPress={() => {
-                      setRadiusPanelOpen(false);
-                      setPeriodPanelOpen(false);
-                      setPlaceListOpen((open) => !open);
+                      const open = placeListOpen;
+                      closePanels();
+                      setPlaceListOpen(!open);
                     }}
                   />
                 )}
@@ -606,6 +643,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
     margin: Spacing.three,
+  },
+  searchRow: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  search: {
+    flex: 1,
   },
   bottom: {
     justifyContent: 'flex-end',
