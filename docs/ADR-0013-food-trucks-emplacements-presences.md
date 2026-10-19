@@ -150,3 +150,27 @@ par présence du jour, triée par distance, qui ouvre la fiche du food truck.
 Code : `features/list/foodTruckList.ts` (règle pure, testée),
 `useFoodTruckList.ts` (chargé seulement quand l'onglet est ouvert),
 `FoodTruckCard.tsx`.
+
+## 7. FOODTRUCK-01 — gestion des présences par le professionnel (19/10/2026)
+
+API `/api/v1/pro/foodtrucks/{id}/presences` et `/api/v1/pro/presences/{id}`,
+écran « Mes food trucks » de l'espace pro (web).
+
+- **Emplacement** : un lieu LocalLife publié (`placeId`, recherché par nom et
+  commune) ou une adresse saisie (`newSpot`, position déduite de l'adresse si
+  absente), qui devient une `location` non typée. Un lieu existant n'est
+  jamais modifié.
+- **Créneau** : type (marché, espace privé, événement, autre), jours (aucun =
+  tous les jours), horaires d'arrivée et de départ, période facultative.
+  Règles pures dans `PresenceRules` : horaires tous deux renseignés ou absents,
+  départ après l'arrivée, période dans l'ordre et pas entièrement passée.
+- **Doublons** : deux présences non archivées d'un même food truck ne peuvent
+  pas se chevaucher (jour commun, périodes et horaires qui se croisent ; des
+  créneaux bout à bout sont permis) : 409.
+- **Cycle de vie** : brouillon (aperçu dans la liste du professionnel), publié,
+  désactivé (suspendu) puis réactivé, archivé. Une présence dont la période est
+  passée ne peut pas être republiée sans être modifiée.
+- L'interface rappelle que LocalLife n'accorde aucune autorisation de
+  stationnement.
+- Tests : `ProFoodTruckIntegrationTest`, `PresenceRulesTest`,
+  `ProFoodTrucksSection.test.tsx`.

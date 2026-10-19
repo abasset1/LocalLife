@@ -69,7 +69,14 @@ Décisions et modèle : [`docs/ADR-0012-espace-professionnel-revendication.md`](
   `.../approve`, `.../reject` et `.../request-info` (motif obligatoire pour ces
   deux derniers). Seule l'approbation ouvre un droit de gestion ; la fiche du
   lieu n'est jamais modifiée par une demande.
-* Food truck : entrée distincte annoncée, en attente de PRO-01 lot C.
+* Food trucks du professionnel (`/api/v1/pro/foodtrucks`, page `/pro` →
+  « Mes food trucks ») : profil en brouillon puis publié par son propriétaire
+  (`POST .../{id}/publish|suspend|archive`), emplacements et planning
+  (`GET|POST /pro/foodtrucks/{id}/presences`, `PUT /pro/presences/{id}`,
+  `POST /pro/presences/{id}/publish|suspend|archive` ; 409 en cas de
+  chevauchement). Suspension par un administrateur :
+  `PATCH /api/v1/admin/foodtrucks/{id}/suspend|reinstate`.
+  `POST /api/v1/foodtrucks` est réservé aux comptes professionnels.
 
 ## Food trucks (ARCHI-01)
 

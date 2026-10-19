@@ -263,8 +263,10 @@ class NonRegressionIntegrationTest {
 
     @Test
     void foodTruck_ShouldBeVisibleOnPublicMap() {
-        // Given : un food truck créé par un utilisateur connecté (LL-6009, statut PUBLISHED par défaut).
-        String userToken = registerAndLoginAsUser(uniqueEmail());
+        // Given : un food truck créé par un compte professionnel (LL-6009 ; réservé aux pros depuis PRO-01 lot C).
+        String email = uniqueEmail();
+        String userToken = registerAndLoginAsUser(email);
+        jdbcTemplate.update("UPDATE users SET role = 'PRO' WHERE email = ?", email);
         String name = cleaner.trackFoodTruck("Le Camion qui Fume " + UUID.randomUUID());
 
         restTestClient().post().uri("/api/v1/foodtrucks")

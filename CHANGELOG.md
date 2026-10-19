@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Food trucks gérés par les professionnels (PRO-01 lot C, FOODTRUCK-01)
+- **Créer son food truck** depuis l'espace pro (« Mes food trucks ») : nom commercial, cuisine, description, contact. Brouillon, puis publication par le professionnel lui-même (pas de modération préalable) ; suspension, republication, archivage. Un professionnel ne voit et ne modifie que ses propres food trucks.
+- **Emplacements et planning** : un lieu LocalLife existant ou une adresse, un type (marché, espace privé, événement, autre), des jours, des horaires et une période. Brouillon d'abord, publication ensuite ; désactiver, réactiver, archiver. Deux emplacements d'un même food truck ne peuvent pas se chevaucher. Rappel : LocalLife n'accorde aucune autorisation de stationnement.
+- **Suspension par LocalLife** (Administration → Professionnels) : le food truck disparaît de la carte et son propriétaire ne peut plus le republier ; un administrateur peut lever la suspension.
+- `POST /api/v1/foodtrucks` est désormais réservé aux comptes professionnels, qui en deviennent propriétaires (réponse inchangée).
+- Migration `V66` : propriétaire, statuts brouillon/suspendu/archivé, suspension administrative. Food trucks existants inchangés (sans propriétaire).
+
 ### Food trucks : profil, emplacements et présences (ARCHI-01, ADR-0013)
 - **Un food truck n'est plus un point fixe** : sa position vient de ses présences (un emplacement, un type — marché, espace privé, événement, autre — des jours, des horaires et une période). Un emplacement est une ligne de `location` ; il peut être un lieu LocalLife existant. Plusieurs food trucks peuvent partager un emplacement, un food truck peut en fréquenter plusieurs.
 - **Carte et liste du jour** : `GET /api/v1/foodtrucks` renvoie un élément par présence active (paramètre `date`, aujourd'hui par défaut, heure de Paris). Une présence expirée, à venir ou suspendue n'est jamais montrée comme actuelle. Les champs historiques sont conservés.

@@ -90,6 +90,16 @@ class FoodTruckControllerIntegrationTest {
         return login.token();
     }
 
+    /**
+     * Compte professionnel (PRO-01 lot C) : la création d'un food truck lui est réservée. Le rôle est relu en base
+     * à chaque appel ({@code RoleProAccessPolicy}) : le jeton obtenu avant le changement de rôle suffit.
+     */
+    private String registerAndLoginAsPro(String email) {
+        String token = registerAndLoginAsUser(email);
+        jdbcTemplate.update("UPDATE users SET role = 'PRO' WHERE email = ?", email);
+        return token;
+    }
+
     @Test
     void getAllFoodTrucks_ShouldReturnOk_WithoutAuthentication() {
         restTestClient().get().uri("/api/v1/foodtrucks").exchange().expectStatus().isOk();
@@ -98,7 +108,7 @@ class FoodTruckControllerIntegrationTest {
     @Test
     void createFoodTruck_ShouldReturnCreated_WhenAuthenticatedAndValid() {
         // Given
-        String token = registerAndLoginAsUser(uniqueEmail());
+        String token = registerAndLoginAsPro(uniqueEmail());
 
         // When / Then
         restTestClient().post().uri("/api/v1/foodtrucks")
@@ -118,7 +128,7 @@ class FoodTruckControllerIntegrationTest {
     @Test
     void createFoodTruck_ShouldBeVisibleOnPublicListing_AfterCreation() {
         // Given : un food truck créé via le flux protégé normal.
-        String token = registerAndLoginAsUser(uniqueEmail());
+        String token = registerAndLoginAsPro(uniqueEmail());
         String uniqueName = cleaner.trackFoodTruck("Le Camion qui Fume " + UUID.randomUUID());
         restTestClient().post().uri("/api/v1/foodtrucks")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
@@ -146,6 +156,18 @@ class FoodTruckControllerIntegrationTest {
     }
 
     @Test
+    void createFoodTruck_ShouldBeForbidden_ForANonProfessionalAccount() {
+        String token = registerAndLoginAsUser(uniqueEmail());
+        restTestClient().post().uri("/api/v1/foodtrucks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new FoodTruckController.CreateFoodTruckRequest(
+                        cleaner.trackFoodTruck("Refusé " + UUID.randomUUID()), "desc", 43.29, 5.37, "burger", null))
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
     void createFoodTruck_ShouldReturnUnauthorized_WhenNoTokenProvided() {
         restTestClient().post().uri("/api/v1/foodtrucks")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -157,7 +179,7 @@ class FoodTruckControllerIntegrationTest {
 
     @Test
     void createFoodTruck_ShouldReturnBadRequest_WhenNameMissing() {
-        String token = registerAndLoginAsUser(uniqueEmail());
+        String token = registerAndLoginAsPro(uniqueEmail());
 
         restTestClient().post().uri("/api/v1/foodtrucks")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)

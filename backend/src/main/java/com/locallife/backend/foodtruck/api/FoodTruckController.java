@@ -1,11 +1,13 @@
 package com.locallife.backend.foodtruck.api;
 
+import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.foodtruck.application.FoodTruckService;
 import com.locallife.backend.foodtruck.application.FoodTruckService.FoodTruckDetail;
 import com.locallife.backend.foodtruck.domain.FoodTruck;
 import com.locallife.backend.foodtruck.domain.FoodTruckPresence;
 import com.locallife.backend.foodtruck.domain.SpotKind;
+import com.locallife.backend.pro.application.ProAccessPolicy;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -20,6 +22,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,9 +53,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class FoodTruckController {
 
     private final FoodTruckService foodTruckService;
+    private final ProAccessPolicy proAccessPolicy;
 
-    public FoodTruckController(FoodTruckService foodTruckService) {
+    public FoodTruckController(FoodTruckService foodTruckService, ProAccessPolicy proAccessPolicy) {
         this.foodTruckService = foodTruckService;
+        this.proAccessPolicy = proAccessPolicy;
     }
 
     @Operation(
@@ -97,21 +102,27 @@ public class FoodTruckController {
 
     @Operation(
             summary = "Crée un food truck",
-            description = "Crée un food truck (statut PUBLISHED par défaut, visible immédiatement — voir "
-                    + "FoodTruck). Réservé aux utilisateurs authentifiés, même posture que "
-                    + "POST /api/v1/activities.")
+            description = "Crée un food truck publié, avec une présence permanente à la position reçue "
+                    + "(ADR-0013). Réservé aux comptes professionnels, qui en deviennent propriétaires (PRO-01 lot C). "
+                    + "L'espace professionnel (/api/v1/pro/foodtrucks) offre le parcours complet.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Food truck créé avec succès."),
         @ApiResponse(responseCode = "400",
                 description = "Nom ou catégorie manquant/vide, nom trop long, ou coordonnées hors bornes.",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-        @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide).")
+        @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide)."),
+        @ApiResponse(responseCode = "403", description = "Compte professionnel requis.")
     })
     @PostMapping("/foodtrucks")
     public ResponseEntity<Object> createFoodTruck(
-            @RequestBody CreateFoodTruckRequest request, HttpServletRequest httpRequest) {
+            @RequestBody CreateFoodTruckRequest request, Authentication authentication,
+            HttpServletRequest httpRequest) {
+        Long userId = ((JwtAuthentication) authentication).getUserId();
+        if (!proAccessPolicy.hasProAccess(userId)) {
+            return errorResponse(HttpStatus.FORBIDDEN, "Compte professionnel requis.", httpRequest);
+        }
         try {
-            FoodTruck foodTruck = foodTruckService.createFoodTruck(
+            FoodTruck foodTruck = foodTruckService.createFoodTruck(userId,
                     request.name(), request.description(), request.latitude(), request.longitude(),
                     request.category(), request.contact());
             return ResponseEntity.status(HttpStatus.CREATED).body(foodTruck);
