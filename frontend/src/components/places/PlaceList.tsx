@@ -22,7 +22,8 @@ function PlaceList({ places, onSelectActivity }: {
     const [type, setType] = useState("");
     const [openId, setOpenId] = useState<number | null>(null);
     // Espace professionnel (ADR-0012) : le lien n'est qu'un raccourci, le backend vérifie le droit professionnel.
-    const isPro = getPayload()?.role === "PRO";
+    const role = getPayload()?.role;
+    const isPro = role === "PRO" || role === "ADMIN";
 
     const typeOptions = useMemo(
         () => [...new Set(places.map((place) => place.placeType))]

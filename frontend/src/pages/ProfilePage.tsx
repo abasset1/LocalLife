@@ -173,8 +173,13 @@ function ProfilePage() {
                                 <p className="pp-hero-email">{profile.email}</p>
                                 <div className="pp-hero-badges">
                                     <span className="pp-hero-badge">
-                                        {profile.role === "ADMIN" ? "Administrateur" : "Utilisateur"}
+                                        {profile.role === "ADMIN" ? "Administrateur"
+                                            : profile.role === "PRO" ? "Professionnel" : "Utilisateur"}
                                     </span>
+                                    {/* Rôle relu en base : le lien apparaît dès l'attribution, sans reconnexion. */}
+                                    {(profile.role === "PRO" || profile.role === "ADMIN") && (
+                                        <Link className="pp-hero-badge" to="/pro">Espace professionnel →</Link>
+                                    )}
                                     <span className="pp-hero-badge">Membre depuis {formatDate(profile.createdAt)}</span>
                                 </div>
                             </div>

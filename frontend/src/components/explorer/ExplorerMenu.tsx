@@ -78,7 +78,7 @@ function ExplorerMenu({ isOpen, onClose, currentUser, onOpenContributionForm, on
                             <Link className="explorer-menu-link" onClick={onClose} to="/profile">
                                 Mon profil
                             </Link>
-                            {currentUser.role === "PRO" && (
+                            {(currentUser.role === "PRO" || currentUser.role === "ADMIN") && (
                                 <Link className="explorer-menu-link" onClick={onClose} to="/pro">
                                     Espace professionnel
                                 </Link>

@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Espace professionnel visible
+- L'espace professionnel (saisie de lieux et de food trucks) est ouvert aux administrateurs, qui ne pouvaient ni recevoir le rôle PRO ni y accéder. Un administrateur ne statue toujours pas sur sa propre demande de gestion.
+- Le lien « Espace professionnel » apparaît dans le menu pour les comptes PRO et administrateurs, et sur la page Profil dès que le rôle est attribué (sans se reconnecter). Le Profil affiche « Professionnel » pour un compte PRO.
+
 ### Import OpenAgenda : causes d'échec lisibles, appels bornés dans le temps
 - La découverte des agendas et la collecte OpenAgenda n'affichent plus seulement « Échec… » : la cause est donnée (clé API refusée en 401/403 avec le message d'OpenAgenda, agenda introuvable, quota, OpenAgenda injoignable), sans jamais exposer la clé.
 - Délais de connexion (10 s) et de lecture (60 s) sur les appels OpenAgenda : un appel bloqué ne peut plus garder le verrou d'import et faire ignorer tous les imports planifiés suivants.

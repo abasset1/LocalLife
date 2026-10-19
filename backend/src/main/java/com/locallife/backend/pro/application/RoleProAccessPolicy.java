@@ -5,9 +5,11 @@ import com.locallife.backend.user.infrastructure.UserRepository;
 import org.springframework.stereotype.Service;
 
 /**
- * Accès professionnel accordé par le rôle {@code PRO} (ADR-0012, décision D1). Le rôle est relu en base à chaque
- * appel, pas dans le JWT : un rôle attribué ou retiré par un administrateur prend effet immédiatement, sans attendre
- * l'expiration du jeton.
+ * Accès professionnel accordé par le rôle {@code PRO} (ADR-0012, décision D1), et aux administrateurs : un compte
+ * {@code ADMIN} ne peut pas recevoir le rôle {@code PRO} et doit pourtant pouvoir saisir des lieux et des food trucks
+ * (et vérifier l'espace professionnel). Un administrateur ne statue jamais sur sa propre demande de gestion
+ * ({@code PlaceClaimService#moderate}). Le rôle est relu en base à chaque appel, pas dans le JWT : un rôle attribué
+ * ou retiré par un administrateur prend effet immédiatement, sans attendre l'expiration du jeton.
  */
 @Service
 public class RoleProAccessPolicy implements ProAccessPolicy {
@@ -20,6 +22,7 @@ public class RoleProAccessPolicy implements ProAccessPolicy {
 
     @Override
     public boolean hasProAccess(Long userId) {
-        return userId != null && userRepository.findById(userId).map(user -> user.role() == Role.PRO).orElse(false);
+        return userId != null && userRepository.findById(userId)
+                .map(user -> user.role() == Role.PRO || user.role() == Role.ADMIN).orElse(false);
     }
 }
