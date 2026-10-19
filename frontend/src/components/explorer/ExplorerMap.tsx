@@ -214,10 +214,11 @@ function MapInvalidateOnResize() {
 interface ExplorerMapProps {
     activities: Activity[];
     foodTrucks: FoodTruck[];
-    /** Couche « Food trucks » (ADR-0013), distincte des activités et des lieux. */
-    showFoodTrucks?: boolean;
-    /** Couche « Lieux » (ADR-0011, phase B) : lieux permanents publiés de la zone affichée. */
-    showPlaces?: boolean;
+    /**
+     * Seul contenu affiché : activités, lieux permanents publiés de la zone (ADR-0011, phase B) ou food trucks
+     * (ADR-0013) — jamais plusieurs à la fois.
+     */
+    layer?: "activities" | "places" | "foodTrucks";
     /** Lieux de la couche « Lieux » chargés pour la zone affichée. */
     onPlacesChange?: (places: Place[]) => void;
     userPosition: UserPosition | null;
@@ -233,8 +234,7 @@ interface ExplorerMapProps {
 function ExplorerMap({
     activities,
     foodTrucks,
-    showFoodTrucks = true,
-    showPlaces = false,
+    layer = "activities",
     onPlacesChange,
     userPosition,
     radiusKm,
@@ -281,7 +281,7 @@ function ExplorerMap({
               lieu d'un Popup Leaflet (LL-EF-017, section 8 : "afficher son aperçu").
             */}
             <MarkerClusterGroup>
-                {activities.filter(hasCoordinates).map((activity) => (
+                {layer === "activities" && activities.filter(hasCoordinates).map((activity) => (
                     <Marker
                         eventHandlers={{ click: () => onSelectActivity(activity) }}
                         key={activity.id}
@@ -292,8 +292,8 @@ function ExplorerMap({
                     />
                 ))}
             </MarkerClusterGroup>
-            <PlacesLayer enabled={showPlaces} onPlacesChange={onPlacesChange} onSelectActivity={onSelectActivity} />
-            {showFoodTrucks && foodTrucks.map((foodTruck) => (
+            <PlacesLayer enabled={layer === "places"} onPlacesChange={onPlacesChange} onSelectActivity={onSelectActivity} />
+            {layer === "foodTrucks" && foodTrucks.map((foodTruck) => (
                 <Marker
                     icon={FOOD_TRUCK_MARKER_ICON}
                     key={`food-truck-presence-${foodTruck.presenceId}`}

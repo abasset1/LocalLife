@@ -42,7 +42,7 @@ import { ActivityMarker, ClusterMarker, FoodTruckMarker, PlaceMarker } from './m
 import { PlaceListPanel } from './PlaceListPanel';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData, type RadiusSearch } from './useMapData';
-import { loadShowFoodTrucks, loadShowPlaces, saveShowFoodTrucks, saveShowPlaces } from './placesPreference';
+import { type MapLayer, loadMapLayer, saveMapLayer } from './placesPreference';
 import { usePlaces } from './usePlaces';
 import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
@@ -89,7 +89,8 @@ const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 /**
  * Carte interactive de l'onglet « Découvrir » (LL-MOB-0005) : activités
- * publiées (regroupées en clusters), food trucks distincts, aperçu rapide
+ * publiées (regroupées en clusters), lieux ou food trucks — un seul de ces
+ * contenus à la fois —, aperçu rapide
  * d'un élément, états chargement / erreur / aucun résultat.
  */
 export default function MapScreen() {
@@ -232,37 +233,32 @@ export default function MapScreen() {
     pendingFocusId.current = null;
     select({ kind: 'activity', activity });
   }, [activities, select]);
-  // Couche « Lieux » (ADR-0011, phase B) : désactivée par défaut, choix mémorisé sur l'appareil.
-  const [showPlaces, setShowPlaces] = useState(false);
+  // Un seul contenu à la fois : activités (par défaut), lieux (ADR-0011, phase B) ou food trucks (ADR-0013).
+  // Choix mémorisé sur l'appareil.
+  const [mapLayer, setMapLayer] = useState<MapLayer>('activities');
   useEffect(() => {
     let active = true;
-    loadShowPlaces().then((shown) => {
-      if (active && shown) setShowPlaces(true);
+    loadMapLayer().then((layer) => {
+      if (active) setMapLayer(layer);
     });
     return () => {
       active = false;
     };
   }, []);
-  const toggleShowPlaces = useCallback(() => {
-    setShowPlaces(!showPlaces);
-    saveShowPlaces(!showPlaces);
-  }, [showPlaces]);
+  /** Bouton « Lieux » ou « Food trucks » : affiche ce contenu à la place du précédent, ou revient aux activités. */
+  const toggleMapLayer = useCallback(
+    (layer: MapLayer) => {
+      const next = mapLayer === layer ? 'activities' : layer;
+      closePanels();
+      setMapLayer(next);
+      saveMapLayer(next);
+    },
+    [mapLayer, closePanels],
+  );
+  const showActivities = mapLayer === 'activities';
+  const showPlaces = mapLayer === 'places';
+  const showFoodTrucks = mapLayer === 'foodTrucks';
   const places = usePlaces(region, showPlaces);
-  // Couche « Food trucks » (ADR-0013), distincte des activités et des lieux : affichée par défaut.
-  const [showFoodTrucks, setShowFoodTrucks] = useState(true);
-  useEffect(() => {
-    let active = true;
-    loadShowFoodTrucks().then((shown) => {
-      if (active && !shown) setShowFoodTrucks(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-  const toggleShowFoodTrucks = useCallback(() => {
-    setShowFoodTrucks(!showFoodTrucks);
-    saveShowFoodTrucks(!showFoodTrucks);
-  }, [showFoodTrucks]);
   const location = useUserLocation();
 
   const bounds = useMemo(() => regionToBounds(region), [region]);
@@ -282,13 +278,13 @@ export default function MapScreen() {
 
   const clusters = useMemo(
     () =>
-      bounds
+      bounds && showActivities
         ? index.getClusters(
             [bounds.swLongitude, bounds.swLatitude, bounds.neLongitude, bounds.neLatitude],
             zoom,
           )
         : [],
-    [index, bounds, zoom],
+    [index, bounds, zoom, showActivities],
   );
 
   const visibleFoodTrucks = useMemo(
@@ -298,8 +294,8 @@ export default function MapScreen() {
   );
 
   const visiblePlaces = useMemo(
-    () => (bounds ? places.filter((p) => pointInBounds(bounds, p.latitude, p.longitude)) : []),
-    [places, bounds],
+    () => (bounds && showPlaces ? places.filter((p) => pointInBounds(bounds, p.latitude, p.longitude)) : []),
+    [places, bounds, showPlaces],
   );
 
   /**
@@ -336,7 +332,7 @@ export default function MapScreen() {
       ? location.status
       : null;
 
-  const isEmpty = !loading && !error && !tooWide && clusters.length === 0 && visibleFoodTrucks.length === 0;
+  const isEmpty = showActivities && !loading && !error && !tooWide && clusters.length === 0;
 
   return (
     <View style={styles.container}>
@@ -508,7 +504,7 @@ export default function MapScreen() {
               </Pressable>
             </View>
           )}
-          {tooWide && !loading && !error && (
+          {showActivities && tooWide && !loading && !error && (
             <View
               accessibilityLiveRegion="polite"
               style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
@@ -609,15 +605,17 @@ export default function MapScreen() {
               />
               <MapControl
                 icon={{ ios: 'building.columns', android: 'account_balance', web: 'account_balance' }}
-                accessibilityLabel={showPlaces ? 'Masquer les lieux' : 'Afficher les lieux'}
+                accessibilityLabel={showPlaces ? 'Revenir aux activités' : 'Afficher les lieux à la place des activités'}
                 active={showPlaces}
-                onPress={toggleShowPlaces}
+                onPress={() => toggleMapLayer('places')}
               />
               <MapControl
                 icon={{ ios: 'truck.box', android: 'local_shipping', web: 'local_shipping' }}
-                accessibilityLabel={showFoodTrucks ? 'Masquer les food trucks' : 'Afficher les food trucks'}
+                accessibilityLabel={
+                  showFoodTrucks ? 'Revenir aux activités' : 'Afficher les food trucks à la place des activités'
+                }
                 active={showFoodTrucks}
-                onPress={toggleShowFoodTrucks}
+                onPress={() => toggleMapLayer('foodTrucks')}
               />
               <MapControl
                 icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }}

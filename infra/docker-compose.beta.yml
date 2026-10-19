@@ -54,6 +54,9 @@ services:
       SMTP_SSL: ${SMTP_SSL:-false}
       MAIL_FROM: ${MAIL_FROM:?Configure MAIL_FROM in .env.beta}
       FRONTEND_BASE_URL: https://${LOCALLIFE_DOMAIN}
+      # Connexion Google (LL-EF-011) : audience attendue des ID tokens.
+      # Facultatif ; vide, POST /api/v1/auth/google refuse tout token.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     depends_on:
       - postgres
     restart: unless-stopped
@@ -61,6 +64,10 @@ services:
   frontend:
     build:
       context: ../frontend
+      # Même client que GOOGLE_CLIENT_ID ci-dessus, figé dans le bundle au
+      # build : après modification, reconstruire avec --build.
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     container_name: locallife-frontend-beta
     depends_on:
       - backend

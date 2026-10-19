@@ -2,6 +2,14 @@
 
 ## 0.9.59 — non publiée
 
+### Carte : un seul contenu à la fois
+- La carte affiche les activités, les lieux **ou** les food trucks, plus jamais plusieurs superposés. Site : sélecteur « Activités / Lieux / Food trucks » sur la carte, la liste suit le contenu choisi (plus d'onglets). Application : les boutons Lieux et Food trucks remplacent les activités, un second appui y revient.
+- Activités par défaut ; le choix est mémorisé (`locallife.mapLayer`, remplace `locallife.showPlaces` et `locallife.showFoodTrucks`). Pendant une recherche texte (site), seules les activités sont proposées.
+
+### Connexion Google en bêta
+- `docker-compose.beta.yml` transmet `GOOGLE_CLIENT_ID` au backend et au build du frontend (`VITE_GOOGLE_CLIENT_ID`, argument de build du `Dockerfile`) : renseigner cette seule variable dans `.env.beta` et reconstruire suffit à activer « Continuer avec Google ». Facultative : sans elle, le bouton reste masqué.
+- Procédure de création du client OAuth (écran de consentement, origines autorisées) dans `docs/02_Architecture/BETA_DEPLOYMENT.md`.
+
 ### E-mails : diagnostic et robustesse
 - **Administration → E-mails** : configuration SMTP effective (sans le mot de passe), alertes sur une configuration incohérente, et envoi d'un e-mail de test qui explique l'échec (identifiants refusés, serveur injoignable, délai dépassé, chiffrement, expéditeur refusé).
 - Prise en charge du port 465 (`SMTP_SSL=true`), transmise par `docker-compose.beta.yml`.

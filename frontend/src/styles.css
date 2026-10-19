@@ -3428,11 +3428,21 @@ body {
     font-size: 1rem;
 }
 
-.explorer-places-toggle {
+/* Choix du contenu de la carte : activités, lieux ou food trucks, un seul à la fois. */
+.explorer-layer-switch {
     position: absolute;
     bottom: 1.5rem;
     left: 0.75rem;
+    right: 0.75rem;
     z-index: 500;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    pointer-events: none;
+}
+
+.explorer-places-toggle {
+    pointer-events: auto;
     border: 1px solid rgba(0, 0, 0, 0.2);
     border-radius: 999px;
     background: #ffffff;
@@ -3440,6 +3450,11 @@ body {
     cursor: pointer;
     font-size: 0.9rem;
     padding: 0.4rem 0.9rem;
+}
+
+.explorer-places-toggle:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
 }
 
 .explorer-places-toggle-active {
@@ -3483,28 +3498,6 @@ body {
 }
 
 /* ADR-0011, § 2.4 : onglets « Activités » / « Lieux » du panneau de liste. */
-.explorer-list-tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-}
-
-.explorer-list-tab {
-    border: 1px solid var(--ll-line);
-    border-radius: 999px;
-    background: #ffffff;
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.9rem;
-    padding: 0.3rem 0.9rem;
-}
-
-.explorer-list-tab-active {
-    border-color: var(--ll-green);
-    background: var(--ll-green);
-    color: #ffffff;
-}
-
 .place-list-filter {
     display: flex;
     flex-direction: column;
@@ -3592,10 +3585,6 @@ body {
 }
 
 /* Couche « Food trucks » (ADR-0013) : bascule à côté de celle des lieux. */
-.explorer-food-trucks-toggle {
-    left: 7.5rem;
-}
-
 .place-food-trucks ul {
     margin: 0.25rem 0 0.5rem;
     padding-left: 1rem;

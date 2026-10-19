@@ -241,6 +241,11 @@ sur `backend/.env.example` :
   données OpenAgenda plutôt que des activités créées manuellement.
   Voir `docs/02_Architecture/COLLECTOR_OPERATIONS.md` pour le détail
   de ces variables.
+* `GOOGLE_CLIENT_ID` — facultatif, pour « Continuer avec Google ».
+  Même valeur dans `frontend/.env` sous le nom `VITE_GOOGLE_CLIENT_ID`
+  (voir `frontend/.env.example`), avec `http://localhost:5173` dans les
+  origines JavaScript autorisées du client Google. Création du client :
+  `docs/02_Architecture/BETA_DEPLOYMENT.md`, « Connexion Google ».
 
 ### 3. Démarrage backend/frontend
 

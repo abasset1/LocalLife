@@ -134,6 +134,7 @@ template sans valeur réelle est fourni dans
 | `SMTP_SSL` | Connexion chiffrée dès le départ, pour le port 465 (défaut : `false`) | Non |
 | `MAIL_FROM` | Adresse expéditeur autorisée par le prestataire | Non |
 | `FRONTEND_BASE_URL` | URL des liens de confirmation/réinitialisation | Non |
+| `GOOGLE_CLIENT_ID` | Client OAuth Google « Application Web » (LL-EF-011), facultatif : transmis au backend et figé dans le bundle frontend (`VITE_GOOGLE_CLIENT_ID`) | Non (identifiant public ; le client secret n'est jamais utilisé) |
 
 Le service backend de `docker-compose.beta.yml` transmet désormais les
 variables SMTP à Spring. `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`
@@ -153,6 +154,38 @@ envoie un e-mail de test en expliquant l'échec : identifiants refusés (Gmail
 et Outlook exigent un mot de passe d'application), serveur inconnu ou
 injoignable, délai dépassé, chiffrement mal choisi, expéditeur `MAIL_FROM`
 refusé. Délais SMTP : 10 s pour la connexion, la lecture et l'écriture.
+
+### Connexion Google (LL-EF-011)
+
+Le code est en place des deux côtés (bouton Google Identity Services sur
+les pages Connexion/Inscription, `POST /api/v1/auth/google` qui vérifie
+l'ID token, voir ADR-0002) ; il ne manque que l'identifiant client.
+
+1. Console Google Cloud → *API et services* → *Écran de consentement
+   OAuth* : type « Externe », nom de l'application, e-mail d'assistance,
+   domaine autorisé `duckdns.org` (ou le domaine réel). Champs d'accès :
+   `openid`, `email`, `profile` (aucune validation Google requise).
+   En mode « Test », seuls les utilisateurs test déclarés peuvent se
+   connecter : publier l'application pour ouvrir la bêta.
+2. *Identifiants* → *Créer des identifiants* → *ID client OAuth* →
+   type « Application Web ». *Origines JavaScript autorisées* :
+   `https://<LOCALLIFE_DOMAIN>` (et `http://localhost:5173` pour le
+   développement). Aucune URI de redirection : le flux ne redirige pas.
+3. Dans `.env.beta` : `GOOGLE_CLIENT_ID=<id>.apps.googleusercontent.com`.
+4. Reconstruire backend **et** frontend (Vite fige la valeur dans le
+   bundle au build, un simple redémarrage ne suffit pas) :
+   ```bash
+   docker compose --env-file .env.beta -f docker-compose.beta.yml up -d --build backend frontend
+   ```
+5. Vérifier : le bouton « Continuer avec Google » apparaît sur
+   `/login` ; une connexion crée le compte (ou le lie à un compte
+   existant de même e-mail) et ouvre la session. Une erreur
+   `origin_mismatch` / « The given origin is not allowed » signifie que
+   l'origine de l'étape 2 ne correspond pas exactement au domaine.
+
+Sans `GOOGLE_CLIENT_ID`, rien ne casse : le bouton n'est pas affiché et
+l'endpoint refuse tout token. L'application mobile utilise ce même
+client « web » (voir `mobile/README.md`, « Connexion Google »).
 
 ---
 
@@ -352,6 +385,9 @@ Caddy. Conséquence directe, vérifiée en sandbox sur un build réel
   variable d'environnement (`import.meta.env`/`VITE_*` : aucune
   occurrence dans `frontend/src`), donc rien qui puisse embarquer une
   valeur de `.env.beta` dans le bundle livré au navigateur ;
+  *mise à jour LL-EF-011* : seule exception depuis, `VITE_GOOGLE_CLIENT_ID`
+  (argument de build alimenté par `GOOGLE_CLIENT_ID`), un identifiant
+  OAuth public par conception — aucun secret ;
 * **le frontend utilise nécessairement l'API bêta** : servi par le
   même conteneur Caddy que l'API (`Caddyfile.beta`), toute requête
   relative part automatiquement vers `https://<LOCALLIFE_DOMAIN>/api/...`.

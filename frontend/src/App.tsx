@@ -49,37 +49,33 @@ import type {
  * ticket : ExplorerMenu, ExplorerSearch, ExplorerFilters, ExplorerMap,
  * ActivityPreview, ActivityList, ActivityDetailModal, ContributionModal.
  */
-const SHOW_PLACES_STORAGE_KEY = "locallife.showPlaces";
-/** Couche « Food trucks » (ADR-0013) : affichée par défaut, comme avant qu'elle ait sa bascule. */
-const SHOW_FOOD_TRUCKS_STORAGE_KEY = "locallife.showFoodTrucks";
+/**
+ * Contenu affiché sur la carte et dans la liste : activités, lieux (ADR-0011, phase B) ou food trucks (ADR-0013),
+ * un seul à la fois — les trois superposés rendaient la carte illisible. Le choix est mémorisé dans le navigateur
+ * (confort seulement : tout fonctionne sans stockage).
+ */
+type MapLayer = "activities" | "places" | "foodTrucks";
 
-function readShowFoodTrucks(): boolean {
+const MAP_LAYER_STORAGE_KEY = "locallife.mapLayer";
+
+const MAP_LAYERS: { value: MapLayer; label: string; title: string }[] = [
+    { value: "activities", label: "📅 Activités", title: "Afficher les activités" },
+    { value: "places", label: "🏛 Lieux", title: "Afficher les lieux : musées, monuments, équipements…" },
+    { value: "foodTrucks", label: "🚚 Food trucks", title: "Afficher les food trucks présents aujourd'hui" },
+];
+
+function readMapLayer(): MapLayer {
     try {
-        return window.localStorage.getItem(SHOW_FOOD_TRUCKS_STORAGE_KEY) !== "false";
+        const stored = window.localStorage.getItem(MAP_LAYER_STORAGE_KEY);
+        return MAP_LAYERS.some((layer) => layer.value === stored) ? stored as MapLayer : "activities";
     } catch {
-        return true;
+        return "activities";
     }
 }
 
-function writeShowFoodTrucks(value: boolean) {
+function writeMapLayer(value: MapLayer) {
     try {
-        window.localStorage.setItem(SHOW_FOOD_TRUCKS_STORAGE_KEY, String(value));
-    } catch {
-        // Stockage indisponible : le choix vaut pour la session seulement.
-    }
-}
-
-function readShowPlaces(): boolean {
-    try {
-        return window.localStorage.getItem(SHOW_PLACES_STORAGE_KEY) === "true";
-    } catch {
-        return false;
-    }
-}
-
-function writeShowPlaces(value: boolean) {
-    try {
-        window.localStorage.setItem(SHOW_PLACES_STORAGE_KEY, String(value));
+        window.localStorage.setItem(MAP_LAYER_STORAGE_KEY, value);
     } catch {
         // Stockage indisponible (navigation privée…) : le choix vaut pour la session seulement.
     }
@@ -210,13 +206,9 @@ function App() {
     }
     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
     const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
-    // Couche « Lieux » (ADR-0011, phase B) : affichée sur demande, chargée par la carte (PlacesLayer). Le choix est
-    // mémorisé dans le navigateur (confort seulement : tout fonctionne sans stockage).
-    const [showPlaces, setShowPlaces] = useState<boolean>(() => readShowPlaces());
-    /** Lieux de la couche « Lieux » pour la zone affichée, et onglet du panneau de liste (ADR-0011, § 2.4). */
+    const [mapLayer, setMapLayer] = useState<MapLayer>(() => readMapLayer());
+    /** Lieux de la couche « Lieux » pour la zone affichée, chargés par la carte (PlacesLayer). */
     const [places, setPlaces] = useState<Place[]>([]);
-    const [listTab, setListTab] = useState<"activities" | "places" | "foodTrucks">("activities");
-    const [showFoodTrucks, setShowFoodTrucks] = useState<boolean>(() => readShowFoodTrucks());
     const [viewMode, setViewMode] = useState<"map" | "list">("map");
     /** Saisie de la barre de recherche ; seul un envoi explicite lance une recherche (`handleSearchSubmit`). */
     const [searchQuery, setSearchQuery] = useState("");
@@ -452,18 +444,9 @@ function App() {
         setRefreshKey((current) => current + 1);
     }
 
-    function toggleShowPlaces() {
-        setShowPlaces((current) => {
-            writeShowPlaces(!current);
-            return !current;
-        });
-    }
-
-    function toggleShowFoodTrucks() {
-        setShowFoodTrucks((current) => {
-            writeShowFoodTrucks(!current);
-            return !current;
-        });
+    function chooseMapLayer(layer: MapLayer) {
+        setMapLayer(layer);
+        writeMapLayer(layer);
     }
 
     // Récupération des food trucks (LL-6009), isolée de celle des activités. Depuis ADR-0013 : présences du jour.
@@ -563,18 +546,13 @@ function App() {
 
     const mapActivities = isTextSearch ? searchActivities : activities;
     const panelActivities = isTextSearch ? searchActivities : listedActivities;
-    // Onglet « Lieux » : seulement quand la couche est affichée, et hors recherche textuelle.
-    const showPlacesTab = showPlaces && !isTextSearch;
-    // Onglet « Food trucks » (ADR-0013) : même règle, avec ceux de la zone affichée.
-    const showFoodTrucksTab = showFoodTrucks && !isTextSearch;
+    // Une recherche texte ne renvoie que des activités : elles seules sont affichées tant qu'elle est active.
+    const activeLayer: MapLayer = isTextSearch ? "activities" : mapLayer;
     const visibleFoodTrucks = mapBounds
         ? foodTrucks.filter((foodTruck) => foodTruck.latitude >= mapBounds.swLatitude
             && foodTruck.latitude <= mapBounds.neLatitude && foodTruck.longitude >= mapBounds.swLongitude
             && foodTruck.longitude <= mapBounds.neLongitude)
         : foodTrucks;
-    const showListTabs = showPlacesTab || showFoodTrucksTab;
-    const activeListTab = (listTab === "places" && !showPlacesTab) || (listTab === "foodTrucks" && !showFoodTrucksTab)
-        ? "activities" : listTab;
 
     let emptyMessage = "Aucune activité trouvée dans cette zone.";
     if (isTextSearch) {
@@ -1213,48 +1191,46 @@ function App() {
                             activities={mapActivities}
                             fitKey={searchFitKey}
                             foodTrucks={foodTrucks}
-                            showFoodTrucks={showFoodTrucks}
+                            layer={activeLayer}
                             onBoundsChange={setMapBounds}
-                            showPlaces={showPlaces}
                             onPlacesChange={setPlaces}
                             onSelectActivity={handleSelectActivity}
                             selectedActivity={previewActivity}
                             userPosition={userPosition}
                             radiusKm={activeRadiusKm}
                         />
-                        <button
-                            aria-pressed={showPlaces}
-                            className={showPlaces ? "explorer-places-toggle explorer-places-toggle-active" : "explorer-places-toggle"}
-                            onClick={toggleShowPlaces}
-                            title="Afficher les lieux : musées, monuments, équipements…"
-                            type="button"
-                        >
-                            🏛 Lieux
-                        </button>
-                        <button
-                            aria-pressed={showFoodTrucks}
-                            className={showFoodTrucks
-                                ? "explorer-places-toggle explorer-food-trucks-toggle explorer-places-toggle-active"
-                                : "explorer-places-toggle explorer-food-trucks-toggle"}
-                            onClick={toggleShowFoodTrucks}
-                            title="Afficher les food trucks présents aujourd'hui"
-                            type="button"
-                        >
-                            🚚 Food trucks
-                        </button>
+                        <div aria-label="Afficher sur la carte" className="explorer-layer-switch" role="group">
+                            {MAP_LAYERS.map((layer) => (
+                                <button
+                                    aria-pressed={activeLayer === layer.value}
+                                    className={activeLayer === layer.value
+                                        ? "explorer-places-toggle explorer-places-toggle-active"
+                                        : "explorer-places-toggle"}
+                                    disabled={isTextSearch && layer.value !== "activities"}
+                                    key={layer.value}
+                                    onClick={() => chooseMapLayer(layer.value)}
+                                    title={isTextSearch && layer.value !== "activities"
+                                        ? "Indisponible pendant une recherche"
+                                        : layer.title}
+                                    type="button"
+                                >
+                                    {layer.label}
+                                </button>
+                            ))}
+                        </div>
                         {/*
                           Pendant une recherche texte, le bandeau sous la barre donne son état. Chargement,
                           erreur et absence de résultat sont exclusifs (spec P0-D). Sur téléphone, ces messages
                           et l'invitation à choisir un lieu s'empilent en bas de la carte (styles.css).
                         */}
                         <div className="explorer-map-notices">
-                            {!isTextSearch && isLoadingActivities && (
+                            {activeLayer === "activities" && !isTextSearch && isLoadingActivities && (
                                 <p className="explorer-status explorer-status-floating" role="status">
                                     <span aria-hidden="true" className="explorer-search-spinner" />
                                     Chargement des activités…
                                 </p>
                             )}
-                            {!isTextSearch && !isLoadingActivities && searchError && (
+                            {activeLayer === "activities" && !isTextSearch && !isLoadingActivities && searchError && (
                                 <div
                                     className="explorer-status explorer-status-error explorer-status-floating explorer-status-card"
                                     role="alert"
@@ -1265,7 +1241,7 @@ function App() {
                                     </button>
                                 </div>
                             )}
-                            {!isTextSearch && !isLoadingActivities && !searchError && activities.length === 0 && (
+                            {activeLayer === "activities" && !isTextSearch && !isLoadingActivities && !searchError && activities.length === 0 && (
                                 <div className="explorer-status explorer-status-floating explorer-status-card" role="status">
                                     {emptyResultsHelp}
                                 </div>
@@ -1296,44 +1272,9 @@ function App() {
                     </div>
 
                     <div className="explorer-list-panel" ref={searchListRef}>
-                        {showListTabs && (
-                            <div aria-label="Contenu de la liste" className="explorer-list-tabs" role="tablist">
-                                <button
-                                    aria-selected={activeListTab === "activities"}
-                                    className={activeListTab === "activities" ? "explorer-list-tab explorer-list-tab-active" : "explorer-list-tab"}
-                                    onClick={() => setListTab("activities")}
-                                    role="tab"
-                                    type="button"
-                                >
-                                    Activités
-                                </button>
-                                {showPlacesTab && (
-                                    <button
-                                        aria-selected={activeListTab === "places"}
-                                        className={activeListTab === "places" ? "explorer-list-tab explorer-list-tab-active" : "explorer-list-tab"}
-                                        onClick={() => setListTab("places")}
-                                        role="tab"
-                                        type="button"
-                                    >
-                                        Lieux ({places.length})
-                                    </button>
-                                )}
-                                {showFoodTrucksTab && (
-                                    <button
-                                        aria-selected={activeListTab === "foodTrucks"}
-                                        className={activeListTab === "foodTrucks" ? "explorer-list-tab explorer-list-tab-active" : "explorer-list-tab"}
-                                        onClick={() => setListTab("foodTrucks")}
-                                        role="tab"
-                                        type="button"
-                                    >
-                                        Food trucks ({visibleFoodTrucks.length})
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                        {activeListTab === "foodTrucks" ? (
+                        {activeLayer === "foodTrucks" ? (
                             <FoodTruckList foodTrucks={visibleFoodTrucks} />
-                        ) : activeListTab === "places" ? (
+                        ) : activeLayer === "places" ? (
                             <PlaceList onSelectActivity={handleSelectActivity} places={places} />
                         ) : (
                         <ActivityList
