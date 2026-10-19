@@ -71,6 +71,12 @@ export default function RootLayout() {
             <Stack.Screen name="mot-de-passe-oublie" options={{ title: 'Mot de passe oublié' }} />
             <Stack.Screen name="contributions/index" options={{ title: 'Mes contributions' }} />
             <Stack.Screen name="contributions/[id]" options={{ title: "Modifier l'activité" }} />
+            <Stack.Screen name="abonnement" options={{ title: 'Mon abonnement' }} />
+            <Stack.Screen name="pro/index" options={{ title: 'Espace professionnel' }} />
+            <Stack.Screen name="pro/revendiquer" options={{ title: 'Gérer un lieu existant' }} />
+            <Stack.Screen name="pro/nouveau-lieu" options={{ title: 'Créer un lieu' }} />
+            <Stack.Screen name="pro/foodtrucks/index" options={{ title: 'Mes food trucks' }} />
+            <Stack.Screen name="pro/foodtrucks/[id]" options={{ title: 'Mon food truck' }} />
             {/* Accueil de première connexion : plein écran, sans geste ni bouton de retour. */}
             <Stack.Screen
               name="bienvenue"

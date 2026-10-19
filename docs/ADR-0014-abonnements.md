@@ -52,3 +52,12 @@ et idempotent qui fait passer la demande à `ACTIVE` (identifiants dans
 `provider_*`), renouvellement qui avance `current_period_end`, échec de
 paiement et annulation qui suivent les mêmes transitions. Ni
 `ProAccessPolicy`, ni les écrans n'ont à changer.
+
+## Clients
+
+- Web : carte « Mon abonnement » de la page Profil ; Administration →
+  Professionnels → Abonnements ; lien « Espace professionnel » pour tous les
+  comptes, la page invitant à demander l'offre Pro si besoin.
+- Mobile : écran « Mon abonnement » et espace professionnel complet (lieux,
+  demandes de gestion, food trucks, emplacements et planning), accessibles
+  depuis le menu et la rubrique Compte.

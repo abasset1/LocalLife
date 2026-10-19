@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Application mobile : espace professionnel et abonnement
+- **Espace professionnel** (menu « Mon espace » et rubrique Compte), comme sur le site : demander la gestion d'un lieu existant (recherche, lien avec le lieu, justificatifs, suivi des demandes), créer un lieu (vérification des lieux proches, « C'est mon lieu », brouillon puis envoi à la modération), mes lieux, mes food trucks (profil, publication, suspension, archivage) avec leurs emplacements et leur planning (lieu existant ou adresse, type, jours, horaires, période ; brouillon, publication, désactivation, archivage).
+- **Mon abonnement** : offre actuelle et date de fin d'accès, passage à Premium ou Pro, retrait de la demande, résiliation.
+- Sans offre Pro, l'espace professionnel invite à la demander.
+
 ### Abonnements Premium et Pro (BILLING-01, ADR-0014)
 - **Mon abonnement** (page Profil) : offre actuelle (Gratuit, Premium ou Pro) et date de fin d'accès, « Passer à Premium » / « Passer à Pro », retrait de la demande, résiliation (accès conservé jusqu'à la fin de la période). La carte et la liste restent gratuites quelle que soit l'offre.
 - Pas de paiement pour l'instant : l'équipe active les demandes (Administration → Professionnels → Abonnements), avec une date de fin facultative ; refus motivé, retrait d'un accès. Chaque changement est journalisé.

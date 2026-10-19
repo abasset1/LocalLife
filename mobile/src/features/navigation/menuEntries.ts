@@ -6,7 +6,7 @@
 export interface MenuEntry {
   label: string;
   href: string;
-  icon: 'map' | 'list' | 'add' | 'account' | 'heart' | 'edit' | 'bell' | 'settings';
+  icon: 'map' | 'list' | 'add' | 'account' | 'heart' | 'edit' | 'bell' | 'settings' | 'pro' | 'star';
   /** Ancien onglet : on y bascule (état conservé) plutôt que d'empiler un écran. */
   main?: boolean;
 }
@@ -38,6 +38,8 @@ export const MENU_SECTIONS: readonly MenuSection[] = [
       { label: 'Mes contributions', href: '/contributions', icon: 'edit' },
       { label: 'Mes alertes', href: '/alertes', icon: 'bell' },
       { label: 'Paramètres de recherche', href: '/parametres', icon: 'settings' },
+      { label: 'Espace professionnel', href: '/pro', icon: 'pro' },
+      { label: 'Mon abonnement', href: '/abonnement', icon: 'star' },
     ],
   },
   {
