@@ -295,3 +295,24 @@ qu'un seul type de collecteur existe réellement.
    toujours la forme exacte du décalage horaire ISO 8601 (`+0100` vs
    `+01:00`) — voir le correctif équivalent dans `PROJECT_STATUS.md`
    pour `OpenAgendaCollector`, à reproduire si besoin.
+
+## Dépannage OpenAgenda (19/10/2026)
+
+Les échecs d'appel à OpenAgenda (collecte et découverte des agendas) disent
+désormais leur cause, sans jamais afficher la clé API :
+
+| Message | Cause probable | Action |
+|---|---|---|
+| « clé API refusée par OpenAgenda (HTTP 401/403) » | clé révoquée, régénérée ou mal recopiée | Vérifier `OPENAGENDA_API_KEY` sur le serveur, la régénérer sur le portail OpenAgenda si besoin, redémarrer le backend |
+| « ressource introuvable (HTTP 404) » | agenda supprimé ou identifiant erroné | Corriger l'agenda dans Administration → Agendas |
+| « trop de requêtes (HTTP 429) » | quota OpenAgenda atteint | Attendre ; réduire le nombre d'agendas actifs |
+| « OpenAgenda injoignable » | délai dépassé, réseau | Réessayer ; vérifier l'accès sortant du serveur |
+
+Chaque appel a un délai de connexion de 10 s et de lecture de 60 s : un
+appel bloqué ne peut plus garder indéfiniment le verrou « un import à la
+fois », qui faisait ignorer tous les imports planifiés suivants
+(« Import planifie ignore : un import est deja en cours » dans les journaux).
+
+`Dernière synchronisation` d'une source n'avance qu'après une collecte
+réussie : une date figée signale une collecte en échec, dont la cause est
+dans le bilan de l'import (Administration → Imports) et dans les journaux.

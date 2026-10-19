@@ -262,7 +262,7 @@ public class OpenAgendaCollector implements Collector {
                         .retrieve()
                         .body(OpenAgendaEventsResponse.class);
             } catch (RestClientException exception) {
-                throw new CollectorException("Échec de la collecte depuis OpenAgenda.", exception);
+                throw OpenAgendaErrors.failure("Échec de la collecte depuis OpenAgenda", exception);
             }
 
             if (response == null || response.events() == null || response.events().isEmpty()) {

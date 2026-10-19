@@ -3,15 +3,20 @@ package com.locallife.backend.collector.infrastructure;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.locallife.backend.collector.domain.DiscoveredAgenda;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -162,6 +167,34 @@ class OpenAgendaAgendaDirectoryTest {
         mockServer.expect(requestTo(containsString("/v2/agendas"))).andRespond(withServerError());
 
         assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(50));
+    }
+
+    @Test
+    void listOfficialAgendas_ShouldExplainARefusedKey_WithoutRevealingIt() {
+        OpenAgendaAgendaDirectory directory = newDirectory("cle-secrete");
+        mockServer.expect(requestTo(containsString("/v2/agendas"))).andRespond(withStatus(HttpStatus.FORBIDDEN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"message\":\"could not find user or agenda matching key\"}"));
+
+        CollectorException exception =
+                assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(50));
+        assertTrue(exception.getMessage().contains("clé API refusée par OpenAgenda (HTTP 403)"));
+        assertTrue(exception.getMessage().contains("could not find user or agenda matching key"));
+        assertTrue(exception.getMessage().contains("OPENAGENDA_API_KEY"));
+        assertFalse(exception.getMessage().contains("cle-secrete"));
+    }
+
+    @Test
+    void listOfficialAgendas_ShouldExplainANetworkFailure_WithoutKeepingTheUrl() {
+        OpenAgendaAgendaDirectory directory = newDirectory("cle-secrete");
+        mockServer.expect(requestTo(containsString("/v2/agendas")))
+                .andRespond(withException(new java.net.SocketTimeoutException("Read timed out")));
+
+        CollectorException exception =
+                assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(50));
+        assertTrue(exception.getMessage().contains("OpenAgenda injoignable"));
+        // La cause réseau porte l'URL, donc la clé : elle n'est pas conservée.
+        assertNull(exception.getCause());
     }
 
 }

@@ -4,7 +4,6 @@ import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.source.domain.Source;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
 
 /**
  * Construit un {@link OpenAgendaCollector} à partir d'une {@link Source}
@@ -51,6 +50,7 @@ public class OpenAgendaCollectorFactory {
      */
     public Collector create(Source source) {
         return new OpenAgendaCollector(
-                RestClient.builder(), apiKey, source.agendaUid(), source.name(), source.regionFilter());
+                OpenAgendaErrors.restClientBuilder(), apiKey, source.agendaUid(), source.name(),
+                source.regionFilter());
     }
 }
