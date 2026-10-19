@@ -3590,3 +3590,13 @@ body {
 .admin-duplicate-locations li {
     margin-bottom: 0.25rem;
 }
+
+/* Couche « Food trucks » (ADR-0013) : bascule à côté de celle des lieux. */
+.explorer-food-trucks-toggle {
+    left: 7.5rem;
+}
+
+.place-food-trucks ul {
+    margin: 0.25rem 0 0.5rem;
+    padding-left: 1rem;
+}

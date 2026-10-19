@@ -1,9 +1,15 @@
 package com.locallife.backend.foodtruck.application;
 
 import com.locallife.backend.foodtruck.domain.FoodTruck;
+import com.locallife.backend.foodtruck.domain.FoodTruckPresence;
+import com.locallife.backend.foodtruck.infrastructure.FoodTruckPresenceRepository;
 import com.locallife.backend.foodtruck.infrastructure.FoodTruckRepository;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service FoodTruck (LL-6009) — création avec validation (mêmes règles
@@ -38,18 +44,42 @@ public class FoodTruckService {
     private static final int MAX_NAME_LENGTH = 255;
 
     private final FoodTruckRepository foodTruckRepository;
+    private final FoodTruckPresenceRepository presenceRepository;
 
-    public FoodTruckService(FoodTruckRepository foodTruckRepository) {
+    public FoodTruckService(FoodTruckRepository foodTruckRepository, FoodTruckPresenceRepository presenceRepository) {
         this.foodTruckRepository = foodTruckRepository;
+        this.presenceRepository = presenceRepository;
+    }
+
+    /** Fuseau des dates de présence (« aujourd'hui » pour la carte). */
+    public static final ZoneId PRESENCE_ZONE = ZoneId.of("Europe/Paris");
+
+    /** Fiche publique d'un food truck et son planning (ADR-0013). */
+    public record FoodTruckDetail(FoodTruck foodTruck, List<FoodTruckPresence> presences) {
     }
 
     /**
-     * Food trucks visibles publiquement (LL-6009, critère « visibilité
-     * sur la carte ») : uniquement {@code PUBLISHED}, comme les activités
-     * depuis LL-6004.
+     * Présences actives le jour donné (ADR-0013, décision D2) : un élément par présence, un food truck présent à
+     * deux endroits apparaît deux fois. Seuls les food trucks {@code PUBLISHED} et les présences publiées valables
+     * ce jour-là sont retenus : une présence expirée, à venir ou suspendue n'est jamais présentée comme actuelle.
      */
-    public List<FoodTruck> findAllPublished() {
-        return foodTruckRepository.findByStatus(PUBLIC_STATUS);
+    public List<FoodTruckPresence> findActiveOn(LocalDate day) {
+        return presenceRepository.findActiveOn(day, null);
+    }
+
+    /** Food trucks présents le jour donné à un lieu LocalLife (lui-même ou un emplacement qui lui est relié). */
+    public List<FoodTruckPresence> findActiveAtPlace(Long placeId, LocalDate day) {
+        return presenceRepository.findActiveOn(day, placeId);
+    }
+
+    /** Food truck publié et ses présences encore valables à partir de {@code from} ; vide s'il n'est pas publié. */
+    public Optional<FoodTruckDetail> findPublishedDetail(Long id, LocalDate from) {
+        return foodTruckRepository.findById(id).filter(foodTruck -> PUBLIC_STATUS.equals(foodTruck.status()))
+                .map(foodTruck -> new FoodTruckDetail(foodTruck, presenceRepository.findUpcomingForTruck(id, from)));
+    }
+
+    public static LocalDate today() {
+        return LocalDate.now(PRESENCE_ZONE);
     }
 
     /**
@@ -61,7 +91,13 @@ public class FoodTruckService {
      * {@code FOOD_TRUCK_CONTRACT.md}, qui la marque explicitement comme
      * obligatoire (type de cuisine). {@code description}/{@code contact}
      * restent optionnels, sans validation de format.
+     *
+     * Depuis ADR-0013, la position reçue n'est plus écrite sur le food truck :
+     * elle devient une présence permanente sur un emplacement créé pour lui
+     * (même forme que les food trucks migrés par V65). La réponse garde la
+     * position reçue, comme avant.
      */
+    @Transactional
     public FoodTruck createFoodTruck(
             String name, String description, double latitude, double longitude, String category, String contact) {
         validateName(name);
@@ -69,11 +105,13 @@ public class FoodTruckService {
         validateLatitude(latitude);
         validateLongitude(longitude);
 
-        FoodTruck foodTruck = new FoodTruck(
-                null, name, description, latitude, longitude, category, contact, DEFAULT_STATUS);
+        FoodTruck foodTruck = new FoodTruck(null, name, description, null, null, category, contact, DEFAULT_STATUS);
         FoodTruck saved = foodTruckRepository.save(foodTruck);
+        presenceRepository.insertPermanent(saved.id(), latitude, longitude);
         // Relu pour renvoyer la date de publication posée par la base (trigger V55).
-        return foodTruckRepository.findById(saved.id()).orElse(saved);
+        FoodTruck read = foodTruckRepository.findById(saved.id()).orElse(saved);
+        return new FoodTruck(read.id(), read.name(), read.description(), latitude, longitude, read.category(),
+                read.contact(), read.status(), read.publishedAt());
     }
 
     private void validateName(String name) {

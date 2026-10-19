@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { Activity } from '@/api';
+import type { Activity, FoodTruck } from '@/api';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { Notice } from '@/components/notice';
@@ -22,17 +22,34 @@ import { useTheme } from '@/hooks/use-theme';
 import { ActivityCard } from './ActivityCard';
 import { FilterChips } from './FilterChips';
 import { PERIOD_OPTIONS, distanceKm, formatDistance, matchesQuery } from './filters';
+import { FoodTruckCard } from './FoodTruckCard';
+import { foodTrucksNear } from './foodTruckList';
 import { usePeriod } from './periodStore';
 import { useActivityList } from './useActivityList';
+import { useFoodTruckList } from './useFoodTruckList';
 
 /** Rayon de la liste tant qu'aucun rayon n'est choisi (la carte cherche alors dans la zone visible). */
 const DEFAULT_RADIUS_KM = 20;
+
+type ListTab = 'activities' | 'foodTrucks';
+
+/** Contenu de la liste : les food trucks (ADR-0013) ont leur onglet, distinct des activités. */
+const TAB_OPTIONS: readonly { value: ListTab; label: string }[] = [
+  { value: 'activities', label: 'Activités' },
+  { value: 'foodTrucks', label: '🚚 Food trucks' },
+];
+
+type ListItem = { kind: 'activity'; activity: Activity } | { kind: 'foodTruck'; foodTruck: FoodTruck; km: number };
 
 /**
  * Vue « Liste » : les activités publiées autour du lieu de recherche (ville choisie, « Autour de moi »
  * ou ville des paramètres), triées par distance. Lieu, catégories et rayon sont partagés avec la carte
  * (`explorerStore`, FRONT-REV-02) ; la période aussi (`periodStore`). Sans lieu choisi, la liste invite
  * à en choisir un : aucune ville n'est supposée. Filtre texte local en plus. Un appui ouvre la fiche.
+ *
+ * Onglet « Food trucks » (ADR-0013) : les food trucks présents aujourd'hui dans le même rayon, une carte par
+ * présence, triés par distance. Période et catégories ne s'y appliquent pas (catégories d'activités ; une
+ * présence est celle du jour).
  */
 export default function ActivityListScreen() {
   const theme = useTheme();
@@ -47,6 +64,8 @@ export default function ActivityListScreen() {
   const [period, setPeriod] = usePeriod();
   const [query, setQuery] = useState('');
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
+  const [tab, setTab] = useState<ListTab>('activities');
+  const showFoodTrucks = tab === 'foodTrucks';
 
   const radiusKm = chosenRadiusKm ?? DEFAULT_RADIUS_KM;
 
@@ -61,11 +80,37 @@ export default function ActivityListScreen() {
     [state, query],
   );
 
+  const foodTruckList = useFoodTruckList(showFoodTrucks && place !== null);
+  const foodTrucks = useMemo(
+    () =>
+      place && foodTruckList.state.status === 'success'
+        ? foodTrucksNear(foodTruckList.state.foodTrucks, place, radiusKm, query)
+        : [],
+    [foodTruckList.state, place, radiusKm, query],
+  );
+
+  const items: ListItem[] = showFoodTrucks
+    ? foodTrucks.map(({ foodTruck, distanceKm: km }) => ({ kind: 'foodTruck', foodTruck, km }))
+    : activities.map((activity) => ({ kind: 'activity', activity }));
+  // L'état affiché (chargement, erreur, vide) est celui de l'onglet ouvert.
+  const listStatus = place === null ? 'idle' : showFoodTrucks ? foodTruckList.state.status : state.status;
+  const listError =
+    showFoodTrucks && foodTruckList.state.status === 'error'
+      ? foodTruckList.state.message
+      : state.status === 'error'
+        ? state.message
+        : '';
+  const refreshList = showFoodTrucks ? foodTruckList.refresh : refresh;
+
   async function aroundMe() {
     const position = await location.locate();
     if (position) {
       setPlace({ label: 'votre position', latitude: position.latitude, longitude: position.longitude, source: 'position' });
     }
+  }
+
+  function openFoodTruck(foodTruck: FoodTruck) {
+    router.push({ pathname: '/foodtruck/[id]', params: { id: String(foodTruck.id) } });
   }
 
   function open(activity: Activity) {
@@ -102,12 +147,14 @@ export default function ActivityListScreen() {
         <CitySearch />
       </View>
 
+      <FilterChips label="Contenu de la liste" options={TAB_OPTIONS} value={tab} onChange={setTab} />
+
       <View style={styles.padded}>
         <View style={[styles.search, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
           <ThemedText importantForAccessibility="no">⌕</ThemedText>
           <TextInput
-            accessibilityLabel="Filtrer les activités de la liste"
-            placeholder="Filtrer : concert, marché…"
+            accessibilityLabel={showFoodTrucks ? 'Filtrer les food trucks de la liste' : 'Filtrer les activités de la liste'}
+            placeholder={showFoodTrucks ? 'Filtrer : tacos, crêpes…' : 'Filtrer : concert, marché…'}
             placeholderTextColor={theme.textSecondary}
             selectionColor={theme.primary}
             value={query}
@@ -128,7 +175,9 @@ export default function ActivityListScreen() {
         </View>
       </View>
 
-      <FilterChips label="Période" options={PERIOD_OPTIONS} value={period} onChange={setPeriod} />
+      {!showFoodTrucks && (
+        <FilterChips label="Période" options={PERIOD_OPTIONS} value={period} onChange={setPeriod} />
+      )}
       <FilterChips
         label="Rayon de recherche"
         options={RADIUS_OPTIONS_KM.map((km) => ({ value: km as number, label: `${km} km` }))}
@@ -138,14 +187,16 @@ export default function ActivityListScreen() {
 
       <View style={[styles.padded, styles.tools]}>
         <View style={styles.toolsRow}>
-          <View style={styles.tool}>
-            <Button
-              label={categoriesButtonLabel(categoryCodes.length)}
-              variant={categoryCodes.length > 0 ? 'primary' : 'secondary'}
-              icon={{ ios: 'square.grid.2x2', android: 'category', web: 'category' }}
-              onPress={() => setCategoryPanelOpen((open) => !open)}
-            />
-          </View>
+          {!showFoodTrucks && (
+            <View style={styles.tool}>
+              <Button
+                label={categoriesButtonLabel(categoryCodes.length)}
+                variant={categoryCodes.length > 0 ? 'primary' : 'secondary'}
+                icon={{ ios: 'square.grid.2x2', android: 'category', web: 'category' }}
+                onPress={() => setCategoryPanelOpen((open) => !open)}
+              />
+            </View>
+          )}
           <View style={styles.tool}>
             <Button
               label="Autour de moi"
@@ -156,7 +207,7 @@ export default function ActivityListScreen() {
             />
           </View>
         </View>
-        {categoryPanelOpen && (
+        {categoryPanelOpen && !showFoodTrucks && (
           <Card style={styles.panel}>
             <CategoryPanel />
           </Card>
@@ -169,7 +220,15 @@ export default function ActivityListScreen() {
         </View>
       )}
 
-      {state.status === 'success' && (
+      {showFoodTrucks && listStatus === 'success' && (
+        <ThemedText type="small" themeColor="textSecondary" style={styles.padded} accessibilityLiveRegion="polite">
+          {foodTrucks.length === 0
+            ? 'Aucun food truck présent aujourd’hui'
+            : `${foodTrucks.length} présence${foodTrucks.length > 1 ? 's' : ''} aujourd’hui à moins de ${radiusKm} km`}
+        </ThemedText>
+      )}
+
+      {!showFoodTrucks && state.status === 'success' && (
         <ThemedText type="small" themeColor="textSecondary" style={styles.padded} accessibilityLiveRegion="polite">
           {activities.length === 0
             ? 'Aucun résultat'
@@ -186,28 +245,41 @@ export default function ActivityListScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
         <FlatList
-          data={activities}
-          keyExtractor={(activity) => String(activity.id)}
+          data={items}
+          keyExtractor={(item) => (item.kind === 'activity' ? `a-${item.activity.id}` : `t-${item.foodTruck.presenceId}`)}
           ListHeaderComponent={header}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           contentContainerStyle={styles.content}
           ItemSeparatorComponent={Separator}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.primary} colors={[theme.primary]} />
+            <RefreshControl
+              refreshing={showFoodTrucks ? foodTruckList.refreshing : refreshing}
+              onRefresh={refreshList}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+            />
           }
           renderItem={({ item }) => (
             <View style={styles.padded}>
-              <ActivityCard
-                activity={item}
-                distance={place ? formatDistance(distanceKm(place, item)) : undefined}
-                onPress={() => open(item)}
-              />
+              {item.kind === 'activity' ? (
+                <ActivityCard
+                  activity={item.activity}
+                  distance={place ? formatDistance(distanceKm(place, item.activity)) : undefined}
+                  onPress={() => open(item.activity)}
+                />
+              ) : (
+                <FoodTruckCard
+                  foodTruck={item.foodTruck}
+                  distance={formatDistance(item.km)}
+                  onPress={() => openFoodTruck(item.foodTruck)}
+                />
+              )}
             </View>
           )}
           ListEmptyComponent={
             <View style={styles.padded}>
-              {state.status === 'idle' && (
+              {listStatus === 'idle' && (
                 <Card style={styles.empty}>
                   <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
                     📍
@@ -220,18 +292,37 @@ export default function ActivityListScreen() {
                   </ThemedText>
                 </Card>
               )}
-              {state.status === 'loading' && (
+              {listStatus === 'loading' && (
                 <View style={styles.loading} accessibilityLiveRegion="polite">
-                  <ActivityIndicator size="large" color={theme.primary} accessibilityLabel="Chargement des activités" />
+                  <ActivityIndicator
+                    size="large"
+                    color={theme.primary}
+                    accessibilityLabel={showFoodTrucks ? 'Chargement des food trucks' : 'Chargement des activités'}
+                  />
                 </View>
               )}
-              {state.status === 'error' && (
+              {listStatus === 'error' && (
                 <View style={styles.errorBlock}>
-                  <Notice tone="danger">Erreur : {state.message}</Notice>
-                  <Button label="Réessayer" onPress={refresh} />
+                  <Notice tone="danger">Erreur : {listError}</Notice>
+                  <Button label="Réessayer" onPress={refreshList} />
                 </View>
               )}
-              {state.status === 'success' && (
+              {listStatus === 'success' && showFoodTrucks && (
+                <Card style={styles.empty}>
+                  <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
+                    🚚
+                  </ThemedText>
+                  <ThemedText type="heading" style={styles.centerText}>
+                    Aucun food truck ici aujourd’hui
+                  </ThemedText>
+                  <ThemedText themeColor="textSecondary" style={styles.centerText}>
+                    {query
+                      ? 'Aucun food truck ne correspond à votre filtre.'
+                      : 'Élargissez le rayon, ou revenez un autre jour.'}
+                  </ThemedText>
+                </Card>
+              )}
+              {listStatus === 'success' && !showFoodTrucks && (
                 <Card style={styles.empty}>
                   <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
                     🧭

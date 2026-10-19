@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { ApiError, RequestAbortedError, listFoodTrucks } from '@/api';
-import type { FoodTruck } from '@/api';
+import { ApiError, HttpError, RequestAbortedError, getFoodTruck } from '@/api';
+import type { FoodTruckDetail } from '@/api';
 
 export type FoodTruckState =
   | { status: 'loading' }
-  | { status: 'success'; foodTruck: FoodTruck }
-  /** Absent de la liste des food trucks publiés : rien à réessayer. */
+  | { status: 'success'; foodTruck: FoodTruckDetail }
+  /** Inconnu ou non publié (404) : rien à réessayer. */
   | { status: 'unavailable' }
   | { status: 'error'; message: string };
 
 /**
- * Charge un food truck (LL-MOB-0009). L'API n'expose que la liste des food
- * trucks publiés (`GET /foodtrucks`, pas de lecture par identifiant) : la
- * fiche est retrouvée dans cette liste, ce qui garantit aussi qu'un food
- * truck non publié n'est jamais affiché.
+ * Charge un food truck (LL-MOB-0009) et son planning (`GET /foodtrucks/{id}`,
+ * ADR-0013). Le backend ne renvoie qu'un food truck publié : un autre répond
+ * 404 et n'est jamais affiché. La fiche ne passe plus par la liste du jour, qui
+ * ne contient que les food trucks présents aujourd'hui.
  */
 export function useFoodTruck(id: string | undefined) {
   const [state, setState] = useState<FoodTruckState>({ status: 'loading' });
@@ -28,13 +28,14 @@ export function useFoodTruck(id: string | undefined) {
     const controller = new AbortController();
     setState({ status: 'loading' });
 
-    listFoodTrucks({ signal: controller.signal })
-      .then((trucks) => {
-        const foodTruck = trucks.find((t) => String(t.id) === id);
-        setState(foodTruck ? { status: 'success', foodTruck } : { status: 'unavailable' });
-      })
+    getFoodTruck(id, { signal: controller.signal })
+      .then((foodTruck) => setState({ status: 'success', foodTruck }))
       .catch((e: unknown) => {
         if (e instanceof RequestAbortedError) return;
+        if (e instanceof HttpError && e.status === 404) {
+          setState({ status: 'unavailable' });
+          return;
+        }
         setState({
           status: 'error',
           message: e instanceof ApiError ? e.message : 'Impossible de charger le food truck.',

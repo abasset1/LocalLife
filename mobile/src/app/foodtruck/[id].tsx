@@ -10,13 +10,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { contactAction } from '@/features/foodtruck/contact';
+import { describeSchedule } from '@/features/foodtruck/presence';
 import { useFoodTruck } from '@/features/foodtruck/useFoodTruck';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
  * Fiche d'un food truck (LL-MOB-0009), atteinte depuis son marqueur sur la
- * carte. Les informations viennent de l'API (`GET /foodtrucks`) ; le mobile
- * n'ajoute aucune logique propre aux food trucks.
+ * carte. Les informations viennent de l'API (`GET /foodtrucks/{id}`) : le
+ * profil, puis le planning (« Où le trouver »), distincts (ADR-0013).
  */
 export default function FoodTruckDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -54,7 +55,7 @@ export default function FoodTruckDetailScreen() {
         )}
 
         {state.status === 'success' && (() => {
-          const { name, category, description, contact } = state.foodTruck;
+          const { name, category, description, contact, presences } = state.foodTruck;
           const action = contactAction(contact);
 
           return (
@@ -73,6 +74,19 @@ export default function FoodTruckDetailScreen() {
                 <Field label="Cuisine" value={category} />
                 {description ? <Field label="Description" value={description} /> : null}
                 {contact?.trim() ? <Field label="Contact" value={contact.trim()} /> : null}
+              </Card>
+
+              <Card style={styles.fields}>
+                <ThemedText type="eyebrow" accessibilityRole="header">
+                  Où le trouver
+                </ThemedText>
+                {presences.length === 0 ? (
+                  <ThemedText themeColor="textSecondary">Aucun emplacement annoncé pour le moment.</ThemedText>
+                ) : (
+                  presences.map((presence) => (
+                    <ThemedText key={presence.id}>{describeSchedule(presence)}</ThemedText>
+                  ))
+                )}
               </Card>
 
               {action && action.kind !== 'text' && (

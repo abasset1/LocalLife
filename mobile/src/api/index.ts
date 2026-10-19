@@ -23,7 +23,7 @@ export {
 export type { CallOptions } from './activities';
 export { createAlert, deleteAlert, listAlerts, updateAlertChannels } from './alerts';
 export { listCategories } from './categories';
-export { listFoodTrucks } from './foodTrucks';
+export { getFoodTruck, listFoodTrucks } from './foodTrucks';
 export { suggestCities } from './geocoding';
 export { searchPlacesWithinBounds } from './places';
 export type { PlacesWithinBoundsParams } from './places';

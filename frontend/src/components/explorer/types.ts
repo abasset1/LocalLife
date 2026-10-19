@@ -118,12 +118,23 @@ export interface ActivityDetail {
     additionalInfo: string | null;
 }
 
+/**
+ * Food truck présent aujourd'hui à un emplacement (`FoodTruckMapResponse`, backend — ADR-0013) : un élément par
+ * présence ; `id` est celui du food truck, `latitude`/`longitude` celles de l'emplacement.
+ */
 export interface FoodTruck {
     id: number;
     name: string;
     category: string;
     latitude: number;
     longitude: number;
+    presenceId: number;
+    spotName: string | null;
+    spotKind: "MARKET" | "PRIVATE" | "EVENT" | "OTHER";
+    startTime: string | null;
+    endTime: string | null;
+    /** Lieu LocalLife où se trouve l'emplacement, ou `null`. */
+    placeId: number | null;
 }
 
 export interface ApiErrorBody {

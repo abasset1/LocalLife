@@ -137,6 +137,12 @@ class FoodTruckControllerIntegrationTest {
                 .returnResult()
                 .getResponseBody();
         assertThat(body).contains(uniqueName);
+        // ADR-0013 : la position reçue est devenue une présence permanente, plus une colonne du food truck.
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM food_truck_presence p "
+                + "JOIN food_truck ft ON ft.id = p.food_truck_id JOIN location l ON l.id = p.location_id "
+                + "WHERE ft.name = ? AND ft.latitude IS NULL AND l.latitude = 43.29 AND l.longitude = 5.37 "
+                + "AND l.place_type IS NULL AND p.days_of_week IS NULL AND p.valid_until IS NULL", Long.class,
+                uniqueName)).isEqualTo(1);
     }
 
     @Test

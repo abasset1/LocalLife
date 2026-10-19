@@ -42,7 +42,7 @@ import { ActivityMarker, ClusterMarker, FoodTruckMarker, PlaceMarker } from './m
 import { PlaceListPanel } from './PlaceListPanel';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData, type RadiusSearch } from './useMapData';
-import { loadShowPlaces, saveShowPlaces } from './placesPreference';
+import { loadShowFoodTrucks, loadShowPlaces, saveShowFoodTrucks, saveShowPlaces } from './placesPreference';
 import { usePlaces } from './usePlaces';
 import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
@@ -248,6 +248,21 @@ export default function MapScreen() {
     saveShowPlaces(!showPlaces);
   }, [showPlaces]);
   const places = usePlaces(region, showPlaces);
+  // Couche « Food trucks » (ADR-0013), distincte des activités et des lieux : affichée par défaut.
+  const [showFoodTrucks, setShowFoodTrucks] = useState(true);
+  useEffect(() => {
+    let active = true;
+    loadShowFoodTrucks().then((shown) => {
+      if (active && !shown) setShowFoodTrucks(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const toggleShowFoodTrucks = useCallback(() => {
+    setShowFoodTrucks(!showFoodTrucks);
+    saveShowFoodTrucks(!showFoodTrucks);
+  }, [showFoodTrucks]);
   const location = useUserLocation();
 
   const bounds = useMemo(() => regionToBounds(region), [region]);
@@ -278,8 +293,8 @@ export default function MapScreen() {
 
   const visibleFoodTrucks = useMemo(
     () =>
-      bounds ? foodTrucks.filter((t) => pointInBounds(bounds, t.latitude, t.longitude)) : [],
-    [foodTrucks, bounds],
+      bounds && showFoodTrucks ? foodTrucks.filter((t) => pointInBounds(bounds, t.latitude, t.longitude)) : [],
+    [foodTrucks, bounds, showFoodTrucks],
   );
 
   const visiblePlaces = useMemo(
@@ -397,7 +412,7 @@ export default function MapScreen() {
 
         {visibleFoodTrucks.map((foodTruck) => (
           <FoodTruckMarker
-            key={`t-${foodTruck.id}`}
+            key={`t-${foodTruck.presenceId}`}
             coordinate={{ latitude: foodTruck.latitude, longitude: foodTruck.longitude }}
             name={foodTruck.name}
             onPress={() => select({ kind: 'foodTruck', foodTruck })}
@@ -597,6 +612,12 @@ export default function MapScreen() {
                 accessibilityLabel={showPlaces ? 'Masquer les lieux' : 'Afficher les lieux'}
                 active={showPlaces}
                 onPress={toggleShowPlaces}
+              />
+              <MapControl
+                icon={{ ios: 'truck.box', android: 'local_shipping', web: 'local_shipping' }}
+                accessibilityLabel={showFoodTrucks ? 'Masquer les food trucks' : 'Afficher les food trucks'}
+                active={showFoodTrucks}
+                onPress={toggleShowFoodTrucks}
               />
               <MapControl
                 icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }}

@@ -4,6 +4,7 @@ import { getPayload } from "../../auth/authStorage";
 import { APPROXIMATE_LOCATION_LABEL } from "../explorer/activityUtils";
 import type { Activity } from "../explorer/types";
 import PlaceActivities from "./PlaceActivities";
+import PlaceFoodTrucks from "./PlaceFoodTrucks";
 import { placeTypeLabel } from "./placeTypes";
 import type { Place } from "./types";
 
@@ -94,6 +95,7 @@ function PlaceList({ places, onSelectActivity }: {
                                             {isPro && (
                                                 <Link to={`/pro?claim=${place.id}`}>Demander la gestion de ce lieu</Link>
                                             )}
+                                            <PlaceFoodTrucks placeId={place.id} />
                                             <PlaceActivities onSelectActivity={onSelectActivity} placeId={place.id} />
                                         </div>
                                     )}

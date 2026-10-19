@@ -11,6 +11,7 @@ import { APPROXIMATE_LOCATION_LABEL, isApproximateLocation } from "./activityUti
 import { hasCoordinates } from "./globalSearch";
 import PlacesLayer from "../places/PlacesLayer";
 import type { Place } from "../places/types";
+import { describePresence } from "../foodtrucks/foodTruckFormat";
 import type { Activity, FoodTruck, MapBounds, UserPosition } from "./types";
 
 /**
@@ -213,6 +214,8 @@ function MapInvalidateOnResize() {
 interface ExplorerMapProps {
     activities: Activity[];
     foodTrucks: FoodTruck[];
+    /** Couche « Food trucks » (ADR-0013), distincte des activités et des lieux. */
+    showFoodTrucks?: boolean;
     /** Couche « Lieux » (ADR-0011, phase B) : lieux permanents publiés de la zone affichée. */
     showPlaces?: boolean;
     /** Lieux de la couche « Lieux » chargés pour la zone affichée. */
@@ -230,6 +233,7 @@ interface ExplorerMapProps {
 function ExplorerMap({
     activities,
     foodTrucks,
+    showFoodTrucks = true,
     showPlaces = false,
     onPlacesChange,
     userPosition,
@@ -289,16 +293,22 @@ function ExplorerMap({
                 ))}
             </MarkerClusterGroup>
             <PlacesLayer enabled={showPlaces} onPlacesChange={onPlacesChange} onSelectActivity={onSelectActivity} />
-            {foodTrucks.map((foodTruck) => (
+            {showFoodTrucks && foodTrucks.map((foodTruck) => (
                 <Marker
                     icon={FOOD_TRUCK_MARKER_ICON}
-                    key={`food-truck-${foodTruck.id}`}
+                    key={`food-truck-presence-${foodTruck.presenceId}`}
                     position={[foodTruck.latitude, foodTruck.longitude]}
                 >
                     <Popup>
                         <strong>{foodTruck.name}</strong>
                         <br />
                         {foodTruck.category}
+                        {describePresence(foodTruck) && (
+                            <>
+                                <br />
+                                {describePresence(foodTruck)}
+                            </>
+                        )}
                     </Popup>
                 </Marker>
             ))}
