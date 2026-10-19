@@ -296,8 +296,8 @@ OpenAgenda.
 ### 7. Démarrer la pile
 
 ```bash
-docker compose -f docker-compose.beta.yml up -d --build
-docker compose -f docker-compose.beta.yml ps
+docker compose --env-file .env.beta -f docker-compose.beta.yml up -d --build
+docker compose --env-file .env.beta -f docker-compose.beta.yml ps
 ```
 
 ### 8. Vérifier les critères d'acceptation LL-9003
@@ -314,7 +314,7 @@ curl -i -X POST https://locallife-beta.duckdns.org/api/v1/auth/register \
 # attendu : 201 Created
 
 # Absence de secret dans les logs :
-docker compose -f docker-compose.beta.yml logs backend postgres caddy | grep -iE "password|secret|jwt_secret"
+docker compose --env-file .env.beta -f docker-compose.beta.yml logs backend postgres caddy | grep -iE "password|secret|jwt_secret"
 # attendu : aucune valeur de secret affichée (au pire le nom de la variable, jamais sa valeur)
 ```
 
@@ -359,7 +359,7 @@ Caddy. Conséquence directe, vérifiée en sandbox sur un build réel
 Le conteneur `frontend` (image construite depuis `frontend/Dockerfile`,
 LL-9002) fait déjà partie de `docker-compose.beta.yml` : il a donc été
 construit et démarré dès l'étape 7 de la procédure LL-9003
-ci-dessus (`docker compose -f docker-compose.beta.yml up -d --build`
+ci-dessus (`docker compose --env-file .env.beta -f docker-compose.beta.yml up -d --build`
 construit et lance les quatre services, `frontend` compris). LL-9005
 est donc principalement un ticket de **vérification fonctionnelle en
 conditions réelles**, pas de nouveau déploiement.

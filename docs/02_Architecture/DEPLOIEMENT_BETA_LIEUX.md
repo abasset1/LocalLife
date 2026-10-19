@@ -38,7 +38,7 @@ quelqu'un a changé le code directement sur le serveur.
 ## 1. Vérifier la configuration
 
 ```bash
-docker compose -f docker-compose.beta.yml config -q && echo "configuration complète"
+docker compose --env-file .env.beta -f docker-compose.beta.yml config -q && echo "configuration complète"
 ```
 
 Attendu : `configuration complète`. Sinon, le message nomme la variable
@@ -87,15 +87,15 @@ Si la sauvegarde hors site est configurée (`BACKUP_RESTORE.md`),
 git checkout main
 git pull origin main
 git log --oneline -1                                   # nouvelle version
-docker compose -f docker-compose.beta.yml up -d --build
-docker compose -f docker-compose.beta.yml ps           # tous les services « Up »
+docker compose --env-file .env.beta -f docker-compose.beta.yml up -d --build
+docker compose --env-file .env.beta -f docker-compose.beta.yml ps           # tous les services « Up »
 ```
 
 Au démarrage, le backend applique de lui-même les migrations V61, V62 et
 V63 (Flyway). Pour suivre le démarrage :
 
 ```bash
-docker compose -f docker-compose.beta.yml logs --tail=200 backend | grep -iE "migrat|flyway|started|error"
+docker compose --env-file .env.beta -f docker-compose.beta.yml logs --tail=200 backend | grep -iE "migrat|flyway|started|error"
 ```
 
 Attendu : des lignes « Migrating schema … to version 61 / 62 / 63 »
@@ -181,11 +181,11 @@ l'étape 3 et revenir à l'ancienne version du code**. Cette opération
 remplace toute la base par son état d'avant le déploiement.
 
 ```bash
-docker compose -f docker-compose.beta.yml stop backend
+docker compose --env-file .env.beta -f docker-compose.beta.yml stop backend
 gunzip -c backups/avant-v61-v63.sql.gz \
   | docker exec -i locallife-postgres-beta sh -c 'psql -q -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 git checkout <la ligne notée à l'étape 0, sans le message>   # par exemple : git checkout abac271
-docker compose -f docker-compose.beta.yml up -d --build
+docker compose --env-file .env.beta -f docker-compose.beta.yml up -d --build
 curl -s https://locallife-beta.duckdns.org/actuator/health
 ```
 

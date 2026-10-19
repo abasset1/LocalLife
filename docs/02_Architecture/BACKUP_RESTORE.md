@@ -136,14 +136,14 @@ rclone copy b2:locallife-beta-backups/locallife-beta-<timestamp>.sql.gz infra/ba
 Évite que l'application écrive dans la base pendant la restauration :
 
 ```bash
-docker compose -f infra/docker-compose.beta.yml stop backend
+docker compose --env-file infra/.env.beta -f infra/docker-compose.beta.yml stop backend
 ```
 
 ### 3. Restaurer le dump
 
 ```bash
 gunzip -c infra/backups/locallife-beta-<timestamp>.sql.gz \
-  | docker compose -f infra/docker-compose.beta.yml exec -T postgres \
+  | docker compose --env-file infra/.env.beta -f infra/docker-compose.beta.yml exec -T postgres \
     psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"
 ```
 
@@ -153,7 +153,7 @@ exporter au préalable ou à substituer directement.)
 ### 4. Redémarrer le backend
 
 ```bash
-docker compose -f infra/docker-compose.beta.yml start backend
+docker compose --env-file infra/.env.beta -f infra/docker-compose.beta.yml start backend
 ```
 
 ### 5. Vérifier

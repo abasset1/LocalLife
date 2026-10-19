@@ -42,7 +42,7 @@ echo "[$(date -Iseconds)] Démarrage du dump..."
 # --clean --if-exists : le dump contient les DROP nécessaires avant
 # chaque CREATE, pour permettre une restauration directe sur une base
 # non vide (voir procédure de restauration).
-docker compose -f docker-compose.beta.yml exec -T postgres \
+docker compose --env-file .env.beta -f docker-compose.beta.yml exec -T postgres \
     pg_dump --clean --if-exists -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
     | gzip > "${DUMP_FILE}"
 
