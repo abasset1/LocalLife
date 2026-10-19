@@ -84,9 +84,10 @@ function ProPage() {
                 <main className="admin-content">
                     <p className="activities-status activities-status-error">{denied}</p>
                     <p className="activities-status">
-                        L'espace professionnel est réservé aux comptes professionnels. Contacte l'équipe LocalLife pour
-                        faire activer le tien.
+                        L'espace professionnel est inclus dans l'offre Pro : gérer vos lieux et vos food trucks, leurs
+                        emplacements et leur planning.
                     </p>
+                    <Link className="admin-approve-button" to="/profile">Passer à l'offre Pro</Link>
                 </main>
             ) : (
                 <>

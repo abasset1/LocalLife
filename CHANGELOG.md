@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Abonnements Premium et Pro (BILLING-01, ADR-0014)
+- **Mon abonnement** (page Profil) : offre actuelle (Gratuit, Premium ou Pro) et date de fin d'accès, « Passer à Premium » / « Passer à Pro », retrait de la demande, résiliation (accès conservé jusqu'à la fin de la période). La carte et la liste restent gratuites quelle que soit l'offre.
+- Pas de paiement pour l'instant : l'équipe active les demandes (Administration → Professionnels → Abonnements), avec une date de fin facultative ; refus motivé, retrait d'un accès. Chaque changement est journalisé.
+- Un abonnement Pro ouvre l'espace professionnel, sans rôle à attribuer ni reconnexion ; la fin de l'abonnement le referme au moment prévu.
+- Le lien « Espace professionnel » est proposé à tous les comptes ; sans offre Pro, la page invite à la demander.
+- Migration `V67` : tables `subscription` et `subscription_event`.
+
 ### Espace professionnel visible
 - L'espace professionnel (saisie de lieux et de food trucks) est ouvert aux administrateurs, qui ne pouvaient ni recevoir le rôle PRO ni y accéder. Un administrateur ne statue toujours pas sur sa propre demande de gestion.
 - Le lien « Espace professionnel » apparaît dans le menu pour les comptes PRO et administrateurs, et sur la page Profil dès que le rôle est attribué (sans se reconnecter). Le Profil affiche « Professionnel » pour un compte PRO.

@@ -78,11 +78,10 @@ function ExplorerMenu({ isOpen, onClose, currentUser, onOpenContributionForm, on
                             <Link className="explorer-menu-link" onClick={onClose} to="/profile">
                                 Mon profil
                             </Link>
-                            {(currentUser.role === "PRO" || currentUser.role === "ADMIN") && (
-                                <Link className="explorer-menu-link" onClick={onClose} to="/pro">
-                                    Espace professionnel
-                                </Link>
-                            )}
+                            {/* Pour tous : un compte sans offre Pro y trouve comment la demander. */}
+                            <Link className="explorer-menu-link" onClick={onClose} to="/pro">
+                                Espace professionnel
+                            </Link>
                             {currentUser.role === "ADMIN" && (
                                 <Link className="explorer-menu-link" onClick={onClose} to="/admin">
                                     Administration

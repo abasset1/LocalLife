@@ -8,6 +8,7 @@ import UsernameStatusMessage from "../components/UsernameStatusMessage";
 import ActivityAlertsSection from "../components/profile/ActivityAlertsSection";
 import { Notice, ProfileCard } from "../components/profile/ProfileUi";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
+import SubscriptionCard from "../components/subscription/SubscriptionCard";
 
 /**
  * Miroir de `UserResponse` côté backend (jamais `passwordHash`, voir sa
@@ -236,6 +237,8 @@ function ProfilePage() {
                                         </div>
                                     </form>
                                 </ProfileCard>
+
+                                <SubscriptionCard />
 
                                 {/* Critère d'acceptation « la déconnexion est accessible ». */}
                                 <button className="pp-button pp-button-danger pp-logout" onClick={handleLogout} type="button">
