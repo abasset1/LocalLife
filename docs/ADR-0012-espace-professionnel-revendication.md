@@ -207,3 +207,17 @@ suspension par un administrateur (`suspended_by_admin_at`, `suspended_by`).
   Aucun client ne l'utilisait.
 - Visuels : non traités (le module `media` ne stocke que des URL et n'a pas de
   lien avec les food trucks) ; à prévoir dans un ticket dédié.
+
+## 8. Accès des administrateurs à l'espace professionnel (19/10/2026)
+
+Constat : un administrateur ne pouvait ni recevoir le rôle `PRO` (D1 : un
+compte `ADMIN` n'est jamais modifié) ni utiliser l'espace professionnel, et
+le lien du menu n'apparaissait que pour un jeton `PRO` (un compte promu après
+sa connexion ne le voyait pas). La saisie de lieux et de food trucks restait
+donc invisible pour l'administrateur.
+
+Correction : `RoleProAccessPolicy` accorde l'espace professionnel aux rôles
+`PRO` **et** `ADMIN` ; un administrateur ne statue toujours jamais sur sa
+propre demande de gestion. Le menu affiche « Espace professionnel » pour ces
+deux rôles, et la page Profil (rôle relu en base) affiche le lien dès
+l'attribution du rôle, sans reconnexion.

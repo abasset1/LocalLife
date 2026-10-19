@@ -8,6 +8,7 @@ import UsernameStatusMessage from "../components/UsernameStatusMessage";
 import ActivityAlertsSection from "../components/profile/ActivityAlertsSection";
 import { Notice, ProfileCard } from "../components/profile/ProfileUi";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
+import SubscriptionCard from "../components/subscription/SubscriptionCard";
 
 /**
  * Miroir de `UserResponse` côté backend (jamais `passwordHash`, voir sa
@@ -173,8 +174,13 @@ function ProfilePage() {
                                 <p className="pp-hero-email">{profile.email}</p>
                                 <div className="pp-hero-badges">
                                     <span className="pp-hero-badge">
-                                        {profile.role === "ADMIN" ? "Administrateur" : "Utilisateur"}
+                                        {profile.role === "ADMIN" ? "Administrateur"
+                                            : profile.role === "PRO" ? "Professionnel" : "Utilisateur"}
                                     </span>
+                                    {/* Rôle relu en base : le lien apparaît dès l'attribution, sans reconnexion. */}
+                                    {(profile.role === "PRO" || profile.role === "ADMIN") && (
+                                        <Link className="pp-hero-badge" to="/pro">Espace professionnel →</Link>
+                                    )}
                                     <span className="pp-hero-badge">Membre depuis {formatDate(profile.createdAt)}</span>
                                 </div>
                             </div>
@@ -231,6 +237,8 @@ function ProfilePage() {
                                         </div>
                                     </form>
                                 </ProfileCard>
+
+                                <SubscriptionCard />
 
                                 {/* Critère d'acceptation « la déconnexion est accessible ». */}
                                 <button className="pp-button pp-button-danger pp-logout" onClick={handleLogout} type="button">

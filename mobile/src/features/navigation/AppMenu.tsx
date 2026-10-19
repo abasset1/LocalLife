@@ -21,6 +21,8 @@ const ICONS: Record<MenuEntry['icon'], SymbolViewProps['name']> = {
   edit: { ios: 'square.and.pencil', android: 'edit_note', web: 'edit_note' },
   bell: { ios: 'bell', android: 'notifications', web: 'notifications' },
   settings: { ios: 'slider.horizontal.3', android: 'tune', web: 'tune' },
+  pro: { ios: 'briefcase', android: 'storefront', web: 'storefront' },
+  star: { ios: 'star', android: 'star', web: 'star' },
 };
 
 /**

@@ -2,6 +2,22 @@
 
 ## 0.9.59 — non publiée
 
+### Application mobile : espace professionnel et abonnement
+- **Espace professionnel** (menu « Mon espace » et rubrique Compte), comme sur le site : demander la gestion d'un lieu existant (recherche, lien avec le lieu, justificatifs, suivi des demandes), créer un lieu (vérification des lieux proches, « C'est mon lieu », brouillon puis envoi à la modération), mes lieux, mes food trucks (profil, publication, suspension, archivage) avec leurs emplacements et leur planning (lieu existant ou adresse, type, jours, horaires, période ; brouillon, publication, désactivation, archivage).
+- **Mon abonnement** : offre actuelle et date de fin d'accès, passage à Premium ou Pro, retrait de la demande, résiliation.
+- Sans offre Pro, l'espace professionnel invite à la demander.
+
+### Abonnements Premium et Pro (BILLING-01, ADR-0014)
+- **Mon abonnement** (page Profil) : offre actuelle (Gratuit, Premium ou Pro) et date de fin d'accès, « Passer à Premium » / « Passer à Pro », retrait de la demande, résiliation (accès conservé jusqu'à la fin de la période). La carte et la liste restent gratuites quelle que soit l'offre.
+- Pas de paiement pour l'instant : l'équipe active les demandes (Administration → Professionnels → Abonnements), avec une date de fin facultative ; refus motivé, retrait d'un accès. Chaque changement est journalisé.
+- Un abonnement Pro ouvre l'espace professionnel, sans rôle à attribuer ni reconnexion ; la fin de l'abonnement le referme au moment prévu.
+- Le lien « Espace professionnel » est proposé à tous les comptes ; sans offre Pro, la page invite à la demander.
+- Migration `V67` : tables `subscription` et `subscription_event`.
+
+### Espace professionnel visible
+- L'espace professionnel (saisie de lieux et de food trucks) est ouvert aux administrateurs, qui ne pouvaient ni recevoir le rôle PRO ni y accéder. Un administrateur ne statue toujours pas sur sa propre demande de gestion.
+- Le lien « Espace professionnel » apparaît dans le menu pour les comptes PRO et administrateurs, et sur la page Profil dès que le rôle est attribué (sans se reconnecter). Le Profil affiche « Professionnel » pour un compte PRO.
+
 ### Import OpenAgenda : causes d'échec lisibles, appels bornés dans le temps
 - La découverte des agendas et la collecte OpenAgenda n'affichent plus seulement « Échec… » : la cause est donnée (clé API refusée en 401/403 avec le message d'OpenAgenda, agenda introuvable, quota, OpenAgenda injoignable), sans jamais exposer la clé.
 - Délais de connexion (10 s) et de lecture (60 s) sur les appels OpenAgenda : un appel bloqué ne peut plus garder le verrou d'import et faire ignorer tous les imports planifiés suivants.

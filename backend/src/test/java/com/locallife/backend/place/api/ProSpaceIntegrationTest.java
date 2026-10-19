@@ -103,6 +103,19 @@ class ProSpaceIntegrationTest {
         call(HttpMethod.GET, "/api/v1/pro/claims", oldToken, null, 403);
     }
 
+    @Test
+    void anAdmin_ShouldUseTheProSpace_ButNeverModerateTheirOwnClaim() throws Exception {
+        Long admin = user("ADMIN");
+        Long otherAdmin = user("ADMIN");
+        String adminToken = token(admin, "ADMIN");
+        long claim = submittedClaim(admin, importedPlace("PUBLISHED"));
+
+        call(HttpMethod.GET, "/api/v1/pro/places", adminToken, null, 200);
+        call(HttpMethod.POST, "/api/v1/admin/place-claims/" + claim + "/approve", adminToken, null, 403);
+        call(HttpMethod.POST, "/api/v1/admin/place-claims/" + claim + "/approve", token(otherAdmin, "ADMIN"), null,
+                200);
+    }
+
     // ---------------------------------------------------------------- parcours A
 
     @Test

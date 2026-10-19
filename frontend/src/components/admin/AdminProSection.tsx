@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { placeTypeLabel } from "../places/placeTypes";
 import { formatDate, proRequest } from "../pro/proApi";
+import AdminSubscriptionsSection from "./AdminSubscriptionsSection";
 import { CLAIM_STATUS_LABELS } from "../pro/types";
 import type { AdminClaim, ClaimReview, ClaimStatus } from "../pro/types";
 
@@ -165,6 +166,8 @@ function AdminProSection() {
                 </div>
             )}
             {accountMessage && <p className="activities-status" role="status">{accountMessage}</p>}
+
+            <AdminSubscriptionsSection />
 
             <h3>Food trucks</h3>
             <p className="activities-status">

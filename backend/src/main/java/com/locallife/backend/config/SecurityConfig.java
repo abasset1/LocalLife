@@ -168,6 +168,9 @@ public class SecurityConfig {
                         // Espace professionnel (ADR-0012) : connexion exigée ici ; le droit professionnel est relu
                         // en base par ProAccessPolicy (un rôle PRO attribué prend effet sans nouvelle connexion).
                         .requestMatchers("/api/v1/pro/**").authenticated()
+                        // Abonnement de l'utilisateur connecté (BILLING-01, ADR-0014).
+                        .requestMatchers("/api/v1/users/me/subscription", "/api/v1/users/me/subscription/**")
+                        .authenticated()
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptions -> exceptions

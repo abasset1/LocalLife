@@ -185,6 +185,18 @@ export default function CompteScreen() {
                 label="Mes contributions"
                 description="Suivre et modifier vos propositions"
                 onPress={() => router.push('/contributions')}
+              />
+              <MenuRow
+                icon={{ ios: 'star', android: 'star', web: 'star' }}
+                label="Mon abonnement"
+                description="Gratuit, Premium ou Pro"
+                onPress={() => router.push('/abonnement')}
+              />
+              <MenuRow
+                icon={{ ios: 'briefcase', android: 'storefront', web: 'storefront' }}
+                label="Espace professionnel"
+                description="Vos lieux et vos food trucks"
+                onPress={() => router.push('/pro')}
                 last
               />
             </Card>
