@@ -221,7 +221,7 @@ par l'administrateur avant tout déploiement de la 0.9.58.
 
 ```sh
 cd infra && set -a && . ./.env.beta && set +a   # comme infra/backup.sh
-docker compose -f docker-compose.beta.yml exec -T postgres \
+docker compose --env-file .env.beta -f docker-compose.beta.yml exec -T postgres \
   psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < verification/v60_diagnostic.sql
 ```
 
@@ -247,7 +247,7 @@ les trois traces sont écrites par un import réussi, une seule suffit.
 à exécuter seulement au verdict B1 :
 
 ```sh
-docker compose -f docker-compose.beta.yml exec -T postgres \
+docker compose --env-file .env.beta -f docker-compose.beta.yml exec -T postgres \
   psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
   < verification/v60_desactivation_conditionnelle.sql
 ```
