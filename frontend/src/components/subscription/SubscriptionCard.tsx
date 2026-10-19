@@ -8,8 +8,9 @@ import type { Plan, SubscriptionOverview } from "./types";
 const CHOICES: Exclude<Plan, "FREE">[] = ["PREMIUM", "PRO"];
 
 /**
- * « Mon abonnement » (BILLING-01, ADR-0014) : offre actuelle et date de fin d'accès, demande de passage à Premium ou
- * Pro, retrait de la demande, résiliation. Pas de paiement pour l'instant : l'équipe LocalLife active la demande.
+ * « Mon abonnement » (BILLING-01, ADR-0014) : offre actuelle et date de fin d'accès, passage à Premium ou Pro,
+ * résiliation. Pas de paiement branché pour l'instant : l'offre choisie est activée tout de suite. Une ancienne demande
+ * encore en attente d'un administrateur peut être retirée.
  */
 function SubscriptionCard() {
     const [overview, setOverview] = useState<SubscriptionOverview | null>(null);
@@ -68,45 +69,45 @@ function SubscriptionCard() {
             )}
             {plan === "PRO" && <Link to="/pro">Ouvrir l'espace professionnel →</Link>}
 
-            {pending ? (
+            {pending && (
                 <div className="pp-actions">
                     <Notice kind="info">
                         Demande de passage à {PLAN_LABELS[pending.plan]} envoyée le {formatDay(pending.requestedAt)} :
-                        l'équipe LocalLife va l'examiner.
+                        l'équipe LocalLife va l'examiner. Choisir une offre ci-dessous l'active tout de suite.
                     </Notice>
                     <button className="pp-button pp-button-secondary" disabled={busy} type="button"
                         onClick={() => void act("withdraw", undefined, "Demande retirée.")}>
                         Retirer ma demande
                     </button>
                 </div>
-            ) : (
-                <div className="pp-actions">
-                    {CHOICES.filter((choice) => !(choice === plan && current?.status === "ACTIVE")).map((choice) => (
-                        <button className="pp-button pp-button-primary" disabled={busy} key={choice} type="button"
-                            title={PLAN_DESCRIPTIONS[choice]}
-                            onClick={() => void act("request", { plan: choice },
-                                `Demande de passage à ${PLAN_LABELS[choice]} envoyée.`)}>
-                            Passer à {PLAN_LABELS[choice]}
-                        </button>
-                    ))}
-                    {current?.status === "ACTIVE" && (
-                        <button className="pp-button pp-button-danger" disabled={busy} type="button"
-                            onClick={() => {
-                                if (window.confirm(current.accessEndsAt
-                                    ? `Résilier ? Ton accès ${PLAN_LABELS[current.plan]} durera jusqu'au ${formatDay(current.accessEndsAt)}.`
-                                    : `Résilier ? Ton accès ${PLAN_LABELS[current.plan]} s'arrêtera tout de suite.`)) {
-                                    void act("cancel", undefined, "Abonnement résilié.");
-                                }
-                            }}>
-                            Résilier
-                        </button>
-                    )}
-                </div>
             )}
+            <div className="pp-actions">
+                {CHOICES.filter((choice) => !(choice === plan && current?.status === "ACTIVE")).map((choice) => (
+                    <button className="pp-button pp-button-primary" disabled={busy} key={choice} type="button"
+                        title={PLAN_DESCRIPTIONS[choice]}
+                        onClick={() => void act("subscribe", { plan: choice },
+                            `Offre ${PLAN_LABELS[choice]} activée.`)}>
+                        Passer à {PLAN_LABELS[choice]}
+                    </button>
+                ))}
+                {current?.status === "ACTIVE" && (
+                    <button className="pp-button pp-button-danger" disabled={busy} type="button"
+                        onClick={() => {
+                            if (window.confirm(current.accessEndsAt
+                                ? `Résilier ? Ton accès ${PLAN_LABELS[current.plan]} durera jusqu'au ${formatDay(current.accessEndsAt)}.`
+                                : `Résilier ? Ton accès ${PLAN_LABELS[current.plan]} s'arrêtera tout de suite.`)) {
+                                void act("cancel", undefined, "Abonnement résilié.");
+                            }
+                        }}>
+                        Résilier
+                    </button>
+                )}
+            </div>
             {lastRejected?.decisionReason && !pending && (
                 <p className="pp-hint">Dernière demande refusée : {lastRejected.decisionReason}</p>
             )}
-            <p className="pp-hint">Paiement en ligne bientôt disponible ; pour l'instant, l'équipe active les demandes.</p>
+            <p className="pp-hint">Paiement en ligne bientôt disponible ; pour l'instant, l'offre choisie est activée sans
+                paiement.</p>
             {message && <Notice kind={message.kind}>{message.text}</Notice>}
         </ProfileCard>
     );
