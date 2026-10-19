@@ -6,6 +6,7 @@ import { getPayload } from "../auth/authStorage";
 import AdminCategoriesSection from "../components/admin/AdminCategoriesSection";
 import AdminDeletionSection from "../components/admin/AdminDeletionSection";
 import AdminImportsSection from "../components/admin/AdminImportsSection";
+import AdminMailSection from "../components/admin/AdminMailSection";
 import AdminEventLocationDuplicatesSection from "../components/admin/AdminEventLocationDuplicatesSection";
 import AdminPlaceMatchesSection from "../components/admin/AdminPlaceMatchesSection";
 import AdminPlacesSection from "../components/admin/AdminPlacesSection";
@@ -112,6 +113,7 @@ const ADMIN_SECTIONS = [
     { value: "pro", label: "Professionnels" },
     { value: "categories", label: "Catégories" },
     { value: "imports", label: "Imports" },
+    { value: "mail", label: "E-mails" },
     { value: "deletion", label: "Suppression" },
 ] as const;
 
@@ -922,6 +924,12 @@ function AdminPage() {
             {activeSection === "categories" && (
                 <main className="admin-content">
                     <AdminCategoriesSection />
+                </main>
+            )}
+
+            {activeSection === "mail" && (
+                <main className="admin-content">
+                    <AdminMailSection />
                 </main>
             )}
 

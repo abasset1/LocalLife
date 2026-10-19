@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### E-mails : diagnostic et robustesse
+- **Administration → E-mails** : configuration SMTP effective (sans le mot de passe), alertes sur une configuration incohérente, et envoi d'un e-mail de test qui explique l'échec (identifiants refusés, serveur injoignable, délai dépassé, chiffrement, expéditeur refusé).
+- Prise en charge du port 465 (`SMTP_SSL=true`), transmise par `docker-compose.beta.yml`.
+- Délais SMTP de 10 s : un serveur muet ne bloque plus une inscription ou l'envoi des alertes.
+- « Mot de passe oublié » ne répond plus par une erreur 500 si l'envoi échoue : réponse identique (sans révéler si le compte existe), échec journalisé.
+
 ### Application mobile : espace professionnel et abonnement
 - **Espace professionnel** (menu « Mon espace » et rubrique Compte), comme sur le site : demander la gestion d'un lieu existant (recherche, lien avec le lieu, justificatifs, suivi des demandes), créer un lieu (vérification des lieux proches, « C'est mon lieu », brouillon puis envoi à la modération), mes lieux, mes food trucks (profil, publication, suspension, archivage) avec leurs emplacements et leur planning (lieu existant ou adresse, type, jours, horaires, période ; brouillon, publication, désactivation, archivage).
 - **Mon abonnement** : offre actuelle et date de fin d'accès, passage à Premium ou Pro, retrait de la demande, résiliation.

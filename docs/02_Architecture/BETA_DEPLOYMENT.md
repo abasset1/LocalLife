@@ -131,6 +131,7 @@ template sans valeur réelle est fourni dans
 | `SMTP_HOST` / `SMTP_PORT` | Serveur SMTP et port du prestataire email | Non |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | Identifiants SMTP | **Mot de passe sensible** |
 | `SMTP_AUTH` / `SMTP_STARTTLS` | Authentification et chiffrement SMTP (défaut : `true`) | Non |
+| `SMTP_SSL` | Connexion chiffrée dès le départ, pour le port 465 (défaut : `false`) | Non |
 | `MAIL_FROM` | Adresse expéditeur autorisée par le prestataire | Non |
 | `FRONTEND_BASE_URL` | URL des liens de confirmation/réinitialisation | Non |
 
@@ -143,6 +144,15 @@ ne peut pas joindre un serveur mail depuis le conteneur backend. Le port
 si le prestataire impose un autre mode. `FRONTEND_BASE_URL` est défini
 automatiquement à partir de `LOCALLIFE_DOMAIN` pour générer des liens
 utilisables depuis Internet.
+
+**Vérifier l'envoi d'e-mails** : Administration → E-mails affiche la
+configuration SMTP effective (sans le mot de passe), signale les incohérences
+visibles (serveur de développement `localhost:1025`, port 465 sans
+`SMTP_SSL`, port 587 sans STARTTLS, authentification sans mot de passe) et
+envoie un e-mail de test en expliquant l'échec : identifiants refusés (Gmail
+et Outlook exigent un mot de passe d'application), serveur inconnu ou
+injoignable, délai dépassé, chiffrement mal choisi, expéditeur `MAIL_FROM`
+refusé. Délais SMTP : 10 s pour la connexion, la lecture et l'écriture.
 
 ---
 
