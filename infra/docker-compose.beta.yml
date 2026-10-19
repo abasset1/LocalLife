@@ -47,6 +47,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:?Configure SMTP_PASSWORD in .env.beta}
       SMTP_AUTH: ${SMTP_AUTH:-true}
       SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_SSL: ${SMTP_SSL:-false}
       MAIL_FROM: ${MAIL_FROM:?Configure MAIL_FROM in .env.beta}
       FRONTEND_BASE_URL: https://${LOCALLIFE_DOMAIN}
     depends_on:

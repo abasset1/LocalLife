@@ -14,6 +14,9 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.mail.MailException;
 import org.springframework.stereotype.Service;
 
 /**
@@ -36,6 +39,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class PasswordResetService {
+
+    private static final Logger log = LoggerFactory.getLogger(PasswordResetService.class);
 
     private static final long TOKEN_VALIDITY_MINUTES = 30;
     private static final int TOKEN_BYTES = 32;
@@ -95,7 +100,13 @@ public class PasswordResetService {
         tokenRepository.save(token);
 
         String resetLink = frontendBaseUrl + "/reset-password?token=" + rawToken;
-        emailService.sendPasswordResetEmail(user.email(), resetLink);
+        // Un échec d'envoi ne doit ni produire une erreur 500 ni révéler que le compte existe (réponse identique) :
+        // il est journalisé, et diagnostiqué depuis l'administration (POST /api/v1/admin/mail/test).
+        try {
+            emailService.sendPasswordResetEmail(user.email(), resetLink);
+        } catch (MailException exception) {
+            log.error("Échec de l'envoi de l'email de réinitialisation à {}", user.email(), exception);
+        }
     }
 
     /**
