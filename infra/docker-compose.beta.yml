@@ -19,6 +19,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_beta_data:/var/lib/postgresql/data
+    # Accès outils (DBeaver, psql) via tunnel SSH uniquement : lié à
+    # 127.0.0.1, jamais exposé sur l'IP publique. Voir BETA_DBEAVER.md.
+    ports:
+      - "127.0.0.1:5432:5432"
     restart: unless-stopped
 
   backend:
