@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView } from 'react-native';
 
-import { cancelSubscription, getSubscription, requestPlan, withdrawPlanRequest } from '@/api';
+import { cancelSubscription, getSubscription, subscribePlan, withdrawPlanRequest } from '@/api';
 import type { Plan, SubscriptionOverview } from '@/api';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/button';
@@ -16,8 +16,8 @@ const CHOICES: Exclude<Plan, 'FREE'>[] = ['PREMIUM', 'PRO'];
 
 /**
  * « Mon abonnement » (BILLING-01, ADR-0014), partagé avec le site web : offre actuelle et fin d'accès, passage à
- * Premium ou Pro, retrait de la demande, résiliation. Pas de paiement pour l'instant : l'équipe LocalLife active les
- * demandes. La carte et la liste restent gratuites quelle que soit l'offre.
+ * Premium ou Pro (activé tout de suite : pas de paiement branché pour l'instant), retrait d'une ancienne demande,
+ * résiliation. La carte et la liste restent gratuites quelle que soit l'offre.
  */
 export default function AbonnementScreen() {
   const { state } = useAuth();
@@ -99,11 +99,11 @@ export default function AbonnementScreen() {
           </ThemedText>
         </Card>
 
-        {pending ? (
+        {pending && (
           <Card style={styles.card}>
             <Notice tone="info">
               Demande de passage à {PLAN_LABELS[pending.plan]} envoyée le {formatDay(pending.requestedAt)} : l’équipe
-              LocalLife va l’examiner.
+              LocalLife va l’examiner. Choisir une offre ci-dessous l’active tout de suite.
             </Notice>
             <Button
               label="Retirer ma demande"
@@ -112,25 +112,22 @@ export default function AbonnementScreen() {
               onPress={() => void run(withdrawPlanRequest, 'Demande retirée.')}
             />
           </Card>
-        ) : (
-          CHOICES.filter((choice) => !(choice === plan && current?.status === 'ACTIVE')).map((choice) => (
-            <Card key={choice} style={styles.card}>
-              <ThemedText type="heading">{PLAN_LABELS[choice]}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {PLAN_DESCRIPTIONS[choice]}
-              </ThemedText>
-              <Button
-                label={`Passer à ${PLAN_LABELS[choice]}`}
-                loading={busy}
-                onPress={() =>
-                  void run(() => requestPlan(choice), `Demande de passage à ${PLAN_LABELS[choice]} envoyée.`)
-                }
-              />
-            </Card>
-          ))
         )}
+        {CHOICES.filter((choice) => !(choice === plan && current?.status === 'ACTIVE')).map((choice) => (
+          <Card key={choice} style={styles.card}>
+            <ThemedText type="heading">{PLAN_LABELS[choice]}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {PLAN_DESCRIPTIONS[choice]}
+            </ThemedText>
+            <Button
+              label={`Passer à ${PLAN_LABELS[choice]}`}
+              loading={busy}
+              onPress={() => void run(() => subscribePlan(choice), `Offre ${PLAN_LABELS[choice]} activée.`)}
+            />
+          </Card>
+        ))}
 
-        {current?.status === 'ACTIVE' && !pending && (
+        {current?.status === 'ACTIVE' && (
           <Button label="Résilier mon abonnement" variant="danger" loading={busy} onPress={confirmCancel} />
         )}
         {lastRejected?.decisionReason && !pending ? (
@@ -139,8 +136,8 @@ export default function AbonnementScreen() {
           </ThemedText>
         ) : null}
         <ThemedText type="small" themeColor="textSecondary">
-          Paiement en ligne bientôt disponible ; pour l’instant, l’équipe active les demandes. La carte et la liste
-          restent gratuites quelle que soit l’offre.
+          Paiement en ligne bientôt disponible ; pour l’instant, l’offre choisie est activée sans paiement. La carte
+          et la liste restent gratuites quelle que soit l’offre.
         </ThemedText>
         {info && <Notice tone="success">{info}</Notice>}
         {error && <Notice tone="danger">{error}</Notice>}

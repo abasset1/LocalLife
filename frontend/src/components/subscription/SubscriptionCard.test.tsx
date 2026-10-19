@@ -17,14 +17,14 @@ function json(body: unknown, status = 200): Response {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("SubscriptionCard", () => {
-    it("montre l'offre gratuite, puis la demande de passage à Pro en attente", async () => {
+    it("montre l'offre gratuite, puis active Pro tout de suite", async () => {
         const user = userEvent.setup();
-        const pending = { id: 4, plan: "PRO", status: "REQUESTED", startedAt: null, accessEndsAt: null,
+        const active = { id: 4, plan: "PRO", status: "ACTIVE", startedAt: "2026-10-19T10:00:00Z", accessEndsAt: null,
             cancelAtPeriodEnd: false, decisionReason: null, requestedAt: "2026-10-19T10:00:00Z",
             updatedAt: "2026-10-19T10:00:00Z" };
         const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-            if (url.endsWith("/request") && init?.method === "POST") {
-                return json({ plan: "FREE", current: null, pending, history: [pending] });
+            if (url.endsWith("/subscribe") && init?.method === "POST") {
+                return json({ plan: "PRO", current: active, pending: null, history: [active] });
             }
             return json({ plan: "FREE", current: null, pending: null, history: [] });
         });
@@ -34,9 +34,11 @@ describe("SubscriptionCard", () => {
         expect(await screen.findByText("Gratuit")).toBeInTheDocument();
         await user.click(screen.getByRole("button", { name: "Passer à Pro" }));
 
-        expect(await screen.findByText(/Demande de passage à Pro envoyée le/)).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Retirer ma demande" })).toBeInTheDocument();
-        expect(fetchMock).toHaveBeenCalledWith("/api/v1/users/me/subscription/request",
+        expect(await screen.findByText("Offre Pro activée.")).toBeInTheDocument();
+        expect(screen.getByText("Sans échéance, jusqu'à résiliation.")).toBeInTheDocument();
+        expect(screen.getByText("Ouvrir l'espace professionnel →")).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Passer à Pro" })).not.toBeInTheDocument();
+        expect(fetchMock).toHaveBeenCalledWith("/api/v1/users/me/subscription/subscribe",
             expect.objectContaining({ method: "POST", body: JSON.stringify({ plan: "PRO" }) }));
     });
 

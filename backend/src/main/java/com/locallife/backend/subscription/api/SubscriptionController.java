@@ -17,9 +17,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Abonnement de l'utilisateur connecté (BILLING-01, ADR-0014) : consulter son offre, demander Premium ou Pro,
- * retirer sa demande, résilier. Aucun paiement : un administrateur active la demande. L'utilisateur est toujours
- * celui du JWT, jamais un identifiant reçu.
+ * Abonnement de l'utilisateur connecté (BILLING-01, ADR-0014) : consulter son offre, souscrire Premium ou Pro,
+ * retirer une ancienne demande, résilier. Aucun paiement branché : la souscription est activée tout de suite.
+ * L'utilisateur est toujours celui du JWT, jamais un identifiant reçu.
  */
 @RestController
 @RequestMapping("/api/v1/users/me/subscription")
@@ -43,13 +43,14 @@ public class SubscriptionController {
                 service.overview(userId(authentication)))));
     }
 
-    @Operation(summary = "Demander Premium ou Pro", description = "Demande en attente d'un administrateur ; "
-            + "409 si une demande est déjà en attente ou si l'offre est déjà active.")
-    @PostMapping("/request")
+    @Operation(summary = "Souscrire Premium ou Pro", description = "Activation immédiate, sans échéance, comme si "
+            + "le paiement était validé (aucun prestataire branché) ; remplace l'offre en cours. 409 si l'offre est "
+            + "déjà active. /request est l'ancien chemin, conservé pour les applications déjà installées.")
+    @PostMapping({"/subscribe", "/request"})
     public ResponseEntity<Object> request(@RequestBody(required = false) PlanRequest body,
             Authentication authentication, HttpServletRequest request) {
         return SubscriptionResponses.handle(request, () -> ResponseEntity.ok(OverviewResponse.from(
-                service.request(userId(authentication), plan(body)))));
+                service.subscribe(userId(authentication), plan(body)))));
     }
 
     @Operation(summary = "Retirer ma demande")

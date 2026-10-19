@@ -29,8 +29,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
- * Abonnements sans paiement (BILLING-01, ADR-0014) : demande, activation par un administrateur, droits Pro ouverts
- * et retirés au moment prévu, résiliation, refus motivé, changement d'offre, expiration, journal.
+ * Abonnements sans paiement (BILLING-01, ADR-0014) : souscription activée tout de suite (paiement simulé), droits Pro
+ * ouverts et retirés au moment prévu, résiliation, changement d'offre, expiration, journal ; anciennes demandes encore
+ * traitées par un administrateur.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class SubscriptionIntegrationTest {
@@ -58,20 +59,58 @@ class SubscriptionIntegrationTest {
     }
 
     @Test
-    void aProRequest_ShouldOpenTheProSpace_OnlyOnceApproved_AndCancellationKeepsItUntilTheEnd() throws Exception {
+    void subscribingToPro_ShouldOpenTheProSpaceAtOnce_AndCancellationWithoutPeriodEndsItAtOnce() throws Exception {
         String user = token(user("USER"), "USER");
-        String admin = token(user("ADMIN"), "ADMIN");
         call(HttpMethod.GET, ME, null, null, 401);
         assertThat(call(HttpMethod.GET, ME, user, null, 200).get("plan").asText()).isEqualTo("FREE");
-        call(HttpMethod.POST, ME + "/request", user, Map.of("plan", "GOLD"), 400);
-
-        JsonNode requested = call(HttpMethod.POST, ME + "/request", user, Map.of("plan", "pro"), 200);
-        assertThat(requested.get("plan").asText()).isEqualTo("FREE");
-        assertThat(requested.get("pending").get("plan").asText()).isEqualTo("PRO");
-        call(HttpMethod.POST, ME + "/request", user, Map.of("plan", "PREMIUM"), 409);
+        call(HttpMethod.POST, ME + "/subscribe", user, Map.of("plan", "GOLD"), 400);
         call(HttpMethod.GET, "/api/v1/pro/places", user, null, 403);
 
-        long id = requested.get("pending").get("id").asLong();
+        // Paiement réputé validé : activation immédiate, sans échéance ni administrateur.
+        JsonNode subscribed = call(HttpMethod.POST, ME + "/subscribe", user, Map.of("plan", "pro"), 200);
+        assertThat(subscribed.get("plan").asText()).isEqualTo("PRO");
+        assertThat(subscribed.get("pending").isNull()).isTrue();
+        assertThat(subscribed.get("current").get("status").asText()).isEqualTo("ACTIVE");
+        assertThat(subscribed.get("current").get("accessEndsAt").isNull()).isTrue();
+        long id = subscribed.get("current").get("id").asLong();
+        assertThat(jdbcTemplate.queryForObject("SELECT provider FROM subscription WHERE id = ?", String.class, id))
+                .isEqualTo("SIMULATED");
+        // Le droit Pro vient de l'abonnement, sans rôle PRO ni nouvelle connexion.
+        call(HttpMethod.GET, "/api/v1/pro/places", user, null, 200);
+        call(HttpMethod.POST, ME + "/subscribe", user, Map.of("plan", "PRO"), 409);
+
+        JsonNode canceled = call(HttpMethod.POST, ME + "/cancel", user, null, 200);
+        assertThat(canceled.get("plan").asText()).isEqualTo("FREE");
+        assertThat(canceled.get("current").isNull()).isTrue();
+        call(HttpMethod.GET, "/api/v1/pro/places", user, null, 403);
+        call(HttpMethod.POST, ME + "/cancel", user, null, 404);
+        assertThat(jdbcTemplate.queryForList("SELECT to_status FROM subscription_event WHERE subscription_id = ? "
+                + "ORDER BY id", String.class, id)).containsExactly("REQUESTED", "ACTIVE", "EXPIRED");
+    }
+
+    @Test
+    void aChangeOfPlan_ShouldReplaceTheCurrentOne_AndTheOldRequestPathStillSubscribes() throws Exception {
+        String user = token(user("USER"), "USER");
+
+        long premium = call(HttpMethod.POST, ME + "/request", user, Map.of("plan", "PREMIUM"), 200)
+                .get("current").get("id").asLong();
+        assertThat(call(HttpMethod.GET, ME, user, null, 200).get("plan").asText()).isEqualTo("PREMIUM");
+        call(HttpMethod.GET, "/api/v1/pro/places", user, null, 403);
+
+        assertThat(call(HttpMethod.POST, ME + "/subscribe", user, Map.of("plan", "PRO"), 200).get("plan").asText())
+                .isEqualTo("PRO");
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM subscription WHERE id = ?", String.class, premium))
+                .isEqualTo("REPLACED");
+        call(HttpMethod.GET, "/api/v1/pro/places", user, null, 200);
+    }
+
+    @Test
+    void aLegacyRequest_CanStillBeApprovedWithAnEndDate_AndCancellationKeepsAccessUntilTheEnd() throws Exception {
+        long userId = user("USER");
+        String user = token(userId, "USER");
+        String admin = token(user("ADMIN"), "ADMIN");
+        long id = legacyRequest(userId, "PRO");
+
         call(HttpMethod.POST, "/api/v1/admin/subscriptions/" + id + "/approve", user, Map.of(), 403);
         assertThat(call(HttpMethod.GET, "/api/v1/admin/subscriptions", admin, null, 200))
                 .extracting(item -> item.get("subscription").get("id").asLong()).contains(id);
@@ -79,19 +118,13 @@ class SubscriptionIntegrationTest {
                 400);
         String endsOn = LocalDate.now().plusDays(30).toString();
         call(HttpMethod.POST, "/api/v1/admin/subscriptions/" + id + "/approve", admin, Map.of("endsOn", endsOn), 200);
-
-        JsonNode active = call(HttpMethod.GET, ME, user, null, 200);
-        assertThat(active.get("plan").asText()).isEqualTo("PRO");
-        assertThat(active.get("current").get("accessEndsAt").asText()).isNotBlank();
-        // Le droit Pro vient de l'abonnement, sans rôle PRO ni nouvelle connexion.
-        call(HttpMethod.GET, "/api/v1/pro/places", user, null, 200);
-        call(HttpMethod.POST, ME + "/request", user, Map.of("plan", "PRO"), 409);
+        assertThat(call(HttpMethod.GET, ME, user, null, 200).get("current").get("accessEndsAt").asText())
+                .isNotBlank();
 
         JsonNode canceled = call(HttpMethod.POST, ME + "/cancel", user, null, 200);
         assertThat(canceled.get("current").get("status").asText()).isEqualTo("CANCELED");
         assertThat(canceled.get("plan").asText()).isEqualTo("PRO");
         call(HttpMethod.GET, "/api/v1/pro/places", user, null, 200);
-        call(HttpMethod.POST, ME + "/cancel", user, null, 404);
 
         // Échéance passée : droits retirés tout de suite, puis expiration par la tâche planifiée.
         jdbcTemplate.update("UPDATE subscription SET current_period_end = now() - interval '1 minute' WHERE id = ?",
@@ -105,50 +138,30 @@ class SubscriptionIntegrationTest {
     }
 
     @Test
-    void withoutAnEndDate_CancellationShouldEndAccessAtOnce_AndAChangeOfPlanReplacesTheCurrentOne() throws Exception {
-        String user = token(user("USER"), "USER");
+    void legacyRequests_CanBeWithdrawnRejectedOrSuperseded_AndAnAccessRevoked() throws Exception {
+        long userId = user("USER");
+        String user = token(userId, "USER");
         String admin = token(user("ADMIN"), "ADMIN");
 
-        long premium = call(HttpMethod.POST, ME + "/request", user, Map.of("plan", "PREMIUM"), 200)
-                .get("pending").get("id").asLong();
-        call(HttpMethod.POST, "/api/v1/admin/subscriptions/" + premium + "/approve", admin, null, 200);
-        assertThat(call(HttpMethod.GET, ME, user, null, 200).get("plan").asText()).isEqualTo("PREMIUM");
-        call(HttpMethod.GET, "/api/v1/pro/places", user, null, 403);
-
-        long pro = call(HttpMethod.POST, ME + "/request", user, Map.of("plan", "PRO"), 200)
-                .get("pending").get("id").asLong();
-        call(HttpMethod.POST, "/api/v1/admin/subscriptions/" + pro + "/approve", admin, null, 200);
-        assertThat(jdbcTemplate.queryForObject("SELECT status FROM subscription WHERE id = ?", String.class, premium))
-                .isEqualTo("REPLACED");
-        assertThat(call(HttpMethod.GET, ME, user, null, 200).get("plan").asText()).isEqualTo("PRO");
-
-        JsonNode canceled = call(HttpMethod.POST, ME + "/cancel", user, null, 200);
-        assertThat(canceled.get("plan").asText()).isEqualTo("FREE");
-        assertThat(canceled.get("current").isNull()).isTrue();
-        call(HttpMethod.GET, "/api/v1/pro/places", user, null, 403);
-    }
-
-    @Test
-    void aRequest_CanBeWithdrawnOrRejectedWithAReason_AndAnAccessRevoked() throws Exception {
-        String user = token(user("USER"), "USER");
-        String admin = token(user("ADMIN"), "ADMIN");
-
-        call(HttpMethod.POST, ME + "/request", user, Map.of("plan", "PRO"), 200);
+        legacyRequest(userId, "PRO");
         assertThat(call(HttpMethod.POST, ME + "/withdraw", user, null, 200).get("pending").isNull()).isTrue();
         call(HttpMethod.POST, ME + "/withdraw", user, null, 404);
 
-        long rejected = call(HttpMethod.POST, ME + "/request", user, Map.of("plan", "PRO"), 200)
-                .get("pending").get("id").asLong();
+        long rejected = legacyRequest(userId, "PRO");
         call(HttpMethod.POST, "/api/v1/admin/subscriptions/" + rejected + "/reject", admin, Map.of(), 400);
         call(HttpMethod.POST, "/api/v1/admin/subscriptions/" + rejected + "/reject", admin,
                 Map.of("reason", "Activité non professionnelle"), 200);
-        JsonNode afterRejection = call(HttpMethod.GET, ME, user, null, 200);
-        assertThat(afterRejection.get("history").get(0).get("decisionReason").asText())
+        assertThat(call(HttpMethod.GET, ME, user, null, 200).get("history").get(0).get("decisionReason").asText())
                 .isEqualTo("Activité non professionnelle");
 
-        long granted = call(HttpMethod.POST, ME + "/request", user, Map.of("plan", "PRO"), 200)
-                .get("pending").get("id").asLong();
-        call(HttpMethod.POST, "/api/v1/admin/subscriptions/" + granted + "/approve", admin, null, 200);
+        // Une souscription retire la demande encore en attente.
+        long superseded = legacyRequest(userId, "PREMIUM");
+        JsonNode subscribed = call(HttpMethod.POST, ME + "/subscribe", user, Map.of("plan", "PRO"), 200);
+        assertThat(subscribed.get("pending").isNull()).isTrue();
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM subscription WHERE id = ?", String.class,
+                superseded)).isEqualTo("WITHDRAWN");
+
+        long granted = subscribed.get("current").get("id").asLong();
         call(HttpMethod.POST, "/api/v1/admin/subscriptions/" + granted + "/revoke", admin,
                 Map.of("reason", "Abus"), 200);
         assertThat(call(HttpMethod.GET, ME, user, null, 200).get("plan").asText()).isEqualTo("FREE");
@@ -170,6 +183,15 @@ class SubscriptionIntegrationTest {
         String response = spec.exchange().expectStatus().isEqualTo(expectedStatus).expectBody(String.class)
                 .returnResult().getResponseBody();
         return response == null || response.isBlank() ? null : OBJECT_MAPPER.readTree(response);
+    }
+
+    /** Demande en attente d'un administrateur, comme avant la souscription directe. */
+    private long legacyRequest(long userId, String plan) {
+        Long id = jdbcTemplate.queryForObject("INSERT INTO subscription (user_id, plan, status) "
+                + "VALUES (?, ?, 'REQUESTED') RETURNING id", Long.class, userId, plan);
+        jdbcTemplate.update("INSERT INTO subscription_event (subscription_id, actor_id, to_status) "
+                + "VALUES (?, ?, 'REQUESTED')", id, userId);
+        return id;
     }
 
     private long user(String role) {

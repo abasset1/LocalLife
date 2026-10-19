@@ -11,13 +11,14 @@ interface AdminSubscription {
 }
 
 const TABS = [
-    { value: "REQUESTED", label: "Demandes" },
     { value: "ACTIVE,CANCELED", label: "En cours" },
+    { value: "REQUESTED", label: "Anciennes demandes" },
 ];
 
 /**
- * Abonnements (BILLING-01, ADR-0014) : sans paiement pour l'instant, un administrateur active les demandes de
- * passage à Premium ou Pro (avec une date de fin facultative), les refuse avec un motif, ou retire un accès.
+ * Abonnements (BILLING-01, ADR-0014) : sans paiement branché, l'offre choisie est activée tout de suite ; un
+ * administrateur peut retirer un accès, et traite encore les demandes créées avant la souscription directe (activation
+ * avec une date de fin facultative, ou refus motivé).
  */
 function AdminSubscriptionsSection() {
     const [tab, setTab] = useState(TABS[0].value);
@@ -58,7 +59,7 @@ function AdminSubscriptionsSection() {
     return (
         <>
             <h3>Abonnements</h3>
-            <p className="activities-status">Pas de paiement pour l'instant : l'activation est manuelle.</p>
+            <p className="activities-status">Pas de paiement branché : l'offre choisie par l'utilisateur est activée tout de suite.</p>
             <nav className="admin-tabs">
                 {TABS.map((item) => (
                     <button className={item.value === tab ? "admin-tab admin-tab-active" : "admin-tab"} key={item.value}

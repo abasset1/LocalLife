@@ -34,10 +34,11 @@ public class SubscriptionRepository {
      *
      * @throws org.springframework.dao.DuplicateKeyException une demande est déjà en attente
      */
-    public Long insertRequest(Long userId, Plan plan) {
+    public Long insertRequest(Long userId, Plan plan, String provider) {
         KeyHolder key = new GeneratedKeyHolder();
-        jdbc.update("INSERT INTO subscription (user_id, plan, status) VALUES (:userId, :plan, 'REQUESTED')",
-                new MapSqlParameterSource("userId", userId).addValue("plan", plan.name()), key, new String[] {"id"});
+        jdbc.update("INSERT INTO subscription (user_id, plan, status, provider) "
+                + "VALUES (:userId, :plan, 'REQUESTED', :provider)", new MapSqlParameterSource("userId", userId)
+                .addValue("plan", plan.name()).addValue("provider", provider), key, new String[] {"id"});
         return key.getKey().longValue();
     }
 

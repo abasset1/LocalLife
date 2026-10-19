@@ -40,11 +40,12 @@ export function getSubscription(options: CallOptions = {}): Promise<Subscription
   return request<SubscriptionOverview>(BASE, { authenticated: true, signal: options.signal });
 }
 
-/** Demande de passage à Premium ou Pro, activée par l'équipe LocalLife (pas de paiement pour l'instant). */
-export function requestPlan(plan: Exclude<Plan, 'FREE'>): Promise<SubscriptionOverview> {
-  return request<SubscriptionOverview>(`${BASE}/request`, { method: 'POST', body: { plan }, authenticated: true });
+/** Passage à Premium ou Pro, activé tout de suite : aucun paiement n'est branché pour l'instant. */
+export function subscribePlan(plan: Exclude<Plan, 'FREE'>): Promise<SubscriptionOverview> {
+  return request<SubscriptionOverview>(`${BASE}/subscribe`, { method: 'POST', body: { plan }, authenticated: true });
 }
 
+/** Retire une ancienne demande encore en attente d'un administrateur. */
 export function withdrawPlanRequest(): Promise<SubscriptionOverview> {
   return request<SubscriptionOverview>(`${BASE}/withdraw`, { method: 'POST', authenticated: true });
 }

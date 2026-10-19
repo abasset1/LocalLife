@@ -23,11 +23,13 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Abonnements Premium et Pro sans paiement réel (BILLING-01, ADR-0014, décisions du 19/10/2026).
  *
- * <p>L'utilisateur demande une offre, retire sa demande ou résilie son abonnement ; un administrateur active ou
- * refuse une demande, et peut retirer un accès. À l'activation, une durée facultative fixe la fin de la période ; sans
- * durée, l'abonnement court jusqu'à résiliation. Une résiliation garde l'accès jusqu'à la fin de la période en cours
- * (immédiate s'il n'y en a pas) ; l'expiration est appliquée au moment prévu. Chaque changement est journalisé
- * ({@code subscription_event}). La consultation de la carte et de la liste reste gratuite quoi qu'il arrive.
+ * <p>L'utilisateur souscrit une offre, activée tout de suite comme si le paiement était validé (aucun prestataire
+ * branché ; Stripe plus tard), ou résilie son abonnement. Un administrateur peut retirer un accès, et traite encore
+ * les demandes en attente créées avant la souscription directe. À l'activation par un administrateur, une durée
+ * facultative fixe la fin de la période ; sans durée, l'abonnement court jusqu'à résiliation. Une résiliation garde
+ * l'accès jusqu'à la fin de la période en cours (immédiate s'il n'y en a pas) ; l'expiration est appliquée au moment
+ * prévu. Chaque changement est journalisé ({@code subscription_event}). La consultation de la carte et de la liste
+ * reste gratuite quoi qu'il arrive.
  */
 @Service
 public class SubscriptionService {
@@ -36,6 +38,8 @@ public class SubscriptionService {
     private static final ZoneId ZONE = ZoneId.of("Europe/Paris");
     private static final int HISTORY_SIZE = 10;
     private static final int MAX_REASON_LENGTH = 2000;
+    /** Abonnements activés sans prestataire de paiement, à distinguer des activations par un administrateur. */
+    private static final String SIMULATED_PROVIDER = "SIMULATED";
 
     private final SubscriptionRepository repository;
 
@@ -60,23 +64,40 @@ public class SubscriptionService {
 
     // ---------------------------------------------------------------- utilisateur
 
+    /**
+     * Souscription directe : tant qu'aucun prestataire n'est branché, le paiement est réputé validé et l'offre est
+     * activée tout de suite, sans échéance (décision du 19/10/2026 ; Stripe plus tard). L'abonnement en cours éventuel
+     * est remplacé ; une ancienne demande en attente est retirée.
+     */
     @Transactional
-    public Overview request(Long userId, Plan plan) {
+    public Overview subscribe(Long userId, Plan plan) {
         if (plan == null || plan == Plan.FREE) {
             throw ProActionException.invalid("Offre inconnue : PREMIUM ou PRO.");
         }
-        if (effectivePlan(userId) == plan && repository.findCurrent(userId)
-                .filter(current -> current.status() == SubscriptionStatus.ACTIVE).isPresent()) {
+        Optional<Subscription> current = repository.findCurrent(userId);
+        if (current.filter(found -> found.plan() == plan && found.status() == SubscriptionStatus.ACTIVE)
+                .isPresent()) {
             throw ProActionException.conflict("Tu as déjà cette offre.");
+        }
+        Optional<Subscription> pending = repository.findRequested(userId);
+        if (pending.isPresent()) {
+            apply(pending.get(), SubscriptionStatus.WITHDRAWN, Change.none(), userId, "Remplacée par une souscription");
         }
         Long id;
         try {
-            id = repository.insertRequest(userId, plan);
+            id = repository.insertRequest(userId, plan, SIMULATED_PROVIDER);
         } catch (DuplicateKeyException exception) {
-            throw ProActionException.conflict("Une demande est déjà en attente : retire-la pour en faire une autre.");
+            throw ProActionException.conflict("L'abonnement a changé entre-temps, recharge la page.");
         }
         repository.insertEvent(id, userId, null, SubscriptionStatus.REQUESTED, null);
-        LOGGER.info("Demande d'abonnement {} : utilisateur {}, offre {}", id, userId, plan);
+        OffsetDateTime now = OffsetDateTime.now();
+        if (current.isPresent()) {
+            apply(current.get(), SubscriptionStatus.REPLACED, new Change(false, null, true, now, null, null, null),
+                    userId, "Remplacé par l'offre " + plan);
+        }
+        apply(repository.findById(id).orElseThrow(), SubscriptionStatus.ACTIVE,
+                new Change(true, now, true, null, false, null, null), userId, "Paiement simulé");
+        LOGGER.info("Abonnement {} : utilisateur {}, offre {} activée (paiement simulé)", id, userId, plan);
         return overview(userId);
     }
 
