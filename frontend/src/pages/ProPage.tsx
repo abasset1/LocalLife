@@ -4,6 +4,7 @@ import { getPayload } from "../auth/authStorage";
 import { placeTypeLabel } from "../components/places/placeTypes";
 import ProClaimsSection from "../components/pro/ProClaimsSection";
 import type { ClaimTarget } from "../components/pro/ProClaimsSection";
+import ProFoodTrucksSection from "../components/pro/ProFoodTrucksSection";
 import ProNewPlaceSection from "../components/pro/ProNewPlaceSection";
 import { proRequest } from "../components/pro/proApi";
 import { PLACE_STATUS_LABELS } from "../components/pro/types";
@@ -13,14 +14,14 @@ const SECTIONS = [
     { value: "places", label: "Mes lieux" },
     { value: "claim", label: "Demander la gestion d'un lieu" },
     { value: "create", label: "Créer un lieu" },
-    { value: "foodtruck", label: "Créer un food truck" },
+    { value: "foodtruck", label: "Mes food trucks" },
 ] as const;
 
 type Section = (typeof SECTIONS)[number]["value"];
 
 /**
  * Espace professionnel (ADR-0012, PRO-01) : trois parcours distincts — demander la gestion d'un lieu existant, créer
- * un lieu, créer un food truck (à venir avec ARCHI-01) — et la liste des lieux gérés. Les droits sont vérifiés par
+ * un lieu, créer et gérer un food truck (profil, emplacements, planning) — et la liste des lieux gérés. Les droits sont vérifiés par
  * le backend : un compte sans rôle professionnel reçoit un 403, affiché ici comme tel.
  */
 function ProPage() {
@@ -150,15 +151,7 @@ function ProPage() {
                             />
                         )}
 
-                        {section === "foodtruck" && (
-                            <section aria-labelledby="pro-foodtruck-title">
-                                <h2 id="pro-foodtruck-title">Créer un food truck</h2>
-                                <p className="activities-status">
-                                    Bientôt disponible. Un food truck aura sa propre fiche, distincte des lieux, avec ses
-                                    emplacements et son planning de présence.
-                                </p>
-                            </section>
-                        )}
+                        {section === "foodtruck" && <ProFoodTrucksSection />}
                     </main>
                 </>
             )}

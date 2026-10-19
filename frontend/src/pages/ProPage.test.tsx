@@ -54,7 +54,7 @@ describe("ProPage", () => {
         renderPage();
         expect(await screen.findByRole("button", { name: "Demander la gestion d'un lieu" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Créer un lieu" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Créer un food truck" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Mes food trucks" })).toBeInTheDocument();
     });
 
     it("vérifie les lieux proches avant de créer, et bascule vers la demande de gestion", async () => {

@@ -3600,3 +3600,10 @@ body {
     margin: 0.25rem 0 0.5rem;
     padding-left: 1rem;
 }
+
+/* Espace pro, emplacements de food truck : recherche d'un lieu existant sur une ligne. */
+.pro-place-search {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}

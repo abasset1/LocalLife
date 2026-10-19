@@ -4,7 +4,7 @@ import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.place.api.ProResponses.AdminClaimResponse;
 import com.locallife.backend.place.api.ProResponses.ClaimReviewResponse;
 import com.locallife.backend.place.application.PlaceClaimService;
-import com.locallife.backend.place.application.ProActionException;
+import com.locallife.backend.pro.application.ProActionException;
 import com.locallife.backend.place.domain.ClaimStatus;
 import com.locallife.backend.place.domain.ClaimTransitions.Action;
 import io.swagger.v3.oas.annotations.Operation;

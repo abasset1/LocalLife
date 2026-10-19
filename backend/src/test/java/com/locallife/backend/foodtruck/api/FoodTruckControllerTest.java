@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.locallife.backend.foodtruck.application.FoodTruckService;
@@ -15,7 +16,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.foodtruck.domain.FoodTruckPresence;
+import com.locallife.backend.pro.application.ProAccessPolicy;
+import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.foodtruck.domain.SpotKind;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -30,6 +34,11 @@ class FoodTruckControllerTest {
 
     @Mock
     private HttpServletRequest httpRequest;
+
+    @Mock
+    private ProAccessPolicy proAccessPolicy;
+
+    private final JwtAuthentication pro = new JwtAuthentication(7L, "pro@example.com", Role.PRO);
 
     @InjectMocks
     private FoodTruckController foodTruckController;
@@ -62,18 +71,29 @@ class FoodTruckControllerTest {
     }
 
     @Test
+    void createFoodTruck_ShouldBeForbidden_WithoutAProAccount() {
+        when(httpRequest.getRequestURI()).thenReturn("/api/v1/foodtrucks");
+        when(proAccessPolicy.hasProAccess(7L)).thenReturn(false);
+
+        assertThat(foodTruckController.createFoodTruck(new FoodTruckController.CreateFoodTruckRequest(
+                "Le Camion qui Fume", "desc", 43.29, 5.37, "burger", null), pro, httpRequest).getStatusCode())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
     void createFoodTruck_ShouldReturnCreated_WhenValid() {
         // Given
+        when(proAccessPolicy.hasProAccess(7L)).thenReturn(true);
         FoodTruck created = new FoodTruck(
                 1L, "Le Camion qui Fume", "desc", 43.29, 5.37, "burger", null, "PUBLISHED");
-        when(foodTruckService.createFoodTruck(anyString(), any(), anyDouble(), anyDouble(), anyString(), any()))
+        when(foodTruckService.createFoodTruck(eq(7L), anyString(), any(), anyDouble(), anyDouble(), anyString(), any()))
                 .thenReturn(created);
 
         FoodTruckController.CreateFoodTruckRequest request = new FoodTruckController.CreateFoodTruckRequest(
                 "Le Camion qui Fume", "desc", 43.29, 5.37, "burger", null);
 
         // When
-        ResponseEntity<Object> response = foodTruckController.createFoodTruck(request, httpRequest);
+        ResponseEntity<Object> response = foodTruckController.createFoodTruck(request, pro, httpRequest);
 
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -83,15 +103,16 @@ class FoodTruckControllerTest {
     @Test
     void createFoodTruck_ShouldReturnBadRequest_WhenServiceThrowsIllegalArgument() {
         // Given
+        when(proAccessPolicy.hasProAccess(7L)).thenReturn(true);
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/foodtrucks");
-        when(foodTruckService.createFoodTruck(anyString(), any(), anyDouble(), anyDouble(), any(), any()))
+        when(foodTruckService.createFoodTruck(eq(7L), anyString(), any(), anyDouble(), anyDouble(), any(), any()))
                 .thenThrow(new IllegalArgumentException("Le champ 'name' est obligatoire."));
 
         FoodTruckController.CreateFoodTruckRequest request = new FoodTruckController.CreateFoodTruckRequest(
                 "", "desc", 43.29, 5.37, "burger", null);
 
         // When
-        ResponseEntity<Object> response = foodTruckController.createFoodTruck(request, httpRequest);
+        ResponseEntity<Object> response = foodTruckController.createFoodTruck(request, pro, httpRequest);
 
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);

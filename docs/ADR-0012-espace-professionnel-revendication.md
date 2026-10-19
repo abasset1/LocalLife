@@ -188,3 +188,22 @@ lieux (le food truck attend le lot C). D5 reste ouverte.
 Limites connues, hors de ce lot : un gestionnaire ne modifie pas une fiche
 importée ni une fiche publiée (D5) ; pas de révocation d'un droit de gestion
 depuis l'interface ; l'application mobile n'a pas d'espace professionnel.
+
+## 7. Lot C — food truck (19/10/2026)
+
+Réalisé après ARCHI-01 (ADR-0013), avec FOODTRUCK-01. Migration `V66` :
+`food_truck.owner_id`, `updated_at`, statuts `DRAFT`/`SUSPENDED`/`ARCHIVED`,
+suspension par un administrateur (`suspended_by_admin_at`, `suspended_by`).
+
+- **Profil** (`/api/v1/pro/foodtrucks`) : nom commercial, cuisine,
+  description, contact. Créé en brouillon, **publié par son propriétaire sans
+  modération préalable** (D6), suspendu, republié, archivé (définitif).
+  Propriété vérifiée côté serveur (404 pour le food truck d'un autre).
+- **Suspension par LocalLife** (`/api/v1/admin/foodtrucks/{id}/suspend` et
+  `/reinstate`, Administration → Professionnels) : le food truck disparaît de
+  la carte et son propriétaire ne peut pas le republier.
+- `POST /api/v1/foodtrucks` (LL-6009) est désormais **réservé aux comptes
+  professionnels**, qui en deviennent propriétaires ; réponse inchangée.
+  Aucun client ne l'utilisait.
+- Visuels : non traités (le module `media` ne stocke que des URL et n'a pas de
+  lien avec les food trucks) ; à prévoir dans un ticket dédié.

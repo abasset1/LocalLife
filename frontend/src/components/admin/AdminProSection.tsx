@@ -21,8 +21,15 @@ const QUEUE_TABS: { value: string; label: string }[] = [
 
 const DECIDABLE = new Set<ClaimStatus>(["SUBMITTED", "IN_REVIEW"]);
 
+/** Food truck côté administration (`AdminFoodTruckResponse`, backend). */
+interface AdminFoodTruck {
+    foodTruck: { id: number; name: string; category: string; status: string; suspendedByLocalLife: boolean };
+    ownerEmail: string | null;
+}
+
 /**
- * Professionnels (ADR-0012) : attribution du rôle PRO et modération des demandes de gestion de lieux. Le dossier
+ * Professionnels (ADR-0012) : attribution du rôle PRO, suspension des food trucks et modération des demandes de
+ * gestion de lieux. Le dossier
  * d'une demande montre son historique, les demandes concurrentes sur le même lieu et ses gestionnaires actuels ;
  * refuser ou demander des informations exige un motif, visible du demandeur.
  */
@@ -37,6 +44,28 @@ function AdminProSection() {
     const [message, setMessage] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const [busy, setBusy] = useState(false);
+    const [foodTrucks, setFoodTrucks] = useState<AdminFoodTruck[]>([]);
+    const [foodTruckMessage, setFoodTruckMessage] = useState<string | null>(null);
+    const [foodTruckRefresh, setFoodTruckRefresh] = useState(0);
+
+    useEffect(() => {
+        void proRequest<AdminFoodTruck[]>("/api/v1/admin/foodtrucks?status=PUBLISHED,SUSPENDED&limit=200")
+            .then((result) => {
+                if (result.ok) {
+                    setFoodTrucks(result.data);
+                } else {
+                    setFoodTruckMessage(result.message);
+                }
+            });
+    }, [foodTruckRefresh]);
+
+    async function moderateFoodTruck(item: AdminFoodTruck, action: "suspend" | "reinstate") {
+        const result = await proRequest(`/api/v1/admin/foodtrucks/${item.foodTruck.id}/${action}`, "PATCH");
+        setFoodTruckMessage(result.ok
+            ? `« ${item.foodTruck.name} » ${action === "suspend" ? "suspendu" : "rétabli"}.`
+            : result.message);
+        setFoodTruckRefresh((key) => key + 1);
+    }
 
     useEffect(() => {
         void proRequest<AdminClaim[]>(`/api/v1/admin/place-claims?status=${queue}`).then((result) => {
@@ -136,6 +165,43 @@ function AdminProSection() {
                 </div>
             )}
             {accountMessage && <p className="activities-status" role="status">{accountMessage}</p>}
+
+            <h3>Food trucks</h3>
+            <p className="activities-status">
+                Publiés par leurs propriétaires sans modération préalable. Une suspension par LocalLife les retire de la
+                carte ; leur propriétaire ne peut pas les republier.
+            </p>
+            {foodTruckMessage && <p className="activities-status" role="status">{foodTruckMessage}</p>}
+            {foodTrucks.length === 0 ? (
+                <p className="activities-status">Aucun food truck publié ou suspendu.</p>
+            ) : (
+                <ul className="favorites-list">
+                    {foodTrucks.map((item) => (
+                        <li className="favorites-list-item contributions-list-item" key={item.foodTruck.id}>
+                            <div className="favorites-list-item-info">
+                                <span className="favorites-list-item-title">🚚 {item.foodTruck.name}</span>
+                                <span className="favorites-list-item-meta">
+                                    {item.foodTruck.status === "PUBLISHED" ? "Publié" : "Suspendu"}
+                                    {item.foodTruck.suspendedByLocalLife ? " par LocalLife" : ""} · {item.foodTruck.category}
+                                    {item.ownerEmail ? ` · ${item.ownerEmail}` : ""}
+                                </span>
+                            </div>
+                            {item.foodTruck.status === "PUBLISHED" && (
+                                <button className="admin-reject-button" type="button"
+                                    onClick={() => void moderateFoodTruck(item, "suspend")}>
+                                    Suspendre
+                                </button>
+                            )}
+                            {item.foodTruck.suspendedByLocalLife && (
+                                <button className="admin-approve-button" type="button"
+                                    onClick={() => void moderateFoodTruck(item, "reinstate")}>
+                                    Rétablir
+                                </button>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            )}
 
             <h3>Demandes de gestion de lieux</h3>
             <nav className="admin-tabs">

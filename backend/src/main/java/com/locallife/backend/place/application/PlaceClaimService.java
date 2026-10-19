@@ -12,6 +12,7 @@ import com.locallife.backend.place.infrastructure.PlaceManagerRepository;
 import com.locallife.backend.place.infrastructure.PlaceManagerRepository.Manager;
 import com.locallife.backend.place.infrastructure.PlaceRepository;
 import com.locallife.backend.pro.application.ProAccessPolicy;
+import com.locallife.backend.pro.application.ProActionException;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;

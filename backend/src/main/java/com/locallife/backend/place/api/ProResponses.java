@@ -2,7 +2,7 @@ package com.locallife.backend.place.api;
 
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.place.application.PlaceClaimService.ClaimReview;
-import com.locallife.backend.place.application.ProActionException;
+import com.locallife.backend.pro.application.ProActionException;
 import com.locallife.backend.place.application.ProPlaceService.SimilarResult;
 import com.locallife.backend.place.domain.ClaimStatus;
 import com.locallife.backend.place.domain.PlaceClaim;

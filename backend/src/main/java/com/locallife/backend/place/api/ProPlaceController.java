@@ -7,7 +7,7 @@ import com.locallife.backend.place.api.ProResponses.SimilarConflictResponse;
 import com.locallife.backend.place.api.ProResponses.SimilarPlaceResponse;
 import com.locallife.backend.place.api.ProResponses.SimilarResponse;
 import com.locallife.backend.place.application.PlaceClaimService;
-import com.locallife.backend.place.application.ProActionException;
+import com.locallife.backend.pro.application.ProActionException;
 import com.locallife.backend.place.application.ProPlaceService;
 import com.locallife.backend.place.application.ProPlaceService.PlaceInput;
 import com.locallife.backend.place.application.ProPlaceService.SimilarPlacesFoundException;

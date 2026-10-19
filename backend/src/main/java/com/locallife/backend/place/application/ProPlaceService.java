@@ -12,6 +12,7 @@ import com.locallife.backend.place.infrastructure.ProPlaceRepository.ManagedPlac
 import com.locallife.backend.place.infrastructure.ProPlaceRepository.ProPlaceFields;
 import com.locallife.backend.place.infrastructure.ProPlaceRepository.SimilarPlace;
 import com.locallife.backend.pro.application.ProAccessPolicy;
+import com.locallife.backend.pro.application.ProActionException;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;

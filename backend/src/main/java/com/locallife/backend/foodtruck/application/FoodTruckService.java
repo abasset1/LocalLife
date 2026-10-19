@@ -2,8 +2,11 @@ package com.locallife.backend.foodtruck.application;
 
 import com.locallife.backend.foodtruck.domain.FoodTruck;
 import com.locallife.backend.foodtruck.domain.FoodTruckPresence;
+import com.locallife.backend.foodtruck.domain.FoodTruckStatus;
 import com.locallife.backend.foodtruck.infrastructure.FoodTruckPresenceRepository;
 import com.locallife.backend.foodtruck.infrastructure.FoodTruckRepository;
+import com.locallife.backend.foodtruck.infrastructure.OwnedFoodTruckRepository;
+import com.locallife.backend.foodtruck.infrastructure.OwnedFoodTruckRepository.ProfileFields;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -45,10 +48,13 @@ public class FoodTruckService {
 
     private final FoodTruckRepository foodTruckRepository;
     private final FoodTruckPresenceRepository presenceRepository;
+    private final OwnedFoodTruckRepository ownedRepository;
 
-    public FoodTruckService(FoodTruckRepository foodTruckRepository, FoodTruckPresenceRepository presenceRepository) {
+    public FoodTruckService(FoodTruckRepository foodTruckRepository, FoodTruckPresenceRepository presenceRepository,
+            OwnedFoodTruckRepository ownedRepository) {
         this.foodTruckRepository = foodTruckRepository;
         this.presenceRepository = presenceRepository;
+        this.ownedRepository = ownedRepository;
     }
 
     /** Fuseau des dates de présence (« aujourd'hui » pour la carte). */
@@ -96,20 +102,23 @@ public class FoodTruckService {
      * elle devient une présence permanente sur un emplacement créé pour lui
      * (même forme que les food trucks migrés par V65). La réponse garde la
      * position reçue, comme avant.
+     *
+     * Depuis PRO-01 lot C, réservé aux comptes professionnels (vérifié par
+     * {@code FoodTruckController}) : {@code ownerId} devient le propriétaire.
      */
     @Transactional
-    public FoodTruck createFoodTruck(
+    public FoodTruck createFoodTruck(Long ownerId,
             String name, String description, double latitude, double longitude, String category, String contact) {
         validateName(name);
         validateCategory(category);
         validateLatitude(latitude);
         validateLongitude(longitude);
 
-        FoodTruck foodTruck = new FoodTruck(null, name, description, null, null, category, contact, DEFAULT_STATUS);
-        FoodTruck saved = foodTruckRepository.save(foodTruck);
-        presenceRepository.insertPermanent(saved.id(), latitude, longitude);
+        Long id = ownedRepository.insert(ownerId, new ProfileFields(name, description, category, contact),
+                FoodTruckStatus.valueOf(DEFAULT_STATUS));
+        presenceRepository.insertPermanent(id, latitude, longitude);
         // Relu pour renvoyer la date de publication posée par la base (trigger V55).
-        FoodTruck read = foodTruckRepository.findById(saved.id()).orElse(saved);
+        FoodTruck read = foodTruckRepository.findById(id).orElseThrow();
         return new FoodTruck(read.id(), read.name(), read.description(), latitude, longitude, read.category(),
                 read.contact(), read.status(), read.publishedAt());
     }

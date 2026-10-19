@@ -38,7 +38,7 @@ public class OpenAgendaAgendaDirectory {
 
     @Autowired
     public OpenAgendaAgendaDirectory(@Value("${openagenda.api-key:}") String apiKey) {
-        this(RestClient.builder(), apiKey);
+        this(OpenAgendaErrors.restClientBuilder(), apiKey);
     }
 
     /** Constructeur package-privé : {@link RestClient.Builder} lié à un {@code MockRestServiceServer} en test. */
@@ -83,7 +83,7 @@ public class OpenAgendaAgendaDirectory {
                         .retrieve()
                         .body(AgendasResponse.class);
             } catch (RestClientException exception) {
-                throw new CollectorException("Échec de la découverte des agendas OpenAgenda.", exception);
+                throw OpenAgendaErrors.failure("Échec de la découverte des agendas OpenAgenda", exception);
             }
 
             if (response == null || response.agendas() == null || response.agendas().isEmpty()) {

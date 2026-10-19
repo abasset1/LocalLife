@@ -1,7 +1,7 @@
-package com.locallife.backend.place.application;
+package com.locallife.backend.pro.application;
 
 /**
- * Refus d'une action de l'espace professionnel ou de la modération des revendications (ADR-0012), avec sa nature :
+ * Refus d'une action de l'espace professionnel ou de sa modération (ADR-0012, ADR-0013), avec sa nature :
  * le contrôleur en déduit le code HTTP.
  */
 public class ProActionException extends RuntimeException {
@@ -31,23 +31,23 @@ public class ProActionException extends RuntimeException {
         return reason;
     }
 
-    static ProActionException invalid(String message) {
+    public static ProActionException invalid(String message) {
         return new ProActionException(Reason.INVALID, message);
     }
 
-    static ProActionException forbidden(String message) {
+    public static ProActionException forbidden(String message) {
         return new ProActionException(Reason.FORBIDDEN, message);
     }
 
-    static ProActionException notFound(String message) {
+    public static ProActionException notFound(String message) {
         return new ProActionException(Reason.NOT_FOUND, message);
     }
 
-    static ProActionException conflict(String message) {
+    public static ProActionException conflict(String message) {
         return new ProActionException(Reason.CONFLICT, message);
     }
 
-    static ProActionException unavailable(String message) {
+    public static ProActionException unavailable(String message) {
         return new ProActionException(Reason.UNAVAILABLE, message);
     }
 }
