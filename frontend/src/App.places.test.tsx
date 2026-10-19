@@ -5,9 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 /**
- * Bouton de la couche « Lieux » (ADR-0011, phase B). Leaflet ne s'affiche pas dans jsdom : la carte est remplacée
- * par une version qui indique si la couche lui est demandée ; le chargement des lieux (PlacesLayer) est vérifié à
- * part et dans un navigateur réel.
+ * Choix du contenu de la carte : activités, lieux (ADR-0011, phase B) ou food trucks (ADR-0013), un seul à la fois.
+ * Leaflet ne s'affiche pas dans jsdom : la carte est remplacée par une version qui indique la couche demandée ; le
+ * chargement des lieux (PlacesLayer) est vérifié à part et dans un navigateur réel.
  */
 const MOCK_PLACES = [
     { id: 1, name: "Palais des Papes", placeType: "Palace", address: null, postalCode: "84000", city: "Avignon",
@@ -17,55 +17,75 @@ const MOCK_PLACES = [
 vi.mock("./components/explorer/ExplorerMap", async () => {
     const { useEffect } = await import("react");
     return {
-        default: ({ showPlaces = false, onPlacesChange }: {
-            showPlaces?: boolean;
+        default: ({ layer = "activities", onPlacesChange }: {
+            layer?: string;
             onPlacesChange?: (places: unknown[]) => void;
         }) => {
             // Comme PlacesLayer : lieux de la zone transmis quand la couche est affichée.
             useEffect(() => {
-                onPlacesChange?.(showPlaces ? MOCK_PLACES : []);
-            }, [showPlaces, onPlacesChange]);
-            return <div data-testid="map">{showPlaces ? "couche lieux visible" : "couche lieux masquée"}</div>;
+                onPlacesChange?.(layer === "places" ? MOCK_PLACES : []);
+            }, [layer, onPlacesChange]);
+            return <div data-testid="map">{`couche ${layer}`}</div>;
         },
     };
 });
 
 beforeEach(() => {
     try {
-        window.localStorage.removeItem("locallife.showPlaces");
+        window.localStorage.removeItem("locallife.mapLayer");
     } catch {
         // stockage indisponible : sans effet sur le test
     }
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("[]", { status: 200 }))));
 });
 
-describe("App — bouton de la couche « Lieux »", () => {
-    it("affiche puis masque la couche, et mémorise le choix", async () => {
-        const user = userEvent.setup();
+describe("App — contenu de la carte", () => {
+    it("affiche les activités par défaut", async () => {
         render(<MemoryRouter><App /></MemoryRouter>);
-        const toggle = await screen.findByRole("button", { name: /Lieux/ });
 
-        expect(toggle).toHaveAttribute("aria-pressed", "false");
-        expect(screen.getByTestId("map")).toHaveTextContent("couche lieux masquée");
-
-        await user.click(toggle);
-        expect(toggle).toHaveAttribute("aria-pressed", "true");
-        expect(screen.getByTestId("map")).toHaveTextContent("couche lieux visible");
-        expect(window.localStorage.getItem("locallife.showPlaces")).toBe("true");
-
-        await user.click(toggle);
-        expect(screen.getByTestId("map")).toHaveTextContent("couche lieux masquée");
+        expect(await screen.findByRole("button", { name: /Activités/ })).toHaveAttribute("aria-pressed", "true");
+        expect(screen.getByRole("button", { name: /Lieux/ })).toHaveAttribute("aria-pressed", "false");
+        expect(screen.getByRole("button", { name: /Food trucks/ })).toHaveAttribute("aria-pressed", "false");
+        expect(screen.getByTestId("map")).toHaveTextContent("couche activities");
     });
 
-    it("propose l'onglet « Lieux » dans la liste quand la couche est affichée", async () => {
+    it("n'affiche qu'un seul contenu à la fois, et mémorise le choix", async () => {
         const user = userEvent.setup();
         render(<MemoryRouter><App /></MemoryRouter>);
-        expect(screen.queryByRole("tab", { name: /Lieux/ })).not.toBeInTheDocument();
+        const activities = await screen.findByRole("button", { name: /Activités/ });
+        const places = screen.getByRole("button", { name: /Lieux/ });
+        const foodTrucks = screen.getByRole("button", { name: /Food trucks/ });
+
+        await user.click(places);
+        expect(places).toHaveAttribute("aria-pressed", "true");
+        expect(activities).toHaveAttribute("aria-pressed", "false");
+        expect(screen.getByTestId("map")).toHaveTextContent("couche places");
+        expect(window.localStorage.getItem("locallife.mapLayer")).toBe("places");
+
+        await user.click(foodTrucks);
+        expect(foodTrucks).toHaveAttribute("aria-pressed", "true");
+        expect(places).toHaveAttribute("aria-pressed", "false");
+        expect(screen.getByTestId("map")).toHaveTextContent("couche foodTrucks");
+
+        await user.click(activities);
+        expect(screen.getByTestId("map")).toHaveTextContent("couche activities");
+    });
+
+    it("liste les lieux, et non les activités, quand les lieux sont affichés", async () => {
+        const user = userEvent.setup();
+        render(<MemoryRouter><App /></MemoryRouter>);
 
         await user.click(await screen.findByRole("button", { name: /Lieux/ }));
-        await user.click(await screen.findByRole("tab", { name: "Lieux (1)" }));
 
-        expect(screen.getByRole("tab", { name: "Lieux (1)" })).toHaveAttribute("aria-selected", "true");
-        expect(screen.getByRole("button", { name: /Palais des Papes/ })).toBeInTheDocument();
+        expect(await screen.findByRole("button", { name: /Palais des Papes/ })).toBeInTheDocument();
+        expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    });
+
+    it("reprend le dernier contenu choisi", async () => {
+        window.localStorage.setItem("locallife.mapLayer", "foodTrucks");
+        render(<MemoryRouter><App /></MemoryRouter>);
+
+        expect(await screen.findByRole("button", { name: /Food trucks/ })).toHaveAttribute("aria-pressed", "true");
+        expect(screen.getByTestId("map")).toHaveTextContent("couche foodTrucks");
     });
 });

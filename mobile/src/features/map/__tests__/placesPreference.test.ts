@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { SHOW_PLACES_KEY, loadShowPlaces, saveShowPlaces } from '../placesPreference';
+import { MAP_LAYER_KEY, loadMapLayer, saveMapLayer } from '../placesPreference';
 
 jest.mock('@react-native-async-storage/async-storage', () => {
   const store = new Map<string, string>();
@@ -18,23 +18,28 @@ jest.mock('@react-native-async-storage/async-storage', () => {
 
 beforeEach(() => AsyncStorage.clear());
 
-describe('choix de la couche « Lieux »', () => {
-  it('est masquée par défaut', async () => {
-    await expect(loadShowPlaces()).resolves.toBe(false);
+describe('contenu de la carte', () => {
+  it('affiche les activités par défaut', async () => {
+    await expect(loadMapLayer()).resolves.toBe('activities');
   });
 
   it('mémorise le choix', async () => {
-    await saveShowPlaces(true);
-    expect(await AsyncStorage.getItem(SHOW_PLACES_KEY)).toBe('true');
-    await expect(loadShowPlaces()).resolves.toBe(true);
-    await saveShowPlaces(false);
-    await expect(loadShowPlaces()).resolves.toBe(false);
+    await saveMapLayer('places');
+    expect(await AsyncStorage.getItem(MAP_LAYER_KEY)).toBe('places');
+    await expect(loadMapLayer()).resolves.toBe('places');
+    await saveMapLayer('foodTrucks');
+    await expect(loadMapLayer()).resolves.toBe('foodTrucks');
+  });
+
+  it('ignore une valeur inconnue', async () => {
+    await AsyncStorage.setItem(MAP_LAYER_KEY, 'true');
+    await expect(loadMapLayer()).resolves.toBe('activities');
   });
 
   it('reste utilisable si le stockage échoue', async () => {
     jest.spyOn(AsyncStorage, 'getItem').mockRejectedValueOnce(new Error('indisponible'));
     jest.spyOn(AsyncStorage, 'setItem').mockRejectedValueOnce(new Error('indisponible'));
-    await expect(loadShowPlaces()).resolves.toBe(false);
-    await expect(saveShowPlaces(true)).resolves.toBeUndefined();
+    await expect(loadMapLayer()).resolves.toBe('activities');
+    await expect(saveMapLayer('places')).resolves.toBeUndefined();
   });
 });

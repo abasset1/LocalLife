@@ -1,41 +1,30 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-/** Clé du choix « couche Lieux affichée », comme `locallife.showPlaces` sur le site web. */
-export const SHOW_PLACES_KEY = 'locallife.showPlaces';
+/**
+ * Contenu affiché sur la carte : activités, lieux (ADR-0011, phase B) ou food trucks (ADR-0013), un seul à
+ * la fois — comme sur le site web.
+ */
+export type MapLayer = 'activities' | 'places' | 'foodTrucks';
 
-/** Choix mémorisé sur l'appareil ; `false` s'il est absent ou illisible (la carte reste utilisable). */
-export async function loadShowPlaces(): Promise<boolean> {
+/** Clé du contenu choisi, comme `locallife.mapLayer` sur le site web. */
+export const MAP_LAYER_KEY = 'locallife.mapLayer';
+
+const MAP_LAYERS: readonly string[] = ['activities', 'places', 'foodTrucks'];
+
+/** Choix mémorisé sur l'appareil ; les activités s'il est absent ou illisible (la carte reste utilisable). */
+export async function loadMapLayer(): Promise<MapLayer> {
   try {
-    return (await AsyncStorage.getItem(SHOW_PLACES_KEY)) === 'true';
+    const stored = await AsyncStorage.getItem(MAP_LAYER_KEY);
+    return stored !== null && MAP_LAYERS.includes(stored) ? (stored as MapLayer) : 'activities';
   } catch {
-    return false;
-  }
-}
-
-/** Clé du choix « couche Food trucks affichée » (ADR-0013), comme `locallife.showFoodTrucks` sur le site. */
-export const SHOW_FOOD_TRUCKS_KEY = 'locallife.showFoodTrucks';
-
-/** Couche « Food trucks » : affichée sauf si l'utilisateur l'a masquée (affichage d'avant sa bascule). */
-export async function loadShowFoodTrucks(): Promise<boolean> {
-  try {
-    return (await AsyncStorage.getItem(SHOW_FOOD_TRUCKS_KEY)) !== 'false';
-  } catch {
-    return true;
-  }
-}
-
-export async function saveShowFoodTrucks(shown: boolean): Promise<void> {
-  try {
-    await AsyncStorage.setItem(SHOW_FOOD_TRUCKS_KEY, String(shown));
-  } catch {
-    // Stockage indisponible : le choix n'est pas mémorisé.
+    return 'activities';
   }
 }
 
 /** Mémorise le choix ; un échec d'écriture est sans conséquence (le choix vaut pour la session). */
-export async function saveShowPlaces(shown: boolean): Promise<void> {
+export async function saveMapLayer(layer: MapLayer): Promise<void> {
   try {
-    await AsyncStorage.setItem(SHOW_PLACES_KEY, String(shown));
+    await AsyncStorage.setItem(MAP_LAYER_KEY, layer);
   } catch {
     // Stockage indisponible : le choix n'est pas mémorisé.
   }
