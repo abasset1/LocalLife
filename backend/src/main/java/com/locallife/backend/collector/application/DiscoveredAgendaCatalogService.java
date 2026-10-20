@@ -16,7 +16,10 @@ public class DiscoveredAgendaCatalogService {
         this.repository = repository;
     }
 
-    /** @throws IllegalArgumentException si {@code page} est négative ou {@code size} hors de 1..{@value #MAX_PAGE_SIZE} */
+    /**
+     * @throws IllegalArgumentException si {@code page} est négative ou {@code size} hors de
+     *     1..{@value #MAX_PAGE_SIZE}
+     */
     public DiscoveredAgendaView search(CatalogFilter filter, String query, Boolean official, int page, int size) {
         if (page < 0) {
             throw new IllegalArgumentException("Le paramètre 'page' doit être positif ou nul.");
