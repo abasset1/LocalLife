@@ -1,81 +1,90 @@
 package com.locallife.backend.collector.application;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 
-import com.locallife.backend.collector.domain.DiscoveredAgenda;
+import com.locallife.backend.collector.domain.DiscoveryScope;
+import com.locallife.backend.collector.infrastructure.AgendaDiscoveryRepository;
+import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.collector.infrastructure.OpenAgendaAgendaDirectory;
-import com.locallife.backend.source.application.SourceService;
-import com.locallife.backend.source.domain.Source;
+import java.time.Clock;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionOperations;
 
+/**
+ * Règles d'entrée de la découverte ; le parcours lui-même (pages, reprise, statuts) est vérifié sur la vraie
+ * base par {@code AgendaDiscoveryIntegrationTest}.
+ */
 @ExtendWith(MockitoExtension.class)
 class AgendaDiscoveryServiceTest {
 
     @Mock
-    private OpenAgendaAgendaDirectory agendaDirectory;
+    private OpenAgendaAgendaDirectory directory;
 
     @Mock
-    private SourceService sourceService;
+    private AgendaDiscoveryRepository repository;
 
-    @InjectMocks
-    private AgendaDiscoveryService agendaDiscoveryService;
-
-    @Test
-    void discoverOfficialAgendas_ShouldCreateACollectibleSource_ForEachUnknownAgenda() {
-        when(agendaDirectory.listOfficialAgendas(50)).thenReturn(List.of(
-                new DiscoveredAgenda("62695", " Patrimoine Grand Châtellerault ", "patrimoine-grand-chatellerault"),
-                new DiscoveredAgenda("125325", null, null)));
-        when(sourceService.getAllSources()).thenReturn(List.of(
-                new Source(1L, "Saisie manuelle", "MANUAL", null, "ACTIVE", null, null, null)));
-
-        AgendaDiscoveryResult result = agendaDiscoveryService.discoverOfficialAgendas(50);
-
-        assertEquals(2, result.listed());
-        assertEquals(2, result.created());
-        assertEquals(0, result.alreadyKnown());
-        assertEquals(List.of("Patrimoine Grand Châtellerault", "Agenda OpenAgenda 125325"), result.createdNames());
-        verify(sourceService).createSource(
-                "Patrimoine Grand Châtellerault", "API", "https://openagenda.com/patrimoine-grand-chatellerault",
-                "62695", null);
-        // Sans titre ni slug : nom de repli, pas d'URL.
-        verify(sourceService).createSource("Agenda OpenAgenda 125325", "API", null, "125325", null);
+    private AgendaDiscoveryService service() {
+        return new AgendaDiscoveryService(directory, repository, TransactionOperations.withoutTransaction(),
+                Clock.systemUTC(), 20);
     }
 
     @Test
-    void discoverOfficialAgendas_ShouldLeaveKnownAgendasUntouched_EvenWhenInactive() {
-        // Une source désactivée par un administrateur ne doit pas être recréée par la découverte.
-        when(agendaDirectory.listOfficialAgendas(50)).thenReturn(List.of(
-                new DiscoveredAgenda("62695", "Patrimoine", "patrimoine")));
-        when(sourceService.getAllSources()).thenReturn(List.of(
-                new Source(7L, "Patrimoine (désactivé)", "API", null, "INACTIVE", null, "62695", null)));
-
-        AgendaDiscoveryResult result = agendaDiscoveryService.discoverOfficialAgendas(50);
-
-        assertEquals(0, result.created());
-        assertEquals(1, result.alreadyKnown());
-        verify(sourceService, never()).createSource(any(), any(), any(), any(), any());
+    void discover_ShouldRefuseABatchOutsideItsExplicitBounds_BeforeAnyCall() {
+        assertThatThrownBy(() -> service().discover(DiscoveryScope.ALL, 0, false))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service().discover(DiscoveryScope.ALL,
+                AgendaDiscoveryService.MAX_PAGES_PER_BATCH + 1, false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(String.valueOf(AgendaDiscoveryService.MAX_PAGES_PER_BATCH));
+        verifyNoInteractions(directory, repository);
     }
 
     @Test
-    void discoverOfficialAgendas_ShouldCreateOnlyOneSource_WhenTheSameAgendaIsListedTwice() {
-        when(agendaDirectory.listOfficialAgendas(50)).thenReturn(List.of(
-                new DiscoveredAgenda("62695", "Patrimoine", "patrimoine"),
-                new DiscoveredAgenda("62695", "Patrimoine", "patrimoine")));
-        when(sourceService.getAllSources()).thenReturn(List.of());
+    void discover_ShouldNotCreateARun_WhenTheApiKeyIsMissing() {
+        doThrow(new CollectorException("OPENAGENDA_API_KEY doit être configurée.", null))
+                .when(directory).requireApiKey();
 
-        AgendaDiscoveryResult result = agendaDiscoveryService.discoverOfficialAgendas(50);
-
-        assertEquals(1, result.created());
-        assertEquals(1, result.alreadyKnown());
+        assertThatThrownBy(() -> service().discover(DiscoveryScope.ALL, null, false))
+                .isInstanceOf(CollectorException.class);
+        verifyNoInteractions(repository);
     }
 
+    @Test
+    void constructor_ShouldRefuseAnInvalidConfiguredBatch() {
+        assertThatThrownBy(() -> new AgendaDiscoveryService(directory, repository,
+                TransactionOperations.withoutTransaction(), Clock.systemUTC(), 0))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void cursor_ShouldRoundTripThroughItsStoredForm_NullValuesIncluded() {
+        List<Object> cursor = Arrays.asList(1700000000000L, "abc", null);
+
+        String stored = AgendaDiscoveryService.serializeCursor(cursor);
+
+        assertThat(stored).isEqualTo("[1700000000000,\"abc\",null]");
+        assertThat(AgendaDiscoveryService.parseCursor(stored)).isEqualTo(cursor);
+    }
+
+    @Test
+    void cursor_ShouldBeNull_WhenTheProviderSignalsTheEnd() {
+        assertThat(AgendaDiscoveryService.serializeCursor(null)).isNull();
+        assertThat(AgendaDiscoveryService.serializeCursor(List.of())).isNull();
+        assertThat(AgendaDiscoveryService.parseCursor(null)).isNull();
+    }
+
+    @Test
+    void isAbnormallyLong_ShouldFlagACursorCycleSpanningSeveralBatches() {
+        assertThat(AgendaDiscoveryService.isAbnormallyLong(300, 100)).isFalse();
+        assertThat(AgendaDiscoveryService.isAbnormallyLong(301, 100)).isTrue();
+        assertThat(AgendaDiscoveryService.isAbnormallyLong(1_000_000, null)).isFalse();
+    }
 }

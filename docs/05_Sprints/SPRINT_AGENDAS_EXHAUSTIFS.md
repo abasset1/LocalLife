@@ -1,6 +1,6 @@
 # Sprint — Découverte exhaustive et import fiable des agendas
 
-**Statut :** spécification préparée pour implémentation par Claude  
+**Statut :** implémenté le 20 octobre 2026 (voir § 7) ; contrôles contre l'API réelle restant à faire  
 **Périmètre :** backend, API d'administration, interface web et tests  
 **Règle :** ne pas modifier le code dans ce sprint de préparation ; Claude implémentera et exécutera les validations.
 
@@ -106,3 +106,22 @@ Fichiers inspectés :
 ## 6. Instructions de passation à Claude
 
 Implémenter ce sprint dans le dépôt `abasset1/LocalLife`, sans réécrire l'architecture par défaut. Commencer par vérifier les fichiers et le comportement actuels, puis proposer un plan court avant les changements. Respecter les contrats existants, les migrations Flyway et les conventions de tests du projet. Ne pas inventer de résultats d'appel réel à OpenAgenda : si la clé ou l'accès réseau manque, le signaler. Priorité absolue à l'intégrité des données : aucun succès complet si pagination interrompue et aucun archivage à partir d'une collecte partielle. À la fin, fournir les fichiers modifiés, les migrations éventuelles, les commandes réellement exécutées et leurs résultats, les limites restant à valider, puis ouvrir une PR dédiée.
+
+## 7. État d'implémentation (20 octobre 2026)
+
+| Ticket | État | Détail |
+|---|---|---|
+| AGD-01 | Fait, vérification réelle partielle | Périmètre `ALL` (défaut, aucun filtre) ou `OFFICIAL` (`official=1`). Seuls la joignabilité de l'API et l'exigence de la clé sont vérifiés en réel (403 sans clé) ; le reste du contrat est documenté comme non vérifié dans `COLLECTOR_OPERATIONS.md`, § « Contrat de l'API OpenAgenda ». |
+| AGD-02 | Fait | Parcours par lots (`maxPages`, défaut 20, plafond 200), curseur persisté par page en transaction (`agenda_discovery_run`), reprise, `restart`. Curseur répété, réponse sans `agendas` et total non atteint → `FAILED`. Bilan : examinés, nouveaux, déjà connus, ignorés, erreurs, statut, `complete`, `resumable`, raison. |
+| AGD-03 | Fait | Catalogue `discovered_agenda` séparé des sources ; aperçu paginé (nom, uid, URL, officiel, source existante) ; création de sources pour la sélection seulement, lot borné configurable, refus en entier au-delà ; sources existantes (même inactives) jamais modifiées. |
+| AGD-04 | Fait | `MAX_PAGES = 500` remplacé par `openagenda.events.max-pages` (2000) qui rend la collecte `PARTIAL` ; détection de curseur répété, page incohérente, total non atteint ; reprises bornées (429/5xx/réseau/illisible, `Retry-After`). Collecte partielle : import des éléments reçus, **aucun archivage**. |
+| AGD-05 | Fait | `SUCCESS` / `PARTIAL` / `FAILED` dans `ImportResult` ; `source.last_sync_at` = dernier import complet ; dernier essai dans `source_sync_state` (V68) ; tableau d'état dans l'administration. |
+| AGD-06 | Fait | Tests : >500 pages simulées (520), limite de sécurité, curseur répété/absent/vide, page vide, échec au milieu, quota puis succès, réponse mal formée, total non atteint ; reprise et idempotence de la découverte ; sélection/activation ; import partiel sans archivage ; autorisations ADMIN (401/403) ; interface. |
+
+**Reprise des collectes d'événements** : par relance idempotente depuis la première page (le curseur des
+événements n'est pas persisté, une collecte reprise au milieu ne pourrait pas autoriser l'archivage).
+
+**Restant à vérifier avec une clé réelle** : forme et types du curseur `after` (agendas et événements),
+marqueur de fin, présence et sens de `total`, tri par défaut de `/v2/agendas`, ce que couvre `ALL`, quotas
+réels et durée d'un parcours complet de l'annuaire.
+

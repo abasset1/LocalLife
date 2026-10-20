@@ -21,7 +21,7 @@ sujets relèvent de LL-5003 et suivants.
 | `type`           | String          | oui          | doit correspondre à une valeur connue  | Nature technique de la source (voir « Valeurs de `type` » ci-dessous). |
 | `url`            | String          | non          | URL valide si fournie                  | Point d'accès de la source (endpoint API, flux, page). Peut être absent pour une source sans accès réseau direct. |
 | `status`         | String          | oui          | doit correspondre à une valeur connue  | État courant de la source (voir « Valeurs de `status` » ci-dessous). |
-| `lastSyncAt`     | LocalDateTime   | non          | —                                       | Date/heure du dernier import réussi. `null` tant qu'aucun import n'a eu lieu. |
+| `lastSyncAt`     | LocalDateTime   | non          | —                                       | Date/heure du dernier import **complet** réussi (collecte `SUCCESS`). Une collecte partielle ou en échec ne l'avance pas ; le dernier essai est dans `source_sync_state` (V68). `null` tant qu'aucun import complet n'a eu lieu. |
 
 ### Valeurs de `type`
 

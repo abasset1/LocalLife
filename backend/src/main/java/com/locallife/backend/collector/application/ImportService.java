@@ -8,10 +8,12 @@ import com.locallife.backend.activityclassification.application.ActivityClassifi
 import com.locallife.backend.activityclassification.application.ClassificationOutcome;
 import com.locallife.backend.activityclassification.application.ClassificationService;
 import com.locallife.backend.collector.domain.CollectedActivity;
+import com.locallife.backend.collector.domain.CollectionReport;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.collector.infrastructure.DataTourismeCollectorFactory;
 import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
+import com.locallife.backend.collector.infrastructure.SourceSyncStateRepository;
 import com.locallife.backend.link.application.ActivityLinkService;
 import com.locallife.backend.media.application.ActivityMediaService;
 import com.locallife.backend.media.application.MediaService;
@@ -125,6 +127,16 @@ import org.springframework.stereotype.Service;
  * en cas d'échec total de {@code collector.collect()} (branche
  * {@code catch} ci-dessous) : cohérent avec « dernier import
  * <i>réussi</i> » du contrat.
+ *
+ * <b>Collecte complète, partielle ou en échec (sprint « agendas
+ * exhaustifs », AGD-04/05)</b> : le collecteur rend un {@code
+ * CollectionReport}. Complète, l'import se déroule comme décrit ci-dessus
+ * et {@code lastSyncAt} avance. Partielle (pagination interrompue avant la
+ * fin réelle), les éléments reçus sont créés ou mis à jour, mais
+ * <b>aucune</b> activité n'est archivée pour absence et {@code lastSyncAt}
+ * n'avance pas ; le bilan porte le statut {@code PARTIAL} et la raison.
+ * Chaque essai, quel qu'en soit le statut, est consigné dans {@code
+ * source_sync_state} (dernier essai distinct du dernier succès complet).
  *
  * <b>Journalisation (LL-5009)</b> : chaque import de source produit une
  * ligne de log (niveau {@code INFO}) résumant le résultat — voir
@@ -243,6 +255,7 @@ public class ImportService {
     private final ImportFingerprintService importFingerprintService;
     private final SourceDefaultCategoryService sourceDefaultCategoryService;
     private final ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository;
+    private final SourceSyncStateRepository sourceSyncStateRepository;
 
     /** Vrai pendant un import, voir la javadoc de la classe (« un seul import à la fois »). */
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -267,7 +280,8 @@ public class ImportService {
             ActivityClassificationService activityClassificationService,
             ImportFingerprintService importFingerprintService,
             SourceDefaultCategoryService sourceDefaultCategoryService,
-            ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository) {
+            ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository,
+            SourceSyncStateRepository sourceSyncStateRepository) {
         this.sourceService = sourceService;
         this.openAgendaCollectorFactory = openAgendaCollectorFactory;
         this.dataTourismeCollectorFactory = dataTourismeCollectorFactory;
@@ -288,6 +302,7 @@ public class ImportService {
         this.importFingerprintService = importFingerprintService;
         this.sourceDefaultCategoryService = sourceDefaultCategoryService;
         this.activityCoordinatePrecisionRepository = activityCoordinatePrecisionRepository;
+        this.sourceSyncStateRepository = sourceSyncStateRepository;
     }
 
     /**
@@ -375,17 +390,23 @@ public class ImportService {
         LocalDateTime startedAt = LocalDateTime.now();
         Collector collector = collectorFor(source);
 
-        List<CollectedActivity> collected;
+        CollectionReport report;
         try {
-            collected = collector.collect();
+            report = collector.collectWithReport();
         } catch (RuntimeException exception) {
             LocalDateTime endedAt = LocalDateTime.now();
-            LOGGER.error("Échec de la collecte pour la source '{}' : {}", source.name(), exception.getMessage(),
-                    exception);
-            return new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-                    "Collecte en échec, import interrompu sans rien créer, modifier ni archiver : "
-                            + displayableCause(exception));
+            // Le message d'une exception autre que CollectorException peut porter l'URL d'appel, donc la clé :
+            // il ne va que dans la pile journalisée, pas dans la ligne de résumé.
+            LOGGER.error("Échec de la collecte pour la source '{}' : {}", source.name(),
+                    displayableCause(exception), exception);
+            String cause = displayableCause(exception);
+            ImportResult failed = new ImportResult(source.name(), startedAt, endedAt, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+                    "Collecte en échec, import interrompu sans rien créer, modifier ni archiver : " + cause,
+                    SyncStatus.FAILED, 0, 0, cause);
+            recordSyncState(source, failed);
+            return failed;
         }
+        List<CollectedActivity> collected = report.activities();
 
         int created = 0;
         int updated = 0;
@@ -517,19 +538,32 @@ public class ImportService {
         }
 
         duplicates += archiveDuplicatesOfOtherSources(source.id());
-        ArchiveOutcome archive = archiveActivitiesNoLongerInSource(source, seenKeys);
+        // AGD-04 : l'absence d'un élément d'une collecte partielle ne prouve pas qu'il a disparu de la source
+        // (il est peut-être sur une page non lue). Aucun archivage des éléments absents dans ce cas, ni des
+        // passés ni des à venir : seule une collecte complète décide qu'un élément n'existe plus.
+        ArchiveOutcome archive = report.isComplete()
+                ? archiveActivitiesNoLongerInSource(source, seenKeys)
+                : new ArchiveOutcome(0, 0, report.stopReason() + " Aucun archivage : les éléments absents de "
+                        + "cette collecte ne sont ni archivés ni modifiés.");
         LocalDateTime endedAt = LocalDateTime.now();
+        SyncStatus status = report.isComplete() ? SyncStatus.SUCCESS : SyncStatus.PARTIAL;
 
-        // Bug corrigé : lastSyncAt restait toujours null (jamais reporté sur la Source),
-        // alors que SOURCE_CONTRACT.md le documente comme renseigné par ce service. Reporté
-        // uniquement ici, dans le chemin où collector.collect() a réussi (pas dans le catch
-        // ci-dessus) : conforme au contrat, "date/heure du dernier import réussi".
-        sourceService.recordSync(source.id(), endedAt);
+        // lastSyncAt = « dernier import complet réussi » (SOURCE_CONTRACT.md) : une collecte partielle ne
+        // l'avance pas, son essai est consigné dans source_sync_state (recordSyncState ci-dessous).
+        if (status == SyncStatus.SUCCESS) {
+            sourceService.recordSync(source.id(), endedAt);
+        }
 
         ImportResult result = new ImportResult(
                 source.name(), startedAt, endedAt, collected.size(), created, updated, ignored, errors,
-                archive.archived(), needsReview, unchanged, duplicates, archive.withheld(), archive.reason());
-        LOGGER.info("Import terminé pour la source '{}' : {}", source.name(), result);
+                archive.archived(), needsReview, unchanged, duplicates, archive.withheld(), archive.reason(),
+                status, report.pagesRead(), report.received(), report.stopReason());
+        recordSyncState(source, result);
+        if (status == SyncStatus.SUCCESS) {
+            LOGGER.info("Import terminé pour la source '{}' : {}", source.name(), result);
+        } else {
+            LOGGER.warn("Import PARTIEL pour la source '{}' : {}", source.name(), result);
+        }
 
         return result;
     }
@@ -658,6 +692,20 @@ public class ImportService {
         }
         return importFingerprintService.existsLiveDuplicateInAnotherSource(
                 source.id(), item.externalId(), normalized.title(), normalized.startDate());
+    }
+
+    /**
+     * Consigne le dernier essai (AGD-05). Un échec d'écriture ici ne doit pas faire perdre le bilan de l'import
+     * déjà effectué : journalisé seulement.
+     */
+    private void recordSyncState(Source source, ImportResult result) {
+        try {
+            sourceSyncStateRepository.record(source.id(), result.endedAt(), result.status(),
+                    result.status() == SyncStatus.SUCCESS ? result.stopReason() : result.blockedReason(),
+                    result.pagesRead(), result.received(), result.durationMs());
+        } catch (RuntimeException exception) {
+            LOGGER.warn("État de synchronisation non enregistré pour la source '{}'", source.name(), exception);
+        }
     }
 
     /**

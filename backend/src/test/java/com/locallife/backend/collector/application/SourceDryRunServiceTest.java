@@ -29,6 +29,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -50,7 +51,7 @@ class SourceDryRunServiceTest {
     @Mock private NormalizationService normalizationService;
     @Mock private DeduplicationService deduplicationService;
     @Mock private ActivityRepository activityRepository;
-    @Mock private Collector collector;
+    @Mock(answer = Answers.CALLS_REAL_METHODS) private Collector collector;
 
     private SourceDryRunService dryRunService;
     private SourceActivationService activationService;

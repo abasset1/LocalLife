@@ -449,8 +449,8 @@ class OpenAgendaCollectorTest {
         // Page 2 : le curseur reçu doit être repassé, un second événement, plus de curseur
         mockServer.expect(requestTo(allOf(
                         containsString("/v2/agendas/12345/events"),
-                        containsString("after=1700000000"),
-                        containsString("after=42"))))
+                        containsString("after%5B%5D=1700000000"),
+                        containsString("after%5B%5D=42"))))
                 .andRespond(withSuccess(
                         "{\"events\": [" + secondEvent + "], \"after\": null}", MediaType.APPLICATION_JSON));
 

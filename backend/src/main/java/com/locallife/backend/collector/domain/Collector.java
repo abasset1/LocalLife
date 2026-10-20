@@ -23,4 +23,14 @@ public interface Collector {
      */
     List<CollectedActivity> collect();
 
+    /**
+     * Collecte avec son exhaustivité (voir {@link CollectionReport}). Par défaut, {@link #collect()} est
+     * considéré complet : vrai pour un collecteur qui lit sa source en un seul bloc (export CSV) et échoue
+     * par exception sinon. Un collecteur paginé doit redéfinir cette méthode, et {@link #collect()} doit
+     * alors échouer plutôt que renvoyer une collecte incomplète.
+     */
+    default CollectionReport collectWithReport() {
+        return CollectionReport.complete(collect());
+    }
+
 }

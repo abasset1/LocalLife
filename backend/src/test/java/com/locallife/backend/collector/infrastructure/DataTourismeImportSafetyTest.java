@@ -94,6 +94,7 @@ class DataTourismeImportSafetyTest {
     @Mock private ImportFingerprintService importFingerprintService;
     @Mock private SourceDefaultCategoryService sourceDefaultCategoryService;
     @Mock private ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository;
+    @Mock private SourceSyncStateRepository sourceSyncStateRepository;
 
     /** Importe {@link #SOURCE} avec le vrai collecteur, qui reçoit {@code body}. */
     private ImportResult importWithFile(String body) {
@@ -110,7 +111,8 @@ class DataTourismeImportSafetyTest {
                 deduplicationService, activityRepository, locationService, scheduleService, occurrenceService,
                 mediaService, activityMediaService, activityLinkService, accessibilityService, activityTagService,
                 activityMetadataService, classificationService, activityClassificationService,
-                importFingerprintService, sourceDefaultCategoryService, activityCoordinatePrecisionRepository);
+                importFingerprintService, sourceDefaultCategoryService, activityCoordinatePrecisionRepository,
+                sourceSyncStateRepository);
         return importService.importAll().get(0);
     }
 

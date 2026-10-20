@@ -2,18 +2,23 @@ package com.locallife.backend.collector.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.locallife.backend.collector.application.AgendaActivationService;
 import com.locallife.backend.collector.application.AgendaDiscoveryResult;
+import com.locallife.backend.collector.application.AgendaDiscoveryRun;
 import com.locallife.backend.collector.application.AgendaDiscoveryService;
+import com.locallife.backend.collector.application.DiscoveredAgendaCatalogService;
+import com.locallife.backend.collector.application.DiscoveryAlreadyRunningException;
 import com.locallife.backend.collector.application.ImportAlreadyRunningException;
 import com.locallife.backend.collector.application.ImportResult;
 import com.locallife.backend.collector.application.ImportService;
 import com.locallife.backend.collector.application.SourceActivationService;
 import com.locallife.backend.collector.application.SourceDryRunReport;
 import com.locallife.backend.collector.application.SourceDryRunService;
+import com.locallife.backend.collector.domain.DiscoveryScope;
 import com.locallife.backend.collector.infrastructure.CollectorException;
+import com.locallife.backend.collector.infrastructure.SourceSyncStateRepository;
 import com.locallife.backend.common.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
@@ -41,6 +46,15 @@ class AdminImportControllerTest {
 
     @Mock
     private SourceActivationService sourceActivationService;
+
+    @Mock
+    private AgendaActivationService agendaActivationService;
+
+    @Mock
+    private DiscoveredAgendaCatalogService catalogService;
+
+    @Mock
+    private SourceSyncStateRepository sourceSyncStateRepository;
 
     @InjectMocks
     private AdminImportController adminImportController;
@@ -107,51 +121,77 @@ class AdminImportControllerTest {
         assertThat(response.getBody()).containsExactly(degraded);
     }
 
+    private static AgendaDiscoveryResult discoveryResult(AgendaDiscoveryRun.Status status) {
+        return new AgendaDiscoveryResult(1L, DiscoveryScope.ALL, status,
+                status == AgendaDiscoveryRun.Status.COMPLETE, status == AgendaDiscoveryRun.Status.IN_PROGRESS,
+                "raison", 2, 2, 200, 150, 50, 0, 0, null, null, null, null);
+    }
+
     @Test
-    void discoverAgendas_ShouldReturnOkWithResult() {
-        AgendaDiscoveryResult result = new AgendaDiscoveryResult(50, 48, 2, List.of("Agenda A"));
-        when(agendaDiscoveryService.discoverOfficialAgendas(50)).thenReturn(result);
+    void discoverAgendas_ShouldDefaultToTheWholeDirectory_AndReturnTheBatchReport() {
+        AgendaDiscoveryResult result = discoveryResult(AgendaDiscoveryRun.Status.IN_PROGRESS);
+        when(agendaDiscoveryService.discover(DiscoveryScope.ALL, null, false)).thenReturn(result);
 
         ResponseEntity<Object> response = adminImportController.discoverAgendas(
-                50, org.mockito.Mockito.mock(HttpServletRequest.class));
+                null, null, false, org.mockito.Mockito.mock(HttpServletRequest.class));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(result);
     }
 
     @Test
-    void discoverAgendas_ShouldExamineAllAgendas_WhenLimitIsOmitted() {
-        AgendaDiscoveryResult result = new AgendaDiscoveryResult(1200, 1100, 100, List.of());
-        when(agendaDiscoveryService.discoverOfficialAgendas(Integer.MAX_VALUE)).thenReturn(result);
+    void discoverAgendas_ShouldPassScopeBatchAndRestart() {
+        AgendaDiscoveryResult result = discoveryResult(AgendaDiscoveryRun.Status.COMPLETE);
+        when(agendaDiscoveryService.discover(DiscoveryScope.OFFICIAL, 5, true)).thenReturn(result);
 
         ResponseEntity<Object> response = adminImportController.discoverAgendas(
-                null, org.mockito.Mockito.mock(HttpServletRequest.class));
+                "official", 5, true, org.mockito.Mockito.mock(HttpServletRequest.class));
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(result);
-        verify(agendaDiscoveryService).discoverOfficialAgendas(Integer.MAX_VALUE);
+        verify(agendaDiscoveryService).discover(DiscoveryScope.OFFICIAL, 5, true);
     }
 
     @Test
-    void discoverAgendas_ShouldReturnBadRequest_WhenLimitIsNotPositive() {
+    void discoverAgendas_ShouldReturnBadRequest_WhenScopeOrBatchIsInvalid() {
         HttpServletRequest httpRequest = org.mockito.Mockito.mock(HttpServletRequest.class);
+        when(agendaDiscoveryService.discover(DiscoveryScope.ALL, 0, false))
+                .thenThrow(new IllegalArgumentException("maxPages"));
 
-        assertThat(adminImportController.discoverAgendas(0, httpRequest).getStatusCode())
+        assertThat(adminImportController.discoverAgendas("PRIVE", null, false, httpRequest).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(adminImportController.discoverAgendas(-1, httpRequest).getStatusCode())
+        assertThat(adminImportController.discoverAgendas(null, 0, false, httpRequest).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
-        verifyNoInteractions(agendaDiscoveryService);
     }
 
     @Test
-    void discoverAgendas_ShouldReturnBadGateway_WhenOpenAgendaFails() {
-        when(agendaDiscoveryService.discoverOfficialAgendas(50))
-                .thenThrow(new CollectorException("Échec de la découverte des agendas OpenAgenda.", null));
+    void discoverAgendas_ShouldReturnBadGateway_WhenTheApiKeyIsMissing() {
+        when(agendaDiscoveryService.discover(DiscoveryScope.ALL, null, false))
+                .thenThrow(new CollectorException("OPENAGENDA_API_KEY doit être configurée.", null));
 
         ResponseEntity<Object> response = adminImportController.discoverAgendas(
-                50, org.mockito.Mockito.mock(HttpServletRequest.class));
+                null, null, false, org.mockito.Mockito.mock(HttpServletRequest.class));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+    }
+
+    @Test
+    void createSourcesFromCatalog_ShouldReturnBadRequest_ForAnOversizedSelection() {
+        when(agendaActivationService.createSources(List.of("1", "2")))
+                .thenThrow(new IllegalArgumentException("au plus 1 par lot"));
+
+        ResponseEntity<Object> response = adminImportController.createSourcesFromCatalog(
+                new AdminImportController.AgendaSelectionRequest(List.of("1", "2")),
+                org.mockito.Mockito.mock(HttpServletRequest.class));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void handleDiscoveryAlreadyRunning_ShouldReturnConflict() {
+        ResponseEntity<ErrorResponse> response = adminImportController.handleDiscoveryAlreadyRunning(
+                new DiscoveryAlreadyRunningException(), org.mockito.Mockito.mock(HttpServletRequest.class));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     }
 
     @Test

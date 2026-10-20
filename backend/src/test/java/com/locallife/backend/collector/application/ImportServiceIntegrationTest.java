@@ -1,6 +1,7 @@
 package com.locallife.backend.collector.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 import com.locallife.backend.activity.domain.Activity;
@@ -8,10 +9,12 @@ import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedTiming;
+import com.locallife.backend.collector.domain.CollectionReport;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.collector.infrastructure.ImportTestSourceService;
 import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
+import com.locallife.backend.collector.infrastructure.SourceSyncStateRepository;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
 import java.time.LocalDateTime;
@@ -360,6 +363,89 @@ class ImportServiceIntegrationTest {
         assertThat(result.needsReview()).isEqualTo(1);
         assertThat(result.errors()).isZero();
         assertThat(activityRepository.findBySourceId(sourceIdFor(sourceName))).isEmpty();
+    }
+
+
+    // --- Sprint « agendas exhaustifs » (AGD-04/05) : collecte partielle ou en échec ---
+
+    @Autowired
+    private SourceSyncStateRepository sourceSyncStateRepository;
+
+    private List<CollectedActivity> items(String sourceName, int count) {
+        List<CollectedActivity> items = new java.util.ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            items.add(validItem(sourceName, "ext-" + index, "Marché " + index));
+        }
+        return items;
+    }
+
+    private SourceSyncState syncStateFor(String sourceName) {
+        return sourceSyncStateRepository.findAll().stream()
+                .filter(state -> sourceName.equals(state.sourceName()))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    @Test
+    void importAll_ShouldNeverArchive_WhenTheCollectionIsPartial() {
+        String sourceName = uniqueSourceName();
+        createCollectibleSource(sourceName);
+        when(collector.collect()).thenReturn(items(sourceName, 20));
+        importService.importAll();
+        Long sourceId = sourceIdFor(sourceName);
+        LocalDateTime lastCompleteSync = sourceRepository.findById(sourceId).orElseThrow().lastSyncAt();
+        assertThat(lastCompleteSync).isNotNull();
+        assertThat(syncStateFor(sourceName).lastStatus()).isEqualTo(SyncStatus.SUCCESS);
+
+        // Collecte interrompue après 2 éléments sur 20 : 18 sont absents, mais sur des pages non lues.
+        doReturn(new CollectionReport(items(sourceName, 2), CollectionReport.Status.PARTIAL, 1, 2,
+                "Collecte incomplète : limite de sécurité de 1 pages atteinte."))
+                .when(collector).collectWithReport();
+
+        ImportResult result = resultFor(importService.importAll(), sourceName);
+
+        assertThat(result.status()).isEqualTo(SyncStatus.PARTIAL);
+        assertThat(result.archived()).isZero();
+        assertThat(result.blockedReason()).contains("Aucun archivage");
+        assertThat(activityRepository.findBySourceId(sourceId))
+                .hasSize(20)
+                .allMatch(activity -> "PUBLISHED".equals(activity.status()));
+        // Le dernier succès complet ne bouge pas ; le dernier essai est consigné comme partiel.
+        assertThat(sourceRepository.findById(sourceId).orElseThrow().lastSyncAt()).isEqualTo(lastCompleteSync);
+        SourceSyncState state = syncStateFor(sourceName);
+        assertThat(state.lastStatus()).isEqualTo(SyncStatus.PARTIAL);
+        assertThat(state.lastMessage()).contains("limite de sécurité");
+        assertThat(state.lastSuccessAt()).isEqualTo(lastCompleteSync);
+    }
+
+    @Test
+    void importAll_ShouldStillCreateTheItemsReceived_WhenTheCollectionIsPartial() {
+        String sourceName = uniqueSourceName();
+        createCollectibleSource(sourceName);
+        doReturn(new CollectionReport(items(sourceName, 3), CollectionReport.Status.PARTIAL, 1, 3,
+                "Collecte incomplète : page 2 en échec."))
+                .when(collector).collectWithReport();
+
+        ImportResult result = resultFor(importService.importAll(), sourceName);
+
+        assertThat(result.status()).isEqualTo(SyncStatus.PARTIAL);
+        assertThat(result.created()).isEqualTo(3);
+        assertThat(sourceRepository.findById(sourceIdFor(sourceName)).orElseThrow().lastSyncAt()).isNull();
+    }
+
+    @Test
+    void importAll_ShouldRecordAFailedAttempt_WithoutTouchingTheLastCompleteSync() {
+        String sourceName = uniqueSourceName();
+        createCollectibleSource(sourceName);
+        when(collector.collect()).thenThrow(new CollectorException("OpenAgenda injoignable.", null));
+
+        ImportResult result = resultFor(importService.importAll(), sourceName);
+
+        assertThat(result.status()).isEqualTo(SyncStatus.FAILED);
+        SourceSyncState state = syncStateFor(sourceName);
+        assertThat(state.lastStatus()).isEqualTo(SyncStatus.FAILED);
+        assertThat(state.lastMessage()).contains("OpenAgenda injoignable.");
+        assertThat(state.lastSuccessAt()).isNull();
     }
 
 }

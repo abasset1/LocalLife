@@ -83,27 +83,157 @@ Loisirs, LL-8004) n'ont pas été migrés (jamais configurés avec un uid
 réel) — à créer depuis l'interface d'administration le jour où ils
 sont identifiés, plutôt que par une nouvelle migration.
 
-## Découverte des agendas officiels
+## Découverte des agendas, catalogue et sélection des sources
 
-`POST /api/v1/admin/import/discover-agendas` (rôle `ADMIN`)
-liste les agendas **officiels** OpenAgenda (`GET /v2/agendas?official=1`,
-les plus actifs d'abord) et crée une source collectible pour chacun de
-ceux qui n'en ont pas encore — voir `AgendaDiscoveryService` et
-`OpenAgendaAgendaDirectory`.
+Sprint « Découverte exhaustive et import fiable des agendas »
+(`docs/05_Sprints/SPRINT_AGENDAS_EXHAUSTIFS.md`). La découverte est
+séparée en trois étapes distinctes : **découverte** (quels agendas
+existent), **sélection** (quels agendas LocalLife accepte de collecter),
+**collecte** (import des événements des sources actives).
 
-* Sans paramètre `limit`, la découverte parcourt toutes les pages de l'annuaire officiel accessibles via la clé API. Un `limit` positif peut être fourni pour une découverte partielle. Il n'existe plus de plafond LocalLife sur le nombre de pages ; si l'API renvoie un curseur déjà rencontré, la découverte s'arrête avec une erreur plutôt que de boucler indéfiniment.
-* Un agenda déjà présent comme source (même `agendaUid`), active ou
-  non, n'est ni recréé ni modifié : désactiver une source découverte
-  l'écarte durablement.
-* Les sources créées sont de type `API`, actives, sans filtre région,
-  avec l'URL publique de l'agenda. Elles sont collectées à l'import
-  suivant ; la découverte ne lance aucun import.
-* Réponse : `listed`, `created`, `alreadyKnown`, `createdNames`. `502`
-  si OpenAgenda est injoignable ou si la clé API n'est pas configurée.
+### Périmètre (AGD-01)
 
-⚠️ Écrit d'après la documentation OpenAgenda, sans appel réel possible
-en développement : paramètres et forme de la réponse à confirmer au
-premier essai.
+| Périmètre (`scope`) | Requête | Sens |
+|---|---|---|
+| `ALL` (défaut) | `GET /v2/agendas` sans filtre | Tous les agendas que l'endpoint de recherche renvoie avec la clé de LocalLife : c'est le sens retenu pour « tous les agendas accessibles ». |
+| `OFFICIAL` | `GET /v2/agendas?official=1` | Agendas officiels seulement (comportement historique). |
+
+Aucun des deux ne couvre un agenda privé auquel la clé n'a pas accès :
+l'API ne le liste pas. Aucun paramètre de tri n'est envoyé : le tri par
+défaut (identifiant croissant, d'après la documentation) reste stable
+pendant un parcours long, contrairement à `recentlyAddedEvents.desc`
+utilisé auparavant, qui déplace un agenda publiant pendant le parcours
+(sauté ou lu deux fois).
+
+### Parcours par lots, reprenable (AGD-02)
+
+`POST /api/v1/admin/import/discover-agendas?scope=ALL|OFFICIAL&maxPages=N&restart=false`
+(rôle `ADMIN`) traite **un lot** d'au plus `N` pages de 100 agendas
+(défaut `locallife.discovery.pages-per-batch`, 20 ; plafond explicite
+200 par appel, au-delà `400`) et alimente le catalogue
+`discovered_agenda` (V68). **Aucune source n'est créée, aucun import
+n'est lancé.**
+
+* Le parcours (`agenda_discovery_run`, V68) enregistre le curseur
+  `after` de la dernière page traitée **dans la même transaction** que
+  les agendas de cette page. Relancer l'appel reprend au curseur ;
+  `restart=true` abandonne le parcours en cours (`ABANDONED`) et repart
+  du début.
+* Le catalogue est unique par (`provider`, `agenda_uid`) : une reprise
+  ou une redécouverte met à jour la ligne, jamais de doublon.
+* Statuts : `COMPLETE` (marqueur de fin du fournisseur atteint : page
+  vide, ou `after` absent/vide), `IN_PROGRESS` (lot terminé, ou échec
+  d'appel après les reprises bornées : reprenable), `FAILED` (curseur
+  répété, réponse sans tableau `agendas`, ou fin de l'annuaire avec
+  moins d'agendas examinés que le `total` annoncé, ou plus du double :
+  non exhaustif, à relancer avec `restart=true`). Limite : un cycle de
+  curseurs plus long qu'un lot n'est détecté que si l'API annonce un
+  `total` (seul le dernier curseur est conservé d'un lot à l'autre). **Seul `COMPLETE` signifie que
+  l'annuaire a été lu en entier** (`complete = true`).
+* Bilan (`AgendaDiscoveryResult`) : `status`, `complete`, `resumable`,
+  `stopReason`, `pagesThisBatch`, `pagesRead`, `examined`, `newAgendas`,
+  `alreadyKnown`, `ignored` (sans identifiant), `errors`,
+  `providerTotal`. `409` si un lot est déjà en cours, `502` si la clé
+  n'est pas configurée.
+* `GET /api/v1/admin/import/discover-agendas/latest?scope=…` : état du
+  dernier parcours, sans rien lancer (`204` s'il n'y en a pas).
+
+### Aperçu et sélection (AGD-03)
+
+* `GET /api/v1/admin/import/discovered-agendas?filter=NEW|KNOWN|ALL&q=&official=&page=&size=`
+  : nom, identifiant, URL publique, statut officiel et source
+  éventuelle (nom, statut) de chaque agenda, paginé (`size` ≤ 200).
+* `POST /api/v1/admin/import/discovered-agendas/sources`, corps
+  `{"agendaUids": ["…"]}` : crée une source `API` active, sans filtre
+  région, pour chaque agenda **sélectionné** du catalogue qui n'en a
+  pas encore. Lot borné par `locallife.discovery.max-activation-batch`
+  (50 par défaut) : une sélection plus grande est refusée **en entier**
+  (`400`), jamais tronquée. Un agenda qui a déjà une source, même
+  inactive, n'est ni recréé ni modifié (une source désactivée par un
+  administrateur le reste, y compris après une redécouverte). Un
+  identifiant absent du catalogue est signalé (`notFound`), pas créé.
+* `GET /api/v1/admin/import/discovery-settings` : limites appliquées,
+  affichées par l'interface.
+
+Interface : **Administration → Imports**, carte « Découvrir les agendas
+OpenAgenda » (périmètre, lot unique ou « Enchaîner les lots jusqu'à la
+fin », reprise, recommencer ; catalogue filtrable avec cases à cocher et
+création des sources sélectionnées).
+
+**Migration depuis l'ancien comportement** : la découverte créait
+directement une source active pour chaque agenda officiel inconnu. Les
+sources déjà créées ainsi restent en place, inchangées. Le paramètre
+`limit` n'existe plus (remplacé par `maxPages`, lot reprenable).
+
+## Exhaustivité de la collecte des événements (AGD-04/05)
+
+`OpenAgendaCollector` lit `GET /v2/agendas/{uid}/events?size=300&detailed=1`
+page par page en repassant le curseur `after` reçu en paramètres
+`after[]`. Le collecteur rend un `CollectionReport` :
+
+* `COMPLETE` seulement si la fin réelle de la pagination est atteinte
+  (page vide, ou `after` absent/vide) ;
+* `PARTIAL`, avec la raison, si : limite de sécurité atteinte
+  (`openagenda.events.max-pages`, 2000 pages soit 600 000 événements
+  par défaut, remplace l'ancien plafond silencieux `MAX_PAGES = 500`),
+  curseur répété, page en échec après les reprises, réponse sans
+  tableau `events`, ou moins d'événements reçus que le `total` annoncé
+  par la première page ;
+* exception (`FAILED`) si la première page échoue : rien n'est importé.
+
+Reprises bornées (`OpenAgendaRetry`, `openagenda.http.max-attempts`, 3
+par défaut) : HTTP 429, 5xx, réseau et réponse illisible sont retentés
+avec une attente doublée (2 s, 4 s…) et au moins le `Retry-After`
+annoncé (plafonné à 60 s) ; une clé refusée ou un agenda introuvable
+n'est jamais retenté. Ni l'URL ni la clé n'apparaissent dans les
+messages ou les journaux.
+
+Conséquences dans `ImportService` :
+
+| Statut | Création / mise à jour | Archivage des éléments absents | `source.last_sync_at` |
+|---|---|---|---|
+| `SUCCESS` (collecte complète) | oui | oui (garde-fou de disparition massive inchangé) | avancé |
+| `PARTIAL` | oui, pour les éléments reçus | **aucun** (ni passés, ni à venir) | inchangé |
+| `FAILED` | non | non | inchangé |
+
+`source.last_sync_at` = dernier import **complet** réussi. Chaque essai,
+quel qu'en soit le statut, est consigné dans `source_sync_state` (V68) :
+date, statut, message (raison de l'arrêt, sans donnée sensible), pages,
+éléments reçus, durée. Lecture : `GET /api/v1/admin/import/sync-states`
+et le tableau « État de synchronisation des sources » de l'administration.
+L'essai à blanc (`SourceDryRunService`) applique la même règle : une
+collecte partielle est `SUSPICIOUS` et ne prévoit aucun archivage, donc
+n'active pas une source `DATATOURISME`.
+
+**Reprise d'une collecte partielle** : l'import suivant (planifié chaque
+heure, ou manuel) relit l'agenda depuis la première page. C'est sans
+risque : l'import est idempotent (clé d'import, empreintes — les éléments
+inchangés ne sont pas réécrits). Le curseur des événements n'est pas
+persisté : une collecte reprise au milieu ne serait de toute façon pas
+complète, donc ne pourrait pas autoriser l'archivage. Un agenda qui
+dépasse durablement la limite de sécurité reste `PARTIAL` à chaque import
+(signalé) : relever `OPENAGENDA_EVENTS_MAX_PAGES` si c'est légitime.
+
+## Contrat de l'API OpenAgenda : vérifié ou non
+
+Aucune clé OpenAgenda n'est disponible dans l'environnement de
+développement : le 20/10/2026, `GET https://api.openagenda.com/v2/agendas`
+sans clé répond `403 {"message":"could not find user or agenda matching key"}`
+(l'API est joignable, la clé est exigée). La documentation développeur
+(developers.openagenda.com) n'était pas joignable depuis cet environnement.
+
+| Point | État |
+|---|---|
+| Endpoints `/v2/agendas` et `/v2/agendas/{uid}/events`, paramètre `key` | Vérifié : l'API répond et exige la clé (403 sans clé). |
+| Sérialisation des paramètres | Le SDK officiel `@openagenda/sdk-js` 3.0.2 sérialise les paramètres avec `qs.stringify` (forme crochets), cohérent avec `after[]` ; serveur Express (`x-powered-by`). |
+| `official=1`, `size` max (100 agendas, 300 événements), forme du curseur `after`, fin de pagination (page vide / `after` nul), champ `total`, tri par défaut | **Non vérifié contre l'API réelle** : d'après la documentation et les retours d'imports réels antérieurs. Couvert uniquement par des tests simulés (`OpenAgendaAgendaDirectoryTest`, `OpenAgendaCollectorPaginationTest`, `AgendaDiscoveryIntegrationTest`). |
+| Ce que `ALL` couvre exactement (agendas publics indexés, ou davantage selon la clé) | **Non vérifié** : à mesurer au premier parcours complet (comparer `examined` et `providerTotal`). |
+| Événements passés : renvoyés par défaut ou non | **Non vérifié** ; sans effet sur l'exhaustivité des événements à venir (le collecteur filtre les créneaux passés). |
+
+Premier essai réel recommandé : lancer une découverte `OFFICIAL` d'un
+lot, vérifier `providerTotal` et la progression du curseur, puis un lot
+`ALL` ; importer un agenda de plus de 300 événements et vérifier dans
+`source_sync_state` que `last_pages_read > 1` et `SUCCESS`.
 
 ## Comment est déclenché un import
 
@@ -143,7 +273,8 @@ celle enregistrée dans `import_fingerprint` (`V48`), une ligne par
 (source, clé d'import).
 
 * La collecte reste complète : toutes les clés vues alimentent toujours
-  l'archivage des activités disparues de la source.
+  l'archivage des activités disparues de la source (seulement si la
+  collecte est `COMPLETE`, voir « Exhaustivité de la collecte »).
 * L'empreinte n'est enregistrée qu'après un enrichissement réussi ;
   sinon l'élément est retenté en entier à l'import suivant.
 * Une activité `ARCHIVED` revenue dans la source est toujours
@@ -170,10 +301,13 @@ déclenché automatiquement. Compteurs disponibles : `fetched`, `created`,
 publié faute de catégorie V1 décidable, consigné dans
 `classification_record` — distinct d'`ignored`), `errors` (exception inattendue sur un élément,
 ou échec total du collecteur), `archived` (voir stratégie de
-suppression ci-dessous).
+suppression ci-dessous), et depuis le sprint « agendas exhaustifs » :
+`status` (`SUCCESS`/`PARTIAL`/`FAILED`), `pagesRead`, `received`
+(éléments bruts reçus, avant les filtres du collecteur), `stopReason`.
 
-Pas de tableau de bord d'administration — exclu explicitement par
-`SPRINT_5.md`. Consultation uniquement via les logs applicatifs.
+Le bilan est affiché dans **Administration → Imports** après un import
+manuel, et le dernier essai de chaque source (y compris planifié) dans
+le tableau « État de synchronisation des sources ».
 
 
 ## Déduplication
