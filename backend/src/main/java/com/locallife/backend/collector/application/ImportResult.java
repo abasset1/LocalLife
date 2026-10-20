@@ -31,6 +31,16 @@ import java.time.LocalDateTime;
  *       collecte en échec (rien n'est alors ni créé, ni mis à jour, ni
  *       archivé) ou archivage suspendu par le garde-fou ; {@code null} quand
  *       rien n'a été bloqué.</li>
+ *   <li>{@code status} (AGD-05) : {@code SUCCESS} si la collecte est
+ *       complète, {@code PARTIAL} si elle s'est arrêtée avant la fin réelle
+ *       des données (aucun archivage alors), {@code FAILED} si rien n'a pu
+ *       être collecté — voir {@link SyncStatus} ;</li>
+ *   <li>{@code pagesRead}/{@code received} : pages lues et éléments bruts
+ *       reçus de la source, avant les filtres du collecteur ({@code fetched}
+ *       compte les éléments retenus après ces filtres) ;</li>
+ *   <li>{@code stopReason} : raison de l'arrêt de la collecte, sans donnée
+ *       sensible (fin de pagination atteinte, limite de sécurité, curseur
+ *       répété, échec...).</li>
  * </ul>
  */
 public record ImportResult(
@@ -47,13 +57,25 @@ public record ImportResult(
         int unchanged,
         int duplicates,
         int archiveWithheld,
-        String blockedReason) {
+        String blockedReason,
+        SyncStatus status,
+        int pagesRead,
+        int received,
+        String stopReason) {
 
-    /** Résultat sans élément inchangé ni doublon ({@code unchanged = 0}, {@code duplicates = 0}). */
+    /**
+     * Résultat d'une collecte complète sans élément inchangé ni doublon ({@code unchanged = 0},
+     * {@code duplicates = 0}).
+     */
     public ImportResult(
             String sourceName, LocalDateTime startedAt, LocalDateTime endedAt, int fetched, int created,
             int updated, int ignored, int errors, int archived, int needsReview) {
         this(sourceName, startedAt, endedAt, fetched, created, updated, ignored, errors, archived, needsReview, 0,
-                0, 0, null);
+                0, 0, null, SyncStatus.SUCCESS, 1, fetched, null);
+    }
+
+    /** Durée de l'import, en millisecondes. */
+    public long durationMs() {
+        return startedAt == null || endedAt == null ? 0 : java.time.Duration.between(startedAt, endedAt).toMillis();
     }
 }

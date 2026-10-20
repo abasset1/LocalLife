@@ -2,6 +2,17 @@
 
 ## 0.9.59 — non publiée
 
+### Découverte exhaustive et import fiable des agendas (sprint AGD)
+- **Découverte séparée de l'activation** : découvrir l'annuaire OpenAgenda remplit un catalogue des agendas découverts et ne crée plus aucune source ; l'administrateur coche les agendas à collecter et crée leurs sources par lot borné (50 par défaut). Une source désactivée n'est jamais réactivée par une redécouverte.
+- **Périmètre** : tous les agendas accessibles avec la clé (défaut) ou seulement les officiels (`official=1`, ancien comportement).
+- **Parcours par lots reprenable** : curseur enregistré après chaque page, dans la même transaction que ses agendas ; « Poursuivre », « Recommencer depuis le début », « Enchaîner les lots jusqu'à la fin ». Seul le statut « Annuaire lu en entier » est présenté comme exhaustif ; curseur répété, réponse incohérente ou total annoncé non atteint donnent un parcours en échec.
+- **Collecte des événements sans troncature silencieuse** : l'ancien plafond fixe de 500 pages est remplacé par une limite configurable (`OPENAGENDA_EVENTS_MAX_PAGES`, 2000) dont le déclenchement rend la collecte **partielle** ; curseur répété, page en échec, réponse incohérente ou total non atteint aussi. Reprises bornées sur quota (429, `Retry-After`), 5xx, réseau et réponse illisible.
+- **Aucun archivage sur une collecte partielle ou en échec** : les éléments reçus sont importés, rien n'est archivé, et la date du dernier import complet n'avance pas.
+- **État de synchronisation** par source (Administration → Imports) : dernier essai (complet / partiel / échec), message, pages, éléments reçus, dernier import complet ; statut, pages et éléments reçus ajoutés au bilan d'import.
+- Migration `V68` : tables `discovered_agenda`, `agenda_discovery_run`, `source_sync_state`. API : `discover-agendas` prend `scope`, `maxPages`, `restart` (plus de `limit`) ; nouveaux `discover-agendas/latest`, `discovered-agendas`, `discovered-agendas/sources`, `discovery-settings`, `sync-states` (rôle ADMIN).
+- ⚠️ Contrat OpenAgenda (forme du curseur, `total`, tri par défaut, couverture de `ALL`) vérifié en tests simulés uniquement, faute de clé en développement : voir `docs/02_Architecture/COLLECTOR_OPERATIONS.md`.
+
+
 ### Carte : un seul contenu à la fois
 - La carte affiche les activités, les lieux **ou** les food trucks, plus jamais plusieurs superposés. Site : sélecteur « Activités / Lieux / Food trucks » sur la carte, la liste suit le contenu choisi (plus d'onglets). Application : les boutons Lieux et Food trucks remplacent les activités, un second appui y revient.
 - Activités par défaut ; le choix est mémorisé (`locallife.mapLayer`, remplace `locallife.showPlaces` et `locallife.showFoodTrucks`). Pendant une recherche texte (site), seules les activités sont proposées.

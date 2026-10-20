@@ -2,6 +2,8 @@ package com.locallife.backend.collector.infrastructure;
 
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.source.domain.Source;
+import java.time.Clock;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -36,9 +38,26 @@ import org.springframework.stereotype.Component;
 public class OpenAgendaCollectorFactory {
 
     private final String apiKey;
+    private final int maxPages;
+    private final int maxAttempts;
 
-    public OpenAgendaCollectorFactory(@Value("${openagenda.api-key:}") String apiKey) {
+    /** Sans configuration de pagination : valeurs par défaut (tests). */
+    public OpenAgendaCollectorFactory(String apiKey) {
+        this(apiKey, OpenAgendaCollector.DEFAULT_MAX_PAGES, OpenAgendaRetry.DEFAULT_MAX_ATTEMPTS);
+    }
+
+    /**
+     * @param maxPages    limite de sécurité par agenda ; atteinte, la collecte est signalée incomplète
+     * @param maxAttempts essais par page (quota, 5xx, réseau, réponse illisible), voir {@link OpenAgendaRetry}
+     */
+    @Autowired
+    public OpenAgendaCollectorFactory(
+            @Value("${openagenda.api-key:}") String apiKey,
+            @Value("${openagenda.events.max-pages:" + OpenAgendaCollector.DEFAULT_MAX_PAGES + "}") int maxPages,
+            @Value("${openagenda.http.max-attempts:" + OpenAgendaRetry.DEFAULT_MAX_ATTEMPTS + "}") int maxAttempts) {
         this.apiKey = apiKey;
+        this.maxPages = maxPages;
+        this.maxAttempts = maxAttempts;
     }
 
     /**
@@ -51,6 +70,6 @@ public class OpenAgendaCollectorFactory {
     public Collector create(Source source) {
         return new OpenAgendaCollector(
                 OpenAgendaErrors.restClientBuilder(), apiKey, source.agendaUid(), source.name(),
-                source.regionFilter());
+                source.regionFilter(), Clock.systemUTC(), maxPages, OpenAgendaRetry.withDefaults(maxAttempts));
     }
 }

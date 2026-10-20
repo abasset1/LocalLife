@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -26,8 +28,10 @@ import com.locallife.backend.activityclassification.domain.ClassificationStatus;
 import com.locallife.backend.collector.domain.CollectedActivity;
 import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedTiming;
+import com.locallife.backend.collector.domain.CollectionReport;
 import com.locallife.backend.collector.domain.Collector;
 import com.locallife.backend.collector.infrastructure.CollectorException;
+import com.locallife.backend.collector.infrastructure.SourceSyncStateRepository;
 import com.locallife.backend.collector.infrastructure.DataTourismeCollectorFactory;
 import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
 import com.locallife.backend.link.application.ActivityLinkService;
@@ -51,6 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -71,7 +76,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ImportServiceTest {
 
-    @Mock
+    // Méthode par défaut collectWithReport() réelle : elle délègue à collect(), stubbé par chaque test.
+    @Mock(answer = Answers.CALLS_REAL_METHODS)
     private Collector collector;
 
     @Mock
@@ -144,6 +150,9 @@ class ImportServiceTest {
     @Mock
     private ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository;
 
+    @Mock
+    private SourceSyncStateRepository sourceSyncStateRepository;
+
     private static final ClassificationOutcome AUTO_CLASSIFIED_AS_MARKETS = new ClassificationOutcome(
             new Decision(ClassificationStatus.AUTO_CLASSIFIED, List.of("MARKETS"), null, List.of(), "AUTO:MARKETS"),
             List.of(7L));
@@ -177,7 +186,8 @@ class ImportServiceTest {
                 activityRepository, locationService, scheduleService, occurrenceService, mediaService,
                 activityMediaService, activityLinkService, accessibilityService, activityTagService,
                 activityMetadataService, classificationService, activityClassificationService,
-                importFingerprintService, sourceDefaultCategoryService, activityCoordinatePrecisionRepository);
+                importFingerprintService, sourceDefaultCategoryService, activityCoordinatePrecisionRepository,
+                sourceSyncStateRepository);
     }
 
     private static final Source SOURCE = new Source(
@@ -817,6 +827,54 @@ class ImportServiceTest {
 
         // Then
         verify(sourceService, never()).recordSync(any(), any());
+    }
+
+    @Test
+    void importAll_ShouldNeitherArchiveNorRecordSync_WhenTheCollectionIsPartial() {
+        // Given : AGD-04 — pagination interrompue ; les activités absentes sont peut-être sur une page non lue.
+        givenOneCollectibleSource();
+        doReturn(new CollectionReport(List.of(), CollectionReport.Status.PARTIAL, 4, 1200,
+                "Collecte incomplète : curseur de pagination répété après la page 4."))
+                .when(collector).collectWithReport();
+
+        // When
+        ImportResult result = importService().importAll().get(0);
+
+        // Then
+        assertEquals(SyncStatus.PARTIAL, result.status());
+        assertEquals(4, result.pagesRead());
+        assertEquals(1200, result.received());
+        assertEquals(0, result.archived());
+        assertTrue(result.blockedReason().contains("Aucun archivage"));
+        verify(activityRepository, never()).findBySourceId(any());
+        verify(sourceService, never()).recordSync(any(), any());
+        verify(sourceSyncStateRepository).record(eq(10L), any(), eq(SyncStatus.PARTIAL),
+                org.mockito.ArgumentMatchers.contains("curseur de pagination répété"), eq(4), eq(1200), anyLong());
+    }
+
+    @Test
+    void importAll_ShouldRecordAFailedSyncState_WhenTheCollectorFails() {
+        givenOneCollectibleSource();
+        when(collector.collect()).thenThrow(new CollectorException("OpenAgenda injoignable.", null));
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(SyncStatus.FAILED, result.status());
+        verify(sourceSyncStateRepository).record(eq(10L), any(), eq(SyncStatus.FAILED),
+                org.mockito.ArgumentMatchers.contains("OpenAgenda injoignable."), eq(0), eq(0), anyLong());
+    }
+
+    @Test
+    void importAll_ShouldRecordASuccessfulSyncState_WhenTheCollectionIsComplete() {
+        givenOneCollectibleSource();
+        when(collector.collect()).thenReturn(List.of());
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(SyncStatus.SUCCESS, result.status());
+        verify(sourceSyncStateRepository).record(eq(10L), any(), eq(SyncStatus.SUCCESS), any(), eq(1), eq(0),
+                anyLong());
     }
 
     @Test

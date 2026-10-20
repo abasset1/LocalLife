@@ -3,6 +3,7 @@ package com.locallife.backend.collector.application;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
+import com.locallife.backend.collector.domain.CollectionReport;
 import com.locallife.backend.collector.infrastructure.DataTourismeCollectorFactory;
 import com.locallife.backend.collector.infrastructure.OpenAgendaCollectorFactory;
 import com.locallife.backend.source.application.SourceService;
@@ -80,16 +81,17 @@ public class SourceDryRunService {
         if (configurationProblem.isPresent()) {
             return SourceDryRunReport.failed(source.id(), source.name(), configurationProblem.get());
         }
-        List<CollectedActivity> collected;
+        CollectionReport report;
         try {
-            collected = ImportService.collectorFor(source, openAgendaCollectorFactory, dataTourismeCollectorFactory)
-                    .collect();
+            report = ImportService.collectorFor(source, openAgendaCollectorFactory, dataTourismeCollectorFactory)
+                    .collectWithReport();
         } catch (RuntimeException exception) {
             LOGGER.warn("Essai à blanc : échec de la collecte pour la source '{}'", source.name(), exception);
             return SourceDryRunReport.failed(source.id(), source.name(),
                     "Collecte en échec : " + ImportService.displayableCause(exception));
         }
 
+        List<CollectedActivity> collected = report.activities();
         List<Activity> existing = activityRepository.findBySourceId(source.id());
         Set<String> existingKeys = new HashSet<>();
         existing.forEach(activity -> existingKeys.add(activity.importKey()));
@@ -110,16 +112,22 @@ public class SourceDryRunService {
         }
         ImportService.ArchivePlan plan =
                 ImportService.planArchive(existing, seenKeys, LocalDate.now().atStartOfDay());
-        int archiveWithheld = plan.suspicious() ? plan.upcoming().size() : 0;
-        int wouldArchive = plan.past().size() + (plan.suspicious() ? 0 : plan.upcoming().size());
+        // Même règle que l'import : une collecte partielle n'archive rien (voir ImportService).
+        boolean complete = report.isComplete();
+        int archiveWithheld = !complete ? plan.past().size() + plan.upcoming().size()
+                : plan.suspicious() ? plan.upcoming().size() : 0;
+        int wouldArchive = !complete ? 0 : plan.past().size() + (plan.suspicious() ? 0 : plan.upcoming().size());
 
         List<String> problems = new ArrayList<>();
+        if (!complete) {
+            problems.add(report.stopReason() + " Rien ne serait archivé.");
+        }
         if (collected.isEmpty()) {
             problems.add("Aucun élément collecté : vérifier la ressource et le filtre de départements.");
         } else if (invalid > collected.size() * MAX_INVALID_RATIO) {
             problems.add(invalid + " éléments sur " + collected.size() + " rejetés par la normalisation.");
         }
-        if (plan.suspicious()) {
+        if (complete && plan.suspicious()) {
             problems.add(archiveWithheld + " activités à venir sur " + plan.upcomingPublished()
                     + " disparaîtraient : disparition massive, archivage retenu.");
         }

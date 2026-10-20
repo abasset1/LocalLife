@@ -2,6 +2,7 @@ package com.locallife.backend.collector.infrastructure;
 
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -14,6 +15,8 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.locallife.backend.collector.domain.DiscoveredAgenda;
+import com.locallife.backend.collector.domain.DiscoveryScope;
+import com.locallife.backend.collector.infrastructure.OpenAgendaAgendaDirectory.AgendaPage;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -33,15 +36,15 @@ class OpenAgendaAgendaDirectoryTest {
     }
 
     @Test
-    void listOfficialAgendas_ShouldAskForOfficialAgendas_MostActiveFirst() {
+    void fetchPage_ShouldAskForOfficialAgendas_WhenScopeIsOfficial() {
         OpenAgendaAgendaDirectory directory = newDirectory("key");
         // Forme de réponse de la documentation OpenAgenda (champs non lus ignorés).
         mockServer.expect(requestTo(allOf(
                         containsString("/v2/agendas"),
                         containsString("official=1"),
-                        containsString("sort=recentlyAddedEvents.desc"),
-                        containsString("size=2"),
+                        containsString("size=100"),
                         containsString("key=key"))))
+                .andExpect(requestTo(not(containsString("sort="))))
                 .andRespond(withSuccess("""
                         {
                           "after": [1, 125325],
@@ -49,135 +52,114 @@ class OpenAgendaAgendaDirectoryTest {
                             {"uid": 62695, "image": "https://cdn.openagenda.com/main/agenda62695.jpg",
                              "description": "Patrimoine", "official": true,
                              "title": "Patrimoine Grand Châtellerault", "slug": "patrimoine-grand-chatellerault"},
-                            {"uid": 125325, "official": true, "title": "La Fabrique de patrimoines",
-                             "slug": "fabrique"}
+                            {"uid": 125325, "title": "La Fabrique de patrimoines", "slug": "fabrique"}
                           ],
                           "total": 3886
                         }
                         """, MediaType.APPLICATION_JSON));
 
-        List<DiscoveredAgenda> agendas = directory.listOfficialAgendas(2);
+        AgendaPage page = directory.fetchPage(DiscoveryScope.OFFICIAL, null);
 
         assertEquals(List.of(
-                new DiscoveredAgenda("62695", "Patrimoine Grand Châtellerault", "patrimoine-grand-chatellerault"),
-                new DiscoveredAgenda("125325", "La Fabrique de patrimoines", "fabrique")), agendas);
+                new DiscoveredAgenda("62695", "Patrimoine Grand Châtellerault", "patrimoine-grand-chatellerault",
+                        true),
+                // Périmètre officiel : un agenda renvoyé sans le champ est officiel par construction.
+                new DiscoveredAgenda("125325", "La Fabrique de patrimoines", "fabrique", true)), page.agendas());
+        assertEquals(List.of(1, 125325), page.after());
+        assertEquals(3886, page.total());
         mockServer.verify();
     }
 
     @Test
-    void listOfficialAgendas_ShouldFollowAfterCursor_UntilLimitReached() {
+    void fetchPage_ShouldNotFilterOnOfficial_WhenScopeIsAll() {
         OpenAgendaAgendaDirectory directory = newDirectory("key");
-        StringBuilder firstPage = new StringBuilder();
-        for (int uid = 1; uid <= 100; uid++) {
-            firstPage.append(uid == 1 ? "" : ",").append("{\"uid\": ").append(uid).append(", \"title\": \"A")
-                    .append(uid).append("\", \"slug\": \"a").append(uid).append("\"}");
-        }
-        mockServer.expect(requestTo(containsString("size=100")))
+        mockServer.expect(requestTo(allOf(containsString("/v2/agendas"), not(containsString("official")))))
                 .andRespond(withSuccess(
-                        "{\"after\": [7, 100], \"agendas\": [" + firstPage + "]}", MediaType.APPLICATION_JSON));
-        // Seconde page : seulement ce qui manque pour atteindre la limite, avec le curseur de la première.
+                        "{\"agendas\": [{\"uid\": 7, \"title\": \"Asso\", \"official\": false}]}",
+                        MediaType.APPLICATION_JSON));
+
+        AgendaPage page = directory.fetchPage(DiscoveryScope.ALL, null);
+
+        assertEquals(List.of(new DiscoveredAgenda("7", "Asso", null, false)), page.agendas());
+        assertNull(page.after());
+        assertNull(page.total());
+        mockServer.verify();
+    }
+
+    @Test
+    void fetchPage_ShouldPassTheCursorBackAsAfterParameters() {
+        OpenAgendaAgendaDirectory directory = newDirectory("key");
         mockServer.expect(requestTo(allOf(
-                        containsString("size=20"),
                         containsString("after%5B%5D=7"),
-                        containsString("after%5B%5D=100"))))
-                .andRespond(withSuccess(
-                        "{\"after\": [3, 101], \"agendas\": [{\"uid\": 101, \"title\": \"A101\", \"slug\": \"a101\"}]}",
-                        MediaType.APPLICATION_JSON));
+                        containsString("after%5B%5D=null"),
+                        containsString("after%5B%5D=1700000000000"))))
+                .andRespond(withSuccess("{\"agendas\": []}", MediaType.APPLICATION_JSON));
 
-        List<DiscoveredAgenda> agendas = directory.listOfficialAgendas(120);
+        directory.fetchPage(DiscoveryScope.ALL, java.util.Arrays.asList(7, null, 1.7E12));
 
-        assertEquals(101, agendas.size());
-        assertEquals("101", agendas.get(100).uid());
         mockServer.verify();
     }
 
     @Test
-    void listOfficialAgendas_ShouldContinueBeyondFiveHundredAgendas() {
-        OpenAgendaAgendaDirectory directory = newDirectory("key");
-        for (int page = 0; page < 5; page++) {
-            int firstUid = page * 100 + 1;
-            int lastUid = firstUid + 99;
-            StringBuilder agendas = new StringBuilder();
-            for (int uid = firstUid; uid <= lastUid; uid++) {
-                agendas.append(uid == firstUid ? "" : ",")
-                        .append("{\"uid\":").append(uid).append(",\"title\":\"A")
-                        .append(uid).append("\"}");
-            }
-            String after = page == 4 ? "[1,500]" : "[1," + lastUid + "]";
-            mockServer.expect(requestTo(containsString("size=100")))
-                    .andRespond(withSuccess(
-                            "{\"after\":" + after + ",\"agendas\":[" + agendas + "]}",
-                            MediaType.APPLICATION_JSON));
-        }
-        mockServer.expect(requestTo(allOf(containsString("size=1"), containsString("after%5B%5D=500"))))
-                .andRespond(withSuccess(
-                        "{\"after\":[1,501],\"agendas\":[{\"uid\":501,\"title\":\"A501\"}]}",
-                        MediaType.APPLICATION_JSON));
-
-        List<DiscoveredAgenda> agendas = directory.listOfficialAgendas(501);
-
-        assertEquals(501, agendas.size());
-        assertEquals("501", agendas.get(500).uid());
-        mockServer.verify();
-    }
-
-    @Test
-    void listOfficialAgendas_ShouldFailWhenApiRepeatsCursor() {
-        OpenAgendaAgendaDirectory directory = newDirectory("key");
-        StringBuilder firstPage = new StringBuilder();
-        for (int uid = 1; uid <= 100; uid++) {
-            firstPage.append(uid == 1 ? "" : ",").append("{\"uid\":").append(uid).append("}");
-        }
-        mockServer.expect(requestTo(containsString("size=100")))
-                .andRespond(withSuccess(
-                        "{\"after\":[1,100],\"agendas\":[" + firstPage + "]}",
-                        MediaType.APPLICATION_JSON));
-        StringBuilder secondPage = new StringBuilder();
-        for (int uid = 101; uid <= 200; uid++) {
-            secondPage.append(uid == 101 ? "" : ",").append("{\"uid\":").append(uid).append("}");
-        }
-        mockServer.expect(requestTo(containsString("after%5B%5D=100")))
-                .andRespond(withSuccess(
-                        "{\"after\":[1,100],\"agendas\":[" + secondPage + "]}",
-                        MediaType.APPLICATION_JSON));
-
-        assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(1000));
-        mockServer.verify();
-    }
-
-    @Test
-    void listOfficialAgendas_ShouldReturnEmptyList_WhenNoAgenda() {
+    void fetchPage_ShouldKeepAgendasWithoutUid_SoTheCallerCanCountThem() {
         OpenAgendaAgendaDirectory directory = newDirectory("key");
         mockServer.expect(requestTo(containsString("/v2/agendas")))
-                .andRespond(withSuccess("{\"agendas\": [], \"total\": 0}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("{\"agendas\": [{\"title\": \"Sans uid\"}]}", MediaType.APPLICATION_JSON));
 
-        assertTrue(directory.listOfficialAgendas(50).isEmpty());
+        AgendaPage page = directory.fetchPage(DiscoveryScope.ALL, null);
+
+        assertEquals(1, page.agendas().size());
+        assertNull(page.agendas().get(0).uid());
     }
 
     @Test
-    void listOfficialAgendas_ShouldThrowCollectorException_WhenApiKeyMissing() {
+    void fetchPage_ShouldSignalAnInconsistentResponse_WithNullAgendas() {
+        OpenAgendaAgendaDirectory directory = newDirectory("key");
+        mockServer.expect(requestTo(containsString("/v2/agendas")))
+                .andRespond(withSuccess("{\"total\": 12}", MediaType.APPLICATION_JSON));
+
+        assertNull(directory.fetchPage(DiscoveryScope.ALL, null).agendas());
+    }
+
+    @Test
+    void fetchPage_ShouldRetryAQuotaError_ThenSucceed() {
+        RestClient.Builder builder = RestClient.builder();
+        mockServer = MockRestServiceServer.bindTo(builder).build();
+        OpenAgendaAgendaDirectory directory =
+                new OpenAgendaAgendaDirectory(builder, "key", OpenAgendaRetry.immediate(3));
+        mockServer.expect(requestTo(containsString("/v2/agendas"))).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
+        mockServer.expect(requestTo(containsString("/v2/agendas"))).andRespond(withServerError());
+        mockServer.expect(requestTo(containsString("/v2/agendas")))
+                .andRespond(withSuccess("{\"agendas\": [{\"uid\": 1}]}", MediaType.APPLICATION_JSON));
+
+        assertEquals(1, directory.fetchPage(DiscoveryScope.ALL, null).agendas().size());
+        mockServer.verify();
+    }
+
+    @Test
+    void fetchPage_ShouldThrowCollectorException_WhenApiKeyMissing() {
         OpenAgendaAgendaDirectory directory = newDirectory("");
 
-        assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(50));
+        assertThrows(CollectorException.class, () -> directory.fetchPage(DiscoveryScope.ALL, null));
     }
 
     @Test
-    void listOfficialAgendas_ShouldThrowCollectorException_WhenApiFails() {
+    void fetchPage_ShouldThrowCollectorException_WhenApiFails() {
         OpenAgendaAgendaDirectory directory = newDirectory("key");
         mockServer.expect(requestTo(containsString("/v2/agendas"))).andRespond(withServerError());
 
-        assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(50));
+        assertThrows(CollectorException.class, () -> directory.fetchPage(DiscoveryScope.ALL, null));
     }
 
     @Test
-    void listOfficialAgendas_ShouldExplainARefusedKey_WithoutRevealingIt() {
+    void fetchPage_ShouldExplainARefusedKey_WithoutRevealingIt() {
         OpenAgendaAgendaDirectory directory = newDirectory("cle-secrete");
         mockServer.expect(requestTo(containsString("/v2/agendas"))).andRespond(withStatus(HttpStatus.FORBIDDEN)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("{\"message\":\"could not find user or agenda matching key\"}"));
 
         CollectorException exception =
-                assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(50));
+                assertThrows(CollectorException.class, () -> directory.fetchPage(DiscoveryScope.ALL, null));
         assertTrue(exception.getMessage().contains("clé API refusée par OpenAgenda (HTTP 403)"));
         assertTrue(exception.getMessage().contains("could not find user or agenda matching key"));
         assertTrue(exception.getMessage().contains("OPENAGENDA_API_KEY"));
@@ -185,13 +167,13 @@ class OpenAgendaAgendaDirectoryTest {
     }
 
     @Test
-    void listOfficialAgendas_ShouldExplainANetworkFailure_WithoutKeepingTheUrl() {
+    void fetchPage_ShouldExplainANetworkFailure_WithoutKeepingTheUrl() {
         OpenAgendaAgendaDirectory directory = newDirectory("cle-secrete");
         mockServer.expect(requestTo(containsString("/v2/agendas")))
                 .andRespond(withException(new java.net.SocketTimeoutException("Read timed out")));
 
         CollectorException exception =
-                assertThrows(CollectorException.class, () -> directory.listOfficialAgendas(50));
+                assertThrows(CollectorException.class, () -> directory.fetchPage(DiscoveryScope.ALL, null));
         assertTrue(exception.getMessage().contains("OpenAgenda injoignable"));
         // La cause réseau porte l'URL, donc la clé : elle n'est pas conservée.
         assertNull(exception.getCause());

@@ -46,7 +46,8 @@ public class SingleMockCollectorConfig {
 
     @Bean
     public Collector collector() {
-        return Mockito.mock(Collector.class);
+        // collectWithReport() (méthode par défaut) réelle : elle délègue à collect(), stubbé par les tests.
+        return Mockito.mock(Collector.class, Mockito.withSettings().defaultAnswer(Mockito.CALLS_REAL_METHODS));
     }
 
     @Bean

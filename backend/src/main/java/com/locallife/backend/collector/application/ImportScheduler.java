@@ -69,11 +69,14 @@ public class ImportScheduler {
             long totalNeedsReview = results.stream().mapToLong(ImportResult::needsReview).sum();
             long totalUnchanged = results.stream().mapToLong(ImportResult::unchanged).sum();
             long totalDuplicates = results.stream().mapToLong(ImportResult::duplicates).sum();
+            long partial = results.stream().filter(result -> result.status() == SyncStatus.PARTIAL).count();
+            long failed = results.stream().filter(result -> result.status() == SyncStatus.FAILED).count();
 
             LOGGER.info(
                     "Import planifie termine en {}ms - "
                     + "Recapitulatif : {} sources, {} evenements recuperes, {} crees, "
-                    + "{} mis a jour, {} inchanges, {} doublons, {} archives, {} a relire, {} erreurs",
+                    + "{} mis a jour, {} inchanges, {} doublons, {} archives, {} a relire, {} erreurs, "
+                    + "{} sources en collecte PARTIELLE, {} en ECHEC",
                     java.time.Duration.between(startedAt, endedAt).toMillis(),
                     results.size(),
                     totalFetched,
@@ -83,7 +86,9 @@ public class ImportScheduler {
                     totalDuplicates,
                     totalArchived,
                     totalNeedsReview,
-                    totalErrors);
+                    totalErrors,
+                    partial,
+                    failed);
 
         } catch (ImportAlreadyRunningException exception) {
             LOGGER.info("Import planifie ignore : un import est deja en cours");
