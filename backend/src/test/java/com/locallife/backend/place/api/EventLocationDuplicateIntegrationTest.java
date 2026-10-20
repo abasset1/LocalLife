@@ -1,5 +1,7 @@
 package com.locallife.backend.place.api;
 
+import com.locallife.backend.common.TestAccounts;
+import com.locallife.backend.user.domain.Role;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.jsonwebtoken.Jwts;
@@ -27,6 +29,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class EventLocationDuplicateIntegrationTest {
+
+    /** Comptes réels : le rôle est relu en base par JwtFilter (voir TestAccounts). */
+    @Autowired
+    private TestAccounts testAccounts;
 
     private static final String POSTAL = "99903";
     private static final double METER = 0.000009;
@@ -61,7 +67,7 @@ class EventLocationDuplicateIntegrationTest {
     private String admin() {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return "Bearer " + Jwts.builder()
-                .claim("userId", 1L).claim("email", "dup-test@example.com").claim("role", "ADMIN")
+                .claim("userId", testAccounts.sharedAccount(Role.ADMIN)).claim("email", "dup-test@example.com").claim("role", "ADMIN")
                 .issuedAt(new Date()).expiration(new Date(System.currentTimeMillis() + 3_600_000L))
                 .signWith(key, SignatureAlgorithm.HS256).compact();
     }

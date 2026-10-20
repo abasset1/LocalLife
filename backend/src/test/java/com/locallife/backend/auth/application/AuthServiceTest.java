@@ -15,10 +15,12 @@ import com.locallife.backend.auth.api.LoginRequest;
 import com.locallife.backend.auth.api.LoginResponse;
 import com.locallife.backend.user.application.PasswordHashingService;
 import com.locallife.backend.user.application.UsernamePolicy;
+import com.locallife.backend.user.domain.AccountStatus;
 import com.locallife.backend.user.domain.AuthProvider;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
 import com.locallife.backend.user.domain.UserIdentity;
+import com.locallife.backend.user.infrastructure.AccountRepository;
 import com.locallife.backend.user.infrastructure.UserIdentityRepository;
 import com.locallife.backend.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
@@ -52,13 +54,17 @@ class AuthServiceTest {
     @Mock
     private EmailVerificationService emailVerificationService;
 
+    /** Statut de compte : vide par défaut (Mockito), donc compte actif. */
+    @Mock
+    private AccountRepository accountRepository;
+
     private AuthService authService;
 
     // Règles réelles du nom d'utilisateur, branchées sur le repository simulé.
     @BeforeEach
     void setUp() {
         authService = new AuthService(userRepository, userIdentityRepository, jwtService, passwordHashingService,
-                googleAuthService, emailVerificationService, new UsernamePolicy(userRepository));
+                googleAuthService, emailVerificationService, new UsernamePolicy(userRepository), accountRepository);
     }
 
     // --- register ---
@@ -236,6 +242,29 @@ class AuthServiceTest {
         assertThrows(EmailNotVerifiedException.class,
                 () -> authService.login(new LoginRequest("bob@example.com", "motDePasse123")));
         verify(jwtService, never()).generateToken(any(), any(), any());
+    }
+
+    @Test
+    void login_ShouldRefuseASuspendedAccount_WithoutIssuingAToken() {
+        User user = new User(1L, "bob", "bob@example.com", "hash", Role.PRO, LocalDateTime.now(), true);
+        when(userRepository.findByEmail("bob@example.com")).thenReturn(Optional.of(user));
+        when(passwordHashingService.matches("motDePasse123", "hash")).thenReturn(true);
+        when(accountRepository.findStatus(1L)).thenReturn(Optional.of(AccountStatus.SUSPENDED));
+
+        assertThrows(AccountSuspendedException.class,
+                () -> authService.login(new LoginRequest("bob@example.com", "motDePasse123")));
+        verify(jwtService, never()).generateToken(any(), any(), any());
+    }
+
+    @Test
+    void login_ShouldNotRevealASuspension_WhenThePasswordIsWrong() {
+        User user = new User(1L, "bob", "bob@example.com", "hash", Role.USER, LocalDateTime.now(), true);
+        when(userRepository.findByEmail("bob@example.com")).thenReturn(Optional.of(user));
+        when(passwordHashingService.matches("mauvais", "hash")).thenReturn(false);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> authService.login(new LoginRequest("bob@example.com", "mauvais")));
+        verify(accountRepository, never()).findStatus(any());
     }
 
     @Test

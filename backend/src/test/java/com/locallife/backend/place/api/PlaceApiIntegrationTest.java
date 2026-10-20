@@ -1,5 +1,7 @@
 package com.locallife.backend.place.api;
 
+import com.locallife.backend.common.TestAccounts;
+import com.locallife.backend.user.domain.Role;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -23,6 +25,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class PlaceApiIntegrationTest {
 
+    /** Comptes réels : le rôle est relu en base par JwtFilter (voir TestAccounts). */
+    @Autowired
+    private TestAccounts testAccounts;
+
     @LocalServerPort
     private int port;
 
@@ -39,7 +45,7 @@ class PlaceApiIntegrationTest {
     private String token(String role) {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
-                .claim("userId", 1L).claim("email", "places-test@example.com").claim("role", role)
+                .claim("userId", testAccounts.sharedAccount(Role.valueOf(role))).claim("email", "places-test@example.com").claim("role", role)
                 .issuedAt(new Date()).expiration(new Date(System.currentTimeMillis() + 3_600_000L))
                 .signWith(key, SignatureAlgorithm.HS256).compact();
     }

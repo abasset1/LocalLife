@@ -2,15 +2,15 @@ package com.locallife.backend.user.api;
 
 import com.locallife.backend.auth.api.UserResponse;
 import com.locallife.backend.common.ErrorResponse;
+import com.locallife.backend.user.application.AccountActionException;
+import com.locallife.backend.user.application.AccountAdministrationService;
 import com.locallife.backend.user.application.UserService;
-import com.locallife.backend.user.domain.Role;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
-import java.util.Locale;
-import java.util.NoSuchElementException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,16 +21,20 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Comptes professionnels (ADR-0012, décision D1) : un administrateur retrouve un compte par son email et lui
- * attribue ou retire le rôle {@code PRO}. Réservé au rôle {@code ADMIN} ({@code /api/v1/admin/**}).
+ * attribue ou retire le rôle {@code PRO}. Réservé au rôle {@code ADMIN} ({@code /api/v1/admin/**}). Contrat
+ * historique conservé pour l'écran « Professionnels » ; la console générale est {@link AdminAccountController},
+ * avec laquelle le changement de rôle partage règles et journal ({@code AccountAdministrationService}).
  */
 @RestController
 @RequestMapping("/api/v1/admin/users")
 public class AdminUserController {
 
     private final UserService userService;
+    private final AccountAdministrationService accountAdministrationService;
 
-    public AdminUserController(UserService userService) {
+    public AdminUserController(UserService userService, AccountAdministrationService accountAdministrationService) {
         this.userService = userService;
+        this.accountAdministrationService = accountAdministrationService;
     }
 
     @Operation(summary = "Retrouver un compte par son email", description = "404 si aucun compte ne correspond.")
@@ -45,23 +49,20 @@ public class AdminUserController {
     }
 
     @Operation(summary = "Attribuer ou retirer le rôle professionnel",
-            description = "Bascule USER ↔ PRO. 400 pour un autre rôle ou un compte administrateur ; effet immédiat "
-                    + "sur l'espace professionnel (le rôle est relu en base).")
+            description = "Bascule USER ↔ PRO, conservé pour compatibilité : même règles et même journal que "
+                    + "PATCH /api/v1/admin/accounts/{id}/role. 400 rôle inconnu ; 403 rôle ADMIN demandé, compte "
+                    + "administrateur ou propre compte (400 avant le sprint « Rôles et comptes ») ; 404 compte "
+                    + "inconnu. Effet immédiat (rôle relu en base).")
     @PatchMapping("/{id}/role")
     public ResponseEntity<Object> changeRole(
-            @PathVariable Long id, @RequestBody RoleRequest body, HttpServletRequest request) {
-        Role role;
+            @PathVariable Long id, @RequestBody RoleRequest body, Authentication authentication,
+            HttpServletRequest request) {
         try {
-            role = Role.valueOf(body == null || body.role() == null ? "" : body.role().trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException exception) {
-            return error(HttpStatus.BAD_REQUEST, "Rôle inconnu : USER ou PRO.", request);
-        }
-        try {
-            return ResponseEntity.ok(UserResponse.from(userService.changeRole(id, role)));
-        } catch (IllegalArgumentException exception) {
-            return error(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
-        } catch (NoSuchElementException exception) {
-            return error(HttpStatus.NOT_FOUND, "Utilisateur introuvable.", request);
+            accountAdministrationService.changeRole(
+                    AdminAccountController.actor(authentication), id, body == null ? null : body.role());
+            return ResponseEntity.ok(UserResponse.from(userService.getUserById(id).orElseThrow()));
+        } catch (AccountActionException exception) {
+            return error(exception.status(), exception.getMessage(), request);
         }
     }
 

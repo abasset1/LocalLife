@@ -1,6 +1,6 @@
 # Sprint — Rôles, permissions et gestion des comptes
 
-**Statut :** spécification prête pour développement  
+**Statut :** implémenté le 20 octobre 2026 (voir § 8 et `ROLES_ET_PERMISSIONS.md`)  
 **Périmètre :** backend Spring Boot, site React, application mobile  
 **Branche de préparation :** `docs/sprint-roles-comptes`
 
@@ -161,3 +161,17 @@ Fournir une gestion cohérente, traçable et sécurisée des comptes depuis le s
 - Aucun secret n'est exposé dans les réponses ou journaux.
 - La consultation de la carte, des listes et des fiches reste gratuite.
 - La documentation distingue explicitement les rôles techniques et les offres commerciales.
+
+## 8. État d'implémentation (20 octobre 2026)
+
+| Tâche | État |
+|---|---|
+| RBAC-01 | Fait : matrice dans `ROLES_ET_PERMISSIONS.md`. Écart corrigé : le rôle du JWT était utilisé tel quel pour `/api/v1/admin/**` (un administrateur rétrogradé gardait ses droits jusqu'à 24 h) ; rôle et statut sont désormais relus en base à chaque requête. |
+| ACC-01 | Fait : `GET /api/v1/admin/accounts` (recherche, filtres, pagination), DTO sans secret ; contrats historiques `/admin/users` conservés. |
+| ACC-02 | Fait : `users.account_status` (V69, `ACTIVE` par défaut), suspension motivée et réactivation, 401 sur jeton existant, 423 à la connexion ; administrateurs non suspendables par l'API. |
+| ACC-03 | Fait : `USER` ↔ `PRO` seulement ; `ADMIN` jamais attribuable par l'API (procédure d'exploitation documentée) ; propre compte refusé ; `PATCH /me` ignore rôle et statut. Transition interdite : 403 (400 auparavant sur l'endpoint historique). |
+| WEB-01 | Fait : section « Comptes » de l'administration. |
+| MOB-01 | Fait : décision « lien sécurisé vers le site » plutôt qu'administration native. |
+| AUD-01 | Fait : `account_audit_event`, actions réussies et refusées, ajout seul garanti par déclencheur. |
+| QA-01 | Fait : tests d'intégration 401/403/200 pour USER, PRO, ADMIN ; migration ; DTO ; suspension ; journal ; tests web et mobile. Les tests qui fabriquaient un jeton `ADMIN` pour un compte inexistant utilisent désormais des comptes réels (`TestAccounts`). |
+

@@ -1,7 +1,8 @@
 package com.locallife.backend.auth.api;
 
 import com.locallife.backend.auth.application.JwtAuthentication;
-import com.locallife.backend.user.domain.Role;
+import com.locallife.backend.user.domain.AccountStatus;
+import com.locallife.backend.user.infrastructure.AccountRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
@@ -15,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import javax.crypto.SecretKey;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,13 +25,29 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * Filtre Spring pour extraire et valider le JWT de l'en-tête Authorization.
  * Si le token est valide, remplit le SecurityContext avec les informations de l'utilisateur.
+ *
+ * <p><b>Droits relus en base à chaque requête</b> (sprint « Rôles et comptes », RBAC-01/ACC-02) : le jeton
+ * n'identifie que le compte. Son rôle et son statut sont lus dans {@code users} : un rôle retiré, un compte
+ * suspendu ou supprimé perd ses droits dès sa requête suivante, sans attendre l'expiration du jeton (24 h).
+ * Le rôle inscrit dans le jeton n'est plus utilisé pour décider d'un accès. Un compte suspendu ou introuvable
+ * reçoit 401 : les clients effacent alors le jeton et continuent en visiteur (la consultation reste publique).
  */
 public class JwtFilter extends OncePerRequestFilter {
 
-    private final String jwtSecret;
+    /** Écriture d'une réponse d'erreur JSON, fournie par {@code SecurityConfig}. */
+    @FunctionalInterface
+    public interface ErrorWriter {
+        void write(HttpServletResponse response, int status, String message, String path) throws IOException;
+    }
 
-    public JwtFilter(String jwtSecret) {
+    private final String jwtSecret;
+    private final AccountRepository accountRepository;
+    private final ErrorWriter errorWriter;
+
+    public JwtFilter(String jwtSecret, AccountRepository accountRepository, ErrorWriter errorWriter) {
         this.jwtSecret = jwtSecret;
+        this.accountRepository = accountRepository;
+        this.errorWriter = errorWriter;
     }
 
     @Override
@@ -47,21 +65,30 @@ public class JwtFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7);
 
+        Long userId;
         try {
             Claims claims = parseToken(token);
-            Long userId = claims.get("userId", Long.class);
-            String email = claims.get("email", String.class);
-            String roleString = claims.get("role", String.class);
-            Role role = Role.valueOf(roleString);
-
-            JwtAuthentication authentication = new JwtAuthentication(userId, email, role);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
+            userId = claims.get("userId", Long.class);
         } catch (SignatureException | MalformedJwtException | ExpiredJwtException
                 | UnsupportedJwtException | IllegalArgumentException e) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token JWT invalide");
             return;
         }
+
+        Optional<AccountRepository.Access> access = accountRepository.findAccess(userId);
+        if (access.isEmpty()) {
+            errorWriter.write(response, HttpServletResponse.SC_UNAUTHORIZED, "Compte introuvable : reconnecte-toi.",
+                    request.getRequestURI());
+            return;
+        }
+        if (access.get().status() != AccountStatus.ACTIVE) {
+            errorWriter.write(response, HttpServletResponse.SC_UNAUTHORIZED,
+                    "Ce compte est suspendu. Contacte l'équipe LocalLife pour en savoir plus.",
+                    request.getRequestURI());
+            return;
+        }
+        SecurityContextHolder.getContext().setAuthentication(
+                new JwtAuthentication(userId, access.get().email(), access.get().role()));
 
         filterChain.doFilter(request, response);
     }

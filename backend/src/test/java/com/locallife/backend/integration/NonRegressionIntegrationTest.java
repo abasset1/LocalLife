@@ -1,5 +1,7 @@
 package com.locallife.backend.integration;
 
+import com.locallife.backend.common.TestAccounts;
+import com.locallife.backend.user.domain.Role;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
@@ -59,6 +61,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class NonRegressionIntegrationTest {
 
+    /** Comptes réels : le rôle est relu en base par JwtFilter (voir TestAccounts). */
+    @Autowired
+    private TestAccounts testAccounts;
+
     private static final String PASSWORD = "motDePasse123";
     private static final double LATITUDE = 43.29;
     private static final double LONGITUDE = 5.37;
@@ -108,7 +114,7 @@ class NonRegressionIntegrationTest {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         long oneHourMillis = 3_600_000L;
         return Jwts.builder()
-                .claim("userId", 1L)
+                .claim("userId", testAccounts.sharedAccount(Role.ADMIN))
                 .claim("email", "admin-test@example.com")
                 .claim("role", "ADMIN")
                 .issuedAt(new Date())

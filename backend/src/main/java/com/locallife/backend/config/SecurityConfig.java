@@ -2,6 +2,7 @@ package com.locallife.backend.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.locallife.backend.auth.api.JwtFilter;
+import com.locallife.backend.user.infrastructure.AccountRepository;
 import com.locallife.backend.common.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -116,11 +117,14 @@ public class SecurityConfig {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, AccountRepository accountRepository)
+            throws Exception {
+        JwtFilter jwtFilter = new JwtFilter(jwtSecret, accountRepository, (response, status, message, path) ->
+                writeError(response, HttpStatus.valueOf(status), message, path));
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(new JwtFilter(jwtSecret), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/activities").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/activities/*/cancel").authenticated()

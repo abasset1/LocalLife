@@ -2,6 +2,15 @@
 
 ## 0.9.59 — non publiée
 
+### Rôles, permissions et gestion des comptes (issue #154)
+- **Droits relus en base à chaque requête** : le rôle et le statut du compte ne sont plus lus dans le jeton. Un rôle retiré ou une suspension prend effet immédiatement ; un jeton fabriqué avec un rôle `ADMIN` n'ouvre plus rien. Un compte supprimé ou suspendu reçoit 401.
+- **Administration → Comptes** (site) : liste paginée, recherche par e-mail, nom ou identifiant, filtres rôle et statut, attribution/retrait du rôle PRO, suspension avec motif obligatoire, réactivation, historique par compte.
+- **Suspension** : connexion refusée (423) et jetons déjà émis inutilisables, sans suppression de données ; réversible. Les administrateurs ne se suspendent ni ne se rétrogradent par l'application, et personne n'agit sur son propre compte.
+- **Journal d'audit** des changements de rôle, suspensions et réactivations, réussis ou refusés (acteur, cible, avant/après, motif, date UTC), en ajout seul : la base refuse toute modification.
+- **Application mobile** : lien « Administration (site web) » pour les administrateurs confirmés par le serveur ; pas d'administration native.
+- Compatibilité : `PATCH /api/v1/admin/users/{id}/role` répond désormais **403** (au lieu de 400) pour une transition interdite (rôle ADMIN demandé, compte administrateur).
+- Migration `V69` : statut de compte (`ACTIVE` par défaut) et table `account_audit_event`. Matrice des rôles : `docs/02_Architecture/ROLES_ET_PERMISSIONS.md`.
+
 ### Découverte exhaustive et import fiable des agendas (sprint AGD)
 - **Découverte séparée de l'activation** : découvrir l'annuaire OpenAgenda remplit un catalogue des agendas découverts et ne crée plus aucune source ; l'administrateur coche les agendas à collecter et crée leurs sources par lot borné (50 par défaut). Une source désactivée n'est jamais réactivée par une redécouverte.
 - **Périmètre** : tous les agendas accessibles avec la clé (défaut) ou seulement les officiels (`official=1`, ancien comportement).

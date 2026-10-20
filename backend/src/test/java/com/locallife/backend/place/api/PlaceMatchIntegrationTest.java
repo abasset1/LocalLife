@@ -1,5 +1,7 @@
 package com.locallife.backend.place.api;
 
+import com.locallife.backend.common.TestAccounts;
+import com.locallife.backend.user.domain.Role;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
@@ -32,6 +34,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class PlaceMatchIntegrationTest {
+
+    /** Comptes réels : le rôle est relu en base par JwtFilter (voir TestAccounts). */
+    @Autowired
+    private TestAccounts testAccounts;
 
     private static final String POSTAL = "99901";
     private static final double LAT = 43.9493;
@@ -68,7 +74,7 @@ class PlaceMatchIntegrationTest {
     }
 
     private String admin() {
-        return admin(1L);
+        return admin(testAccounts.sharedAccount(Role.ADMIN));
     }
 
     private String admin(Long userId) {

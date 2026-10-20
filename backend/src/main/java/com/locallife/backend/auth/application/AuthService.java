@@ -4,10 +4,12 @@ import com.locallife.backend.auth.api.LoginRequest;
 import com.locallife.backend.auth.api.LoginResponse;
 import com.locallife.backend.user.application.PasswordHashingService;
 import com.locallife.backend.user.application.UsernamePolicy;
+import com.locallife.backend.user.domain.AccountStatus;
 import com.locallife.backend.user.domain.AuthProvider;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
 import com.locallife.backend.user.domain.UserIdentity;
+import com.locallife.backend.user.infrastructure.AccountRepository;
 import com.locallife.backend.user.infrastructure.UserIdentityRepository;
 import com.locallife.backend.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
@@ -38,6 +40,7 @@ public class AuthService {
     private final GoogleAuthService googleAuthService;
     private final EmailVerificationService emailVerificationService;
     private final UsernamePolicy usernamePolicy;
+    private final AccountRepository accountRepository;
 
     public AuthService(
             UserRepository userRepository,
@@ -46,7 +49,8 @@ public class AuthService {
             PasswordHashingService passwordHashingService,
             GoogleAuthService googleAuthService,
             EmailVerificationService emailVerificationService,
-            UsernamePolicy usernamePolicy) {
+            UsernamePolicy usernamePolicy,
+            AccountRepository accountRepository) {
         this.userRepository = userRepository;
         this.userIdentityRepository = userIdentityRepository;
         this.jwtService = jwtService;
@@ -54,6 +58,7 @@ public class AuthService {
         this.googleAuthService = googleAuthService;
         this.emailVerificationService = emailVerificationService;
         this.usernamePolicy = usernamePolicy;
+        this.accountRepository = accountRepository;
     }
 
     /**
@@ -161,6 +166,7 @@ public class AuthService {
             throw new EmailNotVerifiedException();
         }
 
+        requireActive(user);
         return new LoginResponse(issueToken(user));
     }
 
@@ -209,6 +215,7 @@ public class AuthService {
                             "UserIdentity " + existingIdentity.get().id() + " référence un utilisateur inexistant "
                                     + "(" + existingIdentity.get().userId() + ") — cohérence référentielle "
                                     + "violée malgré la contrainte ON DELETE CASCADE."));
+            requireActive(user);
             return new LoginResponse(issueToken(user));
         }
 
@@ -227,6 +234,7 @@ public class AuthService {
         userIdentityRepository.save(new UserIdentity(null, user.id(), AuthProvider.GOOGLE, identity.sub(),
                 LocalDateTime.now()));
 
+        requireActive(user);
         return new LoginResponse(issueToken(user));
     }
 
@@ -247,6 +255,13 @@ public class AuthService {
         return userRepository.save(new User(
                 existing.id(), existing.username(), existing.email(), "", existing.role(),
                 existing.createdAt(), true));
+    }
+
+    /** ACC-02 : aucun jeton pour un compte suspendu (le filtre JWT refuse aussi les jetons déjà émis). */
+    private void requireActive(User user) {
+        if (accountRepository.findStatus(user.id()).orElse(AccountStatus.ACTIVE) != AccountStatus.ACTIVE) {
+            throw new AccountSuspendedException();
+        }
     }
 
     private String issueToken(User user) {
