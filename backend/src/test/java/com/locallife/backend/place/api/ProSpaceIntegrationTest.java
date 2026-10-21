@@ -89,10 +89,14 @@ class ProSpaceIntegrationTest {
         call(HttpMethod.PATCH, "/api/v1/admin/users/" + user + "/role", oldToken, Map.of("role", "PRO"), 403);
         assertThat(call(HttpMethod.GET, "/api/v1/admin/users?email=" + email, token(admin, "ADMIN"), null, 200)
                 .get("id").asLong()).isEqualTo(user);
+        // Transitions interdites : 403 depuis le sprint « Rôles et comptes » (400 auparavant), voir
+        // ROLES_ET_PERMISSIONS.md ; un rôle inconnu reste 400.
         call(HttpMethod.PATCH, "/api/v1/admin/users/" + user + "/role", token(admin, "ADMIN"),
-                Map.of("role", "ADMIN"), 400);
+                Map.of("role", "ADMIN"), 403);
         call(HttpMethod.PATCH, "/api/v1/admin/users/" + admin + "/role", token(admin, "ADMIN"),
-                Map.of("role", "PRO"), 400);
+                Map.of("role", "PRO"), 403);
+        call(HttpMethod.PATCH, "/api/v1/admin/users/" + user + "/role", token(admin, "ADMIN"),
+                Map.of("role", "CHEF"), 400);
         assertThat(call(HttpMethod.PATCH, "/api/v1/admin/users/" + user + "/role", token(admin, "ADMIN"),
                 Map.of("role", "pro"), 200).get("role").asText()).isEqualTo("PRO");
 

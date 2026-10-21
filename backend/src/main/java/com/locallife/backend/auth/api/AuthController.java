@@ -1,6 +1,7 @@
 package com.locallife.backend.auth.api;
 
 import com.locallife.backend.auth.application.AuthService;
+import com.locallife.backend.auth.application.AccountSuspendedException;
 import com.locallife.backend.auth.application.EmailNotVerifiedException;
 import com.locallife.backend.auth.application.EmailVerificationService;
 import com.locallife.backend.auth.application.PasswordResetService;
@@ -116,7 +117,16 @@ public class AuthController {
                     Instant.now(), status.value(), status.getReasonPhrase(),
                     exception.getMessage(), httpRequest.getRequestURI());
             return ResponseEntity.status(status).body(body);
+        } catch (AccountSuspendedException exception) {
+            return suspended(exception, httpRequest);
         }
+    }
+
+    /** ACC-02 : compte suspendu, identifiants pourtant corrects (423, distinct du 403 « adresse non confirmée »). */
+    private ResponseEntity<Object> suspended(AccountSuspendedException exception, HttpServletRequest httpRequest) {
+        HttpStatus status = HttpStatus.LOCKED;
+        return ResponseEntity.status(status).body(new ErrorResponse(Instant.now(), status.value(),
+                status.getReasonPhrase(), exception.getMessage(), httpRequest.getRequestURI()));
     }
 
     /**
@@ -146,6 +156,8 @@ public class AuthController {
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException exception) {
             return unauthorized(exception, httpRequest);
+        } catch (AccountSuspendedException exception) {
+            return suspended(exception, httpRequest);
         }
     }
 

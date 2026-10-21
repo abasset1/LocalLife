@@ -3257,6 +3257,60 @@ body {
     border-bottom: none;
 }
 
+/* Administration — section « Comptes ». */
+.admin-accounts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 1100px;
+}
+
+.admin-import-form input.admin-accounts-search {
+    width: 16rem;
+    max-width: 100%;
+}
+
+.admin-accounts-email,
+.admin-accounts-reason {
+    color: #475569;
+    font-size: 0.82rem;
+    font-weight: 400;
+    word-break: break-all;
+}
+
+.admin-accounts-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.admin-account-status {
+    font-weight: 650;
+}
+
+.admin-account-status-active {
+    color: #1f7a4d;
+}
+
+.admin-account-status-suspended {
+    color: #b91c1c;
+}
+
+.admin-accounts-suspend {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.admin-accounts-suspend textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font: inherit;
+}
+
 /* Statut d'une collecte : seul « Complet » signifie que toutes les pages ont été lues. */
 .admin-sync-status {
     font-weight: 650;

@@ -95,6 +95,8 @@ export function defaultHttpMessage(status: number): string {
       return 'Accès refusé.';
     case 404:
       return 'Ressource introuvable.';
+    case 423:
+      return 'Ce compte est suspendu.';
     case 503:
       return 'Service momentanément indisponible.';
     default:

@@ -1,5 +1,7 @@
 package com.locallife.backend.integration;
 
+import com.locallife.backend.common.TestAccounts;
+import com.locallife.backend.user.domain.Role;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -55,6 +57,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AgendaDiscoveryIntegrationTest {
+
+    /** Comptes réels : le rôle est relu en base par JwtFilter (voir TestAccounts). */
+    @Autowired
+    private TestAccounts testAccounts;
 
     private static final String PASSWORD = "motDePasse123";
 
@@ -289,7 +295,7 @@ class AgendaDiscoveryIntegrationTest {
     private String adminToken() {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
-                .claim("userId", 1L)
+                .claim("userId", testAccounts.sharedAccount(Role.ADMIN))
                 .claim("email", "admin-test@example.com")
                 .claim("role", "ADMIN")
                 .issuedAt(new Date())

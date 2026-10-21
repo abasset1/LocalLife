@@ -1,5 +1,7 @@
 package com.locallife.backend.auth.api;
 
+import com.locallife.backend.common.TestAccounts;
+import com.locallife.backend.user.domain.Role;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.jsonwebtoken.Jwts;
@@ -28,6 +30,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AdminMailControllerIntegrationTest {
 
+    /** Comptes réels : le rôle est relu en base par JwtFilter (voir TestAccounts). */
+    @Autowired
+    private TestAccounts testAccounts;
+
     @LocalServerPort
     private int port;
 
@@ -54,7 +60,7 @@ class AdminMailControllerIntegrationTest {
                 "mail-" + unique + "@example.com");
         RestTestClient client = RestTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
 
-        client.get().uri("/api/v1/admin/mail/config").header(HttpHeaders.AUTHORIZATION, "Bearer " + token(1L, "USER"))
+        client.get().uri("/api/v1/admin/mail/config").header(HttpHeaders.AUTHORIZATION, testAccounts.bearer(Role.USER))
                 .exchange().expectStatus().isForbidden();
         String config = client.get().uri("/api/v1/admin/mail/config")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(adminId, "ADMIN")).exchange()

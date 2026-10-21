@@ -1,16 +1,20 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ApiError, HttpError, resendVerification } from '@/api';
+import * as WebBrowser from 'expo-web-browser';
+
+import { ApiError, HttpError, getCurrentAccount, resendVerification } from '@/api';
 import { BrandMark } from '@/components/brand-mark';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { MenuRow } from '@/components/menu-row';
 import { Notice } from '@/components/notice';
 import { ScreenHeader } from '@/components/screen-header';
+import { adminWebUrl, shouldOfferAdminLink } from '@/features/admin/adminLink';
 import { MenuButton } from '@/features/navigation/AppMenu';
+import { apiUrl } from '@/config/env';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -56,6 +60,35 @@ export default function CompteScreen() {
   const [resending, setResending] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const usernameStatus = useUsernameAvailability(mode === 'register' ? username : '');
+  /** Rôle relu par le serveur (`GET /users/me`), jamais celui du jeton stocké : décide seul du lien d'administration. */
+  const [serverAccount, setServerAccount] = useState<{ userId: number; role: string } | null>(null);
+  const [adminLinkError, setAdminLinkError] = useState<string | null>(null);
+  const authenticatedUserId = state.status === 'authenticated' ? state.user.userId : null;
+  // Rôle valable seulement pour le compte connecté qui l'a demandé (changement de compte : plus de lien).
+  const serverRole = serverAccount && serverAccount.userId === authenticatedUserId ? serverAccount.role : null;
+
+  useEffect(() => {
+    if (authenticatedUserId === null) return;
+    const controller = new AbortController();
+    getCurrentAccount({ signal: controller.signal })
+      .then((account) => setServerAccount({ userId: authenticatedUserId, role: account.role }))
+      .catch(() => setServerAccount(null));
+    return () => controller.abort();
+  }, [authenticatedUserId]);
+
+  async function openAdministration() {
+    const url = adminWebUrl(apiUrl);
+    if (!url) {
+      setAdminLinkError("Adresse du site introuvable dans la configuration de l'application.");
+      return;
+    }
+    setAdminLinkError(null);
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      setAdminLinkError("Impossible d'ouvrir le site d'administration.");
+    }
+  }
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -197,9 +230,19 @@ export default function CompteScreen() {
                 label="Espace professionnel"
                 description="Vos lieux et vos food trucks"
                 onPress={() => router.push('/pro')}
-                last
+                last={!shouldOfferAdminLink(serverRole)}
               />
+              {shouldOfferAdminLink(serverRole) && (
+                <MenuRow
+                  icon={{ ios: 'lock.shield', android: 'admin_panel_settings', web: 'admin_panel_settings' }}
+                  label="Administration (site web)"
+                  description="Comptes, modération et imports, sur le site"
+                  onPress={() => void openAdministration()}
+                  last
+                />
+              )}
             </Card>
+            {adminLinkError && <Notice tone="danger">{adminLinkError}</Notice>}
 
             <Button label="Se déconnecter" variant="danger" onPress={() => void logout()} />
           </ScrollView>

@@ -1,5 +1,7 @@
 package com.locallife.backend.source.api;
 
+import com.locallife.backend.common.TestAccounts;
+import com.locallife.backend.user.domain.Role;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.locallife.backend.common.IntegrationTestCleaner;
@@ -38,6 +40,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class SourceControllerIntegrationTest {
 
+    /** Comptes réels : le rôle est relu en base par JwtFilter (voir TestAccounts). */
+    @Autowired
+    private TestAccounts testAccounts;
+
     @LocalServerPort
     private int port;
 
@@ -69,7 +75,7 @@ class SourceControllerIntegrationTest {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         long oneHourMillis = 3_600_000L;
         return Jwts.builder()
-                .claim("userId", 1L)
+                .claim("userId", testAccounts.sharedAccount(Role.valueOf(role)))
                 .claim("email", "source-test@example.com")
                 .claim("role", role)
                 .issuedAt(new Date())
