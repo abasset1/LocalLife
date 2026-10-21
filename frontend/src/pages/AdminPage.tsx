@@ -260,11 +260,12 @@ function AdminPage() {
                 if (response.ok) {
                     const data: Source[] = await response.json();
                     setSources(data);
-                    // Lectures publiques, sans incidence sur l'affichage de la liste si elles échouent :
-                    // seules les catégories par défaut ne seraient alors ni affichées ni modifiables.
+                    // Sans incidence sur l'affichage de la liste si elles échouent : seules les catégories
+                    // par défaut ne seraient alors ni affichées ni modifiables. Les catégories par défaut
+                    // des sources sont réservées à l'administration (jeton requis).
                     const [categoriesResponse, defaultsResponse] = await Promise.all([
                         fetch("/api/v1/categories?locale=fr-FR", { signal: abortController.signal }),
-                        fetch("/api/v1/sources/default-categories", { signal: abortController.signal }),
+                        apiFetch("/api/v1/sources/default-categories", { signal: abortController.signal }),
                     ]);
                     if (categoriesResponse.ok) {
                         const allCategories: Category[] = await categoriesResponse.json();

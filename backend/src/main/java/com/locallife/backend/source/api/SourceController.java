@@ -43,9 +43,11 @@ import org.springframework.web.bind.annotation.RestController;
  * ({@code ImportService}, recherche scopée par {@code sourceId} +
  * {@code importKey}) — aucun changement nécessaire sur ce module.
  *
- * Non protégé en lecture (comme {@code CategoryController}) : une source
- * n'est pas une donnée sensible, et {@code sourceId} est déjà visible sans
- * restriction dans toute réponse contenant une {@code Activity}. Depuis
+ * Lecture réservée au rôle {@code ADMIN} depuis le 21/10/2026 (elle était
+ * publique) : la liste expose la configuration interne des imports (URL,
+ * identifiants d'agenda, filtres, statut, synchronisation) et seule
+ * l'administration l'utilise ; les fiches publiques gardent le nom de leur
+ * source ({@code sourceName}). Depuis
  * LL-EF-005, les trois méthodes d'écriture ({@code POST}/{@code PUT}/
  * {@code DELETE}) sont en revanche réservées au rôle {@code ADMIN}
  * ({@code SecurityConfig}) : elles permettent de configurer les agendas
@@ -86,7 +88,7 @@ public class SourceController {
     @Operation(
             summary = "Liste toutes les sources",
             description = "Retourne toutes les sources connues (import externe ou saisie manuelle). "
-                    + "Endpoint public, sans authentification.")
+                    + "Réservé au rôle ADMIN.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Liste renvoyée avec succès (peut être vide).")
     })
@@ -105,7 +107,7 @@ public class SourceController {
     @Operation(
             summary = "Résout un identifiant de source",
             description = "Retourne la source correspondant à l'id fourni (utile pour résoudre le "
-                    + "sourceId d'une activité en nom/type lisible). Endpoint public.")
+                    + "sourceId d'une activité en nom/type lisible). Réservé au rôle ADMIN.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Source trouvée."),
         @ApiResponse(responseCode = "404", description = "Aucune source ne correspond à cet id.")
@@ -223,7 +225,7 @@ public class SourceController {
             summary = "Catégories par défaut de toutes les sources",
             description = "Pour chaque source qui en a, les codes des catégories appliquées par l'import aux "
                     + "éléments que ni leurs mots-clés ni leur titre ne permettent de classer. Une source "
-                    + "sans catégorie par défaut est absente de la réponse. Endpoint public.")
+                    + "sans catégorie par défaut est absente de la réponse. Réservé au rôle ADMIN.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Codes de catégories par id de source.")
     })

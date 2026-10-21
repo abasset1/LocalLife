@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Visiteurs : périmètre défini, sécurité fermée par défaut
+- Ce qu'un visiteur sans compte peut faire est désormais listé et figé (`ROLES_ET_PERMISSIONS.md` § 3 bis) : carte, liste, recherche, fiches complètes, lieux, food trucks, inscription et connexion, désabonnement d'une alerte par le lien de l'e-mail.
+- La sécurité du serveur est fermée par défaut : une route non déclarée publique exige une connexion (auparavant, elle était ouverte).
+- La liste interne des sources (`GET /api/v1/sources/**`) est réservée aux administrateurs.
+
 ### Activité sans coordonnées : plus d'erreur 500 (suite de l'audit Search V1, #93)
 - Une activité enregistrée sans latitude/longitude (données historiques ou insérées à la main) faisait échouer sa fiche, la liste publique `GET /api/v1/activities` et la liste de modération. Elle est désormais servie avec des coordonnées `null` ; le site et l'application l'affichent sans marqueur.
 
