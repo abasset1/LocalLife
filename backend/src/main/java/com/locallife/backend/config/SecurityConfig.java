@@ -39,15 +39,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   /api/v1/admin/activities et DELETE /api/v1/admin/activities/{id} :
  *   suppression d'activités, réservée au rôle ADMIN. Tout autre chemin
  *   sous /api/v1/admin/ est aussi réservé au rôle ADMIN (filet de sécurité).
- * GET /api/v1/sources et /api/v1/sources/{id} (LL-6007, Sprint 6) restent
- * volontairement non protégés (voir {@code SourceController}) : ajoutés
- * ici sans modification de cette classe, aucune règle dédiée n'était
- * nécessaire.
+ * GET /api/v1/sources et /api/v1/sources/{id} (LL-6007, Sprint 6) étaient
+ * publics ; réservés au rôle ADMIN depuis le 21/10/2026 (voir plus bas,
+ * « Visiteur, fermé par défaut »).
  * Endpoints protégés (LL-EF-005) :
  * - POST/PUT/DELETE /api/v1/sources[/{id}] : réservés au rôle ADMIN
  *   (gestion des agendas depuis l'interface d'administration, voir
  *   {@code SourceController}) — même posture que les endpoints
- *   d'administration ci-dessus. GET reste public, inchangé.
+ *   d'administration ci-dessus. GET : ADMIN aussi depuis le 21/10/2026.
  * Endpoint protégé (LL-6009, Sprint 6) :
  * - POST /api/v1/foodtrucks : utilisateur connecté (JWT valide requis),
  *   même posture que POST /api/v1/activities ci-dessus (voir
@@ -104,12 +103,54 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   {@code ActivityService#cancel} ci-dessus.
  * - /api/v1/admin/users et /api/v1/admin/place-claims : rôle ADMIN, par la
  *   règle générale /api/v1/admin/**.
- * Tous les autres endpoints restent accessibles sans JWT (consultation
- * publique des activités/catégories, inscription/connexion).
+ * <b>Visiteur, fermé par défaut</b> (décision du 21/10/2026, voir
+ * {@code ROLES_ET_PERMISSIONS.md} § « Visiteur ») : seules les routes
+ * listées dans {@link #PUBLIC_GET} / {@link #PUBLIC_POST} sont ouvertes sans
+ * JWT (consultation, inscription et connexion, désabonnement par jeton) ;
+ * toute autre route exige au moins une connexion, y compris une route
+ * nouvelle qu'on aurait oublié de déclarer ici. {@code GET /api/v1/sources/**}
+ * (liste interne des sources, utilisée par l'administration seulement) est
+ * réservé au rôle {@code ADMIN}.
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    /** Consultation publique, sans compte et gratuite : carte, liste, fiches, référentiels. */
+    static final String[] PUBLIC_GET = {
+        "/api/v1/activities",
+        "/api/v1/activities/search",
+        "/api/v1/activities/nearby",
+        "/api/v1/activities/within-bounds",
+        "/api/v1/activities/at-place/*",
+        "/api/v1/activities/*",
+        "/api/v1/places/within-bounds",
+        "/api/v1/places/*",
+        "/api/v1/places/*/foodtrucks",
+        "/api/v1/foodtrucks",
+        "/api/v1/foodtrucks/*",
+        "/api/v1/categories",
+        "/api/v1/activitytypes",
+        "/api/v1/audiences",
+        "/api/v1/organizertypes",
+        "/api/v1/geocoding/city",
+        "/api/v1/geocoding/city-suggestions",
+        "/api/v1/auth/username-availability",
+        // Documentation de l'API et sonde de santé (inchangées).
+        "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**", "/actuator/health",
+    };
+
+    /** Accès au compte sans être connecté, et désabonnement d'une alerte par le jeton du lien de l'e-mail. */
+    static final String[] PUBLIC_POST = {
+        "/api/v1/auth/register",
+        "/api/v1/auth/login",
+        "/api/v1/auth/google",
+        "/api/v1/auth/verify-email",
+        "/api/v1/auth/resend-verification",
+        "/api/v1/auth/forgot-password",
+        "/api/v1/auth/reset-password",
+        "/api/v1/alerts/unsubscribe",
+    };
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -182,7 +223,15 @@ public class SecurityConfig {
                         // Abonnement de l'utilisateur connecté (BILLING-01, ADR-0014).
                         .requestMatchers("/api/v1/users/me/subscription", "/api/v1/users/me/subscription/**")
                         .authenticated()
-                        .anyRequest().permitAll()
+                        // Liste interne des sources : administration seulement (21/10/2026).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/sources", "/api/v1/sources/**").hasRole("ADMIN")
+                        // Visiteur : uniquement ce qui est explicitement public ; le reste exige une connexion.
+                        .requestMatchers(HttpMethod.GET, PUBLIC_GET).permitAll()
+                        .requestMatchers(HttpMethod.POST, PUBLIC_POST).permitAll()
+                        // Pages d'erreur internes (réponse 401 du filtre JWT) et requêtes CORS de pré-vérification.
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(this::handleUnauthenticated)

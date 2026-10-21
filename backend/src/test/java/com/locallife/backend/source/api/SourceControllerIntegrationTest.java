@@ -96,22 +96,29 @@ class SourceControllerIntegrationTest {
         return cleaner.trackSource("Source de test " + UUID.randomUUID());
     }
 
-    // --- Lecture (non protégée, LL-6007) ---
+    // --- Lecture (LL-6007 ; réservée au rôle ADMIN depuis le 21/10/2026, auparavant publique) ---
 
     @Test
-    void getAllSources_ShouldReturnOk_WithoutAuthentication() {
-        restTestClient().get().uri("/api/v1/sources").exchange().expectStatus().isOk();
+    void getAllSources_ShouldBeReservedToAdmins() {
+        restTestClient().get().uri("/api/v1/sources").exchange().expectStatus().isUnauthorized();
+        restTestClient().get().uri("/api/v1/sources").header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken())
+                .exchange().expectStatus().isForbidden();
+        restTestClient().get().uri("/api/v1/sources").header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange().expectStatus().isOk();
     }
 
     @Test
     void getSourceById_ShouldReturnOk_WhenSourceExists() {
         // La source réservée MANUAL (migration V8) existe toujours, id stable dès le premier jeu de données.
-        restTestClient().get().uri("/api/v1/sources/1").exchange().expectStatus().isOk();
+        restTestClient().get().uri("/api/v1/sources/1").header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange().expectStatus().isOk();
     }
 
     @Test
     void getSourceById_ShouldReturnNotFound_WhenSourceDoesNotExist() {
-        restTestClient().get().uri("/api/v1/sources/999999").exchange().expectStatus().isNotFound();
+        restTestClient().get().uri("/api/v1/sources/999999")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange().expectStatus().isNotFound();
     }
 
     // --- Création (LL-EF-005) ---
@@ -251,6 +258,7 @@ class SourceControllerIntegrationTest {
                 .expectStatus().isNoContent();
 
         restTestClient().get().uri("/api/v1/sources/" + created.id())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
                 .exchange()
                 .expectStatus().isNotFound();
     }
@@ -263,7 +271,8 @@ class SourceControllerIntegrationTest {
                 .exchange()
                 .expectStatus().isBadRequest();
 
-        restTestClient().get().uri("/api/v1/sources/1").exchange().expectStatus().isOk();
+        restTestClient().get().uri("/api/v1/sources/1").header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .exchange().expectStatus().isOk();
     }
 
     @Test

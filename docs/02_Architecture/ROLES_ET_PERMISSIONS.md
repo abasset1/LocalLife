@@ -36,7 +36,9 @@ vérifiée côté serveur.
 
 | Domaine (endpoints) | Visiteur | USER | PRO | ADMIN |
 |---|---|---|---|---|
-| Consultation : activités, lieux, food trucks, catégories, référentiels (`GET /api/v1/activities`, `/places`, `/foodtrucks`, `/categories`...) | ✅ | ✅ | ✅ | ✅ |
+| Consultation : activités, lieux, food trucks, catégories, référentiels (`GET /api/v1/activities`, `/places`, `/foodtrucks`, `/categories`...) — liste exacte au § 3 bis | ✅ | ✅ | ✅ | ✅ |
+| Liste interne des sources (`GET /api/v1/sources/**`) | ❌ | ❌ | ❌ | ✅ |
+| Toute route non déclarée publique | ❌ | selon la route | selon la route | selon la route |
 | Inscription, connexion, mot de passe oublié, confirmation d'e-mail (`/api/v1/auth/**`) | ✅ | ✅ | ✅ | ✅ |
 | Profil et préférences (`GET/PATCH /api/v1/users/me`, `/me/preferences`, `/me/alerts`, `/me/likes`, `/me/push-tokens`) | ❌ | ✅ | ✅ | ✅ |
 | Rôle, statut ou offre de son propre compte | ❌ | ❌ (champs ignorés par `PATCH /me`) | ❌ | ❌ |
@@ -52,6 +54,42 @@ Vérifié par les tests d'intégration (`AccountAdministrationIntegrationTest`, 
 `AdminActivityControllerIntegrationTest`, `AdminImportControllerIntegrationTest`, `AgendaDiscoveryIntegrationTest`,
 `SourceControllerIntegrationTest`, `SubscriptionIntegrationTest`...), avec des comptes réels de chaque rôle
 (`TestAccounts`).
+
+## 3 bis. Actions par type de compte
+
+### Visiteur (sans compte) — décidé le 21/10/2026
+
+**Peut, gratuitement et sans compte :**
+
+| Action | Routes |
+|---|---|
+| Voir la carte et la liste des activités, autour de soi ou dans la zone affichée | `GET /api/v1/activities`, `/activities/nearby`, `/activities/within-bounds` |
+| Rechercher (texte, catégorie, date) | `GET /api/v1/activities/search` |
+| Ouvrir la **fiche complète** d'une activité (description, horaires, lieux, médias, liens, accessibilité) | `GET /api/v1/activities/{id}` |
+| Voir les lieux, leurs activités et les food trucks qui y passent | `GET /api/v1/places/within-bounds`, `/places/{id}`, `/places/{id}/foodtrucks`, `/activities/at-place/{id}` |
+| Voir les food trucks | `GET /api/v1/foodtrucks`, `/foodtrucks/{id}` |
+| Utiliser les filtres et les suggestions de villes | `GET /api/v1/categories`, `/activitytypes`, `/audiences`, `/organizertypes`, `/geocoding/city`, `/geocoding/city-suggestions` |
+| Garder ses réglages d'affichage **sur l'appareil** (couche de carte, ville choisie à l'accueil) | aucune (stockage local) |
+| Créer un compte, se connecter (mot de passe ou Google), confirmer son e-mail, renvoyer le lien, réinitialiser son mot de passe | `POST /api/v1/auth/*`, `GET /auth/username-availability` |
+| Se désabonner d'une alerte e-mail depuis le lien reçu (le jeton du lien suffit) | `POST /api/v1/alerts/unsubscribe` |
+
+**Ne peut pas (le serveur répond 401, l'interface invite à se connecter) :** aimer une activité ou voir ses
+favoris, créer des alertes, enregistrer ses préférences de compte, proposer une activité, accéder à l'espace
+professionnel, demander un abonnement, consulter la liste interne des sources.
+
+**Décisions :**
+* Fiche complète pour tous : pas de version réduite pour les visiteurs (la consultation des fiches est gratuite).
+  `PremiumAccessPolicy` reste un point d'extension, aujourd'hui toujours positif.
+* Favoris : compte requis (synchronisés entre site et application), pas de favoris locaux.
+* `GET /api/v1/sources/**` réservé à `ADMIN` (configuration interne des imports ; les fiches gardent le nom de
+  leur source).
+* **Sécurité fermée par défaut** : seules les routes listées dans `SecurityConfig.PUBLIC_GET` et `PUBLIC_POST`
+  sont ouvertes sans compte (plus la documentation de l'API et `/actuator/health`). Toute autre route, y compris une
+  route nouvelle non déclarée, exige une connexion. Vérifié par `VisitorAccessIntegrationTest`.
+
+### Utilisateur, professionnel, administrateur
+
+À définir dans les étapes suivantes ; l'état actuel est décrit par la matrice du § 3.
 
 ## 4. Gestion des comptes (API d'administration)
 
