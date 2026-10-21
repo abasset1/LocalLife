@@ -2,6 +2,9 @@
 
 ## 0.9.59 — non publiée
 
+### Activité sans coordonnées : plus d'erreur 500 (suite de l'audit Search V1, #93)
+- Une activité enregistrée sans latitude/longitude (données historiques ou insérées à la main) faisait échouer sa fiche, la liste publique `GET /api/v1/activities` et la liste de modération. Elle est désormais servie avec des coordonnées `null` ; le site et l'application l'affichent sans marqueur.
+
 ### Rôles, permissions et gestion des comptes (issue #154)
 - **Droits relus en base à chaque requête** : le rôle et le statut du compte ne sont plus lus dans le jeton. Un rôle retiré ou une suspension prend effet immédiatement ; un jeton fabriqué avec un rôle `ADMIN` n'ouvre plus rien. Un compte supprimé ou suspendu reçoit 401.
 - **Administration → Comptes** (site) : liste paginée, recherche par e-mail, nom ou identifiant, filtres rôle et statut, attribution/retrait du rôle PRO, suspension avec motif obligatoire, réactivation, historique par compte.

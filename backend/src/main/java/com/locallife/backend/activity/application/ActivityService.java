@@ -807,8 +807,8 @@ public class ActivityService {
                 .orElseGet(() -> resolvedStartDate.toLocalDate().atStartOfDay());
         boolean sameAddress = address != null && existing.address() != null
                 && address.trim().equalsIgnoreCase(existing.address().trim());
-        double latitude = existing.latitude();
-        double longitude = existing.longitude();
+        Double latitude = existing.latitude();
+        Double longitude = existing.longitude();
         String city = existing.city();
         String postalCode = existing.postalCode();
         if (!sameAddress) {

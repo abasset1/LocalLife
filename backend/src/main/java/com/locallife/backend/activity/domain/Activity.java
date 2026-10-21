@@ -136,14 +136,22 @@ import org.springframework.data.annotation.ReadOnlyProperty;
  * une contrainte réelle en base (trigger de contrainte différé, vérifié au
  * commit). Une activité se crée donc avec ses catégories, dans la même
  * transaction : {@code ActivityClassificationService#createActivity}.
+ *
+ * {@code latitude}/{@code longitude} sont des {@code Double} (colonnes
+ * nullables depuis V2). Aucun chemin d'écriture de l'application ne crée
+ * d'activité sans coordonnées, mais des données historiques ou insérées à
+ * la main peuvent en contenir : avec {@code double}, une seule de ces
+ * lignes faisait échouer en 500 sa fiche, la liste publique et la liste de
+ * modération qui la contenaient (audit Search V1, #93). Les lecteurs
+ * doivent donc tolérer {@code null} (ex. pas de marqueur sur la carte).
  */
 public record Activity(
         @Id Long id,
         String title,
         String description,
         String category,
-        double latitude,
-        double longitude,
+        Double latitude,
+        Double longitude,
         LocalDateTime startDate,
         LocalDateTime endDate,
         String status,
@@ -179,7 +187,7 @@ public record Activity(
      * pas à être fourni (ni recopié lors d'une mise à jour).
      */
     public Activity(
-            Long id, String title, String description, String category, double latitude, double longitude,
+            Long id, String title, String description, String category, Double latitude, Double longitude,
             LocalDateTime startDate, LocalDateTime endDate, String status, Long sourceId, String importKey,
             String url, String address, String city, String postalCode, String longDescription, String conditions,
             Integer ageMin, Integer ageMax, Long createdBy) {
