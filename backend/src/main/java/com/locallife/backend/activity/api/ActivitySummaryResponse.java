@@ -49,8 +49,8 @@ public record ActivitySummaryResponse(
         LocalDateTime date,
         String city,
         String address,
-        double latitude,
-        double longitude,
+        Double latitude,
+        Double longitude,
         String mainImageUrl,
         Long createdBy,
         String coordinatePrecision) {
