@@ -1,5 +1,8 @@
 package com.locallife.backend.auth.application;
 
+import com.locallife.backend.user.infrastructure.AccountRepository;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import com.locallife.backend.auth.domain.PasswordResetToken;
 import com.locallife.backend.auth.infrastructure.PasswordResetTokenRepository;
 import com.locallife.backend.user.application.PasswordHashingService;
@@ -54,18 +57,21 @@ public class PasswordResetService {
     private final EmailService emailService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final String frontendBaseUrl;
+    private final AccountRepository accountRepository;
 
     public PasswordResetService(
             UserRepository userRepository,
             PasswordResetTokenRepository tokenRepository,
             PasswordHashingService passwordHashingService,
             EmailService emailService,
-            @Value("${app.frontend-base-url:http://localhost:5173}") String frontendBaseUrl) {
+            @Value("${app.frontend-base-url:http://localhost:5173}") String frontendBaseUrl,
+            AccountRepository accountRepository) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.passwordHashingService = passwordHashingService;
         this.emailService = emailService;
         this.frontendBaseUrl = frontendBaseUrl;
+        this.accountRepository = accountRepository;
     }
 
     /**
@@ -145,6 +151,9 @@ public class PasswordResetService {
         User updatedUser = new User(
                 user.id(), user.username(), user.email(), newPasswordHash, user.role(), user.createdAt(), true);
         userRepository.save(updatedUser);
+        // Sessions ouvertes avant la réinitialisation fermées (V70) : un jeton volé ne survit pas au changement.
+        accountRepository.revokeTokensIssuedBefore(user.id(),
+                LocalDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.SECONDS));
 
         tokenRepository.save(new PasswordResetToken(
                 token.id(), token.userId(), token.tokenHash(), token.expiresAt(), true, token.createdAt()));

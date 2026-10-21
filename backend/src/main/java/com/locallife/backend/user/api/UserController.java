@@ -3,8 +3,12 @@ package com.locallife.backend.user.api;
 import com.locallife.backend.auth.api.UserResponse;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.common.ErrorResponse;
+import com.locallife.backend.activity.application.ContributionAccessPolicy;
+import com.locallife.backend.user.application.AccountActionException;
+import com.locallife.backend.user.application.AccountSelfService;
 import com.locallife.backend.user.application.UserService;
 import com.locallife.backend.user.domain.User;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.NoSuchElementException;
@@ -38,9 +42,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+    private final AccountSelfService accountSelfService;
+    private final ContributionAccessPolicy contributionAccessPolicy;
 
-    public UserController(UserService userService) {
+    public UserController(
+            UserService userService, AccountSelfService accountSelfService,
+            ContributionAccessPolicy contributionAccessPolicy) {
         this.userService = userService;
+        this.accountSelfService = accountSelfService;
+        this.contributionAccessPolicy = contributionAccessPolicy;
     }
 
     @PostMapping
@@ -77,32 +87,91 @@ public class UserController {
      * croire à un usage normal).
      */
     @GetMapping("/me")
-    public ResponseEntity<UserResponse> getCurrentUser(Authentication authentication) {
+    public ResponseEntity<CurrentUserResponse> getCurrentUser(Authentication authentication) {
         Long userId = ((JwtAuthentication) authentication).getUserId();
         User user = userService.getUserById(userId).orElseThrow();
-        return ResponseEntity.ok(UserResponse.from(user));
+        return ResponseEntity.ok(current(user));
     }
 
     /**
-     * Modifie le profil de l'utilisateur actuellement connecté (LL-EF-006,
-     * critère d'acceptation « les informations modifiables peuvent être
-     * modifiées » / « les modifications sont correctement persistées »).
-     * Même garantie que {@link #getCurrentUser} : {@code id} provient du
-     * JWT, jamais de la requête — voir {@link UserService#updateProfile}
-     * pour le détail des champs modifiables et leur validation.
+     * Modifie le profil de l'utilisateur actuellement connecté (LL-EF-006). Le nom d'utilisateur change tout de
+     * suite ; une nouvelle adresse e-mail n'est appliquée qu'après confirmation depuis cette adresse (21/10/2026) :
+     * la réponse la montre dans {@code pendingEmail}. {@code id} provient du JWT, jamais de la requête ; rôle, statut
+     * et offre ne sont pas modifiables ici.
      */
     @PatchMapping("/me")
     public ResponseEntity<Object> updateCurrentUser(
             Authentication authentication, @RequestBody UpdateProfileRequest request, HttpServletRequest httpRequest) {
         Long userId = ((JwtAuthentication) authentication).getUserId();
         try {
-            User updated = userService.updateProfile(userId, request.username(), request.email());
-            return ResponseEntity.ok(UserResponse.from(updated));
+            User existing = userService.getUserById(userId).orElseThrow();
+            User updated = userService.updateProfile(userId, request.username(), existing.email());
+            String requestedEmail = request.email() == null ? null : request.email().trim();
+            if (requestedEmail != null && !requestedEmail.isEmpty()
+                    && !requestedEmail.equalsIgnoreCase(existing.email())) {
+                accountSelfService.requestEmailChange(userId, requestedEmail);
+            }
+            return ResponseEntity.ok(current(updated));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
+        } catch (AccountActionException exception) {
+            return errorResponse(exception.status(), exception.getMessage(), httpRequest);
         } catch (NoSuchElementException exception) {
             return errorResponse(HttpStatus.NOT_FOUND, "Utilisateur introuvable.", httpRequest);
         }
+    }
+
+    /** Corps de {@code POST /me/password} ; {@code currentPassword} ignoré pour un compte sans mot de passe. */
+    public record ChangePasswordRequest(String currentPassword, String newPassword) {
+    }
+
+    /** Nouveau jeton de la session en cours : les jetons émis avant le changement sont refusés. */
+    public record TokenResponse(String token) {
+    }
+
+    @Operation(summary = "Changer (ou définir) son mot de passe",
+            description = "Mot de passe actuel exigé s'il en existe un (compte créé avec Google : non). Les autres "
+                    + "sessions sont fermées ; la réponse contient le nouveau jeton de la session en cours.")
+    @PostMapping("/me/password")
+    public ResponseEntity<Object> changePassword(
+            Authentication authentication, @RequestBody(required = false) ChangePasswordRequest request,
+            HttpServletRequest httpRequest) {
+        Long userId = ((JwtAuthentication) authentication).getUserId();
+        try {
+            String token = accountSelfService.changePassword(userId,
+                    request == null ? null : request.currentPassword(), request == null ? null : request.newPassword());
+            return ResponseEntity.ok(new TokenResponse(token));
+        } catch (AccountActionException exception) {
+            return errorResponse(exception.status(), exception.getMessage(), httpRequest);
+        }
+    }
+
+    /** Corps de {@code POST /me/deletion} : mot de passe, ou {@code SUPPRIMER} pour un compte sans mot de passe. */
+    public record DeletionRequest(String password, String confirmation) {
+    }
+
+    @Operation(summary = "Supprimer son compte",
+            description = "Définitif. Activités publiées conservées sans auteur ; contributions non publiées, "
+                    + "favoris, alertes, préférences et connexions supprimés ; historique d'abonnement anonymisé. "
+                    + "Mot de passe exigé (ou SUPPRIMER pour un compte sans mot de passe). 403 pour un "
+                    + "administrateur.")
+    @PostMapping("/me/deletion")
+    public ResponseEntity<Object> deleteAccount(
+            Authentication authentication, @RequestBody(required = false) DeletionRequest request,
+            HttpServletRequest httpRequest) {
+        Long userId = ((JwtAuthentication) authentication).getUserId();
+        try {
+            accountSelfService.deleteAccount(userId, request == null ? null : request.password(),
+                    request == null ? null : request.confirmation());
+            return ResponseEntity.noContent().build();
+        } catch (AccountActionException exception) {
+            return errorResponse(exception.status(), exception.getMessage(), httpRequest);
+        }
+    }
+
+    private CurrentUserResponse current(User user) {
+        return CurrentUserResponse.from(user, accountSelfService.pendingEmail(user.id()).orElse(null),
+                AccountSelfService.hasPassword(user), contributionAccessPolicy.canContribute(user.id()));
     }
 
     private ResponseEntity<Object> errorResponse(HttpStatus status, String message, HttpServletRequest request) {

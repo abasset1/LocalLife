@@ -16,6 +16,7 @@ import ProPage from "./pages/ProPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import UnsubscribeAlertPage from "./pages/UnsubscribeAlertPage";
+import ConfirmEmailChangePage from "./pages/ConfirmEmailChangePage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 
 createRoot(document.getElementById("root")!).render(
@@ -33,6 +34,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route element={<ForgotPasswordPage />} path="/forgot-password" />
                 <Route element={<ResetPasswordPage />} path="/reset-password" />
                 <Route element={<VerifyEmailPage />} path="/verify-email" />
+                <Route element={<ConfirmEmailChangePage />} path="/confirm-email-change" />
                 <Route element={<UnsubscribeAlertPage />} path="/alerts/unsubscribe" />
             </Routes>
         </BrowserRouter>

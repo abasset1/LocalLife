@@ -16,8 +16,8 @@ const CHOICES: Exclude<Plan, 'FREE'>[] = ['PREMIUM', 'PRO'];
 
 /**
  * « Mon abonnement » (BILLING-01, ADR-0014), partagé avec le site web : offre actuelle et fin d'accès, passage à
- * Premium ou Pro (activé tout de suite : pas de paiement branché pour l'instant), retrait d'une ancienne demande,
- * résiliation. La carte et la liste restent gratuites quelle que soit l'offre.
+ * Premium (activé tout de suite : pas de paiement branché pour l'instant) ou demande d'offre Pro (examinée par
+ * l'équipe, décision du 21/10/2026), retrait d'une demande, résiliation. La carte et la liste restent gratuites.
  */
 export default function AbonnementScreen() {
   const { state } = useAuth();
@@ -103,7 +103,7 @@ export default function AbonnementScreen() {
           <Card style={styles.card}>
             <Notice tone="info">
               Demande de passage à {PLAN_LABELS[pending.plan]} envoyée le {formatDay(pending.requestedAt)} : l’équipe
-              LocalLife va l’examiner. Choisir une offre ci-dessous l’active tout de suite.
+              LocalLife va l’examiner.
             </Notice>
             <Button
               label="Retirer ma demande"
@@ -113,16 +113,25 @@ export default function AbonnementScreen() {
             />
           </Card>
         )}
-        {CHOICES.filter((choice) => !(choice === plan && current?.status === 'ACTIVE')).map((choice) => (
+        {CHOICES.filter((choice) => !(choice === plan && current?.status === 'ACTIVE'))
+          .filter((choice) => pending?.plan !== choice)
+          .map((choice) => (
           <Card key={choice} style={styles.card}>
             <ThemedText type="heading">{PLAN_LABELS[choice]}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {PLAN_DESCRIPTIONS[choice]}
             </ThemedText>
             <Button
-              label={`Passer à ${PLAN_LABELS[choice]}`}
+              label={choice === 'PRO' ? 'Demander l’offre Pro' : `Passer à ${PLAN_LABELS[choice]}`}
               loading={busy}
-              onPress={() => void run(() => subscribePlan(choice), `Offre ${PLAN_LABELS[choice]} activée.`)}
+              onPress={() =>
+                void run(
+                  () => subscribePlan(choice),
+                  choice === 'PRO'
+                    ? 'Demande d’offre Pro envoyée : l’équipe LocalLife va l’examiner.'
+                    : `Offre ${PLAN_LABELS[choice]} activée.`,
+                )
+              }
             />
           </Card>
         ))}
@@ -136,8 +145,8 @@ export default function AbonnementScreen() {
           </ThemedText>
         ) : null}
         <ThemedText type="small" themeColor="textSecondary">
-          Paiement en ligne bientôt disponible ; pour l’instant, l’offre choisie est activée sans paiement. La carte
-          et la liste restent gratuites quelle que soit l’offre.
+          Paiement en ligne bientôt disponible ; pour l’instant, Premium est activé sans paiement et une demande Pro
+          est validée par l’équipe. La carte et la liste restent gratuites quelle que soit l’offre.
         </ThemedText>
         {info && <Notice tone="success">{info}</Notice>}
         {error && <Notice tone="danger">{error}</Notice>}

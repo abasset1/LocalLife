@@ -220,6 +220,12 @@ export default function CompteScreen() {
                 onPress={() => router.push('/contributions')}
               />
               <MenuRow
+                icon={{ ios: 'lock', android: 'lock', web: 'lock' }}
+                label="Mot de passe et compte"
+                description="Changer de mot de passe, supprimer le compte"
+                onPress={() => router.push('/securite')}
+              />
+              <MenuRow
                 icon={{ ios: 'star', android: 'star', web: 'star' }}
                 label="Mon abonnement"
                 description="Gratuit, Premium ou Pro"

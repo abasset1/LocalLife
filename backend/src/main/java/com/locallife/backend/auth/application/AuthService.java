@@ -28,10 +28,10 @@ public class AuthService {
     // consécutifs, extension d'au moins 2 caractères. Volontairement permissif sur les caractères
     // (pas de liste blanche ASCII) pour ne pas rejeter d'adresses internationalisées valides : la
     // vraie preuve de validité est la confirmation par lien (voir EmailVerificationService).
-    private static final Pattern EMAIL_PATTERN =
+    static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[^@\\s]{1,64}@[^@\\s.]+(\\.[^@\\s.]+)*\\.[^@\\s.]{2,}$");
-    private static final int MAX_EMAIL_LENGTH = 254;
-    private static final int MIN_PASSWORD_LENGTH = 8;
+    static final int MAX_EMAIL_LENGTH = 254;
+    public static final int MIN_PASSWORD_LENGTH = 8;
 
     private final UserRepository userRepository;
     private final UserIdentityRepository userIdentityRepository;
@@ -116,8 +116,13 @@ public class AuthService {
         return Optional.of(userRepository.save(admin));
     }
 
+    /** Même règle d'adresse qu'à l'inscription (partagée avec le changement d'adresse). */
+    public static boolean isValidEmail(String email) {
+        return email != null && email.length() <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.matcher(email).matches();
+    }
+
     private void validateCredentials(String email, String password) {
-        if (email == null || email.length() > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.matcher(email).matches()) {
+        if (!isValidEmail(email)) {
             throw new IllegalArgumentException("L'adresse email n'est pas valide.");
         }
         if (password == null || password.length() < MIN_PASSWORD_LENGTH) {

@@ -65,9 +65,16 @@ public class SubscriptionService {
     // ---------------------------------------------------------------- utilisateur
 
     /**
-     * Souscription directe : tant qu'aucun prestataire n'est branché, le paiement est réputé validé et l'offre est
-     * activée tout de suite, sans échéance (décision du 19/10/2026 ; Stripe plus tard). L'abonnement en cours éventuel
-     * est remplacé ; une ancienne demande en attente est retirée.
+     * Souscription, tant qu'aucun prestataire n'est branché (Stripe plus tard) :
+     * <ul>
+     *   <li><b>Premium</b> : le paiement est réputé validé et l'offre est activée tout de suite, sans échéance
+     *       (décision du 19/10/2026). L'abonnement en cours éventuel est remplacé ;</li>
+     *   <li><b>Pro</b> : simple demande, activée par l'équipe ({@link #approve}) — décision du 21/10/2026, retour à
+     *       B1 pour Pro : sans paiement réel, l'activation immédiate donnait à n'importe quel compte l'espace
+     *       professionnel et la publication de food trucks sans contrôle. L'abonnement en cours reste actif
+     *       jusqu'à l'approbation.</li>
+     * </ul>
+     * Une ancienne demande en attente est retirée.
      */
     @Transactional
     public Overview subscribe(Long userId, Plan plan) {
@@ -90,6 +97,10 @@ public class SubscriptionService {
             throw ProActionException.conflict("L'abonnement a changé entre-temps, recharge la page.");
         }
         repository.insertEvent(id, userId, null, SubscriptionStatus.REQUESTED, null);
+        if (plan == Plan.PRO) {
+            LOGGER.info("Abonnement {} : utilisateur {}, demande d'offre Pro en attente de validation", id, userId);
+            return overview(userId);
+        }
         OffsetDateTime now = OffsetDateTime.now();
         if (current.isPresent()) {
             apply(current.get(), SubscriptionStatus.REPLACED, new Change(false, null, true, now, null, null, null),
@@ -181,6 +192,20 @@ public class SubscriptionService {
                 new Change(false, null, true, OffsetDateTime.now(), null, adminId, cleanReason), adminId, cleanReason);
         LOGGER.info("Abonnement {} retiré par l'administrateur {}", id, adminId);
         return repository.findById(id).orElseThrow();
+    }
+
+    /**
+     * Suppression du compte (décision du 21/10/2026) : la demande en attente est retirée et l'abonnement en cours
+     * prend fin immédiatement, avant que le compte ne disparaisse. L'historique reste en base, détaché du compte
+     * ({@code subscription.user_id} passe à {@code NULL}, V70).
+     */
+    @Transactional
+    public void closeForDeletedAccount(Long userId) {
+        String reason = "Compte supprimé par son titulaire";
+        repository.findRequested(userId).ifPresent(pending ->
+                apply(pending, SubscriptionStatus.WITHDRAWN, Change.none(), userId, reason));
+        repository.findCurrent(userId).ifPresent(current -> apply(current, SubscriptionStatus.EXPIRED,
+                new Change(false, null, true, OffsetDateTime.now(), null, null, reason), userId, reason));
     }
 
     /**

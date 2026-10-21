@@ -135,8 +135,8 @@ function ContributionModal({
                     )}
                     {mode === "edit" && requiresRevalidation && (
                         <p className="explorer-form-notice">
-                            Cette activité a été refusée : après modification, elle sera de nouveau soumise à
-                            validation et visible sur la carte une fois validée par un modérateur.
+                            Après modification, cette activité sera de nouveau soumise à validation : elle n'apparaîtra
+                            sur la carte qu'une fois validée par un modérateur.
                         </p>
                     )}
                     <div className="explorer-form-field">

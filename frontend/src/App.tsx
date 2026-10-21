@@ -729,10 +729,23 @@ function App() {
     }
 
     // LL-EF-001 : un visiteur non connecté est redirigé vers /login plutôt que de voir le formulaire.
-    function handleOpenContributionForm() {
+    async function handleOpenContributionForm() {
         if (!currentUser) {
             navigate("/login");
             return;
+        }
+        // 21/10/2026 : proposer une activité est réservé aux offres Premium et Pro ; le serveur reste seul juge.
+        try {
+            const response = await apiFetch("/api/v1/users/me");
+            if (response.ok) {
+                const me = (await response.json()) as { canContribute?: boolean };
+                if (me.canContribute === false) {
+                    navigate("/profile?premium=1");
+                    return;
+                }
+            }
+        } catch {
+            // Vérification indicative : en cas d'échec, le formulaire s'ouvre et le serveur tranchera à l'envoi.
         }
         if (editingActivityId !== null) {
             resetContributionForm();
@@ -1313,7 +1326,8 @@ function App() {
             {isContributionModalOpen && currentUser && (
                 <ContributionModal
                     mode={editingActivityId !== null ? "edit" : "create"}
-                    requiresRevalidation={currentUser.role !== "ADMIN" && editingActivityStatus === "REJECTED"}
+                    requiresRevalidation={currentUser.role !== "ADMIN"
+                        && (editingActivityStatus === "REJECTED" || editingActivityStatus === "PUBLISHED")}
                     address={address}
                     categories={categories}
                     description={description}

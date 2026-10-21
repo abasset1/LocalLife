@@ -1,5 +1,6 @@
 package com.locallife.backend.integration;
 
+import com.locallife.backend.common.TestAccounts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -54,6 +55,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AuthenticationFlowIntegrationTest {
+
+    /** Contribuer exige Premium depuis le 21/10/2026 : les contributeurs de ces tests le reçoivent. */
+    @Autowired
+    private TestAccounts testAccounts;
 
     private static final String PASSWORD = "motDePasse123";
 
@@ -217,17 +222,34 @@ class AuthenticationFlowIntegrationTest {
 
     @Test
     void registerThenLogin_ShouldAllowAccessToProtectedEndpoint() {
-        String token = registerAndLogin(uniqueEmail());
+        String email = uniqueEmail();
+        String token = registerAndLogin(email);
+        CreateActivityRequest request = new CreateActivityRequest(
+                "Pétanque entre voisins", "Partie amicale", "sport", "1 rue de la Paix, Marseille",
+                null, null, null, null, null,
+                "CULTURE");
 
         when(geocodingService.geocode("1 rue de la Paix, Marseille")).thenReturn(new Coordinates(43.29, 5.37, null, null));
+
+        // Le jeton ouvre les routes du compte ; proposer une activité exige en plus Premium (21/10/2026).
+        restTestClient().get().uri("/api/v1/users/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.canContribute").isEqualTo(false);
+        restTestClient().post().uri("/api/v1/activities")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .exchange()
+                .expectStatus().isForbidden();
+
+        testAccounts.grantPremium(email);
 
         restTestClient().post().uri("/api/v1/activities")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(new CreateActivityRequest(
-                        "Pétanque entre voisins", "Partie amicale", "sport", "1 rue de la Paix, Marseille",
-                        null, null, null, null, null,
-                "CULTURE"))
+                .body(request)
                 .exchange()
                 .expectStatus().isCreated();
     }
@@ -236,7 +258,9 @@ class AuthenticationFlowIntegrationTest {
 
     @Test
     void createActivity_ShouldPersistCoordinatesReturnedByGeocoding() {
-        String token = registerAndLogin(uniqueEmail());
+        String email = uniqueEmail();
+        String token = registerAndLogin(email);
+        testAccounts.grantPremium(email);
 
         when(geocodingService.geocode("Vieux-Port, Marseille")).thenReturn(new Coordinates(43.2951, 5.3739, null, null));
 

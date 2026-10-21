@@ -1,5 +1,6 @@
 package com.locallife.backend.integration;
 
+import com.locallife.backend.common.TestAccounts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +37,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class RecurringContributionIntegrationTest {
+
+    /** Contribuer exige Premium depuis le 21/10/2026 : les contributeurs de ces tests le reçoivent. */
+    @Autowired
+    private TestAccounts testAccounts;
 
     private static final String PASSWORD = "motDePasse123";
     private static final String ADDRESS = "Place du marché, Ville-récurrente";
@@ -135,6 +140,7 @@ class RecurringContributionIntegrationTest {
                 .exchange()
                 .expectStatus().isCreated();
         jdbcTemplate.update("UPDATE users SET email_verified = TRUE WHERE email = ?", email);
+        testAccounts.grantPremium(email);
 
         LoginResponse login = restTestClient().post().uri("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)

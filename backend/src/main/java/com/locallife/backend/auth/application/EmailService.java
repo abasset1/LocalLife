@@ -39,4 +39,14 @@ public interface EmailService {
      */
     void sendActivityAlertEmail(String to, String subject, String text);
 
+
+    /**
+     * Lien de confirmation d'un changement d'adresse, envoyé à la <b>nouvelle</b> adresse : elle ne remplace
+     * l'ancienne qu'au clic.
+     */
+    void sendEmailChangeConfirmationEmail(String to, String confirmationLink);
+
+    /** Avertit l'<b>ancienne</b> adresse qu'un changement a été demandé, sans le lien de confirmation. */
+    void sendEmailChangeNoticeEmail(String to, String newEmailMasked);
+
 }

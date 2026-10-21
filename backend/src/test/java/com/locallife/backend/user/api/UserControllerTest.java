@@ -1,5 +1,12 @@
 package com.locallife.backend.user.api;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import com.locallife.backend.activity.application.ContributionAccessPolicy;
+import com.locallife.backend.user.application.AccountSelfService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +43,12 @@ class UserControllerTest {
 
     @Mock
     private HttpServletRequest httpRequest;
+
+    @Mock
+    private AccountSelfService accountSelfService;
+
+    @Mock
+    private ContributionAccessPolicy contributionAccessPolicy;
 
     @InjectMocks
     private UserController userController;
@@ -88,21 +101,28 @@ class UserControllerTest {
         // d'un paramètre de requête — voir la javadoc de UserController#getCurrentUser.
         User user = new User(7L, "carol", "carol@example.com", "hash", Role.USER, LocalDateTime.now(), true);
         when(userService.getUserById(7L)).thenReturn(Optional.of(user));
+        when(accountSelfService.pendingEmail(7L)).thenReturn(Optional.empty());
+        when(contributionAccessPolicy.canContribute(7L)).thenReturn(false);
         JwtAuthentication authentication = new JwtAuthentication(7L, "carol@example.com", Role.USER);
 
         // When
-        ResponseEntity<UserResponse> response = userController.getCurrentUser(authentication);
+        ResponseEntity<CurrentUserResponse> response = userController.getCurrentUser(authentication);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("carol", response.getBody().username());
+        assertTrue(response.getBody().hasPassword());
+        assertFalse(response.getBody().canContribute());
     }
 
     @Test
-    void updateCurrentUser_ShouldReturnUpdatedProfile_WhenValid() {
-        // Given
-        User updated = new User(7L, "carol2", "carol2@example.com", "hash", Role.USER, LocalDateTime.now(), true);
-        when(userService.updateProfile(7L, "carol2", "carol2@example.com")).thenReturn(updated);
+    void updateCurrentUser_ShouldChangeTheUsername_AndOnlyRequestTheNewEmail() {
+        // Given : la nouvelle adresse n'est appliquée qu'après confirmation (21/10/2026).
+        User existing = new User(7L, "carol", "carol@example.com", "hash", Role.USER, LocalDateTime.now(), true);
+        User renamed = new User(7L, "carol2", "carol@example.com", "hash", Role.USER, LocalDateTime.now(), true);
+        when(userService.getUserById(7L)).thenReturn(Optional.of(existing));
+        when(userService.updateProfile(7L, "carol2", "carol@example.com")).thenReturn(renamed);
+        when(accountSelfService.pendingEmail(7L)).thenReturn(Optional.of("carol2@example.com"));
         JwtAuthentication authentication = new JwtAuthentication(7L, "carol@example.com", Role.USER);
 
         // When
@@ -111,22 +131,29 @@ class UserControllerTest {
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("carol2", ((UserResponse) response.getBody()).username());
+        CurrentUserResponse body = (CurrentUserResponse) response.getBody();
+        assertEquals("carol2", body.username());
+        assertEquals("carol@example.com", body.email());
+        assertEquals("carol2@example.com", body.pendingEmail());
+        verify(accountSelfService).requestEmailChange(7L, "carol2@example.com");
     }
 
     @Test
     void updateCurrentUser_ShouldReturnBadRequest_WhenServiceRejectsInput() {
         // Given
-        when(userService.updateProfile(7L, "carol", "email-invalide"))
-                .thenThrow(new IllegalArgumentException("L'adresse email n'est pas valide."));
+        User existing = new User(7L, "carol", "carol@example.com", "hash", Role.USER, LocalDateTime.now(), true);
+        when(userService.getUserById(7L)).thenReturn(Optional.of(existing));
+        when(userService.updateProfile(7L, "", "carol@example.com"))
+                .thenThrow(new IllegalArgumentException("Nom d'utilisateur invalide."));
         JwtAuthentication authentication = new JwtAuthentication(7L, "carol@example.com", Role.USER);
 
         // When
         ResponseEntity<Object> response = userController.updateCurrentUser(
-                authentication, new UpdateProfileRequest("carol", "email-invalide"), httpRequest);
+                authentication, new UpdateProfileRequest("", "carol@example.com"), httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(accountSelfService, never()).requestEmailChange(any(), any());
     }
 
 }

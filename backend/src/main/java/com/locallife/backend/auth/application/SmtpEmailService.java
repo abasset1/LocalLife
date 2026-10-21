@@ -83,4 +83,41 @@ public class SmtpEmailService implements EmailService {
         log.info("Email d'alerte d'activités envoyé à {}", to);
     }
 
+    @Override
+    public void sendEmailChangeConfirmationEmail(String to, String confirmationLink) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(to);
+        message.setSubject("Confirmez votre nouvelle adresse email LocalLife");
+        message.setText(
+                "Bonjour,\n\n"
+                        + "Vous avez demandé à utiliser cette adresse pour votre compte LocalLife. Pour confirmer, "
+                        + "cliquez sur le lien suivant (valable 24 heures) :\n"
+                        + confirmationLink + "\n\n"
+                        + "Tant que vous n'avez pas confirmé, votre ancienne adresse reste celle du compte. "
+                        + "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.\n\n"
+                        + "L'équipe LocalLife");
+
+        mailSender.send(message);
+        log.info("Email de confirmation de changement d'adresse envoyé à {}", to);
+    }
+
+    @Override
+    public void sendEmailChangeNoticeEmail(String to, String newEmailMasked) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(to);
+        message.setSubject("Changement d'adresse email demandé sur votre compte LocalLife");
+        message.setText(
+                "Bonjour,\n\n"
+                        + "Un changement d'adresse email vers " + newEmailMasked + " a été demandé pour votre "
+                        + "compte LocalLife. Il ne prendra effet qu'après confirmation depuis la nouvelle adresse.\n\n"
+                        + "Si vous n'êtes pas à l'origine de cette demande, changez votre mot de passe depuis "
+                        + "votre profil (ou via « mot de passe oublié ») et contactez l'équipe LocalLife.\n\n"
+                        + "L'équipe LocalLife");
+
+        mailSender.send(message);
+        log.info("Avis de changement d'adresse envoyé à {}", to);
+    }
+
 }

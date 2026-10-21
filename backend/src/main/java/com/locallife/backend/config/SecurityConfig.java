@@ -149,6 +149,7 @@ public class SecurityConfig {
         "/api/v1/auth/resend-verification",
         "/api/v1/auth/forgot-password",
         "/api/v1/auth/reset-password",
+        "/api/v1/auth/confirm-email-change",
         "/api/v1/alerts/unsubscribe",
     };
 

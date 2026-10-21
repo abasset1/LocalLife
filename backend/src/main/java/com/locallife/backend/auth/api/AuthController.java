@@ -1,5 +1,7 @@
 package com.locallife.backend.auth.api;
 
+import com.locallife.backend.user.application.AccountActionException;
+import com.locallife.backend.user.application.AccountSelfService;
 import com.locallife.backend.auth.application.AuthService;
 import com.locallife.backend.auth.application.AccountSuspendedException;
 import com.locallife.backend.auth.application.EmailNotVerifiedException;
@@ -43,16 +45,19 @@ public class AuthController {
     private final PasswordResetService passwordResetService;
     private final EmailVerificationService emailVerificationService;
     private final UsernamePolicy usernamePolicy;
+    private final AccountSelfService accountSelfService;
 
     public AuthController(
             AuthService authService,
             PasswordResetService passwordResetService,
             EmailVerificationService emailVerificationService,
-            UsernamePolicy usernamePolicy) {
+            UsernamePolicy usernamePolicy,
+            AccountSelfService accountSelfService) {
         this.authService = authService;
         this.passwordResetService = passwordResetService;
         this.emailVerificationService = emailVerificationService;
         this.usernamePolicy = usernamePolicy;
+        this.accountSelfService = accountSelfService;
     }
 
     /**
@@ -254,4 +259,25 @@ public class AuthController {
                 Instant.now(), status.value(), status.getReasonPhrase(),
                 exception.getMessage(), request.getRequestURI());
     }
+    /** Corps de {@code POST /confirm-email-change}. */
+    public record ConfirmEmailChangeRequest(String token) {
+    }
+
+    /**
+     * Confirme un changement d'adresse e-mail depuis le lien envoyé à la nouvelle adresse (21/10/2026). Public : le
+     * jeton du lien suffit, comme pour la confirmation d'inscription.
+     */
+    @PostMapping("/confirm-email-change")
+    public ResponseEntity<Object> confirmEmailChange(
+            @RequestBody(required = false) ConfirmEmailChangeRequest request, HttpServletRequest httpRequest) {
+        try {
+            accountSelfService.confirmEmailChange(request == null ? null : request.token());
+            return ResponseEntity.ok(new MessageResponse("Adresse email modifiée."));
+        } catch (AccountActionException exception) {
+            HttpStatus status = exception.status();
+            return ResponseEntity.status(status).body(new ErrorResponse(Instant.now(), status.value(),
+                    status.getReasonPhrase(), exception.getMessage(), httpRequest.getRequestURI()));
+        }
+    }
+
 }

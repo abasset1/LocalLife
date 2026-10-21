@@ -135,6 +135,7 @@ class NonRegressionIntegrationTest {
                 .exchange()
                 .expectStatus().isCreated();
         markEmailVerified(email);
+        testAccounts.grantPremium(email);
 
         LoginResponse login = restTestClient().post().uri("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)

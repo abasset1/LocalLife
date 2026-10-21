@@ -16,6 +16,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.Optional;
 import javax.crypto.SecretKey;
 import org.springframework.http.HttpHeaders;
@@ -31,6 +34,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * suspendu ou supprimé perd ses droits dès sa requête suivante, sans attendre l'expiration du jeton (24 h).
  * Le rôle inscrit dans le jeton n'est plus utilisé pour décider d'un accès. Un compte suspendu ou introuvable
  * reçoit 401 : les clients effacent alors le jeton et continuent en visiteur (la consultation reste publique).
+ * Un jeton émis avant le dernier changement de mot de passe ({@code users.tokens_valid_after}, V70) aussi.
  */
 public class JwtFilter extends OncePerRequestFilter {
 
@@ -66,9 +70,11 @@ public class JwtFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         Long userId;
+        Date issuedAt;
         try {
             Claims claims = parseToken(token);
             userId = claims.get("userId", Long.class);
+            issuedAt = claims.getIssuedAt();
         } catch (SignatureException | MalformedJwtException | ExpiredJwtException
                 | UnsupportedJwtException | IllegalArgumentException e) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token JWT invalide");
@@ -85,6 +91,14 @@ public class JwtFilter extends OncePerRequestFilter {
             errorWriter.write(response, HttpServletResponse.SC_UNAUTHORIZED,
                     "Ce compte est suspendu. Contacte l'équipe LocalLife pour en savoir plus.",
                     request.getRequestURI());
+            return;
+        }
+        // Mot de passe changé ou réinitialisé depuis l'émission du jeton : les autres sessions sont fermées.
+        LocalDateTime validAfter = access.get().tokensValidAfter();
+        if (validAfter != null && (issuedAt == null
+                || LocalDateTime.ofInstant(issuedAt.toInstant(), ZoneOffset.UTC).isBefore(validAfter))) {
+            errorWriter.write(response, HttpServletResponse.SC_UNAUTHORIZED,
+                    "Session expirée après un changement de mot de passe : reconnecte-toi.", request.getRequestURI());
             return;
         }
         SecurityContextHolder.getContext().setAuthentication(
