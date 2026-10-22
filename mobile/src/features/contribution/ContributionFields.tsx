@@ -1,14 +1,16 @@
-import type { Category } from '@/api';
+import type { Category, ManagedPlace } from '@/api';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ChannelSwitch, ChipGroup, toggleCode } from '@/features/settings';
 
-import { WEEK_DAYS, type ContributionForm } from './form';
+import { NO_HOST_PLACE, WEEK_DAYS, hostPlaceOptions, type ContributionForm } from './form';
 
 interface ContributionFieldsProps {
   form: ContributionForm;
   categories: readonly Category[];
   onChange: (form: ContributionForm) => void;
+  /** Lieux publiés gérés par l'auteur (accès pro) : choix facultatif « Proposé par un de mes lieux ». */
+  hostPlaces?: readonly ManagedPlace[];
 }
 
 /**
@@ -16,7 +18,7 @@ interface ContributionFieldsProps {
  * modification (« Mes contributions »). Une case « Revient chaque semaine » remplace les dates par des
  * jours de passage et des horaires (food truck, marché…).
  */
-export function ContributionFields({ form, categories, onChange }: ContributionFieldsProps) {
+export function ContributionFields({ form, categories, onChange, hostPlaces = [] }: ContributionFieldsProps) {
   const set = (patch: Partial<ContributionForm>) => onChange({ ...form, ...patch });
 
   return (
@@ -41,6 +43,16 @@ export function ContributionFields({ form, categories, onChange }: ContributionF
         placeholder="Ex : 10 rue de la République, Marseille"
         autoComplete="street-address"
       />
+
+      {hostPlaces.length > 0 || form.hostPlaceId !== null ? (
+        <ChipGroup
+          label="Proposé par un de mes lieux (facultatif)"
+          options={hostPlaceOptions(hostPlaces, form.hostPlaceId)}
+          selected={[form.hostPlaceId === null ? NO_HOST_PLACE : String(form.hostPlaceId)]}
+          onToggle={(value) => set({ hostPlaceId: value === NO_HOST_PLACE ? null : Number(value) })}
+          single
+        />
+      ) : null}
 
       <ChannelSwitch
         label="Revient chaque semaine (food truck, marché…)"

@@ -32,8 +32,9 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
  * Food trucks de l'espace professionnel (PRO-01 lot C) et leurs présences (FOODTRUCK-01) : compte professionnel
- * exigé, propriété vérifiée côté serveur, brouillon puis publication, chevauchements refusés, emplacement sur un lieu
- * existant ou saisi, suspension et archivage, suspension par un administrateur, affichage public gratuit.
+ * exigé, propriété vérifiée côté serveur, brouillon puis première publication validée par l'équipe (22/10/2026),
+ * chevauchements refusés, emplacement sur un lieu existant ou saisi, suspension et archivage, suspension par un
+ * administrateur, affichage public gratuit.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ProFoodTruckIntegrationTest {
@@ -80,8 +81,15 @@ class ProFoodTruckIntegrationTest {
         call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/publish", other, null, 404);
         assertThat(call(HttpMethod.GET, "/api/v1/pro/foodtrucks", other, null, 200)).isEmpty();
 
+        // Première publication : validée par l'équipe (22/10/2026), invisible en attendant.
         assertThat(status(call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/publish", owner, null, 200)))
-                .isEqualTo("PUBLISHED");
+                .isEqualTo("PENDING");
+        call(HttpMethod.GET, "/api/v1/foodtrucks/" + truck, null, null, 404);
+        String admin = token(user("ADMIN"), "ADMIN");
+        call(HttpMethod.POST, "/api/v1/admin/foodtrucks/" + truck + "/approve", owner, null, 403);
+        JsonNode approved = call(HttpMethod.POST, "/api/v1/admin/foodtrucks/" + truck + "/approve", admin, null, 200);
+        assertThat(status(approved)).isEqualTo("PUBLISHED");
+        assertThat(approved.get("approved").asBoolean()).isTrue();
         assertThat(call(HttpMethod.GET, "/api/v1/foodtrucks/" + truck, null, null, 200).get("name").asText())
                 .startsWith("Tacos Loco");
         assertThat(call(HttpMethod.PUT, "/api/v1/pro/foodtrucks/" + truck, owner, profile("Tacos Loco 2"), 200)
@@ -89,6 +97,9 @@ class ProFoodTruckIntegrationTest {
 
         call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/suspend", owner, null, 200);
         call(HttpMethod.GET, "/api/v1/foodtrucks/" + truck, null, null, 404);
+        // Une fois validé, il se republie sans nouvelle validation.
+        assertThat(status(call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/publish", owner, null, 200)))
+                .isEqualTo("PUBLISHED");
         call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/archive", owner, null, 200);
         call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/publish", owner, null, 409);
         call(HttpMethod.PUT, "/api/v1/pro/foodtrucks/" + truck, owner, profile("Trop tard"), 409);
@@ -99,7 +110,7 @@ class ProFoodTruckIntegrationTest {
     void presences_ShouldBePreviewedAsDrafts_ThenPublished_AndShownOnlyWhenActive() throws Exception {
         String owner = token(user("PRO"), "PRO");
         long truck = createTruck(owner, "Crêpes du Rhône");
-        call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/publish", owner, null, 200);
+        publishValidated(truck, owner);
         double latitude = 44 + ThreadLocalRandom.current().nextDouble(0.5);
         double longitude = 4 + ThreadLocalRandom.current().nextDouble(0.5);
 
@@ -157,7 +168,7 @@ class ProFoodTruckIntegrationTest {
         String owner = token(user("PRO"), "PRO");
         String other = token(user("PRO"), "PRO");
         long truck = createTruck(owner, "Burgers Sud");
-        call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/publish", owner, null, 200);
+        publishValidated(truck, owner);
         long market = place("PUBLISHED");
         long pending = place("PENDING");
 
@@ -185,7 +196,7 @@ class ProFoodTruckIntegrationTest {
         String owner = token(ownerId, "PRO");
         String admin = token(user("ADMIN"), "ADMIN");
         long truck = createTruck(owner, "Pizza Nomade");
-        call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/publish", owner, null, 200);
+        publishValidated(truck, owner);
 
         call(HttpMethod.PATCH, "/api/v1/admin/foodtrucks/" + truck + "/suspend", owner, null, 403);
         JsonNode suspended = call(HttpMethod.PATCH, "/api/v1/admin/foodtrucks/" + truck + "/suspend", admin, null,
@@ -201,7 +212,40 @@ class ProFoodTruckIntegrationTest {
         call(HttpMethod.PATCH, "/api/v1/admin/foodtrucks/" + truck + "/reinstate", admin, null, 409);
     }
 
+    @Test
+    void aRejectedFirstPublication_CanBeFixedAndResent_AndAnAdminNeverValidatesHisOwnTruck() throws Exception {
+        String owner = token(user("PRO"), "PRO");
+        String admin = token(user("ADMIN"), "ADMIN");
+        long truck = createTruck(owner, "Gaufres");
+        call(HttpMethod.POST, "/api/v1/admin/foodtrucks/" + truck + "/approve", admin, null, 409);
+        call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/publish", owner, null, 200);
+        call(HttpMethod.POST, "/api/v1/admin/foodtrucks/" + truck + "/reject", admin, Map.of(), 400);
+        JsonNode rejected = call(HttpMethod.POST, "/api/v1/admin/foodtrucks/" + truck + "/reject", admin,
+                Map.of("reason", "Photo de menu illisible"), 200);
+        assertThat(status(rejected)).isEqualTo("REJECTED");
+        assertThat(rejected.get("reviewReason").asText()).isEqualTo("Photo de menu illisible");
+        call(HttpMethod.PUT, "/api/v1/pro/foodtrucks/" + truck, owner, profile("Gaufres corrigées"), 200);
+        assertThat(status(call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/publish", owner, null, 200)))
+                .isEqualTo("PENDING");
+        // Retirer la demande : retour en brouillon.
+        assertThat(status(call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/suspend", owner, null, 200)))
+                .isEqualTo("DRAFT");
+
+        // L'espace pro d'un administrateur reste ouvert, mais un autre administrateur valide ses food trucks.
+        long own = createTruck(admin, "Camion de l'admin");
+        call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + own + "/publish", admin, null, 200);
+        call(HttpMethod.POST, "/api/v1/admin/foodtrucks/" + own + "/approve", admin, null, 403);
+    }
+
     // ---------------------------------------------------------------- outils
+
+    /** Première publication puis validation par un administrateur. */
+    private void publishValidated(long truck, String owner) throws Exception {
+        assertThat(status(call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/publish", owner, null, 200)))
+                .isEqualTo("PENDING");
+        call(HttpMethod.POST, "/api/v1/admin/foodtrucks/" + truck + "/approve", token(user("ADMIN"), "ADMIN"),
+                null, 200);
+    }
 
     private long createTruck(String owner, String name) throws Exception {
         return call(HttpMethod.POST, "/api/v1/pro/foodtrucks", owner, profile(name), 201).get("id").asLong();

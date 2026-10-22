@@ -27,6 +27,14 @@ export interface ActivitySummary {
   /** Contributeur (`null` pour une activité importée). */
   createdBy?: number | null;
   coordinatePrecision?: CoordinatePrecision;
+  /** Lieu géré par l'auteur qui propose l'activité (« Proposé par… ») ; `null` sinon. */
+  hostPlace?: HostPlace | null;
+}
+
+/** Lieu qui propose une activité : publié et géré par l'auteur de la contribution. */
+export interface HostPlace {
+  id: number;
+  name: string;
 }
 
 /** `ActivityResponse` — résultats de `nearby` et `within-bounds`. */
@@ -145,6 +153,8 @@ export interface ActivityDetail {
   /** Contributeur (`null` pour une activité importée). */
   createdBy?: number | null;
   coordinatePrecision?: CoordinatePrecision;
+  /** Lieu géré par l'auteur qui propose l'activité (« Proposé par… ») ; `null` sinon. */
+  hostPlace?: HostPlace | null;
 }
 
 /** `PlaceResponse` — lieu permanent publié (ADR-0011, phase B), couche « Lieux » de la carte. */
@@ -348,6 +358,11 @@ export interface CreateActivityRequest {
   email?: string;
   /** Passage hebdomadaire (food truck, marché…). */
   recurrence?: RecurrenceRequest;
+  /**
+   * Lieu publié géré par l'auteur qui propose l'activité (400 sinon). À la modification, absent ou `null` retire
+   * le lieu : renvoyer celui de la contribution pour le garder.
+   */
+  hostPlaceId?: number | null;
 }
 
 /** Récurrence hebdomadaire d'une contribution (`RecurrenceRequest` côté backend). */
@@ -381,6 +396,8 @@ export interface Contribution {
   phone: string | null;
   email: string | null;
   recurrence: RecurrenceRequest | null;
+  /** Lieu géré qui propose l'activité ; absent d'un ancien serveur. */
+  hostPlaceId?: number | null;
 }
 
 /**

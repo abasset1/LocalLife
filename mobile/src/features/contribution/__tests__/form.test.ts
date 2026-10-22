@@ -1,6 +1,15 @@
 import type { Contribution } from '@/api';
 
-import { EMPTY_FORM, formatWhen, fromContribution, isEditable, normalizeTime, toRequest } from '../form';
+import {
+  EMPTY_FORM,
+  NO_HOST_PLACE,
+  formatWhen,
+  fromContribution,
+  hostPlaceOptions,
+  isEditable,
+  normalizeTime,
+  toRequest,
+} from '../form';
 
 const VALID = {
   ...EMPTY_FORM,
@@ -122,5 +131,28 @@ describe('helpers', () => {
   it('only allows editing pending, published or rejected contributions', () => {
     expect(isEditable('REJECTED')).toBe(true);
     expect(isEditable('CANCELLED')).toBe(false);
+  });
+});
+
+describe('lieu qui propose l’activité (hostPlaceId)', () => {
+  it('est envoyé quand il est choisi, omis sinon', () => {
+    const chosen = toRequest({ ...VALID, hostPlaceId: 12 });
+    expect(chosen.ok && chosen.request.hostPlaceId).toBe(12);
+    const none = toRequest(VALID);
+    expect(none.ok && none.request.hostPlaceId).toBeUndefined();
+  });
+
+  it('pré-remplit la modification avec le lieu déjà choisi', () => {
+    expect(fromContribution({ ...CONTRIBUTION, hostPlaceId: 12 }).hostPlaceId).toBe(12);
+    expect(fromContribution(CONTRIBUTION).hostPlaceId).toBeNull();
+  });
+
+  it('garde le lieu déjà choisi parmi les choix même s’il n’est plus géré', () => {
+    const places = [{ id: 1, name: 'Le Comptoir' }];
+    expect(hostPlaceOptions(places, null)).toEqual([
+      { value: NO_HOST_PLACE, label: 'Aucun' },
+      { value: '1', label: 'Le Comptoir' },
+    ]);
+    expect(hostPlaceOptions(places, 9).map((o) => o.value)).toEqual([NO_HOST_PLACE, '1', '9']);
   });
 });

@@ -59,7 +59,7 @@ class SubscriptionIntegrationTest {
     }
 
     @Test
-    void subscribingToPremium_IsImmediate_ButProWaitsForTheTeam_AndCancellationEndsIt() throws Exception {
+    void subscribingToPremium_IsImmediate_ButProWaitsForTheTeam_AndRunsToTheEndOfTheMonth() throws Exception {
         String user = token(user("USER"), "USER");
         String admin = token(user("ADMIN"), "ADMIN");
         call(HttpMethod.GET, ME, null, null, 401);
@@ -79,17 +79,20 @@ class SubscriptionIntegrationTest {
         call(HttpMethod.GET, "/api/v1/pro/places", user, null, 403);
 
         call(HttpMethod.POST, "/api/v1/admin/subscriptions/" + id + "/approve", admin, Map.of(), 200);
-        // Le droit Pro vient de l'abonnement, sans rôle PRO ni nouvelle connexion.
+        // Le droit Pro vient de l'abonnement (qui donne le rôle PRO, 22/10/2026), sans nouvelle connexion.
         call(HttpMethod.GET, "/api/v1/pro/places", user, null, 200);
         call(HttpMethod.POST, ME + "/subscribe", user, Map.of("plan", "PRO"), 409);
 
+        // Résiliée sans échéance, l'offre Pro court jusqu'à la fin du mois (22/10/2026).
         JsonNode canceled = call(HttpMethod.POST, ME + "/cancel", user, null, 200);
-        assertThat(canceled.get("plan").asText()).isEqualTo("FREE");
-        assertThat(canceled.get("current").isNull()).isTrue();
-        call(HttpMethod.GET, "/api/v1/pro/places", user, null, 403);
+        assertThat(canceled.get("plan").asText()).isEqualTo("PRO");
+        assertThat(canceled.get("current").get("status").asText()).isEqualTo("CANCELED");
+        call(HttpMethod.GET, "/api/v1/pro/places", user, null, 200);
         call(HttpMethod.POST, ME + "/cancel", user, null, 404);
+        call(HttpMethod.POST, "/api/v1/admin/subscriptions/" + id + "/revoke", admin, Map.of(), 200);
+        call(HttpMethod.GET, "/api/v1/pro/places", user, null, 403);
         assertThat(jdbcTemplate.queryForList("SELECT to_status FROM subscription_event WHERE subscription_id = ? "
-                + "ORDER BY id", String.class, id)).containsExactly("REQUESTED", "ACTIVE", "EXPIRED");
+                + "ORDER BY id", String.class, id)).containsExactly("REQUESTED", "ACTIVE", "CANCELED", "EXPIRED");
 
         // Premium reste immédiat.
         JsonNode premium = call(HttpMethod.POST, ME + "/subscribe", user, Map.of("plan", "PREMIUM"), 200);

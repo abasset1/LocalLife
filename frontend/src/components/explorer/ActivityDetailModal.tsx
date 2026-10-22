@@ -189,6 +189,7 @@ function ActivityDetailModal({
 }: ActivityDetailModalProps) {
     const categoryLabels = formatCategoryLabels(activity, categories);
     const calendarOccurrence = detail?.occurrences.find((occurrence) => occurrence.status !== "CANCELLED");
+    const hostPlace = detail ? detail.hostPlace ?? null : activity.hostPlace ?? null;
     // Un résultat de recherche (#92) peut n'avoir ni date ni lieu connus : les liens qui en dépendent sont masqués.
     const calendarStart = calendarOccurrence?.startAt ?? activity.startDate;
     const hasDestination = hasCoordinates(activity) || Boolean(activity.address || activity.city);
@@ -251,6 +252,12 @@ function ActivityDetailModal({
                         <p className="explorer-detail-row">
                             <strong>Publiée le :</strong>{" "}
                             {new Date(activity.publishedAt).toLocaleDateString("fr-FR", { dateStyle: "long" })}
+                        </p>
+                    )}
+                    {/* Lieu hôte : la fiche détaillée fait foi, l'aperçu sert en attendant son chargement. */}
+                    {hostPlace && (
+                        <p className="explorer-detail-row">
+                            <strong>Proposé par</strong> {hostPlace.name}
                         </p>
                     )}
                     {activity.createdByUsername && (

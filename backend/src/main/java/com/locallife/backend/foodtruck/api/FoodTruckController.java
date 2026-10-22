@@ -1,17 +1,13 @@
 package com.locallife.backend.foodtruck.api;
 
-import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.foodtruck.application.FoodTruckService;
 import com.locallife.backend.foodtruck.application.FoodTruckService.FoodTruckDetail;
 import com.locallife.backend.foodtruck.domain.FoodTruck;
 import com.locallife.backend.foodtruck.domain.FoodTruckPresence;
 import com.locallife.backend.foodtruck.domain.SpotKind;
-import com.locallife.backend.pro.application.ProAccessPolicy;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,28 +18,19 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Contrôleur REST pour les food trucks (LL-6009). Périmètre strictement
- * limité aux critères d'acceptation du ticket : consultation publique
- * (visibilité sur la carte) et création — pas de consultation par id, pas
- * de mise à jour/suppression, pas de modération (voir
- * {@code FoodTruckService}/{@code FoodTruck} pour le détail des
- * décisions), pas de système de commande ou paiement (exclu
- * explicitement par le ticket).
- *
- * {@code POST} protégé de la même façon que
- * {@code POST /api/v1/activities} (LL-3008, {@code SecurityConfig}) :
- * utilisateur connecté requis, même posture de sécurité qu'une
- * contribution d'activité.
+ * limité à la consultation publique (carte, fiche, food trucks d'un lieu).
+ * La création et la gestion passent par l'espace professionnel
+ * ({@code /api/v1/pro/foodtrucks}) : l'ancienne création directe
+ * ({@code POST /api/v1/foodtrucks}, publiée sans validation) a été retirée
+ * le 22/10/2026.
  *
  * Annotations Swagger/OpenAPI ajoutées en LL-6011 (documentation de fin
  * de sprint) — voir la remarque équivalente sur {@code SourceController}.
@@ -53,11 +40,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class FoodTruckController {
 
     private final FoodTruckService foodTruckService;
-    private final ProAccessPolicy proAccessPolicy;
 
-    public FoodTruckController(FoodTruckService foodTruckService, ProAccessPolicy proAccessPolicy) {
+    public FoodTruckController(FoodTruckService foodTruckService) {
         this.foodTruckService = foodTruckService;
-        this.proAccessPolicy = proAccessPolicy;
     }
 
     @Operation(
@@ -98,37 +83,6 @@ public class FoodTruckController {
     public List<FoodTruckMapResponse> getFoodTrucksAtPlace(@PathVariable Long placeId) {
         return foodTruckService.findActiveAtPlace(placeId, FoodTruckService.today()).stream()
                 .map(FoodTruckMapResponse::from).toList();
-    }
-
-    @Operation(
-            summary = "Crée un food truck",
-            description = "Crée un food truck publié, avec une présence permanente à la position reçue "
-                    + "(ADR-0013). Réservé aux comptes professionnels, qui en deviennent propriétaires (PRO-01 lot C). "
-                    + "L'espace professionnel (/api/v1/pro/foodtrucks) offre le parcours complet.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "201", description = "Food truck créé avec succès."),
-        @ApiResponse(responseCode = "400",
-                description = "Nom ou catégorie manquant/vide, nom trop long, ou coordonnées hors bornes.",
-                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-        @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide)."),
-        @ApiResponse(responseCode = "403", description = "Compte professionnel requis.")
-    })
-    @PostMapping("/foodtrucks")
-    public ResponseEntity<Object> createFoodTruck(
-            @RequestBody CreateFoodTruckRequest request, Authentication authentication,
-            HttpServletRequest httpRequest) {
-        Long userId = ((JwtAuthentication) authentication).getUserId();
-        if (!proAccessPolicy.hasProAccess(userId)) {
-            return errorResponse(HttpStatus.FORBIDDEN, "Compte professionnel requis.", httpRequest);
-        }
-        try {
-            FoodTruck foodTruck = foodTruckService.createFoodTruck(userId,
-                    request.name(), request.description(), request.latitude(), request.longitude(),
-                    request.category(), request.contact());
-            return ResponseEntity.status(HttpStatus.CREATED).body(foodTruck);
-        } catch (IllegalArgumentException exception) {
-            return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
-        }
     }
 
     private ResponseEntity<Object> errorResponse(HttpStatus status, String message, HttpServletRequest request) {
@@ -185,10 +139,6 @@ public class FoodTruckController {
                     foodTruck.category(), foodTruck.contact(),
                     detail.presences().stream().map(PresenceResponse::from).toList());
         }
-    }
-
-    public record CreateFoodTruckRequest(
-            String name, String description, double latitude, double longitude, String category, String contact) {
     }
 
 }

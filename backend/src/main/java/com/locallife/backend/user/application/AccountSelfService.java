@@ -5,6 +5,7 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.application.AuthService;
 import com.locallife.backend.auth.application.EmailService;
 import com.locallife.backend.auth.application.JwtService;
+import com.locallife.backend.pro.infrastructure.ProContentRepository;
 import com.locallife.backend.subscription.application.SubscriptionService;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
@@ -59,6 +60,7 @@ public class AccountSelfService {
     private final ContributionService contributionService;
     private final SubscriptionService subscriptionService;
     private final JdbcTemplate jdbcTemplate;
+    private final ProContentRepository proContentRepository;
     private final String frontendBaseUrl;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -72,6 +74,7 @@ public class AccountSelfService {
             ContributionService contributionService,
             SubscriptionService subscriptionService,
             JdbcTemplate jdbcTemplate,
+            ProContentRepository proContentRepository,
             @Value("${app.frontend-base-url:http://localhost:5173}") String frontendBaseUrl) {
         this.userRepository = userRepository;
         this.accountRepository = accountRepository;
@@ -82,6 +85,7 @@ public class AccountSelfService {
         this.contributionService = contributionService;
         this.subscriptionService = subscriptionService;
         this.jdbcTemplate = jdbcTemplate;
+        this.proContentRepository = proContentRepository;
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
@@ -242,6 +246,8 @@ public class AccountSelfService {
                 deletedContributions++;
             }
         }
+        // Food trucks publiés masqués (ils resteraient sinon en ligne sans propriétaire), droits de gestion révoqués.
+        proContentRepository.withdraw(userId);
         jdbcTemplate.update("DELETE FROM place_claim WHERE requester_id = ?", userId);
         subscriptionService.closeForDeletedAccount(userId);
         // Trace sans donnée personnelle : seul l'identifiant (désormais sans compte) reste.

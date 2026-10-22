@@ -1,8 +1,8 @@
 # ADR-0012 — Espace professionnel : revendication de lieux, création de lieux et de food trucks (PRO-01)
 
-**Statut : décisions D1 à D4 prises par Alex le 18/10/2026 (§ 4) ; lots 1, A
-et B implémentés et testés (§ 6) ; lot C (food truck) en attente
-d'ARCHI-01 ; D5 reste ouverte.**
+**Statut : décisions D1 à D4 prises par Alex le 18/10/2026 (§ 4) ; lots 1, A,
+B et C implémentés et testés (§ 6, § 7) ; D5 tranchée et D6 révisée pour les
+food trucks le 22/10/2026 (§ 9).**
 
 Ticket : [#144 PRO-01](https://github.com/abasset1/LocalLife/issues/144).
 Tickets liés, encore ouverts : #143 ARCHI-01 (séparer lieux, food trucks
@@ -221,3 +221,26 @@ Correction : `RoleProAccessPolicy` accorde l'espace professionnel aux rôles
 propre demande de gestion. Le menu affiche « Espace professionnel » pour ces
 deux rôles, et la page Profil (rôle relu en base) affiche le lien dès
 l'attribution du rôle, sans reconnexion.
+
+## 9. Décisions du 22/10/2026 (périmètre des comptes professionnels)
+
+Détail et routes : `docs/02_Architecture/ROLES_ET_PERMISSIONS.md` § 3 bis « Professionnel ».
+
+* **D1 révisée — l'offre Pro pilote le rôle.** La validation de l'offre Pro pose le rôle `PRO`
+  (`users.pro_role_source = SUBSCRIPTION`), sa fin le retire ; l'attribution manuelle par un administrateur
+  (`pro_role_source = ADMIN`) reste possible et indépendante de l'abonnement. `hasProAccess` (`GET /users/me`) est le
+  seul indicateur des interfaces.
+* **D5 tranchée.** Un gestionnaire propose une modification d'un lieu **publié**, importé ou non (adresse, position,
+  description, site, téléphone, e-mail ; ni le nom ni la catégorie) ; elle est appliquée après validation par un
+  administrateur et prime ensuite sur les réimports pour ces champs (`location.manager_edited_at`). Table
+  `place_change_request` (V71).
+* **D6 révisée pour les food trucks.** La première publication est validée par l'équipe (`PENDING` → publié ou
+  refusé avec motif), ensuite le propriétaire publie et suspend librement ; l'ancienne création directe
+  `POST /api/v1/foodtrucks` est retirée.
+* **Révocation des droits de gestion** : un gestionnaire renonce, un administrateur retire avec un motif
+  (`place_manager.revoked_reason`, `revoked_by`, `revoke_comment`). La fin de l'accès professionnel révoque tous
+  les droits (`ACCESS_LOST`) et masque les food trucks publiés ; ils reviennent avec l'accès.
+* **Un administrateur ne valide jamais ses propres contenus** : demandes de gestion, propositions, food trucks,
+  lieux qu'il a créés.
+* **Activités proposées par un lieu géré** (`activity_host_place`), sans changement de modération.
+* L'application mobile a désormais un espace professionnel (lots A à C) ; la limite citée au § 6 est levée.

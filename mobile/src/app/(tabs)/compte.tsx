@@ -14,6 +14,7 @@ import { Notice } from '@/components/notice';
 import { ScreenHeader } from '@/components/screen-header';
 import { adminWebUrl, shouldOfferAdminLink } from '@/features/admin/adminLink';
 import { MenuButton } from '@/features/navigation/AppMenu';
+import { useOwnsFoodTrucks } from '@/features/pro/useProAccess';
 import { apiUrl } from '@/config/env';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
@@ -61,17 +62,30 @@ export default function CompteScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const usernameStatus = useUsernameAvailability(mode === 'register' ? username : '');
   /** Rôle relu par le serveur (`GET /users/me`), jamais celui du jeton stocké : décide seul du lien d'administration. */
-  const [serverAccount, setServerAccount] = useState<{ userId: number; role: string } | null>(null);
+  const [serverAccount, setServerAccount] = useState<{ userId: number; role: string; hasProAccess: boolean } | null>(
+    null,
+  );
   const [adminLinkError, setAdminLinkError] = useState<string | null>(null);
   const authenticatedUserId = state.status === 'authenticated' ? state.user.userId : null;
   // Rôle valable seulement pour le compte connecté qui l'a demandé (changement de compte : plus de lien).
   const serverRole = serverAccount && serverAccount.userId === authenticatedUserId ? serverAccount.role : null;
+  // Seul `hasProAccess` ouvre l'espace professionnel (plus le rôle) ; sinon, l'offre Pro est proposée.
+  const accountKnown = serverAccount !== null && serverAccount.userId === authenticatedUserId;
+  const hasProAccess = accountKnown && serverAccount.hasProAccess;
+  // Ancien compte Pro : ses food trucks restent consultables et archivables.
+  const ownsFoodTrucks = useOwnsFoodTrucks(accountKnown && !hasProAccess);
 
   useEffect(() => {
     if (authenticatedUserId === null) return;
     const controller = new AbortController();
     getCurrentAccount({ signal: controller.signal })
-      .then((account) => setServerAccount({ userId: authenticatedUserId, role: account.role }))
+      .then((account) =>
+        setServerAccount({
+          userId: authenticatedUserId,
+          role: account.role,
+          hasProAccess: account.hasProAccess === true,
+        }),
+      )
       .catch(() => setServerAccount(null));
     return () => controller.abort();
   }, [authenticatedUserId]);
@@ -231,13 +245,33 @@ export default function CompteScreen() {
                 description="Gratuit, Premium ou Pro"
                 onPress={() => router.push('/abonnement')}
               />
-              <MenuRow
-                icon={{ ios: 'briefcase', android: 'storefront', web: 'storefront' }}
-                label="Espace professionnel"
-                description="Vos lieux et vos food trucks"
-                onPress={() => router.push('/pro')}
-                last={!shouldOfferAdminLink(serverRole)}
-              />
+              {hasProAccess ? (
+                <MenuRow
+                  icon={{ ios: 'briefcase', android: 'storefront', web: 'storefront' }}
+                  label="Espace professionnel"
+                  description="Vos lieux et vos food trucks"
+                  onPress={() => router.push('/pro')}
+                  last={!shouldOfferAdminLink(serverRole)}
+                />
+              ) : (
+                <>
+                {ownsFoodTrucks && (
+                  <MenuRow
+                    icon={{ ios: 'truck.box', android: 'local_shipping', web: 'local_shipping' }}
+                    label="Mes food trucks"
+                    description="Accès professionnel terminé : consulter ou archiver"
+                    onPress={() => router.push('/pro/foodtrucks')}
+                  />
+                )}
+                <MenuRow
+                  icon={{ ios: 'briefcase', android: 'storefront', web: 'storefront' }}
+                  label="Vous êtes professionnel ?"
+                  description="Gérez votre lieu ou votre food truck avec l’offre Pro"
+                  onPress={() => router.push('/abonnement')}
+                  last={!shouldOfferAdminLink(serverRole)}
+                />
+                </>
+              )}
               {shouldOfferAdminLink(serverRole) && (
                 <MenuRow
                   icon={{ ios: 'lock.shield', android: 'admin_panel_settings', web: 'admin_panel_settings' }}

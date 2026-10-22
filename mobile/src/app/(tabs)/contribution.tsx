@@ -10,6 +10,7 @@ import { Card } from '@/components/card';
 import { Notice } from '@/components/notice';
 import { ScreenHeader } from '@/components/screen-header';
 import { MenuButton } from '@/features/navigation/AppMenu';
+import { useHostablePlaces } from '@/features/pro/useProAccess';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -30,17 +31,28 @@ export default function ContributionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   /** Droit relu par le serveur (offre Premium ou Pro) ; `null` tant qu'il n'est pas connu. */
-  const [access, setAccess] = useState<{ userId: number; canContribute: boolean } | null>(null);
+  const [access, setAccess] = useState<{ userId: number; canContribute: boolean; hasProAccess: boolean } | null>(
+    null,
+  );
   const authenticatedUserId = state.status === 'authenticated' ? state.user.userId : null;
-  const canContribute = access && access.userId === authenticatedUserId ? access.canContribute : null;
+  const currentAccess = access && access.userId === authenticatedUserId ? access : null;
+  const canContribute = currentAccess ? currentAccess.canContribute : null;
+  // Accès pro : l'activité peut être « proposée par » un des lieux publiés que le compte gère.
+  const hostPlaces = useHostablePlaces(currentAccess?.hasProAccess === true);
 
   useEffect(() => {
     if (authenticatedUserId === null) return;
     const controller = new AbortController();
     getCurrentAccount({ signal: controller.signal })
       // Champ absent (ancien serveur) : le formulaire reste ouvert, le serveur tranchera à l'envoi.
-      .then((account) => setAccess({ userId: authenticatedUserId, canContribute: account.canContribute !== false }))
-      .catch(() => setAccess({ userId: authenticatedUserId, canContribute: true }));
+      .then((account) =>
+        setAccess({
+          userId: authenticatedUserId,
+          canContribute: account.canContribute !== false,
+          hasProAccess: account.hasProAccess === true,
+        }),
+      )
+      .catch(() => setAccess({ userId: authenticatedUserId, canContribute: true, hasProAccess: false }));
     return () => controller.abort();
   }, [authenticatedUserId]);
 
@@ -151,6 +163,7 @@ export default function ContributionScreen() {
               <ContributionFields
                 form={form}
                 categories={categories}
+                hostPlaces={hostPlaces}
                 onChange={(next) => {
                   setForm(next);
                   setSubmitted(false);

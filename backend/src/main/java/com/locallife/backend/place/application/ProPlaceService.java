@@ -26,8 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Lieux créés et gérés par un professionnel (ADR-0012, parcours B). Recherche préalable des lieux proches, création
  * en brouillon, aperçu, soumission à la modération existante ({@code PlaceModerationService}). Une création ne
- * réutilise ni ne modifie jamais un lieu existant ; un lieu importé, même géré, n'est pas modifiable ici (décision D5,
- * hors du premier lot).
+ * réutilise ni ne modifie jamais un lieu existant. Un lieu publié (importé ou non) se modifie par une proposition
+ * validée par l'équipe ({@code ManagedPlaceService}, décision D5 du 22/10/2026).
  */
 @Service
 public class ProPlaceService {
@@ -138,12 +138,13 @@ public class ProPlaceService {
     public ManagedPlace update(Long userId, Long id, PlaceInput input) {
         ManagedPlace managed = managedPlace(userId, id);
         if (managed.imported()) {
-            throw ProActionException.conflict("Les fiches importées ne sont pas encore modifiables par leurs "
-                    + "gestionnaires.");
+            throw ProActionException.conflict("Une fiche importée se modifie par une proposition validée par "
+                    + "l'équipe.");
         }
         PlaceStatus status = managed.place().status();
         if (status != PlaceStatus.DRAFT && status != PlaceStatus.PENDING) {
-            throw ProActionException.conflict("Ce lieu n'est plus modifiable (statut " + status + ").");
+            throw ProActionException.conflict("Ce lieu n'est plus modifiable directement (statut " + status
+                    + ") : propose une modification.");
         }
         proPlaceRepository.update(id, validate(input));
         return proPlaceRepository.findPlace(id).orElseThrow();
@@ -171,7 +172,8 @@ public class ProPlaceService {
 
     // ---------------------------------------------------------------- outils
 
-    private ManagedPlace managedPlace(Long userId, Long id) {
+    /** Lieu géré par ce professionnel : 403 sans accès professionnel, 404 s'il ne le gère pas. */
+    ManagedPlace managedPlace(Long userId, Long id) {
         requirePro(userId);
         if (!managerRepository.isManager(id, userId)) {
             throw ProActionException.notFound("Lieu introuvable.");
@@ -179,7 +181,8 @@ public class ProPlaceService {
         return proPlaceRepository.findPlace(id).orElseThrow(() -> ProActionException.notFound("Lieu introuvable."));
     }
 
-    private ProPlaceFields validate(PlaceInput input) {
+    /** Contrôle et complète (position) une saisie de lieu ; aussi utilisé pour les propositions de modification. */
+    ProPlaceFields validate(PlaceInput input) {
         if (input == null) {
             throw ProActionException.invalid("Corps de requête manquant.");
         }

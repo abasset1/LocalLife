@@ -27,12 +27,14 @@ public class OwnedFoodTruckRepository {
     /** Food truck avec son propriétaire et son état de suspension. */
     public record OwnedFoodTruck(
             Long id, String name, String description, String category, String contact, FoodTruckStatus status,
-            Long ownerId, String ownerEmail, OffsetDateTime updatedAt, OffsetDateTime suspendedByAdminAt) {
+            Long ownerId, String ownerEmail, OffsetDateTime updatedAt, OffsetDateTime suspendedByAdminAt,
+            OffsetDateTime approvedAt, String reviewReason, OffsetDateTime suspendedForAccessAt) {
     }
 
     private static final String SELECT = """
             SELECT ft.id, ft.name, ft.description, ft.category, ft.contact, ft.status, ft.owner_id, u.email,
-                   ft.updated_at, ft.suspended_by_admin_at
+                   ft.updated_at, ft.suspended_by_admin_at, ft.approved_at, ft.review_reason,
+                   ft.suspended_for_access_at
             FROM food_truck ft LEFT JOIN users u ON u.id = ft.owner_id
             """;
 
@@ -101,11 +103,31 @@ public class OwnedFoodTruckRepository {
                 """, new MapSqlParameterSource("id", id).addValue("adminId", adminId)) == 1;
     }
 
-    /** Levée de la suspension par un administrateur : le food truck est de nouveau publié. */
+    /**
+     * Validation de la première publication : {@code PENDING} → {@code PUBLISHED} (validé) ou {@code REJECTED}
+     * (motif). Renvoie {@code false} si le food truck n'attendait pas de validation.
+     */
+    public boolean review(Long id, boolean approve, Long adminId, String reason) {
+        return jdbc.update("""
+                UPDATE food_truck
+                SET status = CASE WHEN :approve THEN 'PUBLISHED' ELSE 'REJECTED' END,
+                    approved_at = CASE WHEN :approve THEN now() ELSE approved_at END,
+                    approved_by = CASE WHEN :approve THEN :adminId ELSE approved_by END,
+                    review_reason = :reason, updated_at = now()
+                WHERE id = :id AND status = 'PENDING'
+                """, new MapSqlParameterSource("id", id).addValue("approve", approve).addValue("adminId", adminId)
+                .addValue("reason", reason)) == 1;
+    }
+
+    /**
+     * Levée de la suspension par un administrateur : le food truck est de nouveau publié, sauf si son propriétaire
+     * a perdu son accès professionnel entre-temps (il reste alors suspendu jusqu'au retour de cet accès).
+     */
     public boolean reinstate(Long id) {
         return jdbc.update("""
-                UPDATE food_truck SET status = 'PUBLISHED', suspended_by_admin_at = NULL, suspended_by = NULL,
-                       updated_at = now()
+                UPDATE food_truck
+                SET status = CASE WHEN suspended_for_access_at IS NULL THEN 'PUBLISHED' ELSE status END,
+                    suspended_by_admin_at = NULL, suspended_by = NULL, updated_at = now()
                 WHERE id = :id AND status = 'SUSPENDED' AND suspended_by_admin_at IS NOT NULL
                 """, new MapSqlParameterSource("id", id)) == 1;
     }
@@ -120,6 +142,8 @@ public class OwnedFoodTruckRepository {
                 row.getString("category"), row.getString("contact"), FoodTruckStatus.valueOf(row.getString("status")),
                 row.getObject("owner_id", Long.class), row.getString("email"),
                 row.getObject("updated_at", OffsetDateTime.class),
-                row.getObject("suspended_by_admin_at", OffsetDateTime.class));
+                row.getObject("suspended_by_admin_at", OffsetDateTime.class),
+                row.getObject("approved_at", OffsetDateTime.class), row.getString("review_reason"),
+                row.getObject("suspended_for_access_at", OffsetDateTime.class));
     }
 }

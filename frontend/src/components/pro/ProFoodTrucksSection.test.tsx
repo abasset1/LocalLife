@@ -14,7 +14,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 const TRUCK = { id: 3, name: "Tacos Loco", category: "Tacos", description: null, contact: null, status: "DRAFT",
-    suspendedByLocalLife: false };
+    suspendedByLocalLife: false, approved: false, reviewReason: null, suspendedForAccess: false };
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -63,5 +63,60 @@ describe("ProFoodTrucksSection", () => {
             spotKind: "MARKET", days: ["SA"], startTime: "08:00", endTime: "13:00",
             newSpot: { address: "1 rue Test", city: "Avignon", latitude: null, longitude: null },
         });
+    });
+
+    it("envoie un food truck jamais validé en validation, puis retire la demande", async () => {
+        const user = userEvent.setup();
+        let truck = { ...TRUCK };
+        const calls: { method: string; url: string }[] = [];
+        vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+            const method = init?.method ?? "GET";
+            calls.push({ method, url });
+            if (url === "/api/v1/pro/foodtrucks/3/publish") {
+                truck = { ...truck, status: "PENDING" };
+                return json(truck);
+            }
+            if (url === "/api/v1/pro/foodtrucks/3/suspend") {
+                truck = { ...truck, status: "DRAFT" };
+                return json(truck);
+            }
+            if (url === "/api/v1/pro/foodtrucks") {
+                return json([truck]);
+            }
+            return json([]);
+        }));
+        render(<ProFoodTrucksSection />);
+
+        expect(await screen.findByText("🚚 Tacos Loco")).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Publier" })).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Envoyer en validation" }));
+
+        expect(await screen.findByText(/est envoyé en validation/)).toBeInTheDocument();
+        expect(await screen.findByText(/En validation · Tacos/)).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Envoyer en validation" })).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Archiver" })).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: "Retirer la demande" }));
+        expect(await screen.findByText(/Demande retirée/)).toBeInTheDocument();
+        expect(calls.filter((call) => call.method === "POST").map((call) => call.url)).toEqual([
+            "/api/v1/pro/foodtrucks/3/publish", "/api/v1/pro/foodtrucks/3/suspend",
+        ]);
+    });
+
+    it("affiche le motif d'un refus et propose de publier directement un food truck déjà validé", async () => {
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => (url === "/api/v1/pro/foodtrucks"
+            ? json([
+                { ...TRUCK, status: "REJECTED", reviewReason: "Photos manquantes" },
+                { ...TRUCK, id: 4, name: "Crêpes Party", status: "DRAFT", approved: true },
+                { ...TRUCK, id: 5, name: "Burger Bus", status: "SUSPENDED", approved: true, suspendedForAccess: true },
+            ])
+            : json([]))));
+        render(<ProFoodTrucksSection />);
+
+        expect(await screen.findByText("Motif du refus : Photos manquantes")).toBeInTheDocument();
+        expect(screen.getByText(/Refusé · Tacos/)).toBeInTheDocument();
+        expect(screen.getByText(/Masqué : ton accès professionnel a pris fin/)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Envoyer en validation" })).toBeInTheDocument();
+        expect(screen.getAllByRole("button", { name: "Publier" })).toHaveLength(1);
     });
 });

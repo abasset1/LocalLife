@@ -49,4 +49,10 @@ public interface EmailService {
     /** Avertit l'<b>ancienne</b> adresse qu'un changement a été demandé, sans le lien de confirmation. */
     void sendEmailChangeNoticeEmail(String to, String newEmailMasked);
 
+    /**
+     * Décision de l'équipe sur une démarche professionnelle (offre Pro, gestion d'un lieu, modification de lieu,
+     * food truck) : texte complet, sans lien secret.
+     */
+    void sendProDecisionEmail(String to, String subject, String text);
+
 }

@@ -11,7 +11,7 @@ import com.locallife.backend.auth.api.LoginRequest;
 import com.locallife.backend.auth.api.LoginResponse;
 import com.locallife.backend.auth.api.RegisterRequest;
 import com.locallife.backend.common.IntegrationTestCleaner;
-import com.locallife.backend.foodtruck.api.FoodTruckController;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
 import io.jsonwebtoken.Jwts;
@@ -60,6 +60,8 @@ import org.springframework.test.web.servlet.client.RestTestClient;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class NonRegressionIntegrationTest {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /** Comptes réels : le rôle est relu en base par JwtFilter (voir TestAccounts). */
     @Autowired
@@ -269,29 +271,44 @@ class NonRegressionIntegrationTest {
     // --- 8. food truck visible sur la carte ---
 
     @Test
-    void foodTruck_ShouldBeVisibleOnPublicMap() {
-        // Given : un food truck créé par un compte professionnel (LL-6009 ; réservé aux pros depuis PRO-01 lot C).
+    void foodTruck_ShouldBeVisibleOnPublicMap() throws Exception {
+        // Given : un food truck créé dans l'espace professionnel, avec un emplacement publié, puis validé par
+        // l'équipe à sa première publication (22/10/2026).
         String email = uniqueEmail();
         String userToken = registerAndLoginAsUser(email);
         jdbcTemplate.update("UPDATE users SET role = 'PRO' WHERE email = ?", email);
         String name = cleaner.trackFoodTruck("Le Camion qui Fume " + UUID.randomUUID());
+        long truck = OBJECT_MAPPER.readTree(proPost("/api/v1/pro/foodtrucks", userToken,
+                "{\"name\":\"" + name + "\",\"category\":\"burger\"}", 201)).get("id").asLong();
+        long presence = OBJECT_MAPPER.readTree(proPost("/api/v1/pro/foodtrucks/" + truck + "/presences", userToken,
+                "{\"spotKind\":\"OTHER\",\"days\":[],\"newSpot\":{\"name\":\"Place\",\"city\":\"Marseille\","
+                        + "\"latitude\":" + LATITUDE + ",\"longitude\":" + LONGITUDE + "}}", 201)).get("id").asLong();
+        proPost("/api/v1/pro/presences/" + presence + "/publish", userToken, null, 200);
+        proPost("/api/v1/pro/foodtrucks/" + truck + "/publish", userToken, null, 200);
+        assertThat(publicFoodTrucks()).doesNotContain(name);
+        String admin = testAccounts.token(testAccounts.sharedAccount(Role.ADMIN), Role.ADMIN);
+        proPost("/api/v1/admin/foodtrucks/" + truck + "/approve", admin, null, 200);
 
-        restTestClient().post().uri("/api/v1/foodtrucks")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new FoodTruckController.CreateFoodTruckRequest(
-                        name, "desc", LATITUDE, LONGITUDE, "burger", null))
-                .exchange()
-                .expectStatus().isCreated();
+        // Then : visible sur la consultation publique.
+        assertThat(publicFoodTrucks()).contains(name);
+    }
 
-        // Then : visible immédiatement sur la consultation publique (pas de modération food truck).
-        String body = restTestClient().get().uri("/api/v1/foodtrucks")
+    private String publicFoodTrucks() {
+        return restTestClient().get().uri("/api/v1/foodtrucks")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(String.class)
                 .returnResult()
                 .getResponseBody();
-        assertThat(body).contains(name);
+    }
+
+    private String proPost(String uri, String token, String json, int expectedStatus) {
+        var request = restTestClient().post().uri(uri).header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+        if (json != null) {
+            request.contentType(MediaType.APPLICATION_JSON).body(json);
+        }
+        return request.exchange().expectStatus().isEqualTo(expectedStatus).expectBody(String.class).returnResult()
+                .getResponseBody();
     }
 
     // --- 9. recherche géographique inchangée ---

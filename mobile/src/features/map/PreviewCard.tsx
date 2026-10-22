@@ -11,6 +11,7 @@ import { buildDirectionsUrl, withApproximateMention } from '@/features/activity/
 import { useTheme } from '@/hooks/use-theme';
 
 import { describeToday } from '@/features/foodtruck/presence';
+import { useProAccess } from '@/features/pro/useProAccess';
 
 import { placeTypeLabel } from './placeTypes';
 import { usePlaceActivities } from './usePlaceActivities';
@@ -71,6 +72,8 @@ function PlacePreview({ place, onClose }: { place: Place; onClose: () => void })
   const theme = useTheme();
   const router = useRouter();
   const activities = usePlaceActivities(place.id);
+  // Comptes avec accès pro seulement : demande de gestion de ce lieu, pré-sélectionné.
+  const proAccess = useProAccess();
   const location = withApproximateMention(
     [place.address, [place.postalCode, place.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null,
     place,
@@ -151,6 +154,16 @@ function PlacePreview({ place, onClose }: { place: Place; onClose: () => void })
           />
         ) : null}
       </View>
+      {proAccess ? (
+        <Button
+          label="Demander la gestion de ce lieu"
+          variant="ghost"
+          icon={{ ios: 'briefcase', android: 'storefront', web: 'storefront' }}
+          onPress={() =>
+            router.push({ pathname: '/pro/revendiquer', params: { placeId: String(place.id), placeName: place.name } })
+          }
+        />
+      ) : null}
     </View>
   );
 }

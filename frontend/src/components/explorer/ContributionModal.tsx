@@ -12,6 +12,12 @@ export interface ContributionRecurrence {
     endTime: string;
 }
 
+/** Lieu publié géré par l'auteur, proposable comme lieu hôte de l'activité. */
+export interface HostPlaceOption {
+    id: number;
+    name: string;
+}
+
 export const EMPTY_RECURRENCE: ContributionRecurrence = { enabled: false, days: [], startTime: "", endTime: "" };
 
 const RECURRENCE_DAYS: { code: string; label: string }[] = [
@@ -51,6 +57,10 @@ interface ContributionModalProps {
     onPhoneChange: (value: string) => void;
     email: string;
     onEmailChange: (value: string) => void;
+    /** Lieux publiés gérés (compte pro) ; liste vide : le champ « Proposé par » n'est pas affiché. */
+    hostPlaces?: HostPlaceOption[];
+    hostPlaceId?: number | null;
+    onHostPlaceIdChange?: (value: number | null) => void;
     submitStatus: "idle" | "success" | "error";
     submitError: string | null;
     onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -87,6 +97,9 @@ function ContributionModal({
     onPhoneChange,
     email,
     onEmailChange,
+    hostPlaces = [],
+    hostPlaceId = null,
+    onHostPlaceIdChange,
     submitStatus,
     submitError,
     onSubmit,
@@ -288,6 +301,26 @@ function ContributionModal({
                             value={email}
                         />
                     </div>
+                    {hostPlaces.length > 0 && onHostPlaceIdChange && (
+                        <div className="explorer-form-field">
+                            <label htmlFor="explorer-activity-host-place">Proposé par un de mes lieux (facultatif)</label>
+                            <select
+                                id="explorer-activity-host-place"
+                                onChange={(event) => onHostPlaceIdChange(
+                                    event.target.value === "" ? null : Number(event.target.value))}
+                                value={hostPlaceId ?? ""}
+                            >
+                                <option value="">Aucun</option>
+                                {hostPlaces.map((place) => (
+                                    <option key={place.id} value={place.id}>{place.name}</option>
+                                ))}
+                                {/* Lieu enregistré qui n'est plus publié : gardé tant qu'il n'est pas changé. */}
+                                {hostPlaceId !== null && !hostPlaces.some((place) => place.id === hostPlaceId) && (
+                                    <option value={hostPlaceId}>Lieu actuel (n° {hostPlaceId})</option>
+                                )}
+                            </select>
+                        </div>
+                    )}
                     <div className="explorer-modal-actions">
                         <button type="submit">
                             {mode === "edit" ? "Enregistrer les modifications" : "Proposer l'activité"}

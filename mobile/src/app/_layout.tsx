@@ -76,6 +76,7 @@ export default function RootLayout() {
             <Stack.Screen name="pro/index" options={{ title: 'Espace professionnel' }} />
             <Stack.Screen name="pro/revendiquer" options={{ title: 'Gérer un lieu existant' }} />
             <Stack.Screen name="pro/nouveau-lieu" options={{ title: 'Créer un lieu' }} />
+            <Stack.Screen name="pro/lieu/[id]" options={{ title: 'Mon lieu' }} />
             <Stack.Screen name="pro/foodtrucks/index" options={{ title: 'Mes food trucks' }} />
             <Stack.Screen name="pro/foodtrucks/[id]" options={{ title: 'Mon food truck' }} />
             {/* Accueil de première connexion : plein écran, sans geste ni bouton de retour. */}

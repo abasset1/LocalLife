@@ -47,11 +47,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   (gestion des agendas depuis l'interface d'administration, voir
  *   {@code SourceController}) — même posture que les endpoints
  *   d'administration ci-dessus. GET : ADMIN aussi depuis le 21/10/2026.
- * Endpoint protégé (LL-6009, Sprint 6) :
- * - POST /api/v1/foodtrucks : utilisateur connecté (JWT valide requis),
- *   même posture que POST /api/v1/activities ci-dessus (voir
- *   {@code FoodTruckController}). GET /api/v1/foodtrucks reste public,
- *   comme GET /api/v1/activities.
+ * POST /api/v1/foodtrucks (LL-6009) : retiré le 22/10/2026, les food
+ *   trucks se créent dans l'espace professionnel (/api/v1/pro/**).
  * Endpoint protégé (LL-7002, Sprint 7) :
  * - POST /api/v1/admin/import : réservé au rôle ADMIN, même mécanisme
  *   que les autres endpoints d'administration ci-dessus (voir
@@ -200,7 +197,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/activities/deletion-preview").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/admin/activities").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/admin/activities/*").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/foodtrucks").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/import").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/import/discover-agendas").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/import/discover-agendas/latest")

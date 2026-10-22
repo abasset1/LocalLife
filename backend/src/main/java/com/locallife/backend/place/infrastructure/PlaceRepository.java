@@ -134,13 +134,20 @@ public class PlaceRepository {
 
     /**
      * Met à jour un lieu connu et sa provenance. Une précision {@code EXACT} (validation humaine) n'est jamais
-     * remplacée par celle de la source.
+     * remplacée par celle de la source ; une modification d'un gestionnaire validée par l'équipe
+     * ({@code manager_edited_at}) prime sur la source pour l'adresse, la position, le site et la description.
      */
     public void update(Long locationId, Long sourceId, String externalId, String sourceTypes, String contentHash,
             PlaceFields fields, PlaceStatus status) {
         jdbc.update("""
-                UPDATE location SET name = :name, address = :address, postal_code = :postalCode, city = :city,
-                       latitude = :latitude, longitude = :longitude, website = :website, description = :description,
+                UPDATE location SET name = :name,
+                       address = CASE WHEN manager_edited_at IS NULL THEN :address ELSE address END,
+                       postal_code = CASE WHEN manager_edited_at IS NULL THEN :postalCode ELSE postal_code END,
+                       city = CASE WHEN manager_edited_at IS NULL THEN :city ELSE city END,
+                       latitude = CASE WHEN manager_edited_at IS NULL THEN :latitude ELSE latitude END,
+                       longitude = CASE WHEN manager_edited_at IS NULL THEN :longitude ELSE longitude END,
+                       website = CASE WHEN manager_edited_at IS NULL THEN :website ELSE website END,
+                       description = CASE WHEN manager_edited_at IS NULL THEN :description ELSE description END,
                        place_type = :placeType, place_status = :status,
                        coordinate_precision = CASE WHEN coordinate_precision = 'EXACT' THEN coordinate_precision
                                                    ELSE :precision END
@@ -203,8 +210,9 @@ public class PlaceRepository {
 
     /**
      * Publie ou refuse des lieux ; seules les transitions permises sont appliquées (publier : depuis
-     * {@code PENDING} ou {@code REJECTED} ; refuser : depuis {@code PENDING} ou {@code PUBLISHED}). Renvoie les ids
-     * effectivement modifiés.
+     * {@code PENDING} ou {@code REJECTED} ; refuser : depuis {@code PENDING} ou {@code PUBLISHED}). Un lieu créé par
+     * l'administrateur lui-même n'est jamais modéré par lui (décision du 22/10/2026). Renvoie les ids effectivement
+     * modifiés.
      */
     public List<Long> moderate(Collection<Long> ids, PlaceStatus target, Long adminId) {
         if (ids.isEmpty()) {
@@ -217,9 +225,17 @@ public class PlaceRepository {
                        published_at = CASE WHEN :target = 'PUBLISHED' THEN COALESCE(published_at, now())
                                            ELSE published_at END
                 WHERE id IN (:ids) AND place_status IN (:from)
+                  AND (created_by IS NULL OR CAST(:adminId AS bigint) IS NULL OR created_by <> :adminId)
                 RETURNING id
                 """, new MapSqlParameterSource("ids", ids).addValue("target", target.name())
                 .addValue("adminId", adminId).addValue("from", from), Long.class);
+    }
+
+    /** Le lieu a-t-il été créé par ce compte (espace professionnel) ? */
+    public boolean isCreatedBy(Long id, Long userId) {
+        return userId != null && Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM location WHERE id = :id AND created_by = :userId)",
+                new MapSqlParameterSource("id", id).addValue("userId", userId), Boolean.class));
     }
 
     public Optional<Place> findById(Long id) {

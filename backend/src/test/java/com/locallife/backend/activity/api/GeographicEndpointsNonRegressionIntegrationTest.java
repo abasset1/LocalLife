@@ -44,7 +44,7 @@ class GeographicEndpointsNonRegressionIntegrationTest {
     /** Élément de {@code GET /api/v1/activities} (résumé) ; {@code coordinatePrecision} : ADR-0011, phase A. */
     private static final Set<String> LIST_ITEM_FIELDS = Set.of(
             "id", "title", "category", "date", "latitude", "longitude", "address", "city", "createdBy",
-            "mainImageUrl", "coordinatePrecision");
+            "mainImageUrl", "coordinatePrecision", "hostPlace");
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 

@@ -6,7 +6,6 @@ import com.locallife.backend.auth.api.LoginRequest;
 import com.locallife.backend.auth.api.LoginResponse;
 import com.locallife.backend.auth.api.RegisterRequest;
 import com.locallife.backend.common.IntegrationTestCleaner;
-import com.locallife.backend.foodtruck.api.FoodTruckController;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,15 +19,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
- * Tests d'intégration bout en bout pour {@code FoodTruckController}
- * (LL-6009, Sprint 6) : {@code GET /api/v1/foodtrucks} public, {@code
- * POST /api/v1/foodtrucks} protégé (utilisateur connecté requis, même
- * posture que {@code POST /api/v1/activities}, voir {@code
- * SecurityConfig}). Même approche que
- * {@code AdminActivityControllerIntegrationTest} (serveur embarqué, base
- * réelle) mais sans mock de géocodage : la création reçoit directement
- * latitude/longitude (voir {@code FoodTruckService}), aucune dépendance
- * réseau à isoler ici.
+ * Tests d'intégration bout en bout pour {@code FoodTruckController} (LL-6009) : {@code GET /api/v1/foodtrucks}
+ * public ; l'ancienne création directe {@code POST /api/v1/foodtrucks} n'existe plus (22/10/2026).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class FoodTruckControllerIntegrationTest {
@@ -106,88 +98,19 @@ class FoodTruckControllerIntegrationTest {
     }
 
     @Test
-    void createFoodTruck_ShouldReturnCreated_WhenAuthenticatedAndValid() {
-        // Given
+    void legacyCreationRoute_ShouldNoLongerCreateAFoodTruck() {
+        // Retirée le 22/10/2026 : elle publiait sans validation. La création passe par /api/v1/pro/foodtrucks.
+        String body = "{\"name\":\"Ancienne route\",\"category\":\"burger\",\"latitude\":43.29,"
+                + "\"longitude\":5.37}";
+        restTestClient().post().uri("/api/v1/foodtrucks").contentType(MediaType.APPLICATION_JSON).body(body)
+                .exchange().expectStatus().isUnauthorized();
         String token = registerAndLoginAsPro(uniqueEmail());
-
-        // When / Then
-        restTestClient().post().uri("/api/v1/foodtrucks")
+        int status = restTestClient().post().uri("/api/v1/foodtrucks")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new FoodTruckController.CreateFoodTruckRequest(
-                        cleaner.trackFoodTruck("Le Camion qui Fume " + UUID.randomUUID()),
-                        "Burgers gourmet", 43.29, 5.37, "burger", null))
-                .exchange()
-                .expectStatus().isCreated()
-                .expectBody()
-                .jsonPath("$.status").isEqualTo("PUBLISHED")
-                // Date de publication posée par la base (trigger V55) et renvoyée à la création.
-                .jsonPath("$.publishedAt").isNotEmpty();
+                .contentType(MediaType.APPLICATION_JSON).body(body)
+                .exchange().returnResult(String.class).getStatus().value();
+        assertThat(status).isGreaterThanOrEqualTo(400);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM food_truck WHERE name = 'Ancienne route'",
+                Long.class)).isZero();
     }
-
-    @Test
-    void createFoodTruck_ShouldBeVisibleOnPublicListing_AfterCreation() {
-        // Given : un food truck créé via le flux protégé normal.
-        String token = registerAndLoginAsPro(uniqueEmail());
-        String uniqueName = cleaner.trackFoodTruck("Le Camion qui Fume " + UUID.randomUUID());
-        restTestClient().post().uri("/api/v1/foodtrucks")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new FoodTruckController.CreateFoodTruckRequest(
-                        uniqueName, "desc", 43.29, 5.37, "burger", null))
-                .exchange()
-                .expectStatus().isCreated();
-
-        // When / Then : critère d'acceptation « visibilité sur la carte » — retrouvable
-        // immédiatement sur la consultation publique, sans étape de modération.
-        String body = restTestClient().get().uri("/api/v1/foodtrucks")
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(String.class)
-                .returnResult()
-                .getResponseBody();
-        assertThat(body).contains(uniqueName);
-        // ADR-0013 : la position reçue est devenue une présence permanente, plus une colonne du food truck.
-        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM food_truck_presence p "
-                + "JOIN food_truck ft ON ft.id = p.food_truck_id JOIN location l ON l.id = p.location_id "
-                + "WHERE ft.name = ? AND ft.latitude IS NULL AND l.latitude = 43.29 AND l.longitude = 5.37 "
-                + "AND l.place_type IS NULL AND p.days_of_week IS NULL AND p.valid_until IS NULL", Long.class,
-                uniqueName)).isEqualTo(1);
-    }
-
-    @Test
-    void createFoodTruck_ShouldBeForbidden_ForANonProfessionalAccount() {
-        String token = registerAndLoginAsUser(uniqueEmail());
-        restTestClient().post().uri("/api/v1/foodtrucks")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new FoodTruckController.CreateFoodTruckRequest(
-                        cleaner.trackFoodTruck("Refusé " + UUID.randomUUID()), "desc", 43.29, 5.37, "burger", null))
-                .exchange()
-                .expectStatus().isForbidden();
-    }
-
-    @Test
-    void createFoodTruck_ShouldReturnUnauthorized_WhenNoTokenProvided() {
-        restTestClient().post().uri("/api/v1/foodtrucks")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new FoodTruckController.CreateFoodTruckRequest(
-                        "Le Camion qui Fume", "desc", 43.29, 5.37, "burger", null))
-                .exchange()
-                .expectStatus().isUnauthorized();
-    }
-
-    @Test
-    void createFoodTruck_ShouldReturnBadRequest_WhenNameMissing() {
-        String token = registerAndLoginAsPro(uniqueEmail());
-
-        restTestClient().post().uri("/api/v1/foodtrucks")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new FoodTruckController.CreateFoodTruckRequest(
-                        "", "desc", 43.29, 5.37, "burger", null))
-                .exchange()
-                .expectStatus().isBadRequest();
-    }
-
 }

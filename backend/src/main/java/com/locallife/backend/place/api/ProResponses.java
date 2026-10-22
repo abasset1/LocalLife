@@ -1,12 +1,16 @@
 package com.locallife.backend.place.api;
 
 import com.locallife.backend.common.ErrorResponse;
+import com.locallife.backend.place.application.ManagedPlaceService.ChangeReview;
 import com.locallife.backend.place.application.PlaceClaimService.ClaimReview;
 import com.locallife.backend.pro.application.ProActionException;
 import com.locallife.backend.place.application.ProPlaceService.SimilarResult;
 import com.locallife.backend.place.domain.ClaimStatus;
 import com.locallife.backend.place.domain.PlaceClaim;
 import com.locallife.backend.place.domain.PlaceStatus;
+import com.locallife.backend.place.infrastructure.PlaceChangeRepository.ChangeFields;
+import com.locallife.backend.place.infrastructure.PlaceChangeRepository.ChangeStatus;
+import com.locallife.backend.place.infrastructure.PlaceChangeRepository.PlaceChange;
 import com.locallife.backend.place.infrastructure.PlaceClaimRepository.ClaimEvent;
 import com.locallife.backend.place.infrastructure.PlaceManagerRepository.Manager;
 import com.locallife.backend.place.infrastructure.ProPlaceRepository.ManagedPlace;
@@ -88,7 +92,7 @@ final class ProResponses {
     record ManagedPlaceResponse(
             Long id, String name, String placeType, PlaceStatus status, String address, String postalCode, String city,
             Double latitude, Double longitude, String description, String website, String phone, String email,
-            String origin, boolean editable, Long reportedSimilarTo) {
+            String origin, boolean editable, Long reportedSimilarTo, boolean changeProposable) {
 
         static ManagedPlaceResponse from(ManagedPlace managed) {
             var place = managed.place();
@@ -97,7 +101,44 @@ final class ProResponses {
             return new ManagedPlaceResponse(place.id(), place.name(), place.placeType(), place.status(),
                     place.address(), place.postalCode(), place.city(), place.latitude(), place.longitude(),
                     place.description(), place.website(), managed.phone(), managed.email(),
-                    managed.imported() ? "IMPORTED" : "CREATED", editable, managed.reportedSimilarTo());
+                    managed.imported() ? "IMPORTED" : "CREATED", editable, managed.reportedSimilarTo(),
+                    place.status() == PlaceStatus.PUBLISHED);
+        }
+    }
+
+    /** Proposition de modification vue par son auteur. */
+    record PlaceChangeResponse(
+            Long id, Long placeId, String placeName, ChangeStatus status, String address, String postalCode,
+            String city, double latitude, double longitude, String description, String website, String phone,
+            String email, String decisionReason, OffsetDateTime createdAt, OffsetDateTime decidedAt) {
+
+        static PlaceChangeResponse from(PlaceChange change) {
+            ChangeFields fields = change.fields();
+            return new PlaceChangeResponse(change.id(), change.locationId(), change.placeName(), change.status(),
+                    fields.address(), fields.postalCode(), fields.city(), fields.latitude(), fields.longitude(),
+                    fields.description(), fields.website(), fields.phone(), fields.email(), change.decisionReason(),
+                    change.createdAt(), change.decidedAt());
+        }
+    }
+
+    /** Proposition vue par un modérateur. */
+    record AdminPlaceChangeResponse(PlaceChangeResponse change, Long requesterId, String requesterEmail,
+            Long moderatorId) {
+
+        static AdminPlaceChangeResponse from(PlaceChange change) {
+            return new AdminPlaceChangeResponse(PlaceChangeResponse.from(change), change.requesterId(),
+                    change.requesterEmail(), change.moderatorId());
+        }
+    }
+
+    /** Dossier d'une proposition : la fiche actuelle pour comparer, et les gestionnaires du lieu. */
+    record PlaceChangeReviewResponse(
+            AdminPlaceChangeResponse proposal, ManagedPlaceResponse current, List<ManagerResponse> managers) {
+
+        static PlaceChangeReviewResponse from(ChangeReview review) {
+            return new PlaceChangeReviewResponse(AdminPlaceChangeResponse.from(review.change()),
+                    ManagedPlaceResponse.from(review.current()),
+                    review.managers().stream().map(ManagerResponse::from).toList());
         }
     }
 

@@ -17,6 +17,12 @@ interface OwnedFoodTruck {
     contact: string | null;
     status: TruckStatus;
     suspendedByLocalLife: boolean;
+    /** Validé une fois par un modérateur : la publication suivante est directe. */
+    approved: boolean;
+    /** Motif du dernier refus de validation. */
+    reviewReason: string | null;
+    /** Masqué automatiquement à la fin de l'accès professionnel (republié à son retour). */
+    suspendedForAccess: boolean;
 }
 
 /** Présence vue par le propriétaire (`ManagedPresenceResponse`, backend). */
@@ -35,7 +41,7 @@ interface ManagedPresence {
 
 const TRUCK_STATUS_LABELS: Record<TruckStatus, string> = {
     DRAFT: "Brouillon",
-    PENDING: "En attente",
+    PENDING: "En validation",
     PUBLISHED: "Publié",
     SUSPENDED: "Suspendu",
     ARCHIVED: "Archivé",
@@ -66,6 +72,23 @@ const EMPTY_PRESENCE = {
     startTime: "", endTime: "", validFrom: "", validUntil: "",
 };
 
+/** Statuts depuis lesquels le propriétaire peut archiver son food truck. */
+const ARCHIVABLE: TruckStatus[] = ["DRAFT", "PENDING", "PUBLISHED", "SUSPENDED", "REJECTED"];
+
+/**
+ * Publication possible : un food truck jamais validé part en validation (brouillon ou refusé) ; une fois validé, un
+ * brouillon ou un food truck suspendu par son propriétaire se publie directement. Un food truck masqué par LocalLife ou
+ * par la fin de l'accès professionnel ne se republie pas d'ici.
+ */
+function canPublish(truck: OwnedFoodTruck): boolean {
+    if (truck.suspendedByLocalLife || truck.suspendedForAccess) {
+        return false;
+    }
+    return truck.approved
+        ? truck.status === "DRAFT" || truck.status === "SUSPENDED"
+        : truck.status === "DRAFT" || truck.status === "REJECTED";
+}
+
 function describeDays(days: string | null): string {
     if (!days) {
         return "Tous les jours";
@@ -87,10 +110,14 @@ function describePeriod(presence: ManagedPresence): string | null {
 /**
  * Food trucks du professionnel (PRO-01 lot C, FOODTRUCK-01) : profil distinct des lieux, publié par son propriétaire,
  * puis emplacements et planning de présence (lieu LocalLife existant ou nouvelle adresse, jours, horaires, période).
- * Brouillon d'abord, publication ensuite ; un emplacement peut être désactivé, réactivé ou archivé. Le backend vérifie
+ * Brouillon d'abord, validation par un modérateur avant la première publication, publication directe ensuite ; un
+ * food truck en validation peut être retiré (retour en brouillon) ; un emplacement peut être désactivé, réactivé ou archivé. Le backend vérifie
  * la propriété, les chevauchements et les dates.
  */
-function ProFoodTrucksSection() {
+function ProFoodTrucksSection({ readOnly = false }: {
+    /** Accès professionnel terminé : consultation et archivage seulement (le reste est refusé par le serveur). */
+    readOnly?: boolean;
+} = {}) {
     const [trucks, setTrucks] = useState<OwnedFoodTruck[]>([]);
     const [refreshKey, setRefreshKey] = useState(0);
     const [editing, setEditing] = useState<OwnedFoodTruck | "new" | null>(null);
@@ -144,7 +171,7 @@ function ProFoodTrucksSection() {
         setBusy(false);
         if (result.ok) {
             setMessage(editing === "new"
-                ? `« ${result.data.name} » créé en brouillon. Ajoute ses emplacements, puis publie-le.`
+                ? `« ${result.data.name} » créé en brouillon. Ajoute ses emplacements, puis envoie-le en validation.`
                 : "Profil enregistré.");
             setEditing(null);
             setSelected(result.data);
@@ -159,7 +186,15 @@ function ProFoodTrucksSection() {
             return;
         }
         const result = await proRequest<OwnedFoodTruck>(`/api/v1/pro/foodtrucks/${truck.id}/${action}`, "POST");
-        setMessage(result.ok ? null : result.message);
+        if (!result.ok) {
+            setMessage(result.message);
+        } else if (action === "publish" && result.data.status === "PENDING") {
+            setMessage(`« ${truck.name} » est envoyé en validation : un modérateur le vérifie avant sa première publication.`);
+        } else if (action === "suspend" && truck.status === "PENDING") {
+            setMessage(`Demande retirée : « ${truck.name} » repasse en brouillon.`);
+        } else {
+            setMessage(null);
+        }
         setRefreshKey((key) => key + 1);
     }
 
@@ -278,7 +313,7 @@ function ProFoodTrucksSection() {
                         </button>
                     </div>
                 </form>
-            ) : (
+            ) : !readOnly && (
                 <button className="admin-approve-button" onClick={() => startProfile("new")} type="button">
                     Créer un food truck
                 </button>
@@ -296,29 +331,48 @@ function ProFoodTrucksSection() {
                                     {TRUCK_STATUS_LABELS[truck.status]} · {truck.category}
                                     {truck.suspendedByLocalLife ? " · suspendu par LocalLife" : ""}
                                 </span>
+                                {truck.status === "PENDING" && (
+                                    <span className="favorites-list-item-meta">
+                                        Un modérateur vérifie ta fiche avant sa première publication.
+                                    </span>
+                                )}
+                                {truck.status === "REJECTED" && truck.reviewReason && (
+                                    <span className="favorites-list-item-meta">Motif du refus : {truck.reviewReason}</span>
+                                )}
+                                {truck.suspendedForAccess && (
+                                    <span className="favorites-list-item-meta">
+                                        Masqué : ton accès professionnel a pris fin. Il sera republié si ton accès revient.
+                                    </span>
+                                )}
                             </div>
                             <div className="contributions-list-item-actions">
                                 <button className="contribution-action" onClick={() => setSelected(truck)} type="button">
                                     Emplacements
                                 </button>
-                                {truck.status !== "ARCHIVED" && (
+                                {!readOnly && truck.status !== "ARCHIVED" && (
                                     <button className="contribution-action" onClick={() => startProfile(truck)} type="button">
                                         Modifier
                                     </button>
                                 )}
-                                {(truck.status === "DRAFT" || truck.status === "SUSPENDED") && !truck.suspendedByLocalLife && (
+                                {!readOnly && canPublish(truck) && (
                                     <button className="contribution-action" onClick={() => void actOnTruck(truck, "publish")}
                                         type="button">
-                                        Publier
+                                        {truck.approved ? "Publier" : "Envoyer en validation"}
                                     </button>
                                 )}
-                                {truck.status === "PUBLISHED" && (
+                                {!readOnly && truck.status === "PENDING" && (
+                                    <button className="contribution-action" onClick={() => void actOnTruck(truck, "suspend")}
+                                        type="button">
+                                        Retirer la demande
+                                    </button>
+                                )}
+                                {!readOnly && truck.status === "PUBLISHED" && (
                                     <button className="contribution-action" onClick={() => void actOnTruck(truck, "suspend")}
                                         type="button">
                                         Suspendre
                                     </button>
                                 )}
-                                {truck.status !== "ARCHIVED" && (
+                                {ARCHIVABLE.includes(truck.status) && (
                                     <button className="contribution-action contribution-action-danger" type="button"
                                         onClick={() => void actOnTruck(truck, "archive")}>
                                         Archiver
@@ -355,17 +409,19 @@ function ProFoodTrucksSection() {
                                     </div>
                                     {presence.status !== "ARCHIVED" && (
                                         <div className="contributions-list-item-actions">
-                                            <button className="contribution-action" onClick={() => startPresence(presence)}
-                                                type="button">
-                                                Modifier
-                                            </button>
-                                            {presence.status !== "PUBLISHED" && (
+                                            {!readOnly && (
+                                                <button className="contribution-action" onClick={() => startPresence(presence)}
+                                                    type="button">
+                                                    Modifier
+                                                </button>
+                                            )}
+                                            {!readOnly && presence.status !== "PUBLISHED" && (
                                                 <button className="contribution-action" type="button"
                                                     onClick={() => void actOnPresence(presence, "publish")}>
                                                     {presence.status === "SUSPENDED" ? "Réactiver" : "Publier"}
                                                 </button>
                                             )}
-                                            {presence.status === "PUBLISHED" && (
+                                            {!readOnly && presence.status === "PUBLISHED" && (
                                                 <button className="contribution-action" type="button"
                                                     onClick={() => void actOnPresence(presence, "suspend")}>
                                                     Désactiver
@@ -383,7 +439,7 @@ function ProFoodTrucksSection() {
                     )}
 
                     {editingPresence === null ? (
-                        selected.status !== "ARCHIVED" && (
+                        !readOnly && selected.status !== "ARCHIVED" && (
                             <button className="admin-approve-button" onClick={() => startPresence("new")} type="button">
                                 Ajouter un emplacement
                             </button>

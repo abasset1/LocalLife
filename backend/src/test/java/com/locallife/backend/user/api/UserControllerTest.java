@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import com.locallife.backend.activity.application.ContributionAccessPolicy;
+import com.locallife.backend.pro.application.ProAccessPolicy;
 import com.locallife.backend.user.application.AccountSelfService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
@@ -49,6 +50,9 @@ class UserControllerTest {
 
     @Mock
     private ContributionAccessPolicy contributionAccessPolicy;
+
+    @Mock
+    private ProAccessPolicy proAccessPolicy;
 
     @InjectMocks
     private UserController userController;

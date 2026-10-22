@@ -5,12 +5,13 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth';
+import { useCurrentAccount, useOwnsFoodTrucks } from '@/features/pro/useProAccess';
 import { BrandMark } from '@/components/brand-mark';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-import { MENU_SECTIONS, isCurrentEntry, type MenuEntry } from './menuEntries';
+import { isCurrentEntry, visibleSections, type MenuEntry } from './menuEntries';
 
 const ICONS: Record<MenuEntry['icon'], SymbolViewProps['name']> = {
   map: { ios: 'map', android: 'map', web: 'map' },
@@ -38,6 +39,11 @@ export function MenuButton({ floating = false }: { /** Posé sur la carte : past
   const { state } = useAuth();
   const authenticated = state.status === 'authenticated';
   const [open, setOpen] = useState(false);
+  // Relu à l'ouverture du menu : l'espace professionnel n'apparaît qu'avec un accès pro ; sans, un ancien compte Pro
+  // garde l'accès à ses food trucks (consultation, archivage).
+  const account = useCurrentAccount(open && authenticated);
+  const proAccess = account?.hasProAccess === true;
+  const ownsFoodTrucks = useOwnsFoodTrucks(open && account !== null && !proAccess);
 
   function go(entry: MenuEntry) {
     setOpen(false);
@@ -87,7 +93,7 @@ export function MenuButton({ floating = false }: { /** Posé sur la carte : past
               </Pressable>
             </View>
             <ScrollView contentContainerStyle={styles.sections}>
-              {MENU_SECTIONS.filter((section) => !section.authenticated || authenticated).map((section) => (
+              {visibleSections({ authenticated, proAccess, ownsFoodTrucks }).map((section) => (
                 <View key={section.title} style={styles.section}>
                   <ThemedText type="eyebrow">{section.title}</ThemedText>
                   {section.entries.map((entry) => {

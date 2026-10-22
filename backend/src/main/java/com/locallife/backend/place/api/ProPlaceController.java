@@ -3,9 +3,11 @@ package com.locallife.backend.place.api;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.place.api.ProResponses.ClaimResponse;
 import com.locallife.backend.place.api.ProResponses.ManagedPlaceResponse;
+import com.locallife.backend.place.api.ProResponses.PlaceChangeResponse;
 import com.locallife.backend.place.api.ProResponses.SimilarConflictResponse;
 import com.locallife.backend.place.api.ProResponses.SimilarPlaceResponse;
 import com.locallife.backend.place.api.ProResponses.SimilarResponse;
+import com.locallife.backend.place.application.ManagedPlaceService;
 import com.locallife.backend.place.application.PlaceClaimService;
 import com.locallife.backend.pro.application.ProActionException;
 import com.locallife.backend.place.application.ProPlaceService;
@@ -41,10 +43,13 @@ public class ProPlaceController {
 
     private final PlaceClaimService claimService;
     private final ProPlaceService placeService;
+    private final ManagedPlaceService managedPlaceService;
 
-    public ProPlaceController(PlaceClaimService claimService, ProPlaceService placeService) {
+    public ProPlaceController(PlaceClaimService claimService, ProPlaceService placeService,
+            ManagedPlaceService managedPlaceService) {
         this.claimService = claimService;
         this.placeService = placeService;
+        this.managedPlaceService = managedPlaceService;
     }
 
     /** Texte d'une demande de gestion. */
@@ -178,7 +183,8 @@ public class ProPlaceController {
                 placeService.findManaged(userId(authentication), id))));
     }
 
-    @Operation(summary = "Modifier un lieu que j'ai créé", description = "En brouillon ou en attente de modération.")
+    @Operation(summary = "Modifier un lieu que j'ai créé", description = "En brouillon ou en attente de modération ; "
+            + "un lieu publié se modifie par une proposition (POST /pro/places/{id}/changes).")
     @PutMapping("/places/{id}")
     public ResponseEntity<Object> update(@PathVariable Long id, @RequestBody(required = false) PlaceBody body,
             Authentication authentication, HttpServletRequest request) {
@@ -195,6 +201,47 @@ public class ProPlaceController {
             HttpServletRequest request) {
         return handle(request, () -> ResponseEntity.ok(ManagedPlaceResponse.from(
                 placeService.submit(userId(authentication), id))));
+    }
+
+    // ---------------------------------------------------------------- lieux publiés gérés (D5, 22/10/2026)
+
+    @Operation(summary = "Proposer une modification d'un lieu publié que je gère",
+            description = "Adresse, position, description, site, téléphone, e-mail (nom et catégorie ignorés). "
+                    + "Appliquée après validation par l'équipe ; remplace ma proposition en attente.")
+    @PostMapping("/places/{id}/changes")
+    public ResponseEntity<Object> proposeChange(@PathVariable Long id, @RequestBody(required = false) PlaceBody body,
+            Authentication authentication, HttpServletRequest request) {
+        if (body == null) {
+            return ProResponses.error(HttpStatus.BAD_REQUEST, "Corps de requête manquant.", request);
+        }
+        return handle(request, () -> ResponseEntity.status(HttpStatus.CREATED).body(PlaceChangeResponse.from(
+                managedPlaceService.propose(userId(authentication), id, body.input()))));
+    }
+
+    @Operation(summary = "Mes propositions de modification d'un lieu", description = "Les plus récentes d'abord.")
+    @GetMapping("/places/{id}/changes")
+    public ResponseEntity<Object> myChanges(@PathVariable Long id, Authentication authentication,
+            HttpServletRequest request) {
+        return handle(request, () -> ResponseEntity.ok(managedPlaceService.findChanges(userId(authentication), id)
+                .stream().map(PlaceChangeResponse::from).toList()));
+    }
+
+    @Operation(summary = "Retirer une proposition en attente")
+    @PostMapping("/place-changes/{changeId}/withdraw")
+    public ResponseEntity<Object> withdrawChange(@PathVariable Long changeId, Authentication authentication,
+            HttpServletRequest request) {
+        return handle(request, () -> ResponseEntity.ok(PlaceChangeResponse.from(
+                managedPlaceService.withdraw(userId(authentication), changeId))));
+    }
+
+    @Operation(summary = "Renoncer à gérer un lieu", description = "Mes propositions en attente sont retirées.")
+    @PostMapping("/places/{id}/renounce")
+    public ResponseEntity<Object> renounce(@PathVariable Long id, Authentication authentication,
+            HttpServletRequest request) {
+        return handle(request, () -> {
+            managedPlaceService.renounce(userId(authentication), id);
+            return ResponseEntity.noContent().build();
+        });
     }
 
     private static ResponseEntity<Object> handle(HttpServletRequest request, Supplier<ResponseEntity<Object>> action) {

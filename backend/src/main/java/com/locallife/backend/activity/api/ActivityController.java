@@ -3,6 +3,7 @@ package com.locallife.backend.activity.api;
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.accessibility.domain.Accessibility;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
+import com.locallife.backend.activity.application.ActivityHostPlaceService;
 import com.locallife.backend.activity.application.ContributionAccessPolicy;
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.application.ContributionRecurrence;
@@ -118,6 +119,7 @@ public class ActivityController {
     private final RecurringContributionService recurringContributionService;
     private final ContributionService contributionService;
     private final ContributionAccessPolicy contributionAccessPolicy;
+    private final ActivityHostPlaceService hostPlaceService;
 
     private final ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
     private final ActivityAtPlaceRepository activityAtPlaceRepository;
@@ -134,7 +136,8 @@ public class ActivityController {
             PremiumAccessPolicy premiumAccessPolicy, CategoryRepository categoryRepository,
             RecurringContributionService recurringContributionService, ContributionService contributionService,
             ActivityCoordinatePrecisionRepository coordinatePrecisionRepository,
-            ActivityAtPlaceRepository activityAtPlaceRepository, ContributionAccessPolicy contributionAccessPolicy) {
+            ActivityAtPlaceRepository activityAtPlaceRepository, ContributionAccessPolicy contributionAccessPolicy,
+            ActivityHostPlaceService hostPlaceService) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -155,6 +158,7 @@ public class ActivityController {
         this.coordinatePrecisionRepository = coordinatePrecisionRepository;
         this.activityAtPlaceRepository = activityAtPlaceRepository;
         this.contributionAccessPolicy = contributionAccessPolicy;
+        this.hostPlaceService = hostPlaceService;
     }
 
     @Operation(summary = "Activités à venir d'un lieu permanent",
@@ -507,10 +511,11 @@ public class ActivityController {
                 .map(activity -> {
                     CoordinatePrecision precision = resolveCoordinatePrecisions(List.of(activity.id()))
                             .get(activity.id());
+                    var hostPlace = hostPlaceService.findDisplayed(activity.id());
                     return ResponseEntity.ok(premiumAccessPolicy.hasPremiumAccess(authentication)
-                            ? toDetailResponse(activity).withCoordinatePrecision(precision)
+                            ? toDetailResponse(activity).withCoordinatePrecision(precision).withHostPlace(hostPlace)
                             : (Object) ActivitySummaryResponse.from(activity, resolveMainImageUrl(activity.id()))
-                                    .withCoordinatePrecision(precision));
+                                    .withCoordinatePrecision(precision).withHostPlace(hostPlace));
                 })
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
@@ -614,6 +619,7 @@ public class ActivityController {
             // LL-EF-016 : validés avant même la création de l'activité (voir la javadoc de
             // CreateActivityRequest et ActivityLinkService#validateBeforeCreate).
             validateContactLinks(request);
+            hostPlaceService.validate(((JwtAuthentication) authentication).getUserId(), request.hostPlaceId());
 
             // Issue #45 : une activité a 1..N catégories (contrainte en base, V42). Pour une
             // contribution manuelle, ce sont celles choisies par le contributeur (categoryCodes,
@@ -635,6 +641,7 @@ public class ActivityController {
                             createdBy, categoryIds, recurrence.toContributionRecurrence());
 
             attachContactLinks(activity.id(), request);
+            hostPlaceService.set(activity.id(), request.hostPlaceId());
 
             return ResponseEntity.status(HttpStatus.CREATED).body(activity);
         } catch (IllegalArgumentException | AddressNotFoundException exception) {
@@ -706,6 +713,11 @@ public class ActivityController {
         }
         try {
             validateContactLinks(request);
+            Long chosenHost = hostPlaceService.findChosen(id).orElse(null);
+            // Un lieu déjà choisi peut être gardé tel quel (ex. administrateur qui corrige l'activité d'un autre).
+            if (request.hostPlaceId() != null && !request.hostPlaceId().equals(chosenHost)) {
+                hostPlaceService.validate(jwtAuthentication.getUserId(), request.hostPlaceId());
+            }
             List<Long> categoryIds = resolveRequestedCategoryIds(request, id);
             RecurrenceRequest recurrence = request.recurrence();
             Optional<Activity> updated = contributionService.update(
@@ -718,6 +730,7 @@ public class ActivityController {
             }
             activityLinkService.deleteByActivityId(id);
             attachContactLinks(id, request);
+            hostPlaceService.set(id, request.hostPlaceId());
             return ResponseEntity.ok(updated.get());
         } catch (IllegalArgumentException | AddressNotFoundException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -767,7 +780,8 @@ public class ActivityController {
                 activity.city(), activity.startDate(), activity.endDate(),
                 resolveCategoryCodes(List.of(activity.id())).getOrDefault(activity.id(), List.of()),
                 linkValue(links, LINK_TYPE_WEBSITE), linkValue(links, ActivityLinkService.TYPE_PHONE),
-                linkValue(links, ActivityLinkService.TYPE_EMAIL), recurrence);
+                linkValue(links, ActivityLinkService.TYPE_EMAIL), recurrence,
+                hostPlaceService.findChosen(activity.id()).orElse(null));
     }
 
     private static String linkValue(List<ActivityLink> links, String type) {
@@ -1031,11 +1045,23 @@ public class ActivityController {
      *
      * {@code recurrence} : facultatif. Renseigné, l'activité revient chaque semaine (food truck, marché…)
      * et {@code startDate}/{@code endDate} sont ignorés au profit de ses bornes {@code from}/{@code until}.
+     *
+     * {@code hostPlaceId} : facultatif, lieu publié géré par l'auteur qui propose l'activité (décision du
+     * 22/10/2026) ; 400 si l'auteur ne le gère pas. À la modification, {@code null} retire le lieu.
      */
     public record CreateActivityRequest(
             String title, String description, String category, String address,
             String startDate, String endDate, String url, String phone, String email,
-            String categoryCode, List<String> categoryCodes, RecurrenceRequest recurrence) {
+            String categoryCode, List<String> categoryCodes, RecurrenceRequest recurrence, Long hostPlaceId) {
+
+        /** Sans lieu qui propose l'activité. */
+        public CreateActivityRequest(
+                String title, String description, String category, String address,
+                String startDate, String endDate, String url, String phone, String email,
+                String categoryCode, List<String> categoryCodes, RecurrenceRequest recurrence) {
+            this(title, description, category, address, startDate, endDate, url, phone, email, categoryCode,
+                    categoryCodes, recurrence, null);
+        }
 
         /** Sans récurrence (activité ponctuelle ou sur une période). */
         public CreateActivityRequest(
@@ -1043,7 +1069,7 @@ public class ActivityController {
                 String startDate, String endDate, String url, String phone, String email,
                 String categoryCode, List<String> categoryCodes) {
             this(title, description, category, address, startDate, endDate, url, phone, email, categoryCode,
-                    categoryCodes, null);
+                    categoryCodes, null, null);
         }
 
         /** Une seule catégorie ({@code categoryCode}), sans {@code categoryCodes}. */
@@ -1052,7 +1078,7 @@ public class ActivityController {
                 String startDate, String endDate, String url, String phone, String email,
                 String categoryCode) {
             this(title, description, category, address, startDate, endDate, url, phone, email, categoryCode,
-                    null, null);
+                    null, null, null);
         }
     }
 

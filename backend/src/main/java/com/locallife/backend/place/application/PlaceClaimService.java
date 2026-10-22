@@ -13,6 +13,7 @@ import com.locallife.backend.place.infrastructure.PlaceManagerRepository.Manager
 import com.locallife.backend.place.infrastructure.PlaceRepository;
 import com.locallife.backend.pro.application.ProAccessPolicy;
 import com.locallife.backend.pro.application.ProActionException;
+import com.locallife.backend.pro.application.ProNotifier;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
@@ -45,13 +46,15 @@ public class PlaceClaimService {
     private final PlaceManagerRepository managerRepository;
     private final PlaceRepository placeRepository;
     private final ProAccessPolicy proAccessPolicy;
+    private final ProNotifier notifier;
 
     public PlaceClaimService(PlaceClaimRepository claimRepository, PlaceManagerRepository managerRepository,
-            PlaceRepository placeRepository, ProAccessPolicy proAccessPolicy) {
+            PlaceRepository placeRepository, ProAccessPolicy proAccessPolicy, ProNotifier notifier) {
         this.claimRepository = claimRepository;
         this.managerRepository = managerRepository;
         this.placeRepository = placeRepository;
         this.proAccessPolicy = proAccessPolicy;
+        this.notifier = notifier;
     }
 
     /** Demande vue par le modérateur : historique, demandes concurrentes sur le même lieu et gestionnaires actuels. */
@@ -159,14 +162,34 @@ public class PlaceClaimService {
         }
         PlaceClaim updated = apply(claim, action, adminId, cleanReason);
         if (action == Action.APPROVE) {
+            if (!proAccessPolicy.hasProAccess(claim.requesterId())) {
+                throw ProActionException.conflict("Le demandeur n'a plus d'accès professionnel.");
+            }
             managerRepository.grant(claim.locationId(), claim.requesterId(), claimId, adminId);
         }
+        notifyDecision(claim, action, cleanReason);
         LOGGER.info("Demande de gestion {} (lieu {}) : {} → {} par l'administrateur {}", claimId, claim.locationId(),
                 claim.status(), updated.status(), adminId);
         return updated;
     }
 
     // ---------------------------------------------------------------- outils
+
+    private void notifyDecision(PlaceClaim claim, Action action, String reason) {
+        String place = claim.placeName() == null ? "ce lieu" : "« " + claim.placeName() + " »";
+        switch (action) {
+            case APPROVE -> notifier.notify(claim.requesterId(), "Tu gères maintenant " + place,
+                    "L'équipe LocalLife a accepté ta demande : tu gères " + place + " depuis ton espace professionnel.",
+                    null);
+            case REJECT -> notifier.notify(claim.requesterId(), "Demande de gestion refusée",
+                    "L'équipe LocalLife n'a pas accepté ta demande de gestion de " + place + ".", reason);
+            case REQUEST_INFO -> notifier.notify(claim.requesterId(), "Précisions demandées sur ta demande",
+                    "L'équipe LocalLife a besoin de précisions sur ta demande de gestion de " + place
+                            + " : complète-la depuis ton espace professionnel.", reason);
+            default -> {
+            }
+        }
+    }
 
     private PlaceClaim apply(PlaceClaim claim, Action action, Long actorId, String reason) {
         if (!ClaimTransitions.isAllowed(claim.status(), action)) {

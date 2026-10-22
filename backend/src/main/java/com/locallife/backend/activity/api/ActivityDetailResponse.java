@@ -2,6 +2,7 @@ package com.locallife.backend.activity.api;
 
 import com.locallife.backend.accessibility.domain.Accessibility;
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.infrastructure.ActivityHostPlaceRepository.HostPlace;
 import com.locallife.backend.link.domain.ActivityLink;
 import com.locallife.backend.media.domain.Media;
 import com.locallife.backend.place.domain.CoordinatePrecision;
@@ -72,7 +73,8 @@ public record ActivityDetailResponse(
         List<String> categoryCodes,
         LocalDateTime publishedAt,
         Long createdBy,
-        String coordinatePrecision) {
+        String coordinatePrecision,
+        HostPlace hostPlace) {
 
     public static ActivityDetailResponse from(
             Activity activity,
@@ -129,7 +131,8 @@ public record ActivityDetailResponse(
                 categoryCodes,
                 activity.publishedAt(),
                 activity.createdBy(),
-                CoordinatePrecision.UNKNOWN.name());
+                CoordinatePrecision.UNKNOWN.name(),
+                null);
     }
 
     /** Précision géographique de la position affichée (ADR-0011, phase A) ; {@code from} vaut {@code UNKNOWN}. */
@@ -137,7 +140,15 @@ public record ActivityDetailResponse(
         return new ActivityDetailResponse(id, title, description, longDescription, category, latitude, longitude,
                 startDate, endDate, status, url, address, city, postalCode, conditions, ageMin, ageMax, schedules,
                 occurrences, locations, media, links, accessibility, tags, additionalInfo, categoryCodes, publishedAt,
-                createdBy, (precision == null ? CoordinatePrecision.UNKNOWN : precision).name());
+                createdBy, (precision == null ? CoordinatePrecision.UNKNOWN : precision).name(), hostPlace);
+    }
+
+    /** Lieu qui propose l'activité (décision du 22/10/2026), {@code null} sinon. */
+    public ActivityDetailResponse withHostPlace(HostPlace place) {
+        return new ActivityDetailResponse(id, title, description, longDescription, category, latitude, longitude,
+                startDate, endDate, status, url, address, city, postalCode, conditions, ageMin, ageMax, schedules,
+                occurrences, locations, media, links, accessibility, tags, additionalInfo, categoryCodes, publishedAt,
+                createdBy, coordinatePrecision, place);
     }
 
     /** Programmation d'une activité — voir {@link Schedule}. */

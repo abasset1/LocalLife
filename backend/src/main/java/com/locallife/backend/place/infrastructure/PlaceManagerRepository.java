@@ -40,6 +40,26 @@ public class PlaceManagerRepository {
                 """, new MapSqlParameterSource("locationId", locationId).addValue("userId", userId), Boolean.class));
     }
 
+    /** Motif d'une révocation ({@code place_manager.revoked_reason}). */
+    public enum RevokeReason {
+        /** Fin de l'accès professionnel : rétabli s'il revient ({@code ProContentRepository}). */
+        ACCESS_LOST,
+        /** Retiré par un administrateur, avec un commentaire. */
+        ADMIN,
+        /** Le gestionnaire a renoncé au lieu. */
+        RENOUNCED
+    }
+
+    /** Révoque un droit actif ; {@code false} s'il n'y en avait pas. La ligne reste, pour l'historique. */
+    public boolean revoke(Long locationId, Long userId, RevokeReason reason, Long revokedBy, String comment) {
+        return jdbc.update("""
+                UPDATE place_manager SET revoked_at = now(), revoked_reason = :reason, revoked_by = :revokedBy,
+                       revoke_comment = :comment
+                WHERE location_id = :locationId AND user_id = :userId AND revoked_at IS NULL
+                """, new MapSqlParameterSource("locationId", locationId).addValue("userId", userId)
+                .addValue("reason", reason.name()).addValue("revokedBy", revokedBy).addValue("comment", comment)) == 1;
+    }
+
     public List<Manager> findActive(Long locationId) {
         return jdbc.query("""
                 SELECT m.user_id, u.email, m.claim_id, m.granted_at FROM place_manager m

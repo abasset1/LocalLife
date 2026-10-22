@@ -15,6 +15,11 @@ export interface CurrentAccount {
   hasPassword?: boolean;
   /** Droit de proposer ou modifier une activité (offre Premium ou Pro). */
   canContribute?: boolean;
+  /**
+   * Accès à l'espace professionnel (offre Pro en cours ou rôle attribué) : seul indicateur pour afficher l'espace
+   * pro et les liens « Demander la gestion de ce lieu ». Absent d'un ancien serveur : traité comme faux.
+   */
+  hasProAccess?: boolean;
 }
 
 /** `GET /api/v1/users/me` : 401 si la session a expiré ou si le compte est suspendu. */

@@ -53,6 +53,14 @@ export interface Activity {
      * marqueur atténué, itinéraire vers la commune). Absente (anciennes réponses) : traitée comme `UNKNOWN`.
      */
     coordinatePrecision?: CoordinatePrecision | null;
+    /** Lieu géré par l'auteur qui propose l'activité (« Proposé par … ») ; `null` dès qu'il ne le gère plus. */
+    hostPlace?: HostPlace | null;
+}
+
+/** Lieu hôte d'une activité (`hostPlace` des réponses activité, backend). */
+export interface HostPlace {
+    id: number;
+    name: string;
 }
 
 export interface ScheduleSummary {
@@ -116,6 +124,8 @@ export interface ActivityDetail {
     accessibility: AccessibilitySummary | null;
     tags: string[];
     additionalInfo: string | null;
+    /** Lieu géré par l'auteur qui propose l'activité, sinon `null`. */
+    hostPlace?: HostPlace | null;
 }
 
 /**
@@ -185,4 +195,6 @@ export interface Contribution {
         from: string;
         until: string | null;
     } | null;
+    /** Lieu publié géré par l'auteur, qui propose l'activité (« Proposé par … »), sinon `null`. */
+    hostPlaceId?: number | null;
 }

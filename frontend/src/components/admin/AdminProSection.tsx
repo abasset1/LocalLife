@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { placeTypeLabel } from "../places/placeTypes";
 import { formatDate, proRequest } from "../pro/proApi";
+import AdminProModerationSection, { AdminPlaceManagersList } from "./AdminProModerationSection";
 import AdminSubscriptionsSection from "./AdminSubscriptionsSection";
 import { CLAIM_STATUS_LABELS } from "../pro/types";
 import type { AdminClaim, ClaimReview, ClaimStatus } from "../pro/types";
@@ -171,8 +172,8 @@ function AdminProSection() {
 
             <h3>Food trucks</h3>
             <p className="activities-status">
-                Publiés par leurs propriétaires sans modération préalable. Une suspension par LocalLife les retire de la
-                carte ; leur propriétaire ne peut pas les republier.
+                Validés une fois avant leur première publication (file ci-dessous), puis publiés par leurs propriétaires.
+                Une suspension par LocalLife les retire de la carte ; leur propriétaire ne peut pas les republier.
             </p>
             {foodTruckMessage && <p className="activities-status" role="status">{foodTruckMessage}</p>}
             {foodTrucks.length === 0 ? (
@@ -206,6 +207,8 @@ function AdminProSection() {
                 </ul>
             )}
 
+            <AdminProModerationSection />
+
             <h3>Demandes de gestion de lieux</h3>
             <nav className="admin-tabs">
                 {QUEUE_TABS.map((tab) => (
@@ -232,9 +235,13 @@ function AdminProSection() {
                     <p className="admin-activity-description"><strong>Lien déclaré :</strong> {review.claim.relationship ?? "—"}</p>
                     <p className="admin-activity-description"><strong>Justificatifs :</strong> {review.claim.evidence ?? "—"}</p>
                     {review.managers.length > 0 && (
-                        <p className="admin-activity-description">
-                            Déjà géré par : {review.managers.map((manager) => manager.email).join(", ")}
-                        </p>
+                        <>
+                            <p className="admin-activity-description">Déjà géré par :</p>
+                            <AdminPlaceManagersList managers={review.managers} placeId={review.place.id}
+                                onRevoked={(text) => {
+                                    void open(review.claim).then(() => setMessage(text));
+                                }} />
+                        </>
                     )}
                     {review.concurrentClaims.length > 0 && (
                         <p className="admin-activity-description activities-status-error">

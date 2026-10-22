@@ -9,12 +9,16 @@ import com.locallife.backend.subscription.infrastructure.SubscriptionRepository;
 import com.locallife.backend.subscription.infrastructure.SubscriptionRepository.Change;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.temporal.TemporalAdjusters;
 import java.time.ZoneId;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.locallife.backend.pro.application.ProAccessChanged;
+import com.locallife.backend.pro.application.ProNotifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -27,9 +31,10 @@ import org.springframework.transaction.annotation.Transactional;
  * branché ; Stripe plus tard), ou résilie son abonnement. Un administrateur peut retirer un accès, et traite encore
  * les demandes en attente créées avant la souscription directe. À l'activation par un administrateur, une durée
  * facultative fixe la fin de la période ; sans durée, l'abonnement court jusqu'à résiliation. Une résiliation garde
- * l'accès jusqu'à la fin de la période en cours (immédiate s'il n'y en a pas) ; l'expiration est appliquée au moment
- * prévu. Chaque changement est journalisé ({@code subscription_event}). La consultation de la carte et de la liste
- * reste gratuite quoi qu'il arrive.
+ * l'accès jusqu'à la fin de la période en cours (sans période : fin du mois pour Pro, immédiate sinon) ;
+ * l'expiration est appliquée au moment prévu. Chaque changement est journalisé ({@code subscription_event}) et tout
+ * changement qui peut toucher l'accès professionnel publie {@code ProAccessChanged} (rôle PRO, contenus pro). La
+ * consultation de la carte et de la liste reste gratuite quoi qu'il arrive.
  */
 @Service
 public class SubscriptionService {
@@ -42,9 +47,14 @@ public class SubscriptionService {
     private static final String SIMULATED_PROVIDER = "SIMULATED";
 
     private final SubscriptionRepository repository;
+    private final ApplicationEventPublisher events;
+    private final ProNotifier notifier;
 
-    public SubscriptionService(SubscriptionRepository repository) {
+    public SubscriptionService(SubscriptionRepository repository, ApplicationEventPublisher events,
+            ProNotifier notifier) {
         this.repository = repository;
+        this.events = events;
+        this.notifier = notifier;
     }
 
     /** Situation d'un utilisateur : offre effective, abonnement en cours, demande en attente, historique. */
@@ -86,6 +96,10 @@ public class SubscriptionService {
                 .isPresent()) {
             throw ProActionException.conflict("Tu as déjà cette offre.");
         }
+        if (plan == Plan.PREMIUM && effectivePlan(userId) == Plan.PRO) {
+            throw ProActionException.conflict("Ton offre Pro inclut déjà Premium : résilie-la d'abord pour passer à "
+                    + "Premium.");
+        }
         Optional<Subscription> pending = repository.findRequested(userId);
         if (pending.isPresent()) {
             apply(pending.get(), SubscriptionStatus.WITHDRAWN, Change.none(), userId, "Remplacée par une souscription");
@@ -121,8 +135,9 @@ public class SubscriptionService {
     }
 
     /**
-     * Résiliation par l'utilisateur : l'accès dure jusqu'à la fin de la période en cours ; sans période (activation
-     * sans durée), il s'arrête tout de suite.
+     * Résiliation par l'utilisateur : l'accès dure jusqu'à la fin de la période en cours. Sans période (activation
+     * sans durée), une offre Pro reste active jusqu'à la fin du mois en cours (décision du 22/10/2026) ; une autre
+     * offre s'arrête tout de suite.
      */
     @Transactional
     public Overview cancel(Long userId) {
@@ -131,11 +146,24 @@ public class SubscriptionService {
                 .orElseThrow(() -> ProActionException.notFound("Aucun abonnement à résilier."));
         OffsetDateTime now = OffsetDateTime.now();
         boolean hasPeriod = current.currentPeriodEnd() != null && current.currentPeriodEnd().isAfter(now);
-        Change change = hasPeriod
-                ? new Change(false, null, false, null, true, null, null)
-                : new Change(false, null, true, now, false, null, null);
+        Change change;
+        if (hasPeriod) {
+            change = new Change(false, null, false, null, true, null, null);
+        } else if (current.plan() == Plan.PRO) {
+            change = new Change(false, null, true, endOfMonth(now), true, null, null);
+            hasPeriod = true;
+        } else {
+            change = new Change(false, null, true, now, false, null, null);
+        }
         apply(current, hasPeriod ? SubscriptionStatus.CANCELED : SubscriptionStatus.EXPIRED, change, userId, null);
+        events.publishEvent(new ProAccessChanged(userId));
         return overview(userId);
+    }
+
+    /** Premier instant du mois suivant, heure de Paris : fin d'accès d'une offre Pro résiliée sans période. */
+    static OffsetDateTime endOfMonth(OffsetDateTime now) {
+        return now.atZoneSameInstant(ZONE).toLocalDate().with(TemporalAdjusters.firstDayOfNextMonth())
+                .atStartOfDay(ZONE).toOffsetDateTime();
     }
 
     // ---------------------------------------------------------------- administration
@@ -165,6 +193,11 @@ public class SubscriptionService {
                 null);
         LOGGER.info("Abonnement {} ({}) activé par l'administrateur {} jusqu'au {}", id, request.plan(), adminId,
                 endsOn == null ? "résiliation" : endsOn);
+        events.publishEvent(new ProAccessChanged(request.userId()));
+        notifier.notify(request.userId(), "Ton offre " + label(request.plan()) + " est active",
+                "L'équipe LocalLife a validé ta demande : l'offre " + label(request.plan()) + " est active"
+                        + (endsOn == null ? "." : " jusqu'au " + endsOn + " inclus.")
+                        + (request.plan() == Plan.PRO ? " Ton espace professionnel est ouvert." : ""), null);
         return repository.findById(id).orElseThrow();
     }
 
@@ -177,6 +210,8 @@ public class SubscriptionService {
         }
         apply(request, SubscriptionStatus.REJECTED, new Change(false, null, false, null, null, adminId, cleanReason),
                 adminId, cleanReason);
+        notifier.notify(request.userId(), "Ta demande d'offre " + label(request.plan()) + " n'a pas été acceptée",
+                "L'équipe LocalLife n'a pas validé ta demande d'offre " + label(request.plan()) + ".", cleanReason);
         return repository.findById(id).orElseThrow();
     }
 
@@ -191,6 +226,9 @@ public class SubscriptionService {
         apply(subscription, SubscriptionStatus.EXPIRED,
                 new Change(false, null, true, OffsetDateTime.now(), null, adminId, cleanReason), adminId, cleanReason);
         LOGGER.info("Abonnement {} retiré par l'administrateur {}", id, adminId);
+        if (subscription.userId() != null) {
+            events.publishEvent(new ProAccessChanged(subscription.userId()));
+        }
         return repository.findById(id).orElseThrow();
     }
 
@@ -217,6 +255,9 @@ public class SubscriptionService {
         for (Subscription due : repository.findDue(OffsetDateTime.now())) {
             if (repository.transition(due.id(), due.status(), SubscriptionStatus.EXPIRED, Change.none())) {
                 repository.insertEvent(due.id(), null, due.status(), SubscriptionStatus.EXPIRED, "Période terminée");
+                if (due.userId() != null) {
+                    events.publishEvent(new ProAccessChanged(due.userId()));
+                }
             }
         }
     }
@@ -233,6 +274,10 @@ public class SubscriptionService {
             throw ProActionException.conflict("L'abonnement a changé entre-temps, recharge la page.");
         }
         repository.insertEvent(subscription.id(), actorId, subscription.status(), to, reason);
+    }
+
+    private static String label(Plan plan) {
+        return plan == Plan.PRO ? "Pro" : "Premium";
     }
 
     private static String reason(String value) {
