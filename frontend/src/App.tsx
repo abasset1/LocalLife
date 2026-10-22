@@ -35,6 +35,7 @@ import type {
     Activity,
     ActivityDetail,
     ApiErrorBody,
+    UserLimits,
     Category,
     Contribution,
     FoodTruck,
@@ -143,6 +144,8 @@ function App() {
     const [hostPlaceId, setHostPlaceId] = useState<number | null>(null);
     /** Lieux publiés gérés par le professionnel, proposés comme lieu hôte dans le formulaire. */
     const [hostPlaces, setHostPlaces] = useState<HostPlaceOption[]>([]);
+    /** Limites de l'offre relues à l'ouverture du formulaire (`limits` de `/users/me`) : compteur Premium du mois. */
+    const [contributionLimits, setContributionLimits] = useState<UserLimits | null>(null);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     /** Formulaire de proposition : codes des catégories du référentiel cochées. */
@@ -253,6 +256,8 @@ function App() {
     const [isCancellingActivity, setIsCancellingActivity] = useState(false);
     const [cancelActivityError, setCancelActivityError] = useState<string | null>(null);
     const [isTogglingLike, setIsTogglingLike] = useState(false);
+    /** Échec du dernier « J'aime » (ex. 403 : limite de favoris de l'offre Gratuit), affiché dans la fiche. */
+    const [likeError, setLikeError] = useState<{ message: string; isLimit: boolean } | null>(null);
 
     /**
      * Zone visible utilisée pour la recherche — `null` quand un rayon favori est
@@ -749,11 +754,13 @@ function App() {
         try {
             const response = await apiFetch("/api/v1/users/me");
             if (response.ok) {
-                const me = (await response.json()) as { canContribute?: boolean };
+                const me = (await response.json()) as { canContribute?: boolean; limits?: UserLimits };
                 if (me.canContribute === false) {
                     navigate("/profile?premium=1");
                     return;
                 }
+                // Limite mensuelle (Premium) : le formulaire l'affiche et bloque l'envoi une fois atteinte.
+                setContributionLimits(me.limits ?? null);
             }
         } catch {
             // Vérification indicative : en cas d'échec, le formulaire s'ouvre et le serveur tranchera à l'envoi.
@@ -998,6 +1005,9 @@ function App() {
             resetContributionForm();
             setIsContributionModalOpen(false);
             if (!isEditing) {
+                setContributionLimits((current) => current
+                    ? { ...current, contributionsThisMonth: current.contributionsThisMonth + 1 }
+                    : current);
                 window.alert(
                     "Merci pour ta proposition ! Elle est soumise à validation par un modérateur et sera publiée d'ici 2 à 3 jours. Tu peux suivre son statut dans « Mes contributions ».",
                 );
@@ -1074,6 +1084,7 @@ function App() {
 
     async function handleToggleLike(activity: Activity) {
         const newLikedState = !activity.likedByCurrentUser;
+        setLikeError(null);
         setIsTogglingLike(true);
         applyLikedState(activity.id, newLikedState);
 
@@ -1083,9 +1094,17 @@ function App() {
             });
             if (!response.ok) {
                 applyLikedState(activity.id, !newLikedState);
+                const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+                setLikeError({
+                    message: body?.message ?? (newLikedState
+                        ? "Impossible d'ajouter cette activité à tes favoris, réessaie."
+                        : "Impossible de retirer cette activité de tes favoris, réessaie."),
+                    isLimit: response.status === 403,
+                });
             }
         } catch {
             applyLikedState(activity.id, !newLikedState);
+            setLikeError({ message: "Impossible de contacter le serveur, réessaie plus tard.", isLimit: false });
         } finally {
             setIsTogglingLike(false);
         }
@@ -1370,6 +1389,7 @@ function App() {
                     description={description}
                     email={email}
                     endDate={endDate}
+                    contributionLimits={contributionLimits}
                     hostPlaceId={hostPlaceId}
                     hostPlaces={hostPlaces}
                     onAddressChange={setAddress}
@@ -1407,11 +1427,15 @@ function App() {
                     isCancelling={isCancellingActivity}
                     isLoadingDetail={isLoadingActivityDetail}
                     isTogglingLike={isTogglingLike}
+                    likeError={likeError}
                     onCancel={(activity) => void handleCancelActivity(activity)}
                     isDeleting={isDeletingActivity}
                     onDelete={(activity) => void handleDeleteActivity(activity)}
                     onEdit={(activity) => void openEditForm(activity.id)}
-                    onClose={() => setDetailActivity(null)}
+                    onClose={() => {
+                        setDetailActivity(null);
+                        setLikeError(null);
+                    }}
                     onToggleLike={(activity) => void handleToggleLike(activity)}
                 />
             )}

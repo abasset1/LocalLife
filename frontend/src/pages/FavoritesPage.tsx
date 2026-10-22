@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 import { getPayload } from "../auth/authStorage";
+import type { UserLimits } from "../components/explorer/types";
 
 /**
  * Miroir de `ActivityResponse` côté backend (LS-002) : les mêmes
@@ -62,6 +63,22 @@ function FavoritesPage() {
             navigate("/login");
         }
     }, [navigate]);
+
+    /** Nombre maximal de favoris de l'offre (`limits.maxLikes` de `/users/me`) ; `null` = illimité ou inconnu. */
+    const [maxLikes, setMaxLikes] = useState<number | null>(null);
+
+    useEffect(() => {
+        const abortController = new AbortController();
+        void apiFetch("/api/v1/users/me", { signal: abortController.signal })
+            .then(async (response) => {
+                const me = response.ok ? ((await response.json()) as { limits?: UserLimits } | null) : null;
+                if (!abortController.signal.aborted) {
+                    setMaxLikes(me?.limits?.maxLikes ?? null);
+                }
+            })
+            .catch(() => undefined);
+        return () => abortController.abort();
+    }, []);
 
     useEffect(() => {
         const abortController = new AbortController();
@@ -130,6 +147,15 @@ function FavoritesPage() {
                 {isLoading && <p className="activities-status">Chargement de tes favoris…</p>}
                 {!isLoading && loadError && (
                     <p className="activities-status activities-status-error">{loadError}</p>
+                )}
+                {/* Offre Gratuit : favoris limités (les favoris au-delà, plus anciens, sont conservés). */}
+                {!isLoading && !loadError && maxLikes !== null && (
+                    <p className="activities-status">
+                        {favorites.length} / {maxLikes} favoris
+                        {favorites.length >= maxLikes && (
+                            <> · limite atteinte : <Link to="/profile">passe à Premium pour des favoris illimités</Link></>
+                        )}
+                    </p>
                 )}
                 {!isLoading && !loadError && favorites.length === 0 && (
                     <p className="activities-status">

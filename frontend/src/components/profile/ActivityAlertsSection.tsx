@@ -26,9 +26,13 @@ const DEFAULT_ALERT_RADIUS_KM = 10;
  * Alertes email : l'utilisateur reçoit un récapitulatif des nouvelles
  * activités publiées dans une ou plusieurs catégories, dans un rayon autour
  * d'une ville (envoi quotidien côté backend, voir ActivityAlertNotifier).
- * Le formulaire de création est prérempli avec les paramètres de recherche.
+ * Le formulaire de création est prérempli avec les paramètres de recherche. Le nombre d'alertes est limité par
+ * l'offre (1 en Gratuit, 10 en Premium/Pro) : à la limite, la création est désactivée et renvoie vers les offres.
  */
-function ActivityAlertsSection() {
+function ActivityAlertsSection({ maxAlerts = null }: {
+    /** Nombre maximal d'alertes de l'offre (`limits.maxAlerts`), `null` s'il est inconnu. */
+    maxAlerts?: number | null;
+} = {}) {
     const [categories, setCategories] = useState<Category[]>([]);
     const [alerts, setAlerts] = useState<ActivityAlert[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -163,6 +167,8 @@ function ActivityAlertsSection() {
         }
     }
 
+    const isAtLimit = maxAlerts !== null && alerts.length >= maxAlerts;
+
     return (
         <ProfileCard
             icon="🔔"
@@ -179,6 +185,9 @@ function ActivityAlertsSection() {
             {!isLoading && loadError && <Notice kind="error">{loadError}</Notice>}
             {!isLoading && !loadError && (
                 <>
+                    {maxAlerts !== null && (
+                        <p className="pp-hint">{alerts.length} / {maxAlerts} {maxAlerts > 1 ? "alertes" : "alerte"}</p>
+                    )}
                     {alerts.length === 0 ? (
                         <p className="pp-empty">Aucune alerte pour l'instant : crée ta première ci-dessous.</p>
                     ) : (
@@ -257,11 +266,18 @@ function ActivityAlertsSection() {
                         <div className="pp-actions">
                             <button
                                 className="pp-button pp-button-primary"
-                                disabled={isCreating || cityPicker.blocksSubmit}
+                                disabled={isCreating || cityPicker.blocksSubmit || isAtLimit}
                                 type="submit"
                             >
                                 {isCreating ? "Création…" : "Créer l'alerte"}
                             </button>
+                            {isAtLimit && (
+                                <p className="pp-hint">
+                                    Tu as atteint la limite de {maxAlerts} {maxAlerts > 1 ? "alertes" : "alerte"} de ton
+                                    offre : supprime une alerte ou{" "}
+                                    <a href="#profile-subscription-title">passe à une offre supérieure</a>.
+                                </p>
+                            )}
                             {createSuccess && <Notice kind="success">Alerte créée.</Notice>}
                             {createError && <Notice kind="error">{createError}</Notice>}
                         </div>

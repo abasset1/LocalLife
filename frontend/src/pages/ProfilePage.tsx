@@ -11,6 +11,7 @@ import { proRequest } from "../components/pro/proApi";
 import { Notice, ProfileCard } from "../components/profile/ProfileUi";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
 import SubscriptionCard from "../components/subscription/SubscriptionCard";
+import type { UserLimits } from "../components/explorer/types";
 
 /**
  * Miroir de `UserResponse` côté backend (jamais `passwordHash`, voir sa
@@ -32,6 +33,8 @@ interface UserProfile {
     canContribute: boolean;
     /** Accès à l'espace professionnel (offre Pro en cours ou rôle attribué) : seul indicateur à utiliser. */
     hasProAccess: boolean;
+    /** Limites de l'offre (favoris, alertes, contributions du mois) ; absent d'un backend plus ancien. */
+    limits?: UserLimits;
 }
 
 interface ApiErrorBody {
@@ -307,7 +310,7 @@ function ProfilePage() {
 
                             <div className="pp-column pp-column-wide">
                                 <SearchPreferencesForm />
-                                <ActivityAlertsSection />
+                                <ActivityAlertsSection maxAlerts={profile.limits?.maxAlerts ?? null} />
                             </div>
                         </div>
                     </>

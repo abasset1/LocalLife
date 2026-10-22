@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
-import type { Category } from "./types";
+import { Link } from "react-router-dom";
+import type { Category, UserLimits } from "./types";
 
 /**
  * Passage hebdomadaire d'une contribution (food truck, marché…) : envoyé comme `recurrence`
@@ -59,6 +60,8 @@ interface ContributionModalProps {
     onEmailChange: (value: string) => void;
     /** Lieux publiés gérés (compte pro) ; liste vide : le champ « Proposé par » n'est pas affiché. */
     hostPlaces?: HostPlaceOption[];
+    /** Limites de l'offre : compteur des contributions du mois (Premium) ; `null` si inconnues. */
+    contributionLimits?: UserLimits | null;
     hostPlaceId?: number | null;
     onHostPlaceIdChange?: (value: number | null) => void;
     submitStatus: "idle" | "success" | "error";
@@ -98,6 +101,7 @@ function ContributionModal({
     email,
     onEmailChange,
     hostPlaces = [],
+    contributionLimits = null,
     hostPlaceId = null,
     onHostPlaceIdChange,
     submitStatus,
@@ -122,6 +126,11 @@ function ContributionModal({
         });
     }
 
+    // Limite mensuelle (Premium) : une modification ne compte pas, seule une nouvelle proposition est bloquée.
+    const monthlyLimit = mode === "create" ? contributionLimits?.monthlyContributions ?? null : null;
+    const isAtMonthlyLimit = monthlyLimit !== null && monthlyLimit > 0
+        && (contributionLimits?.contributionsThisMonth ?? 0) >= monthlyLimit;
+
     return (
         <div className="explorer-modal-overlay" onClick={onClose} role="presentation">
             <div
@@ -144,6 +153,18 @@ function ContributionModal({
                         <p className="explorer-form-notice">
                             ℹ️ Ton activité sera soumise à validation par un modérateur avant d'apparaître sur la
                             carte : elle sera publiée d'ici 2 à 3 jours.
+                        </p>
+                    )}
+                    {monthlyLimit !== null && monthlyLimit > 0 && (
+                        <p className="explorer-form-notice">
+                            Contributions ce mois-ci : {contributionLimits?.contributionsThisMonth ?? 0} / {monthlyLimit}
+                        </p>
+                    )}
+                    {isAtMonthlyLimit && (
+                        <p className="explorer-form-message explorer-form-message-error" role="alert">
+                            Tu as atteint la limite de {monthlyLimit} contributions ce mois-ci avec ton offre. Les
+                            propositions refusées ne comptent pas. <Link to="/profile">L'offre Pro permet des
+                            contributions illimitées.</Link>
                         </p>
                     )}
                     {mode === "edit" && requiresRevalidation && (
@@ -322,7 +343,7 @@ function ContributionModal({
                         </div>
                     )}
                     <div className="explorer-modal-actions">
-                        <button type="submit">
+                        <button disabled={isAtMonthlyLimit} type="submit">
                             {mode === "edit" ? "Enregistrer les modifications" : "Proposer l'activité"}
                         </button>
                     </div>
