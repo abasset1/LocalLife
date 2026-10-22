@@ -2,6 +2,17 @@
 
 ## 0.9.59 — non publiée
 
+### Administrateurs : périmètre défini (22/10/2026)
+- **Journal unique des actions d'administration**, en ajout seul : qui, quoi, sur quoi, avant/après, motif. Toute écriture d'administration y laisse une trace ; consultable dans l'administration.
+- **Corbeille de 30 jours** : une activité supprimée par un administrateur (une seule ou en masse) disparaît partout mais reste restaurable, seule ou par lot, puis est purgée.
+- **Motif obligatoire** pour refuser, annuler ou supprimer la contribution d'un autre ; l'auteur est prévenu par e-mail et voit le motif dans ses contributions.
+- **Jamais sur soi** : un administrateur ne modère pas sa propre activité, ne décide pas de son propre abonnement, ne suspend pas son propre food truck.
+- **Mot de passe redemandé** pour la suppression en masse, la suppression d'une source, la suspension ou la suppression d'un compte.
+- **Comptes** : fermer toutes les sessions d'un compte, supprimer un compte avec un motif.
+- **Connexion** : 5 échecs en 15 minutes bloquent l'adresse ; session d'un administrateur limitée à 8 heures.
+- Retrait de routes héritées (`POST /api/v1/users`, `GET /api/v1/users/{id}`, `/api/v1/admin/users`) ; l'e-mail de test ne part plus que vers l'administrateur, 5 fois par heure.
+- Migration `V73` : `admin_action_log`, corbeille et motifs sur `activity`, `login_failure`.
+
 ### Limites par offre (22/10/2026)
 - **Compte gratuit : 5 favoris et 1 alerte.** Premium, Pro et administrateurs : favoris illimités, 10 alertes.
 - **Premium : 2 nouvelles contributions par mois civil** (les refusées ne comptent pas, les modifications non plus) ; Pro et administrateurs sans limite.

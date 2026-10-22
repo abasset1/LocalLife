@@ -174,9 +174,36 @@ Vérifié par `ProAccountRulesIntegrationTest`, `ProFoodTruckIntegrationTest`, `
   (`null` = illimité, `0` sans offre) et `contributionsThisMonth`.
 * Mise en œuvre : `PlanLimits`. Vérifié par `PlanLimitsIntegrationTest`.
 
-### Administrateur
+### Administrateur — décidé le 22/10/2026
 
-À définir dans l'étape suivante ; l'état actuel est décrit par la matrice du § 3.
+Un seul rôle `ADMIN` (pas de `MODERATOR` pour l'instant) : modération, comptes, sources, imports, catégories,
+suppression, e-mails. Il garde l'espace professionnel et les contributions sans limite. Les règles ci-dessous
+renforcent la traçabilité et les garde-fous plutôt que de découper le rôle.
+
+**Journal unique des actions d'administration** (`admin_action_log`, V73, en ajout seul : la base refuse toute
+modification ou suppression) : auteur (identifiant et adresse figée), action, cible, état avant/après, motif, date.
+Les actions importantes y sont décrites en détail (modération, corbeille, restauration, purge, abonnements,
+comptes, suppression de source, modifications d'une contribution d'autrui) ; **toute autre requête d'écriture
+réussie** sur `/api/v1/admin/**` ou `/api/v1/sources/**` y laisse au moins une ligne (route, cible, motif). Les
+lectures ne sont pas journalisées. Consultation : `GET /api/v1/admin/action-log` (filtres action, cible, auteur).
+Le journal des comptes (`account_audit_event`) reste tenu, refus compris.
+
+| Règle | Détail |
+|---|---|
+| **Corbeille** | Une suppression d'activité par un administrateur (`DELETE /admin/activities/{id}?reason=`, en masse `DELETE /admin/activities?…&reason=`, ou la contribution d'un autre via `DELETE /activities/{id}?reason=`) passe l'activité au statut `DELETED` : invisible partout, y compris pour son auteur, restaurable **30 jours** (`POST /admin/activities/{id}/restore`, ou tout un lot de suppression : `POST /admin/activities/trash/batches/{lot}/restore`), puis purgée chaque nuit. Liste : `GET /admin/activities/trash`. L'auteur d'une contribution supprime toujours définitivement la sienne |
+| **Motif et auteur prévenu** | Refuser (`PATCH /admin/activities/{id}/reject {reason}`), annuler (`PATCH /activities/{id}/cancel {reason}`) ou supprimer la contribution d'un autre exige un motif, envoyé par e-mail à l'auteur et affiché dans ses contributions (`moderationReason`). Une modification de la contribution d'un autre reste possible sans re-modération, journalisée avant/après |
+| **Jamais sur soi** | Un administrateur ne publie ni ne refuse sa propre activité, ne décide pas de son propre abonnement, ne suspend ni ne rétablit son propre food truck (comme pour les demandes de gestion, propositions, food trucks et lieux qu'il a créés) : un autre administrateur s'en charge (403). Pas de validation à deux |
+| **Mot de passe redemandé** | Suppression en masse, suppression d'une source, suspension et suppression d'un compte : mot de passe de l'administrateur dans l'en-tête `X-Confirm-Password`, sinon **428** |
+| **Comptes** | En plus du rôle, de la suspension et de la réactivation : fermer toutes les sessions d'un compte (`POST /admin/accounts/{id}/logout-everywhere`) et supprimer un compte avec un motif (`POST /admin/accounts/{id}/deletion`, même effet qu'une suppression par son titulaire). Jamais un administrateur ni son propre compte |
+| **Connexion** | Pour tous les comptes : après 5 échecs en 15 minutes, l'adresse est bloquée (**429**) jusqu'à ce que la fenêtre glisse (`login_failure`, adresse hachée). Le jeton d'un administrateur dure **8 heures** (24 h pour les autres) |
+| **E-mail de test** | Envoyé uniquement à l'adresse de l'administrateur connecté, 5 fois par heure au plus (429) |
+| **Routes retirées** | `POST /api/v1/users` (compte sans mot de passe), `GET /api/v1/users/{id}`, `/api/v1/admin/users` (remplacé par `/admin/accounts`) |
+
+**Hors de cette étape** : double authentification, masquage des adresses dans les listes, export des données d'un
+compte, rôle `MODERATOR`.
+
+Vérifié par `AdminRulesIntegrationTest`, `AdminActivityControllerIntegrationTest`,
+`AccountAdministrationIntegrationTest`, `SourceControllerIntegrationTest` et `ActivityBulkDeletionServiceIntegrationTest`.
 
 ## 4. Gestion des comptes (API d'administration)
 
