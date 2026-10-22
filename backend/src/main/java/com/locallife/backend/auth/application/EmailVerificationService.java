@@ -92,7 +92,8 @@ public class EmailVerificationService {
         try {
             emailService.sendEmailVerificationEmail(user.email(), verificationLink);
         } catch (MailException exception) {
-            log.error("Échec de l'envoi de l'email de confirmation à {}", user.email(), exception);
+            log.error("Échec de l'envoi de l'email de confirmation à {} : {}", EmailMask.mask(user.email()),
+                    exception.getClass().getSimpleName());
         }
     }
 

@@ -153,7 +153,7 @@ class AuthControllerTest {
 
     @Test
     void loginWithGoogle_ShouldReturnOk_WithToken() {
-        when(authService.loginOrRegisterWithGoogle("valid-id-token"))
+        when(authService.loginOrRegisterWithGoogle("valid-id-token", false))
                 .thenReturn(new LoginResponse("un.jwt.token"));
 
         ResponseEntity<Object> response = authController.loginWithGoogle(
@@ -169,7 +169,7 @@ class AuthControllerTest {
         // Même posture que login() classique : un token Google invalide est un échec
         // d'authentification (401), pas une erreur de saisie (voir la javadoc du
         // contrôleur pour le détail de ce choix).
-        when(authService.loginOrRegisterWithGoogle("bad-token"))
+        when(authService.loginOrRegisterWithGoogle("bad-token", false))
                 .thenThrow(new IllegalArgumentException("Token Google invalide ou expiré."));
         when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/auth/google");
 

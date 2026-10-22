@@ -86,7 +86,8 @@ public class ActivityAlertNotifier {
                     sent++;
                 }
             } catch (RuntimeException exception) {
-                LOGGER.warn("Échec de l'envoi de l'alerte {} : {}", recipient.alert().id(), exception.getMessage());
+                LOGGER.warn("Échec de l'envoi de l'alerte {} : {}", recipient.alert().id(),
+                        exception.getClass().getSimpleName());
             }
         }
         return sent;
@@ -112,7 +113,7 @@ public class ActivityAlertNotifier {
                         recipient.email(), "LocalLife : " + title, body(recipient, activities, foodTrucks, labels));
                 delivered = true;
             } catch (RuntimeException exception) {
-                LOGGER.warn("Échec de l'e-mail de l'alerte {} : {}", alert.id(), exception.getMessage());
+                LOGGER.warn("Échec de l'e-mail de l'alerte {} : {}", alert.id(), exception.getClass().getSimpleName());
             }
         }
 

@@ -111,7 +111,8 @@ public class PasswordResetService {
         try {
             emailService.sendPasswordResetEmail(user.email(), resetLink);
         } catch (MailException exception) {
-            log.error("Échec de l'envoi de l'email de réinitialisation à {}", user.email(), exception);
+            log.error("Échec de l'envoi de l'email de réinitialisation à {} : {}", EmailMask.mask(user.email()),
+                    exception.getClass().getSimpleName());
         }
     }
 

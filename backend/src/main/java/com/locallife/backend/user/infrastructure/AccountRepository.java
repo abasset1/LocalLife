@@ -156,4 +156,21 @@ public class AccountRepository {
                 resultSet.getString("status_reason"),
                 changedAt == null ? null : changedAt.toLocalDateTime());
     }
+
+    /**
+     * Dernière activité du compte, au jour près (RGPD, 22/10/2026) : base de la suppression des comptes inactifs.
+     * Une activité retire l'avertissement d'inactivité éventuel. Au plus une écriture par jour et par compte.
+     */
+    public void touchActivity(Long id) {
+        jdbcTemplate.update("""
+                UPDATE users SET last_active_at = now(), inactivity_warned_at = NULL
+                WHERE id = ? AND (last_active_at IS NULL OR last_active_at < now() - interval '1 day')
+                """, id);
+    }
+
+    /** Consentement à l'inscription : date et version des conditions et de la politique de confidentialité. */
+    public void recordConsent(Long id, String termsVersion) {
+        jdbcTemplate.update("UPDATE users SET terms_accepted_at = now(), terms_version = ? WHERE id = ?",
+                termsVersion, id);
+    }
 }

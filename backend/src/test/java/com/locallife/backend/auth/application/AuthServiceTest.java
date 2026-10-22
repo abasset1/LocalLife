@@ -385,6 +385,18 @@ class AuthServiceTest {
     }
 
     @Test
+    void loginOrRegisterWithGoogle_ShouldRefuseToCreateAnAccount_WithoutTheConsentBox() {
+        when(googleAuthService.verify("id-token")).thenReturn(
+                new GoogleAuthService.GoogleIdentity("google-sub-new", "nouveau@example.com", "Nouveau"));
+        when(userIdentityRepository.findByProviderAndProviderUserId(AuthProvider.GOOGLE, "google-sub-new"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmail("nouveau@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(TermsNotAcceptedException.class, () -> authService.loginOrRegisterWithGoogle("id-token"));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
     void loginOrRegisterWithGoogle_ShouldCreateNewUser_WhenNoIdentityAndNoMatchingEmail() {
         // Given : première connexion Google, aucun compte LocalLife préexistant pour cet email.
         when(googleAuthService.verify("id-token"))
@@ -400,7 +412,7 @@ class AuthServiceTest {
         when(jwtService.generateToken(2L, "nouveau@gmail.com", Role.USER)).thenReturn("un.jwt.token");
 
         // When
-        LoginResponse response = authService.loginOrRegisterWithGoogle("id-token");
+        LoginResponse response = authService.loginOrRegisterWithGoogle("id-token", true);
 
         // Then
         assertEquals("un.jwt.token", response.token());
@@ -436,7 +448,7 @@ class AuthServiceTest {
         when(jwtService.generateToken(2L, "nouveau@gmail.com", Role.USER)).thenReturn("un.jwt.token");
 
         // When
-        authService.loginOrRegisterWithGoogle("id-token");
+        authService.loginOrRegisterWithGoogle("id-token", true);
 
         // Then
         verify(userRepository).save(argThat(user -> user.username().equals("nouveau")));
@@ -459,7 +471,7 @@ class AuthServiceTest {
         });
         when(jwtService.generateToken(6L, "jean@gmail.com", Role.USER)).thenReturn("jwt");
 
-        authService.loginOrRegisterWithGoogle("id-token");
+        authService.loginOrRegisterWithGoogle("id-token", true);
 
         verify(userRepository).save(argThat(user -> user.username().equals("Jean-Dupont-2")));
     }

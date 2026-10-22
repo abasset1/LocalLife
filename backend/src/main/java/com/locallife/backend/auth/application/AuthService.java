@@ -6,6 +6,7 @@ import com.locallife.backend.user.application.PasswordHashingService;
 import com.locallife.backend.user.application.UsernamePolicy;
 import com.locallife.backend.user.domain.AccountStatus;
 import com.locallife.backend.user.domain.AuthProvider;
+import com.locallife.backend.gdpr.application.LegalTerms;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
 import com.locallife.backend.user.domain.UserIdentity;
@@ -86,6 +87,8 @@ public class AuthService {
         String passwordHash = passwordHashingService.hash(password);
         User user = new User(null, validUsername, normalizedEmail, passwordHash, Role.USER, LocalDateTime.now(), false);
         User saved = usernamePolicy.saveGuarded(() -> userRepository.save(user));
+        // Case cochée, vérifiée par le contrôleur (RGPD, 22/10/2026) : date et version des textes enregistrées.
+        accountRepository.recordConsent(saved.id(), LegalTerms.VERSION);
         emailVerificationService.sendVerification(saved);
         return saved;
     }
@@ -219,6 +222,16 @@ public class AuthService {
      *         rejette le token (voir sa javadoc pour le détail des cas).
      */
     public LoginResponse loginOrRegisterWithGoogle(String idToken) {
+        return loginOrRegisterWithGoogle(idToken, false);
+    }
+
+    /**
+     * Comme {@link #loginOrRegisterWithGoogle(String)} ; {@code acceptTerms} : case des conditions cochée, exigée
+     * seulement quand la connexion crée un compte (RGPD, 22/10/2026).
+     *
+     * @throws TermsNotAcceptedException création d'un compte sans la case cochée
+     */
+    public LoginResponse loginOrRegisterWithGoogle(String idToken, boolean acceptTerms) {
         GoogleAuthService.GoogleIdentity identity = googleAuthService.verify(idToken);
 
         Optional<UserIdentity> existingIdentity =
@@ -233,23 +246,33 @@ public class AuthService {
             return new LoginResponse(issueToken(user));
         }
 
-        User user = userRepository.findByEmail(identity.email())
+        Optional<User> existingAccount = userRepository.findByEmail(identity.email());
+        if (existingAccount.isEmpty() && !acceptTerms) {
+            throw new TermsNotAcceptedException();
+        }
+        User user = existingAccount
                 .map(this::confirmEmailViaGoogle)
-                .orElseGet(() -> userRepository.save(new User(
-                        null,
-                        usernamePolicy.generateAvailable(
-                                identity.name() != null ? identity.name() : identity.email().split("@")[0]),
-                        identity.email(),
-                        "",
-                        Role.USER,
-                        LocalDateTime.now(),
-                        true)));
+                .orElseGet(() -> createGoogleAccount(identity));
 
         userIdentityRepository.save(new UserIdentity(null, user.id(), AuthProvider.GOOGLE, identity.sub(),
                 LocalDateTime.now()));
 
         requireActive(user);
         return new LoginResponse(issueToken(user));
+    }
+
+    private User createGoogleAccount(GoogleAuthService.GoogleIdentity identity) {
+        User created = userRepository.save(new User(
+                null,
+                usernamePolicy.generateAvailable(
+                        identity.name() != null ? identity.name() : identity.email().split("@")[0]),
+                identity.email(),
+                "",
+                Role.USER,
+                LocalDateTime.now(),
+                true));
+        accountRepository.recordConsent(created.id(), LegalTerms.VERSION);
+        return created;
     }
 
     /**
@@ -279,6 +302,7 @@ public class AuthService {
     }
 
     private String issueToken(User user) {
+        accountRepository.touchActivity(user.id());
         return jwtService.generateToken(user.id(), user.email(), user.role());
     }
 }
