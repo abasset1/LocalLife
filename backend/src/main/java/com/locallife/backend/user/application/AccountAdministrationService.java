@@ -121,7 +121,8 @@ public class AccountAdministrationService {
     // --- Rôle ---
 
     /**
-     * Bascule {@code USER} ↔ {@code PRO}, attribution manuelle indépendante de l'offre Pro. Sans effet (et sans erreur) si le compte a déjà ce rôle.
+     * Bascule {@code USER} ↔ {@code PRO}, attribution manuelle indépendante de l'offre Pro. Sans effet (et sans
+     * erreur) si le compte a déjà ce rôle.
      *
      * @throws AccountActionException 400 rôle inconnu, 403 transition interdite, 404 compte inconnu
      */

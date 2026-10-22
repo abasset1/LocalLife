@@ -63,7 +63,9 @@ public class ProContentRepository {
         return new Outcome(foodTrucks, places, claims, changes);
     }
 
-    /** Retour de l'accès : ce que {@link #withdraw} avait suspendu ou révoqué revient (sauf suspension par l'équipe). */
+    /**
+     * Retour de l'accès : ce que {@link #withdraw} avait suspendu ou révoqué revient (sauf suspension par l'équipe).
+     */
     public Outcome restore(Long userId) {
         MapSqlParameterSource params = new MapSqlParameterSource("userId", userId);
         int foodTrucks = jdbc.update("""

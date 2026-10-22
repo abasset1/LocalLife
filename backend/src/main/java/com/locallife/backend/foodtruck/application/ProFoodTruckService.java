@@ -41,7 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
  * (définitif). Un food truck suspendu par un administrateur ne peut pas être republié par son propriétaire.
  *
  * <p>Sans accès professionnel (offre terminée, rôle retiré), le propriétaire garde la consultation de ses food
- * trucks et peut les archiver, rien de plus ; ses food trucks publiés ont été suspendus ({@code ProAccessSynchronizer}).
+ * trucks et peut les archiver, rien de plus ; ses food trucks publiés ont été suspendus
+ * ({@code ProAccessSynchronizer}).
  *
  * <p>Présences : un emplacement (lieu LocalLife publié, ou adresse saisie), un type, des jours, des horaires et une
  * période ; créées en brouillon, publiées, suspendues, réactivées ou archivées. Deux présences non archivées d'un
