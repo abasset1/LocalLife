@@ -50,12 +50,14 @@ public class ProFoodTruckController {
     /** Food truck vu par son propriétaire. {@code suspendedByLocalLife} : suspendu par un administrateur. */
     public record OwnedFoodTruckResponse(
             Long id, String name, String description, String category, String contact, FoodTruckStatus status,
-            boolean suspendedByLocalLife, OffsetDateTime updatedAt) {
+            boolean suspendedByLocalLife, OffsetDateTime updatedAt, boolean approved, String reviewReason,
+            boolean suspendedForAccess) {
 
         static OwnedFoodTruckResponse from(OwnedFoodTruck foodTruck) {
             return new OwnedFoodTruckResponse(foodTruck.id(), foodTruck.name(), foodTruck.description(),
                     foodTruck.category(), foodTruck.contact(), foodTruck.status(),
-                    foodTruck.suspendedByAdminAt() != null, foodTruck.updatedAt());
+                    foodTruck.suspendedByAdminAt() != null, foodTruck.updatedAt(), foodTruck.approvedAt() != null,
+                    foodTruck.reviewReason(), foodTruck.suspendedForAccessAt() != null);
         }
     }
 
@@ -109,8 +111,9 @@ public class ProFoodTruckController {
     }
 
     @Operation(summary = "Publier, suspendre ou archiver un food truck",
-            description = "action : publish (brouillon ou suspendu → publié, sauf suspension par LocalLife), "
-                    + "suspend (publié → suspendu), archive (définitif).")
+            description = "action : publish (première fois : envoi en validation, PENDING ; ensuite brouillon ou "
+                    + "suspendu → publié, sauf suspension par LocalLife), suspend (publié → suspendu ; en attente → "
+                    + "brouillon), archive (définitif, possible même sans accès professionnel).")
     @PostMapping("/foodtrucks/{id}/{action}")
     public ResponseEntity<Object> act(@PathVariable Long id, @PathVariable String action,
             Authentication authentication, HttpServletRequest request) {

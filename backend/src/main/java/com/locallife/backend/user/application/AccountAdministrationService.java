@@ -1,5 +1,8 @@
 package com.locallife.backend.user.application;
 
+import com.locallife.backend.pro.application.ProAccessChanged;
+import com.locallife.backend.pro.infrastructure.ProAccountRepository;
+import com.locallife.backend.pro.infrastructure.ProAccountRepository.ProRoleSource;
 import com.locallife.backend.user.domain.AccountStatus;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.infrastructure.AccountAuditRepository;
@@ -15,6 +18,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 /**
@@ -53,20 +57,25 @@ public class AccountAdministrationService {
     private final AccountRepository accountRepository;
     private final AccountAuditRepository auditRepository;
     private final UserService userService;
+    private final ProAccountRepository proAccountRepository;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
     @Autowired
     public AccountAdministrationService(
-            AccountRepository accountRepository, AccountAuditRepository auditRepository, UserService userService) {
-        this(accountRepository, auditRepository, userService, Clock.systemUTC());
+            AccountRepository accountRepository, AccountAuditRepository auditRepository, UserService userService,
+            ProAccountRepository proAccountRepository, ApplicationEventPublisher events) {
+        this(accountRepository, auditRepository, userService, proAccountRepository, events, Clock.systemUTC());
     }
 
     AccountAdministrationService(
             AccountRepository accountRepository, AccountAuditRepository auditRepository, UserService userService,
-            Clock clock) {
+            ProAccountRepository proAccountRepository, ApplicationEventPublisher events, Clock clock) {
         this.accountRepository = accountRepository;
         this.auditRepository = auditRepository;
         this.userService = userService;
+        this.proAccountRepository = proAccountRepository;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -112,7 +121,7 @@ public class AccountAdministrationService {
     // --- Rôle ---
 
     /**
-     * Bascule {@code USER} ↔ {@code PRO}. Sans effet (et sans erreur) si le compte a déjà ce rôle.
+     * Bascule {@code USER} ↔ {@code PRO}, attribution manuelle indépendante de l'offre Pro. Sans effet (et sans erreur) si le compte a déjà ce rôle.
      *
      * @throws AccountActionException 400 rôle inconnu, 403 transition interdite, 404 compte inconnu
      */
@@ -135,7 +144,18 @@ public class AccountAdministrationService {
         if (target.role() == role) {
             return target;
         }
+        boolean fromSubscription = proAccountRepository.findRoleState(targetId)
+                .filter(state -> state.source() == ProRoleSource.SUBSCRIPTION).isPresent();
+        if (role == Role.USER && fromSubscription) {
+            throw refuse(actor, targetId, ROLE_CHANGE, target.role().name(), role.name(), null,
+                    AccountActionException.conflict("Ce rôle découle d'une offre Pro en cours : retire l'abonnement "
+                            + "pour le retirer."));
+        }
         userService.changeRole(targetId, role);
+        // Rôle PRO attribué à la main : il ne dépend d'aucun abonnement (décision du 22/10/2026). Retiré, il
+        // emporte l'accès professionnel, sauf offre Pro en cours.
+        proAccountRepository.setRole(targetId, role, role == Role.PRO ? ProRoleSource.ADMIN : null);
+        events.publishEvent(new ProAccessChanged(targetId));
         record(actor, targetId, ROLE_CHANGE, target.role().name(), role.name(), null, "SUCCESS", null);
         LOGGER.info("Rôle du compte {} : {} → {} (par le compte {})", targetId, target.role(), role, actor.userId());
         return accountRepository.findById(targetId).orElseThrow();

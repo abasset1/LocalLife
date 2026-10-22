@@ -120,4 +120,15 @@ public class SmtpEmailService implements EmailService {
         log.info("Avis de changement d'adresse envoyé à {}", to);
     }
 
+    @Override
+    public void sendProDecisionEmail(String to, String subject, String text) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(to);
+        message.setSubject(subject);
+        message.setText(text);
+
+        mailSender.send(message);
+        log.info("Décision professionnelle envoyée à {} : {}", to, subject);
+    }
 }

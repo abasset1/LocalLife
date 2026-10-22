@@ -1,6 +1,7 @@
 package com.locallife.backend.activity.api;
 
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.infrastructure.ActivityHostPlaceRepository.HostPlace;
 import com.locallife.backend.place.domain.CoordinatePrecision;
 import java.time.LocalDateTime;
 
@@ -53,7 +54,8 @@ public record ActivitySummaryResponse(
         Double longitude,
         String mainImageUrl,
         Long createdBy,
-        String coordinatePrecision) {
+        String coordinatePrecision,
+        HostPlace hostPlace) {
 
     public static ActivitySummaryResponse from(Activity activity, String mainImageUrl) {
         return new ActivitySummaryResponse(
@@ -67,12 +69,20 @@ public record ActivitySummaryResponse(
                 activity.longitude(),
                 mainImageUrl,
                 activity.createdBy(),
-                CoordinatePrecision.UNKNOWN.name());
+                CoordinatePrecision.UNKNOWN.name(),
+                null);
     }
 
     /** Précision géographique de la position (ADR-0011, phase A) ; {@code from} vaut {@code UNKNOWN}. */
     public ActivitySummaryResponse withCoordinatePrecision(CoordinatePrecision precision) {
         return new ActivitySummaryResponse(id, title, category, date, city, address, latitude, longitude,
-                mainImageUrl, createdBy, (precision == null ? CoordinatePrecision.UNKNOWN : precision).name());
+                mainImageUrl, createdBy, (precision == null ? CoordinatePrecision.UNKNOWN : precision).name(),
+                hostPlace);
+    }
+
+    /** Lieu qui propose l'activité (décision du 22/10/2026), {@code null} sinon. */
+    public ActivitySummaryResponse withHostPlace(HostPlace place) {
+        return new ActivitySummaryResponse(id, title, category, date, city, address, latitude, longitude,
+                mainImageUrl, createdBy, coordinatePrecision, place);
     }
 }

@@ -2,6 +2,17 @@
 
 ## 0.9.59 — non publiée
 
+### Professionnels : périmètre défini (22/10/2026)
+- **L'offre Pro pilote le rôle** : sa validation donne le rôle PRO, sa fin le retire ; un administrateur peut toujours l'attribuer à la main. Site et application s'appuient sur un seul indicateur, `hasProAccess`.
+- **Fin de l'accès pro** : food trucks publiés masqués, droits de gestion révoqués, demandes en cours retirées ; l'ex-professionnel consulte et archive encore ses food trucks. Tout revient si l'accès revient. Même retrait à la suppression du compte.
+- **Lieux publiés gérés** (importés compris) : le gestionnaire propose une modification (adresse, description, contacts), appliquée après validation par l'équipe ; elle prime ensuite sur les réimports. Il peut renoncer à un lieu ; l'équipe peut retirer un gestionnaire, motif obligatoire.
+- **Food trucks : première publication validée par l'équipe**, ensuite gérés librement. L'ancienne création directe `POST /api/v1/foodtrucks` (publiée sans contrôle) est retirée.
+- **Activités « proposées par » un lieu** que l'auteur gère, affiché tant qu'il le gère ; modération inchangée.
+- **Un administrateur ne valide jamais ses propres contenus** (demandes, propositions, food trucks, lieux créés).
+- **Offre Pro** : Premium refusé tant qu'elle est en cours ; résiliée sans échéance, elle court jusqu'à la fin du mois.
+- **E-mails de décision** au professionnel (offre Pro, gestion de lieu, proposition de modification, food truck, retrait).
+- Migration `V71` : origine du rôle PRO, masquage et rétablissement des contenus, validation des food trucks, table `place_change_request`, `location.manager_edited_at`, table `activity_host_place`.
+
 ### Utilisateurs connectés : périmètre défini (21/10/2026)
 - **Proposer ou modifier une activité est réservé aux offres Premium et Pro** (et aux rôles PRO/ADMIN). Sans offre, l'auteur peut encore voir, annuler et supprimer ses contributions. Site et application orientent vers l'abonnement.
 - **Une activité publiée puis modifiée par son auteur repart en modération** et quitte la carte jusqu'à validation.

@@ -17,6 +17,7 @@ import com.locallife.backend.geocoding.application.GeocodingService;
 import com.locallife.backend.geocoding.application.GeocodingUnavailableException;
 import com.locallife.backend.pro.application.ProAccessPolicy;
 import com.locallife.backend.pro.application.ProActionException;
+import com.locallife.backend.pro.application.ProNotifier;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
@@ -34,9 +35,13 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Food trucks gérés par leur propriétaire professionnel : profil (PRO-01 lot C) et présences (FOODTRUCK-01).
  *
- * <p>Profil : créé en brouillon, publié par son propriétaire sans modération préalable (ADR-0012, décision D6),
- * suspendu, republié, ou archivé (définitif). Un food truck suspendu par un administrateur ne peut pas être
- * republié par son propriétaire.
+ * <p>Profil : créé en brouillon ; sa première publication est validée par l'équipe (décision du 22/10/2026,
+ * remplace la décision D6) : « publier » l'envoie en validation ({@code PENDING}), un administrateur le publie ou le
+ * refuse. Une fois validé, son propriétaire le suspend et le republie lui-même ; il peut toujours l'archiver
+ * (définitif). Un food truck suspendu par un administrateur ne peut pas être republié par son propriétaire.
+ *
+ * <p>Sans accès professionnel (offre terminée, rôle retiré), le propriétaire garde la consultation de ses food
+ * trucks et peut les archiver, rien de plus ; ses food trucks publiés ont été suspendus ({@code ProAccessSynchronizer}).
  *
  * <p>Présences : un emplacement (lieu LocalLife publié, ou adresse saisie), un type, des jours, des horaires et une
  * période ; créées en brouillon, publiées, suspendues, réactivées ou archivées. Deux présences non archivées d'un
@@ -64,14 +69,16 @@ public class ProFoodTruckService {
     private final FoodTruckPresenceRepository presenceRepository;
     private final ProAccessPolicy proAccessPolicy;
     private final GeocodingService geocodingService;
+    private final ProNotifier notifier;
 
     public ProFoodTruckService(OwnedFoodTruckRepository foodTruckRepository,
             FoodTruckPresenceRepository presenceRepository, ProAccessPolicy proAccessPolicy,
-            GeocodingService geocodingService) {
+            GeocodingService geocodingService, ProNotifier notifier) {
         this.foodTruckRepository = foodTruckRepository;
         this.presenceRepository = presenceRepository;
         this.proAccessPolicy = proAccessPolicy;
         this.geocodingService = geocodingService;
+        this.notifier = notifier;
     }
 
     /** Profil saisi. */
@@ -119,40 +126,91 @@ public class ProFoodTruckService {
 
     @Transactional
     public OwnedFoodTruck act(Long userId, Long id, OwnerAction action) {
-        OwnedFoodTruck foodTruck = owned(userId, id);
+        OwnedFoodTruck foodTruck = action == OwnerAction.ARCHIVE ? ownedForReading(userId, id) : owned(userId, id);
         if (action == OwnerAction.PUBLISH && foodTruck.suspendedByAdminAt() != null) {
             throw ProActionException.conflict("Ce food truck a été suspendu par LocalLife : contacte l'équipe pour "
                     + "le rétablir.");
         }
+        boolean approved = foodTruck.approvedAt() != null;
         boolean changed = switch (action) {
-            case PUBLISH -> foodTruckRepository.transition(id,
-                    EnumSet.of(FoodTruckStatus.DRAFT, FoodTruckStatus.SUSPENDED), FoodTruckStatus.PUBLISHED);
-            case SUSPEND -> foodTruckRepository.transition(id, EnumSet.of(FoodTruckStatus.PUBLISHED),
-                    FoodTruckStatus.SUSPENDED);
-            case ARCHIVE -> foodTruckRepository.transition(id,
-                    EnumSet.of(FoodTruckStatus.DRAFT, FoodTruckStatus.PUBLISHED, FoodTruckStatus.SUSPENDED),
-                    FoodTruckStatus.ARCHIVED);
+            case PUBLISH -> approved
+                    ? foodTruckRepository.transition(id,
+                            EnumSet.of(FoodTruckStatus.DRAFT, FoodTruckStatus.SUSPENDED), FoodTruckStatus.PUBLISHED)
+                    : foodTruckRepository.transition(id,
+                            EnumSet.of(FoodTruckStatus.DRAFT, FoodTruckStatus.REJECTED), FoodTruckStatus.PENDING);
+            // Suspendre une demande de validation la retire : le food truck revient en brouillon.
+            case SUSPEND -> foodTruck.status() == FoodTruckStatus.PENDING
+                    ? foodTruckRepository.transition(id, EnumSet.of(FoodTruckStatus.PENDING), FoodTruckStatus.DRAFT)
+                    : foodTruckRepository.transition(id, EnumSet.of(FoodTruckStatus.PUBLISHED),
+                            FoodTruckStatus.SUSPENDED);
+            case ARCHIVE -> foodTruckRepository.transition(id, EnumSet.of(FoodTruckStatus.DRAFT,
+                    FoodTruckStatus.PENDING, FoodTruckStatus.PUBLISHED, FoodTruckStatus.SUSPENDED,
+                    FoodTruckStatus.REJECTED), FoodTruckStatus.ARCHIVED);
         };
         if (!changed) {
             throw ProActionException.conflict("Action impossible pour un food truck au statut " + foodTruck.status()
                     + ".");
         }
+        if (action == OwnerAction.PUBLISH && !approved) {
+            LOGGER.info("Food truck {} envoyé en validation par le professionnel {}", id, userId);
+        }
         return foodTruckRepository.findById(id).orElseThrow();
     }
 
+    // ---------------------------------------------------------------- validation (ADMIN)
+
+    /**
+     * Première publication validée par un administrateur, jamais par le propriétaire lui-même ; un refus exige un
+     * motif, le propriétaire peut corriger et renvoyer.
+     */
+    @Transactional
+    public OwnedFoodTruck review(Long adminId, Long id, boolean approve, String reason) {
+        OwnedFoodTruck foodTruck = foodTruckRepository.findById(id)
+                .orElseThrow(() -> ProActionException.notFound("Food truck introuvable."));
+        if (adminId.equals(foodTruck.ownerId())) {
+            throw ProActionException.forbidden("Un administrateur ne valide pas son propre food truck.");
+        }
+        String cleanReason = text(reason, MAX_DESCRIPTION_LENGTH, "Le motif");
+        if (!approve && cleanReason == null) {
+            throw ProActionException.invalid("Un motif est obligatoire pour refuser un food truck.");
+        }
+        if (approve && (foodTruck.ownerId() == null || !proAccessPolicy.hasProAccess(foodTruck.ownerId()))) {
+            throw ProActionException.conflict("Le propriétaire n'a plus d'accès professionnel.");
+        }
+        if (!foodTruckRepository.review(id, approve, adminId, cleanReason)) {
+            throw ProActionException.conflict("Ce food truck n'attend pas de validation.");
+        }
+        LOGGER.info("Food truck {} {} par l'administrateur {}", id, approve ? "validé" : "refusé", adminId);
+        String name = "« " + foodTruck.name() + " »";
+        if (approve) {
+            notifier.notify(foodTruck.ownerId(), "Ton food truck est publié",
+                    "L'équipe LocalLife a validé " + name + " : il est visible sur la carte. Tu le gères désormais "
+                            + "sans validation.", null);
+        } else {
+            notifier.notify(foodTruck.ownerId(), "Ton food truck n'a pas été publié",
+                    "L'équipe LocalLife n'a pas validé " + name + ". Corrige-le puis renvoie-le depuis ton espace "
+                            + "professionnel.", cleanReason);
+        }
+        return foodTruckRepository.findById(id).orElseThrow();
+    }
+
+    /** Ses food trucks ; un ex-professionnel les consulte encore, un compte qui n'en a jamais eu reçoit 403. */
     public List<OwnedFoodTruck> findMine(Long userId) {
-        requirePro(userId);
-        return foodTruckRepository.findByOwner(userId);
+        List<OwnedFoodTruck> mine = foodTruckRepository.findByOwner(userId);
+        if (mine.isEmpty()) {
+            requirePro(userId);
+        }
+        return mine;
     }
 
     public OwnedFoodTruck findMine(Long userId, Long id) {
-        return owned(userId, id);
+        return ownedForReading(userId, id);
     }
 
     // ---------------------------------------------------------------- présences (FOODTRUCK-01)
 
     public List<ManagedPresence> findPresences(Long userId, Long foodTruckId) {
-        owned(userId, foodTruckId);
+        ownedForReading(userId, foodTruckId);
         return presenceRepository.findAllForTruck(foodTruckId);
     }
 
@@ -170,7 +228,7 @@ public class ProFoodTruckService {
 
     @Transactional
     public ManagedPresence updatePresence(Long userId, Long presenceId, PresenceInput input) {
-        ManagedPresence presence = ownedPresence(userId, presenceId);
+        ManagedPresence presence = ownedPresence(userId, presenceId, true);
         if (presence.status() == PresenceStatus.ARCHIVED) {
             throw ProActionException.conflict("Un emplacement archivé n'est plus modifiable.");
         }
@@ -183,7 +241,7 @@ public class ProFoodTruckService {
     /** Publier (ou réactiver une présence suspendue), suspendre, archiver. */
     @Transactional
     public ManagedPresence actOnPresence(Long userId, Long presenceId, OwnerAction action) {
-        ManagedPresence presence = ownedPresence(userId, presenceId);
+        ManagedPresence presence = ownedPresence(userId, presenceId, action != OwnerAction.ARCHIVE);
         if (action == OwnerAction.PUBLISH && presence.presence().validUntil() != null
                 && presence.presence().validUntil().isBefore(FoodTruckService.today())) {
             throw ProActionException.conflict("La période de cet emplacement est passée : modifie-la d'abord.");
@@ -204,17 +262,25 @@ public class ProFoodTruckService {
 
     // ---------------------------------------------------------------- outils
 
+    /** Food truck du propriétaire, pour le modifier : accès professionnel exigé. */
     private OwnedFoodTruck owned(Long userId, Long id) {
         requirePro(userId);
+        return ownedForReading(userId, id);
+    }
+
+    /** Food truck du propriétaire, pour le consulter ou l'archiver, même sans accès professionnel. */
+    private OwnedFoodTruck ownedForReading(Long userId, Long id) {
         return foodTruckRepository.findById(id).filter(foodTruck -> userId.equals(foodTruck.ownerId()))
                 .orElseThrow(() -> ProActionException.notFound("Food truck introuvable."));
     }
 
-    private ManagedPresence ownedPresence(Long userId, Long presenceId) {
-        requirePro(userId);
+    private ManagedPresence ownedPresence(Long userId, Long presenceId, boolean modifies) {
+        if (modifies) {
+            requirePro(userId);
+        }
         ManagedPresence presence = presenceRepository.findManaged(presenceId)
                 .orElseThrow(() -> ProActionException.notFound("Emplacement introuvable."));
-        owned(userId, presence.presence().foodTruckId());
+        ownedForReading(userId, presence.presence().foodTruckId());
         return presence;
     }
 

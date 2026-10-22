@@ -33,17 +33,10 @@ import org.springframework.data.annotation.ReadOnlyProperty;
  * ({@code FoodTruckPresence}), un food truck n'est pas un lieu. Gardées en
  * lecture seule pour les lignes antérieures, nulles pour les nouvelles.
  *
- * ⚠️ Décision, voir {@code FoodTruckService#createFoodTruck} :
- * contrairement à une activité créée manuellement (statut par défaut
- * {@code PENDING}), un food truck créé via ce ticket obtient directement
- * le statut {@code PUBLISHED} — aucun endpoint de modération
- * (publier/rejeter) n'existe encore pour les food trucks, un statut par
- * défaut {@code PENDING} sans aucun moyen de le faire évoluer rendrait
- * tout food truck créé invisible sur la carte, contredisant le critère
- * d'acceptation « visibilité sur la carte » de LL-6009. Si une
- * modération des food trucks est souhaitée plus tard, un ticket dédié
- * pourra réutiliser le même mécanisme que {@code AdminActivityController}
- * (LL-6005/LL-6006) — non anticipé ici.
+ * Statut : voir {@link FoodTruckStatus}. Depuis le 22/10/2026, un food
+ * truck se crée uniquement dans l'espace professionnel
+ * ({@code ProFoodTruckService}) et sa première publication est validée par
+ * l'équipe ; l'ancienne création directe publiée (LL-6009) est retirée.
  */
 public record FoodTruck(
         @Id Long id,

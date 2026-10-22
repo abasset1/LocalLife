@@ -42,6 +42,11 @@ public class PlaceModerationService {
         return new ModerationPage(items, total[0]);
     }
 
+    /** Lieu créé par cet administrateur dans l'espace professionnel : il ne le modère pas lui-même. */
+    public boolean isCreatedBy(Long id, Long adminId) {
+        return placeRepository.isCreatedBy(id, adminId);
+    }
+
     public Optional<Place> findById(Long id) {
         return placeRepository.findById(id);
     }

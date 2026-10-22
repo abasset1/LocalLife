@@ -257,6 +257,9 @@ public class AdminPlaceController {
         if (moderationService.findById(id).isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+        if (moderationService.isCreatedBy(id, adminId(authentication))) {
+            return error(HttpStatus.FORBIDDEN, "Un administrateur ne modère pas un lieu qu'il a créé.", request);
+        }
         List<Long> applied = moderationService.moderate(List.of(id), target, adminId(authentication));
         if (applied.isEmpty()) {
             return error(HttpStatus.CONFLICT, "Transition non permise depuis le statut actuel du lieu.", request);

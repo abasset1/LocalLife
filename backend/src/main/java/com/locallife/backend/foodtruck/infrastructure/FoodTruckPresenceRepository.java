@@ -70,27 +70,6 @@ public class FoodTruckPresenceRepository {
                 (row, index) -> toPresence(row));
     }
 
-    /**
-     * Présence permanente publiée (sans jours ni dates) sur un emplacement non typé créé à la position donnée —
-     * forme des food trucks créés avant leur gestion par un professionnel (ADR-0013, décision D3). Renvoie son id.
-     */
-    public Long insertPermanent(Long foodTruckId, double latitude, double longitude) {
-        KeyHolder location = new GeneratedKeyHolder();
-        jdbc.update("""
-                INSERT INTO location (latitude, longitude, country_code, timezone, coordinate_precision)
-                VALUES (:latitude, :longitude, 'FR', 'Europe/Paris', 'UNKNOWN')
-                """, new MapSqlParameterSource("latitude", latitude).addValue("longitude", longitude), location,
-                new String[] {"id"});
-        KeyHolder presence = new GeneratedKeyHolder();
-        jdbc.update("""
-                INSERT INTO food_truck_presence (food_truck_id, location_id, spot_kind, status)
-                VALUES (:foodTruckId, :locationId, :kind, 'PUBLISHED')
-                """, new MapSqlParameterSource("foodTruckId", foodTruckId)
-                .addValue("locationId", location.getKey().longValue()).addValue("kind", SpotKind.OTHER.name()),
-                presence, new String[] {"id"});
-        return presence.getKey().longValue();
-    }
-
     // ---------------------------------------------------------------- gestion par le propriétaire (FOODTRUCK-01)
 
     /** Créneau et emplacement saisis par le propriétaire. */

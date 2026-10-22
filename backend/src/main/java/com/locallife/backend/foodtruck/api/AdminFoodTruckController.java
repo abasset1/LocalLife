@@ -2,6 +2,7 @@ package com.locallife.backend.foodtruck.api;
 
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.foodtruck.api.ProFoodTruckController.OwnedFoodTruckResponse;
+import com.locallife.backend.foodtruck.application.ProFoodTruckService;
 import com.locallife.backend.foodtruck.domain.FoodTruckStatus;
 import com.locallife.backend.foodtruck.infrastructure.OwnedFoodTruckRepository;
 import com.locallife.backend.pro.application.ProActionException;
@@ -20,14 +21,16 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Food trucks côté administration (ADR-0012, décision D6) : pas de modération préalable, mais un administrateur peut
- * suspendre un food truck publié par son propriétaire, et lever cette suspension. Réservé au rôle {@code ADMIN}
- * ({@code /api/v1/admin/**}).
+ * Food trucks côté administration : validation de leur première publication (décision du 22/10/2026 ; un
+ * administrateur ne valide jamais le sien), puis suspension d'un food truck publié et levée de cette suspension.
+ * Réservé au rôle {@code ADMIN} ({@code /api/v1/admin/**}).
  */
 @RestController
 @RequestMapping("/api/v1/admin/foodtrucks")
@@ -37,9 +40,15 @@ public class AdminFoodTruckController {
     private static final int MAX_LIMIT = 200;
 
     private final OwnedFoodTruckRepository repository;
+    private final ProFoodTruckService proFoodTruckService;
 
-    public AdminFoodTruckController(OwnedFoodTruckRepository repository) {
+    public AdminFoodTruckController(OwnedFoodTruckRepository repository, ProFoodTruckService proFoodTruckService) {
         this.repository = repository;
+        this.proFoodTruckService = proFoodTruckService;
+    }
+
+    /** Motif d'un refus. */
+    public record ReviewRequest(String reason) {
     }
 
     /** Food truck avec son propriétaire. */
@@ -105,5 +114,25 @@ public class AdminFoodTruckController {
             LOGGER.info("Suspension du food truck {} levée par l'administrateur {}", id, adminId);
             return ResponseEntity.ok(OwnedFoodTruckResponse.from(repository.findById(id).orElseThrow()));
         });
+    }
+
+    @Operation(summary = "Valider la première publication", description = "PENDING → PUBLISHED. 403 pour son propre "
+            + "food truck, 409 s'il n'attend pas de validation ou si son propriétaire n'a plus d'accès professionnel.")
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<Object> approve(@PathVariable Long id, Authentication authentication,
+            HttpServletRequest request) {
+        Long adminId = ((JwtAuthentication) authentication).getUserId();
+        return ProFoodTruckController.handle(request, () -> ResponseEntity.ok(OwnedFoodTruckResponse.from(
+                proFoodTruckService.review(adminId, id, true, null))));
+    }
+
+    @Operation(summary = "Refuser la première publication", description = "PENDING → REJECTED, motif obligatoire ; "
+            + "le propriétaire peut corriger et renvoyer.")
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<Object> reject(@PathVariable Long id, @RequestBody(required = false) ReviewRequest body,
+            Authentication authentication, HttpServletRequest request) {
+        Long adminId = ((JwtAuthentication) authentication).getUserId();
+        return ProFoodTruckController.handle(request, () -> ResponseEntity.ok(OwnedFoodTruckResponse.from(
+                proFoodTruckService.review(adminId, id, false, body == null ? null : body.reason()))));
     }
 }

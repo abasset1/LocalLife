@@ -9,7 +9,8 @@ import java.util.List;
  * avec son statut de validation, et pré-remplir le formulaire de modification — mêmes champs que
  * {@link ActivityController.CreateActivityRequest}.
  *
- * @param recurrence récurrence hebdomadaire, {@code null} pour une activité ponctuelle ou sur une période
+ * @param recurrence  récurrence hebdomadaire, {@code null} pour une activité ponctuelle ou sur une période
+ * @param hostPlaceId lieu géré par l'auteur qui propose l'activité, {@code null} sinon
  */
 public record ContributionResponse(
         Long id,
@@ -24,5 +25,6 @@ public record ContributionResponse(
         String url,
         String phone,
         String email,
-        RecurrenceRequest recurrence) {
+        RecurrenceRequest recurrence,
+        Long hostPlaceId) {
 }

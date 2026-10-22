@@ -8,13 +8,15 @@ n'est prise par une interface seule.
 
 | Notion | Valeurs | Où | Qui la change | Ce qu'elle ouvre |
 |---|---|---|---|---|
-| **Rôle** (accès technique) | `USER`, `PRO`, `ADMIN` | `users.role` | `USER` à l'inscription ; `USER` ↔ `PRO` par un administrateur ; `ADMIN` uniquement par procédure d'exploitation (§ 5) | Routes protégées (§ 3) |
+| **Rôle** (accès technique) | `USER`, `PRO`, `ADMIN` | `users.role` (+ `users.pro_role_source`, V71) | `USER` à l'inscription ; `PRO` posé par la validation de l'offre Pro et retiré à sa fin, ou attribué à la main par un administrateur ; `ADMIN` uniquement par procédure d'exploitation (§ 5) | Routes protégées (§ 3) |
 | **Statut** du compte | `ACTIVE`, `SUSPENDED` | `users.account_status` (V69) | Un administrateur (suspension motivée, réactivation) | `SUSPENDED` : plus de connexion ni de route authentifiée |
 | **Offre** (commerciale) | `FREE`, `PREMIUM`, `PRO` | `subscription` (V67, ADR-0014) | L'utilisateur demande, l'équipe active | Avantages de l'offre ; l'offre Pro ouvre l'espace professionnel |
 
 * Un abonnement, quel qu'il soit, ne donne **jamais** de droit d'administration.
-* Le rôle `PRO` et l'offre Pro ouvrent tous deux l'espace professionnel (`ProAccessPolicy`), mais restent
-  indépendants : attribuer ou retirer le rôle `PRO` ne touche pas à l'abonnement, et inversement.
+* **L'offre Pro pilote le rôle** (décision du 22/10/2026) : sa validation donne le rôle `PRO`
+  (`pro_role_source = SUBSCRIPTION`), sa fin le retire. Un administrateur peut aussi attribuer `PRO` à la main
+  (`pro_role_source = ADMIN`, partenaire, gratuité) : ce rôle-là ne dépend d'aucun abonnement. Les interfaces ne
+  consultent qu'un indicateur, `hasProAccess` (`GET /api/v1/users/me`).
 * La carte, les listes et les fiches restent consultables gratuitement, sans compte et quelle que soit l'offre.
 * Pas de rôle `MODERATOR` ni `SUPERADMIN` : à introduire dans un sprint dédié, avec sa propre matrice et sa migration.
 
@@ -45,9 +47,9 @@ vérifiée côté serveur.
 | Proposer une activité, modifier la sienne (`POST /activities`, `PUT /activities/{id}`) | ❌ | 🔒 offre Premium ou Pro, propriétaire | 🔒 propriétaire | ✅ toutes |
 | Annuler / supprimer sa contribution (`PATCH /activities/{id}/cancel`, `DELETE /activities/{id}`) | ❌ | 🔒 propriétaire | 🔒 propriétaire | ✅ toutes |
 | Mot de passe, adresse e-mail confirmée, suppression de son compte (`/api/v1/users/me/password`, `PATCH /me`, `/me/deletion`) | ❌ | ✅ | ✅ | ✅ (sauf suppression) |
-| Créer un food truck (`POST /api/v1/foodtrucks`) | ❌ | 🔒 accès pro | ✅ | ✅ |
+| Food trucks : création et gestion (`/api/v1/pro/foodtrucks/**`, l'ancien `POST /api/v1/foodtrucks` est retiré) | ❌ | ❌ | 🔒 propriétaire, 1re publication validée | ✅ (sans valider les siens) |
 | Abonnement (`/api/v1/users/me/subscription/**`) | ❌ | ✅ | ✅ | ✅ |
-| Espace professionnel (`/api/v1/pro/**`) | ❌ | 🔒 offre Pro | ✅ | ✅ (sans modérer ses propres demandes) |
+| Espace professionnel (`/api/v1/pro/**`) | ❌ | ❌ (403 ; l'offre Pro validée donne le rôle PRO) | ✅ | ✅ (sans valider ses propres contenus) |
 | Comptes ciblés (`GET /api/v1/users/{id}`, `POST /api/v1/users`) | ❌ | ❌ | ❌ | ✅ |
 | Gestion des sources (`POST/PUT/DELETE /api/v1/sources/**`) | ❌ | ❌ | ❌ | ✅ |
 | Toute l'administration (`/api/v1/admin/**` : modération, lieux, imports, catégories, e-mails, suppression, professionnels, abonnements, **comptes**) | ❌ | ❌ | ❌ | ✅ |
@@ -117,9 +119,46 @@ passer à Premium). `GET /api/v1/users/me` expose `canContribute` pour que les i
 Vérifié par `AccountSelfServiceIntegrationTest`, `ContributionManagementIntegrationTest`,
 `SubscriptionIntegrationTest`, `AuthenticationFlowIntegrationTest` et `ActivityControllerTest`.
 
-### Professionnel, administrateur
+### Professionnel (rôle PRO, offre Pro ou attribution) — décidé le 22/10/2026
 
-À définir dans les étapes suivantes ; l'état actuel est décrit par la matrice du § 3.
+**Accès.** L'offre Pro, demandée par l'utilisateur et validée par l'équipe, donne le rôle `PRO` ; sa fin
+(résiliation échue, retrait par l'équipe, expiration) le retire. Un administrateur peut attribuer `PRO` à la main,
+indépendamment de tout abonnement ; il ne peut pas retirer un rôle qui découle d'une offre en cours (409 : retirer
+l'abonnement). `ProAccessPolicy` décide à chaque requête ; `hasProAccess` le reflète pour les interfaces.
+
+**Peut, en plus de tout ce que fait un utilisateur connecté :**
+
+| Action | Routes | Règle |
+|---|---|---|
+| Proposer et modifier ses activités | `POST/PUT /api/v1/activities` | Comme Premium : modération inchangée |
+| Rattacher une activité à un lieu qu'il gère | champ `hostPlaceId` | Lieu **publié** qu'il gère (400 sinon) ; la fiche affiche « proposé par » tant qu'il le gère |
+| Demander la gestion d'un lieu existant | `/api/v1/pro/places/{id}/claims`, `/pro/claims/**` | Décision de l'équipe, **notifiée par e-mail** (acceptée, refusée, précisions demandées) |
+| Créer un lieu | `/api/v1/pro/places` | Brouillon modifiable puis modération ; un administrateur ne publie jamais un lieu qu'il a créé |
+| Modifier un lieu **publié** qu'il gère (importé ou créé) | `POST /api/v1/pro/places/{id}/changes` | **Proposition** (adresse, position, description, site, téléphone, e-mail) appliquée seulement après validation par l'équipe ; la fiche reste en ligne en attendant ; une modification validée **prime sur les réimports** (`location.manager_edited_at`) ; e-mail à la décision |
+| Renoncer à un lieu | `POST /api/v1/pro/places/{id}/renounce` | Ses propositions en attente sont retirées. Plusieurs gestionnaires par lieu restent possibles |
+| Food trucks et emplacements | `/api/v1/pro/foodtrucks/**`, `/pro/presences/**` | **La première publication est validée par l'équipe** (`PENDING`, puis publié ou refusé avec motif, e-mail) ; ensuite il publie, suspend, republie et gère ses emplacements sans validation. L'équipe peut suspendre à tout moment |
+| Offre Pro | `/api/v1/users/me/subscription/**` | Premium est refusé tant qu'une offre Pro est en cours (409) ; résilier une offre Pro sans échéance la garde **jusqu'à la fin du mois** |
+
+**Quand l'accès prend fin** (offre terminée ou retirée, rôle retiré) : ses food trucks publiés sont masqués
+(`suspended_for_access_at`), ses droits de gestion révoqués (`revoked_reason = ACCESS_LOST`), ses demandes de gestion
+et propositions en cours retirées. Il garde la consultation de ses food trucks et peut les archiver. **Si l'accès
+revient, food trucks et droits de gestion reviennent** (pas les demandes retirées). La fin d'une période est
+effective à l'échéance exacte ; le masquage des contenus suit au passage horaire de l'expiration. À la suppression
+du compte, tout est retiré de la même façon, sans retour possible.
+
+**Ne peut pas :** valider ses propres demandes, propositions ou food trucks (même administrateur), modifier
+directement un lieu publié, publier un food truck sans validation la première fois.
+
+**Côté équipe** (`/api/v1/admin/**`) : file des food trucks à valider (`/admin/foodtrucks?status=PENDING`,
+`/{id}/approve`, `/{id}/reject`), propositions de modification (`/admin/place-changes/**`), gestionnaires d'un lieu
+(`/admin/places/{id}/managers`, retrait motivé `/managers/{userId}/revoke`, notifié par e-mail).
+
+Vérifié par `ProAccountRulesIntegrationTest`, `ProFoodTruckIntegrationTest`, `ProSpaceIntegrationTest` et
+`SubscriptionIntegrationTest`.
+
+### Administrateur
+
+À définir dans l'étape suivante ; l'état actuel est décrit par la matrice du § 3.
 
 ## 4. Gestion des comptes (API d'administration)
 
@@ -129,7 +168,7 @@ Réservée à `ADMIN`. Réponses sans secret : jamais de hash de mot de passe, d
 |---|---|---|
 | `GET /api/v1/admin/accounts?q=&role=&status=&page=&size=` | Liste paginée (≤ 100), plus récents d'abord. `q` : partie de l'e-mail ou du nom, ou identifiant exact | 200 ; 400 filtre ou pagination invalide |
 | `GET /api/v1/admin/accounts/{id}` | Un compte | 200 ; 404 |
-| `PATCH /api/v1/admin/accounts/{id}/role` `{"role":"PRO"}` | Bascule `USER` ↔ `PRO` | 200 ; 400 rôle inconnu ; 403 `ADMIN` demandé, compte administrateur ou propre compte ; 404 |
+| `PATCH /api/v1/admin/accounts/{id}/role` `{"role":"PRO"}` | Bascule `USER` ↔ `PRO` (attribution manuelle, indépendante de l'offre) | 200 ; 400 rôle inconnu ; 403 `ADMIN` demandé, compte administrateur ou propre compte ; 404 ; 409 retrait d'un rôle issu d'une offre Pro en cours |
 | `POST /api/v1/admin/accounts/{id}/suspend` `{"reason":"…"}` | Suspension, motif obligatoire (3 à 500 caractères) | 200 ; 400 motif ; 403 compte administrateur ou propre compte ; 404 ; 409 déjà suspendu |
 | `POST /api/v1/admin/accounts/{id}/reactivate` `{"reason":"…"}` | Réactivation, motif facultatif | 200 ; 403 propre compte ; 404 ; 409 déjà actif |
 | `GET /api/v1/admin/accounts/audit?targetUserId=&page=&size=` | Journal, lecture seule | 200 |
