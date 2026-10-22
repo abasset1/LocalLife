@@ -3744,3 +3744,37 @@ body {
     color: #173f35;
     font-weight: 600;
 }
+
+/* Administration : fenêtre de confirmation (motif, mot de passe). */
+.admin-confirm-actions {
+    gap: 0.5rem;
+}
+
+/* Journal d'administration : états avant/après côte à côte, compacts. */
+.admin-log-entry .favorites-list-item-info {
+    cursor: default;
+    min-width: 0;
+}
+
+.admin-log-states {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.5rem;
+}
+
+.admin-log-states pre {
+    margin: 0.25rem 0 0;
+    max-height: 200px;
+    overflow: auto;
+    padding: 0.4rem;
+    background: #f8fafc;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Au-dessus des autres fenêtres (ex. fiche d'activité) qu'elle complète. */
+.admin-confirm-overlay {
+    z-index: 1100;
+}

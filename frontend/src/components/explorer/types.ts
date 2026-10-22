@@ -197,6 +197,8 @@ export interface Contribution {
     } | null;
     /** Lieu publié géré par l'auteur, qui propose l'activité (« Proposé par … »), sinon `null`. */
     hostPlaceId?: number | null;
+    /** Motif d'un refus ou d'une annulation par un modérateur, sinon `null`. */
+    moderationReason?: string | null;
 }
 
 /**

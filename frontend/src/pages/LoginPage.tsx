@@ -33,7 +33,10 @@ function LoginPage() {
 
             if (!response.ok) {
                 const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
-                setError(body?.message ?? "Email ou mot de passe incorrect.");
+                // 429 : trop de tentatives échouées (5 en 15 minutes) — le message du serveur dit quand réessayer.
+                setError(body?.message ?? (response.status === 429
+                    ? "Trop de tentatives de connexion : réessaie dans quelques minutes."
+                    : "Email ou mot de passe incorrect."));
                 // 403 : identifiants corrects mais adresse email pas encore confirmée.
                 setNeedsVerification(response.status === 403);
                 return;

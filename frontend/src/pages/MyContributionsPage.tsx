@@ -127,6 +127,10 @@ function MyContributionsPage() {
                                         {formatWhen(contribution)}
                                         {contribution.city ? ` · ${contribution.city}` : ""}
                                     </span>
+                                    {(contribution.status === "REJECTED" || contribution.status === "CANCELLED")
+                                        && contribution.moderationReason && (
+                                        <span className="favorites-list-item-meta">Motif : {contribution.moderationReason}</span>
+                                    )}
                                 </div>
                                 <div className="contributions-list-item-actions">
                                     {EDITABLE_STATUSES.has(contribution.status) && (

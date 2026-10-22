@@ -24,11 +24,11 @@ interface MailTestResult {
 /**
  * E-mails : configuration SMTP effective et envoi d'un e-mail de test, avec l'explication d'un échec (identifiants,
  * serveur injoignable, chiffrement, expéditeur refusé). Les envois réels (confirmation d'adresse, mot de passe oublié,
- * alertes) ne signalent leurs échecs que dans les journaux.
+ * alertes) ne signalent leurs échecs que dans les journaux. Le test part toujours vers l'adresse de l'administrateur
+ * connecté, 5 fois par heure au plus (429 au-delà, message du serveur affiché).
  */
 function AdminMailSection() {
     const [config, setConfig] = useState<MailConfig | null>(null);
-    const [to, setTo] = useState("");
     const [result, setResult] = useState<MailTestResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
@@ -47,8 +47,8 @@ function AdminMailSection() {
         event.preventDefault();
         setBusy(true);
         setResult(null);
-        const response = await proRequest<MailTestResult>("/api/v1/admin/mail/test", "POST",
-            { to: to.trim() === "" ? null : to.trim() });
+        setError(null);
+        const response = await proRequest<MailTestResult>("/api/v1/admin/mail/test", "POST", {});
         setBusy(false);
         if (response.ok) {
             setResult(response.data);
@@ -76,10 +76,10 @@ function AdminMailSection() {
                 </div>
             )}
             <form className="contribution-form" onSubmit={(event) => void sendTest(event)}>
-                <div className="form-field">
-                    <label htmlFor="mail-test-to">Destinataire du test (vide : ton adresse)</label>
-                    <input id="mail-test-to" onChange={(event) => setTo(event.target.value)} type="email" value={to} />
-                </div>
+                <p className="activities-status">
+                    L'e-mail de test est envoyé à ton adresse (celle de ton compte administrateur), 5 fois par heure
+                    au plus.
+                </p>
                 <button className="admin-approve-button" disabled={busy} type="submit">
                     {busy ? "Envoi…" : "Envoyer un e-mail de test"}
                 </button>
@@ -89,7 +89,7 @@ function AdminMailSection() {
                     {result.ok ? "✅ " : `❌ Échec à l'étape « ${result.step} » : `}{result.message}
                 </p>
             )}
-            {error && <p className="activities-status activities-status-error">{error}</p>}
+            {error && <p className="activities-status activities-status-error" role="alert">{error}</p>}
         </section>
     );
 }
