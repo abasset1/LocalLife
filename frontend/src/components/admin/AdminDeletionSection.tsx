@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { apiFetch } from "../../api/apiClient";
+import { confirmHeaders, useConfirmDialog } from "./useConfirmDialog";
 
 interface SourceOption {
     id: number;
@@ -34,10 +35,12 @@ function plural(count: number): string {
 }
 
 /**
- * Section « Suppression » de l'administration : supprime définitivement les activités qui répondent
+ * Section « Suppression » de l'administration : met à la corbeille (30 jours) les activités qui répondent
  * à des critères (source, statut, période de début), ou toutes. Toujours en deux temps : un aperçu
  * compte les activités visées, puis la suppression reprend ce nombre — le serveur refuse si les
- * activités visées ont changé entre-temps (`DELETE /api/v1/admin/activities`).
+ * activités visées ont changé entre-temps (`DELETE /api/v1/admin/activities`). La suppression exige un
+ * motif et le mot de passe de l'administrateur (`X-Confirm-Password`, 428 sinon) ; le lot supprimé se
+ * restaure d'un clic.
  */
 function AdminDeletionSection({ onActivitiesDeleted }: AdminDeletionSectionProps) {
     const [sources, setSources] = useState<SourceOption[]>([]);
@@ -53,6 +56,9 @@ function AdminDeletionSection({ onActivitiesDeleted }: AdminDeletionSectionProps
     const [isBusy, setIsBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    /** Dernier lot mis à la corbeille, restaurable tant qu'il n'est pas purgé. */
+    const [lastBatch, setLastBatch] = useState<string | null>(null);
+    const { ask, dialog } = useConfirmDialog();
 
     useEffect(() => {
         apiFetch("/api/v1/sources")
@@ -104,25 +110,64 @@ function AdminDeletionSection({ onActivitiesDeleted }: AdminDeletionSectionProps
         if (!currentPreview || currentPreview.count === 0 || !confirmed) {
             return;
         }
-        if (!window.confirm(`Supprimer définitivement ${plural(currentPreview.count)} ? Cette action est irréversible.`)) {
+        const confirmation = await ask({
+            title: `Supprimer ${plural(currentPreview.count)}`,
+            message: `${plural(currentPreview.count)} ${currentPreview.count > 1 ? "seront mises" : "sera mise"} à la
+                corbeille : restaurables pendant 30 jours, puis purgées définitivement.`,
+            reason: { label: "Motif de la suppression (journalisé)" },
+            password: true,
+            confirmLabel: "Mettre à la corbeille",
+        });
+        if (!confirmation) {
+            return;
+        }
+        setError(null);
+        setLastBatch(null);
+        setIsBusy(true);
+        try {
+            const reason = encodeURIComponent(confirmation.reason);
+            const response = await apiFetch(
+                `/api/v1/admin/activities?${query}&expectedCount=${currentPreview.count}&reason=${reason}`,
+                { method: "DELETE", headers: confirmHeaders(confirmation.password) },
+            );
+            if (!response.ok) {
+                setError(await errorMessage(response, "La suppression a échoué."));
+                // Mot de passe manquant ou faux (428) : l'aperçu reste valable, on peut réessayer.
+                if (response.status !== 428) {
+                    setPreview(null);
+                }
+                return;
+            }
+            const body = (await response.json()) as { count: number; batch: string | null };
+            setSuccess(`${plural(body.count)} mise${body.count > 1 ? "s" : ""} à la corbeille`
+                + `${body.batch ? ` (lot ${body.batch})` : ""}.`);
+            setLastBatch(body.batch);
+            setPreview(null);
+            setConfirmWord("");
+            onActivitiesDeleted();
+        } catch {
+            setError("Impossible de contacter le serveur, réessaie plus tard.");
+        } finally {
+            setIsBusy(false);
+        }
+    }
+
+    async function handleRestoreBatch() {
+        if (!lastBatch) {
             return;
         }
         setError(null);
         setIsBusy(true);
         try {
-            const response = await apiFetch(
-                `/api/v1/admin/activities?${query}&expectedCount=${currentPreview.count}`,
-                { method: "DELETE" },
-            );
+            const response = await apiFetch(`/api/v1/admin/activities/trash/batches/${encodeURIComponent(lastBatch)}/restore`,
+                { method: "POST" });
             if (!response.ok) {
-                setError(await errorMessage(response, "La suppression a échoué."));
-                setPreview(null);
+                setError(await errorMessage(response, "Impossible de restaurer ce lot."));
                 return;
             }
             const body = (await response.json()) as { count: number };
-            setSuccess(`${plural(body.count)} supprimée${body.count > 1 ? "s" : ""}.`);
-            setPreview(null);
-            setConfirmWord("");
+            setSuccess(`${plural(body.count)} restaurée${body.count > 1 ? "s" : ""}.`);
+            setLastBatch(null);
             onActivitiesDeleted();
         } catch {
             setError("Impossible de contacter le serveur, réessaie plus tard.");
@@ -135,8 +180,9 @@ function AdminDeletionSection({ onActivitiesDeleted }: AdminDeletionSectionProps
         <section aria-labelledby="admin-deletion-title" className="admin-import-card admin-deletion">
             <h2 id="admin-deletion-title">Supprimer des activités</h2>
             <p className="admin-import-hint">
-                Suppression définitive, avec tout ce qui est rattaché aux activités (horaires, liens, favoris…).
-                Les activités importées encore présentes dans leur agenda reviendront au prochain import : pour
+                Les activités supprimées vont à la corbeille : restaurables pendant 30 jours, puis purgées
+                définitivement avec tout ce qui leur est rattaché (horaires, liens, favoris…). Un motif et ton mot
+                de passe sont demandés. Les activités importées encore présentes dans leur agenda reviendront au prochain import : pour
                 les écarter durablement, désactive ou supprime aussi l'agenda.
             </p>
 
@@ -199,9 +245,15 @@ function AdminDeletionSection({ onActivitiesDeleted }: AdminDeletionSectionProps
                 </p>
             )}
             {success && (
-                <p className="admin-import-message admin-import-message-success" role="status">
-                    {success}
-                </p>
+                <div className="admin-import-message admin-import-message-success" role="status">
+                    <p>{success}</p>
+                    {lastBatch && (
+                        <button className="admin-approve-button" disabled={isBusy} onClick={() => void handleRestoreBatch()}
+                            type="button">
+                            Restaurer ce lot
+                        </button>
+                    )}
+                </div>
             )}
 
             {currentPreview && currentPreview.count === 0 && (
@@ -218,7 +270,7 @@ function AdminDeletionSection({ onActivitiesDeleted }: AdminDeletionSectionProps
                             : currentPreview.count > 1
                               ? "correspondent à ces critères"
                               : "correspond à ces critères"}{" "}
-                        {currentPreview.count > 1 ? "seront supprimées" : "sera supprimée"} définitivement.
+                        {currentPreview.count > 1 ? "seront mises" : "sera mise"} à la corbeille (30 jours).
                     </p>
                     {all && (
                         <label>
@@ -240,6 +292,7 @@ function AdminDeletionSection({ onActivitiesDeleted }: AdminDeletionSectionProps
                     </button>
                 </div>
             )}
+            {dialog}
         </section>
     );
 }

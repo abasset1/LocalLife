@@ -22,6 +22,9 @@ public class JwtService {
 
     private final long jwtExpirationMillis = 86400000L; // 24 heures
 
+    /** Session d'un administrateur : 8 heures (décision du 22/10/2026). */
+    static final long ADMIN_EXPIRATION_MILLIS = 8 * 3600000L;
+
     /**
      * Génère un token JWT pour un utilisateur donné.
      *
@@ -38,7 +41,8 @@ public class JwtService {
                 .claim("email", email)
                 .claim("role", role.name())
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + jwtExpirationMillis))
+                .expiration(new Date(System.currentTimeMillis()
+                        + (role == Role.ADMIN ? ADMIN_EXPIRATION_MILLIS : jwtExpirationMillis)))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }

@@ -2,6 +2,7 @@ package com.locallife.backend.common;
 
 import com.locallife.backend.subscription.application.SubscriptionService;
 import com.locallife.backend.subscription.domain.Plan;
+import com.locallife.backend.user.application.PasswordHashingService;
 import com.locallife.backend.user.domain.Role;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -27,13 +28,21 @@ public class TestAccounts {
     private final JdbcTemplate jdbcTemplate;
     private final String jwtSecret;
     private final SubscriptionService subscriptionService;
+    private final PasswordHashingService passwordHashingService;
+
+    /**
+     * Mot de passe du compte administrateur partagé : les actions les plus destructrices le redemandent (en-tête
+     * {@code X-Confirm-Password}, décision du 22/10/2026).
+     */
+    public static final String ADMIN_PASSWORD = "motDePasseAdminTest1";
 
     public TestAccounts(
             JdbcTemplate jdbcTemplate, @Value("${jwt.secret}") String jwtSecret,
-            SubscriptionService subscriptionService) {
+            SubscriptionService subscriptionService, PasswordHashingService passwordHashingService) {
         this.jdbcTemplate = jdbcTemplate;
         this.jwtSecret = jwtSecret;
         this.subscriptionService = subscriptionService;
+        this.passwordHashingService = passwordHashingService;
     }
 
     /**
@@ -59,6 +68,10 @@ public class TestAccounts {
                 SELECT ?, ?, '', ?, now(), TRUE
                 WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = ?)
                 """, "it-" + role.name().toLowerCase(), email, role.name(), email);
+        if (role == Role.ADMIN) {
+            jdbcTemplate.update("UPDATE users SET password_hash = ? WHERE email = ? AND password_hash = ''",
+                    passwordHashingService.hash(ADMIN_PASSWORD), email);
+        }
         return jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ?", Long.class, email);
     }
 

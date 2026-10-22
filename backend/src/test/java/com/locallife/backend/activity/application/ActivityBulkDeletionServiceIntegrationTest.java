@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.locallife.backend.activity.application.ActivityBulkDeletionService.Criteria;
-import com.locallife.backend.activity.application.ActivityBulkDeletionService.DeletionCountChangedException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -104,7 +103,7 @@ class ActivityBulkDeletionServiceIntegrationTest {
                 Long.class);
         jdbcTemplate.update("INSERT INTO activity_likes (user_id, activity_id) VALUES (?, ?)", userId, target);
 
-        int deleted = service.delete(bySource("PUBLISHED", null, null), 1);
+        int deleted = service.deleteDefinitively(service.matchingIds(bySource("PUBLISHED", null, null)));
 
         assertThat(deleted).isEqualTo(1);
         assertThat(exists(target)).isFalse();
@@ -120,14 +119,14 @@ class ActivityBulkDeletionServiceIntegrationTest {
     }
 
     @Test
-    void delete_ShouldDeleteNothing_WhenCountChangedSincePreview() {
-        Long first = insertActivity(sourceId, "PUBLISHED", DAY.atTime(10, 0));
-        insertActivity(sourceId, "PUBLISHED", DAY.atTime(11, 0));
+    void trashedActivities_ShouldNeverBeTargetedAgain() {
+        Long trashed = insertActivity(sourceId, "PUBLISHED", DAY.atTime(10, 0));
+        Long kept = insertActivity(sourceId, "PUBLISHED", DAY.atTime(11, 0));
+        jdbcTemplate.update("UPDATE activity SET previous_status = status, status = 'DELETED', deleted_at = now() "
+                + "WHERE id = ?", trashed);
 
-        assertThatThrownBy(() -> service.delete(bySource(null, null, null), 1))
-                .isInstanceOf(DeletionCountChangedException.class)
-                .hasMessageContaining("2 au lieu de 1");
-        assertThat(exists(first)).isTrue();
+        assertThat(service.count(bySource(null, null, null))).isEqualTo(1);
+        assertThat(service.matchingIds(bySource(null, null, null))).containsExactly(kept);
     }
 
     @Test
@@ -136,7 +135,7 @@ class ActivityBulkDeletionServiceIntegrationTest {
         Criteria none = new Criteria(null, null, null, null, false);
 
         assertThatThrownBy(() -> service.count(none)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> service.delete(none, 0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.matchingIds(none)).isInstanceOf(IllegalArgumentException.class);
         assertThat(exists(id)).isTrue();
     }
 
@@ -154,16 +153,16 @@ class ActivityBulkDeletionServiceIntegrationTest {
         Criteria all = new Criteria(null, null, null, null, true);
         long total = service.count(all);
 
-        assertThat(service.delete(all, total)).isEqualTo((int) total);
+        assertThat(service.deleteDefinitively(service.matchingIds(all))).isEqualTo((int) total);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM activity", Long.class)).isZero();
     }
 
     @Test
-    void deleteOne_ShouldDeleteImportedActivity_AndReportMissingOne() {
+    void deleteDefinitively_ShouldDeleteImportedActivity_AndIgnoreMissingOne() {
         Long id = insertActivity(sourceId, "PUBLISHED", DAY.atTime(10, 0));
 
-        assertThat(service.deleteOne(id)).isTrue();
+        assertThat(service.deleteDefinitively(List.of(id))).isEqualTo(1);
         assertThat(exists(id)).isFalse();
-        assertThat(service.deleteOne(id)).isFalse();
+        assertThat(service.deleteDefinitively(List.of(id))).isZero();
     }
 }

@@ -64,7 +64,8 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         authService = new AuthService(userRepository, userIdentityRepository, jwtService, passwordHashingService,
-                googleAuthService, emailVerificationService, new UsernamePolicy(userRepository), accountRepository);
+                googleAuthService, emailVerificationService, new UsernamePolicy(userRepository), accountRepository,
+                org.mockito.Mockito.mock(LoginThrottle.class));
     }
 
     // --- register ---

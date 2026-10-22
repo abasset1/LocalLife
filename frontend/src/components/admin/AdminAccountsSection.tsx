@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { proRequest } from "../pro/proApi";
 import type { ProResult } from "../pro/proApi";
+import { CONFIRM_PASSWORD_HEADER, useConfirmDialog } from "./useConfirmDialog";
 
 type Role = "USER" | "PRO" | "ADMIN";
 type AccountStatus = "ACTIVE" | "SUSPENDED";
@@ -33,7 +34,8 @@ interface AuditEvent {
     actorUserId: number | null;
     actorEmail: string | null;
     targetUserId: number | null;
-    action: "ROLE_CHANGE" | "SUSPEND" | "REACTIVATE";
+    /** `ROLE_CHANGE`, `SUSPEND`, `REACTIVATE`, et les actions plus récentes (affichées telles quelles). */
+    action: string;
     oldValue: string | null;
     newValue: string | null;
     reason: string | null;
@@ -50,7 +52,7 @@ const PAGE_SIZE = 20;
 
 const ROLE_LABELS: Record<Role, string> = { USER: "Utilisateur", PRO: "Professionnel", ADMIN: "Administrateur" };
 const STATUS_LABELS: Record<AccountStatus, string> = { ACTIVE: "Actif", SUSPENDED: "Suspendu" };
-const ACTION_LABELS: Record<AuditEvent["action"], string> = {
+const ACTION_LABELS: Record<string, string> = {
     ROLE_CHANGE: "Changement de rôle",
     SUSPEND: "Suspension",
     REACTIVATE: "Réactivation",
@@ -68,7 +70,8 @@ function formatUtc(value: string): string {
 /**
  * Console générale des comptes (sprint « Rôles et comptes », WEB-01) : recherche, filtres, pagination, et les seules
  * actions que l'API autorise — attribuer ou retirer le rôle PRO, suspendre (motif obligatoire) ou réactiver un compte
- * non administrateur. L'API reste seule juge : un refus est affiché tel qu'elle l'explique. Le rôle PRO est un rôle
+ * non administrateur, le déconnecter partout ou supprimer son compte. Suspendre et supprimer exigent le mot de passe
+ * de l'administrateur (`X-Confirm-Password`, 428 sinon). L'API reste seule juge : un refus est affiché tel qu'elle l'explique. Le rôle PRO est un rôle
  * d'accès, distinct de l'abonnement Pro (Professionnels → Abonnements).
  */
 function AdminAccountsSection() {
@@ -86,6 +89,7 @@ function AdminAccountsSection() {
     const [busy, setBusy] = useState(false);
     const [audit, setAudit] = useState<AuditPage | null>(null);
     const [auditTarget, setAuditTarget] = useState<Account | null>(null);
+    const { ask, dialog } = useConfirmDialog();
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -159,14 +163,49 @@ function AdminAccountsSection() {
 
     async function suspend(event: FormEvent) {
         event.preventDefault();
-        if (!suspending || !window.confirm(`Suspendre ${suspending.email} ? Il ne pourra plus se connecter.`)) {
+        if (!suspending) {
+            return;
+        }
+        const confirmation = await ask({
+            title: `Suspendre ${suspending.email}`,
+            message: "Il ne pourra plus se connecter. Confirme avec ton mot de passe.",
+            password: true,
+            confirmLabel: "Suspendre",
+        });
+        if (!confirmation) {
             return;
         }
         setBusy(true);
         const result = await proRequest<Account>(`/api/v1/admin/accounts/${suspending.id}/suspend`, "POST", {
             reason: reason.trim(),
-        });
+        }, { [CONFIRM_PASSWORD_HEADER]: confirmation.password });
         await afterAction(result, `${suspending.email} est suspendu.`);
+    }
+
+    async function logoutEverywhere(account: Account) {
+        if (!window.confirm(`Déconnecter ${account.email} de tous ses appareils ?`)) {
+            return;
+        }
+        setBusy(true);
+        const result = await proRequest<Account>(`/api/v1/admin/accounts/${account.id}/logout-everywhere`, "POST");
+        await afterAction(result, `${account.email} est déconnecté partout.`);
+    }
+
+    async function deleteAccount(account: Account) {
+        const confirmation = await ask({
+            title: `Supprimer le compte ${account.email}`,
+            message: "Suppression définitive du compte. Ses activités publiées restent, sans auteur.",
+            reason: { label: "Motif (journalisé)", minLength: 3, maxLength: 500 },
+            password: true,
+            confirmLabel: "Supprimer le compte",
+        });
+        if (!confirmation) {
+            return;
+        }
+        setBusy(true);
+        const result = await proRequest<Account>(`/api/v1/admin/accounts/${account.id}/deletion`, "POST",
+            { reason: confirmation.reason }, { [CONFIRM_PASSWORD_HEADER]: confirmation.password });
+        await afterAction(result, `Le compte ${account.email} est supprimé.`);
     }
 
     async function reactivate(account: Account) {
@@ -304,6 +343,22 @@ function AdminAccountsSection() {
                                                             Réactiver
                                                         </button>
                                                     )}
+                                                    <button
+                                                        className="admin-import-button"
+                                                        disabled={busy}
+                                                        onClick={() => void logoutEverywhere(account)}
+                                                        type="button"
+                                                    >
+                                                        Déconnecter partout
+                                                    </button>
+                                                    <button
+                                                        className="admin-import-button admin-danger-button"
+                                                        disabled={busy}
+                                                        onClick={() => void deleteAccount(account)}
+                                                        type="button"
+                                                    >
+                                                        Supprimer le compte
+                                                    </button>
                                                 </>
                                             )}
                                             <button
@@ -398,7 +453,7 @@ function AdminAccountsSection() {
                             {audit.items.map((event) => (
                                 <tr key={event.id}>
                                     <td>{formatUtc(event.occurredAt)}</td>
-                                    <td>{ACTION_LABELS[event.action]}</td>
+                                    <td>{ACTION_LABELS[event.action] ?? event.action}</td>
                                     <td>#{event.targetUserId ?? "?"}</td>
                                     <td>
                                         {event.oldValue ?? "—"} → {event.newValue ?? "—"}
@@ -416,6 +471,7 @@ function AdminAccountsSection() {
                     </table>
                 </div>
             )}
+            {dialog}
         </section>
     );
 }

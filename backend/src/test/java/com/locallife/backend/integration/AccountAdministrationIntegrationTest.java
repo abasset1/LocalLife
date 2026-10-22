@@ -94,7 +94,9 @@ class AccountAdministrationIntegrationTest {
             throws Exception {
         RestTestClient.RequestBodySpec request = client().method(method).uri(uri);
         if (token != null) {
-            request = request.header(HttpHeaders.AUTHORIZATION, token);
+            // Mot de passe du compte administrateur partagé : redemandé pour suspendre (22/10/2026).
+            request = request.header(HttpHeaders.AUTHORIZATION, token)
+                    .header("X-Confirm-Password", TestAccounts.ADMIN_PASSWORD);
         }
         if (body != null) {
             request.contentType(MediaType.APPLICATION_JSON).body(JSON.writeValueAsString(body));
@@ -126,8 +128,7 @@ class AccountAdministrationIntegrationTest {
                 new Object[] {HttpMethod.POST, "/api/v1/admin/accounts/" + target + "/suspend",
                     Map.of("reason", "Test d'accès")},
                 new Object[] {HttpMethod.POST, "/api/v1/admin/accounts/" + target + "/reactivate", Map.of()},
-                new Object[] {HttpMethod.GET, "/api/v1/admin/users?email=" + emailOf(target), null},
-                new Object[] {HttpMethod.PATCH, "/api/v1/admin/users/" + target + "/role", Map.of("role", "PRO")});
+                new Object[] {HttpMethod.POST, "/api/v1/admin/accounts/" + target + "/logout-everywhere", null});
         for (Object[] endpoint : endpoints) {
             call((HttpMethod) endpoint[0], (String) endpoint[1], null, endpoint[2], 401);
             call((HttpMethod) endpoint[0], (String) endpoint[1], user, endpoint[2], 403);
@@ -179,10 +180,6 @@ class AccountAdministrationIntegrationTest {
         call(HttpMethod.GET, "/api/v1/admin/accounts?size=101", admin, null, 400);
         call(HttpMethod.GET, "/api/v1/admin/accounts?page=-1", admin, null, 400);
         call(HttpMethod.GET, "/api/v1/admin/accounts/-1", admin, null, 404);
-        // Contrat historique conservé : recherche exacte par e-mail, sans secret non plus.
-        JsonNode legacy = call(HttpMethod.GET, "/api/v1/admin/users?email=" + emailOf(first), admin, null, 200);
-        assertThat(legacy.get("id").asLong()).isEqualTo(first);
-        assertThat(legacy.toString()).doesNotContain("password");
     }
 
     // --- Rôles ---
@@ -207,15 +204,13 @@ class AccountAdministrationIntegrationTest {
         call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + otherAdmin + "/role", admin, Map.of("role", "USER"), 403);
         call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + adminId + "/role", admin, Map.of("role", "PRO"), 403);
         call(HttpMethod.PATCH, "/api/v1/admin/accounts/-5/role", admin, Map.of("role", "PRO"), 404);
-        // Endpoint historique : mêmes règles, même journal.
-        call(HttpMethod.PATCH, "/api/v1/admin/users/" + user + "/role", admin, Map.of("role", "ADMIN"), 403);
 
         assertThat(jdbcTemplate.queryForObject("SELECT role FROM users WHERE id = ?", String.class, user))
                 .isEqualTo("USER");
         assertThat(jdbcTemplate.queryForObject("SELECT role FROM users WHERE id = ?", String.class, otherAdmin))
                 .isEqualTo("ADMIN");
         assertThat(auditCount(user, "ROLE_CHANGE", "SUCCESS")).isEqualTo(2);
-        assertThat(auditCount(user, "ROLE_CHANGE", "REFUSED")).isEqualTo(3);
+        assertThat(auditCount(user, "ROLE_CHANGE", "REFUSED")).isEqualTo(2);
         assertThat(auditCount(otherAdmin, "ROLE_CHANGE", "REFUSED")).isEqualTo(1);
         Map<String, Object> entry = jdbcTemplate.queryForMap("SELECT * FROM account_audit_event WHERE "
                 + "target_user_id = ? AND outcome = 'SUCCESS' ORDER BY id LIMIT 1", user);

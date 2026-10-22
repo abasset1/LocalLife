@@ -11,7 +11,7 @@ import { Notice } from '@/components/notice';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing, type Theme } from '@/constants/theme';
-import { STATUS_LABELS, confirmDestructive, formatWhen, isEditable } from '@/features/contribution';
+import { STATUS_LABELS, confirmDestructive, formatWhen, isEditable, showsModerationReason } from '@/features/contribution';
 import { useTheme } from '@/hooks/use-theme';
 
 function messageFor(error: unknown): string {
@@ -118,6 +118,9 @@ export default function MyContributionsScreen() {
               {formatWhen(contribution)}
               {contribution.city ? ` · ${contribution.city}` : ''}
             </ThemedText>
+            {showsModerationReason(contribution.status) && contribution.moderationReason ? (
+              <ThemedText type="small">Motif : {contribution.moderationReason}</ThemedText>
+            ) : null}
             <View style={styles.cardActions}>
             {isEditable(contribution.status) && (
               <Button

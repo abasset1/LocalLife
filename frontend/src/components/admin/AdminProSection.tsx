@@ -81,16 +81,20 @@ function AdminProSection() {
 
     async function findAccount(event: FormEvent) {
         event.preventDefault();
-        const result = await proRequest<UserAccount>(`/api/v1/admin/users?email=${encodeURIComponent(email.trim())}`);
-        setAccount(result.ok ? result.data : null);
-        setAccountMessage(result.ok ? null : result.status === 404 ? "Aucun compte avec cet email." : result.message);
+        const wanted = email.trim().toLowerCase();
+        const result = await proRequest<{ items: UserAccount[] }>(
+            `/api/v1/admin/accounts?q=${encodeURIComponent(wanted)}&size=20`);
+        // La recherche est approximative (e-mail, nom, identifiant) : seul l'e-mail exact est retenu.
+        const found = result.ok ? result.data.items.find((item) => item.email.toLowerCase() === wanted) ?? null : null;
+        setAccount(found);
+        setAccountMessage(result.ok ? (found ? null : "Aucun compte avec cet email.") : result.message);
     }
 
     async function changeRole(role: "USER" | "PRO") {
         if (!account) {
             return;
         }
-        const result = await proRequest<UserAccount>(`/api/v1/admin/users/${account.id}/role`, "PATCH", { role });
+        const result = await proRequest<UserAccount>(`/api/v1/admin/accounts/${account.id}/role`, "PATCH", { role });
         if (result.ok) {
             setAccount(result.data);
             setAccountMessage(role === "PRO" ? "Compte professionnel activé." : "Rôle professionnel retiré.");

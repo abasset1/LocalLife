@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.locallife.backend.user.domain.Role;
@@ -31,22 +30,6 @@ class UserServiceTest {
     @BeforeEach
     void setUp() {
         userService = new UserService(userRepository, new UsernamePolicy(userRepository));
-    }
-
-    @Test
-    void createUser_ShouldSaveAndReturnUser() {
-        // Given
-        User saved = new User(1L, "alice", "alice@example.com", "hash", Role.USER, LocalDateTime.now(), true);
-        when(userRepository.save(any(User.class))).thenReturn(saved);
-
-        // When
-        User result = userService.createUser("alice", "alice@example.com");
-
-        // Then
-        assertEquals(1L, result.id());
-        assertEquals("alice", result.username());
-        assertEquals("alice@example.com", result.email());
-        verify(userRepository).save(any(User.class));
     }
 
     @Test

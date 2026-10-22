@@ -254,6 +254,7 @@ class SourceControllerIntegrationTest {
 
         restTestClient().delete().uri("/api/v1/sources/" + created.id())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .header("X-Confirm-Password", TestAccounts.ADMIN_PASSWORD)
                 .exchange()
                 .expectStatus().isNoContent();
 
@@ -268,6 +269,7 @@ class SourceControllerIntegrationTest {
         // La source réservée MANUAL (migration V8) a l'id 1, stable dès le premier jeu de données.
         restTestClient().delete().uri("/api/v1/sources/1")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .header("X-Confirm-Password", TestAccounts.ADMIN_PASSWORD)
                 .exchange()
                 .expectStatus().isBadRequest();
 
@@ -279,6 +281,7 @@ class SourceControllerIntegrationTest {
     void deleteSource_ShouldReturnNotFound_WhenSourceDoesNotExist() {
         restTestClient().delete().uri("/api/v1/sources/999999")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .header("X-Confirm-Password", TestAccounts.ADMIN_PASSWORD)
                 .exchange()
                 .expectStatus().isNotFound();
     }

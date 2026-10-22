@@ -1,5 +1,12 @@
 package com.locallife.backend.source.api;
 
+import com.locallife.backend.admin.application.AdminActionLog;
+import com.locallife.backend.auth.application.JwtAuthentication;
+import com.locallife.backend.auth.application.ReauthenticationService;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.RequestHeader;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.source.application.SourceDefaultCategoryService;
 import com.locallife.backend.source.application.SourceService;
@@ -13,7 +20,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -79,10 +85,16 @@ public class SourceController {
     private final SourceService sourceService;
     private final SourceDefaultCategoryService sourceDefaultCategoryService;
 
+    private final ReauthenticationService reauthenticationService;
+    private final AdminActionLog actionLog;
+
     public SourceController(
-            SourceService sourceService, SourceDefaultCategoryService sourceDefaultCategoryService) {
+            SourceService sourceService, SourceDefaultCategoryService sourceDefaultCategoryService,
+            ReauthenticationService reauthenticationService, AdminActionLog actionLog) {
         this.sourceService = sourceService;
         this.sourceDefaultCategoryService = sourceDefaultCategoryService;
+        this.reauthenticationService = reauthenticationService;
+        this.actionLog = actionLog;
     }
 
     @Operation(
@@ -211,10 +223,24 @@ public class SourceController {
     public ResponseEntity<Object> deleteSource(
             @Parameter(description = "Identifiant de la source à supprimer.", required = true)
             @PathVariable Long id,
+            @RequestHeader(value = ReauthenticationService.HEADER, required = false) String password,
+            Authentication authentication,
             HttpServletRequest httpRequest) {
+        // 22/10/2026 : mot de passe de l'administrateur redemandé (428 sinon), suppression journalisée.
+        Long adminId = ((JwtAuthentication) authentication).getUserId();
+        reauthenticationService.require(adminId, password);
         try {
             return sourceService.deleteSource(id)
-                    .<ResponseEntity<Object>>map(source -> ResponseEntity.noContent().build())
+                    .<ResponseEntity<Object>>map(source -> {
+                        Map<String, Object> before = new LinkedHashMap<>();
+                        before.put("name", source.name());
+                        before.put("type", source.type());
+                        before.put("url", source.url());
+                        before.put("status", source.status());
+                        actionLog.record(adminId, "SOURCE_DELETE", "SOURCE", id, source.name(), before, null,
+                                null);
+                        return ResponseEntity.noContent().build();
+                    })
                     .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);

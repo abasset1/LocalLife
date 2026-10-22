@@ -14,13 +14,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -58,19 +56,6 @@ public class UserController {
         this.contributionAccessPolicy = contributionAccessPolicy;
         this.proAccessPolicy = proAccessPolicy;
         this.planLimits = planLimits;
-    }
-
-    @PostMapping
-    public ResponseEntity<UserResponse> createUser(@RequestBody CreateUserRequest request) {
-        User user = userService.createUser(request.username(), request.email());
-        return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(user));
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
-        Optional<User> user = userService.getUserById(id);
-        return user.map(u -> ResponseEntity.ok(UserResponse.from(u)))
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
     /**
@@ -186,14 +171,6 @@ public class UserController {
         ErrorResponse body = new ErrorResponse(
                 Instant.now(), status.value(), status.getReasonPhrase(), message, request.getRequestURI());
         return ResponseEntity.status(status).body(body);
-    }
-
-    /**
-     * Corps de requête pour la création d'un utilisateur : uniquement les
-     * champs fournis par le client (id et createdAt sont générés côté
-     * serveur).
-     */
-    public record CreateUserRequest(String username, String email) {
     }
 
     /**

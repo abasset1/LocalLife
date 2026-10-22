@@ -11,8 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Suppression définitive d'activités par un administrateur : une activité précise, ou toutes celles
- * qui répondent à des critères (source, statut, période de début), ou toutes.
+ * Sélection des activités qu'un administrateur supprime (une précise, celles qui répondent à des critères —
+ * source, statut, période de début — ou toutes) et suppression définitive. Depuis le 22/10/2026, une suppression
+ * par un administrateur passe d'abord par la corbeille ({@code AdminActivityService}) ; la suppression
+ * définitive n'intervient qu'à la purge, après 30 jours.
  *
  * <p>Contrairement à {@link ContributionService#delete}, les activités importées sont aussi
  * supprimables. Une activité importée encore présente dans sa source reviendra au prochain import.
@@ -62,30 +64,20 @@ public class ActivityBulkDeletionService {
         return count == null ? 0 : count;
     }
 
-    /**
-     * Supprime les activités visées.
-     *
-     * @param expectedCount nombre affiché à l'administrateur dans l'aperçu : si les activités visées
-     *     ont changé entre-temps (import en cours…), rien n'est supprimé
-     * @return le nombre d'activités supprimées
-     * @throws IllegalArgumentException si les critères sont invalides
-     * @throws DeletionCountChangedException si le nombre visé ne correspond plus à {@code expectedCount}
-     */
-    @Transactional
-    public int delete(Criteria criteria, long expectedCount) {
+    /** Activités visées par les critères (hors corbeille), pour une mise à la corbeille en masse. */
+    public List<Long> matchingIds(Criteria criteria) {
         MapSqlParameterSource params = new MapSqlParameterSource();
         String where = whereClause(criteria, params);
-        List<Long> ids = jdbcTemplate.queryForList("SELECT a.id FROM activity a" + where, params, Long.class);
-        if (ids.size() != expectedCount) {
-            throw new DeletionCountChangedException(expectedCount, ids.size());
-        }
-        return deleteByIds(ids);
+        return jdbcTemplate.queryForList("SELECT a.id FROM activity a" + where, params, Long.class);
     }
 
-    /** Supprime une activité, importée ou non. {@code false} si elle n'existe pas. */
+    /**
+     * Suppression définitive, avec tout ce qui est rattaché : réservée à la purge de la corbeille
+     * ({@code AdminActivityService#purgeExpired}).
+     */
     @Transactional
-    public boolean deleteOne(long id) {
-        return deleteByIds(List.of(id)) == 1;
+    public int deleteDefinitively(List<Long> ids) {
+        return deleteByIds(ids);
     }
 
     private int deleteByIds(List<Long> ids) {
@@ -117,7 +109,8 @@ public class ActivityBulkDeletionService {
                 && criteria.startFrom().isAfter(criteria.startTo())) {
             throw new IllegalArgumentException("La date de début de période doit précéder la date de fin.");
         }
-        List<String> conditions = new ArrayList<>();
+        // La corbeille n'est jamais visée : elle a sa propre purge.
+        List<String> conditions = new ArrayList<>(List.of("a.status <> 'DELETED'"));
         if (criteria.sourceId() != null) {
             conditions.add("a.source_id = :sourceId");
             params.addValue("sourceId", criteria.sourceId());
@@ -134,7 +127,7 @@ public class ActivityBulkDeletionService {
             conditions.add("a.start_date < :startToExclusive");
             params.addValue("startToExclusive", criteria.startTo().plusDays(1).atStartOfDay());
         }
-        return conditions.isEmpty() ? "" : " WHERE " + String.join(" AND ", conditions);
+        return " WHERE " + String.join(" AND ", conditions);
     }
 
     /** Les activités visées ont changé depuis l'aperçu : rien n'a été supprimé. */

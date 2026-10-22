@@ -28,6 +28,7 @@ import OnboardingModal from "./components/onboarding/OnboardingModal";
 import FoodTruckList from "./components/foodtrucks/FoodTruckList";
 import PlaceList from "./components/places/PlaceList";
 import type { Place } from "./components/places/types";
+import { useConfirmDialog } from "./components/admin/useConfirmDialog";
 import { proRequest } from "./components/pro/proApi";
 import type { ManagedPlace } from "./components/pro/types";
 import { useProAccess } from "./components/pro/useProAccess";
@@ -256,6 +257,8 @@ function App() {
     const [isCancellingActivity, setIsCancellingActivity] = useState(false);
     const [cancelActivityError, setCancelActivityError] = useState<string | null>(null);
     const [isTogglingLike, setIsTogglingLike] = useState(false);
+    /** Motif demandé à un administrateur qui annule ou supprime la contribution d'un autre (envoyé à l'auteur). */
+    const { ask: askConfirmation, dialog: confirmationDialog } = useConfirmDialog();
     /** Échec du dernier « J'aime » (ex. 403 : limite de favoris de l'offre Gratuit), affiché dans la fiche. */
     const [likeError, setLikeError] = useState<{ message: string; isLimit: boolean } | null>(null);
 
@@ -1024,11 +1027,25 @@ function App() {
         }
     }
 
+    /** Administrateur agissant sur la contribution d'un autre : un motif est exigé et envoyé à l'auteur. */
+    function actsOnSomeoneElse(activity: Activity): boolean {
+        return currentUser?.role === "ADMIN" && activity.createdBy !== currentUser.userId;
+    }
+
     async function handleCancelActivity(activity: Activity) {
-        const confirmed = window.confirm(
-            `Annuler « ${activity.title} » ? Cette activité ne sera plus visible sur la carte.`,
-        );
-        if (!confirmed) {
+        let body: string | undefined;
+        if (actsOnSomeoneElse(activity)) {
+            const confirmation = await askConfirmation({
+                title: `Annuler « ${activity.title} »`,
+                message: "Cette activité ne sera plus visible sur la carte. Le motif est envoyé à son auteur.",
+                reason: { label: "Motif de l'annulation" },
+                confirmLabel: "Annuler l'activité",
+            });
+            if (!confirmation) {
+                return;
+            }
+            body = JSON.stringify({ reason: confirmation.reason });
+        } else if (!window.confirm(`Annuler « ${activity.title} » ? Cette activité ne sera plus visible sur la carte.`)) {
             return;
         }
 
@@ -1036,11 +1053,15 @@ function App() {
         setCancelActivityError(null);
 
         try {
-            const response = await apiFetch(`/api/v1/activities/${activity.id}/cancel`, { method: "PATCH" });
+            const response = await apiFetch(`/api/v1/activities/${activity.id}/cancel`, {
+                method: "PATCH",
+                headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+                body,
+            });
 
             if (!response.ok) {
-                const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
-                setCancelActivityError(body?.message ?? "Impossible d'annuler cette activité, réessaie.");
+                const errorBody = (await response.json().catch(() => null)) as ApiErrorBody | null;
+                setCancelActivityError(errorBody?.message ?? "Impossible d'annuler cette activité, réessaie.");
                 return;
             }
 
@@ -1055,8 +1076,20 @@ function App() {
     }
 
     async function handleDeleteActivity(activity: Activity) {
-        const confirmed = window.confirm(`Supprimer définitivement « ${activity.title} » ? Cette action est irréversible.`);
-        if (!confirmed) {
+        let query = "";
+        if (actsOnSomeoneElse(activity)) {
+            // La contribution d'un autre va à la corbeille (30 jours), avec un motif envoyé à son auteur.
+            const confirmation = await askConfirmation({
+                title: `Supprimer « ${activity.title} »`,
+                message: "L'activité va à la corbeille (restaurable 30 jours). Le motif est envoyé à son auteur.",
+                reason: { label: "Motif de la suppression" },
+                confirmLabel: "Supprimer",
+            });
+            if (!confirmation) {
+                return;
+            }
+            query = `?reason=${encodeURIComponent(confirmation.reason)}`;
+        } else if (!window.confirm(`Supprimer définitivement « ${activity.title} » ? Cette action est irréversible.`)) {
             return;
         }
 
@@ -1064,7 +1097,7 @@ function App() {
         setCancelActivityError(null);
 
         try {
-            const response = await apiFetch(`/api/v1/activities/${activity.id}`, { method: "DELETE" });
+            const response = await apiFetch(`/api/v1/activities/${activity.id}${query}`, { method: "DELETE" });
 
             if (!response.ok) {
                 const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
@@ -1439,6 +1472,8 @@ function App() {
                     onToggleLike={(activity) => void handleToggleLike(activity)}
                 />
             )}
+
+            {confirmationDialog}
         </div>
     );
 }

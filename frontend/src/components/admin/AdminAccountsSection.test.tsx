@@ -111,11 +111,14 @@ describe("AdminAccountsSection", () => {
         expect(confirmButton).toBeDisabled();
         await userEvent.type(screen.getByLabelText(/Motif/), "Spam répété");
         await userEvent.click(confirmButton);
+        await userEvent.type(screen.getByLabelText("Ton mot de passe (confirmation)"), "secret-admin");
+        await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Suspendre" }));
 
         expect(await screen.findByText("camille@example.com est suspendu.")).toBeInTheDocument();
         expect(await screen.findByText("Motif : Spam répété")).toBeInTheDocument();
         const call = fetchMock.mock.calls.find(([url]) => String(url).includes("/suspend"));
         expect(JSON.parse(String(call?.[1]?.body))).toEqual({ reason: "Spam répété" });
+        expect(new Headers(call?.[1]?.headers).get("X-Confirm-Password")).toBe("secret-admin");
     });
 
     it("affiche le refus de l'API tel qu'elle l'explique", async () => {
@@ -143,5 +146,39 @@ describe("AdminAccountsSection", () => {
         render(<AdminAccountsSection />);
 
         expect(await screen.findByRole("alert")).toHaveTextContent("Accès refusé");
+    });
+
+    it("supprime un compte avec un motif et le mot de passe, et déconnecte partout", async () => {
+        const fetchMock = stubFetch((url, init) => {
+            if (url.includes("/accounts/7/deletion") && init?.method === "POST") {
+                return new Response(null, { status: 204 });
+            }
+            if (url.includes("/accounts/7/logout-everywhere") && init?.method === "POST") {
+                return new Response(null, { status: 204 });
+            }
+            if (url.includes("/api/v1/admin/accounts?")) {
+                return json({ items: [account({})], total: 1, page: 0, size: 20 });
+            }
+            return undefined;
+        });
+        vi.stubGlobal("confirm", vi.fn(() => true));
+        render(<AdminAccountsSection />);
+
+        await userEvent.click(await screen.findByRole("button", { name: "Déconnecter partout" }));
+        expect(await screen.findByText("camille@example.com est déconnecté partout.")).toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole("button", { name: "Supprimer le compte" }));
+        const dialog = screen.getByRole("dialog");
+        const submit = within(dialog).getByRole("button", { name: "Supprimer le compte" });
+        await userEvent.type(within(dialog).getByLabelText("Motif (journalisé)"), "ok");
+        await userEvent.type(within(dialog).getByLabelText("Ton mot de passe (confirmation)"), "secret-admin");
+        expect(submit).toBeDisabled();
+        await userEvent.type(within(dialog).getByLabelText("Motif (journalisé)"), " fraude");
+        await userEvent.click(submit);
+
+        expect(await screen.findByText("Le compte camille@example.com est supprimé.")).toBeInTheDocument();
+        const call = fetchMock.mock.calls.find(([url]) => String(url).includes("/deletion"));
+        expect(JSON.parse(String(call?.[1]?.body))).toEqual({ reason: "ok fraude" });
+        expect(new Headers(call?.[1]?.headers).get("X-Confirm-Password")).toBe("secret-admin");
     });
 });

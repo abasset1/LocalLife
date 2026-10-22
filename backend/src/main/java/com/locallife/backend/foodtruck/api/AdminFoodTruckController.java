@@ -93,6 +93,7 @@ public class AdminFoodTruckController {
             HttpServletRequest request) {
         Long adminId = ((JwtAuthentication) authentication).getUserId();
         return ProFoodTruckController.handle(request, () -> {
+            refuseOwn(adminId, id);
             if (!repository.suspendByAdmin(id, adminId)) {
                 throw new ProActionException(ProActionException.Reason.CONFLICT, "Food truck introuvable ou archivé.");
             }
@@ -107,6 +108,7 @@ public class AdminFoodTruckController {
             HttpServletRequest request) {
         Long adminId = ((JwtAuthentication) authentication).getUserId();
         return ProFoodTruckController.handle(request, () -> {
+            refuseOwn(adminId, id);
             if (!repository.reinstate(id)) {
                 throw new ProActionException(ProActionException.Reason.CONFLICT,
                         "Ce food truck n'est pas suspendu par LocalLife.");
@@ -134,5 +136,13 @@ public class AdminFoodTruckController {
         Long adminId = ((JwtAuthentication) authentication).getUserId();
         return ProFoodTruckController.handle(request, () -> ResponseEntity.ok(OwnedFoodTruckResponse.from(
                 proFoodTruckService.review(adminId, id, false, body == null ? null : body.reason()))));
+    }
+
+    /** Un administrateur ne suspend ni ne rétablit son propre food truck (décision du 22/10/2026). */
+    private void refuseOwn(Long adminId, Long id) {
+        repository.findById(id).filter(foodTruck -> adminId.equals(foodTruck.ownerId())).ifPresent(own -> {
+            throw new ProActionException(ProActionException.Reason.FORBIDDEN,
+                    "Un administrateur ne suspend ni ne rétablit son propre food truck.");
+        });
     }
 }

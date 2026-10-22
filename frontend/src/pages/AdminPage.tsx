@@ -12,6 +12,9 @@ import AdminEventLocationDuplicatesSection from "../components/admin/AdminEventL
 import AdminPlaceMatchesSection from "../components/admin/AdminPlaceMatchesSection";
 import AdminPlacesSection from "../components/admin/AdminPlacesSection";
 import AdminProSection from "../components/admin/AdminProSection";
+import AdminActionLogSection from "../components/admin/AdminActionLogSection";
+import AdminTrashSection from "../components/admin/AdminTrashSection";
+import { confirmHeaders, useConfirmDialog } from "../components/admin/useConfirmDialog";
 
 /**
  * LL-EF-004 : représentation d'une activité pour l'interface
@@ -117,6 +120,8 @@ const ADMIN_SECTIONS = [
     { value: "imports", label: "Imports" },
     { value: "mail", label: "E-mails" },
     { value: "deletion", label: "Suppression" },
+    { value: "trash", label: "Corbeille" },
+    { value: "log", label: "Journal" },
 ] as const;
 
 type AdminSection = (typeof ADMIN_SECTIONS)[number]["value"];
@@ -186,6 +191,8 @@ function AdminPage() {
     const [sourcesRefreshKey, setSourcesRefreshKey] = useState(0);
     /** Incrémenté après une suppression d'activités : recharge la liste de modération. */
     const [activitiesRefreshKey, setActivitiesRefreshKey] = useState(0);
+    /** Motifs (refus, suppression) et mot de passe (suppression d'agenda) des actions sensibles. */
+    const { ask, dialog } = useConfirmDialog();
 
     /**
      * Garde d'accès (critère d'acceptation « un utilisateur non
@@ -307,19 +314,36 @@ function AdminPage() {
      * jamais de retour en arrière), elle n'a donc plus sa place ici.
      */
     async function handleModerationAction(id: number, action: "publish" | "reject") {
+        let body: string | undefined;
+        if (action === "reject") {
+            // Motif obligatoire (400 sinon) : il est envoyé par e-mail à l'auteur.
+            const confirmation = await ask({
+                title: "Refuser l'activité",
+                message: "Le motif est envoyé par e-mail à l'auteur de l'activité.",
+                reason: { label: "Motif du refus" },
+                confirmLabel: "Refuser",
+            });
+            if (!confirmation) {
+                return;
+            }
+            body = JSON.stringify({ reason: confirmation.reason });
+        }
         setPendingActionId(id);
         setActionError(null);
 
         try {
             const response = await apiFetch(`/api/v1/admin/activities/${id}/${action}`, {
                 method: "PATCH",
+                headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+                body,
             });
 
             if (response.ok) {
                 setActivities((current) => current.filter((activity) => activity.id !== id));
             } else {
-                const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
-                setActionError(body?.message ?? "Action impossible, réessaie.");
+                // 403 : activité créée par l'administrateur lui-même — message du serveur.
+                const errorBody = (await response.json().catch(() => null)) as ApiErrorBody | null;
+                setActionError(errorBody?.message ?? "Action impossible, réessaie.");
             }
         } catch {
             setActionError("Impossible de contacter le serveur, réessaie plus tard.");
@@ -328,15 +352,24 @@ function AdminPage() {
         }
     }
 
-    /** Suppression définitive d'une activité (importée ou non), après confirmation. */
+    /** Mise à la corbeille d'une activité (importée ou non), avec un motif obligatoire ; restaurable 30 jours. */
     async function handleDeleteActivity(activity: AdminActivity) {
-        if (!window.confirm(`Supprimer définitivement « ${activity.title} » ? Cette action est irréversible.`)) {
+        const confirmation = await ask({
+            title: `Supprimer « ${activity.title} »`,
+            message: "L'activité va à la corbeille : restaurable pendant 30 jours, puis purgée définitivement.",
+            reason: { label: "Motif de la suppression" },
+            confirmLabel: "Mettre à la corbeille",
+        });
+        if (!confirmation) {
             return;
         }
         setPendingActionId(activity.id);
         setActionError(null);
         try {
-            const response = await apiFetch(`/api/v1/admin/activities/${activity.id}`, { method: "DELETE" });
+            const response = await apiFetch(
+                `/api/v1/admin/activities/${activity.id}?reason=${encodeURIComponent(confirmation.reason)}`,
+                { method: "DELETE" },
+            );
             if (response.ok || response.status === 404) {
                 setActivities((current) => current.filter((item) => item.id !== activity.id));
             } else {
@@ -470,11 +503,15 @@ function AdminPage() {
      * faire de plus ici une fois la requête acceptée.
      */
     async function handleDeleteSource(source: Source) {
-        const confirmed = window.confirm(
-            `Supprimer l'agenda « ${source.name} » ? Les activités qui lui sont rattachées seront `
-                + "conservées, mais réattribuées à la source « Saisie manuelle ».",
-        );
-        if (!confirmed) {
+        // Action sensible : mot de passe de l'administrateur exigé (`X-Confirm-Password`, 428 sinon).
+        const confirmation = await ask({
+            title: `Supprimer l'agenda « ${source.name} »`,
+            message: "Les activités qui lui sont rattachées seront conservées, mais réattribuées à la source "
+                + "« Saisie manuelle ».",
+            password: true,
+            confirmLabel: "Supprimer l'agenda",
+        });
+        if (!confirmation) {
             return;
         }
 
@@ -482,7 +519,10 @@ function AdminPage() {
         setSourcesError(null);
 
         try {
-            const response = await apiFetch(`/api/v1/sources/${source.id}`, { method: "DELETE" });
+            const response = await apiFetch(`/api/v1/sources/${source.id}`, {
+                method: "DELETE",
+                headers: confirmHeaders(confirmation.password),
+            });
             if (response.ok) {
                 setSourcesRefreshKey((current) => current + 1);
             } else {
@@ -947,6 +987,20 @@ function AdminPage() {
                     <AdminDeletionSection onActivitiesDeleted={() => setActivitiesRefreshKey((key) => key + 1)} />
                 </main>
             )}
+
+            {activeSection === "trash" && (
+                <main className="admin-content">
+                    <AdminTrashSection onRestored={() => setActivitiesRefreshKey((key) => key + 1)} />
+                </main>
+            )}
+
+            {activeSection === "log" && (
+                <main className="admin-content">
+                    <AdminActionLogSection />
+                </main>
+            )}
+
+            {dialog}
 
             {/* Toujours monté : un import lancé continue et affiche son bilan même après un changement d'onglet. */}
             <main className="admin-content" hidden={activeSection !== "imports"}>

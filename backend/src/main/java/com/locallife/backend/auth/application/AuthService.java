@@ -42,6 +42,8 @@ public class AuthService {
     private final UsernamePolicy usernamePolicy;
     private final AccountRepository accountRepository;
 
+    private final LoginThrottle loginThrottle;
+
     public AuthService(
             UserRepository userRepository,
             UserIdentityRepository userIdentityRepository,
@@ -50,7 +52,8 @@ public class AuthService {
             GoogleAuthService googleAuthService,
             EmailVerificationService emailVerificationService,
             UsernamePolicy usernamePolicy,
-            AccountRepository accountRepository) {
+            AccountRepository accountRepository,
+            LoginThrottle loginThrottle) {
         this.userRepository = userRepository;
         this.userIdentityRepository = userIdentityRepository;
         this.jwtService = jwtService;
@@ -59,6 +62,7 @@ public class AuthService {
         this.emailVerificationService = emailVerificationService;
         this.usernamePolicy = usernamePolicy;
         this.accountRepository = accountRepository;
+        this.loginThrottle = loginThrottle;
     }
 
     /**
@@ -145,9 +149,12 @@ public class AuthService {
      *         vérification du mot de passe, pour ne pas révéler l'existence d'un compte
      */
     public LoginResponse login(LoginRequest request) {
+        // 22/10/2026 : 5 échecs en 15 minutes bloquent l'adresse, qu'elle corresponde ou non à un compte.
+        loginThrottle.checkAllowed(request.email());
         Optional<User> userOptional = userRepository.findByEmail(request.email());
 
         if (userOptional.isEmpty()) {
+            loginThrottle.recordFailure(request.email());
             throw new IllegalArgumentException("Email ou mot de passe incorrect");
         }
 
@@ -164,8 +171,10 @@ public class AuthService {
         // login classique sur un compte Google-only.
         if (user.passwordHash() == null || user.passwordHash().isBlank()
                 || !passwordHashingService.matches(request.password(), user.passwordHash())) {
+            loginThrottle.recordFailure(request.email());
             throw new IllegalArgumentException("Email ou mot de passe incorrect");
         }
+        loginThrottle.clear(request.email());
 
         if (!user.emailVerified()) {
             throw new EmailNotVerifiedException();

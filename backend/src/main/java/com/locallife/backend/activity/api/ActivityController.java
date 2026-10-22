@@ -4,6 +4,7 @@ import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.accessibility.domain.Accessibility;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityHostPlaceService;
+import com.locallife.backend.activity.application.AdminActivityService;
 import com.locallife.backend.activity.application.ContributionAccessPolicy;
 import com.locallife.backend.subscription.application.PlanLimitException;
 import com.locallife.backend.subscription.application.PlanLimits;
@@ -123,6 +124,7 @@ public class ActivityController {
     private final ContributionAccessPolicy contributionAccessPolicy;
     private final ActivityHostPlaceService hostPlaceService;
     private final PlanLimits planLimits;
+    private final AdminActivityService adminActivityService;
 
     private final ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
     private final ActivityAtPlaceRepository activityAtPlaceRepository;
@@ -140,7 +142,8 @@ public class ActivityController {
             RecurringContributionService recurringContributionService, ContributionService contributionService,
             ActivityCoordinatePrecisionRepository coordinatePrecisionRepository,
             ActivityAtPlaceRepository activityAtPlaceRepository, ContributionAccessPolicy contributionAccessPolicy,
-            ActivityHostPlaceService hostPlaceService, PlanLimits planLimits) {
+            ActivityHostPlaceService hostPlaceService, PlanLimits planLimits,
+            AdminActivityService adminActivityService) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -163,6 +166,7 @@ public class ActivityController {
         this.contributionAccessPolicy = contributionAccessPolicy;
         this.hostPlaceService = hostPlaceService;
         this.planLimits = planLimits;
+        this.adminActivityService = adminActivityService;
     }
 
     @Operation(summary = "Activités à venir d'un lieu permanent",
@@ -469,8 +473,10 @@ public class ActivityController {
             return true;
         }
         if (authentication instanceof JwtAuthentication jwtAuthentication) {
+            // Corbeille : visible des seuls administrateurs.
             return jwtAuthentication.getRole() == Role.ADMIN
-                    || Objects.equals(jwtAuthentication.getUserId(), activity.createdBy());
+                    || !"DELETED".equals(activity.status())
+                            && Objects.equals(jwtAuthentication.getUserId(), activity.createdBy());
         }
         return false;
     }
@@ -730,6 +736,8 @@ public class ActivityController {
             }
             List<Long> categoryIds = resolveRequestedCategoryIds(request, id);
             RecurrenceRequest recurrence = request.recurrence();
+            Optional<Activity> before = actsOnSomeoneElse(jwtAuthentication, id)
+                    ? activityService.findById(id) : Optional.empty();
             Optional<Activity> updated = contributionService.update(
                     id, jwtAuthentication.getUserId(), jwtAuthentication.getRole() == Role.ADMIN,
                     request.title(), request.description(), request.category(), request.address(),
@@ -741,6 +749,8 @@ public class ActivityController {
             activityLinkService.deleteByActivityId(id);
             attachContactLinks(id, request);
             hostPlaceService.set(id, request.hostPlaceId());
+            before.ifPresent(previous ->
+                    adminActivityService.recordEditForOther(jwtAuthentication.getUserId(), previous, updated.get()));
             return ResponseEntity.ok(updated.get());
         } catch (IllegalArgumentException | AddressNotFoundException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -767,9 +777,16 @@ public class ActivityController {
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Object> deleteActivity(
-            @PathVariable Long id, Authentication authentication, HttpServletRequest httpRequest) {
+            @PathVariable Long id, @RequestParam(required = false) String reason, Authentication authentication,
+            HttpServletRequest httpRequest) {
         JwtAuthentication jwtAuthentication = (JwtAuthentication) authentication;
         try {
+            // 22/10/2026 : un administrateur qui retire la contribution d'un autre la met à la corbeille, avec un
+            // motif envoyé à l'auteur ; l'auteur, lui, supprime définitivement.
+            if (actsOnSomeoneElse(jwtAuthentication, id)) {
+                return adminActivityService.trashOne(jwtAuthentication.getUserId(), id, reason)
+                        ? ResponseEntity.noContent().build() : ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
             boolean deleted = contributionService.delete(
                     id, jwtAuthentication.getUserId(), jwtAuthentication.getRole() == Role.ADMIN);
             return deleted ? ResponseEntity.noContent().build() : ResponseEntity.status(HttpStatus.NOT_FOUND).build();
@@ -791,7 +808,8 @@ public class ActivityController {
                 resolveCategoryCodes(List.of(activity.id())).getOrDefault(activity.id(), List.of()),
                 linkValue(links, LINK_TYPE_WEBSITE), linkValue(links, ActivityLinkService.TYPE_PHONE),
                 linkValue(links, ActivityLinkService.TYPE_EMAIL), recurrence,
-                hostPlaceService.findChosen(activity.id()).orElse(null));
+                hostPlaceService.findChosen(activity.id()).orElse(null),
+                adminActivityService.moderationReason(activity.id()));
     }
 
     private static String linkValue(List<ActivityLink> links, String type) {
@@ -919,11 +937,18 @@ public class ActivityController {
     public ResponseEntity<Object> cancelActivity(
             @Parameter(description = "Identifiant de l'activité à annuler.", required = true)
             @PathVariable Long id,
+            @RequestBody(required = false) ReasonRequest body,
             Authentication authentication,
             HttpServletRequest httpRequest) {
         JwtAuthentication jwtAuthentication = (JwtAuthentication) authentication;
         boolean isAdmin = jwtAuthentication.getRole() == Role.ADMIN;
         try {
+            if (actsOnSomeoneElse(jwtAuthentication, id)) {
+                return adminActivityService.cancelForOther(jwtAuthentication.getUserId(), id,
+                                body == null ? null : body.reason())
+                        .<ResponseEntity<Object>>map(ResponseEntity::ok)
+                        .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+            }
             return activityService.cancel(id, jwtAuthentication.getUserId(), isAdmin)
                     .<ResponseEntity<Object>>map(ResponseEntity::ok)
                     .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
@@ -932,6 +957,18 @@ public class ActivityController {
         } catch (ActivityAccessDeniedException exception) {
             return errorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), httpRequest);
         }
+    }
+
+    /** Motif d'une annulation par un administrateur. */
+    public record ReasonRequest(String reason) {
+    }
+
+    /** Un administrateur agit-il sur la contribution d'un autre (motif, journal, auteur prévenu) ? */
+    private boolean actsOnSomeoneElse(JwtAuthentication authentication, Long activityId) {
+        return authentication.getRole() == Role.ADMIN && activityService.findById(activityId)
+                .map(activity -> activity.createdBy() != null
+                        && !activity.createdBy().equals(authentication.getUserId()))
+                .orElse(false);
     }
 
     private ResponseEntity<Object> errorResponse(HttpStatus status, String message, HttpServletRequest request) {
