@@ -31,7 +31,11 @@ describe("SubscriptionCard", () => {
         vi.stubGlobal("fetch", fetchMock);
         render(<MemoryRouter><SubscriptionCard /></MemoryRouter>);
 
-        expect(await screen.findByText("Gratuit")).toBeInTheDocument();
+        expect(await screen.findByText(/Offre actuelle/)).toHaveTextContent("Offre actuelle : Gratuit");
+        const limits = screen.getByRole("list", { name: "Limites des offres" });
+        expect(limits).toHaveTextContent("Gratuit : 5 favoris, 1 alerte");
+        expect(limits).toHaveTextContent("Premium : Favoris illimités, 10 alertes, 2 contributions par mois");
+        expect(limits).toHaveTextContent("Pro : Favoris illimités, 10 alertes, Contributions illimitées, Espace professionnel");
         await user.click(screen.getByRole("button", { name: "Passer à Premium" }));
 
         expect(await screen.findByText("Offre Premium activée.")).toBeInTheDocument();

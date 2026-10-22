@@ -1,5 +1,6 @@
 package com.locallife.backend.activity.api;
 
+import com.locallife.backend.subscription.application.PlanLimits;
 import com.locallife.backend.activity.application.ActivityHostPlaceService;
 import com.locallife.backend.activity.application.ContributionAccessPolicy;
 import static org.mockito.Mockito.lenient;
@@ -140,6 +141,9 @@ class ActivityControllerTest {
 
     @Mock
     private ActivityHostPlaceService hostPlaceService;
+
+    @Mock
+    private PlanLimits planLimits;
 
     @InjectMocks
     private ActivityController activityController;

@@ -5,6 +5,8 @@ import com.locallife.backend.accessibility.domain.Accessibility;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityHostPlaceService;
 import com.locallife.backend.activity.application.ContributionAccessPolicy;
+import com.locallife.backend.subscription.application.PlanLimitException;
+import com.locallife.backend.subscription.application.PlanLimits;
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.application.ContributionRecurrence;
 import com.locallife.backend.activity.application.ContributionService;
@@ -120,6 +122,7 @@ public class ActivityController {
     private final ContributionService contributionService;
     private final ContributionAccessPolicy contributionAccessPolicy;
     private final ActivityHostPlaceService hostPlaceService;
+    private final PlanLimits planLimits;
 
     private final ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
     private final ActivityAtPlaceRepository activityAtPlaceRepository;
@@ -137,7 +140,7 @@ public class ActivityController {
             RecurringContributionService recurringContributionService, ContributionService contributionService,
             ActivityCoordinatePrecisionRepository coordinatePrecisionRepository,
             ActivityAtPlaceRepository activityAtPlaceRepository, ContributionAccessPolicy contributionAccessPolicy,
-            ActivityHostPlaceService hostPlaceService) {
+            ActivityHostPlaceService hostPlaceService, PlanLimits planLimits) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -159,6 +162,7 @@ public class ActivityController {
         this.activityAtPlaceRepository = activityAtPlaceRepository;
         this.contributionAccessPolicy = contributionAccessPolicy;
         this.hostPlaceService = hostPlaceService;
+        this.planLimits = planLimits;
     }
 
     @Operation(summary = "Activités à venir d'un lieu permanent",
@@ -614,6 +618,12 @@ public class ActivityController {
         // 21/10/2026 : contribuer est réservé aux offres Premium et Pro (et aux rôles PRO/ADMIN).
         if (!contributionAccessPolicy.canContribute(((JwtAuthentication) authentication).getUserId())) {
             return errorResponse(HttpStatus.FORBIDDEN, ContributionAccessPolicy.DENIED_MESSAGE, httpRequest);
+        }
+        // 22/10/2026 : Premium, 2 nouvelles contributions par mois civil (Pro et administrateurs : sans limite).
+        try {
+            planLimits.checkCanAddContribution(((JwtAuthentication) authentication).getUserId());
+        } catch (PlanLimitException exception) {
+            return errorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), httpRequest);
         }
         try {
             // LL-EF-016 : validés avant même la création de l'activité (voir la javadoc de

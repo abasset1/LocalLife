@@ -1,5 +1,6 @@
 package com.locallife.backend.user.api;
 
+import com.locallife.backend.subscription.application.PlanLimits.Limits;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
  * @param canContribute droit de proposer ou modifier une activité (offre Premium ou Pro, rôle PRO ou ADMIN)
  * @param hasProAccess  accès à l'espace professionnel ({@code ProAccessPolicy}) : le seul indicateur que les
  *                      interfaces consultent pour l'afficher
+ * @param limits        limites de l'offre ({@code null} : illimité) et contributions déjà créées ce mois-ci
  */
 public record CurrentUserResponse(
         Long id,
@@ -23,11 +25,12 @@ public record CurrentUserResponse(
         String pendingEmail,
         boolean hasPassword,
         boolean canContribute,
-        boolean hasProAccess) {
+        boolean hasProAccess,
+        Limits limits) {
 
     static CurrentUserResponse from(User user, String pendingEmail, boolean hasPassword, boolean canContribute,
-            boolean hasProAccess) {
+            boolean hasProAccess, Limits limits) {
         return new CurrentUserResponse(user.id(), user.username(), user.email(), user.role(), user.createdAt(),
-                pendingEmail, hasPassword, canContribute, hasProAccess);
+                pendingEmail, hasPassword, canContribute, hasProAccess, limits);
     }
 }

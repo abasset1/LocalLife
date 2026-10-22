@@ -24,6 +24,8 @@ public interface ActivityLikeRepository extends Repository<ActivityLike, Long> {
 
     boolean existsByUserIdAndActivityId(Long userId, Long activityId);
 
+    long countByUserId(Long userId);
+
     @Modifying
     @Query("DELETE FROM activity_likes WHERE user_id = :userId AND activity_id = :activityId")
     void deleteByUserIdAndActivityId(@Param("userId") Long userId, @Param("activityId") Long activityId);

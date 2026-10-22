@@ -198,3 +198,16 @@ export interface Contribution {
     /** Lieu publié géré par l'auteur, qui propose l'activité (« Proposé par … »), sinon `null`. */
     hostPlaceId?: number | null;
 }
+
+/**
+ * Limites de l'offre du compte (`limits` de `GET /api/v1/users/me`, décision du 22/10/2026) ; `null` = illimité.
+ * Gratuit : 5 favoris, 1 alerte, aucune contribution ; Premium : 10 alertes, 2 contributions par mois ; Pro et
+ * administrateur : contributions illimitées. Le serveur reste seul juge (403 au-delà).
+ */
+export interface UserLimits {
+    maxLikes: number | null;
+    maxAlerts: number;
+    /** Contributions par mois civil (heure de Paris) : 0 pour Gratuit, `null` si illimité. */
+    monthlyContributions: number | null;
+    contributionsThisMonth: number;
+}

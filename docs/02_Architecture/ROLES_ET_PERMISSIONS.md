@@ -101,7 +101,7 @@ professionnel, demander un abonnement, consulter la liste interne des sources.
 | Changer d'adresse e-mail | `PATCH /api/v1/users/me`, `POST /api/v1/auth/confirm-email-change` | **Appliqué seulement au clic sur le lien envoyé à la nouvelle adresse** (valable 24 h) ; l'ancienne adresse est prévenue ; `pendingEmail` montre la demande en cours |
 | Changer son mot de passe (ou en définir un, compte Google) | `POST /api/v1/users/me/password` | Mot de passe actuel exigé s'il en existe un ; **les autres sessions sont fermées** (`users.tokens_valid_after`), la session en cours reçoit un nouveau jeton. Une réinitialisation par e-mail ferme aussi toutes les sessions |
 | Supprimer son compte | `POST /api/v1/users/me/deletion` | Mot de passe exigé (ou `SUPPRIMER` pour un compte Google). Activités **publiées** conservées sans auteur ; contributions non publiées, favoris, alertes, préférences, connexions Google, demandes de gestion de lieu supprimés ; abonnement terminé, historique conservé sans lien vers la personne ; lieux et food trucks créés conservés sans propriétaire. Interdit à un administrateur |
-| Préférences de carte, favoris, alertes (10 au plus, rayon ≤ 50 km) | `/api/v1/users/me/preferences`, `/likes`, `/alerts` | — |
+| Préférences de carte, favoris, alertes (rayon ≤ 50 km) | `/api/v1/users/me/preferences`, `/likes`, `/alerts` | Compte gratuit : **5 favoris, 1 alerte** ; voir « Limites par offre » |
 | Passer à **Premium** | `POST /api/v1/users/me/subscription/subscribe` | Activé tout de suite (pas de paiement branché) |
 | Demander l'offre **Pro** | même route | **Demande examinée par l'équipe** (Administration → Professionnels → Abonnements) ; l'offre en cours reste active jusqu'à l'approbation |
 | Retirer sa demande, résilier | `/me/subscription/withdraw`, `/cancel` | — |
@@ -155,6 +155,24 @@ directement un lieu publié, publier un food truck sans validation la première 
 
 Vérifié par `ProAccountRulesIntegrationTest`, `ProFoodTruckIntegrationTest`, `ProSpaceIntegrationTest` et
 `SubscriptionIntegrationTest`.
+
+### Limites par offre — décidé le 22/10/2026
+
+| | Gratuit | Premium | Pro (offre ou rôle), administrateur |
+|---|---|---|---|
+| Favoris | **5** | illimités | illimités |
+| Alertes | **1** | 10 | 10 |
+| Nouvelles contributions | aucune | **2 par mois civil** (heure de Paris) | illimitées |
+
+* Une limite bloque seulement l'ajout (**403** avec un message explicite) : un compte déjà au-delà (offre terminée)
+  garde tout ce qu'il a, y compris l'envoi de ses alertes. Re-liker un favori existant ou modifier une contribution
+  ne compte pas.
+* Contributions Premium : comptées sur leur date de création (`activity.created_at`, V72) ; une contribution refusée
+  par la modération ou supprimée par son auteur ne compte pas. Les activités antérieures à V72 n'ont pas de date et
+  ne comptent dans aucun mois.
+* `GET /api/v1/users/me` expose `limits` : `maxLikes` (`null` = illimité), `maxAlerts`, `monthlyContributions`
+  (`null` = illimité, `0` sans offre) et `contributionsThisMonth`.
+* Mise en œuvre : `PlanLimits`. Vérifié par `PlanLimitsIntegrationTest`.
 
 ### Administrateur
 

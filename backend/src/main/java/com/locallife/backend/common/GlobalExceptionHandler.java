@@ -1,5 +1,6 @@
 package com.locallife.backend.common;
 
+import com.locallife.backend.subscription.application.PlanLimitException;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +42,19 @@ public class GlobalExceptionHandler {
                 path);
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    /** Limite de l'offre atteinte (favoris, alertes, contributions Premium, {@code PlanLimits}) : 403 explicite. */
+    @ExceptionHandler(PlanLimitException.class)
+    public ResponseEntity<ErrorResponse> handlePlanLimit(PlanLimitException exception, WebRequest request) {
+        String path = request.getDescription(false).replace("uri=", "");
+        ErrorResponse body = new ErrorResponse(
+                Instant.now(),
+                HttpStatus.FORBIDDEN.value(),
+                HttpStatus.FORBIDDEN.getReasonPhrase(),
+                exception.getMessage(),
+                path);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     @ExceptionHandler(Exception.class)

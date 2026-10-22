@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, createActivity, getCurrentAccount } from '@/api';
+import type { AccountLimits } from '@/api';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -16,6 +17,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { ContributionFields, EMPTY_FORM, inform, toRequest, useActiveCategories } from '@/features/contribution';
 import type { ContributionForm } from '@/features/contribution';
+import { contributionQuota } from '@/features/limits/limits';
 
 /**
  * Onglet « Contribution » : proposer une activité, ponctuelle ou qui revient chaque semaine (food
@@ -31,14 +33,19 @@ export default function ContributionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   /** Droit relu par le serveur (offre Premium ou Pro) ; `null` tant qu'il n'est pas connu. */
-  const [access, setAccess] = useState<{ userId: number; canContribute: boolean; hasProAccess: boolean } | null>(
-    null,
-  );
+  const [access, setAccess] = useState<{
+    userId: number;
+    canContribute: boolean;
+    hasProAccess: boolean;
+    limits: AccountLimits | null;
+  } | null>(null);
   const authenticatedUserId = state.status === 'authenticated' ? state.user.userId : null;
   const currentAccess = access && access.userId === authenticatedUserId ? access : null;
   const canContribute = currentAccess ? currentAccess.canContribute : null;
   // Accès pro : l'activité peut être « proposée par » un des lieux publiés que le compte gère.
   const hostPlaces = useHostablePlaces(currentAccess?.hasProAccess === true);
+  // Premium : 2 nouvelles contributions par mois civil ; Pro et administrateurs : sans limite.
+  const quota = contributionQuota(currentAccess?.limits);
 
   useEffect(() => {
     if (authenticatedUserId === null) return;
@@ -50,9 +57,10 @@ export default function ContributionScreen() {
           userId: authenticatedUserId,
           canContribute: account.canContribute !== false,
           hasProAccess: account.hasProAccess === true,
+          limits: account.limits ?? null,
         }),
       )
-      .catch(() => setAccess({ userId: authenticatedUserId, canContribute: true, hasProAccess: false }));
+      .catch(() => setAccess({ userId: authenticatedUserId, canContribute: true, hasProAccess: false, limits: null }));
     return () => controller.abort();
   }, [authenticatedUserId]);
 
@@ -69,6 +77,12 @@ export default function ContributionScreen() {
       await createActivity(result.request);
       setForm(EMPTY_FORM);
       setSubmitted(true);
+      // La nouvelle proposition compte dans le quota du mois (relu du serveur au prochain chargement).
+      setAccess((current) =>
+        current?.limits
+          ? { ...current, limits: { ...current.limits, contributionsThisMonth: current.limits.contributionsThisMonth + 1 } }
+          : current,
+      );
       inform(
         'Merci pour votre proposition',
         'Elle est soumise à validation par un modérateur et sera publiée d’ici 2 à 3 jours. Suivez son statut dans « Mes contributions ».',
@@ -136,6 +150,46 @@ export default function ContributionScreen() {
     );
   }
 
+  // Premium : quota du mois atteint, explication à la place du formulaire.
+  if (quota?.atLimit) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.centered}>
+          <MenuButton />
+          <ScreenHeader
+            eyebrow="Contribuer"
+            title="Faites vivre votre quartier"
+            lead="Un marché, un concert, un food truck… Partagez ce qui se passe près de chez vous."
+          />
+          {submitted && (
+            <Notice tone="success">
+              Activité proposée. Elle est soumise à validation et sera publiée d’ici 2 à 3 jours.
+            </Notice>
+          )}
+          <Card style={styles.emptyCard}>
+            <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
+              📅
+            </ThemedText>
+            <ThemedText type="heading" style={styles.emptyText}>
+              {quota.text}
+            </ThemedText>
+            <ThemedText themeColor="textSecondary" style={styles.emptyText}>
+              Vous avez atteint la limite de votre offre Premium pour ce mois-ci. Vous pourrez proposer de nouvelles
+              activités le mois prochain ; les propositions refusées et les modifications ne comptent pas. L’offre Pro
+              permet des contributions illimitées.
+            </ThemedText>
+            <Button
+              label="Mes contributions"
+              variant="secondary"
+              onPress={() => router.push('/contributions')}
+            />
+            <Button label="Voir les offres" variant="ghost" onPress={() => router.push('/abonnement')} />
+          </Card>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -153,6 +207,7 @@ export default function ContributionScreen() {
               icon={{ ios: 'square.and.pencil', android: 'edit_note', web: 'edit_note' }}
               onPress={() => router.push('/contributions')}
             />
+            {quota && <ThemedText type="smallBold">{quota.text}</ThemedText>}
             <Notice>
               Votre activité sera soumise à validation par un modérateur avant d’apparaître sur la carte : elle
               sera publiée d’ici 2 à 3 jours.

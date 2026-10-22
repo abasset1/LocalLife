@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { proRequest } from "../pro/proApi";
 import { Notice, ProfileCard } from "../profile/ProfileUi";
-import { PLAN_DESCRIPTIONS, PLAN_LABELS, formatDay } from "./types";
+import { PLAN_DESCRIPTIONS, PLAN_LABELS, PLAN_LIMITS, formatDay } from "./types";
 import type { Plan, SubscriptionOverview } from "./types";
 
 const CHOICES: Exclude<Plan, "FREE">[] = ["PREMIUM", "PRO"];
+const PLANS: Plan[] = ["FREE", "PREMIUM", "PRO"];
 
 /**
  * « Mon abonnement » (BILLING-01, ADR-0014) : offre actuelle et date de fin d'accès, passage à Premium ou Pro,
@@ -58,6 +59,13 @@ function SubscriptionCard() {
                 Offre actuelle : <strong>{PLAN_LABELS[plan]}</strong>
             </p>
             <p className="pp-hint">{PLAN_DESCRIPTIONS[plan]}</p>
+            <ul aria-label="Limites des offres" className="pp-plan-limits">
+                {PLANS.map((item) => (
+                    <li className={item === plan ? "pp-plan-limits-current" : undefined} key={item}>
+                        <strong>{PLAN_LABELS[item]}</strong> : {PLAN_LIMITS[item].join(", ")}
+                    </li>
+                ))}
+            </ul>
             {current?.status === "ACTIVE" && (
                 <p className="pp-hint">
                     {current.accessEndsAt
@@ -87,7 +95,7 @@ function SubscriptionCard() {
                     .filter((choice) => pending?.plan !== choice)
                     .map((choice) => (
                         <button className="pp-button pp-button-primary" disabled={busy} key={choice} type="button"
-                            title={PLAN_DESCRIPTIONS[choice]}
+                            title={`${PLAN_DESCRIPTIONS[choice]} ${PLAN_LIMITS[choice].join(", ")}.`}
                             onClick={() => void act("subscribe", { plan: choice }, choice === "PRO"
                                 ? "Demande d'offre Pro envoyée : l'équipe LocalLife va l'examiner."
                                 : `Offre ${PLAN_LABELS[choice]} activée.`)}>

@@ -11,7 +11,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useFavorites } from '@/features/favorites';
+import { FAVORITES_NOUN, formatUsage, isAtLimit } from '@/features/limits/limits';
 import { ActivityCard } from '@/features/list/ActivityCard';
+import { useCurrentAccount } from '@/features/pro/useProAccess';
 import { useTheme } from '@/hooks/use-theme';
 
 /** « Mes favoris » (rubrique Compte) : les activités aimées, rechargées à chaque ouverture de l'écran. */
@@ -21,6 +23,9 @@ export default function FavorisScreen() {
   const { state } = useAuth();
   const { favorites, status, error, refresh } = useFavorites();
   const authenticated = state.status === 'authenticated';
+  // Compte Gratuit : 5 favoris au plus (illimités avec une offre) ; le backend refuse l'ajout au-delà (403).
+  const maxLikes = useCurrentAccount()?.limits?.maxLikes;
+  const usage = status === 'success' ? formatUsage(favorites.length, maxLikes, FAVORITES_NOUN) : null;
 
   useFocusEffect(
     useCallback(() => {
@@ -63,6 +68,21 @@ export default function FavorisScreen() {
             <View style={styles.header}>
               <Notice tone="danger">Erreur : {error}</Notice>
               <Button label="Réessayer" onPress={() => void refresh()} />
+            </View>
+          ) : usage ? (
+            <View style={styles.header}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                {usage}
+              </ThemedText>
+              {isAtLimit(favorites.length, maxLikes) ? (
+                <>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Limite de l’offre Gratuit atteinte : retirez un favori, ou passez à Premium pour des favoris
+                    illimités.
+                  </ThemedText>
+                  <Button label="Voir les offres" variant="secondary" onPress={() => router.push('/abonnement')} />
+                </>
+              ) : null}
             </View>
           ) : null
         }

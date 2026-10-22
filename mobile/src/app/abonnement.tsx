@@ -11,6 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { PLAN_DESCRIPTIONS, PLAN_LABELS, describeSubscription, formatDay } from '@/features/pro/format';
 import { messageFor, proStyles as styles } from '@/features/pro/ProGate';
+import { PLAN_LIMITS } from '@/features/limits/limits';
 
 const CHOICES: Exclude<Plan, 'FREE'>[] = ['PREMIUM', 'PRO'];
 
@@ -101,6 +102,7 @@ export default function AbonnementScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             {PLAN_DESCRIPTIONS[plan]}
           </ThemedText>
+          <PlanLimits plan={plan} />
         </Card>
 
         {pending && (
@@ -125,6 +127,7 @@ export default function AbonnementScreen() {
             <ThemedText type="small" themeColor="textSecondary">
               {PLAN_DESCRIPTIONS[choice]}
             </ThemedText>
+            <PlanLimits plan={choice} />
             {choice === 'PREMIUM' && plan === 'PRO' ? (
               <ThemedText type="small" themeColor="textSecondary">
                 Votre offre Pro inclut déjà Premium.
@@ -161,5 +164,14 @@ export default function AbonnementScreen() {
         {error && <Notice tone="danger">{error}</Notice>}
       </ScrollView>
     </ThemedView>
+  );
+}
+
+/** Limites de l'offre (décision du 22/10/2026) : favoris, alertes, contributions. */
+function PlanLimits({ plan }: { plan: Plan }) {
+  return (
+    <ThemedText type="small" accessibilityLabel={`Inclus : ${PLAN_LIMITS[plan].join(', ')}`}>
+      {PLAN_LIMITS[plan].map((item) => `• ${item}`).join('\n')}
+    </ThemedText>
   );
 }

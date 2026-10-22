@@ -3731,3 +3731,16 @@ body {
     font-weight: 600;
     color: #b45309;
 }
+
+/* « Mon abonnement » : limites de chaque offre, l'offre actuelle mise en avant. */
+.pp-plan-limits {
+    margin: 0.5rem 0;
+    padding-left: 1.1rem;
+    font-size: 0.9rem;
+    color: #475569;
+}
+
+.pp-plan-limits-current {
+    color: #173f35;
+    font-weight: 600;
+}

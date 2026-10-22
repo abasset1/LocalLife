@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { buildDirectionsUrl } from "../../utils/directions";
 import { buildGoogleCalendarUrl } from "../../utils/googleCalendar";
 import { formatDateOfDay, formatRecurrenceRule, formatTimeRange } from "../../utils/recurrence";
@@ -26,6 +27,8 @@ interface ActivityDetailModalProps {
     detailError: string | null;
     currentUser: ExplorerCurrentUser | null;
     isTogglingLike: boolean;
+    /** Message du serveur quand « J'aime » échoue (ex. limite de favoris de l'offre Gratuit). */
+    likeError?: { message: string; isLimit: boolean } | null;
     onToggleLike: (activity: Activity) => void;
     isCancelling: boolean;
     cancelError: string | null;
@@ -178,6 +181,7 @@ function ActivityDetailModal({
     detailError,
     currentUser,
     isTogglingLike,
+    likeError = null,
     onToggleLike,
     isCancelling,
     cancelError,
@@ -224,6 +228,12 @@ function ActivityDetailModal({
                     </button>
                 </div>
                 <div className="explorer-detail-body">
+                    {likeError && (
+                        <p className="explorer-detail-row explorer-detail-error" role="alert">
+                            {likeError.message}
+                            {likeError.isLimit && <> <Link to="/profile">Voir les offres</Link></>}
+                        </p>
+                    )}
                     <p className="explorer-detail-row">
                         <strong>Lieu :</strong> {formatActivityLocation(activity)}
                     </p>

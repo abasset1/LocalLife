@@ -22,7 +22,7 @@ export {
 } from './activities';
 export type { CallOptions } from './activities';
 export { changePassword, deleteAccount, getCurrentAccount } from './account';
-export type { CurrentAccount } from './account';
+export type { AccountLimits, CurrentAccount } from './account';
 export { createAlert, deleteAlert, listAlerts, updateAlertChannels } from './alerts';
 export { listCategories } from './categories';
 export { getFoodTruck, listFoodTrucks } from './foodTrucks';
