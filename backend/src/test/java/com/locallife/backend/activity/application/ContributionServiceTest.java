@@ -66,12 +66,13 @@ class ContributionServiceTest {
     private ContributionService contributionService;
 
     @Test
-    void update_ShouldKeepActivityPublished_WhenEditedByItsCreator() {
+    void update_ShouldSendAPublishedActivityBackToModeration_WhenEditedByItsCreator() {
+        // 21/10/2026 : sans cela, un contenu validé pouvait être remplacé en restant en ligne.
         Activity published = activity("PUBLISHED", CREATOR_ID);
         when(activityRepository.findById(1L)).thenReturn(Optional.of(published));
-        Activity updated = activity("PUBLISHED", CREATOR_ID);
+        Activity updated = activity("PENDING", CREATOR_ID);
         when(activityService.updateContribution(published, "Nouveau titre", "Desc", null, "Lyon", "2026-11-01",
-                null, "PUBLISHED", List.of(3L)))
+                null, "PENDING", List.of(3L)))
                 .thenReturn(updated);
 
         Optional<Activity> result = contributionService.update(
@@ -100,8 +101,8 @@ class ContributionServiceTest {
     }
 
     @Test
-    void statusAfterUpdate_ShouldOnlyChangeRejectedActivityEditedByItsCreator() {
-        assertEquals("PUBLISHED", ContributionService.statusAfterUpdate("PUBLISHED", false));
+    void statusAfterUpdate_ShouldSendPublishedOrRejectedActivityEditedByItsCreatorBackToModeration() {
+        assertEquals("PENDING", ContributionService.statusAfterUpdate("PUBLISHED", false));
         assertEquals("PENDING", ContributionService.statusAfterUpdate("PENDING", false));
         assertEquals("PENDING", ContributionService.statusAfterUpdate("REJECTED", false));
         assertEquals("REJECTED", ContributionService.statusAfterUpdate("REJECTED", true));

@@ -42,7 +42,9 @@ vérifiée côté serveur.
 | Inscription, connexion, mot de passe oublié, confirmation d'e-mail (`/api/v1/auth/**`) | ✅ | ✅ | ✅ | ✅ |
 | Profil et préférences (`GET/PATCH /api/v1/users/me`, `/me/preferences`, `/me/alerts`, `/me/likes`, `/me/push-tokens`) | ❌ | ✅ | ✅ | ✅ |
 | Rôle, statut ou offre de son propre compte | ❌ | ❌ (champs ignorés par `PATCH /me`) | ❌ | ❌ |
-| Proposer une activité, modifier / annuler / supprimer la sienne (`POST /activities`, `PUT/DELETE /activities/{id}`) | ❌ | 🔒 propriétaire | 🔒 propriétaire | ✅ toutes |
+| Proposer une activité, modifier la sienne (`POST /activities`, `PUT /activities/{id}`) | ❌ | 🔒 offre Premium ou Pro, propriétaire | 🔒 propriétaire | ✅ toutes |
+| Annuler / supprimer sa contribution (`PATCH /activities/{id}/cancel`, `DELETE /activities/{id}`) | ❌ | 🔒 propriétaire | 🔒 propriétaire | ✅ toutes |
+| Mot de passe, adresse e-mail confirmée, suppression de son compte (`/api/v1/users/me/password`, `PATCH /me`, `/me/deletion`) | ❌ | ✅ | ✅ | ✅ (sauf suppression) |
 | Créer un food truck (`POST /api/v1/foodtrucks`) | ❌ | 🔒 accès pro | ✅ | ✅ |
 | Abonnement (`/api/v1/users/me/subscription/**`) | ❌ | ✅ | ✅ | ✅ |
 | Espace professionnel (`/api/v1/pro/**`) | ❌ | 🔒 offre Pro | ✅ | ✅ (sans modérer ses propres demandes) |
@@ -87,7 +89,35 @@ professionnel, demander un abonnement, consulter la liste interne des sources.
   sont ouvertes sans compte (plus la documentation de l'API et `/actuator/health`). Toute autre route, y compris une
   route nouvelle non déclarée, exige une connexion. Vérifié par `VisitorAccessIntegrationTest`.
 
-### Utilisateur, professionnel, administrateur
+### Utilisateur connecté (rôle USER, adresse confirmée) — décidé le 21/10/2026
+
+**Peut, en plus de tout ce que fait un visiteur :**
+
+| Action | Routes | Règle |
+|---|---|---|
+| Voir et modifier son nom d'utilisateur | `GET/PATCH /api/v1/users/me` | Immédiat |
+| Changer d'adresse e-mail | `PATCH /api/v1/users/me`, `POST /api/v1/auth/confirm-email-change` | **Appliqué seulement au clic sur le lien envoyé à la nouvelle adresse** (valable 24 h) ; l'ancienne adresse est prévenue ; `pendingEmail` montre la demande en cours |
+| Changer son mot de passe (ou en définir un, compte Google) | `POST /api/v1/users/me/password` | Mot de passe actuel exigé s'il en existe un ; **les autres sessions sont fermées** (`users.tokens_valid_after`), la session en cours reçoit un nouveau jeton. Une réinitialisation par e-mail ferme aussi toutes les sessions |
+| Supprimer son compte | `POST /api/v1/users/me/deletion` | Mot de passe exigé (ou `SUPPRIMER` pour un compte Google). Activités **publiées** conservées sans auteur ; contributions non publiées, favoris, alertes, préférences, connexions Google, demandes de gestion de lieu supprimés ; abonnement terminé, historique conservé sans lien vers la personne ; lieux et food trucks créés conservés sans propriétaire. Interdit à un administrateur |
+| Préférences de carte, favoris, alertes (10 au plus, rayon ≤ 50 km) | `/api/v1/users/me/preferences`, `/likes`, `/alerts` | — |
+| Passer à **Premium** | `POST /api/v1/users/me/subscription/subscribe` | Activé tout de suite (pas de paiement branché) |
+| Demander l'offre **Pro** | même route | **Demande examinée par l'équipe** (Administration → Professionnels → Abonnements) ; l'offre en cours reste active jusqu'à l'approbation |
+| Retirer sa demande, résilier | `/me/subscription/withdraw`, `/cancel` | — |
+| Voir, annuler, supprimer ses contributions existantes | `GET /activities/mine`, `PATCH /{id}/cancel`, `DELETE /{id}` | Toujours permis à l'auteur, même sans Premium |
+
+**Ne peut pas** (sans offre Premium ou Pro) : **proposer une activité ni en modifier une** (403, message invitant à
+passer à Premium). `GET /api/v1/users/me` expose `canContribute` pour que les interfaces orientent vers l'abonnement.
+
+**Règles de contenu :**
+* Une activité proposée part en modération (`PENDING`).
+* **Une activité publiée puis modifiée par son auteur repart en modération** et quitte la carte jusqu'à validation
+  (auparavant, elle restait en ligne : un contenu validé pouvait être remplacé). Une activité refusée et corrigée
+  aussi. Un administrateur modifie sans changer le statut.
+
+Vérifié par `AccountSelfServiceIntegrationTest`, `ContributionManagementIntegrationTest`,
+`SubscriptionIntegrationTest`, `AuthenticationFlowIntegrationTest` et `ActivityControllerTest`.
+
+### Professionnel, administrateur
 
 À définir dans les étapes suivantes ; l'état actuel est décrit par la matrice du § 3.
 

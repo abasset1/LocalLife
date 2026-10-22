@@ -72,6 +72,7 @@ class VisitorAccessIntegrationTest {
                 "{\"email\":\"inconnu@example.com\",\"password\":\"mauvais-mdp\"}")).isEqualTo(401);
         for (String route : List.of("/api/v1/auth/register", "/api/v1/auth/forgot-password",
                 "/api/v1/auth/reset-password", "/api/v1/auth/verify-email", "/api/v1/auth/resend-verification",
+                "/api/v1/auth/confirm-email-change",
                 "/api/v1/alerts/unsubscribe")) {
             assertThat(status(HttpMethod.POST, route, null, "{}")).as(route).isNotIn(401, 403);
         }

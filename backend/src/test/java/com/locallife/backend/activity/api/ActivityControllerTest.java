@@ -1,5 +1,7 @@
 package com.locallife.backend.activity.api;
 
+import com.locallife.backend.activity.application.ContributionAccessPolicy;
+import static org.mockito.Mockito.lenient;
 import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
@@ -132,8 +134,34 @@ class ActivityControllerTest {
     @Mock
     private ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
 
+    @Mock
+    private ContributionAccessPolicy contributionAccessPolicy;
+
     @InjectMocks
     private ActivityController activityController;
+
+    /** Le contributeur de ces tests a le droit de contribuer (offre Premium) ; voir le test du refus. */
+    @org.junit.jupiter.api.BeforeEach
+    void contributorHasPremium() {
+        lenient().when(contributionAccessPolicy.canContribute(any())).thenReturn(true);
+    }
+
+    @Test
+    void createAndUpdate_ShouldBeForbidden_WithoutPremiumOrPro() {
+        when(contributionAccessPolicy.canContribute(7L)).thenReturn(false);
+        ActivityController.CreateActivityRequest request = new ActivityController.CreateActivityRequest(
+                "Brocante", "Description", "brocante", "1 rue de la Paix, Marseille", null, null, null, null, null,
+                "CULTURE");
+
+        ResponseEntity<Object> created = activityController.createActivity(request, authentication, httpRequest);
+        ResponseEntity<Object> updated = activityController.updateActivity(1L, request, authentication, httpRequest);
+
+        assertEquals(HttpStatus.FORBIDDEN, created.getStatusCode());
+        assertEquals(HttpStatus.FORBIDDEN, updated.getStatusCode());
+        verify(activityService, never()).createActivity(any(), any(), any(), any(), any(), any(), any(), any());
+        verify(contributionService, never()).update(any(), any(), anyBoolean(), any(), any(), any(), any(), any(),
+                any(), any(), any());
+    }
 
     /**
      * Instance réelle plutôt qu'un mock Mockito (même pattern que

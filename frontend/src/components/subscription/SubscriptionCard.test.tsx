@@ -17,14 +17,14 @@ function json(body: unknown, status = 200): Response {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("SubscriptionCard", () => {
-    it("montre l'offre gratuite, puis active Pro tout de suite", async () => {
+    it("active Premium tout de suite", async () => {
         const user = userEvent.setup();
-        const active = { id: 4, plan: "PRO", status: "ACTIVE", startedAt: "2026-10-19T10:00:00Z", accessEndsAt: null,
+        const active = { id: 4, plan: "PREMIUM", status: "ACTIVE", startedAt: "2026-10-19T10:00:00Z", accessEndsAt: null,
             cancelAtPeriodEnd: false, decisionReason: null, requestedAt: "2026-10-19T10:00:00Z",
             updatedAt: "2026-10-19T10:00:00Z" };
         const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
             if (url.endsWith("/subscribe") && init?.method === "POST") {
-                return json({ plan: "PRO", current: active, pending: null, history: [active] });
+                return json({ plan: "PREMIUM", current: active, pending: null, history: [active] });
             }
             return json({ plan: "FREE", current: null, pending: null, history: [] });
         });
@@ -32,14 +32,35 @@ describe("SubscriptionCard", () => {
         render(<MemoryRouter><SubscriptionCard /></MemoryRouter>);
 
         expect(await screen.findByText("Gratuit")).toBeInTheDocument();
-        await user.click(screen.getByRole("button", { name: "Passer à Pro" }));
+        await user.click(screen.getByRole("button", { name: "Passer à Premium" }));
 
-        expect(await screen.findByText("Offre Pro activée.")).toBeInTheDocument();
+        expect(await screen.findByText("Offre Premium activée.")).toBeInTheDocument();
         expect(screen.getByText("Sans échéance, jusqu'à résiliation.")).toBeInTheDocument();
-        expect(screen.getByText("Ouvrir l'espace professionnel →")).toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: "Passer à Pro" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Passer à Premium" })).not.toBeInTheDocument();
         expect(fetchMock).toHaveBeenCalledWith("/api/v1/users/me/subscription/subscribe",
-            expect.objectContaining({ method: "POST", body: JSON.stringify({ plan: "PRO" }) }));
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ plan: "PREMIUM" }) }));
+    });
+
+    it("envoie une demande Pro, examinée par l'équipe, sans ouvrir l'espace professionnel", async () => {
+        const user = userEvent.setup();
+        const pending = { id: 6, plan: "PRO", status: "REQUESTED", startedAt: null, accessEndsAt: null,
+            cancelAtPeriodEnd: false, decisionReason: null, requestedAt: "2026-10-21T10:00:00Z",
+            updatedAt: "2026-10-21T10:00:00Z" };
+        vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+            if (url.endsWith("/subscribe") && init?.method === "POST") {
+                return json({ plan: "FREE", current: null, pending, history: [pending] });
+            }
+            return json({ plan: "FREE", current: null, pending: null, history: [] });
+        }));
+        render(<MemoryRouter><SubscriptionCard /></MemoryRouter>);
+
+        await user.click(await screen.findByRole("button", { name: "Demander l'offre Pro" }));
+
+        expect(await screen.findByText(/Demande d'offre Pro envoyée/)).toBeInTheDocument();
+        expect(screen.getByText(/Demande de passage à/)).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Demander l'offre Pro" })).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Retirer ma demande" })).toBeInTheDocument();
+        expect(screen.queryByText("Ouvrir l'espace professionnel →")).not.toBeInTheDocument();
     });
 
     it("explique la date de fin d'accès d'un abonnement résilié", async () => {

@@ -1,5 +1,7 @@
 package com.locallife.backend.common;
 
+import com.locallife.backend.subscription.application.SubscriptionService;
+import com.locallife.backend.subscription.domain.Plan;
 import com.locallife.backend.user.domain.Role;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -24,10 +26,29 @@ public class TestAccounts {
 
     private final JdbcTemplate jdbcTemplate;
     private final String jwtSecret;
+    private final SubscriptionService subscriptionService;
 
-    public TestAccounts(JdbcTemplate jdbcTemplate, @Value("${jwt.secret}") String jwtSecret) {
+    public TestAccounts(
+            JdbcTemplate jdbcTemplate, @Value("${jwt.secret}") String jwtSecret,
+            SubscriptionService subscriptionService) {
         this.jdbcTemplate = jdbcTemplate;
         this.jwtSecret = jwtSecret;
+        this.subscriptionService = subscriptionService;
+    }
+
+    /**
+     * Donne l'offre Premium (activation immédiate, paiement simulé) au compte de cette adresse : depuis le
+     * 21/10/2026, proposer une activité exige Premium ou Pro. Sans effet si le compte l'a déjà.
+     */
+    public void grantPremium(String email) {
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ?", Long.class, email);
+        grantPremium(userId);
+    }
+
+    public void grantPremium(Long userId) {
+        if (subscriptionService.effectivePlan(userId) != Plan.PREMIUM) {
+            subscriptionService.subscribe(userId, Plan.PREMIUM);
+        }
     }
 
     /** Identifiant du compte partagé de ce rôle, créé s'il n'existe pas encore. */

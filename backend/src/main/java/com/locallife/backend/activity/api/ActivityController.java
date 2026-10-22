@@ -3,6 +3,7 @@ package com.locallife.backend.activity.api;
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.accessibility.domain.Accessibility;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
+import com.locallife.backend.activity.application.ContributionAccessPolicy;
 import com.locallife.backend.activity.application.ActivityService;
 import com.locallife.backend.activity.application.ContributionRecurrence;
 import com.locallife.backend.activity.application.ContributionService;
@@ -116,6 +117,7 @@ public class ActivityController {
     private final CategoryRepository categoryRepository;
     private final RecurringContributionService recurringContributionService;
     private final ContributionService contributionService;
+    private final ContributionAccessPolicy contributionAccessPolicy;
 
     private final ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
     private final ActivityAtPlaceRepository activityAtPlaceRepository;
@@ -132,7 +134,7 @@ public class ActivityController {
             PremiumAccessPolicy premiumAccessPolicy, CategoryRepository categoryRepository,
             RecurringContributionService recurringContributionService, ContributionService contributionService,
             ActivityCoordinatePrecisionRepository coordinatePrecisionRepository,
-            ActivityAtPlaceRepository activityAtPlaceRepository) {
+            ActivityAtPlaceRepository activityAtPlaceRepository, ContributionAccessPolicy contributionAccessPolicy) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -152,6 +154,7 @@ public class ActivityController {
         this.contributionService = contributionService;
         this.coordinatePrecisionRepository = coordinatePrecisionRepository;
         this.activityAtPlaceRepository = activityAtPlaceRepository;
+        this.contributionAccessPolicy = contributionAccessPolicy;
     }
 
     @Operation(summary = "Activités à venir d'un lieu permanent",
@@ -603,6 +606,10 @@ public class ActivityController {
     public ResponseEntity<Object> createActivity(
             @RequestBody CreateActivityRequest request, Authentication authentication,
             HttpServletRequest httpRequest) {
+        // 21/10/2026 : contribuer est réservé aux offres Premium et Pro (et aux rôles PRO/ADMIN).
+        if (!contributionAccessPolicy.canContribute(((JwtAuthentication) authentication).getUserId())) {
+            return errorResponse(HttpStatus.FORBIDDEN, ContributionAccessPolicy.DENIED_MESSAGE, httpRequest);
+        }
         try {
             // LL-EF-016 : validés avant même la création de l'activité (voir la javadoc de
             // CreateActivityRequest et ActivityLinkService#validateBeforeCreate).
@@ -668,20 +675,23 @@ public class ActivityController {
     }
 
     /**
-     * Modifie une contribution (même corps que {@link #createActivity}). Le statut ne change pas (une
-     * activité publiée reste sur la carte), sauf une activité refusée corrigée par son contributeur, qui
-     * repart en validation ({@code PENDING}). Les liens/contacts sont remplacés par ceux du corps.
+     * Modifie une contribution (même corps que {@link #createActivity}). Modifiée par son contributeur, une
+     * activité publiée ou refusée repart en validation ({@code PENDING}) ; une activité en attente le reste.
+     * Un administrateur modifie sans changer le statut. Les liens/contacts sont remplacés par ceux du corps.
+     * Réservé aux offres Premium et Pro (ou rôles PRO/ADMIN), comme la création.
      */
     @Operation(
             summary = "Modifie une contribution",
-            description = "Réservé au créateur de l'activité ou à un administrateur. Le statut ne change pas, "
-                    + "sauf une activité refusée corrigée par son créateur, qui repasse en attente (PENDING).")
+            description = "Réservé au créateur de l'activité (avec une offre Premium ou Pro, ou le rôle PRO) ou à "
+                    + "un administrateur. Modifiée par son créateur, une activité publiée ou refusée repasse en "
+                    + "attente (PENDING) et quitte la carte jusqu'à validation.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Activité modifiée."),
         @ApiResponse(responseCode = "400", description = "Champ invalide, activité importée ou plus modifiable.",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Authentification requise (JWT manquant ou invalide)."),
-        @ApiResponse(responseCode = "403", description = "Ni créateur de l'activité ni administrateur.",
+        @ApiResponse(responseCode = "403",
+                description = "Ni créateur de l'activité ni administrateur, ou offre Premium/Pro requise.",
                 content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "404", description = "Aucune activité ne correspond à cet id.")
     })
@@ -690,6 +700,10 @@ public class ActivityController {
             @PathVariable Long id, @RequestBody CreateActivityRequest request, Authentication authentication,
             HttpServletRequest httpRequest) {
         JwtAuthentication jwtAuthentication = (JwtAuthentication) authentication;
+        // Même droit que pour proposer : sans offre Premium/Pro, l'auteur peut encore annuler ou supprimer.
+        if (!contributionAccessPolicy.canContribute(jwtAuthentication.getUserId())) {
+            return errorResponse(HttpStatus.FORBIDDEN, ContributionAccessPolicy.DENIED_MESSAGE, httpRequest);
+        }
         try {
             validateContactLinks(request);
             List<Long> categoryIds = resolveRequestedCategoryIds(request, id);

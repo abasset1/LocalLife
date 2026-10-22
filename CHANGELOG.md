@@ -2,6 +2,15 @@
 
 ## 0.9.59 — non publiée
 
+### Utilisateurs connectés : périmètre défini (21/10/2026)
+- **Proposer ou modifier une activité est réservé aux offres Premium et Pro** (et aux rôles PRO/ADMIN). Sans offre, l'auteur peut encore voir, annuler et supprimer ses contributions. Site et application orientent vers l'abonnement.
+- **Une activité publiée puis modifiée par son auteur repart en modération** et quitte la carte jusqu'à validation.
+- **Offre Pro sur demande** : examinée par l'équipe tant que le paiement n'est pas branché ; Premium reste activé tout de suite.
+- **Changement d'adresse e-mail confirmé** par un lien envoyé à la nouvelle adresse ; l'ancienne est prévenue.
+- **Changer son mot de passe** depuis le profil (ou en définir un pour un compte Google) ; les autres sessions sont fermées, comme après une réinitialisation.
+- **Supprimer son compte** (site et application) : activités publiées conservées sans auteur, le reste supprimé, historique d'abonnement anonymisé.
+- Migration `V70` : `users.tokens_valid_after`, table `email_change_request`, historique d'abonnement conservé à la suppression d'un compte, nouvelles actions dans le journal des comptes.
+
 ### Visiteurs : périmètre défini, sécurité fermée par défaut
 - Ce qu'un visiteur sans compte peut faire est désormais listé et figé (`ROLES_ET_PERMISSIONS.md` § 3 bis) : carte, liste, recherche, fiches complètes, lieux, food trucks, inscription et connexion, désabonnement d'une alerte par le lien de l'e-mail.
 - La sécurité du serveur est fermée par défaut : une route non déclarée publique exige une connexion (auparavant, elle était ouverte).

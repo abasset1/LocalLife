@@ -20,16 +20,16 @@ import org.springframework.transaction.annotation.Transactional;
  * que {@link ActivityService#cancel} : réservé au créateur de l'activité ou à un administrateur, jamais
  * pour une activité importée (sans créateur).
  *
- * <p>Une modification ne change pas le statut : une activité publiée reste publiée et visible sur la
- * carte, une activité en attente reste en attente. Seule exception : une activité refusée, corrigée par
- * son contributeur, est resoumise ({@code REJECTED → PENDING}) pour qu'un administrateur la valide.
- * Un administrateur modifie toujours sans changer le statut (il est le validateur).
+ * <p>Modifiée par son contributeur, une activité publiée ou refusée repart en validation
+ * ({@code PUBLISHED/REJECTED → PENDING}) et quitte la carte jusqu'à ce qu'un administrateur la valide ; une
+ * activité en attente le reste. Un administrateur modifie toujours sans changer le statut (il est le validateur).
  */
 @Service
 public class ContributionService {
 
     static final String PENDING_STATUS = "PENDING";
     static final String REJECTED_STATUS = "REJECTED";
+    static final String PUBLISHED_STATUS = "PUBLISHED";
 
     /** Statuts modifiables : une activité refusée peut être corrigée puis resoumise. */
     private static final Set<String> EDITABLE_STATUSES = Set.of(PENDING_STATUS, "PUBLISHED", REJECTED_STATUS);
@@ -125,11 +125,16 @@ public class ContributionService {
     }
 
     /**
-     * Statut après modification : inchangé, sauf une activité refusée corrigée par son contributeur, qui
-     * repart en validation.
+     * Statut après modification (décision du 21/10/2026) : modifiée par son contributeur, une activité publiée
+     * ou refusée repart en validation — sans cela, un contenu validé pouvait être remplacé par n'importe quoi en
+     * restant en ligne. Une activité en attente le reste. Un administrateur modifie sans changer le statut.
      */
     static String statusAfterUpdate(String currentStatus, boolean requesterIsAdmin) {
-        return !requesterIsAdmin && REJECTED_STATUS.equals(currentStatus) ? PENDING_STATUS : currentStatus;
+        if (requesterIsAdmin) {
+            return currentStatus;
+        }
+        return REJECTED_STATUS.equals(currentStatus) || PUBLISHED_STATUS.equals(currentStatus)
+                ? PENDING_STATUS : currentStatus;
     }
 
     /**

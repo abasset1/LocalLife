@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ApiError, createActivity } from '@/api';
+import { ApiError, createActivity, getCurrentAccount } from '@/api';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -29,6 +29,20 @@ export default function ContributionScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  /** Droit relu par le serveur (offre Premium ou Pro) ; `null` tant qu'il n'est pas connu. */
+  const [access, setAccess] = useState<{ userId: number; canContribute: boolean } | null>(null);
+  const authenticatedUserId = state.status === 'authenticated' ? state.user.userId : null;
+  const canContribute = access && access.userId === authenticatedUserId ? access.canContribute : null;
+
+  useEffect(() => {
+    if (authenticatedUserId === null) return;
+    const controller = new AbortController();
+    getCurrentAccount({ signal: controller.signal })
+      // Champ absent (ancien serveur) : le formulaire reste ouvert, le serveur tranchera à l'envoi.
+      .then((account) => setAccess({ userId: authenticatedUserId, canContribute: account.canContribute !== false }))
+      .catch(() => setAccess({ userId: authenticatedUserId, canContribute: true }));
+    return () => controller.abort();
+  }, [authenticatedUserId]);
 
   async function submit() {
     setError(null);
@@ -75,6 +89,35 @@ export default function ContributionScreen() {
               Connectez-vous depuis la rubrique Compte du menu pour proposer une activité.
             </ThemedText>
             <Button label="Aller à mon compte" onPress={() => router.navigate('/compte')} />
+          </Card>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
+
+  // 21/10/2026 : proposer une activité est réservé aux offres Premium et Pro.
+  if (canContribute === false) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.centered}>
+          <MenuButton />
+          <ScreenHeader
+            eyebrow="Contribuer"
+            title="Faites vivre votre quartier"
+            lead="Un marché, un concert, un food truck… Partagez ce qui se passe près de chez vous."
+          />
+          <Card style={styles.emptyCard}>
+            <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
+              ⭐
+            </ThemedText>
+            <ThemedText type="heading" style={styles.emptyText}>
+              Réservé aux offres Premium et Pro
+            </ThemedText>
+            <ThemedText themeColor="textSecondary" style={styles.emptyText}>
+              Passez à Premium pour proposer des activités. Vous gardez la main sur vos contributions existantes depuis
+              « Mes contributions ».
+            </ThemedText>
+            <Button label="Voir les offres" onPress={() => router.push('/abonnement')} />
           </Card>
         </SafeAreaView>
       </ThemedView>

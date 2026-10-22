@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 import { clearToken, getPayload } from "../auth/authStorage";
 import { USERNAME_MAX_LENGTH, useUsernameAvailability } from "../auth/useUsernameAvailability";
 import UsernameStatusMessage from "../components/UsernameStatusMessage";
+import { DeleteAccountCard, PasswordCard } from "../components/profile/AccountSecurityCards";
 import ActivityAlertsSection from "../components/profile/ActivityAlertsSection";
 import { Notice, ProfileCard } from "../components/profile/ProfileUi";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
@@ -22,6 +23,12 @@ interface UserProfile {
     email: string;
     role: string;
     createdAt: string;
+    /** Nouvelle adresse en attente de confirmation (lien envoyé à cette adresse), sinon `null`. */
+    pendingEmail: string | null;
+    /** Faux pour un compte créé avec Google, sans mot de passe LocalLife. */
+    hasPassword: boolean;
+    /** Droit de proposer ou modifier une activité (offre Premium ou Pro). */
+    canContribute: boolean;
 }
 
 interface ApiErrorBody {
@@ -46,6 +53,7 @@ function initialsOf(profile: UserProfile): string {
 function ProfilePage() {
     const navigate = useNavigate();
     const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [searchParams] = useSearchParams();
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -123,6 +131,8 @@ function ProfilePage() {
             if (response.ok) {
                 const data: UserProfile = await response.json();
                 setProfile(data);
+                // Une nouvelle adresse n'est appliquée qu'après confirmation : le champ revient à l'adresse actuelle.
+                setEmail(data.email);
                 setSaveSuccess(true);
             } else {
                 const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
@@ -235,15 +245,39 @@ function ProfilePage() {
                                             {saveSuccess && <Notice kind="success">Profil mis à jour.</Notice>}
                                             {saveError && <Notice kind="error">{saveError}</Notice>}
                                         </div>
+                                        {profile.pendingEmail && (
+                                            <Notice kind="info">
+                                                Changement d'adresse en attente : clique sur le lien envoyé à{" "}
+                                                <strong>{profile.pendingEmail}</strong> pour le confirmer. D'ici là,
+                                                ton adresse reste {profile.email}.
+                                            </Notice>
+                                        )}
                                     </form>
                                 </ProfileCard>
 
+                                {searchParams.get("premium") === "1" && !profile.canContribute && (
+                                    <Notice kind="info">
+                                        Proposer une activité est réservé aux offres Premium et Pro. Choisis une offre
+                                        ci-dessous pour contribuer.
+                                    </Notice>
+                                )}
                                 <SubscriptionCard />
+
+                                <PasswordCard hasPassword={profile.hasPassword} />
 
                                 {/* Critère d'acceptation « la déconnexion est accessible ». */}
                                 <button className="pp-button pp-button-danger pp-logout" onClick={handleLogout} type="button">
                                     Se déconnecter
                                 </button>
+
+                                <DeleteAccountCard
+                                    hasPassword={profile.hasPassword}
+                                    isAdmin={profile.role === "ADMIN"}
+                                    onDeleted={() => {
+                                        clearToken();
+                                        navigate("/");
+                                    }}
+                                />
                             </div>
 
                             <div className="pp-column pp-column-wide">

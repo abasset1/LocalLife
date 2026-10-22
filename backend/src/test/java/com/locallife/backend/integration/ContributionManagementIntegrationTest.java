@@ -1,5 +1,6 @@
 package com.locallife.backend.integration;
 
+import com.locallife.backend.common.TestAccounts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -39,6 +40,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ContributionManagementIntegrationTest {
 
+    /** Contribuer exige Premium depuis le 21/10/2026 : les contributeurs de ces tests le reçoivent. */
+    @Autowired
+    private TestAccounts testAccounts;
+
     private static final String PASSWORD = "motDePasse123";
 
     @LocalServerPort
@@ -68,7 +73,7 @@ class ContributionManagementIntegrationTest {
     }
 
     @Test
-    void creatorCanEditPublishedContribution_WhichStaysPublished() {
+    void creatorCanEditPublishedContribution_WhichGoesBackToModeration() {
         String creator = registerAndLogin();
         Activity created = create(creator, request("Pétanque", null));
         publish(created.id());
@@ -89,9 +94,9 @@ class ContributionManagementIntegrationTest {
 
         assertThat(updated).isNotNull();
         assertThat(updated.title()).isEqualTo("Pétanque du dimanche");
-        assertThat(updated.status()).isEqualTo("PUBLISHED");
-        // Toujours visible publiquement : la modification ne la retire pas de la carte.
-        restTestClient().get().uri("/api/v1/activities/" + created.id()).exchange().expectStatus().isOk();
+        // 21/10/2026 : modifiée par son auteur, une activité publiée repart en validation et quitte la carte.
+        assertThat(updated.status()).isEqualTo("PENDING");
+        restTestClient().get().uri("/api/v1/activities/" + created.id()).exchange().expectStatus().isNotFound();
 
         ContributionResponse contribution = get(
                 "/api/v1/activities/" + created.id() + "/contribution", creator, ContributionResponse.class);
@@ -173,6 +178,39 @@ class ContributionManagementIntegrationTest {
         restTestClient().delete().uri("/api/v1/activities/" + created.id())
                 .exchange()
                 .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void withoutPremium_AnAuthorCanNoLongerProposeOrEdit_ButCanStillCancelAndDelete() {
+        String creator = registerAndLogin();
+        Activity first = create(creator, request("Vide-grenier", null));
+        Activity second = create(creator, request("Loto", null));
+        // L'offre Premium prend fin.
+        jdbcTemplate.update("UPDATE subscription SET status = 'EXPIRED' WHERE user_id = "
+                + "(SELECT created_by FROM activity WHERE id = ?) AND status = 'ACTIVE'", first.id());
+
+        restTestClient().post().uri("/api/v1/activities")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + creator)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request("Nouvelle idée", null))
+                .exchange()
+                .expectStatus().isForbidden();
+        restTestClient().put().uri("/api/v1/activities/" + first.id())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + creator)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request("Vide-grenier modifié", null))
+                .exchange()
+                .expectStatus().isForbidden();
+        restTestClient().patch().uri("/api/v1/activities/" + first.id() + "/cancel")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + creator)
+                .exchange()
+                .expectStatus().isOk();
+        restTestClient().delete().uri("/api/v1/activities/" + second.id())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + creator)
+                .exchange()
+                .expectStatus().isNoContent();
+        assertThat(get("/api/v1/activities/mine", creator, ContributionResponse[].class))
+                .extracting(ContributionResponse::id).containsExactly(first.id());
     }
 
     @Test
@@ -263,6 +301,7 @@ class ContributionManagementIntegrationTest {
                 .exchange()
                 .expectStatus().isCreated();
         jdbcTemplate.update("UPDATE users SET email_verified = TRUE WHERE email = ?", email);
+        testAccounts.grantPremium(email);
 
         LoginResponse login = restTestClient().post().uri("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)

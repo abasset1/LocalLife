@@ -52,6 +52,10 @@ interface AuthContextValue {
    */
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  /** Remplace le jeton de la session (nouveau jeton reçu après un changement de mot de passe). */
+  replaceToken: (token: string) => Promise<void>;
+  /** Ferme la session d'un compte qui vient d'être supprimé (le jeton n'est plus valable côté serveur). */
+  endDeletedSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -177,9 +181,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await apiRegister({ username: username.trim(), email: email.trim(), password });
   }, []);
 
+  const replaceToken = useCallback(async (token: string) => openSession(token), [openSession]);
+
+  // Compte supprimé : ses jetons d'appareil sont déjà effacés côté serveur, aucun appel authentifié possible.
+  const endDeletedSession = useCallback(async () => {
+    await signOutFromGoogle();
+    await endSession();
+  }, [endSession]);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ state, login, loginWithGoogle, register, logout }),
-    [state, login, loginWithGoogle, register, logout],
+    () => ({ state, login, loginWithGoogle, register, logout, replaceToken, endDeletedSession }),
+    [state, login, loginWithGoogle, register, logout, replaceToken, endDeletedSession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

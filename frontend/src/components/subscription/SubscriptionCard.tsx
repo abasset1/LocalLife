@@ -9,8 +9,8 @@ const CHOICES: Exclude<Plan, "FREE">[] = ["PREMIUM", "PRO"];
 
 /**
  * « Mon abonnement » (BILLING-01, ADR-0014) : offre actuelle et date de fin d'accès, passage à Premium ou Pro,
- * résiliation. Pas de paiement branché pour l'instant : l'offre choisie est activée tout de suite. Une ancienne demande
- * encore en attente d'un administrateur peut être retirée.
+ * résiliation. Pas de paiement branché pour l'instant : Premium est activé tout de suite ; Pro est une demande examinée
+ * par l'équipe LocalLife (décision du 21/10/2026), que l'on peut retirer tant qu'elle est en attente.
  */
 function SubscriptionCard() {
     const [overview, setOverview] = useState<SubscriptionOverview | null>(null);
@@ -73,7 +73,7 @@ function SubscriptionCard() {
                 <div className="pp-actions">
                     <Notice kind="info">
                         Demande de passage à {PLAN_LABELS[pending.plan]} envoyée le {formatDay(pending.requestedAt)} :
-                        l'équipe LocalLife va l'examiner. Choisir une offre ci-dessous l'active tout de suite.
+                        l'équipe LocalLife va l'examiner.
                     </Notice>
                     <button className="pp-button pp-button-secondary" disabled={busy} type="button"
                         onClick={() => void act("withdraw", undefined, "Demande retirée.")}>
@@ -82,14 +82,17 @@ function SubscriptionCard() {
                 </div>
             )}
             <div className="pp-actions">
-                {CHOICES.filter((choice) => !(choice === plan && current?.status === "ACTIVE")).map((choice) => (
-                    <button className="pp-button pp-button-primary" disabled={busy} key={choice} type="button"
-                        title={PLAN_DESCRIPTIONS[choice]}
-                        onClick={() => void act("subscribe", { plan: choice },
-                            `Offre ${PLAN_LABELS[choice]} activée.`)}>
-                        Passer à {PLAN_LABELS[choice]}
-                    </button>
-                ))}
+                {CHOICES.filter((choice) => !(choice === plan && current?.status === "ACTIVE"))
+                    .filter((choice) => pending?.plan !== choice)
+                    .map((choice) => (
+                        <button className="pp-button pp-button-primary" disabled={busy} key={choice} type="button"
+                            title={PLAN_DESCRIPTIONS[choice]}
+                            onClick={() => void act("subscribe", { plan: choice }, choice === "PRO"
+                                ? "Demande d'offre Pro envoyée : l'équipe LocalLife va l'examiner."
+                                : `Offre ${PLAN_LABELS[choice]} activée.`)}>
+                            {choice === "PRO" ? "Demander l'offre Pro" : `Passer à ${PLAN_LABELS[choice]}`}
+                        </button>
+                    ))}
                 {current?.status === "ACTIVE" && (
                     <button className="pp-button pp-button-danger" disabled={busy} type="button"
                         onClick={() => {
@@ -106,8 +109,8 @@ function SubscriptionCard() {
             {lastRejected?.decisionReason && !pending && (
                 <p className="pp-hint">Dernière demande refusée : {lastRejected.decisionReason}</p>
             )}
-            <p className="pp-hint">Paiement en ligne bientôt disponible ; pour l'instant, l'offre choisie est activée sans
-                paiement.</p>
+            <p className="pp-hint">Paiement en ligne bientôt disponible ; pour l'instant, Premium est activé sans paiement et
+                une demande Pro est validée par l'équipe.</p>
             {message && <Notice kind={message.kind}>{message.text}</Notice>}
         </ProfileCard>
     );

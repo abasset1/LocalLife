@@ -30,8 +30,13 @@ public class AccountRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    /** Droits courants d'un compte, relus à chaque requête authentifiée. */
-    public record Access(Long userId, String email, Role role, AccountStatus status) {
+    /**
+     * Droits courants d'un compte, relus à chaque requête authentifiée.
+     *
+     * @param tokensValidAfter jetons émis avant cette date (UTC) refusés : mot de passe changé ou réinitialisé
+     *                         (V70) ; {@code null} si aucun
+     */
+    public record Access(Long userId, String email, Role role, AccountStatus status, LocalDateTime tokensValidAfter) {
     }
 
     /** Compte vu par l'administration : aucun secret (ni hash de mot de passe, ni jeton). */
@@ -51,10 +56,15 @@ public class AccountRepository {
         if (userId == null) {
             return Optional.empty();
         }
-        return jdbcTemplate.query("SELECT id, email, role, account_status FROM users WHERE id = ?",
-                (resultSet, rowNumber) -> new Access(resultSet.getLong("id"), resultSet.getString("email"),
-                        Role.valueOf(resultSet.getString("role")),
-                        AccountStatus.valueOf(resultSet.getString("account_status"))), userId)
+        return jdbcTemplate.query(
+                "SELECT id, email, role, account_status, tokens_valid_after FROM users WHERE id = ?",
+                (resultSet, rowNumber) -> {
+                    Timestamp validAfter = resultSet.getTimestamp("tokens_valid_after");
+                    return new Access(resultSet.getLong("id"), resultSet.getString("email"),
+                            Role.valueOf(resultSet.getString("role")),
+                            AccountStatus.valueOf(resultSet.getString("account_status")),
+                            validAfter == null ? null : validAfter.toLocalDateTime());
+                }, userId)
                 .stream().findFirst();
     }
 
@@ -92,6 +102,16 @@ public class AccountRepository {
     public void updateStatus(Long id, AccountStatus status, String reason, Long changedBy, LocalDateTime at) {
         jdbcTemplate.update("UPDATE users SET account_status = ?, status_reason = ?, status_changed_by = ?, "
                 + "status_changed_at = ? WHERE id = ?", status.name(), reason, changedBy, Timestamp.valueOf(at), id);
+    }
+
+    /** Refuse désormais les jetons émis avant {@code at} (UTC) : mot de passe changé ou réinitialisé. */
+    public void revokeTokensIssuedBefore(Long id, LocalDateTime at) {
+        jdbcTemplate.update("UPDATE users SET tokens_valid_after = ? WHERE id = ?", Timestamp.valueOf(at), id);
+    }
+
+    /** Suppression définitive du compte ; le reste suit les clés étrangères (CASCADE ou SET NULL). */
+    public void delete(Long id) {
+        jdbcTemplate.update("DELETE FROM users WHERE id = ?", id);
     }
 
     private static String where(String query, Role role, AccountStatus status, List<Object> arguments) {
