@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { LEGAL_DOCUMENTS } from "../../legal/legalDocuments";
 import type { ExplorerCurrentUser } from "./types";
 
 interface ExplorerMenuProps {
@@ -109,6 +110,15 @@ function ExplorerMenu({
                             Se connecter
                         </Link>
                     )}
+                </div>
+
+                {/* Pied du menu : textes légaux (contrat RGPD). */}
+                <div className="explorer-menu-legal">
+                    {Object.values(LEGAL_DOCUMENTS).map((legalDocument) => (
+                        <Link key={legalDocument.path} onClick={onClose} to={legalDocument.path}>
+                            {legalDocument.title}
+                        </Link>
+                    ))}
                 </div>
             </nav>
         </>

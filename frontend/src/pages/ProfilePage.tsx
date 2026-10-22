@@ -8,6 +8,7 @@ import UsernameStatusMessage from "../components/UsernameStatusMessage";
 import { DeleteAccountCard, PasswordCard } from "../components/profile/AccountSecurityCards";
 import ActivityAlertsSection from "../components/profile/ActivityAlertsSection";
 import { proRequest } from "../components/pro/proApi";
+import MyDataCard from "../components/profile/MyDataCard";
 import { Notice, ProfileCard } from "../components/profile/ProfileUi";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
 import SubscriptionCard from "../components/subscription/SubscriptionCard";
@@ -297,6 +298,8 @@ function ProfilePage() {
                                 <button className="pp-button pp-button-danger pp-logout" onClick={handleLogout} type="button">
                                     Se déconnecter
                                 </button>
+
+                                <MyDataCard />
 
                                 <DeleteAccountCard
                                     hasPassword={profile.hasPassword}
