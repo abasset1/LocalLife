@@ -398,6 +398,8 @@ export interface Contribution {
   recurrence: RecurrenceRequest | null;
   /** Lieu géré qui propose l'activité ; absent d'un ancien serveur. */
   hostPlaceId?: number | null;
+  /** Motif de la modération (refus, annulation), `null` sinon ; absent d'un ancien serveur. */
+  moderationReason?: string | null;
 }
 
 /**

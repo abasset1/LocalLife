@@ -12,6 +12,7 @@ import {
   ContributionFields,
   fromContribution,
   inform,
+  showsModerationReason,
   toRequest,
   useActiveCategories,
 } from '@/features/contribution';
@@ -40,6 +41,7 @@ export default function EditContributionScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [moderationReason, setModerationReason] = useState<string | null>(null);
 
   const isAdmin = state.status === 'authenticated' && state.user.role === 'ADMIN';
   // Seule une activité refusée, corrigée par son contributeur, repart en validation.
@@ -50,6 +52,7 @@ export default function EditContributionScreen() {
     getContribution(id, { signal: controller.signal })
       .then((contribution) => {
         setStatus(contribution.status);
+        setModerationReason(contribution.moderationReason ?? null);
         setForm(fromContribution(contribution));
       })
       .catch((e: unknown) => {
@@ -110,6 +113,11 @@ export default function EditContributionScreen() {
               visible sur la carte une fois validée par un modérateur.
             </ThemedText>
           )}
+          {status && showsModerationReason(status) && moderationReason ? (
+            <ThemedText style={[styles.notice, { backgroundColor: theme.backgroundElement }]}>
+              Motif : {moderationReason}
+            </ThemedText>
+          ) : null}
           <ContributionFields form={form} categories={categories} hostPlaces={hostPlaces} onChange={setForm} />
           {error && (
             <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>

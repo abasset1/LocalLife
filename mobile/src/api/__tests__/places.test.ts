@@ -1,5 +1,6 @@
 import { configureApiClient } from '../http';
-import { listActivitiesAtPlace } from '../activities';
+import { deleteActivity, listActivitiesAtPlace } from '../activities';
+import { login } from '../auth';
 import { searchPlacesWithinBounds } from '../places';
 
 jest.mock('@/config/env', () => ({ apiUrl: 'https://api.test/' }));
@@ -31,5 +32,24 @@ describe('listActivitiesAtPlace', () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve('[]') });
     await expect(listActivitiesAtPlace(7)).resolves.toEqual([]);
     expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/api/v1/activities/at-place/7');
+  });
+});
+
+describe('deleteActivity', () => {
+  it('ajoute le motif d’un administrateur en paramètre `reason`, rien sinon', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 204, text: () => Promise.resolve('') });
+    await deleteActivity(7);
+    await deleteActivity(7, { reason: 'Doublon' });
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/api/v1/activities/7');
+    expect(fetchMock.mock.calls[1][0]).toBe('https://api.test/api/v1/activities/7?reason=Doublon');
+    expect(fetchMock.mock.calls[1][1].method).toBe('DELETE');
+  });
+});
+
+describe('login', () => {
+  it('remonte le message du serveur après trop de tentatives (429)', async () => {
+    const message = 'Trop de tentatives de connexion. Réessaie dans 15 minutes.';
+    fetchMock.mockResolvedValue({ ok: false, status: 429, text: () => Promise.resolve(JSON.stringify({ status: 429, message })) });
+    await expect(login({ email: 'a@b.fr', password: 'x' })).rejects.toMatchObject({ status: 429, message });
   });
 });

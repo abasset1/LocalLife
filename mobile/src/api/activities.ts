@@ -135,7 +135,15 @@ export function updateActivity(
   });
 }
 
-/** `DELETE /activities/{id}` — suppression définitive (créateur ou administrateur). */
-export function deleteActivity(id: number, options: CallOptions = {}): Promise<void> {
-  return request<void>(`${BASE}/${id}`, { method: 'DELETE', authenticated: true, signal: options.signal });
+/**
+ * `DELETE /activities/{id}` — suppression par son créateur. Un administrateur qui supprime la contribution d'un
+ * autre doit donner un motif (`reason`, 400 sinon) : l'activité part 30 jours à la corbeille.
+ */
+export function deleteActivity(id: number, options: CallOptions & { reason?: string } = {}): Promise<void> {
+  return request<void>(`${BASE}/${id}`, {
+    method: 'DELETE',
+    query: options.reason ? { reason: options.reason } : undefined,
+    authenticated: true,
+    signal: options.signal,
+  });
 }
