@@ -2,6 +2,9 @@
 
 ## 0.9.59 — non publiée
 
+### Contrôle de la base bêta
+- `infra/verification/controle_beta.sql` : contrôle général en lecture seule (migrations Flyway, sources et dernières collectes, anomalies et doublons exacts d'activités, lieux, comptes par rôle et statut sans donnée personnelle, RGPD, journal d'administration, volumétrie). Les sections liées aux migrations récentes ne s'exécutent que si elles sont appliquées. Testé sur des bases locales migrées jusqu'à V62 et V74.
+
 ### RGPD : mesures techniques (22/10/2026)
 - **Consentement à l'inscription** : case « J'ai au moins 15 ans et j'accepte les conditions d'utilisation et la politique de confidentialité », obligatoire (aussi pour un compte créé avec Google), enregistrée avec sa date et la version des textes.
 - **Télécharger mes données** : export JSON de toutes les données d'un compte (`GET /api/v1/users/me/export`), sur le site et l'application.
