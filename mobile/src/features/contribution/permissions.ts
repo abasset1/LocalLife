@@ -27,3 +27,8 @@ export function requiresModerationReason(
 export function showsModerationReason(status: string): boolean {
   return status === 'REJECTED' || status === 'CANCELLED';
 }
+
+/** Statuts depuis lesquels une activité peut être annulée (même règle que le serveur). */
+export function canCancelActivity(status: string | null | undefined): boolean {
+  return status === 'PENDING' || status === 'PUBLISHED';
+}

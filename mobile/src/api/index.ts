@@ -10,6 +10,7 @@ export * from './types';
 
 export {
   createActivity,
+  cancelActivity,
   deleteActivity,
   getActivity,
   getContribution,
