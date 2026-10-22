@@ -60,19 +60,36 @@ FROM flyway_schema_history
 WHERE success AND version IS NOT NULL \gset
 
 \echo '== 2. Sources =='
-\echo '2a. Sources, activités rattachées et dernière synchronisation'
-SELECT s.id, s.name, s.type, s.status, s.last_sync_at::date AS derniere_synchro, coalesce(a.nb, 0) AS activites
+\echo '2a. Sources par type et statut, avec leurs activités'
+SELECT s.type, s.status, count(*) AS sources, sum(coalesce(a.nb, 0)) AS activites,
+       count(*) FILTER (WHERE coalesce(a.nb, 0) = 0) AS sources_sans_activite, max(s.last_sync_at)::date AS derniere_synchro
 FROM source s
 LEFT JOIN (SELECT source_id, count(*) AS nb FROM activity GROUP BY source_id) a ON a.source_id = s.id
-ORDER BY s.id;
+GROUP BY s.type, s.status
+ORDER BY s.type, s.status;
+
+\echo '2a bis. Les 15 sources qui apportent le plus d''activités'
+SELECT s.id, s.name, s.type, s.status, a.nb AS activites
+FROM source s
+JOIN (SELECT source_id, count(*) AS nb FROM activity GROUP BY source_id) a ON a.source_id = s.id
+ORDER BY a.nb DESC
+LIMIT 15;
 
 \if :v68
-\echo '2b. État de la dernière collecte par source (V68 ; attendu : SUCCESS, tentative de moins de 2 h)'
-SELECT s.id, s.name, st.last_status, st.last_attempt_at, st.last_received, st.last_duration_ms AS ms,
-       left(st.last_message, 120) AS message
+\echo '2b. Dernière collecte par statut (V68 ; attendu : SUCCESS partout)'
+SELECT last_status, count(*) AS sources, min(last_attempt_at) AS plus_ancienne, max(last_attempt_at) AS plus_recente,
+       sum(last_received) AS evenements_recus
+FROM source_sync_state
+GROUP BY last_status
+ORDER BY last_status DESC;
+
+\echo '2b bis. Collectes en échec ou partielles (50 premières ; attendu : aucune ligne)'
+SELECT s.id, s.name, st.last_status, st.last_attempt_at, left(st.last_message, 120) AS message
 FROM source_sync_state st
 JOIN source s ON s.id = st.source_id
-ORDER BY st.last_status DESC, s.id;
+WHERE st.last_status <> 'SUCCESS'
+ORDER BY st.last_attempt_at DESC
+LIMIT 50;
 
 \echo '2c. Sources actives sans tentative de collecte depuis 2 h (import planifié toutes les heures ; attendu : aucune ligne)'
 SELECT s.id, s.name, s.type, st.last_attempt_at
