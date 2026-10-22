@@ -1,5 +1,6 @@
 package com.locallife.backend.activity.api;
 
+import com.locallife.backend.activity.application.ActivityHostPlaceService;
 import com.locallife.backend.activity.application.ContributionAccessPolicy;
 import static org.mockito.Mockito.lenient;
 import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
@@ -136,6 +137,9 @@ class ActivityControllerTest {
 
     @Mock
     private ContributionAccessPolicy contributionAccessPolicy;
+
+    @Mock
+    private ActivityHostPlaceService hostPlaceService;
 
     @InjectMocks
     private ActivityController activityController;
