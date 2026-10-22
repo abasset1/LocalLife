@@ -147,3 +147,17 @@ export function deleteActivity(id: number, options: CallOptions & { reason?: str
     signal: options.signal,
   });
 }
+
+/**
+ * Annule une activité (`PATCH /api/v1/activities/{id}/cancel`) : elle reste en base au statut `CANCELLED` et quitte
+ * la carte. Réservé à son créateur ou à un administrateur ; un administrateur qui annule la contribution d'un autre
+ * donne un motif (`reason`, 400 sinon), communiqué à l'auteur.
+ */
+export function cancelActivity(id: number, options: CallOptions & { reason?: string } = {}): Promise<unknown> {
+  return request<unknown>(`${BASE}/${id}/cancel`, {
+    method: 'PATCH',
+    body: options.reason ? { reason: options.reason } : undefined,
+    authenticated: true,
+    signal: options.signal,
+  });
+}

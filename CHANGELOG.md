@@ -2,6 +2,9 @@
 
 ## 0.9.59 — non publiée
 
+### Application : annuler une activité
+- La fiche d'une activité propose « Annuler l'activité » à son auteur et aux administrateurs (activité en attente ou publiée) : elle quitte la carte en restant dans les contributions de l'auteur. Un administrateur qui annule la contribution d'un autre saisit un motif, communiqué à l'auteur.
+
 ### Administrateurs : périmètre défini (22/10/2026)
 - **Journal unique des actions d'administration**, en ajout seul : qui, quoi, sur quoi, avant/après, motif. Toute écriture d'administration y laisse une trace ; consultable dans l'administration.
 - **Corbeille de 30 jours** : une activité supprimée par un administrateur (une seule ou en masse) disparaît partout mais reste restaurable, seule ou par lot, puis est purgée.

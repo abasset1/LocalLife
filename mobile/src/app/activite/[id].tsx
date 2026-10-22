@@ -231,6 +231,9 @@ export default function ActiviteDetailScreen() {
                   activityId={activity.id}
                   title={activity.title}
                   createdBy={activity.createdBy}
+                  // Statut connu par la fiche détaillée seulement ; après annulation, la fiche est rechargée.
+                  status={detail?.status ?? null}
+                  onCancelled={retry}
                   // Fiche ouverte depuis une notification : pas d'écran précédent, retour à la carte.
                   onDeleted={() => (router.canGoBack() ? router.back() : router.replace('/'))}
                 />

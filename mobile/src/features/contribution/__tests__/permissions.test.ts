@@ -1,4 +1,9 @@
-import { canManageActivity, requiresModerationReason, showsModerationReason } from '../permissions';
+import {
+  canCancelActivity,
+  canManageActivity,
+  requiresModerationReason,
+  showsModerationReason,
+} from '../permissions';
 
 describe('canManageActivity', () => {
   const contributor = { userId: 7, role: 'USER' };
@@ -33,6 +38,14 @@ describe('requiresModerationReason', () => {
     // Rôle relu par le serveur : il prime sur celui du jeton.
     expect(requiresModerationReason(admin, 7, 'USER')).toBe(false);
     expect(requiresModerationReason(null, 7)).toBe(false);
+  });
+
+  it('ne propose l’annulation que pour une activité en attente ou publiée', () => {
+    expect(canCancelActivity('PENDING')).toBe(true);
+    expect(canCancelActivity('PUBLISHED')).toBe(true);
+    expect(canCancelActivity('CANCELLED')).toBe(false);
+    expect(canCancelActivity('REJECTED')).toBe(false);
+    expect(canCancelActivity(null)).toBe(false);
   });
 
   it('montre le motif des contributions refusées ou annulées seulement', () => {

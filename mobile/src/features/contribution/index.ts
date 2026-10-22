@@ -1,6 +1,11 @@
 export { ContributionFields } from './ContributionFields';
 export { ContributorActions } from './ContributorActions';
-export { canManageActivity, requiresModerationReason, showsModerationReason } from './permissions';
+export {
+  canCancelActivity,
+  canManageActivity,
+  requiresModerationReason,
+  showsModerationReason,
+} from './permissions';
 export { confirmDestructive, inform } from './confirm';
 export {
   EMPTY_FORM,

@@ -1,5 +1,5 @@
 import { configureApiClient } from '../http';
-import { deleteActivity, listActivitiesAtPlace } from '../activities';
+import { cancelActivity, deleteActivity, listActivitiesAtPlace } from '../activities';
 import { login } from '../auth';
 import { searchPlacesWithinBounds } from '../places';
 
@@ -43,6 +43,18 @@ describe('deleteActivity', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/api/v1/activities/7');
     expect(fetchMock.mock.calls[1][0]).toBe('https://api.test/api/v1/activities/7?reason=Doublon');
     expect(fetchMock.mock.calls[1][1].method).toBe('DELETE');
+  });
+});
+
+describe('cancelActivity', () => {
+  it('envoie le motif d’un administrateur dans le corps, aucun corps sinon', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve('{"id":7,"status":"CANCELLED"}') });
+    await cancelActivity(7);
+    await cancelActivity(7, { reason: 'Événement reporté' });
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/api/v1/activities/7/cancel');
+    expect(fetchMock.mock.calls[0][1].method).toBe('PATCH');
+    expect(fetchMock.mock.calls[0][1].body).toBeUndefined();
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ reason: 'Événement reporté' });
   });
 });
 
