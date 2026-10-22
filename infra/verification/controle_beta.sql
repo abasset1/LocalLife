@@ -9,8 +9,28 @@
 -- le script fonctionne donc aussi sur une bêta en retard sur main (dernière migration de main : V74).
 -- Pour une analyse détaillée de V60 et V61 à V63 : v60_diagnostic.sql et apres_deploiement_v61_v63.sql.
 
+-- Une requête en erreur (délai dépassé, verrou) n'interrompt pas les suivantes : psql pose un point de reprise
+-- avant chacune. lock_timeout distingue une table verrouillée par une autre session d'une requête lente.
+\set ON_ERROR_ROLLBACK on
+
 BEGIN TRANSACTION READ ONLY;
 SET LOCAL statement_timeout = '60s';
+SET LOCAL lock_timeout = '5s';
+
+\echo '== 0. Sessions en cours sur la base (attendu : aucune transaction ouverte depuis plus de 5 minutes)'
+SELECT pid, usename, state, wait_event_type, wait_event, (now() - xact_start)::interval(0) AS transaction_depuis,
+       left(regexp_replace(query, '\s+', ' ', 'g'), 100) AS requete
+FROM pg_stat_activity
+WHERE datname = current_database() AND pid <> pg_backend_pid() AND xact_start IS NOT NULL
+ORDER BY xact_start;
+
+\echo '0b. Verrous posés ou attendus sur les tables principales'
+SELECT l.pid, c.relname AS table_, l.mode, l.granted
+FROM pg_locks l
+JOIN pg_class c ON c.oid = l.relation
+WHERE c.relname IN ('activity', 'source', 'location', 'schedule', 'occurrence', 'users')
+  AND l.pid <> pg_backend_pid()
+ORDER BY c.relname, l.granted, l.pid;
 
 \echo '== 1. Migrations Flyway =='
 \echo '1a. Dernière migration appliquée (attendu : 74 si la bêta est à jour de main)'
@@ -41,9 +61,9 @@ WHERE success AND version IS NOT NULL \gset
 
 \echo '== 2. Sources =='
 \echo '2a. Sources, activités rattachées et dernière synchronisation'
-SELECT s.id, s.name, s.type, s.status, s.last_sync_at::date AS derniere_synchro,
-       (SELECT count(*) FROM activity a WHERE a.source_id = s.id) AS activites
+SELECT s.id, s.name, s.type, s.status, s.last_sync_at::date AS derniere_synchro, coalesce(a.nb, 0) AS activites
 FROM source s
+LEFT JOIN (SELECT source_id, count(*) AS nb FROM activity GROUP BY source_id) a ON a.source_id = s.id
 ORDER BY s.id;
 
 \if :v68
