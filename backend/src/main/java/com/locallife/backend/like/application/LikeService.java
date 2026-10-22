@@ -4,6 +4,7 @@ import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.like.domain.ActivityLike;
 import com.locallife.backend.like.infrastructure.ActivityLikeRepository;
+import com.locallife.backend.subscription.application.PlanLimits;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -25,10 +26,13 @@ public class LikeService {
 
     private final ActivityLikeRepository activityLikeRepository;
     private final ActivityRepository activityRepository;
+    private final PlanLimits planLimits;
 
-    public LikeService(ActivityLikeRepository activityLikeRepository, ActivityRepository activityRepository) {
+    public LikeService(ActivityLikeRepository activityLikeRepository, ActivityRepository activityRepository,
+            PlanLimits planLimits) {
         this.activityLikeRepository = activityLikeRepository;
         this.activityRepository = activityRepository;
+        this.planLimits = planLimits;
     }
 
     /**
@@ -43,15 +47,21 @@ public class LikeService {
      * {@code V29__create_activity_likes_table.sql} — pas sur le fait de
      * rejeter un second appel).
      *
+     * Un compte gratuit est limité à 5 favoris (décision du 22/10/2026,
+     * {@link PlanLimits}) : au-delà, un nouveau like est refusé ; re-liker
+     * une activité déjà likée reste sans effet.
+     *
      * @return {@code false} si aucune activité ne correspond à
      *         {@code activityId} (→ {@code 404} côté contrôleur),
      *         {@code true} sinon (déjà liké, ou venant de l'être).
+     * @throws com.locallife.backend.subscription.application.PlanLimitException limite de favoris atteinte
      */
     public boolean like(Long userId, Long activityId) {
         if (activityRepository.findById(activityId).isEmpty()) {
             return false;
         }
         if (!activityLikeRepository.existsByUserIdAndActivityId(userId, activityId)) {
+            planLimits.checkCanAddLike(userId, activityLikeRepository.countByUserId(userId));
             activityLikeRepository.save(new ActivityLike(null, userId, activityId, LocalDateTime.now()));
         }
         return true;

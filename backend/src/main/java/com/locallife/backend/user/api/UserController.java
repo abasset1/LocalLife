@@ -5,6 +5,7 @@ import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.activity.application.ContributionAccessPolicy;
 import com.locallife.backend.pro.application.ProAccessPolicy;
+import com.locallife.backend.subscription.application.PlanLimits;
 import com.locallife.backend.user.application.AccountActionException;
 import com.locallife.backend.user.application.AccountSelfService;
 import com.locallife.backend.user.application.UserService;
@@ -46,14 +47,17 @@ public class UserController {
     private final AccountSelfService accountSelfService;
     private final ContributionAccessPolicy contributionAccessPolicy;
     private final ProAccessPolicy proAccessPolicy;
+    private final PlanLimits planLimits;
 
     public UserController(
             UserService userService, AccountSelfService accountSelfService,
-            ContributionAccessPolicy contributionAccessPolicy, ProAccessPolicy proAccessPolicy) {
+            ContributionAccessPolicy contributionAccessPolicy, ProAccessPolicy proAccessPolicy,
+            PlanLimits planLimits) {
         this.userService = userService;
         this.accountSelfService = accountSelfService;
         this.contributionAccessPolicy = contributionAccessPolicy;
         this.proAccessPolicy = proAccessPolicy;
+        this.planLimits = planLimits;
     }
 
     @PostMapping
@@ -175,7 +179,7 @@ public class UserController {
     private CurrentUserResponse current(User user) {
         return CurrentUserResponse.from(user, accountSelfService.pendingEmail(user.id()).orElse(null),
                 AccountSelfService.hasPassword(user), contributionAccessPolicy.canContribute(user.id()),
-                proAccessPolicy.hasProAccess(user.id()));
+                proAccessPolicy.hasProAccess(user.id()), planLimits.limits(user.id()));
     }
 
     private ResponseEntity<Object> errorResponse(HttpStatus status, String message, HttpServletRequest request) {

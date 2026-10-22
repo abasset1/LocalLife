@@ -6,6 +6,7 @@ import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
+import com.locallife.backend.subscription.application.PlanLimits;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
@@ -28,21 +29,20 @@ public class ActivityAlertService {
     /** Même borne que la recherche {@code /nearby}. */
     static final int MAX_RADIUS_KM = 50;
 
-    /** Garde-fou : chaque alerte coûte une requête PostGIS à chaque envoi planifié. */
-    static final int MAX_ALERTS_PER_USER = 10;
-
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final ActivityAlertRepository activityAlertRepository;
     private final CategoryRepository categoryRepository;
     private final GeocodingService geocodingService;
+    private final PlanLimits planLimits;
 
     public ActivityAlertService(
             ActivityAlertRepository activityAlertRepository, CategoryRepository categoryRepository,
-            GeocodingService geocodingService) {
+            GeocodingService geocodingService, PlanLimits planLimits) {
         this.activityAlertRepository = activityAlertRepository;
         this.categoryRepository = categoryRepository;
         this.geocodingService = geocodingService;
+        this.planLimits = planLimits;
     }
 
     public List<ActivityAlert> getAlerts(Long userId) {
@@ -82,10 +82,7 @@ public class ActivityAlertService {
         if (!hasCity && latitude == null && longitude == null) {
             throw new IllegalArgumentException("Choisis une ville pour ton alerte.");
         }
-        if (activityAlertRepository.countByUserId(userId) >= MAX_ALERTS_PER_USER) {
-            throw new IllegalArgumentException(
-                    "Tu as atteint le nombre maximal d'alertes (" + MAX_ALERTS_PER_USER + ").");
-        }
+        planLimits.checkCanAddAlert(userId, activityAlertRepository.countByUserId(userId));
 
         Coordinates found = geocodingService.resolveCity(hasCity ? city.trim() : null, latitude, longitude);
         ActivityAlert alert = new ActivityAlert(

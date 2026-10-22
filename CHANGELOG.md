@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### Limites par offre (22/10/2026)
+- **Compte gratuit : 5 favoris et 1 alerte.** Premium, Pro et administrateurs : favoris illimités, 10 alertes.
+- **Premium : 2 nouvelles contributions par mois civil** (les refusées ne comptent pas, les modifications non plus) ; Pro et administrateurs sans limite.
+- Un compte déjà au-delà garde ses favoris et ses alertes : seul l'ajout est bloqué (403, message explicite). `GET /api/v1/users/me` expose les limites et le compteur du mois ; site et application les affichent.
+- Migration `V72` : date de création des activités.
+
 ### Professionnels : périmètre défini (22/10/2026)
 - **L'offre Pro pilote le rôle** : sa validation donne le rôle PRO, sa fin le retire ; un administrateur peut toujours l'attribuer à la main. Site et application s'appuient sur un seul indicateur, `hasProAccess`.
 - **Fin de l'accès pro** : food trucks publiés masqués, droits de gestion révoqués, demandes en cours retirées ; l'ex-professionnel consulte et archive encore ses food trucks. Tout revient si l'accès revient. Même retrait à la suppression du compte.

@@ -19,6 +19,8 @@ import com.locallife.backend.category.infrastructure.CategoryRepository;
 import com.locallife.backend.geocoding.application.CityNotFoundException;
 import com.locallife.backend.geocoding.application.Coordinates;
 import com.locallife.backend.geocoding.application.GeocodingService;
+import com.locallife.backend.subscription.application.PlanLimitException;
+import com.locallife.backend.subscription.application.PlanLimits;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -41,6 +43,9 @@ class ActivityAlertServiceTest {
 
     @Mock
     private GeocodingService geocodingService;
+
+    @Mock
+    private PlanLimits planLimits;
 
     @InjectMocks
     private ActivityAlertService activityAlertService;
@@ -109,9 +114,11 @@ class ActivityAlertServiceTest {
     @Test
     void createAlert_ShouldRejectWhenLimitReached() {
         givenCategories();
-        when(activityAlertRepository.countByUserId(1L)).thenReturn(ActivityAlertService.MAX_ALERTS_PER_USER);
+        when(activityAlertRepository.countByUserId(1L)).thenReturn(1);
+        org.mockito.Mockito.doThrow(new PlanLimitException("Limite atteinte")).when(planLimits)
+                .checkCanAddAlert(1L, 1);
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(PlanLimitException.class,
                 () -> activityAlertService.createAlert(1L, List.of("SPORT"), "Lyon", null, null, 10, null, null, null));
         verify(geocodingService, never()).resolveCity(any(), any(), any());
     }
