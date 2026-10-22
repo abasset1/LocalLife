@@ -1,8 +1,8 @@
 package com.locallife.backend.auth.application;
 
 /**
- * Adresse e-mail masquée pour les journaux (RGPD, 22/10/2026) : {@code jean@exemple.fr} devient {@code j***@exemple.fr}.
- * Les journaux de l'application ne contiennent jamais d'adresse complète.
+ * Adresse e-mail masquée pour les journaux (RGPD, 22/10/2026) : {@code jean@exemple.fr} devient
+ * {@code j***@exemple.fr}. Les journaux de l'application ne contiennent jamais d'adresse complète.
  */
 public final class EmailMask {
 
