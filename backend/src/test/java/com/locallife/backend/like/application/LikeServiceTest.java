@@ -1,5 +1,6 @@
 package com.locallife.backend.like.application;
 
+import com.locallife.backend.subscription.application.PlanLimits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -28,6 +29,9 @@ class LikeServiceTest {
 
     @Mock
     private ActivityRepository activityRepository;
+
+    @Mock
+    private PlanLimits planLimits;
 
     @InjectMocks
     private LikeService likeService;

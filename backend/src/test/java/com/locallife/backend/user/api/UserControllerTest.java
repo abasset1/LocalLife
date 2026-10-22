@@ -1,5 +1,6 @@
 package com.locallife.backend.user.api;
 
+import com.locallife.backend.subscription.application.PlanLimits;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,6 +54,9 @@ class UserControllerTest {
 
     @Mock
     private ProAccessPolicy proAccessPolicy;
+
+    @Mock
+    private PlanLimits planLimits;
 
     @InjectMocks
     private UserController userController;

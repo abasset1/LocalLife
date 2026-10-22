@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -36,13 +37,13 @@ import {
   toggleCode,
   useCityPicker,
 } from '@/features/settings';
+import { ALERTS_NOUN, formatUsage, isAtLimit } from '@/features/limits/limits';
+import { useCurrentAccount } from '@/features/pro/useProAccess';
 import { enablePushOrExplain } from '@/notifications';
 
 function messageFor(error: unknown): string {
   return error instanceof ApiError ? error.message : 'Une erreur inattendue est survenue. Réessayez.';
 }
-
-
 
 /**
  * Alertes (partagées avec le site web) : nouvelles activités publiées dans
@@ -52,6 +53,9 @@ function messageFor(error: unknown): string {
  */
 export default function AlertesScreen() {
   const { state } = useAuth();
+  const router = useRouter();
+  // Limite d'alertes de l'offre (1 en Gratuit, 10 sinon) ; le backend refuse l'ajout au-delà (403).
+  const maxAlerts = useCurrentAccount()?.limits?.maxAlerts;
   const [categories, setCategories] = useState<Category[]>([]);
   const [alerts, setAlerts] = useState<ActivityAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,6 +204,12 @@ export default function AlertesScreen() {
             vos critères.
           </ThemedText>
 
+          {formatUsage(alerts.length, maxAlerts, ALERTS_NOUN) && (
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              {formatUsage(alerts.length, maxAlerts, ALERTS_NOUN)}
+            </ThemedText>
+          )}
+
           {alerts.length === 0 && (
             <Card style={styles.empty}>
               <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
@@ -278,10 +288,19 @@ export default function AlertesScreen() {
           )}
           {created && <Notice tone="success">Alerte créée.</Notice>}
 
+          {isAtLimit(alerts.length, maxAlerts) ? (
+            <>
+              <Notice tone="info">
+                Vous avez atteint la limite de {maxAlerts} {maxAlerts === 1 ? 'alerte' : 'alertes'} de votre offre.
+                Supprimez une alerte ou passez à une offre supérieure pour en créer une autre.
+              </Notice>
+              <Button label="Voir les offres" variant="secondary" onPress={() => router.push('/abonnement')} />
+            </>
+          ) : null}
           <Button
             label="Créer l'alerte"
             loading={creating}
-            disabled={cityPicker.blocksSubmit}
+            disabled={cityPicker.blocksSubmit || isAtLimit(alerts.length, maxAlerts)}
             onPress={() => void create()}
           />
           </Card>

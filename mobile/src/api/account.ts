@@ -1,6 +1,21 @@
 import { request } from './http';
 import type { CallOptions } from './activities';
 
+/**
+ * Limites de l'offre du compte (décision du 22/10/2026) ; `null` = illimité. Les éléments déjà enregistrés au-delà
+ * restent ; seuls les ajouts sont refusés (403 avec un message à afficher tel quel).
+ */
+export interface AccountLimits {
+  /** Favoris : 5 en Gratuit, illimités sinon. */
+  maxLikes: number | null;
+  /** Alertes : 1 en Gratuit, 10 sinon. */
+  maxAlerts: number;
+  /** Nouvelles contributions par mois civil (heure de Paris) : 0 en Gratuit, 2 en Premium, illimitées en Pro. */
+  monthlyContributions: number | null;
+  /** Contributions de ce mois qui comptent (ni refusées ni modifications). */
+  contributionsThisMonth: number;
+}
+
 /** `UserResponse` (backend) : profil du compte connecté, sans secret. */
 export interface CurrentAccount {
   id: number;
@@ -20,6 +35,8 @@ export interface CurrentAccount {
    * pro et les liens « Demander la gestion de ce lieu ». Absent d'un ancien serveur : traité comme faux.
    */
   hasProAccess?: boolean;
+  /** Limites de l'offre ; absentes d'un ancien serveur. */
+  limits?: AccountLimits;
 }
 
 /** `GET /api/v1/users/me` : 401 si la session a expiré ou si le compte est suspendu. */
