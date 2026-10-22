@@ -25,7 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Actions d'un administrateur sur les activités (décisions du 22/10/2026, {@code ROLES_ET_PERMISSIONS.md}
  * § « Administrateur ») :
  * <ul>
- *   <li>publier ou refuser une activité en attente, jamais la sienne ; un refus exige un motif, envoyé à l'auteur ;</li>
+ *   <li>publier ou refuser une activité en attente, jamais la sienne ; un refus exige un motif, envoyé à
+ *       l'auteur ;</li>
  *   <li>annuler ou supprimer la contribution d'un autre : motif obligatoire, auteur prévenu par e-mail ;</li>
  *   <li>suppression = <b>corbeille</b> : l'activité disparaît partout, reste restaurable {@value #TRASH_DAYS} jours,
  *       puis elle est purgée définitivement ; une suppression en masse se restaure d'un coup ;</li>

@@ -39,7 +39,8 @@ public class AdminActionLog {
     }
 
     /**
-     * Enregistre une action. {@code before}/{@code after} : cartes de valeurs simples (texte, nombres, booléens), sérialisées en
+     * Enregistre une action. {@code before}/{@code after} : cartes de valeurs simples (texte, nombres,
+     * booléens), sérialisées en
      * JSON, jamais de secret ; ou {@code null}.
      */
     public void record(Long actorId, String action, String targetType, Object targetId, String summary,
