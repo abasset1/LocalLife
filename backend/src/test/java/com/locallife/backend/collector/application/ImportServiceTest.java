@@ -700,6 +700,127 @@ class ImportServiceTest {
         verify(activityRepository, never()).save(argThat(activity -> Long.valueOf(43L).equals(activity.id())));
     }
 
+    // --- Déduplication dans une même source ---
+
+    private static final String KEY_A = "external:OpenAgenda Marseille:atelier-1";
+
+    private static final String KEY_B = "external:OpenAgenda Marseille:atelier-2";
+
+    /** Deux éléments identiques (titre, horaire, lieu) sous deux identifiants externes, clés A et B. */
+    private List<CollectedActivity> givenTwoIdenticalItems() {
+        givenOneCollectibleSource();
+        CollectedActivity first = collectedActivity("atelier-2");
+        CollectedActivity second = collectedActivity("atelier-1");
+        when(collector.collect()).thenReturn(List.of(first, second));
+        when(deduplicationService.computeDeduplicationKey(first)).thenReturn(KEY_B);
+        when(deduplicationService.computeDeduplicationKey(second)).thenReturn(KEY_A);
+        lenient().when(normalizationService.normalize(any())).thenReturn(Optional.of(normalizedActivity()));
+        lenient().when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        return List.of(first, second);
+    }
+
+    private Activity importedActivity(Long id, String key, String status) {
+        return new Activity(
+                id, "Marché de Noël", "description", "marché",
+                43.2965, 5.3698, LocalDateTime.of(2026, 12, 1, 10, 0), null, status,
+                10L, key, "https://example.com", null, null, null, null, null, null, null, null);
+    }
+
+    @Test
+    void importAll_ShouldImportOnlyOne_OfTwoIdenticalItemsOfTheSameSource_TheSmallestKey() {
+        givenTwoIdenticalItems();
+        when(activityRepository.findBySourceIdAndImportKey(10L, KEY_A)).thenReturn(Optional.empty());
+        when(activityRepository.findBySourceIdAndImportKey(10L, KEY_B)).thenReturn(Optional.empty());
+        givenSaveAssignsId();
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.created());
+        assertEquals(1, result.duplicates());
+        verify(activityRepository).save(argThat(activity -> KEY_A.equals(activity.importKey())));
+        verify(activityRepository, never()).save(argThat(activity -> KEY_B.equals(activity.importKey())));
+    }
+
+    @Test
+    void importAll_ShouldKeepTheOldestPublishedActivity_AndArchiveTheOtherCopy() {
+        givenTwoIdenticalItems();
+        // La copie B est publiée depuis plus longtemps (id plus petit) : elle reste, A est archivée.
+        when(activityRepository.findBySourceIdAndImportKey(10L, KEY_B))
+                .thenReturn(Optional.of(importedActivity(41L, KEY_B, "PUBLISHED")));
+        when(activityRepository.findBySourceIdAndImportKey(10L, KEY_A))
+                .thenReturn(Optional.of(importedActivity(57L, KEY_A, "PUBLISHED")));
+        when(importFingerprintService.findBySourceId(10L)).thenReturn(Map.of(KEY_A, FINGERPRINT, KEY_B, FINGERPRINT));
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.unchanged());
+        assertEquals(1, result.duplicates());
+        verify(activityRepository).save(argThat(activity ->
+                Long.valueOf(57L).equals(activity.id()) && "ARCHIVED".equals(activity.status())));
+        verify(activityRepository, never()).save(argThat(activity -> Long.valueOf(41L).equals(activity.id())));
+    }
+
+    @Test
+    void importAll_ShouldNotArchiveACancelledCopy_OfTheSameSource() {
+        givenTwoIdenticalItems();
+        when(activityRepository.findBySourceIdAndImportKey(10L, KEY_A))
+                .thenReturn(Optional.of(importedActivity(41L, KEY_A, "PUBLISHED")));
+        when(activityRepository.findBySourceIdAndImportKey(10L, KEY_B))
+                .thenReturn(Optional.of(importedActivity(57L, KEY_B, "CANCELLED")));
+        when(importFingerprintService.findBySourceId(10L)).thenReturn(Map.of(KEY_A, FINGERPRINT, KEY_B, FINGERPRINT));
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(1, result.duplicates());
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void importAll_ShouldRepublishTheRemainingCopy_WhenTheKeptOneLeavesTheSource() {
+        givenOneCollectibleSource();
+        // Seule la copie B, archivée comme doublon, reste dans la source : elle n'a plus de doublon.
+        CollectedActivity remaining = collectedActivity("atelier-2");
+        when(collector.collect()).thenReturn(List.of(remaining));
+        when(deduplicationService.computeDeduplicationKey(remaining)).thenReturn(KEY_B);
+        when(normalizationService.normalize(remaining)).thenReturn(Optional.of(normalizedActivity()));
+        when(activityRepository.findBySourceIdAndImportKey(10L, KEY_B))
+                .thenReturn(Optional.of(importedActivity(57L, KEY_B, "ARCHIVED")));
+        when(importFingerprintService.findBySourceId(10L)).thenReturn(Map.of(KEY_B, FINGERPRINT));
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        givenSaveAssignsId();
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(0, result.duplicates());
+        assertEquals(1, result.updated());
+        verify(activityRepository).save(argThat(activity ->
+                Long.valueOf(57L).equals(activity.id()) && "PUBLISHED".equals(activity.status())));
+    }
+
+    @Test
+    void importAll_ShouldImportBoth_WhenTheSameTitleHasDifferentTimes() {
+        givenOneCollectibleSource();
+        CollectedActivity morning = collectedActivity("atelier-1");
+        CollectedActivity afternoon = new CollectedActivity(
+                "Marché de Noël", "description", "marché", "https://example.com", "atelier-2",
+                "OpenAgenda Marseille", null, null, null, null,
+                new CollectedLocation(null, null, null, null, null, null, 43.2965, 5.3698, null),
+                List.of(new CollectedTiming(LocalDateTime.of(2026, 12, 1, 14, 0), null)),
+                null, List.of(), List.of(), null, List.of(), null);
+        when(collector.collect()).thenReturn(List.of(morning, afternoon));
+        when(deduplicationService.computeDeduplicationKey(morning)).thenReturn(KEY_A);
+        when(deduplicationService.computeDeduplicationKey(afternoon)).thenReturn(KEY_B);
+        when(normalizationService.normalize(any())).thenReturn(Optional.of(normalizedActivity()));
+        when(activityRepository.findBySourceIdAndImportKey(eq(10L), any())).thenReturn(Optional.empty());
+        when(activityRepository.findBySourceId(10L)).thenReturn(List.of());
+        givenSaveAssignsId();
+
+        ImportResult result = importService().importAll().get(0);
+
+        assertEquals(2, result.created());
+        assertEquals(0, result.duplicates());
+    }
+
     // --- Un seul import à la fois ---
 
     @Test
