@@ -13,6 +13,8 @@ import { MenuRow } from '@/components/menu-row';
 import { Notice } from '@/components/notice';
 import { ScreenHeader } from '@/components/screen-header';
 import { adminWebUrl, shouldOfferAdminLink } from '@/features/admin/adminLink';
+import { ConsentCheckbox } from '@/features/legal/ConsentCheckbox';
+import { LegalLinks } from '@/features/legal/LegalLinks';
 import { MenuButton } from '@/features/navigation/AppMenu';
 import { useOwnsFoodTrucks } from '@/features/pro/useProAccess';
 import { apiUrl } from '@/config/env';
@@ -21,11 +23,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Shadows, Spacing } from '@/constants/theme';
 import {
+  CONSENT_REQUIRED_MESSAGE,
   GoogleSignInError,
   USERNAME_MAX_LENGTH,
   USERNAME_RULES,
   googleSignInAvailable,
+  isTermsConsentRequired,
   requestGoogleIdToken,
+  retryGoogleWithConsent,
   useAuth,
   useUsernameAvailability,
 } from '@/auth';
@@ -60,6 +65,13 @@ export default function CompteScreen() {
   const [unverified, setUnverified] = useState(false);
   const [resending, setResending] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  /** Case de consentement (âge, conditions, confidentialité) : jamais cochée par défaut. */
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  /**
+   * ID token Google d'une connexion qui créerait un compte (428) : gardé le temps que l'utilisateur coche la case,
+   * puis renvoyé avec `acceptTerms`.
+   */
+  const [pendingGoogleToken, setPendingGoogleToken] = useState<string | null>(null);
   const usernameStatus = useUsernameAvailability(mode === 'register' ? username : '');
   /** Rôle relu par le serveur (`GET /users/me`), jamais celui du jeton stocké : décide seul du lien d'administration. */
   const [serverAccount, setServerAccount] = useState<{ userId: number; role: string; hasProAccess: boolean } | null>(
@@ -110,17 +122,48 @@ export default function CompteScreen() {
     setInfo(null);
     setUnverified(false);
     setPassword('');
+    setAcceptedTerms(false);
+    setPendingGoogleToken(null);
   }
 
-  /** « Continuer avec Google » : connexion, ou création du compte s'il n'existe pas encore. */
+  /**
+   * « Continuer avec Google » : connexion, ou création du compte s'il n'existe pas encore. Sur l'inscription, la case
+   * cochée accompagne l'appel ; depuis la connexion, une création répond 428 et la case est alors demandée.
+   */
   async function continueWithGoogle() {
     setError(null);
     setInfo(null);
     setUnverified(false);
+    setPendingGoogleToken(null);
+    setGoogleLoading(true);
+    let idToken: string | null = null;
+    try {
+      idToken = await requestGoogleIdToken();
+      if (idToken) {
+        await loginWithGoogle(idToken, mode === 'register' && acceptedTerms);
+        setAcceptedTerms(false);
+      }
+    } catch (e) {
+      if (idToken && isTermsConsentRequired(e)) {
+        setAcceptedTerms(false);
+        setPendingGoogleToken(idToken);
+      }
+      setError(e instanceof GoogleSignInError ? e.message : messageFor(e));
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
+
+  /** Case cochée après un 428 : même ID token Google, ou nouveau passage par Google s'il a expiré. */
+  async function confirmGoogleConsent() {
+    if (!pendingGoogleToken || !acceptedTerms) return;
+    setError(null);
     setGoogleLoading(true);
     try {
-      const idToken = await requestGoogleIdToken();
-      if (idToken) await loginWithGoogle(idToken);
+      const done = await retryGoogleWithConsent(pendingGoogleToken, loginWithGoogle, requestGoogleIdToken);
+      setPendingGoogleToken(null);
+      setAcceptedTerms(false);
+      if (!done) setInfo('Connexion Google annulée.');
     } catch (e) {
       setError(e instanceof GoogleSignInError ? e.message : messageFor(e));
     } finally {
@@ -146,6 +189,7 @@ export default function CompteScreen() {
     setError(null);
     setInfo(null);
     setUnverified(false);
+    setPendingGoogleToken(null);
 
     if (!email.trim() || !password || (mode === 'register' && !username.trim())) {
       setError('Renseignez tous les champs.');
@@ -155,6 +199,10 @@ export default function CompteScreen() {
       setError(usernameStatus.message);
       return;
     }
+    if (mode === 'register' && !acceptedTerms) {
+      setError(CONSENT_REQUIRED_MESSAGE);
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -162,9 +210,10 @@ export default function CompteScreen() {
         await login(email, password);
         setPassword('');
       } else {
-        await register({ username, email, password });
+        await register({ username, email, password, acceptTerms: acceptedTerms });
         setMode('login');
         setPassword('');
+        setAcceptedTerms(false);
         setInfo(
           'Compte créé. Un e-mail de confirmation vous a été envoyé : confirmez votre adresse, puis connectez-vous.',
         );
@@ -284,6 +333,8 @@ export default function CompteScreen() {
             </Card>
             {adminLinkError && <Notice tone="danger">{adminLinkError}</Notice>}
 
+            <LegalLinks />
+
             <Button label="Se déconnecter" variant="danger" onPress={() => void logout()} />
           </ScrollView>
         </SafeAreaView>
@@ -387,7 +438,22 @@ export default function CompteScreen() {
                 onSubmitEditing={() => void submit()}
               />
 
+              {!isLogin && (
+                <ConsentCheckbox checked={acceptedTerms} onChange={setAcceptedTerms} disabled={submitting || googleLoading} />
+              )}
+
               {error && <Notice tone="danger">Erreur : {error}</Notice>}
+              {isLogin && pendingGoogleToken && (
+                <>
+                  <ConsentCheckbox checked={acceptedTerms} onChange={setAcceptedTerms} disabled={googleLoading} />
+                  <Button
+                    label="Créer mon compte avec Google"
+                    loading={googleLoading}
+                    disabled={!acceptedTerms || submitting}
+                    onPress={() => void confirmGoogleConsent()}
+                  />
+                </>
+              )}
               {unverified && (
                 <Button
                   label="Renvoyer l'e-mail de confirmation"
@@ -400,7 +466,7 @@ export default function CompteScreen() {
               <Button
                 label={isLogin ? 'Se connecter' : "S'inscrire"}
                 loading={submitting}
-                disabled={googleLoading}
+                disabled={googleLoading || (!isLogin && !acceptedTerms)}
                 onPress={() => void submit()}
               />
               {googleSignInAvailable && (
@@ -415,8 +481,8 @@ export default function CompteScreen() {
                   <Button
                     label="Continuer avec Google"
                     variant="secondary"
-                    loading={googleLoading}
-                    disabled={submitting}
+                    loading={googleLoading && !pendingGoogleToken}
+                    disabled={submitting || (!isLogin && !acceptedTerms) || (googleLoading && !!pendingGoogleToken)}
                     onPress={() => void continueWithGoogle()}
                   />
                 </>
@@ -439,6 +505,8 @@ export default function CompteScreen() {
               disabled={submitting}
               onPress={() => switchMode(isLogin ? 'register' : 'login')}
             />
+
+            <LegalLinks />
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

@@ -4,3 +4,10 @@ export { USERNAME_MAX_LENGTH, USERNAME_RULES, usernameFormatError } from './user
 export { useUsernameAvailability } from './useUsernameAvailability';
 export type { UsernameStatus } from './useUsernameAvailability';
 export { GoogleSignInError, googleSignInAvailable, requestGoogleIdToken } from './googleSignIn';
+export {
+  CONSENT_LABEL,
+  CONSENT_REQUIRED_MESSAGE,
+  buildRegisterRequest,
+  isTermsConsentRequired,
+  retryGoogleWithConsent,
+} from './consent';

@@ -321,6 +321,8 @@ export interface RegisterRequest {
   username: string;
   email: string;
   password: string;
+  /** Case « J'ai au moins 15 ans et j'accepte… » cochée (contrat RGPD) : sans elle, 400. */
+  acceptTerms: true;
 }
 
 /** `GET /auth/username-availability` (LS-000) : `message` explique un refus. */

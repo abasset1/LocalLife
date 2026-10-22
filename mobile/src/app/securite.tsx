@@ -1,8 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Share } from 'react-native';
 
-import { changePassword, deleteAccount, getCurrentAccount } from '@/api';
+import { EXPORT_FILE_NAME, changePassword, deleteAccount, exportMyData, getCurrentAccount } from '@/api';
 import type { CurrentAccount } from '@/api';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/button';
@@ -18,7 +18,10 @@ const DELETION_WORD = 'SUPPRIMER';
 
 /**
  * « Mot de passe et compte », partagé avec le site : changer son mot de passe (ou en définir un pour un compte créé
- * avec Google) et supprimer son compte. Le serveur décide ; l'écran affiche ses messages.
+ * avec Google), télécharger ses données et supprimer son compte. Le serveur décide ; l'écran affiche ses messages.
+ *
+ * Export : ni `expo-file-system` ni `expo-sharing` ne sont installés (modules natifs, nouveau build requis) ; le JSON
+ * est donc transmis en texte à la feuille de partage du système (enregistrer dans Fichiers, envoyer par e-mail…).
  */
 export default function SecuriteScreen() {
   const router = useRouter();
@@ -30,6 +33,7 @@ export default function SecuriteScreen() {
   const [next, setNext] = useState('');
   const [secret, setSecret] = useState('');
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,10 +88,24 @@ export default function SecuriteScreen() {
     }
   }
 
+  async function downloadData() {
+    setError(null);
+    setInfo(null);
+    setExporting(true);
+    try {
+      const data = await exportMyData();
+      await Share.share({ title: EXPORT_FILE_NAME, message: JSON.stringify(data, null, 2) });
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function confirmDeletion() {
     Alert.alert(
       'Supprimer votre compte ?',
-      'Définitif. Vos activités publiées restent visibles sans votre nom ; le reste est supprimé.',
+      'Définitif. Vos activités publiées restent visibles sans votre nom ; le reste est supprimé, y compris votre adresse e-mail dans les journaux du serveur.',
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Supprimer', style: 'destructive', onPress: () => void submitDeletion() },
@@ -142,6 +160,23 @@ export default function SecuriteScreen() {
             <Button label="Enregistrer le mot de passe" loading={busy} onPress={() => void submitPassword()} />
           </Card>
 
+          <Card style={styles.form}>
+            <ThemedText type="heading" accessibilityRole="header">
+              Mes données
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Obtenez une copie de toutes les données de votre compte (profil, préférences, alertes, favoris,
+              contributions, abonnements…) au format JSON, à enregistrer ou à partager.
+            </ThemedText>
+            <Button
+              label="Télécharger mes données"
+              variant="secondary"
+              loading={exporting}
+              disabled={busy}
+              onPress={() => void downloadData()}
+            />
+          </Card>
+
           {!isAdmin && (
             <Card style={styles.form}>
               <ThemedText type="heading" accessibilityRole="header">
@@ -149,7 +184,12 @@ export default function SecuriteScreen() {
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 Définitif. Vos activités déjà publiées restent visibles, sans votre nom ; vos contributions non publiées,
-                favoris, alertes et préférences sont supprimés, et votre abonnement prend fin.
+                favoris, alertes et préférences sont supprimés, et votre abonnement prend fin. Votre adresse e-mail est
+                aussi effacée des journaux du serveur.
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Sans suppression de votre part, un compte jamais confirmé est supprimé après 30 jours ; un compte
+                inactif depuis 3 ans est prévenu par e-mail, puis supprimé 30 jours plus tard.
               </ThemedText>
               <TextField
                 label={hasPassword ? 'Votre mot de passe' : `Saisissez ${DELETION_WORD} pour confirmer`}

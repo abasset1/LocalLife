@@ -1,3 +1,5 @@
+import { siteWebUrl } from '@/features/legal/legalLinks';
+
 /**
  * Administration depuis l'application mobile (sprint « Rôles et comptes », MOB-01).
  *
@@ -7,13 +9,7 @@
  * de toute façon un compte qui ne l'est pas.
  */
 export function adminWebUrl(apiUrl: string): string | null {
-  try {
-    const url = new URL(apiUrl);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-    return `${url.origin}/admin`;
-  } catch {
-    return null;
-  }
+  return siteWebUrl(apiUrl, '/admin');
 }
 
 /** Le lien n'apparaît que pour un rôle `ADMIN` renvoyé par le serveur. */

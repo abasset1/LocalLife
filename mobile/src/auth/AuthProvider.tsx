@@ -11,6 +11,7 @@ import {
 import { AppState } from 'react-native';
 
 import {
+  ApiError,
   ResponseFormatError,
   configureApiClient,
   login as apiLogin,
@@ -19,6 +20,7 @@ import {
 } from '@/api';
 import { disablePushRegistration, refreshPushRegistration } from '@/notifications';
 
+import { CONSENT_REQUIRED_MESSAGE, buildRegisterRequest } from './consent';
 import { signOutFromGoogle } from './googleSignIn';
 import { decodeJwtPayload, isTokenExpired } from './jwt';
 import { clearToken, loadToken, saveToken } from './tokenStorage';
@@ -38,14 +40,19 @@ export interface RegisterInput {
   username: string;
   email: string;
   password: string;
+  /** Case de consentement (âge et textes légaux) cochée ; sans elle, aucun appel n'est fait. */
+  acceptTerms: boolean;
 }
 
 interface AuthContextValue {
   state: AuthState;
   /** Connecte l'utilisateur. Lève une `ApiError` (401 identifiants, 403 e-mail non vérifié…). */
   login: (email: string, password: string) => Promise<void>;
-  /** Connecte avec l'ID token Google (compte créé au besoin). Lève une `ApiError` (401 token refusé…). */
-  loginWithGoogle: (idToken: string) => Promise<void>;
+  /**
+   * Connecte avec l'ID token Google (compte créé au besoin, seulement si `acceptTerms`). Lève une `ApiError`
+   * (401 token refusé, 428 consentement requis pour créer le compte…).
+   */
+  loginWithGoogle: (idToken: string, acceptTerms?: boolean) => Promise<void>;
   /**
    * Crée le compte. Ne connecte PAS l'utilisateur : le backend exige la
    * confirmation de l'adresse e-mail avant la première connexion.
@@ -154,8 +161,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loginWithGoogle = useCallback(
-    async (idToken: string) => {
-      const { token } = await apiLoginWithGoogle(idToken);
+    async (idToken: string, acceptTerms = false) => {
+      const { token } = await apiLoginWithGoogle(idToken, acceptTerms);
       await openSession(token);
     },
     [openSession],
@@ -177,8 +184,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await endSession();
   }, [endSession]);
 
-  const register = useCallback(async ({ username, email, password }: RegisterInput) => {
-    await apiRegister({ username: username.trim(), email: email.trim(), password });
+  const register = useCallback(async (input: RegisterInput) => {
+    const payload = buildRegisterRequest(input);
+    if (!payload) throw new ApiError(CONSENT_REQUIRED_MESSAGE);
+    await apiRegister(payload);
   }, []);
 
   const replaceToken = useCallback(async (token: string) => openSession(token), [openSession]);
