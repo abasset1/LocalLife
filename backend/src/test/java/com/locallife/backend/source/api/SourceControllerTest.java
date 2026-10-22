@@ -4,7 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.when;
 
+import com.locallife.backend.admin.application.AdminActionLog;
+import com.locallife.backend.auth.application.JwtAuthentication;
+import com.locallife.backend.auth.application.ReauthenticationService;
 import com.locallife.backend.common.ErrorResponse;
+import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.source.api.SourceController.CreateSourceRequest;
 import com.locallife.backend.source.api.SourceController.DefaultCategoriesRequest;
 import com.locallife.backend.source.api.SourceController.UpdateSourceRequest;
@@ -35,6 +39,14 @@ class SourceControllerTest {
 
     @Mock
     private SourceDefaultCategoryService sourceDefaultCategoryService;
+
+    @Mock
+    private ReauthenticationService reauthenticationService;
+
+    @Mock
+    private AdminActionLog actionLog;
+
+    private static final JwtAuthentication ADMIN = new JwtAuthentication(1L, "admin@example.com", Role.ADMIN);
 
     @InjectMocks
     private SourceController sourceController;
@@ -234,7 +246,7 @@ class SourceControllerTest {
         when(sourceService.deleteSource(1L)).thenReturn(Optional.of(source));
 
         // When
-        ResponseEntity<Object> response = sourceController.deleteSource(1L, httpRequest);
+        ResponseEntity<Object> response = sourceController.deleteSource(1L, "secret", ADMIN, httpRequest);
 
         // Then
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
@@ -246,7 +258,7 @@ class SourceControllerTest {
         when(sourceService.deleteSource(99L)).thenReturn(Optional.empty());
 
         // When
-        ResponseEntity<Object> response = sourceController.deleteSource(99L, httpRequest);
+        ResponseEntity<Object> response = sourceController.deleteSource(99L, "secret", ADMIN, httpRequest);
 
         // Then
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
@@ -260,7 +272,7 @@ class SourceControllerTest {
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/sources/1");
 
         // When
-        ResponseEntity<Object> response = sourceController.deleteSource(1L, httpRequest);
+        ResponseEntity<Object> response = sourceController.deleteSource(1L, "secret", ADMIN, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());

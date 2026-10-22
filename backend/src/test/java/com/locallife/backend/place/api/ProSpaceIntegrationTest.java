@@ -86,23 +86,23 @@ class ProSpaceIntegrationTest {
         // Jeton délivré avant l'attribution du rôle : le rôle est relu en base.
         String oldToken = token(user, "USER");
 
-        call(HttpMethod.PATCH, "/api/v1/admin/users/" + user + "/role", oldToken, Map.of("role", "PRO"), 403);
-        assertThat(call(HttpMethod.GET, "/api/v1/admin/users?email=" + email, token(admin, "ADMIN"), null, 200)
-                .get("id").asLong()).isEqualTo(user);
+        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", oldToken, Map.of("role", "PRO"), 403);
+        assertThat(call(HttpMethod.GET, "/api/v1/admin/accounts?q=" + email, token(admin, "ADMIN"), null, 200)
+                .get("items").get(0).get("id").asLong()).isEqualTo(user);
         // Transitions interdites : 403 depuis le sprint « Rôles et comptes » (400 auparavant), voir
         // ROLES_ET_PERMISSIONS.md ; un rôle inconnu reste 400.
-        call(HttpMethod.PATCH, "/api/v1/admin/users/" + user + "/role", token(admin, "ADMIN"),
+        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", token(admin, "ADMIN"),
                 Map.of("role", "ADMIN"), 403);
-        call(HttpMethod.PATCH, "/api/v1/admin/users/" + admin + "/role", token(admin, "ADMIN"),
+        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + admin + "/role", token(admin, "ADMIN"),
                 Map.of("role", "PRO"), 403);
-        call(HttpMethod.PATCH, "/api/v1/admin/users/" + user + "/role", token(admin, "ADMIN"),
+        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", token(admin, "ADMIN"),
                 Map.of("role", "CHEF"), 400);
-        assertThat(call(HttpMethod.PATCH, "/api/v1/admin/users/" + user + "/role", token(admin, "ADMIN"),
+        assertThat(call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", token(admin, "ADMIN"),
                 Map.of("role", "pro"), 200).get("role").asText()).isEqualTo("PRO");
 
         call(HttpMethod.GET, "/api/v1/pro/claims", oldToken, null, 200);
 
-        call(HttpMethod.PATCH, "/api/v1/admin/users/" + user + "/role", token(admin, "ADMIN"),
+        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", token(admin, "ADMIN"),
                 Map.of("role", "USER"), 200);
         call(HttpMethod.GET, "/api/v1/pro/claims", oldToken, null, 403);
     }

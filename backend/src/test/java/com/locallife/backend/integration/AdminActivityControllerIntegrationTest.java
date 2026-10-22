@@ -257,6 +257,7 @@ class AdminActivityControllerIntegrationTest {
         // When / Then
         restTestClient().patch().uri("/api/v1/admin/activities/" + created.id() + "/reject")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .contentType(MediaType.APPLICATION_JSON).body("{\"reason\":\"Hors périmètre\"}")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -275,6 +276,7 @@ class AdminActivityControllerIntegrationTest {
     void rejectActivity_ShouldReturnNotFound_WhenActivityDoesNotExist() {
         restTestClient().patch().uri("/api/v1/admin/activities/999999/reject")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .contentType(MediaType.APPLICATION_JSON).body("{\"reason\":\"Hors périmètre\"}")
                 .exchange()
                 .expectStatus().isNotFound();
     }
@@ -380,18 +382,23 @@ class AdminActivityControllerIntegrationTest {
                 .expectStatus().isOk()
                 .expectBody().jsonPath("$.count").isEqualTo(count);
         // Nombre annoncé différent : rien n'est supprimé.
-        restTestClient().delete().uri("/api/v1/admin/activities?" + criteria + "&expectedCount=" + (count + 1))
+        restTestClient().delete().uri("/api/v1/admin/activities?" + criteria + "&expectedCount=" + (count + 1)
+                        + "&reason=Test")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .header("X-Confirm-Password", TestAccounts.ADMIN_PASSWORD)
                 .exchange()
                 .expectStatus().isEqualTo(409);
-        restTestClient().delete().uri("/api/v1/admin/activities?" + criteria + "&expectedCount=" + count)
+        restTestClient().delete().uri("/api/v1/admin/activities?" + criteria + "&expectedCount=" + count
+                        + "&reason=Test")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .header("X-Confirm-Password", TestAccounts.ADMIN_PASSWORD)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody().jsonPath("$.count").isEqualTo(count);
 
+        // Corbeille (22/10/2026) : l'activité reste en base, au statut DELETED, restaurable 30 jours.
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM activity WHERE id = ?", Long.class, activity.id())).isZero();
+                "SELECT status FROM activity WHERE id = ?", String.class, activity.id())).isEqualTo("DELETED");
     }
 
     @Test
@@ -407,11 +414,11 @@ class AdminActivityControllerIntegrationTest {
         String userToken = registerAndLoginAsUser(uniqueEmail());
         Activity activity = createPendingActivity("Pétanque " + UUID.randomUUID(), userToken);
 
-        restTestClient().delete().uri("/api/v1/admin/activities/" + activity.id())
+        restTestClient().delete().uri("/api/v1/admin/activities/" + activity.id() + "?reason=Doublon")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
                 .exchange()
                 .expectStatus().isNoContent();
-        restTestClient().delete().uri("/api/v1/admin/activities/" + activity.id())
+        restTestClient().delete().uri("/api/v1/admin/activities/" + activity.id() + "?reason=Doublon")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
                 .exchange()
                 .expectStatus().isNotFound();

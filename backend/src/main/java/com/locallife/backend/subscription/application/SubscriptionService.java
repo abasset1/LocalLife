@@ -13,9 +13,11 @@ import java.time.temporal.TemporalAdjusters;
 import java.time.ZoneId;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.locallife.backend.admin.application.AdminActionLog;
 import com.locallife.backend.pro.application.ProAccessChanged;
 import com.locallife.backend.pro.application.ProNotifier;
 import org.springframework.context.ApplicationEventPublisher;
@@ -49,12 +51,14 @@ public class SubscriptionService {
     private final SubscriptionRepository repository;
     private final ApplicationEventPublisher events;
     private final ProNotifier notifier;
+    private final AdminActionLog actionLog;
 
     public SubscriptionService(SubscriptionRepository repository, ApplicationEventPublisher events,
-            ProNotifier notifier) {
+            ProNotifier notifier, AdminActionLog actionLog) {
         this.repository = repository;
         this.events = events;
         this.notifier = notifier;
+        this.actionLog = actionLog;
     }
 
     /** Situation d'un utilisateur : offre effective, abonnement en cours, demande en attente, historique. */
@@ -179,6 +183,7 @@ public class SubscriptionService {
     @Transactional
     public Subscription approve(Long adminId, Long id, LocalDate endsOn) {
         Subscription request = requested(id);
+        refuseOwn(adminId, request);
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime end = endsOn == null ? null : endsOn.plusDays(1).atStartOfDay(ZONE).toOffsetDateTime();
         if (end != null && !end.isAfter(now)) {
@@ -194,6 +199,9 @@ public class SubscriptionService {
         LOGGER.info("Abonnement {} ({}) activé par l'administrateur {} jusqu'au {}", id, request.plan(), adminId,
                 endsOn == null ? "résiliation" : endsOn);
         events.publishEvent(new ProAccessChanged(request.userId()));
+        actionLog.record(adminId, "SUBSCRIPTION_APPROVE", "SUBSCRIPTION", id, "Offre " + request.plan()
+                + " du compte " + request.userId(), Map.of("status", "REQUESTED"),
+                Map.of("status", "ACTIVE", "endsOn", endsOn == null ? "" : endsOn.toString()), null);
         notifier.notify(request.userId(), "Ton offre " + label(request.plan()) + " est active",
                 "L'équipe LocalLife a validé ta demande : l'offre " + label(request.plan()) + " est active"
                         + (endsOn == null ? "." : " jusqu'au " + endsOn + " inclus.")
@@ -204,12 +212,16 @@ public class SubscriptionService {
     @Transactional
     public Subscription reject(Long adminId, Long id, String reason) {
         Subscription request = requested(id);
+        refuseOwn(adminId, request);
         String cleanReason = reason(reason);
         if (cleanReason == null) {
             throw ProActionException.invalid("Un motif est obligatoire pour refuser une demande.");
         }
         apply(request, SubscriptionStatus.REJECTED, new Change(false, null, false, null, null, adminId, cleanReason),
                 adminId, cleanReason);
+        actionLog.record(adminId, "SUBSCRIPTION_REJECT", "SUBSCRIPTION", id, "Offre " + request.plan()
+                + " du compte " + request.userId(), Map.of("status", "REQUESTED"),
+                Map.of("status", "REJECTED"), cleanReason);
         notifier.notify(request.userId(), "Ta demande d'offre " + label(request.plan()) + " n'a pas été acceptée",
                 "L'équipe LocalLife n'a pas validé ta demande d'offre " + label(request.plan()) + ".", cleanReason);
         return repository.findById(id).orElseThrow();
@@ -222,10 +234,14 @@ public class SubscriptionService {
                 .filter(found -> found.status() == SubscriptionStatus.ACTIVE
                         || found.status() == SubscriptionStatus.CANCELED)
                 .orElseThrow(() -> ProActionException.notFound("Aucun abonnement en cours avec cet identifiant."));
+        refuseOwn(adminId, subscription);
         String cleanReason = reason(reason);
         apply(subscription, SubscriptionStatus.EXPIRED,
                 new Change(false, null, true, OffsetDateTime.now(), null, adminId, cleanReason), adminId, cleanReason);
         LOGGER.info("Abonnement {} retiré par l'administrateur {}", id, adminId);
+        actionLog.record(adminId, "SUBSCRIPTION_REVOKE", "SUBSCRIPTION", id, "Offre " + subscription.plan()
+                + " du compte " + subscription.userId(), Map.of("status", subscription.status().name()),
+                Map.of("status", "EXPIRED"), cleanReason);
         if (subscription.userId() != null) {
             events.publishEvent(new ProAccessChanged(subscription.userId()));
         }
@@ -274,6 +290,14 @@ public class SubscriptionService {
             throw ProActionException.conflict("L'abonnement a changé entre-temps, recharge la page.");
         }
         repository.insertEvent(subscription.id(), actorId, subscription.status(), to, reason);
+    }
+
+    /** Un administrateur ne décide jamais de son propre abonnement (décision du 22/10/2026). */
+    private static void refuseOwn(Long adminId, Subscription subscription) {
+        if (adminId != null && adminId.equals(subscription.userId())) {
+            throw ProActionException.forbidden("Un administrateur ne décide pas de son propre abonnement : un autre "
+                    + "administrateur s'en charge.");
+        }
     }
 
     private static String label(Plan plan) {

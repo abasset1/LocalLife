@@ -32,6 +32,9 @@ public class ContributionService {
     static final String PUBLISHED_STATUS = "PUBLISHED";
 
     /** Statuts modifiables : une activité refusée peut être corrigée puis resoumise. */
+    /** Corbeille (V73) : activité supprimée par un administrateur, restaurable 30 jours. */
+    static final String DELETED_STATUS = "DELETED";
+
     private static final Set<String> EDITABLE_STATUSES = Set.of(PENDING_STATUS, "PUBLISHED", REJECTED_STATUS);
 
     private final ActivityRepository activityRepository;
@@ -63,7 +66,9 @@ public class ContributionService {
 
     /** Contributions de l'utilisateur, tous statuts confondus, les plus récentes d'abord. */
     public List<Activity> findByCreator(Long userId) {
-        return activityRepository.findByCreatedByOrderByIdDesc(userId);
+        // Une contribution mise à la corbeille par l'équipe a disparu pour son auteur.
+        return activityRepository.findByCreatedByOrderByIdDesc(userId).stream()
+                .filter(activity -> !DELETED_STATUS.equals(activity.status())).toList();
     }
 
     /**
@@ -74,7 +79,8 @@ public class ContributionService {
      * @throws ActivityAccessDeniedException si le demandeur n'est ni son créateur ni un administrateur
      */
     public Optional<Activity> findManageable(Long id, Long requesterId, boolean requesterIsAdmin) {
-        Optional<Activity> activity = activityRepository.findById(id);
+        Optional<Activity> activity = activityRepository.findById(id)
+                .filter(found -> requesterIsAdmin || !DELETED_STATUS.equals(found.status()));
         activity.ifPresent(found -> checkAccess(found, requesterId, requesterIsAdmin, "gérer"));
         return activity;
     }
@@ -147,7 +153,8 @@ public class ContributionService {
      */
     @Transactional
     public boolean delete(Long id, Long requesterId, boolean requesterIsAdmin) {
-        Optional<Activity> found = activityRepository.findById(id);
+        Optional<Activity> found = activityRepository.findById(id)
+                .filter(activity -> requesterIsAdmin || !DELETED_STATUS.equals(activity.status()));
         if (found.isEmpty()) {
             return false;
         }

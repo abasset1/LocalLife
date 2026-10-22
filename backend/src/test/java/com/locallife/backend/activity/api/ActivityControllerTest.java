@@ -2,6 +2,7 @@ package com.locallife.backend.activity.api;
 
 import com.locallife.backend.subscription.application.PlanLimits;
 import com.locallife.backend.activity.application.ActivityHostPlaceService;
+import com.locallife.backend.activity.application.AdminActivityService;
 import com.locallife.backend.activity.application.ContributionAccessPolicy;
 import static org.mockito.Mockito.lenient;
 import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
@@ -144,6 +145,9 @@ class ActivityControllerTest {
 
     @Mock
     private PlanLimits planLimits;
+
+    @Mock
+    private AdminActivityService adminActivityService;
 
     @InjectMocks
     private ActivityController activityController;
@@ -504,7 +508,7 @@ class ActivityControllerTest {
         when(contributionService.delete(1L, 7L, false)).thenReturn(true);
 
         assertEquals(HttpStatus.NO_CONTENT,
-                activityController.deleteActivity(1L, authentication, httpRequest).getStatusCode());
+                activityController.deleteActivity(1L, null, authentication, httpRequest).getStatusCode());
     }
 
     @Test
@@ -512,7 +516,7 @@ class ActivityControllerTest {
         when(contributionService.delete(1L, 7L, false)).thenThrow(new ActivityAccessDeniedException("refusé"));
 
         assertEquals(HttpStatus.FORBIDDEN,
-                activityController.deleteActivity(1L, authentication, httpRequest).getStatusCode());
+                activityController.deleteActivity(1L, null, authentication, httpRequest).getStatusCode());
     }
 
     @Test
@@ -520,7 +524,7 @@ class ActivityControllerTest {
         when(contributionService.delete(1L, 7L, false)).thenReturn(false);
 
         assertEquals(HttpStatus.NOT_FOUND,
-                activityController.deleteActivity(1L, authentication, httpRequest).getStatusCode());
+                activityController.deleteActivity(1L, null, authentication, httpRequest).getStatusCode());
     }
 
     @Test
@@ -1063,7 +1067,7 @@ class ActivityControllerTest {
         when(activityService.cancel(1L, 7L, false)).thenReturn(Optional.of(cancelled));
 
         // When
-        ResponseEntity<Object> response = activityController.cancelActivity(1L, authentication, httpRequest);
+        ResponseEntity<Object> response = activityController.cancelActivity(1L, null, authentication, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -1080,7 +1084,7 @@ class ActivityControllerTest {
         when(activityService.cancel(1L, 99L, true)).thenReturn(Optional.of(cancelled));
 
         // When
-        ResponseEntity<Object> response = activityController.cancelActivity(1L, adminAuthentication, httpRequest);
+        ResponseEntity<Object> response = activityController.cancelActivity(1L, null, adminAuthentication, httpRequest);
 
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -1093,7 +1097,7 @@ class ActivityControllerTest {
         when(activityService.cancel(99L, 7L, false)).thenReturn(Optional.empty());
 
         // When
-        ResponseEntity<Object> response = activityController.cancelActivity(99L, authentication, httpRequest);
+        ResponseEntity<Object> response = activityController.cancelActivity(99L, null, authentication, httpRequest);
 
         // Then
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
@@ -1107,7 +1111,7 @@ class ActivityControllerTest {
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/1/cancel");
 
         // When
-        ResponseEntity<Object> response = activityController.cancelActivity(1L, authentication, httpRequest);
+        ResponseEntity<Object> response = activityController.cancelActivity(1L, null, authentication, httpRequest);
 
         // Then
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -1123,7 +1127,7 @@ class ActivityControllerTest {
         when(httpRequest.getRequestURI()).thenReturn("/api/v1/activities/1/cancel");
 
         // When
-        ResponseEntity<Object> response = activityController.cancelActivity(1L, authentication, httpRequest);
+        ResponseEntity<Object> response = activityController.cancelActivity(1L, null, authentication, httpRequest);
 
         // Then
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());

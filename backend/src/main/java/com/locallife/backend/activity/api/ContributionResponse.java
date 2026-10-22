@@ -11,6 +11,7 @@ import java.util.List;
  *
  * @param recurrence  récurrence hebdomadaire, {@code null} pour une activité ponctuelle ou sur une période
  * @param hostPlaceId lieu géré par l'auteur qui propose l'activité, {@code null} sinon
+ * @param moderationReason motif d'un refus ou d'une annulation par l'équipe, {@code null} sinon
  */
 public record ContributionResponse(
         Long id,
@@ -26,5 +27,6 @@ public record ContributionResponse(
         String phone,
         String email,
         RecurrenceRequest recurrence,
-        Long hostPlaceId) {
+        Long hostPlaceId,
+        String moderationReason) {
 }

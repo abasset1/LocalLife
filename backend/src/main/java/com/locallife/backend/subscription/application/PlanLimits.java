@@ -93,7 +93,7 @@ public class PlanLimits {
         OffsetDateTime monthStart = LocalDate.now(ZONE).withDayOfMonth(1).atStartOfDay(ZONE).toOffsetDateTime();
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT count(*) FROM activity
-                WHERE created_by = ? AND created_at >= ? AND status <> 'REJECTED'
+                WHERE created_by = ? AND created_at >= ? AND status NOT IN ('REJECTED', 'DELETED')
                 """, Integer.class, userId, monthStart);
         return count == null ? 0 : count;
     }

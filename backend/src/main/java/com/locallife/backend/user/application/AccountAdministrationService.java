@@ -1,5 +1,6 @@
 package com.locallife.backend.user.application;
 
+import com.locallife.backend.admin.application.AdminActionLog;
 import com.locallife.backend.pro.application.ProAccessChanged;
 import com.locallife.backend.pro.infrastructure.ProAccountRepository;
 import com.locallife.backend.pro.infrastructure.ProAccountRepository.ProRoleSource;
@@ -12,7 +13,9 @@ import com.locallife.backend.user.infrastructure.AccountRepository.Account;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -20,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Gestion des comptes par un administrateur (sprint « Rôles et comptes », ACC-01/02/03, AUD-01). Seule voie
@@ -53,29 +57,40 @@ public class AccountAdministrationService {
     static final String ROLE_CHANGE = "ROLE_CHANGE";
     static final String SUSPEND = "SUSPEND";
     static final String REACTIVATE = "REACTIVATE";
+    static final String LOGOUT_EVERYWHERE = "LOGOUT_EVERYWHERE";
+    static final String ADMIN_ACCOUNT_DELETION = "ADMIN_ACCOUNT_DELETION";
 
     private final AccountRepository accountRepository;
     private final AccountAuditRepository auditRepository;
     private final UserService userService;
     private final ProAccountRepository proAccountRepository;
     private final ApplicationEventPublisher events;
+    private final AdminActionLog actionLog;
+    private final AccountSelfService accountSelfService;
+    private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
     @Autowired
     public AccountAdministrationService(
             AccountRepository accountRepository, AccountAuditRepository auditRepository, UserService userService,
-            ProAccountRepository proAccountRepository, ApplicationEventPublisher events) {
-        this(accountRepository, auditRepository, userService, proAccountRepository, events, Clock.systemUTC());
+            ProAccountRepository proAccountRepository, ApplicationEventPublisher events, AdminActionLog actionLog,
+            AccountSelfService accountSelfService, TransactionTemplate transactionTemplate) {
+        this(accountRepository, auditRepository, userService, proAccountRepository, events, actionLog,
+                accountSelfService, transactionTemplate, Clock.systemUTC());
     }
 
     AccountAdministrationService(
             AccountRepository accountRepository, AccountAuditRepository auditRepository, UserService userService,
-            ProAccountRepository proAccountRepository, ApplicationEventPublisher events, Clock clock) {
+            ProAccountRepository proAccountRepository, ApplicationEventPublisher events, AdminActionLog actionLog,
+            AccountSelfService accountSelfService, TransactionTemplate transactionTemplate, Clock clock) {
         this.accountRepository = accountRepository;
         this.auditRepository = auditRepository;
         this.userService = userService;
         this.proAccountRepository = proAccountRepository;
         this.events = events;
+        this.actionLog = actionLog;
+        this.accountSelfService = accountSelfService;
+        this.transactionTemplate = transactionTemplate;
         this.clock = clock;
     }
 
@@ -160,6 +175,44 @@ public class AccountAdministrationService {
         record(actor, targetId, ROLE_CHANGE, target.role().name(), role.name(), null, "SUCCESS", null);
         LOGGER.info("Rôle du compte {} : {} → {} (par le compte {})", targetId, target.role(), role, actor.userId());
         return accountRepository.findById(targetId).orElseThrow();
+    }
+
+    // --- Sessions et suppression (22/10/2026) ---
+
+    /** Ferme toutes les sessions d'un compte (compte compromis) : ses jetons émis jusqu'ici sont refusés. */
+    public Account logoutEverywhere(Actor actor, Long targetId) {
+        Account target = requireTarget(actor, targetId, LOGOUT_EVERYWHERE, null, null);
+        refuseOwnOrAdminAccount(actor, target, LOGOUT_EVERYWHERE, null, null, null,
+                "Les sessions d'un administrateur ne se ferment pas depuis l'application.");
+        accountRepository.revokeTokensIssuedBefore(targetId, now());
+        record(actor, targetId, LOGOUT_EVERYWHERE, null, null, null, "SUCCESS", "Toutes les sessions fermées");
+        LOGGER.info("Sessions du compte {} fermées par le compte {}", targetId, actor.userId());
+        return accountRepository.findById(targetId).orElseThrow();
+    }
+
+    /**
+     * Supprime un compte comme le ferait son titulaire ({@code AccountSelfService#deleteAccountData}) ; motif
+     * obligatoire. Jamais un administrateur ni son propre compte.
+     */
+    public void deleteAccount(Actor actor, Long targetId, String reason) {
+        String cleanReason = reason == null ? null : reason.trim();
+        Account target = requireTarget(actor, targetId, ADMIN_ACCOUNT_DELETION, null, cleanReason);
+        if (cleanReason == null || cleanReason.length() < MIN_REASON_LENGTH
+                || cleanReason.length() > MAX_REASON_LENGTH) {
+            throw refuse(actor, targetId, ADMIN_ACCOUNT_DELETION, null, null, cleanReason,
+                    AccountActionException.badRequest("Motif de suppression obligatoire (" + MIN_REASON_LENGTH
+                            + " à " + MAX_REASON_LENGTH + " caractères)."));
+        }
+        refuseOwnOrAdminAccount(actor, target, ADMIN_ACCOUNT_DELETION, null, null, cleanReason,
+                "Un compte administrateur ne se supprime pas depuis l'application.");
+        // Les refus ci-dessus restent tracés ; la suppression elle-même est tout ou rien.
+        transactionTemplate.executeWithoutResult(status -> {
+            int deletedContributions = accountSelfService.deleteAccountData(targetId);
+            record(actor, targetId, ADMIN_ACCOUNT_DELETION, null, null, cleanReason, "SUCCESS",
+                    deletedContributions + " contribution(s) non publiée(s) supprimée(s)");
+            accountRepository.delete(targetId);
+        });
+        LOGGER.info("Compte {} supprimé par le compte {}", targetId, actor.userId());
     }
 
     // --- Statut ---
@@ -249,6 +302,13 @@ public class AccountAdministrationService {
             String outcome, String detail) {
         auditRepository.append(new Event(null, now(), actor.userId(), actor.email(), targetId, action, oldValue,
                 newValue, reason, outcome, detail));
+        if ("SUCCESS".equals(outcome)) {
+            Map<String, Object> before = new HashMap<>();
+            before.put("value", oldValue);
+            Map<String, Object> after = new HashMap<>();
+            after.put("value", newValue);
+            actionLog.record(actor.userId(), "ACCOUNT_" + action, "ACCOUNT", targetId, detail, before, after, reason);
+        }
     }
 
     private LocalDateTime now() {

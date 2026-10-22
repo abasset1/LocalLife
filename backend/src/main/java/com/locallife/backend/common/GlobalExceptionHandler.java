@@ -1,5 +1,7 @@
 package com.locallife.backend.common;
 
+import com.locallife.backend.auth.application.ReauthenticationRequiredException;
+import com.locallife.backend.auth.application.TooManyLoginAttemptsException;
 import com.locallife.backend.subscription.application.PlanLimitException;
 import java.time.Instant;
 import org.slf4j.Logger;
@@ -55,6 +57,26 @@ public class GlobalExceptionHandler {
                 exception.getMessage(),
                 path);
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    /** Action sensible sans confirmation valide du mot de passe ({@code ReauthenticationService}) : 428. */
+    @ExceptionHandler(ReauthenticationRequiredException.class)
+    public ResponseEntity<ErrorResponse> handleReauthentication(ReauthenticationRequiredException exception,
+            WebRequest request) {
+        String path = request.getDescription(false).replace("uri=", "");
+        ErrorResponse body = new ErrorResponse(Instant.now(), HttpStatus.PRECONDITION_REQUIRED.value(),
+                HttpStatus.PRECONDITION_REQUIRED.getReasonPhrase(), exception.getMessage(), path);
+        return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED).body(body);
+    }
+
+    /** Trop de tentatives de connexion échouées ({@code LoginThrottle}) : 429. */
+    @ExceptionHandler(TooManyLoginAttemptsException.class)
+    public ResponseEntity<ErrorResponse> handleTooManyLogins(TooManyLoginAttemptsException exception,
+            WebRequest request) {
+        String path = request.getDescription(false).replace("uri=", "");
+        ErrorResponse body = new ErrorResponse(Instant.now(), HttpStatus.TOO_MANY_REQUESTS.value(),
+                HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase(), exception.getMessage(), path);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(body);
     }
 
     @ExceptionHandler(Exception.class)

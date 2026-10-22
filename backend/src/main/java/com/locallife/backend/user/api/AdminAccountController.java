@@ -1,6 +1,7 @@
 package com.locallife.backend.user.api;
 
 import com.locallife.backend.auth.application.JwtAuthentication;
+import com.locallife.backend.auth.application.ReauthenticationService;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.user.application.AccountActionException;
 import com.locallife.backend.user.application.AccountAdministrationService;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,9 +37,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminAccountController {
 
     private final AccountAdministrationService service;
+    private final ReauthenticationService reauthenticationService;
 
-    public AdminAccountController(AccountAdministrationService service) {
+    public AdminAccountController(AccountAdministrationService service,
+            ReauthenticationService reauthenticationService) {
         this.service = service;
+        this.reauthenticationService = reauthenticationService;
     }
 
     /** Corps d'un changement de rôle : {@code USER} ou {@code PRO}. */
@@ -85,11 +90,38 @@ public class AdminAccountController {
     @Operation(summary = "Suspendre un compte",
             description = "Motif obligatoire (3 à 500 caractères). Le compte ne peut plus se connecter ni utiliser "
                     + "une route authentifiée, dès sa requête suivante ; ses données sont conservées. 403 pour un "
-                    + "compte administrateur ou son propre compte ; 409 si déjà suspendu. Journalisé.")
+                    + "compte administrateur ou son propre compte ; 409 si déjà suspendu ; 428 sans le mot de passe de "
+                    + "l'administrateur (en-tête X-Confirm-Password). Journalisé.")
     @PostMapping("/{id}/suspend")
     public Account suspend(
-            @PathVariable Long id, @RequestBody(required = false) StatusRequest body, Authentication authentication) {
+            @PathVariable Long id, @RequestBody(required = false) StatusRequest body,
+            @RequestHeader(value = ReauthenticationService.HEADER, required = false) String password,
+            Authentication authentication) {
+        reauthenticationService.require(actor(authentication).userId(), password);
         return service.suspend(actor(authentication), id, body == null ? null : body.reason());
+    }
+
+    @Operation(summary = "Fermer toutes les sessions d'un compte",
+            description = "Compte compromis : ses jetons déjà émis sont refusés, il doit se reconnecter. 403 pour "
+                    + "un compte administrateur ou son propre compte. Journalisé.")
+    @PostMapping("/{id}/logout-everywhere")
+    public Account logoutEverywhere(@PathVariable Long id, Authentication authentication) {
+        return service.logoutEverywhere(actor(authentication), id);
+    }
+
+    @Operation(summary = "Supprimer un compte",
+            description = "Comme une suppression par son titulaire : activités publiées conservées sans auteur, le "
+                    + "reste supprimé. Motif obligatoire (3 à 500 caractères) ; mot de passe de l'administrateur dans "
+                    + "l'en-tête X-Confirm-Password (428 sinon). 403 pour un compte administrateur ou son propre "
+                    + "compte. Journalisé.")
+    @PostMapping("/{id}/deletion")
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id, @RequestBody(required = false) StatusRequest body,
+            @RequestHeader(value = ReauthenticationService.HEADER, required = false) String password,
+            Authentication authentication) {
+        reauthenticationService.require(actor(authentication).userId(), password);
+        service.deleteAccount(actor(authentication), id, body == null ? null : body.reason());
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Réactiver un compte suspendu",

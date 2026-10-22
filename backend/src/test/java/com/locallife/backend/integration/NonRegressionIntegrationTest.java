@@ -236,6 +236,7 @@ class NonRegressionIntegrationTest {
 
         restTestClient().patch().uri("/api/v1/admin/activities/" + created.id() + "/reject")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .contentType(MediaType.APPLICATION_JSON).body("{\"reason\":\"Hors périmètre\"}")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -435,9 +436,10 @@ class NonRegressionIntegrationTest {
                 .exchange()
                 .expectStatus().isOk();
 
-        // When : un administrateur (pas le créateur) annule.
+        // When : un administrateur (pas le créateur) annule, avec un motif (obligatoire depuis le 22/10/2026).
         restTestClient().patch().uri("/api/v1/activities/" + created.id() + "/cancel")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken())
+                .contentType(MediaType.APPLICATION_JSON).body("{\"reason\":\"Événement reporté\"}")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()

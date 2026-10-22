@@ -239,6 +239,23 @@ public class AccountSelfService {
                     "Saisis " + DELETION_CONFIRMATION_WORD + " pour confirmer la suppression du compte.");
         }
 
+        int deletedContributions = deleteAccountData(userId);
+        // Trace sans donnée personnelle : seul l'identifiant (désormais sans compte) reste.
+        auditRepository.append(new Event(null, nowUtc(), userId, null, userId, "ACCOUNT_DELETION", null, null, null,
+                "SUCCESS", deletedContributions + " contribution(s) non publiée(s) supprimée(s)"));
+        accountRepository.delete(userId);
+        LOGGER.info("Compte {} supprimé par son titulaire ({} contribution(s) non publiée(s) supprimée(s))", userId,
+                deletedContributions);
+    }
+
+    /**
+     * Suppression d'un compte, commune à son titulaire et à un administrateur (décision du 22/10/2026) : activités
+     * publiées conservées sans auteur, contributions non publiées supprimées, contenus professionnels retirés,
+     * demandes de gestion supprimées, abonnement clos. Le compte lui-même est supprimé par l'appelant, après sa trace.
+     *
+     * @return nombre de contributions non publiées supprimées
+     */
+    int deleteAccountData(Long userId) {
         int deletedContributions = 0;
         for (Activity activity : contributionService.findByCreator(userId)) {
             if (!PUBLISHED_STATUS.equals(activity.status())) {
@@ -250,12 +267,7 @@ public class AccountSelfService {
         proContentRepository.withdraw(userId);
         jdbcTemplate.update("DELETE FROM place_claim WHERE requester_id = ?", userId);
         subscriptionService.closeForDeletedAccount(userId);
-        // Trace sans donnée personnelle : seul l'identifiant (désormais sans compte) reste.
-        auditRepository.append(new Event(null, nowUtc(), userId, null, userId, "ACCOUNT_DELETION", null, null, null,
-                "SUCCESS", deletedContributions + " contribution(s) non publiée(s) supprimée(s)"));
-        accountRepository.delete(userId);
-        LOGGER.info("Compte {} supprimé par son titulaire ({} contribution(s) non publiée(s) supprimée(s))", userId,
-                deletedContributions);
+        return deletedContributions;
     }
 
     // --- Commun ---

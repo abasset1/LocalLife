@@ -26,8 +26,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *
  * Endpoints protégés (LL-3008) :
  * - POST /api/v1/activities : utilisateur connecté (JWT valide requis).
- * - POST /api/v1/users : réservé au rôle ADMIN (le flux public de création
- *   de compte passe désormais par POST /api/v1/auth/register, LL-3007).
+ * - POST /api/v1/users et GET /api/v1/users/{id} : retirés le 22/10/2026
+ *   (création sans mot de passe, consultation par id) ; l'inscription passe
+ *   par POST /api/v1/auth/register, l'administration par /admin/accounts.
  * Endpoint protégé (LL-6005, Sprint 6) :
  * - GET /api/v1/admin/activities : réservé au rôle ADMIN (consultation de
  *   la file de modération par statut, voir {@code AdminActivityController}).
@@ -60,15 +61,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   {@code UserController}. Déclarés AVANT la règle générale
  *   ci-dessous : Spring Security applique la première règle qui
  *   correspond, donc l'ordre est significatif ici.
- * - GET /api/v1/users/{id} : jusqu'ici {@code permitAll()} par défaut
- *   (aucune règle dédiée n'existait), ce qui permettait à quiconque de
- *   consulter le profil de n'importe quel utilisateur par id — écart
- *   trouvé en traitant ce ticket (critère d'acceptation « un
- *   utilisateur non connecté ne peut pas accéder aux données d'un
- *   autre utilisateur »). Restreint au rôle {@code ADMIN}, même posture
- *   que {@code POST /api/v1/users} ci-dessus : cet endpoint n'est
- *   consommé par aucun client (frontend ni mobile), un usage
- *   d'administration/support est la seule justification restante.
  * Endpoint protégé (LL-EF-010) :
  * - PATCH /api/v1/activities/{id}/cancel : utilisateur connecté (JWT
  *   valide requis) — même posture que POST /api/v1/activities ci-dessus,
@@ -183,14 +175,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/users/me/push-tokens").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me/preferences/city").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/users/me/preferences").authenticated()
-                        // LL-EF-006 : règles /me déclarées avant la règle générale
-                        // GET /api/v1/users/{id} ci-dessous (voir la javadoc de
-                        // cette classe) — l'ordre conditionne quelle règle
-                        // s'applique.
+                        // LL-EF-006 : profil de l'utilisateur connecté.
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/users/me").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/users/*").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/users").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/activities").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/publish").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/reject").hasRole("ADMIN")

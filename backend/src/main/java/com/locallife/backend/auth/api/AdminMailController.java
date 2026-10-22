@@ -1,5 +1,12 @@
 package com.locallife.backend.auth.api;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Deque;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import org.springframework.http.HttpStatus;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.auth.application.MailDiagnostics;
 import com.locallife.backend.user.application.UserService;
@@ -28,9 +35,15 @@ public class AdminMailController {
         this.userService = userService;
     }
 
-    /** Destinataire du test ; l'adresse de l'administrateur connecté par défaut. */
+    /** Ancien corps ({@code to}) : ignoré depuis le 22/10/2026, le test part vers l'administrateur connecté. */
     public record TestRequest(String to) {
     }
+
+    /** Au plus 5 tests par heure et par administrateur. */
+    static final int MAX_TESTS_PER_HOUR = 5;
+
+    private final Map<Long, Deque<Instant>> recentTests =
+            new ConcurrentHashMap<>();
 
     @Operation(summary = "Configuration SMTP effective", description = "Sans le mot de passe ; warning signale une "
             + "configuration manifestement incohérente.")
@@ -39,13 +52,26 @@ public class AdminMailController {
         return diagnostics.config();
     }
 
-    @Operation(summary = "Envoyer un e-mail de test", description = "Teste la connexion SMTP puis envoie un message. "
-            + "Réponse 200 dans tous les cas : ok, étape (connexion ou envoi) et explication.")
+    @Operation(summary = "Envoyer un e-mail de test", description = "Teste la connexion SMTP puis envoie un message "
+            + "à l'adresse de l'administrateur connecté uniquement (22/10/2026), 5 fois par heure au plus (429). "
+            + "Réponse 200 sinon : ok, étape (connexion ou envoi) et explication.")
     @PostMapping("/test")
-    public ResponseEntity<MailDiagnostics.MailTestResult> test(@RequestBody(required = false) TestRequest body,
+    public ResponseEntity<Object> test(@RequestBody(required = false) TestRequest body,
             Authentication authentication) {
-        String to = body != null && body.to() != null && !body.to().isBlank() ? body.to().trim()
-                : userService.getUserById(((JwtAuthentication) authentication).getUserId()).orElseThrow().email();
+        Long adminId = ((JwtAuthentication) authentication).getUserId();
+        Instant now = Instant.now();
+        Deque<Instant> sent = recentTests.computeIfAbsent(adminId,
+                id -> new ConcurrentLinkedDeque<>());
+        synchronized (sent) {
+            sent.removeIf(at -> at.isBefore(now.minus(Duration.ofHours(1))));
+            if (sent.size() >= MAX_TESTS_PER_HOUR) {
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(Map.of("message", "Au plus " + MAX_TESTS_PER_HOUR
+                                + " e-mails de test par heure : réessaie plus tard."));
+            }
+            sent.add(now);
+        }
+        String to = userService.getUserById(adminId).orElseThrow().email();
         return ResponseEntity.ok(diagnostics.sendTest(to));
     }
 }
