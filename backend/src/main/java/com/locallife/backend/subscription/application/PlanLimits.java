@@ -77,7 +77,9 @@ public class PlanLimits {
         }
     }
 
-    /** Avant une nouvelle contribution (le droit de contribuer est vérifié à part) ; les modifications ne comptent pas. */
+    /**
+     * Avant une nouvelle contribution (le droit de contribuer est vérifié à part) ; les modifications ne comptent pas.
+     */
     public void checkCanAddContribution(Long userId) {
         if (tier(userId) == Tier.PREMIUM && contributionsThisMonth(userId) >= PREMIUM_MONTHLY_CONTRIBUTIONS) {
             throw new PlanLimitException("L'offre Premium permet " + PREMIUM_MONTHLY_CONTRIBUTIONS + " nouvelles "
