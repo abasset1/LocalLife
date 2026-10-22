@@ -1,5 +1,6 @@
 package com.locallife.backend.user.api;
 
+import com.locallife.backend.gdpr.application.DataExportService;
 import com.locallife.backend.subscription.application.PlanLimits;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,6 +57,9 @@ class UserControllerTest {
 
     @Mock
     private PlanLimits planLimits;
+
+    @Mock
+    private DataExportService dataExportService;
 
     @InjectMocks
     private UserController userController;

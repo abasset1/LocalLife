@@ -103,6 +103,8 @@ public class JwtFilter extends OncePerRequestFilter {
         }
         SecurityContextHolder.getContext().setAuthentication(
                 new JwtAuthentication(userId, access.get().email(), access.get().role()));
+        // Dernière activité, au jour près : base de la suppression des comptes inactifs (RGPD, 22/10/2026).
+        accountRepository.touchActivity(userId);
 
         filterChain.doFilter(request, response);
     }

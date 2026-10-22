@@ -3778,3 +3778,87 @@ body {
 .admin-confirm-overlay {
     z-index: 1100;
 }
+
+/* Contrat RGPD : case de consentement, bouton Google chargé au clic, textes légaux. */
+.terms-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: #334155;
+}
+
+.auth-form .terms-consent input {
+    flex: 0 0 auto;
+    margin: 0.15rem 0 0;
+    padding: 0;
+}
+
+.google-signin {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.auth-form .google-continue-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid #cbd5e1;
+    background-color: #ffffff;
+    color: #1e293b;
+    font-weight: 600;
+}
+
+.auth-form .google-continue-button:disabled {
+    background-color: #f1f5f9;
+    color: #94a3b8;
+}
+
+.google-continue-mark {
+    font-weight: 800;
+    color: #2563eb;
+}
+
+.auth-note {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.google-consent {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.legal-page {
+    max-width: 480px;
+}
+
+.legal-version {
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.legal-page-link + .legal-page-link::before {
+    content: " · ";
+}
+
+.explorer-menu-legal {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-top: auto;
+    font-size: 0.8rem;
+}
+
+.explorer-menu-legal a {
+    color: #cfe0d9;
+    text-decoration: none;
+}
+
+.explorer-menu-legal a:hover {
+    text-decoration: underline;
+}

@@ -249,13 +249,25 @@ public class AccountSelfService {
     }
 
     /**
+     * Suppression d'un compte inactif depuis plus de 3 ans, averti 30 jours plus tôt (RGPD, {@code RetentionService}) :
+     * même effet qu'une suppression par son titulaire. À appeler dans une transaction.
+     */
+    public void deleteForInactivity(Long userId) {
+        int deletedContributions = deleteAccountData(userId);
+        auditRepository.append(new Event(null, nowUtc(), null, null, userId, "ACCOUNT_DELETION", null, null,
+                "Inactivité", "SUCCESS", deletedContributions + " contribution(s) non publiée(s) supprimée(s)"));
+        accountRepository.delete(userId);
+        LOGGER.info("Compte {} supprimé pour inactivité", userId);
+    }
+
+    /**
      * Suppression d'un compte, commune à son titulaire et à un administrateur (décision du 22/10/2026) : activités
      * publiées conservées sans auteur, contributions non publiées supprimées, contenus professionnels retirés,
      * demandes de gestion supprimées, abonnement clos. Le compte lui-même est supprimé par l'appelant, après sa trace.
      *
      * @return nombre de contributions non publiées supprimées
      */
-    int deleteAccountData(Long userId) {
+    public int deleteAccountData(Long userId) {
         int deletedContributions = 0;
         for (Activity activity : contributionService.findByCreator(userId)) {
             if (!PUBLISHED_STATUS.equals(activity.status())) {
@@ -267,7 +279,27 @@ public class AccountSelfService {
         proContentRepository.withdraw(userId);
         jdbcTemplate.update("DELETE FROM place_claim WHERE requester_id = ?", userId);
         subscriptionService.closeForDeletedAccount(userId);
+        eraseTraces(userId);
         return deletedContributions;
+    }
+
+    /**
+     * Droit à l'effacement (RGPD, 22/10/2026) : les journaux gardent la trace des actions, jamais l'adresse d'un
+     * compte supprimé ; les coordonnées qu'il a laissées sur ses food trucks et dans ses propositions de modification
+     * de lieux disparaissent. Seule cette opération (et la purge des lignes de plus de 3 ans) peut toucher aux
+     * journaux en ajout seul, en l'annonçant à la base ({@code locallife.retention}, V74).
+     */
+    private void eraseTraces(Long userId) {
+        jdbcTemplate.execute("SET LOCAL locallife.retention = 'on'");
+        jdbcTemplate.update("UPDATE account_audit_event SET actor_email = NULL "
+                + "WHERE actor_user_id = ? AND actor_email IS NOT NULL", userId);
+        jdbcTemplate.update("UPDATE account_audit_event SET old_value = NULL, new_value = NULL "
+                + "WHERE target_user_id = ? AND action IN ('EMAIL_CHANGE_REQUEST', 'EMAIL_CHANGE')", userId);
+        jdbcTemplate.update("UPDATE admin_action_log SET actor_email = NULL "
+                + "WHERE actor_id = ? AND actor_email IS NOT NULL", userId);
+        jdbcTemplate.execute("SET LOCAL locallife.retention = 'off'");
+        jdbcTemplate.update("UPDATE food_truck SET contact = NULL WHERE owner_id = ?", userId);
+        jdbcTemplate.update("DELETE FROM place_change_request WHERE requester_id = ?", userId);
     }
 
     // --- Commun ---

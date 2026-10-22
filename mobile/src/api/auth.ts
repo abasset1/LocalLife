@@ -10,7 +10,8 @@ import type { LoginRequest, LoginResponse, RegisterRequest, UserProfile, Usernam
  *
  * Erreurs à connaître côté écran :
  * - `login` : 401 = identifiants refusés, 403 = e-mail non vérifié ;
- * - `register` : 400 = données invalides (message du backend).
+ * - `register` : 400 = données invalides, ou case de consentement non cochée (message du backend) ;
+ * - `loginWithGoogle` : 428 = le compte serait créé mais les conditions n'ont pas été acceptées.
  */
 
 const BASE = '/api/v1/auth';
@@ -70,11 +71,16 @@ export function resendVerification(email: string, options: CallOptions = {}): Pr
 /**
  * `POST /auth/google` — connexion (ou création de compte) avec l'ID token Google. Le backend vérifie
  * le token (signature, audience = son `google.client-id`, e-mail vérifié) ; 401 s'il est refusé.
+ * Un compte existant se connecte sans consentement ; une création sans `acceptTerms` répond 428.
  */
-export function loginWithGoogle(idToken: string, options: CallOptions = {}): Promise<LoginResponse> {
+export function loginWithGoogle(
+  idToken: string,
+  acceptTerms = false,
+  options: CallOptions = {},
+): Promise<LoginResponse> {
   return request<LoginResponse>(`${BASE}/google`, {
     method: 'POST',
-    body: { idToken },
+    body: acceptTerms ? { idToken, acceptTerms: true } : { idToken },
     signal: options.signal,
   });
 }

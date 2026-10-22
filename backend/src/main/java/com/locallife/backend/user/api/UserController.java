@@ -1,5 +1,8 @@
 package com.locallife.backend.user.api;
 
+import com.locallife.backend.gdpr.application.DataExportService;
+import java.util.Map;
+import org.springframework.http.HttpHeaders;
 import com.locallife.backend.auth.api.UserResponse;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.common.ErrorResponse;
@@ -46,16 +49,18 @@ public class UserController {
     private final ContributionAccessPolicy contributionAccessPolicy;
     private final ProAccessPolicy proAccessPolicy;
     private final PlanLimits planLimits;
+    private final DataExportService dataExportService;
 
     public UserController(
             UserService userService, AccountSelfService accountSelfService,
             ContributionAccessPolicy contributionAccessPolicy, ProAccessPolicy proAccessPolicy,
-            PlanLimits planLimits) {
+            PlanLimits planLimits, DataExportService dataExportService) {
         this.userService = userService;
         this.accountSelfService = accountSelfService;
         this.contributionAccessPolicy = contributionAccessPolicy;
         this.proAccessPolicy = proAccessPolicy;
         this.planLimits = planLimits;
+        this.dataExportService = dataExportService;
     }
 
     /**
@@ -147,6 +152,17 @@ public class UserController {
                     + "favoris, alertes, préférences et connexions supprimés ; historique d'abonnement anonymisé. "
                     + "Mot de passe exigé (ou SUPPRIMER pour un compte sans mot de passe). 403 pour un "
                     + "administrateur.")
+    /**
+     * Toutes les données du compte connecté, en JSON téléchargeable (RGPD : droit d'accès et à la portabilité).
+     */
+    @GetMapping("/me/export")
+    public ResponseEntity<Map<String, Object>> exportData(Authentication authentication) {
+        Long userId = ((JwtAuthentication) authentication).getUserId();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"locallife-mes-donnees.json\"")
+                .body(dataExportService.export(userId));
+    }
+
     @PostMapping("/me/deletion")
     public ResponseEntity<Object> deleteAccount(
             Authentication authentication, @RequestBody(required = false) DeletionRequest request,

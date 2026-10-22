@@ -2,8 +2,10 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import TermsConsentCheckbox from "../components/TermsConsentCheckbox";
 import UsernameStatusMessage from "../components/UsernameStatusMessage";
 import { USERNAME_MAX_LENGTH, useUsernameAvailability } from "../auth/useUsernameAvailability";
+import { LEGAL_DOCUMENTS } from "../legal/legalDocuments";
 
 interface ApiErrorBody {
     message: string;
@@ -13,6 +15,8 @@ function RegisterPage() {
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    // Contrat RGPD : case non cochée par défaut, exigée par le backend (`acceptTerms: true`).
+    const [acceptTerms, setAcceptTerms] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
@@ -25,13 +29,16 @@ function RegisterPage() {
             setError(usernameStatus.message);
             return;
         }
+        if (!acceptTerms) {
+            return;
+        }
         setIsSubmitting(true);
 
         try {
             const response = await fetch("/api/v1/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username: username.trim(), email, password }),
+                body: JSON.stringify({ username: username.trim(), email, password, acceptTerms: true }),
             });
 
             if (!response.ok) {
@@ -104,16 +111,24 @@ function RegisterPage() {
                     type="password"
                     value={password}
                 />
-                <button disabled={isSubmitting} type="submit">
+                <TermsConsentCheckbox checked={acceptTerms} id="register-terms-consent" onChange={setAcceptTerms} />
+                <button disabled={isSubmitting || !acceptTerms} type="submit">
                     Créer mon compte
                 </button>
                 {error && <span className="form-message form-message-error">{error}</span>}
                 <div className="auth-divider">
                     <span>ou</span>
                 </div>
-                <GoogleSignInButton onError={setError} />
+                <GoogleSignInButton consentAccepted={acceptTerms} mode="register" onError={setError} />
                 <p className="auth-switch">
                     Déjà un compte ? <Link to="/login">Se connecter</Link>
+                </p>
+                <p className="auth-switch legal-links">
+                    <Link to={LEGAL_DOCUMENTS.privacy.path}>Confidentialité</Link>
+                    {" · "}
+                    <Link to={LEGAL_DOCUMENTS.terms.path}>Conditions</Link>
+                    {" · "}
+                    <Link to={LEGAL_DOCUMENTS.legalNotice.path}>Mentions légales</Link>
                 </p>
             </form>
         </main>

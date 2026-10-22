@@ -2,6 +2,15 @@
 
 ## 0.9.59 — non publiée
 
+### RGPD : mesures techniques (22/10/2026)
+- **Consentement à l'inscription** : case « J'ai au moins 15 ans et j'accepte les conditions d'utilisation et la politique de confidentialité », obligatoire (aussi pour un compte créé avec Google), enregistrée avec sa date et la version des textes.
+- **Télécharger mes données** : export JSON de toutes les données d'un compte (`GET /api/v1/users/me/export`), sur le site et l'application.
+- **Effacement** : à la suppression d'un compte, son adresse est aussi effacée des journaux, ainsi que les coordonnées de ses food trucks et ses propositions de modification de lieux.
+- **Durées de conservation appliquées chaque nuit** : jetons 7 jours, comptes non confirmés 30 jours, comptes inactifs prévenus après 3 ans puis supprimés 30 jours plus tard, push et historique d'alertes 6 mois, journaux et demandes closes 3 ans, abonnements terminés 6 ans.
+- **Sécurité** : plus aucune adresse e-mail complète dans les journaux de l'application ; démarrage refusé en production avec la clé de session par défaut ; empreinte des adresses du blocage de connexion renforcée (HMAC).
+- Site : le script de connexion Google ne se charge plus qu'au clic ; pages « Politique de confidentialité », « Conditions d'utilisation » et « Mentions légales » (contenu en cours de rédaction).
+- Migration `V74`. Détail : `docs/02_Architecture/RGPD.md`.
+
 ### Application : annuler une activité
 - La fiche d'une activité propose « Annuler l'activité » à son auteur et aux administrateurs (activité en attente ou publiée) : elle quitte la carte en restant dans les contributions de l'auteur. Un administrateur qui annule la contribution d'un autre saisit un motif, communiqué à l'auteur.
 

@@ -3,6 +3,8 @@ package com.locallife.backend.auth.api;
 import com.locallife.backend.user.application.AccountActionException;
 import com.locallife.backend.user.application.AccountSelfService;
 import com.locallife.backend.auth.application.AuthService;
+import com.locallife.backend.auth.application.TermsNotAcceptedException;
+import com.locallife.backend.gdpr.application.LegalTerms;
 import com.locallife.backend.auth.application.AccountSuspendedException;
 import com.locallife.backend.auth.application.EmailNotVerifiedException;
 import com.locallife.backend.auth.application.EmailVerificationService;
@@ -93,6 +95,9 @@ public class AuthController {
      */
     @PostMapping("/register")
     public ResponseEntity<Object> register(@RequestBody RegisterRequest request, HttpServletRequest httpRequest) {
+        if (!Boolean.TRUE.equals(request.acceptTerms())) {
+            return badRequest(new IllegalArgumentException(LegalTerms.CONSENT_REQUIRED_MESSAGE), httpRequest);
+        }
         try {
             User user = authService.register(request.username(), request.email(), request.password());
             return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(user));
@@ -157,8 +162,13 @@ public class AuthController {
     public ResponseEntity<Object> loginWithGoogle(
             @RequestBody GoogleLoginRequest request, HttpServletRequest httpRequest) {
         try {
-            LoginResponse response = authService.loginOrRegisterWithGoogle(request.idToken());
+            LoginResponse response = authService.loginOrRegisterWithGoogle(request.idToken(),
+                    Boolean.TRUE.equals(request.acceptTerms()));
             return ResponseEntity.ok(response);
+        } catch (TermsNotAcceptedException exception) {
+            HttpStatus status = HttpStatus.PRECONDITION_REQUIRED;
+            return ResponseEntity.status(status).body(new ErrorResponse(Instant.now(), status.value(),
+                    status.getReasonPhrase(), exception.getMessage(), httpRequest.getRequestURI()));
         } catch (IllegalArgumentException exception) {
             return unauthorized(exception, httpRequest);
         } catch (AccountSuspendedException exception) {

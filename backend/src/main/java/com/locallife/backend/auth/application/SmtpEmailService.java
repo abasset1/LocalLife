@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
  * dans {@code application.properties} (préfixe {@code spring.mail.*}),
  * fournie par variables d'environnement en production.
  *
+ * <p>RGPD (22/10/2026) : l'adresse du destinataire n'apparaît dans les journaux que masquée
+ * ({@link EmailMask}).
+ *
  * <p>⚠️ Ne jamais logger {@code resetLink} ni {@code verificationLink} (contiennent le token en clair) —
  * un seul log au niveau INFO confirmant l'envoi, sans son contenu, pour
  * respecter l'exigence de non-fuite du token dans les logs.
@@ -49,7 +52,7 @@ public class SmtpEmailService implements EmailService {
                         + "L'équipe LocalLife");
 
         mailSender.send(message);
-        log.info("Email de réinitialisation de mot de passe envoyé à {}", to);
+        log.info("Email de réinitialisation de mot de passe envoyé à {}", EmailMask.mask(to));
     }
 
     @Override
@@ -68,7 +71,7 @@ public class SmtpEmailService implements EmailService {
                         + "L'équipe LocalLife");
 
         mailSender.send(message);
-        log.info("Email de confirmation d'adresse envoyé à {}", to);
+        log.info("Email de confirmation d'adresse envoyé à {}", EmailMask.mask(to));
     }
 
     @Override
@@ -80,7 +83,7 @@ public class SmtpEmailService implements EmailService {
         message.setText(text);
 
         mailSender.send(message);
-        log.info("Email d'alerte d'activités envoyé à {}", to);
+        log.info("Email d'alerte d'activités envoyé à {}", EmailMask.mask(to));
     }
 
     @Override
@@ -99,7 +102,7 @@ public class SmtpEmailService implements EmailService {
                         + "L'équipe LocalLife");
 
         mailSender.send(message);
-        log.info("Email de confirmation de changement d'adresse envoyé à {}", to);
+        log.info("Email de confirmation de changement d'adresse envoyé à {}", EmailMask.mask(to));
     }
 
     @Override
@@ -117,7 +120,7 @@ public class SmtpEmailService implements EmailService {
                         + "L'équipe LocalLife");
 
         mailSender.send(message);
-        log.info("Avis de changement d'adresse envoyé à {}", to);
+        log.info("Avis de changement d'adresse envoyé à {}", EmailMask.mask(to));
     }
 
     @Override
@@ -129,6 +132,6 @@ public class SmtpEmailService implements EmailService {
         message.setText(text);
 
         mailSender.send(message);
-        log.info("Décision professionnelle envoyée à {} : {}", to, subject);
+        log.info("Décision professionnelle envoyée à {} : {}", EmailMask.mask(to), subject);
     }
 }

@@ -58,6 +58,18 @@ export function changePassword(
   });
 }
 
+/**
+ * Copie des données du compte (`GET /api/v1/users/me/export`, contrat RGPD) : profil, comptes liés, préférences,
+ * alertes, favoris, contributions, appareils, abonnements, lieux, food trucks et historique. Le contenu est rendu
+ * tel quel à l'utilisateur, sans interprétation côté application.
+ */
+export function exportMyData(options: CallOptions = {}): Promise<unknown> {
+  return request<unknown>('/api/v1/users/me/export', { authenticated: true, signal: options.signal });
+}
+
+/** Nom du fichier proposé par le serveur (`Content-Disposition`). */
+export const EXPORT_FILE_NAME = 'locallife-mes-donnees.json';
+
 /** `POST /api/v1/users/me/deletion` : définitif ; mot de passe, ou `SUPPRIMER` pour un compte sans mot de passe. */
 export function deleteAccount(secret: { password: string } | { confirmation: string }, options: CallOptions = {}) {
   return request<null>('/api/v1/users/me/deletion', {

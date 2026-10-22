@@ -78,7 +78,7 @@ public class MailDiagnostics {
             message.setText("Bonjour,\n\nCet e-mail de test confirme que LocalLife peut envoyer des messages.\n\n"
                     + "L'équipe LocalLife");
             mailSender.send(message);
-            LOGGER.info("E-mail de test envoyé à {}", to);
+            LOGGER.info("E-mail de test envoyé à {}", EmailMask.mask(to));
             return new MailTestResult(true, "envoi", "E-mail de test envoyé à " + to
                     + ". S'il n'arrive pas, regarde les indésirables, puis la configuration de l'expéditeur "
                     + "(SPF/DKIM).");
