@@ -1,4 +1,4 @@
-import type { Contribution, CreateActivityRequest } from '@/api';
+import type { Contribution, CreateActivityRequest, ManagedPlace } from '@/api';
 
 /**
  * Formulaire de contribution (création et modification), sans dépendance à React Native : état,
@@ -22,6 +22,8 @@ export interface ContributionForm {
   url: string;
   phone: string;
   email: string;
+  /** Lieu géré qui propose l'activité (« Proposé par… »), `null` sinon. */
+  hostPlaceId: number | null;
 }
 
 export const EMPTY_FORM: ContributionForm = {
@@ -38,6 +40,7 @@ export const EMPTY_FORM: ContributionForm = {
   url: '',
   phone: '',
   email: '',
+  hostPlaceId: null,
 };
 
 /** Jours de passage, dans l'ordre de la semaine (codes RFC 5545 attendus par le backend). */
@@ -115,6 +118,8 @@ export function toRequest(form: ContributionForm): FormResult {
     url: optional(form.url),
     phone: optional(form.phone),
     email: optional(form.email),
+    // Toujours renvoyé à la modification : absent, le serveur retirerait le lieu déjà choisi.
+    hostPlaceId: form.hostPlaceId ?? undefined,
   };
 
   if (!form.recurring) {
@@ -157,6 +162,7 @@ export function fromContribution(contribution: Contribution): ContributionForm {
     url: contribution.url ?? '',
     phone: contribution.phone ?? '',
     email: contribution.email ?? '',
+    hostPlaceId: contribution.hostPlaceId ?? null,
   };
   const recurrence = contribution.recurrence;
   if (recurrence) {
@@ -192,4 +198,22 @@ export function formatWhen(contribution: Contribution): string {
   if (!contribution.startDate) return 'Date non renseignée';
   const [year, month, day] = contribution.startDate.slice(0, 10).split('-');
   return `Le ${day}/${month}/${year}`;
+}
+
+/** Valeur du choix « Aucun » parmi les lieux qui proposent l'activité. */
+export const NO_HOST_PLACE = 'none';
+
+/** Choix « Proposé par » : aucun lieu, les lieux gérés publiés, et le lieu déjà choisi s'il n'en fait plus partie. */
+export function hostPlaceOptions(
+  hostPlaces: readonly Pick<ManagedPlace, 'id' | 'name'>[],
+  chosen: number | null,
+): { value: string; label: string }[] {
+  const options = [
+    { value: NO_HOST_PLACE, label: 'Aucun' },
+    ...hostPlaces.map((place) => ({ value: String(place.id), label: place.name })),
+  ];
+  if (chosen !== null && !hostPlaces.some((place) => place.id === chosen)) {
+    options.push({ value: String(chosen), label: 'Lieu déjà choisi' });
+  }
+  return options;
 }

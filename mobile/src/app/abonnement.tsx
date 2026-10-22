@@ -41,6 +41,7 @@ export default function AbonnementScreen() {
   const run = useCallback(async (action: () => Promise<SubscriptionOverview>, success: string) => {
     setBusy(true);
     setError(null);
+    setInfo(null);
     try {
       setOverview(await action());
       setInfo(success);
@@ -77,7 +78,10 @@ export default function AbonnementScreen() {
       'Résilier ?',
       end
         ? `Votre accès ${PLAN_LABELS[plan]} durera jusqu’au ${formatDay(end)}.`
-        : `Votre accès ${PLAN_LABELS[plan]} s’arrêtera tout de suite.`,
+        : plan === 'PRO'
+          ? // Offre Pro sans échéance : l'accès dure jusqu'au 1er du mois suivant (décision du 22/10/2026).
+            'Votre accès Pro durera jusqu’à la fin du mois ; ensuite, vos food trucks publiés seront masqués.'
+          : `Votre accès ${PLAN_LABELS[plan]} s’arrêtera tout de suite.`,
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Résilier', style: 'destructive', onPress: () => void run(cancelSubscription, 'Abonnement résilié.') },
@@ -121,6 +125,11 @@ export default function AbonnementScreen() {
             <ThemedText type="small" themeColor="textSecondary">
               {PLAN_DESCRIPTIONS[choice]}
             </ThemedText>
+            {choice === 'PREMIUM' && plan === 'PRO' ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                Votre offre Pro inclut déjà Premium.
+              </ThemedText>
+            ) : null}
             <Button
               label={choice === 'PRO' ? 'Demander l’offre Pro' : `Passer à ${PLAN_LABELS[choice]}`}
               loading={busy}

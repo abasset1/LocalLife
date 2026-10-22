@@ -150,6 +150,11 @@ export default function ActiviteDetailScreen() {
                 <ThemedText type="subtitle" accessibilityRole="header">
                   {activity.title}
                 </ThemedText>
+                {activity.hostPlace ? (
+                  <ThemedText type="smallBold" themeColor="textSecondary">
+                    Proposé par {activity.hostPlace.name}
+                  </ThemedText>
+                ) : null}
               </View>
               <View style={styles.quickActions}>
                 {directions ? (

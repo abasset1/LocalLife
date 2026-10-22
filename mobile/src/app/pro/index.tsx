@@ -16,7 +16,8 @@ import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/feature
 
 /**
  * Espace professionnel (ADR-0012), partagé avec le site web : trois parcours distincts — demander la gestion d'un
- * lieu existant, créer un lieu, gérer ses food trucks — et la liste des lieux gérés. Le backend vérifie les droits ;
+ * lieu existant, créer un lieu, gérer ses food trucks — et la liste des lieux gérés (chacun ouvre sa fiche : proposer
+ * une modification, ne plus le gérer). Le backend vérifie les droits ;
  * sans offre Pro, l'écran invite à la demander.
  */
 export default function ProHomeScreen() {
@@ -108,6 +109,11 @@ export default function ProHomeScreen() {
                   onPress={() => void submit(place)}
                 />
               )}
+              <Button
+                label={place.changeProposable ? 'Modifier la fiche, gérer le lieu' : 'Gérer ce lieu'}
+                variant="secondary"
+                onPress={() => router.push({ pathname: '/pro/lieu/[id]', params: { id: String(place.id) } })}
+              />
             </Card>
           ))}
           {error && <Notice tone="danger">{error}</Notice>}

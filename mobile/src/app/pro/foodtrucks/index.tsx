@@ -10,14 +10,16 @@ import { Notice } from '@/components/notice';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { TRUCK_STATUS_LABELS } from '@/features/pro/format';
+import { truckStatusLabel } from '@/features/pro/format';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
+import { useProAccessEnded } from '@/features/pro/useProAccess';
 
 const EMPTY = { name: '', category: '', description: '', contact: '' };
 
 /**
  * Mes food trucks (PRO-01 lot C), comme sur le site : profil distinct des lieux, créé en brouillon ; ses emplacements
- * et son planning se gèrent sur la fiche de chaque food truck, qui le publie ensuite.
+ * et son planning se gèrent sur la fiche de chaque food truck, qui l'envoie en validation (première publication,
+ * examinée par LocalLife) puis le publie. Sans accès pro, la liste reste visible pour archiver.
  */
 export default function MyFoodTrucksScreen() {
   const router = useRouter();
@@ -28,6 +30,8 @@ export default function MyFoodTrucksScreen() {
   const [profile, setProfile] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Sans accès pro (ancien compte Pro), les food trucks restent consultables et archivables, rien de plus.
+  const accessEnded = useProAccessEnded();
 
   const load = useCallback(() => {
     const controller = new AbortController();
@@ -73,7 +77,14 @@ export default function MyFoodTrucksScreen() {
               trouver ; seuls les emplacements publiés et valables le jour même apparaissent sur la carte.
             </ThemedText>
 
-            {creating ? (
+            {accessEnded && (
+              <Notice tone="warning">
+                Votre accès professionnel a pris fin : vous pouvez consulter et archiver vos food trucks. Pour les
+                modifier ou les publier à nouveau, reprenez l’offre Pro.
+              </Notice>
+            )}
+
+            {accessEnded ? null : creating ? (
               <Card style={styles.form}>
                 <ThemedText type="heading">Créer un food truck</ThemedText>
                 <TextField label="Nom commercial" value={profile.name} onChangeText={(v) => setProfile({ ...profile, name: v })} maxLength={255} />
@@ -118,11 +129,14 @@ export default function MyFoodTrucksScreen() {
               <Card key={truck.id} style={styles.card}>
                 <ThemedText type="heading">🚚 {truck.name}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {TRUCK_STATUS_LABELS[truck.status]} · {truck.category}
+                  {truckStatusLabel(truck)} · {truck.category}
                   {truck.suspendedByLocalLife ? ' · suspendu par LocalLife' : ''}
                 </ThemedText>
+                {truck.status === 'REJECTED' && truck.reviewReason ? (
+                  <ThemedText type="small">Motif du refus : {truck.reviewReason}</ThemedText>
+                ) : null}
                 <Button
-                  label="Gérer le profil et les emplacements"
+                  label={accessEnded ? 'Voir le food truck' : 'Gérer le profil et les emplacements'}
                   variant="secondary"
                   onPress={() => router.push({ pathname: '/pro/foodtrucks/[id]', params: { id: String(truck.id) } })}
                 />

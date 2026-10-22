@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PlaceList from "./PlaceList";
 import type { Place } from "./types";
@@ -53,5 +54,17 @@ describe("PlaceList", () => {
     it("l'indique quand la zone n'a aucun lieu", () => {
         render(<PlaceList onSelectActivity={vi.fn()} places={[]} />);
         expect(screen.getByText("Aucun lieu publié dans cette zone.")).toBeInTheDocument();
+    });
+
+    it("ne propose « Demander la gestion de ce lieu » qu'avec un accès professionnel", async () => {
+        vi.stubGlobal("fetch", vi.fn(async () => new Response("[]")));
+        const { unmount } = render(<MemoryRouter><PlaceList onSelectActivity={vi.fn()} places={PLACES} /></MemoryRouter>);
+        await userEvent.click(screen.getByRole("button", { name: /Palais des Papes/ }));
+        expect(screen.queryByRole("link", { name: "Demander la gestion de ce lieu" })).not.toBeInTheDocument();
+        unmount();
+
+        render(<MemoryRouter><PlaceList hasProAccess onSelectActivity={vi.fn()} places={PLACES} /></MemoryRouter>);
+        await userEvent.click(screen.getByRole("button", { name: /Palais des Papes/ }));
+        expect(screen.getByRole("link", { name: "Demander la gestion de ce lieu" })).toHaveAttribute("href", "/pro?claim=1");
     });
 });

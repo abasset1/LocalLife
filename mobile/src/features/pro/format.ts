@@ -1,6 +1,9 @@
 import type {
   ClaimStatus,
+  ManagedPlace,
+  OwnedFoodTruck,
   OwnerAction,
+  PlaceChangeStatus,
   Plan,
   PresenceStatus,
   ProPlaceStatus,
@@ -35,9 +38,16 @@ export const PLACE_STATUS_LABELS: Record<ProPlaceStatus, string> = {
   ARCHIVED: 'Archivé',
 };
 
+export const PLACE_CHANGE_STATUS_LABELS: Record<PlaceChangeStatus, string> = {
+  PENDING: 'En attente de validation',
+  APPROVED: 'Validée',
+  REJECTED: 'Refusée',
+  WITHDRAWN: 'Retirée',
+};
+
 export const TRUCK_STATUS_LABELS: Record<TruckStatus, string> = {
   DRAFT: 'Brouillon',
-  PENDING: 'En attente',
+  PENDING: 'En validation',
   PUBLISHED: 'Publié',
   SUSPENDED: 'Suspendu',
   ARCHIVED: 'Archivé',
@@ -70,20 +80,46 @@ export function isClaimWithdrawable(status: ClaimStatus): boolean {
   return status === 'DRAFT' || status === 'SUBMITTED' || status === 'INFO_REQUESTED';
 }
 
-/** Actions possibles du propriétaire sur un food truck (une suspension par LocalLife bloque la publication). */
-export function truckActions(status: TruckStatus, suspendedByLocalLife: boolean): OwnerAction[] {
+type TruckState = Pick<OwnedFoodTruck, 'status' | 'suspendedByLocalLife' | 'approved' | 'suspendedForAccess'>;
+
+/** Statut affiché d'un food truck : un food truck masqué faute d'accès pro le dit plutôt que « Suspendu ». */
+export function truckStatusLabel(truck: Pick<OwnedFoodTruck, 'status' | 'suspendedForAccess'>): string {
+  if (truck.status === 'SUSPENDED' && truck.suspendedForAccess) return 'Masqué : votre accès professionnel a pris fin';
+  return TRUCK_STATUS_LABELS[truck.status];
+}
+
+/**
+ * Actions possibles du propriétaire sur un food truck. Jamais validé, « publier » l'envoie en validation (brouillon
+ * ou refusé → en validation) ; « suspendre » une demande en validation la retire (retour en brouillon). Une
+ * suspension par LocalLife bloque la publication ; un food truck masqué faute d'accès pro revient tout seul.
+ */
+export function truckActions(truck: TruckState): OwnerAction[] {
+  const { status, suspendedByLocalLife, approved, suspendedForAccess } = truck;
   if (status === 'ARCHIVED') return [];
   const actions: OwnerAction[] = [];
-  if ((status === 'DRAFT' || status === 'SUSPENDED') && !suspendedByLocalLife) actions.push('publish');
-  if (status === 'PUBLISHED') actions.push('suspend');
+  const publishable = approved ? status === 'DRAFT' || status === 'SUSPENDED' : status === 'DRAFT' || status === 'REJECTED';
+  if (publishable && !suspendedByLocalLife && !suspendedForAccess) actions.push('publish');
+  if (status === 'PUBLISHED' || status === 'PENDING') actions.push('suspend');
   actions.push('archive');
   return actions;
+}
+
+/** Libellé d'une action sur un food truck, selon qu'il a déjà été validé ou attend sa validation. */
+export function truckActionLabel(action: OwnerAction, truck: Pick<OwnedFoodTruck, 'status' | 'approved'>): string {
+  if (action === 'publish') return truck.approved ? 'Publier' : 'Envoyer en validation';
+  if (action === 'suspend') return truck.status === 'PENDING' ? 'Retirer la demande' : 'Suspendre';
+  return 'Archiver';
 }
 
 /** Actions possibles sur un emplacement : publier (ou réactiver), désactiver, archiver. */
 export function presenceActions(status: PresenceStatus): OwnerAction[] {
   if (status === 'ARCHIVED') return [];
   return [status === 'PUBLISHED' ? 'suspend' : 'publish', 'archive'];
+}
+
+/** Lieux qu'un compte peut indiquer comme « Proposé par » d'une activité : ceux qu'il gère et qui sont publiés. */
+export function hostablePlaces(places: readonly ManagedPlace[]): ManagedPlace[] {
+  return places.filter((place) => place.status === 'PUBLISHED');
 }
 
 /** Heure saisie `H:MM` ou `HH:MM` → `HH:MM` ; vide → `null` ; invalide → `undefined`. */

@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { getPayload } from "../../auth/authStorage";
 import { APPROXIMATE_LOCATION_LABEL } from "../explorer/activityUtils";
 import type { Activity } from "../explorer/types";
 import PlaceActivities from "./PlaceActivities";
@@ -15,15 +14,15 @@ const NO_CITY = "Commune non renseignée";
  * filtrables par type et groupés par commune. Un lieu se déplie pour montrer son adresse, son site et ses activités
  * à venir ; un clic sur une activité ouvre son aperçu, comme depuis la carte.
  */
-function PlaceList({ places, onSelectActivity }: {
+function PlaceList({ places, onSelectActivity, hasProAccess = false }: {
     places: Place[];
     onSelectActivity: (activity: Activity) => void;
+    /** `hasProAccess` de `GET /api/v1/users/me` : affiche « Demander la gestion de ce lieu ». */
+    hasProAccess?: boolean;
 }) {
     const [type, setType] = useState("");
     const [openId, setOpenId] = useState<number | null>(null);
     // Espace professionnel (ADR-0012) : le lien n'est qu'un raccourci, le backend vérifie le droit professionnel.
-    const role = getPayload()?.role;
-    const isPro = role === "PRO" || role === "ADMIN";
 
     const typeOptions = useMemo(
         () => [...new Set(places.map((place) => place.placeType))]
@@ -93,7 +92,7 @@ function PlaceList({ places, onSelectActivity }: {
                                             {place.website && (
                                                 <a href={place.website} rel="noreferrer" target="_blank">Site du lieu</a>
                                             )}
-                                            {isPro && (
+                                            {hasProAccess && (
                                                 <Link to={`/pro?claim=${place.id}`}>Demander la gestion de ce lieu</Link>
                                             )}
                                             <PlaceFoodTrucks placeId={place.id} />

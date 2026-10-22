@@ -3698,3 +3698,36 @@ body {
     flex-wrap: wrap;
     gap: 0.5rem;
 }
+
+/* Espace pro, « Mes lieux » : actions sur plusieurs lignes, formulaire de modification sous le lieu. */
+.pro-places-item {
+    flex-wrap: wrap;
+}
+
+.pro-places-item .contributions-list-item-actions {
+    flex-wrap: wrap;
+}
+
+.pro-place-panel {
+    flex-basis: 100%;
+}
+
+/* Console d'administration : fiche actuelle et proposition côte à côte. */
+.admin-change-compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.admin-change-compare th,
+.admin-change-compare td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    vertical-align: top;
+}
+
+.admin-change-compare .admin-change-differs {
+    font-weight: 600;
+    color: #b45309;
+}

@@ -46,6 +46,43 @@ export interface ManagedPlace {
   email: string | null;
   origin: 'CREATED' | 'IMPORTED';
   editable: boolean;
+  /** Lieu publié, importé ou créé : on peut proposer une modification de sa fiche (`POST .../changes`). */
+  changeProposable: boolean;
+}
+
+export type PlaceChangeStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+
+/** Proposition de modification d'un lieu géré, examinée par LocalLife (`PlaceChangeResponse`). */
+export interface PlaceChange {
+  id: number;
+  placeId: number;
+  placeName: string;
+  status: PlaceChangeStatus;
+  address: string | null;
+  postalCode: string | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  description: string | null;
+  website: string | null;
+  phone: string | null;
+  email: string | null;
+  decisionReason: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+/** Nom et catégorie ne se modifient pas ; `city` obligatoire, adresse géocodée sans position. */
+export interface PlaceChangeInput {
+  address: string;
+  postalCode: string;
+  city: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  description: string;
+  website: string;
+  phone: string;
+  email: string;
 }
 
 export interface SimilarPlace {
@@ -88,6 +125,12 @@ export interface OwnedFoodTruck {
   contact: string | null;
   status: TruckStatus;
   suspendedByLocalLife: boolean;
+  /** Validé une fois par LocalLife : ensuite, « Publier » le publie directement (sinon il part en validation). */
+  approved: boolean;
+  /** Motif d'un refus (`REJECTED`), `null` sinon. */
+  reviewReason: string | null;
+  /** Masqué parce que l'accès professionnel a pris fin ; republié automatiquement s'il revient. */
+  suspendedForAccess: boolean;
 }
 
 export interface ProfileInput {
@@ -139,6 +182,10 @@ export function listMyPlaces(options: CallOptions = {}): Promise<ManagedPlace[]>
   return request<ManagedPlace[]>(`${PRO}/places`, { ...auth, signal: options.signal });
 }
 
+export function getMyPlace(id: number, options: CallOptions = {}): Promise<ManagedPlace> {
+  return request<ManagedPlace>(`${PRO}/places/${id}`, { ...auth, signal: options.signal });
+}
+
 export function submitPlace(id: number): Promise<ManagedPlace> {
   return request<ManagedPlace>(`${PRO}/places/${id}/submit`, { method: 'POST', ...auth });
 }
@@ -154,6 +201,25 @@ export function findSimilarPlaces(
 /** 409 avec `candidates` tant que les lieux proches ne sont pas écartés (`confirmNotDuplicate`). */
 export function createPlace(input: NewPlaceInput): Promise<ManagedPlace> {
   return request<ManagedPlace>(`${PRO}/places`, { method: 'POST', body: input, ...auth });
+}
+
+/** Remplace la proposition en attente du même compte sur ce lieu. */
+export function proposePlaceChange(placeId: number, input: PlaceChangeInput): Promise<PlaceChange> {
+  return request<PlaceChange>(`${PRO}/places/${placeId}/changes`, { method: 'POST', body: input, ...auth });
+}
+
+/** Propositions de modification du lieu, les plus récentes d'abord. */
+export function listPlaceChanges(placeId: number, options: CallOptions = {}): Promise<PlaceChange[]> {
+  return request<PlaceChange[]>(`${PRO}/places/${placeId}/changes`, { ...auth, signal: options.signal });
+}
+
+export function withdrawPlaceChange(changeId: number): Promise<PlaceChange> {
+  return request<PlaceChange>(`${PRO}/place-changes/${changeId}/withdraw`, { method: 'POST', ...auth });
+}
+
+/** Ne plus gérer ce lieu (204). */
+export function renouncePlace(placeId: number): Promise<null> {
+  return request<null>(`${PRO}/places/${placeId}/renounce`, { method: 'POST', ...auth });
 }
 
 export function listMyClaims(options: CallOptions = {}): Promise<Claim[]> {

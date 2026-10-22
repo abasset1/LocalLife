@@ -1,6 +1,18 @@
 import type { SubscriptionOverview } from '@/api';
 
-import { describeSubscription, normalizeDate, normalizeTime, presenceActions, truckActions } from '../format';
+import {
+  TRUCK_STATUS_LABELS,
+  describeSubscription,
+  hostablePlaces,
+  normalizeDate,
+  normalizeTime,
+  presenceActions,
+  truckActionLabel,
+  truckActions,
+  truckStatusLabel,
+} from '../format';
+
+const truck = { status: 'DRAFT' as const, suspendedByLocalLife: false, approved: true, suspendedForAccess: false };
 
 describe('espace professionnel : règles d’affichage', () => {
   it('normalise les heures saisies et refuse les heures impossibles', () => {
@@ -19,12 +31,45 @@ describe('espace professionnel : règles d’affichage', () => {
   });
 
   it('propose les seules actions permises sur un food truck et un emplacement', () => {
-    expect(truckActions('DRAFT', false)).toEqual(['publish', 'archive']);
-    expect(truckActions('PUBLISHED', false)).toEqual(['suspend', 'archive']);
-    expect(truckActions('SUSPENDED', true)).toEqual(['archive']);
-    expect(truckActions('ARCHIVED', false)).toEqual([]);
+    expect(truckActions(truck)).toEqual(['publish', 'archive']);
+    expect(truckActions({ ...truck, status: 'PUBLISHED' })).toEqual(['suspend', 'archive']);
+    expect(truckActions({ ...truck, status: 'SUSPENDED', suspendedByLocalLife: true })).toEqual(['archive']);
+    expect(truckActions({ ...truck, status: 'ARCHIVED' })).toEqual([]);
     expect(presenceActions('SUSPENDED')).toEqual(['publish', 'archive']);
     expect(presenceActions('PUBLISHED')).toEqual(['suspend', 'archive']);
+  });
+
+  it('envoie en validation un food truck jamais validé, retire la demande en attente', () => {
+    const fresh = { ...truck, approved: false };
+    expect(truckActions(fresh)).toEqual(['publish', 'archive']);
+    expect(truckActionLabel('publish', fresh)).toBe('Envoyer en validation');
+    expect(truckActionLabel('publish', truck)).toBe('Publier');
+    expect(truckActions({ ...fresh, status: 'PENDING' })).toEqual(['suspend', 'archive']);
+    expect(truckActionLabel('suspend', { ...fresh, status: 'PENDING' })).toBe('Retirer la demande');
+    expect(truckActionLabel('suspend', { ...truck, status: 'PUBLISHED' })).toBe('Suspendre');
+    expect(truckActions({ ...fresh, status: 'REJECTED' })).toEqual(['publish', 'archive']);
+    // Validé une fois : un refus n'est plus possible, la suspension se republie directement.
+    expect(truckActions({ ...truck, status: 'SUSPENDED' })).toEqual(['publish', 'archive']);
+    // Masqué faute d'accès pro : republié automatiquement au retour de l'accès, seul l'archivage reste.
+    expect(truckActions({ ...truck, status: 'SUSPENDED', suspendedForAccess: true })).toEqual(['archive']);
+  });
+
+  it('affiche les statuts de food truck, dont le masquage faute d’accès pro', () => {
+    expect(TRUCK_STATUS_LABELS.PENDING).toBe('En validation');
+    expect(TRUCK_STATUS_LABELS.REJECTED).toBe('Refusé');
+    expect(truckStatusLabel({ status: 'SUSPENDED', suspendedForAccess: false })).toBe('Suspendu');
+    expect(truckStatusLabel({ status: 'SUSPENDED', suspendedForAccess: true })).toBe(
+      'Masqué : votre accès professionnel a pris fin',
+    );
+  });
+
+  it('ne propose comme « Proposé par » que les lieux gérés publiés', () => {
+    const place = {
+      id: 1, name: 'Le Comptoir', placeType: 'Restaurant', status: 'PUBLISHED' as const, address: null,
+      postalCode: null, city: null, description: null, website: null, phone: null, email: null,
+      origin: 'IMPORTED' as const, editable: false, changeProposable: true,
+    };
+    expect(hostablePlaces([place, { ...place, id: 2, status: 'PENDING' }]).map((p) => p.id)).toEqual([1]);
   });
 
   it('explique l’offre et la date de fin d’accès', () => {

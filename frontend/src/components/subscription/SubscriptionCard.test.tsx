@@ -75,4 +75,22 @@ describe("SubscriptionCard", () => {
         expect(await screen.findByText(/Résilié : accès conservé jusqu'au/)).toBeInTheDocument();
         expect(screen.getByText("Ouvrir l'espace professionnel →")).toBeInTheDocument();
     });
+
+    it("affiche le refus du serveur quand on demande Premium pendant une offre Pro", async () => {
+        const user = userEvent.setup();
+        const pro = { id: 5, plan: "PRO", status: "ACTIVE", startedAt: "2026-10-01T00:00:00Z", accessEndsAt: null,
+            cancelAtPeriodEnd: false, decisionReason: null, requestedAt: "2026-10-01T00:00:00Z",
+            updatedAt: "2026-10-01T00:00:00Z" };
+        vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+            if (url.endsWith("/subscribe") && init?.method === "POST") {
+                return json({ message: "Ton offre Pro inclut déjà Premium : résilie-la d'abord." }, 409);
+            }
+            return json({ plan: "PRO", current: pro, pending: null, history: [pro] });
+        }));
+        render(<MemoryRouter><SubscriptionCard /></MemoryRouter>);
+
+        await user.click(await screen.findByRole("button", { name: "Passer à Premium" }));
+
+        expect(await screen.findByText("Ton offre Pro inclut déjà Premium : résilie-la d'abord.")).toBeInTheDocument();
+    });
 });

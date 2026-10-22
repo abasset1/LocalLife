@@ -9,7 +9,9 @@ import ActivityPreview from "./components/explorer/ActivityPreview";
 import { isInBounds, toLocalDateString } from "./components/explorer/activityUtils";
 import { DEFAULT_SEARCH_RADIUS_KM, NO_DATE_FILTER } from "./components/explorer/constants";
 import EmptyResultsHelp from "./components/explorer/EmptyResultsHelp";
-import ContributionModal, { EMPTY_RECURRENCE, type ContributionRecurrence } from "./components/explorer/ContributionModal";
+import ContributionModal, {
+    EMPTY_RECURRENCE, type ContributionRecurrence, type HostPlaceOption,
+} from "./components/explorer/ContributionModal";
 import ExplorerFilters from "./components/explorer/ExplorerFilters";
 import ExplorerMap from "./components/explorer/ExplorerMap";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
@@ -26,6 +28,9 @@ import OnboardingModal from "./components/onboarding/OnboardingModal";
 import FoodTruckList from "./components/foodtrucks/FoodTruckList";
 import PlaceList from "./components/places/PlaceList";
 import type { Place } from "./components/places/types";
+import { proRequest } from "./components/pro/proApi";
+import type { ManagedPlace } from "./components/pro/types";
+import { useProAccess } from "./components/pro/useProAccess";
 import type {
     Activity,
     ActivityDetail,
@@ -132,6 +137,12 @@ function App() {
     const [selectedDate, setSelectedDate] = useState(NO_DATE_FILTER);
     const [selectedDateTo, setSelectedDateTo] = useState(NO_DATE_FILTER);
     const [currentUser, setCurrentUser] = useState(() => getPayload());
+    /** Accès à l'espace professionnel (`hasProAccess` de `GET /api/v1/users/me`) : seul critère des entrées pro. */
+    const hasProAccess = useProAccess(currentUser !== null);
+    /** Lieu publié géré par l'auteur qui propose l'activité (`hostPlaceId`), `null` sinon. */
+    const [hostPlaceId, setHostPlaceId] = useState<number | null>(null);
+    /** Lieux publiés gérés par le professionnel, proposés comme lieu hôte dans le formulaire. */
+    const [hostPlaces, setHostPlaces] = useState<HostPlaceOption[]>([]);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     /** Formulaire de proposition : codes des catégories du référentiel cochées. */
@@ -753,6 +764,27 @@ function App() {
         setIsContributionModalOpen(true);
     }
 
+    // Lieux publiés gérés, chargés à l'ouverture du formulaire pour un compte avec accès pro (403 sinon : champ masqué).
+    useEffect(() => {
+        if (!isContributionModalOpen || !hasProAccess) {
+            setHostPlaces([]);
+            return;
+        }
+        let isCurrent = true;
+        void proRequest<ManagedPlace[]>("/api/v1/pro/places").then((result) => {
+            if (isCurrent) {
+                setHostPlaces(result.ok
+                    ? result.data
+                        .filter((place) => place.status === "PUBLISHED")
+                        .map((place) => ({ id: place.id, name: place.name }))
+                    : []);
+            }
+        });
+        return () => {
+            isCurrent = false;
+        };
+    }, [isContributionModalOpen, hasProAccess]);
+
     function handleCloseContributionForm() {
         setIsContributionModalOpen(false);
         setSubmitStatus("idle");
@@ -776,6 +808,7 @@ function App() {
         setUrl("");
         setPhone("");
         setEmail("");
+        setHostPlaceId(null);
     }
 
     /** Ouvre le formulaire pré-rempli avec une contribution existante (créateur ou administrateur). */
@@ -799,6 +832,7 @@ function App() {
             setUrl(contribution.url ?? "");
             setPhone(contribution.phone ?? "");
             setEmail(contribution.email ?? "");
+            setHostPlaceId(contribution.hostPlaceId ?? null);
             if (contribution.recurrence) {
                 setRecurrence({
                     enabled: true,
@@ -946,6 +980,8 @@ function App() {
                     url: url || undefined,
                     phone: phone || undefined,
                     email: email || undefined,
+                    // Lieu hôte (compte pro) : `null` retire le lieu d'une activité modifiée.
+                    hostPlaceId,
                 }),
             });
 
@@ -1133,6 +1169,7 @@ function App() {
         <div className="explorer-shell">
             <ExplorerMenu
                 currentUser={currentUser}
+                hasProAccess={hasProAccess}
                 isOpen={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}
                 onLogout={handleLogout}
@@ -1288,7 +1325,7 @@ function App() {
                         {activeLayer === "foodTrucks" ? (
                             <FoodTruckList foodTrucks={visibleFoodTrucks} />
                         ) : activeLayer === "places" ? (
-                            <PlaceList onSelectActivity={handleSelectActivity} places={places} />
+                            <PlaceList hasProAccess={hasProAccess} onSelectActivity={handleSelectActivity} places={places} />
                         ) : (
                         <ActivityList
                             activities={panelActivities}
@@ -1333,7 +1370,10 @@ function App() {
                     description={description}
                     email={email}
                     endDate={endDate}
+                    hostPlaceId={hostPlaceId}
+                    hostPlaces={hostPlaces}
                     onAddressChange={setAddress}
+                    onHostPlaceIdChange={setHostPlaceId}
                     onSelectedCategoryCodesChange={setContributionCategoryCodes}
                     selectedCategoryCodes={contributionCategoryCodes}
                     onClose={handleCloseContributionForm}

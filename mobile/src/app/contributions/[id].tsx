@@ -16,6 +16,7 @@ import {
   useActiveCategories,
 } from '@/features/contribution';
 import type { ContributionForm } from '@/features/contribution';
+import { useHostablePlaces, useProAccess } from '@/features/pro/useProAccess';
 import { useTheme } from '@/hooks/use-theme';
 
 function messageFor(error: unknown): string {
@@ -32,6 +33,8 @@ export default function EditContributionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useAuth();
   const { categories } = useActiveCategories();
+  // Lieux publiés gérés (accès pro) ; un lieu déjà choisi reste proposé même sans accès, pour le garder ou le retirer.
+  const hostPlaces = useHostablePlaces(useProAccess());
   const [form, setForm] = useState<ContributionForm | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -107,7 +110,7 @@ export default function EditContributionScreen() {
               visible sur la carte une fois validée par un modérateur.
             </ThemedText>
           )}
-          <ContributionFields form={form} categories={categories} onChange={setForm} />
+          <ContributionFields form={form} categories={categories} hostPlaces={hostPlaces} onChange={setForm} />
           {error && (
             <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
               Erreur : {error}

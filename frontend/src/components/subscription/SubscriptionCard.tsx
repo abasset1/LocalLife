@@ -10,7 +10,8 @@ const CHOICES: Exclude<Plan, "FREE">[] = ["PREMIUM", "PRO"];
 /**
  * « Mon abonnement » (BILLING-01, ADR-0014) : offre actuelle et date de fin d'accès, passage à Premium ou Pro,
  * résiliation. Pas de paiement branché pour l'instant : Premium est activé tout de suite ; Pro est une demande examinée
- * par l'équipe LocalLife (décision du 21/10/2026), que l'on peut retirer tant qu'elle est en attente.
+ * par l'équipe LocalLife (décision du 21/10/2026), que l'on peut retirer tant qu'elle est en attente. Pendant une offre
+ * Pro, passer à Premium est refusé (409, message du serveur affiché tel quel).
  */
 function SubscriptionCard() {
     const [overview, setOverview] = useState<SubscriptionOverview | null>(null);
@@ -98,7 +99,10 @@ function SubscriptionCard() {
                         onClick={() => {
                             if (window.confirm(current.accessEndsAt
                                 ? `Résilier ? Ton accès ${PLAN_LABELS[current.plan]} durera jusqu'au ${formatDay(current.accessEndsAt)}.`
-                                : `Résilier ? Ton accès ${PLAN_LABELS[current.plan]} s'arrêtera tout de suite.`)) {
+                                : current.plan === "PRO"
+                                    // Offre Pro sans échéance : l'accès dure jusqu'au 1er du mois suivant (22/10/2026).
+                                    ? "Résilier ? Ton accès Pro durera jusqu'à la fin du mois en cours."
+                                    : `Résilier ? Ton accès ${PLAN_LABELS[current.plan]} s'arrêtera tout de suite.`)) {
                                 void act("cancel", undefined, "Abonnement résilié.");
                             }
                         }}>

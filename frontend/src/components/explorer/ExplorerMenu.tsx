@@ -5,6 +5,8 @@ interface ExplorerMenuProps {
     isOpen: boolean;
     onClose: () => void;
     currentUser: ExplorerCurrentUser | null;
+    /** `hasProAccess` de `GET /api/v1/users/me` : affiche l'entrée « Espace professionnel ». */
+    hasProAccess?: boolean;
     onOpenContributionForm: () => void;
     onLogout: () => void;
 }
@@ -21,7 +23,9 @@ interface ExplorerMenuProps {
  * de la maquette du ticket ne correspondent à aucune page/route existante
  * et ne sont donc pas ajoutés ici (hors périmètre de ce ticket).
  */
-function ExplorerMenu({ isOpen, onClose, currentUser, onOpenContributionForm, onLogout }: ExplorerMenuProps) {
+function ExplorerMenu({
+    isOpen, onClose, currentUser, hasProAccess = false, onOpenContributionForm, onLogout,
+}: ExplorerMenuProps) {
     return (
         <>
             {/* Rétro-plan cliquable, mobile uniquement (voir styles.css) : ferme le tiroir. */}
@@ -78,10 +82,12 @@ function ExplorerMenu({ isOpen, onClose, currentUser, onOpenContributionForm, on
                             <Link className="explorer-menu-link" onClick={onClose} to="/profile">
                                 Mon profil
                             </Link>
-                            {/* Pour tous : un compte sans offre Pro y trouve comment la demander. */}
-                            <Link className="explorer-menu-link" onClick={onClose} to="/pro">
-                                Espace professionnel
-                            </Link>
+                            {/* Accès pro relu sur le serveur ; sans accès, l'offre Pro se demande depuis « Mon profil ». */}
+                            {hasProAccess && (
+                                <Link className="explorer-menu-link" onClick={onClose} to="/pro">
+                                    Espace professionnel
+                                </Link>
+                            )}
                             {currentUser.role === "ADMIN" && (
                                 <Link className="explorer-menu-link" onClick={onClose} to="/admin">
                                     Administration

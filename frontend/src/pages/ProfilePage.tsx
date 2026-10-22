@@ -7,6 +7,7 @@ import { USERNAME_MAX_LENGTH, useUsernameAvailability } from "../auth/useUsernam
 import UsernameStatusMessage from "../components/UsernameStatusMessage";
 import { DeleteAccountCard, PasswordCard } from "../components/profile/AccountSecurityCards";
 import ActivityAlertsSection from "../components/profile/ActivityAlertsSection";
+import { proRequest } from "../components/pro/proApi";
 import { Notice, ProfileCard } from "../components/profile/ProfileUi";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
 import SubscriptionCard from "../components/subscription/SubscriptionCard";
@@ -29,6 +30,8 @@ interface UserProfile {
     hasPassword: boolean;
     /** Droit de proposer ou modifier une activité (offre Premium ou Pro). */
     canContribute: boolean;
+    /** Accès à l'espace professionnel (offre Pro en cours ou rôle attribué) : seul indicateur à utiliser. */
+    hasProAccess: boolean;
 }
 
 interface ApiErrorBody {
@@ -111,6 +114,25 @@ function ProfilePage() {
         return () => abortController.abort();
     }, []);
 
+    // Accès pro terminé : le propriétaire de food trucks garde un lien pour les consulter et les archiver.
+    const [ownsFoodTrucks, setOwnsFoodTrucks] = useState(false);
+    const hasProAccess = profile?.hasProAccess;
+    useEffect(() => {
+        if (hasProAccess !== false) {
+            setOwnsFoodTrucks(false);
+            return;
+        }
+        let isCurrent = true;
+        void proRequest<unknown[]>("/api/v1/pro/foodtrucks").then((result) => {
+            if (isCurrent) {
+                setOwnsFoodTrucks(result.ok && result.data.length > 0);
+            }
+        });
+        return () => {
+            isCurrent = false;
+        };
+    }, [hasProAccess]);
+
     async function handleSubmit(event: FormEvent) {
         event.preventDefault();
         setSaveError(null);
@@ -187,9 +209,12 @@ function ProfilePage() {
                                         {profile.role === "ADMIN" ? "Administrateur"
                                             : profile.role === "PRO" ? "Professionnel" : "Utilisateur"}
                                     </span>
-                                    {/* Rôle relu en base : le lien apparaît dès l'attribution, sans reconnexion. */}
-                                    {(profile.role === "PRO" || profile.role === "ADMIN") && (
+                                    {/* Accès relu en base : le lien apparaît dès l'attribution, sans reconnexion. */}
+                                    {profile.hasProAccess && (
                                         <Link className="pp-hero-badge" to="/pro">Espace professionnel →</Link>
+                                    )}
+                                    {!profile.hasProAccess && ownsFoodTrucks && (
+                                        <Link className="pp-hero-badge" to="/pro?section=foodtruck">Mes food trucks →</Link>
                                     )}
                                     <span className="pp-hero-badge">Membre depuis {formatDate(profile.createdAt)}</span>
                                 </div>

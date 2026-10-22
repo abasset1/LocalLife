@@ -12,7 +12,15 @@ import {
   updateFoodTruck,
   updatePresence,
 } from '@/api';
-import type { ManagedPresence, OwnedFoodTruck, OwnerAction, PresenceInput, SimilarPlace, SpotKind } from '@/api';
+import type {
+  ManagedPresence,
+  OwnedFoodTruck,
+  OwnerAction,
+  PresenceInput,
+  SimilarPlace,
+  SpotKind,
+  TruckStatus,
+} from '@/api';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { Notice } from '@/components/notice';
@@ -23,17 +31,22 @@ import { SPOT_KIND_LABELS, describeSchedule } from '@/features/foodtruck/presenc
 import {
   DAY_OPTIONS,
   PRESENCE_STATUS_LABELS,
-  TRUCK_STATUS_LABELS,
   formatDay,
   normalizeDate,
   normalizeTime,
   presenceActions,
+  truckActionLabel,
   truckActions,
+  truckStatusLabel,
 } from '@/features/pro/format';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
+import { useProAccessEnded } from '@/features/pro/useProAccess';
 import { ChipGroup } from '@/features/settings';
 
-const ACTION_LABELS: Record<OwnerAction, string> = { publish: 'Publier', suspend: 'Suspendre', archive: 'Archiver' };
+const ACTION_SUCCESS: Partial<Record<TruckStatus, string>> = {
+  PENDING: 'Envoyé en validation : LocalLife va vérifier votre food truck avant de le publier.',
+  PUBLISHED: 'Food truck publié.',
+};
 const KIND_OPTIONS = (Object.keys(SPOT_KIND_LABELS) as SpotKind[]).map((value) => ({
   value,
   label: value === 'OTHER' ? 'Autre' : SPOT_KIND_LABELS[value],
@@ -56,8 +69,8 @@ const EMPTY_FORM = {
 };
 
 /**
- * Un food truck de l'espace professionnel (PRO-01 lot C, FOODTRUCK-01), comme sur le site : profil (publier,
- * suspendre, archiver), puis emplacements et planning — un lieu LocalLife existant ou une adresse, un type, des
+ * Un food truck de l'espace professionnel (PRO-01 lot C, FOODTRUCK-01), comme sur le site : profil (envoyer en
+ * validation tant que LocalLife ne l'a jamais validé, puis publier ; suspendre ou retirer la demande ; archiver), puis emplacements et planning — un lieu LocalLife existant ou une adresse, un type, des
  * jours, des horaires et une période. Brouillon d'abord, publication ensuite. Le backend refuse les chevauchements.
  */
 export default function MyFoodTruckScreen() {
@@ -76,6 +89,9 @@ export default function MyFoodTruckScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  // Sans accès pro (ancien compte Pro) : consultation et archivage seulement, le backend refuse le reste (403).
+  const accessEnded = useProAccessEnded();
+  const readOnly = accessEnded || truck?.suspendedForAccess === true;
 
   const load = useCallback(async () => {
     try {
@@ -97,12 +113,13 @@ export default function MyFoodTruckScreen() {
     }, [load]),
   );
 
-  async function run(action: () => Promise<unknown>, success: string | null) {
+  /** Exécute une action puis recharge ; message de succès fixe, ou renvoyé par l'action quand il en dépend. */
+  async function run(action: () => Promise<unknown>, success?: string | null) {
     setBusy(true);
     setError(null);
     try {
-      await action();
-      setInfo(success);
+      const result = await action();
+      setInfo(success !== undefined ? success : typeof result === 'string' ? result : null);
       await load();
       return true;
     } catch (e) {
@@ -115,7 +132,15 @@ export default function MyFoodTruckScreen() {
 
   function actOnTruck(action: OwnerAction) {
     if (!truck) return;
-    const go = () => void run(() => foodTruckAction(truck.id, action), null);
+    const wasPending = truck.status === 'PENDING';
+    const go = () =>
+      void run(async () => {
+        const updated = await foodTruckAction(truck.id, action);
+        // Le statut obtenu dit seul si le food truck est publié ou parti en validation.
+        if (action === 'publish') return ACTION_SUCCESS[updated.status] ?? null;
+        if (action === 'suspend' && wasPending) return 'Demande retirée : votre food truck est revenu en brouillon.';
+        return null;
+      });
     if (action === 'archive') {
       Alert.alert('Archiver ?', `« ${truck.name} » ne pourra plus être republié.`, [
         { text: 'Annuler', style: 'cancel' },
@@ -210,9 +235,33 @@ export default function MyFoodTruckScreen() {
                   🚚 {truck.name}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {TRUCK_STATUS_LABELS[truck.status]} · {truck.category}
+                  {truckStatusLabel(truck)} · {truck.category}
                   {truck.suspendedByLocalLife ? ' · suspendu par LocalLife' : ''}
                 </ThemedText>
+                {truck.status === 'PENDING' && (
+                  <Notice tone="info">
+                    En validation : LocalLife vérifie votre food truck avant sa première publication. Vous pouvez retirer la
+                    demande tant qu’elle n’est pas examinée.
+                  </Notice>
+                )}
+                {truck.status === 'REJECTED' && (
+                  <Notice tone="danger">
+                    {truck.reviewReason ? `Refusé : ${truck.reviewReason}` : 'Refusé par LocalLife.'} Corrigez le profil,
+                    puis renvoyez-le en validation.
+                  </Notice>
+                )}
+                {accessEnded && !truck.suspendedForAccess && (
+                  <Notice tone="warning">
+                    Votre accès professionnel a pris fin : vous pouvez consulter et archiver ce food truck, plus le
+                    modifier ni le publier.
+                  </Notice>
+                )}
+                {truck.suspendedForAccess && (
+                  <Notice tone="warning">
+                    Masqué : votre accès professionnel a pris fin. Votre food truck sera republié automatiquement si votre
+                    accès revient ; vous pouvez aussi l’archiver.
+                  </Notice>
+                )}
                 {editingProfile ? (
                   <>
                     <TextField label="Nom commercial" value={profile.name} onChangeText={(v) => setProfile({ ...profile, name: v })} />
@@ -243,7 +292,7 @@ export default function MyFoodTruckScreen() {
                 ) : (
                   <>
                     {truck.description ? <ThemedText>{truck.description}</ThemedText> : null}
-                    {truck.status !== 'ARCHIVED' && (
+                    {truck.status !== 'ARCHIVED' && !readOnly && (
                       <Button
                         label="Modifier le profil"
                         variant="secondary"
@@ -258,10 +307,12 @@ export default function MyFoodTruckScreen() {
                         }}
                       />
                     )}
-                    {truckActions(truck.status, truck.suspendedByLocalLife).map((action) => (
+                    {truckActions(truck)
+                      .filter((action) => !readOnly || action === 'archive')
+                      .map((action) => (
                       <Button
                         key={action}
-                        label={ACTION_LABELS[action]}
+                        label={truckActionLabel(action, truck)}
                         variant={action === 'archive' ? 'danger' : action === 'publish' ? 'primary' : 'secondary'}
                         loading={busy}
                         onPress={() => actOnTruck(action)}
@@ -288,10 +339,12 @@ export default function MyFoodTruckScreen() {
                   {presence.validFrom ? ` · à partir du ${formatDay(presence.validFrom)}` : ''}
                   {presence.validUntil ? ` · jusqu’au ${formatDay(presence.validUntil)}` : ''}
                 </ThemedText>
-                {presence.status !== 'ARCHIVED' && (
+                {presence.status !== 'ARCHIVED' && !readOnly && (
                   <Button label="Modifier" variant="secondary" onPress={() => startPresence(presence)} />
                 )}
-                {presenceActions(presence.status).map((action) => (
+                {presenceActions(presence.status)
+                  .filter((action) => !readOnly || action === 'archive')
+                  .map((action) => (
                   <Button
                     key={action}
                     label={action === 'publish' ? (presence.status === 'SUSPENDED' ? 'Réactiver' : 'Publier')
@@ -409,7 +462,9 @@ export default function MyFoodTruckScreen() {
                 <Button label="Annuler" variant="ghost" onPress={() => setEditing(null)} />
               </Card>
             ) : (
-              truck?.status !== 'ARCHIVED' && <Button label="Ajouter un emplacement" onPress={() => startPresence('new')} />
+              truck &&
+              truck.status !== 'ARCHIVED' &&
+              !readOnly && <Button label="Ajouter un emplacement" onPress={() => startPresence('new')} />
             )}
 
             {info && <Notice tone="success">{info}</Notice>}
