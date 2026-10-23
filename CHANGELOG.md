@@ -2,8 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Import : doublons d'une même source
+- Une source qui publie plusieurs fois le même événement (même titre, mêmes horaires, même lieu, identifiants différents) n'en fait plus apparaître qu'un : les autres copies sont écartées et, déjà publiées, archivées au prochain import. Des créneaux ou des lieux différents sous un même titre restent distincts. L'activité conservée est la plus ancienne déjà publiée. Mesuré sur la bêta : jusqu'à 42 copies d'un même atelier. Détail : `docs/02_Architecture/COLLECTOR_OPERATIONS.md`, « Déduplication dans une même source ».
+
 ### Contrôle de la base bêta
 - `infra/verification/controle_beta.sql` : contrôle général en lecture seule (migrations Flyway, sources et dernières collectes, anomalies et doublons exacts d'activités, lieux, comptes par rôle et statut sans donnée personnelle, RGPD, journal d'administration, volumétrie). Les sections liées aux migrations récentes ne s'exécutent que si elles sont appliquées. Testé sur des bases locales migrées jusqu'à V62 et V74.
+- `infra/verification/doublons_detail.sql` : nature des doublons exacts (même source, même titre, même jour) — clés d'import, horaires, lieux et URL distincts, dates de création — pour distinguer des créneaux différents d'un même événement importé plusieurs fois.
+- Premier passage sur la bêta (22/10/2026) : base à jour (V74), aucune anomalie sur les activités publiées ; doublons exacts nombreux sur deux sources, à qualifier ; 4 721 sources, d'où un résumé des sections 2a et 2b.
 
 ### RGPD : mesures techniques (22/10/2026)
 - **Consentement à l'inscription** : case « J'ai au moins 15 ans et j'accepte les conditions d'utilisation et la politique de confidentialité », obligatoire (aussi pour un compte créé avec Google), enregistrée avec sa date et la version des textes.

@@ -343,6 +343,36 @@ de début. Il est compté dans `ImportResult.duplicates`.
   tenté. Deux saisies distinctes du même événement, avec des slugs
   différents, ne sont pas rapprochées (4 cas sur 29 le 09/10/2026).
 
+### Déduplication dans une même source
+
+Une source peut aussi publier plusieurs fois le même événement sous des
+identifiants différents. Mesure sur la bêta le 22/10/2026
+(`infra/verification/doublons_detail.sql`) : « Atelier d'aide à la
+réparation – Nogent-sur-Oise » publié 42 fois par l'agenda VélOOise,
+42 slugs et 42 URL différents, mêmes horaires, même lieu.
+
+Avant le traitement des éléments, ceux d'une même collecte sont regroupés
+par signature (`SameSourceDuplicates`) : titre (casse et espaces ignorés),
+**tous** les créneaux (début et fin) et lieu (position, adresse et
+commune). Un élément sans titre, sans créneau ou sans lieu n'est jamais
+rapproché. Des créneaux ou des lieux différents sous un même titre
+(« Atelier senior 360 » dans 13 villes le même jour) restent des
+événements distincts.
+
+* Un seul élément par groupe est importé : celui qui a l'activité publiée
+  la plus ancienne dans la source (plus petit id), sinon celui de plus
+  petite clé d'import. Le choix est stable d'un import à l'autre et
+  l'activité déjà visible le reste.
+* Les autres sont comptés dans `ImportResult.duplicates`. Leur activité,
+  si elle est publiée, est archivée, y compris inchangée (la règle passe
+  avant l'import incrémental) ; une activité dans un autre statut
+  (annulée par un administrateur…) n'est pas modifiée. Cet archivage ne
+  passe pas par le garde-fou d'archivage massif : il ne dépend pas d'une
+  disparition, la source publie toujours l'événement.
+* Si l'élément conservé disparaît de la source, un doublon restant
+  devient le conservé et son activité archivée est republiée au prochain
+  import.
+
 ## Stratégie de suppression : suppression douce
 
 Une activité déjà importée pour une source, mais absente de la

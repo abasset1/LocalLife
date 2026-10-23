@@ -33,6 +33,7 @@ import com.locallife.backend.tag.application.ActivityTagService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -188,6 +189,18 @@ import org.springframework.stereotype.Service;
  * retiré de son agenda), la source suivante qui le contient encore le
  * (re)publie à son prochain import. Les doublons déjà en base sont
  * résorbés de la même façon : le plus récent des deux est archivé.
+ *
+ * <b>Déduplication dans une même source</b> : une source peut publier
+ * plusieurs fois le même événement sous des identifiants différents (même
+ * titre, mêmes horaires, même lieu, voir {@link SameSourceDuplicates}).
+ * Un seul est importé : celui qui a déjà l'activité publiée la plus
+ * ancienne ici, sinon celui de plus petite clé d'import (choix stable d'un
+ * import à l'autre). Les autres sont comptés dans
+ * {@code ImportResult.duplicates} et leur activité publiée, s'ils en ont
+ * une, est archivée ; une activité dans un autre statut (annulée par un
+ * administrateur, par exemple) n'est pas modifiée. Si l'élément conservé
+ * disparaît de la source, un doublon restant devient le conservé et son
+ * activité est republiée au prochain import.
  *
  * <b>Catégories par défaut de la source</b> : un élément que ni ses
  * mots-clés source ni son titre ne classent reçoit les catégories par
@@ -422,11 +435,20 @@ public class ImportService {
         // Lu une fois par source : sert à ne pas re-décider un élément en quarantaine inchangé. Les
         // catégories par défaut en font partie : en régler une re-décide toute la quarantaine de la source.
         String referentialVersion = classificationService.referentialVersion() + "|défaut:" + defaultCategoryIds;
+        Set<String> sameSourceDuplicateKeys = sameSourceDuplicateKeys(source, collected);
 
         for (CollectedActivity item : collected) {
             try {
                 String key = deduplicationService.computeDeduplicationKey(item);
                 seenKeys.add(key);
+
+                // Déduplication dans la source (voir la javadoc de la classe) : avant l'import incrémental,
+                // pour qu'une activité publiée inchangée qui doublonne soit elle aussi archivée.
+                if (sameSourceDuplicateKeys.contains(key)) {
+                    duplicates++;
+                    archiveIfPublished(activityRepository.findBySourceIdAndImportKey(source.id(), key));
+                    continue;
+                }
 
                 Optional<Activity> normalized = normalizationService.normalize(item);
                 if (normalized.isEmpty()) {
@@ -692,6 +714,47 @@ public class ImportService {
         }
         return importFingerprintService.existsLiveDuplicateInAnotherSource(
                 source.id(), item.externalId(), normalized.title(), normalized.startDate());
+    }
+
+    /**
+     * Clés des éléments collectés à ne pas importer parce qu'ils doublonnent un autre élément de la même
+     * collecte. Dans chaque groupe, l'élément conservé est celui dont l'activité publiée ici est la plus
+     * ancienne (plus petit id), sinon celui de plus petite clé : ainsi l'activité déjà visible le reste.
+     */
+    private Set<String> sameSourceDuplicateKeys(Source source, List<CollectedActivity> collected) {
+        Set<String> duplicateKeys = new HashSet<>();
+        // Un élément dont la clé ne se calcule pas est écarté du regroupement ; la boucle d'import le
+        // compte en erreur comme avant.
+        List<List<String>> groups = SameSourceDuplicates.groups(collected, item -> {
+            try {
+                return deduplicationService.computeDeduplicationKey(item);
+            } catch (RuntimeException exception) {
+                return null;
+            }
+        });
+        for (List<String> keys : groups) {
+            String kept = keys.stream()
+                    .min(Comparator.comparing((String key) -> publishedActivityId(source, key))
+                            .thenComparing(Comparator.naturalOrder()))
+                    .orElseThrow();
+            keys.stream().filter(key -> !key.equals(kept)).forEach(duplicateKeys::add);
+        }
+        return duplicateKeys;
+    }
+
+    /** Id de l'activité publiée de cette clé, {@link Long#MAX_VALUE} si elle n'en a pas (tri du conservé). */
+    private long publishedActivityId(Source source, String key) {
+        return activityRepository.findBySourceIdAndImportKey(source.id(), key)
+                .filter(activity -> PUBLISHED_STATUS.equals(activity.status()))
+                .map(Activity::id)
+                .orElse(Long.MAX_VALUE);
+    }
+
+    /** Archive l'activité d'un doublon si elle est publiée ; tout autre statut (modération) est conservé. */
+    private void archiveIfPublished(Optional<Activity> activity) {
+        if (activity.isPresent() && PUBLISHED_STATUS.equals(activity.get().status())) {
+            activityRepository.save(withStatus(activity.get(), ARCHIVED_STATUS));
+        }
     }
 
     /**
