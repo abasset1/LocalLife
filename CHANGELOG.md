@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Classification : le titre en dernier recours
+- Un événement dont la source fournit des mots-clés, mais aucun reconnu (« gratuit », « nantes », nom d'organisateur…), n'est plus mis en quarantaine d'office : son titre est essayé, comme pour un événement sans mot-clé. Des mots-clés source reconnus gardent la priorité. Mesuré sur la bêta : environ 3 500 événements en quarantaine classés par leur titre, surtout en Culture. Toute la quarantaine est re-décidée au prochain import.
+- `infra/verification/categories_defaut_agendas.sql` (catégories par défaut de 8 agendas thématiques, à blanc par défaut) et `infra/verification/quarantaine_titre.sql` (estimation rapide de ce que le titre classerait).
+
 ### Administration : recherche d'agendas
 - L'onglet Agendas a une barre de recherche (plusieurs milliers d'agendas) : nom, sans tenir compte des majuscules ni des accents, identifiant exact ou uid OpenAgenda. Le nombre d'agendas trouvés s'affiche.
 - `infra/verification/quarantaine_mesure.sql` : mesure en lecture seule de la quarantaine de classification (stock par cas, sources les plus concernées, mots-clés source non reconnus, estimation de ce que le titre permettrait de classer).

@@ -298,13 +298,50 @@ class ClassificationServiceTest {
     }
 
     @Test
-    void unrecognisedSourceKeywordsDoNotFallBackToTheTitle() {
+    void unrecognisedSourceKeywordsFallBackToTheTitle() {
         givenDefaultReferential();
 
-        ClassificationOutcome outcome = service.decide("Grand marché de Noël", "zzz-inconnu", List.of());
+        // « gratuit », « nantes » : public et lieu, pas des catégories ; le titre, lui, en donne une.
+        ClassificationOutcome outcome =
+                service.decide("Grand marché de Noël", "gratuit", List.of("nantes"));
+
+        assertTrue(outcome.classified());
+        assertEquals(List.of(1L), outcome.categoryIds());
+        assertEquals(TitleKeywordClassifier.SOURCE, outcome.decision().source());
+        assertEquals(List.of("marché"), outcome.decision().matchedKeywords());
+    }
+
+    @Test
+    void unrecognisedSourceKeywordsStayInReview_WhenTheTitleDoesNotClassifyEither() {
+        givenDefaultReferential();
+
+        ClassificationOutcome outcome = service.decide("Rencontre du jeudi", "zzz-inconnu", List.of());
 
         assertEquals(ClassificationStatus.NEEDS_REVIEW, outcome.decision().status());
+        assertEquals(ActivityClassifier.UNRECOGNIZED, outcome.decision().reason());
         assertEquals(List.of(), outcome.decision().categoryCodes());
+    }
+
+    @Test
+    void titleFallbackAfterUnrecognisedSourceKeywordsIgnoresSourceScopeKeywords() {
+        givenDefaultReferential();
+
+        // « formation » est de portée SOURCE : jamais lu dans un titre, même en repli.
+        ClassificationOutcome outcome = service.decide("Formation aux premiers secours", "gratuit", List.of());
+
+        assertEquals(ClassificationStatus.NEEDS_REVIEW, outcome.decision().status());
+    }
+
+    @Test
+    void referentialVersionIncludesTheDecisionRules() {
+        // Référentiel vide : l'état haché se réduit à la version des règles (suivie d'un saut de ligne),
+        // dont la longueur termine la version. Changer les règles change donc la version, et l'import
+        // re-décide toute la quarantaine.
+        when(keywordRepository.findByActiveTrueOrderByIdAsc()).thenReturn(List.of());
+        when(categoryRepository.findAll()).thenReturn(List.of());
+
+        assertTrue(service.referentialVersion()
+                .endsWith("-" + (ClassificationService.DECISION_RULES_VERSION.length() + 1)));
     }
 
     @Test

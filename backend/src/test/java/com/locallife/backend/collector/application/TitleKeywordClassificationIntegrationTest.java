@@ -185,12 +185,28 @@ class TitleKeywordClassificationIntegrationTest {
     }
 
     @Test
-    void unrecognisedSourceKeywords_ShouldNotFallBackToTheTitle() {
+    void unrecognisedSourceKeywords_ShouldFallBackToTheTitle() {
         String sourceName = "Test Source " + UUID.randomUUID();
         Long sourceId = createSource(sourceName);
 
         ImportResult result = importOne(sourceName,
                 item(sourceName, "Grand marché de Noël", "zzz-inconnu", List.of()));
+
+        assertThat(result.created()).isEqualTo(1);
+        Activity activity = singleActivity(sourceId);
+        assertThat(categoryIds(activity.id())).containsExactly(categoryId("MARKETS"));
+        ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
+        assertThat(record.classificationSource()).isEqualTo("TITLE_KEYWORD");
+        assertThat(record.matchedKeywords()).isEqualTo("marché");
+    }
+
+    @Test
+    void unrecognisedSourceKeywords_ShouldStayInReview_WhenTheTitleDoesNotClassifyEither() {
+        String sourceName = "Test Source " + UUID.randomUUID();
+        Long sourceId = createSource(sourceName);
+
+        ImportResult result = importOne(sourceName,
+                item(sourceName, "Rendez-vous du jeudi", "zzz-inconnu", List.of()));
 
         assertThat(result.created()).isZero();
         assertThat(result.needsReview()).isEqualTo(1);

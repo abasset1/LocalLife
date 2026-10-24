@@ -28,10 +28,10 @@ import org.springframework.stereotype.Service;
  * écarté, et si aucun code n'est résolu le résultat est {@code NEEDS_REVIEW},
  * jamais une catégorie créée à la volée.
  *
- * <p><b>Fallback titre</b> ({@link #decide(String, String, List)}) : uniquement si la source ne fournit
- * aucun keyword (ni catégorie d'origine, ni tag non blanc) ; les mots-clés viennent de
- * {@code category_keyword}. Si la source fournit des keywords, la logique est strictement celle de
- * {@link #decide(String, List)} : le titre n'est pas lu.
+ * <p><b>Fallback titre</b> ({@link #decide(String, String, List)}) : si la source ne fournit aucun keyword
+ * (ni catégorie d'origine, ni tag non blanc), ou si aucun de ses keywords n'est reconnu ; les mots-clés
+ * viennent de {@code category_keyword}. Des keywords source reconnus décident seuls, exactement comme
+ * {@link #decide(String, List)} : le titre n'est alors pas lu.
  *
  * <p><b>1..N catégories</b> (issue #45) : toutes les catégories détectées sont conservées, sans
  * principale ni secondaire, sans score ni arbitrage ; plusieurs catégories ne sont jamais un conflit.
@@ -51,6 +51,13 @@ public class ClassificationService {
      * des catégories par défaut de la source (voir {@link #sourceDefault}), pas d'un mot-clé.
      */
     public static final String SOURCE_DEFAULT = "SOURCE_DEFAULT";
+
+    /**
+     * Version des règles de décision, incluse dans {@link #referentialVersion()} : la changer quand une règle
+     * de {@link #decide(String, String, List)} change, pour que l'import re-décide toute la quarantaine au
+     * passage suivant (sinon un élément inchangé y resterait avec l'ancienne décision).
+     */
+    static final String DECISION_RULES_VERSION = "regles-2:titre-apres-keywords-source-non-reconnus";
 
     private final CategoryRepository categoryRepository;
     private final ClassificationRecordRepository recordRepository;
@@ -134,27 +141,42 @@ public class ClassificationService {
 
     /**
      * Décide en tenant compte du fallback titre, sans rien persister. Les keywords source (catégorie
-     * d'origine ou tag non blanc) ont toujours priorité : s'il y en a, le résultat est exactement celui de
-     * {@link #decide(String, List)}. Sinon, le titre est comparé aux mots-clés actifs de
-     * {@code category_keyword} de portée {@code ALL} (les mots-clés {@code SOURCE}, trop ambigus dans un
-     * titre libre, sont exclus).
+     * d'origine ou tag non blanc) ont toujours priorité : s'ils donnent au moins une catégorie, le résultat
+     * est exactement celui de {@link #decide(String, List)}. Sinon (aucun keyword source, ou aucun reconnu),
+     * le titre est comparé aux mots-clés actifs de {@code category_keyword} de portée {@code ALL} (les
+     * mots-clés {@code SOURCE}, trop ambigus dans un titre libre, sont exclus). Si le titre ne classe rien
+     * non plus, des keywords source non reconnus restent {@code NEEDS_REVIEW} ({@code UNRECOGNIZED}).
+     *
+     * <p>Mesure à l'origine du repli après des keywords non reconnus (bêta, 24/10/2026) : 14 559 éléments
+     * en quarantaine pour cette raison, souvent des étiquettes de public, de lieu ou d'organisateur
+     * (« gratuit », « nantes », « CLAVIM ») ; le titre en classait environ 3 500.
      */
     public ClassificationOutcome decide(String title, String sourceCategory, List<String> sourceTags) {
         if (hasSourceKeywords(sourceCategory, sourceTags)) {
-            return decide(sourceCategory, sourceTags);
+            ClassificationOutcome bySource = decide(sourceCategory, sourceTags);
+            if (bySource.classified()) {
+                return bySource;
+            }
+            ClassificationOutcome byTitle = decideByTitle(title);
+            return byTitle.classified() ? byTitle : bySource;
         }
+        return decideByTitle(title);
+    }
+
+    private ClassificationOutcome decideByTitle(String title) {
         List<KeywordEntry> entries = title == null || title.isBlank() ? List.of() : loadKeywordEntries(false);
         return resolve(TitleKeywordClassifier.classify(title, entries));
     }
 
     /**
-     * Version du référentiel de classification : change dès qu'un mot-clé actif (texte, catégorie, portée)
-     * ou l'état d'une catégorie change. Tant qu'elle est identique, {@link #decide(String, String, List)}
+     * Version du référentiel de classification : change dès qu'un mot-clé actif (texte, catégorie, portée),
+     * l'état d'une catégorie ou les règles de décision ({@link #DECISION_RULES_VERSION}) changent. Tant
+     * qu'elle est identique, {@link #decide(String, String, List)}
      * rend la même décision pour les mêmes entrées : l'import s'en sert pour ne pas re-décider à chaque
      * passage un élément en quarantaine inchangé.
      */
     public String referentialVersion() {
-        StringBuilder state = new StringBuilder();
+        StringBuilder state = new StringBuilder(DECISION_RULES_VERSION).append('\n');
         for (CategoryKeyword keyword : keywordRepository.findByActiveTrueOrderByIdAsc()) {
             state.append(keyword.categoryId()).append('|').append(keyword.keyword()).append('|')
                     .append(keyword.scope()).append('\n');
