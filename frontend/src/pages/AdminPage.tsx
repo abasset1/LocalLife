@@ -148,6 +148,18 @@ function formatDate(value: string): string {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString("fr-FR");
 }
 
+/** Texte comparé par la recherche d'agendas : minuscules, sans accents ni espaces superflus. */
+function normalizeSearch(value: string): string {
+    return value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("fr").replace(/\s+/g, " ").trim();
+}
+
+/** Vrai si l'agenda correspond à la recherche : nom, identifiant exact ou uid OpenAgenda. */
+function matchesSourceSearch(source: Source, query: string): boolean {
+    return normalizeSearch(source.name).includes(query)
+        || String(source.id) === query
+        || (source.agendaUid ?? "").toLowerCase().includes(query);
+}
+
 function AdminPage() {
     const navigate = useNavigate();
     const [activeSection, setActiveSection] = useState<AdminSection>(ADMIN_SECTIONS[0].value);
@@ -162,6 +174,8 @@ function AdminPage() {
 
     // --- LL-EF-005 : état de la section Agendas ---
     const [sources, setSources] = useState<Source[]>([]);
+    // Recherche dans la liste (plusieurs milliers d'agendas) : nom, identifiant ou uid OpenAgenda.
+    const [sourceSearch, setSourceSearch] = useState("");
     const [isLoadingSources, setIsLoadingSources] = useState(true);
     const [sourcesError, setSourcesError] = useState<string | null>(null);
     const [deletingSourceId, setDeletingSourceId] = useState<number | null>(null);
@@ -413,6 +427,11 @@ function AdminPage() {
         setSourceDefaultCategoryCodes((current) =>
             current.includes(code) ? current.filter((selected) => selected !== code) : [...current, code]);
     }
+
+    const sourceQuery = normalizeSearch(sourceSearch);
+    const filteredSources = sourceQuery === ""
+        ? sources
+        : sources.filter((source) => matchesSourceSearch(source, sourceQuery));
 
     /** Libellés des catégories par défaut d'un agenda, pour la liste (« Culture, Tourisme »). */
     function formatDefaultCategories(sourceId: number): string {
@@ -681,6 +700,15 @@ function AdminPage() {
             ) : activeSection === "agendas" ? (
                 <main className="admin-content">
                     <div className="admin-agendas-toolbar">
+                        <label className="admin-agendas-search">
+                            Rechercher un agenda
+                            <input
+                                onChange={(event) => setSourceSearch(event.target.value)}
+                                placeholder="nom, identifiant ou uid"
+                                type="search"
+                                value={sourceSearch}
+                            />
+                        </label>
                         <button className="header-add-activity-button" onClick={openCreateSourceForm} type="button">
                             Ajouter un agenda
                         </button>
@@ -825,9 +853,16 @@ function AdminPage() {
                     {!isLoadingSources && sources.length === 0 && (
                         <p className="activities-status">Aucun agenda configuré.</p>
                     )}
-                    {!isLoadingSources && sources.length > 0 && (
+                    {!isLoadingSources && sources.length > 0 && sourceSearch.trim() !== "" && (
+                        <p className="activities-status">
+                            {filteredSources.length === 0
+                                ? "Aucun agenda ne correspond à cette recherche."
+                                : `${filteredSources.length} agenda${filteredSources.length > 1 ? "s" : ""} sur ${sources.length}`}
+                        </p>
+                    )}
+                    {!isLoadingSources && filteredSources.length > 0 && (
                         <ul className="admin-activity-list">
-                            {sources.map((source) => (
+                            {filteredSources.map((source) => (
                                 <li className="admin-activity-card" key={source.id}>
                                     <div className="admin-activity-header">
                                         <h2>{source.name}</h2>

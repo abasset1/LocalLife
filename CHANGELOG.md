@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Administration : recherche d'agendas
+- L'onglet Agendas a une barre de recherche (plusieurs milliers d'agendas) : nom, sans tenir compte des majuscules ni des accents, identifiant exact ou uid OpenAgenda. Le nombre d'agendas trouvés s'affiche.
+- `infra/verification/quarantaine_mesure.sql` : mesure en lecture seule de la quarantaine de classification (stock par cas, sources les plus concernées, mots-clés source non reconnus, estimation de ce que le titre permettrait de classer).
+
 ### Import : doublons d'une même source
 - Une source qui publie plusieurs fois le même événement (même titre, mêmes horaires, même lieu, identifiants différents) n'en fait plus apparaître qu'un : les autres copies sont écartées et, déjà publiées, archivées au prochain import. Des créneaux ou des lieux différents sous un même titre restent distincts. L'activité conservée est la plus ancienne déjà publiée. Mesuré sur la bêta : jusqu'à 42 copies d'un même atelier. Détail : `docs/02_Architecture/COLLECTOR_OPERATIONS.md`, « Déduplication dans une même source ».
 
