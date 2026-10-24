@@ -30,14 +30,16 @@ seulement si** le statut est `AUTO_CLASSIFIED` ou `VALIDATED`.
 ## 3. Règles de décision (`ActivityClassifier`)
 
 Signaux : la catégorie d'origine et les tags de la source (pas la description : trop de faux positifs
-par mot-clé). Le titre n'intervient qu'en **repli**, quand la source ne fournit aucun keyword : voir §10.
+par mot-clé). Le titre n'intervient qu'en **repli**, quand la source ne fournit aucun keyword ou
+qu'aucun n'est reconnu : voir §10.
 
 1. aucun signal → `UNCLASSIFIED` ;
 2. chaque signal est comparé au référentiel `category_keyword` (portées `ALL` et `SOURCE`), avec la même
    règle que le titre (§13) ; une ou plusieurs catégories reconnues → `AUTO_CLASSIFIED` avec **toutes** ces
    catégories (ordre des signaux). Plusieurs catégories ne sont **jamais** un conflit ; un signal sans
    mot-clé (public, format, lieu...) n'en ajoute ni n'en bloque aucune ;
-3. des signaux, mais aucun mot-clé reconnu → `NEEDS_REVIEW` (`UNRECOGNIZED`).
+3. des signaux, mais aucun mot-clé reconnu → `NEEDS_REVIEW` (`UNRECOGNIZED`), sauf si le titre classe
+   l'élément (repli, §10).
 
 Les valeurs de public (jeune public, famille...) et de format (balade, festival...) ne sont pas des
 mots-clés : elles ne décident jamais la catégorie. Quatre formats font exception depuis `V47` (§15) :
@@ -134,9 +136,17 @@ une décision de classification, pas un réglage.
 `ClassificationService#decide(title, sourceCategory, sourceTags)` : si la source fournit au moins un
 keyword — une catégorie d'origine non blanche **ou** un tag non blanc (même condition que « aucun
 signal » de `ActivityClassifier`) — la décision est **exactement** celle de §3 et le titre n'est pas lu.
-Le titre n'est exploité que si les keywords source sont `null`, vides ou uniquement blancs. Un keyword
-source présent mais inconnu reste `NEEDS_REVIEW` (`UNRECOGNIZED`) : le titre ne le remplace pas. La
-description (`description`, `longDescription`) n'est jamais analysée.
+Le titre est exploité si les keywords source sont `null`, vides ou uniquement blancs, **ou** si aucun
+n'est reconnu (depuis le 24/10/2026). Des keywords source reconnus décident seuls : le titre n'est alors
+pas lu (priorité source > titre). Si le titre ne classe rien non plus, des keywords non reconnus restent
+`NEEDS_REVIEW` (`UNRECOGNIZED`). La description (`description`, `longDescription`) n'est jamais analysée.
+
+Repli après des keywords non reconnus : mesuré sur la bêta le 24/10/2026
+(`infra/verification/quarantaine_titre.sql`), 14 559 éléments étaient en quarantaine pour cette raison,
+souvent des étiquettes de public, de lieu ou d'organisateur (« gratuit », « nantes », « CLAVIM ») ; leur
+titre en classait environ 3 500, surtout en CULTURE. Le changement de règle fait partie de la version du
+référentiel (`ClassificationService.DECISION_RULES_VERSION`) : l'import suivant re-décide toute la
+quarantaine.
 
 ### Référentiel de mots-clés (`V39`)
 
