@@ -55,4 +55,10 @@ public interface EmailService {
      */
     void sendProDecisionEmail(String to, String subject, String text);
 
+    /**
+     * Avis au contact d'une activité importée d'une source externe (voir {@code ImportedActivityContactNotifier}) :
+     * LocalLife référence l'événement, un compte professionnel est nécessaire pour qu'il continue de l'être.
+     */
+    void sendImportedActivityNoticeEmail(String to, String subject, String text);
+
 }
