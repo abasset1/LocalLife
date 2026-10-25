@@ -21,6 +21,7 @@ rédiger et à faire valider (voir « Reste à faire »).
 | Espace pro : demandes de gestion (lien avec le lieu, justificatifs), droits de gestion, propositions de modification, food trucks | `place_claim*`, `place_manager`, `place_change_request`, `food_truck` | Espace professionnel |
 | Journaux des comptes et des actions d'administration | `account_audit_event`, `admin_action_log` | Sécurité, traçabilité (intérêt légitime) |
 | Échecs de connexion (empreinte HMAC de l'adresse, jamais l'adresse) | `login_failure` | Protection contre les attaques par essais |
+| Avis aux contacts des activités importées (adresse de contact publiée par la source, date d'envoi), supprimés avec l'activité | `imported_activity_contact_notice` (V75) | Ne prévenir un organisateur qu'une fois par événement, et au plus tous les 30 jours |
 
 **Non collecté** : adresse IP (aucun journal d'accès), position de l'appareil (utilisée pour la recherche à
 proximité, jamais enregistrée), outil de mesure d'audience ou traceur.

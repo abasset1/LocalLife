@@ -78,6 +78,20 @@ Décisions et modèle : [`docs/ADR-0012-espace-professionnel-revendication.md`](
   `PATCH /api/v1/admin/foodtrucks/{id}/suspend|reinstate`.
   `POST /api/v1/foodtrucks` est réservé aux comptes professionnels.
 
+## Avis aux organisateurs des activités importées
+
+* `ImportedActivityContactNotifier` écrit à l'adresse de contact (lien `EMAIL`)
+  d'une activité importée : LocalLife référence l'événement, un compte
+  professionnel est nécessaire pour qu'il continue de l'être (liens
+  `/register` puis `/profile` pour l'offre Pro).
+* Un message par adresse et par passage (récapitulatif), jamais deux fois pour
+  la même activité, au plus un tous les 30 jours par adresse ; activités
+  publiées, à venir, importées depuis moins de 7 jours ; adresses des comptes
+  `PRO`/`ADMIN` exclues. Envois enregistrés dans
+  `imported_activity_contact_notice` (V75).
+* Désactivé par défaut : `IMPORT_NOTICES_ENABLED=true`, horaire
+  `IMPORT_NOTICES_CRON` (défaut `0 30 9 * * *`, Europe/Paris).
+
 ## Food trucks (ARCHI-01)
 
 Un food truck est un profil ; sa position vient de ses **présences**

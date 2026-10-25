@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Import : avis aux organisateurs des événements récupérés
+- L'adresse e-mail de contact d'une activité importée (lien `EMAIL` fourni par la source) reçoit un message : LocalLife référence l'événement, et il faut créer un compte professionnel (inscription puis offre Pro depuis le profil) pour qu'il continue d'être référencé.
+- Un seul message par adresse et par passage, récapitulant ses événements ; jamais deux fois pour le même événement ; au plus un message tous les 30 jours par adresse. Seuls les événements publiés, à venir et importés depuis moins de 7 jours sont concernés (pas de rattrapage de l'existant) ; jamais une contribution manuelle ni l'adresse d'un compte professionnel ou administrateur.
+- **Désactivé par défaut** : `IMPORT_NOTICES_ENABLED=true` pour l'activer, `IMPORT_NOTICES_CRON` pour l'horaire (par défaut chaque jour à 9 h 30, heure de Paris). Migration `V75`.
+
 ### Classification : le titre en dernier recours
 - Un événement dont la source fournit des mots-clés, mais aucun reconnu (« gratuit », « nantes », nom d'organisateur…), n'est plus mis en quarantaine d'office : son titre est essayé, comme pour un événement sans mot-clé. Des mots-clés source reconnus gardent la priorité. Mesuré sur la bêta : environ 3 500 événements en quarantaine classés par leur titre, surtout en Culture. Toute la quarantaine est re-décidée au prochain import.
 - `infra/verification/categories_defaut_agendas.sql` (catégories par défaut de 8 agendas thématiques, à blanc par défaut) et `infra/verification/quarantaine_titre.sql` (estimation rapide de ce que le titre classerait).
