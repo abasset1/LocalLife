@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Import : durée fortement réduite
+- Les recherches de lieu (adresse, ou coordonnées) et de média (URL) faites pour chaque événement importé parcouraient toute la table : elles sont désormais indexées (migration `V76`). Leur coût ne grandit plus avec la base (≈ 3 ms → 0,02 ms chacune avec 50 000 lieux et médias en base).
+- Toutes les écritures d'un événement partent en une seule transaction au lieu d'une par requête (≈ 12 commits → 1). Un événement en erreur est annulé en entier et retenté au prochain import ; l'échec de l'enrichissement (lieu, créneaux, médias…) laisse toujours l'activité enregistrée.
+- Mesuré en local (1 000 événements, 50 000 lieux et médias déjà en base) : premier import 21 s → 10–12 s, mise à jour 15 s → 5–6 s ; import sans changement inchangé (≈ 0,6 s).
+
 ### Import : avis aux organisateurs des événements récupérés
 - L'adresse e-mail de contact d'une activité importée (lien `EMAIL` fourni par la source) reçoit un message : LocalLife référence l'événement, et il faut créer un compte professionnel (inscription puis offre Pro depuis le profil) pour qu'il continue d'être référencé.
 - Un seul message par adresse et par passage, récapitulant ses événements ; jamais deux fois pour le même événement ; au plus un message tous les 30 jours par adresse. Seuls les événements publiés, à venir et importés depuis moins de 7 jours sont concernés (pas de rattrapage de l'existant) ; jamais une contribution manuelle ni l'adresse d'un compte professionnel ou administrateur.
