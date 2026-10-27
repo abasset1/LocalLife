@@ -23,9 +23,41 @@
 -- Retour arrière : Administration → Agendas → Modifier → décocher, ou
 --   DELETE FROM source_default_category WHERE source_id = <id> AND category_id = (SELECT id FROM category WHERE code = '<code>');
 
+-- Contrôle d'import en cours : pour de bon, rien n'est écrit si un agenda a été collecté il y a moins de
+-- 15 minutes (import probablement en cours) ; appliquer entre la fin d'un import et l'heure paire UTC suivante.
+-- Contournement, en connaissance de cause : ajouter -v forcer=1.
+
 \set ON_ERROR_STOP on
 
 BEGIN;
+
+\echo '== 0. Import en cours ? (dernière collecte d''un agenda, heure UTC) =='
+SELECT max(last_attempt_at)::timestamp(0) AS derniere_collecte_utc,
+       ((now() AT TIME ZONE 'UTC') - max(last_attempt_at))::interval(0) AS il_y_a,
+       max(last_attempt_at) >= (now() AT TIME ZONE 'UTC') - interval '15 minutes' AS import_probablement_en_cours
+FROM source_sync_state;
+
+-- Un import lit la liste des agendas à son démarrage, puis leurs réglages au fil de son passage : une écriture
+-- pendant un import n'est vue qu'en partie, et un agenda désactivé en cours de route peut voir ses activités
+-- archivées republiées (constaté le 27/10/2026). L'import met à jour source_sync_state agenda par agenda : une
+-- collecte de moins de 15 minutes signale un import en cours. Contrôle ignoré à blanc ; contournable avec -v forcer=1.
+\if :{?appliquer}
+\if :{?forcer}
+\echo '>>> Contrôle d''import en cours ignoré (-v forcer=1).'
+\else
+DO $$
+DECLARE
+    derniere TIMESTAMP;
+BEGIN
+    SELECT max(last_attempt_at) INTO derniere FROM source_sync_state;
+    IF derniere >= (now() AT TIME ZONE 'UTC') - interval '15 minutes' THEN
+        RAISE EXCEPTION 'Import probablement en cours (dernière collecte à % UTC) : rien n''est écrit. Relancer '
+            '15 minutes après la fin de l''import (ligne « Import planifie termine » des logs), '
+            'ou forcer avec -v forcer=1.', derniere::time(0);
+    END IF;
+END $$;
+\endif
+\endif
 
 CREATE TEMP TABLE reglage (source_id BIGINT PRIMARY KEY, nom TEXT NOT NULL, categorie TEXT NOT NULL) ON COMMIT DROP;
 INSERT INTO reglage (source_id, nom, categorie) VALUES
