@@ -1,12 +1,17 @@
 # Changelog
 
 ## 0.9.59 — non publiée
+### Import : durée fortement réduite
+- Les recherches de lieu (adresse, ou coordonnées) et de média (URL) faites pour chaque événement importé parcouraient toute la table : elles sont désormais indexées (migration `V76`). Leur coût ne grandit plus avec la base (≈ 3 ms → 0,02 ms chacune avec 50 000 lieux et médias en base).
+- Toutes les écritures d'un événement partent en une seule transaction au lieu d'une par requête (≈ 12 commits → 1). Un événement en erreur est annulé en entier et retenté au prochain import ; l'échec de l'enrichissement (lieu, créneaux, médias…) laisse toujours l'activité enregistrée.
+- Mesuré en local (1 000 événements, 50 000 lieux et médias déjà en base) : premier import 21 s → 10–12 s, mise à jour 15 s → 5–6 s ; import sans changement inchangé (≈ 0,6 s).
 
 ### Quarantaine de classification : agendas thématiques et annuaires (bêta, 25-27/10/2026)
 - `infra/verification/agendas_candidats.sql` (lecture seule) : agendas les plus chargés en quarantaine actuelle, avec la catégorie dominante de leurs activités publiées, pour repérer les agendas thématiques ; agendas qui ressemblent à des annuaires.
 - `infra/verification/categories_defaut_agendas_lot2.sql` : catégories par défaut de 39 agendas thématiques (bibliothèques, musées, scènes, agendas culturels ; une randonnée, un emploi). Appliqué sur la bêta.
 - `infra/verification/desactiver_agendas_non_evenements.sql` : désactivation des 102 « Catalogues … des structures d'accueil et d'hébergement » (annuaires, pas des événements) et de l'« Agenda de test », activités publiées archivées ; réversible par réactivation. Appliqué sur la bêta.
 - Les scripts qui écrivent refusent désormais d'écrire pendant un import (agenda collecté il y a moins de 15 minutes) : appliqués pendant un import, ils n'étaient vus qu'en partie et des activités archivées avaient été republiées (44, corrigé). Contournable avec `-v forcer=1`.
+
 
 ### Import : avis aux organisateurs des événements récupérés
 - L'adresse e-mail de contact d'une activité importée (lien `EMAIL` fourni par la source) reçoit un message : LocalLife référence l'événement, et il faut créer un compte professionnel (inscription puis offre Pro depuis le profil) pour qu'il continue d'être référencé.

@@ -48,6 +48,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -95,6 +96,7 @@ class DataTourismeImportSafetyTest {
     @Mock private SourceDefaultCategoryService sourceDefaultCategoryService;
     @Mock private ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository;
     @Mock private SourceSyncStateRepository sourceSyncStateRepository;
+    @Mock private PlatformTransactionManager transactionManager;
 
     /** Importe {@link #SOURCE} avec le vrai collecteur, qui reçoit {@code body}. */
     private ImportResult importWithFile(String body) {
@@ -112,7 +114,7 @@ class DataTourismeImportSafetyTest {
                 mediaService, activityMediaService, activityLinkService, accessibilityService, activityTagService,
                 activityMetadataService, classificationService, activityClassificationService,
                 importFingerprintService, sourceDefaultCategoryService, activityCoordinatePrecisionRepository,
-                sourceSyncStateRepository);
+                sourceSyncStateRepository, transactionManager);
         return importService.importAll().get(0);
     }
 
