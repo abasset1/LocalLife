@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### Quarantaine de classification : agendas thématiques et annuaires (bêta, 25-27/10/2026)
+- `infra/verification/agendas_candidats.sql` (lecture seule) : agendas les plus chargés en quarantaine actuelle, avec la catégorie dominante de leurs activités publiées, pour repérer les agendas thématiques ; agendas qui ressemblent à des annuaires.
+- `infra/verification/categories_defaut_agendas_lot2.sql` : catégories par défaut de 39 agendas thématiques (bibliothèques, musées, scènes, agendas culturels ; une randonnée, un emploi). Appliqué sur la bêta.
+- `infra/verification/desactiver_agendas_non_evenements.sql` : désactivation des 102 « Catalogues … des structures d'accueil et d'hébergement » (annuaires, pas des événements) et de l'« Agenda de test », activités publiées archivées ; réversible par réactivation. Appliqué sur la bêta.
+- Les scripts qui écrivent refusent désormais d'écrire pendant un import (agenda collecté il y a moins de 15 minutes) : appliqués pendant un import, ils n'étaient vus qu'en partie et des activités archivées avaient été republiées (44, corrigé). Contournable avec `-v forcer=1`.
+
 ### Import : avis aux organisateurs des événements récupérés
 - L'adresse e-mail de contact d'une activité importée (lien `EMAIL` fourni par la source) reçoit un message : LocalLife référence l'événement, et il faut créer un compte professionnel (inscription puis offre Pro depuis le profil) pour qu'il continue d'être référencé.
 - Un seul message par adresse et par passage, récapitulant ses événements ; jamais deux fois pour le même événement ; au plus un message tous les 30 jours par adresse. Seuls les événements publiés, à venir et importés depuis moins de 7 jours sont concernés (pas de rattrapage de l'existant) ; jamais une contribution manuelle ni l'adresse d'un compte professionnel ou administrateur.
