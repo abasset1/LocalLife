@@ -134,4 +134,16 @@ public class SmtpEmailService implements EmailService {
         mailSender.send(message);
         log.info("Décision professionnelle envoyée à {} : {}", EmailMask.mask(to), subject);
     }
+
+    @Override
+    public void sendImportedActivityNoticeEmail(String to, String subject, String text) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(to);
+        message.setSubject(subject);
+        message.setText(text);
+
+        mailSender.send(message);
+        log.info("Avis de référencement d'activité importée envoyé à {}", EmailMask.mask(to));
+    }
 }
