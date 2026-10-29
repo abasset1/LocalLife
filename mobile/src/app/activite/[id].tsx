@@ -15,7 +15,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { buildCalendarUrl, shareMessage } from '@/features/activity/calendar';
-import { upcomingOccurrences } from '@/features/activity/details';
+import { formatDetailDate, upcomingOccurrences } from '@/features/activity/details';
 import { LinksSection, PracticalSection, QuickAction, WhenSection } from '@/features/activity/DetailSections';
 import { formatDateRange, formatPlace, isSafeWebUrl } from '@/features/activity/format';
 import { buildDirectionsUrl, withApproximateMention } from '@/features/activity/location';
@@ -79,9 +79,7 @@ export default function ActiviteDetailScreen() {
           const activity = state.activity;
           const detail = isActivityDetail(activity) ? activity : null;
           const description = detail ? (detail.longDescription ?? detail.description) : null;
-          const date = isActivityDetail(activity)
-            ? formatDateRange(activity.startDate, activity.endDate)
-            : formatDateRange(activity.date);
+          const date = isActivityDetail(activity) ? formatDetailDate(activity) : formatDateRange(activity.date);
           // Position approximative (une zone) : mention, et itinéraire vers l'adresse ou la commune.
           const place = withApproximateMention(
             formatPlace(activity.address, detail ? detail.postalCode : null, activity.city),
