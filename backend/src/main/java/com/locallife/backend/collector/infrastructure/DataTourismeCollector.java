@@ -50,7 +50,10 @@ import org.springframework.web.client.RestClientException;
  *       {@link DataTourismeCollectorFactory}) ;</li>
  *   <li>{@code regionFilter}, optionnel : liste de départements séparés
  *       par des virgules (ex. {@code "84,13"}), comparés au début du code
- *       postal. Vide : tous les événements du fichier.</li>
+ *       postal. Vide : tous les événements du fichier ;</li>
+ *   <li>sélection d'événements, optionnelle ({@code source.event_selection}, V77, lue par
+ *       {@link DataTourismeCollectorFactory}) : par exemple les seuls vide-greniers et brocantes, voir
+ *       {@link DataTourismeEventSelection}. Vide : tous les événements.</li>
  * </ul>
  *
  * <p>Format du CSV (constaté sur l'export réel du 13/10/2026) : UTF-8,
@@ -194,18 +197,33 @@ public class DataTourismeCollector implements Collector {
     private final String resourceUrl;
     private final String sourceName;
     private final List<String> departments;
+    /** Sélection d'événements de la source ({@code null} : tous), voir {@link DataTourismeEventSelection}. */
+    private final DataTourismeEventSelection selection;
     private final Clock clock;
 
     DataTourismeCollector(RestClient.Builder builder, String resourceUrl, String sourceName, String regionFilter) {
-        this(builder, resourceUrl, sourceName, regionFilter, Clock.systemUTC());
+        this(builder, resourceUrl, sourceName, regionFilter, null, Clock.systemUTC());
+    }
+
+    DataTourismeCollector(
+            RestClient.Builder builder, String resourceUrl, String sourceName, String regionFilter,
+            DataTourismeEventSelection selection) {
+        this(builder, resourceUrl, sourceName, regionFilter, selection, Clock.systemUTC());
     }
 
     DataTourismeCollector(
             RestClient.Builder builder, String resourceUrl, String sourceName, String regionFilter, Clock clock) {
+        this(builder, resourceUrl, sourceName, regionFilter, null, clock);
+    }
+
+    DataTourismeCollector(
+            RestClient.Builder builder, String resourceUrl, String sourceName, String regionFilter,
+            DataTourismeEventSelection selection, Clock clock) {
         this.restClient = builder.build();
         this.resourceUrl = resourceUrl;
         this.sourceName = sourceName;
         this.departments = parseDepartments(regionFilter);
+        this.selection = selection;
         this.clock = clock;
     }
 
@@ -309,6 +327,9 @@ public class DataTourismeCollector implements Collector {
             return reject(rejected, "sans URI");
         }
         List<String> types = types(row.get("Categories_de_POI"));
+        if (selection != null && !selection.matches(row.get("Nom_du_POI"), types)) {
+            return reject(rejected, "hors sélection");
+        }
         String[] postalCodeAndCity = firstObject(row.get("Code_postal_et_commune")).split("#", -1);
         String postalCode = postalCodeAndCity[0].trim();
         if (!matchesDepartments(postalCode)) {

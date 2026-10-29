@@ -165,6 +165,36 @@ Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
   (`src/test/resources/datatourisme/datatourisme-extrait.csv`) et des
   fichiers invalides construits dans le test.
 
+### Sélection d'événements (`source.event_selection`, V77)
+
+Une source DATAtourisme peut ne garder qu'une famille d'événements, en plus
+des départements et des règles de dates. Colonne `event_selection` de
+`source` (hors du modèle Java `Source`), lue par
+`DataTourismeCollectorFactory` à chaque collecte et à chaque essai à blanc ;
+une modification de la source depuis l'administration la préserve. Vide :
+tous les événements (sources existantes, inchangées).
+
+| Valeur | Événements gardés |
+|---|---|
+| `VIDE_GRENIERS_BROCANTES` | types `GarageSale` ou `BricABrac`, ou titre explicite : vide-grenier, brocante, braderie, puces, vide-dressing, bourse aux… (`DataTourismeEventSelection`) |
+
+Mesure (export France du 29/10/2026, 72 581 événements) : 1 049 retenus,
+dans 68 départements, contre 138 vide-greniers et brocantes publiés sur la
+bêta (32 départements). 20 % ne sont reconnus qu'à leur titre (types
+génériques `SaleEvent`, `SocialEvent`, `Event`).
+
+Source créée par V77, **inactive** : « DATAtourisme France — vide-greniers
+et brocantes (data.gouv.fr) », fichier France (`datatourisme-fma.csv`,
+`2c6023f2-ffce-4c1a-9728-bdc020e463b5`), sans filtre de département,
+catégorie par défaut Marchés. À activer après un essai à blanc réussi
+(Administration → Imports, « Activer après vérification »).
+
+Pourquoi pas tout l'export France : les offices de tourisme publient aussi
+sur OpenAgenda, et le rapprochement entre sources de types différents
+(`CrossSourceDuplicateMatcher`) n'est pas branché ; la niche des
+vide-greniers limite ces doublons. À mesurer après activation
+(`infra/verification/doublons_detail.sql`).
+
 Non couvert : lieux DATAtourisme, Data ES, Basilic, JEP, Fête de la
 science (voir § 5).
 
