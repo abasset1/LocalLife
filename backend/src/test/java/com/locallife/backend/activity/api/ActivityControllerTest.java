@@ -6,6 +6,7 @@ import com.locallife.backend.activity.application.AdminActivityService;
 import com.locallife.backend.activity.application.ContributionAccessPolicy;
 import static org.mockito.Mockito.lenient;
 import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
+import com.locallife.backend.activity.infrastructure.ActivityNextOccurrenceRepository;
 import com.locallife.backend.accessibility.application.AccessibilityService;
 import com.locallife.backend.activity.application.ActivityAccessDeniedException;
 import com.locallife.backend.activity.application.ActivityService;
@@ -37,6 +38,7 @@ import com.locallife.backend.user.application.UserService;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.domain.User;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -138,6 +140,9 @@ class ActivityControllerTest {
     private ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
 
     @Mock
+    private ActivityNextOccurrenceRepository nextOccurrenceRepository;
+
+    @Mock
     private ContributionAccessPolicy contributionAccessPolicy;
 
     @Mock
@@ -220,6 +225,26 @@ class ActivityControllerTest {
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(0, ((List<?>) response.getBody()).size());
+    }
+
+    @Test
+    void getAllActivities_ShouldShowNextOccurrence_InsteadOfFirstDate() {
+        // Vide-grenier le 19/04 et le 01/11 : une fois le premier passé, la liste affiche le second.
+        Activity twoDates = new Activity(1L, "Vide-grenier", "Description", "vide-greniers", 43.76, 4.95,
+                LocalDateTime.of(2026, 4, 19, 0, 0), LocalDateTime.of(2026, 11, 1, 23, 59), "PUBLISHED", 1L,
+                null, null, null, "Eygalières", "13810", null, null, null, null, null);
+        Activity unscheduled = new Activity(2L, "Sans programmation", "Description", "marché", 43.9, 4.8,
+                LocalDateTime.of(2026, 12, 5, 9, 0), null, "PUBLISHED", 1L,
+                null, null, null, "Avignon", "84000", null, null, null, null, null);
+        when(activityService.findAll(null, null, "2026-10-30")).thenReturn(List.of(twoDates, unscheduled));
+        when(nextOccurrenceRepository.findNextStartByActivityIds(List.of(1L, 2L), LocalDate.of(2026, 10, 30)))
+                .thenReturn(Map.of(1L, LocalDateTime.of(2026, 11, 1, 0, 0)));
+
+        ResponseEntity<Object> response = activityController.getAllActivities(null, "2026-10-30", null, httpRequest);
+
+        List<?> body = (List<?>) response.getBody();
+        assertEquals(LocalDateTime.of(2026, 11, 1, 0, 0), ((ActivitySummaryResponse) body.get(0)).date());
+        assertEquals(LocalDateTime.of(2026, 12, 5, 9, 0), ((ActivitySummaryResponse) body.get(1)).date());
     }
 
     @Test

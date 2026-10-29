@@ -80,6 +80,18 @@ public record ActivitySummaryResponse(
                 hostPlace);
     }
 
+    /**
+     * Date affichée remplacée par le début de la prochaine occurrence ({@code ActivityNextOccurrenceRepository}) ;
+     * {@code null} garde {@code startDate} (activité sans programmation ou sans occurrence à venir).
+     */
+    public ActivitySummaryResponse withNextOccurrenceStart(LocalDateTime nextStart) {
+        if (nextStart == null) {
+            return this;
+        }
+        return new ActivitySummaryResponse(id, title, category, nextStart, city, address, latitude, longitude,
+                mainImageUrl, createdBy, coordinatePrecision, hostPlace);
+    }
+
     /** Lieu qui propose l'activité (décision du 22/10/2026), {@code null} sinon. */
     public ActivitySummaryResponse withHostPlace(HostPlace place) {
         return new ActivitySummaryResponse(id, title, category, date, city, address, latitude, longitude,

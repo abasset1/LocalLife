@@ -15,6 +15,7 @@ import com.locallife.backend.activity.application.RecurringContributionService;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityAtPlaceRepository;
 import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
+import com.locallife.backend.activity.infrastructure.ActivityNextOccurrenceRepository;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
@@ -53,6 +54,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -128,6 +130,7 @@ public class ActivityController {
 
     private final ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
     private final ActivityAtPlaceRepository activityAtPlaceRepository;
+    private final ActivityNextOccurrenceRepository nextOccurrenceRepository;
 
     /** Plafond de la liste des activités d'un lieu permanent. */
     static final int MAX_ACTIVITIES_AT_PLACE = 50;
@@ -143,7 +146,7 @@ public class ActivityController {
             ActivityCoordinatePrecisionRepository coordinatePrecisionRepository,
             ActivityAtPlaceRepository activityAtPlaceRepository, ContributionAccessPolicy contributionAccessPolicy,
             ActivityHostPlaceService hostPlaceService, PlanLimits planLimits,
-            AdminActivityService adminActivityService) {
+            AdminActivityService adminActivityService, ActivityNextOccurrenceRepository nextOccurrenceRepository) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -167,6 +170,7 @@ public class ActivityController {
         this.hostPlaceService = hostPlaceService;
         this.planLimits = planLimits;
         this.adminActivityService = adminActivityService;
+        this.nextOccurrenceRepository = nextOccurrenceRepository;
     }
 
     @Operation(summary = "Activités à venir d'un lieu permanent",
@@ -185,7 +189,7 @@ public class ActivityController {
                 .map(activityService::findById)
                 .flatMap(Optional::stream)
                 .toList();
-        return ResponseEntity.ok(withSourceNames(activities, authentication));
+        return ResponseEntity.ok(withSourceNames(activities, authentication, null));
     }
 
     /**
@@ -237,9 +241,12 @@ public class ActivityController {
             List<Activity> activities = activityService.findAll(city, sort, date);
             Map<Long, CoordinatePrecision> precisions = resolveCoordinatePrecisions(
                     activities.stream().map(Activity::id).toList());
+            Map<Long, LocalDateTime> nextStarts = resolveNextOccurrenceStarts(
+                    activities.stream().map(Activity::id).toList(), referenceDate(date));
             List<ActivitySummaryResponse> summaries = activities.stream()
                     .map(activity -> ActivitySummaryResponse.from(activity, resolveMainImageUrl(activity.id()))
-                            .withCoordinatePrecision(precisions.get(activity.id())))
+                            .withCoordinatePrecision(precisions.get(activity.id()))
+                            .withNextOccurrenceStart(nextStarts.get(activity.id())))
                     .toList();
             return ResponseEntity.ok(summaries);
         } catch (IllegalArgumentException exception) {
@@ -306,7 +313,7 @@ public class ActivityController {
         try {
             List<Activity> activities = activityService.findNearby(
                     latitude, longitude, radius, category, date, dateTo);
-            return ResponseEntity.ok(withSourceNames(activities, authentication));
+            return ResponseEntity.ok(withSourceNames(activities, authentication, referenceDate(date)));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
         }
@@ -365,7 +372,7 @@ public class ActivityController {
         try {
             List<Activity> activities = activityService.findWithinBounds(
                     swLatitude, swLongitude, neLatitude, neLongitude, category, date, dateTo);
-            return ResponseEntity.ok(withSourceNames(activities, authentication));
+            return ResponseEntity.ok(withSourceNames(activities, authentication, referenceDate(date)));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
         }
@@ -401,7 +408,8 @@ public class ActivityController {
      * est <em>requise</em> par {@code SecurityConfig}, donc garantie
      * être une {@link JwtAuthentication}).
      */
-    private List<ActivityResponse> withSourceNames(List<Activity> activities, Authentication authentication) {
+    private List<ActivityResponse> withSourceNames(
+            List<Activity> activities, Authentication authentication, LocalDate referenceDate) {
         Map<Long, String> sourceNamesById = sourceService.getAllSources().stream()
                 .collect(Collectors.toMap(Source::id, Source::name));
         Map<Long, String> usernamesByCreatedBy = activities.stream()
@@ -423,6 +431,8 @@ public class ActivityController {
 
         Map<Long, CoordinatePrecision> precisions = resolveCoordinatePrecisions(
                 activities.stream().map(Activity::id).toList());
+        Map<Long, LocalDateTime> nextStarts = resolveNextOccurrenceStarts(
+                activities.stream().map(Activity::id).toList(), referenceDate);
 
         return activities.stream()
                 .map(activity -> ActivityResponse.from(
@@ -431,8 +441,28 @@ public class ActivityController {
                         likedActivityIdsSet.contains(activity.id()),
                         resolveMainImageUrl(activity.id()),
                         categoryCodesByActivityId.getOrDefault(activity.id(), List.of()))
-                        .withCoordinatePrecision(precisions.get(activity.id())))
+                        .withCoordinatePrecision(precisions.get(activity.id()))
+                        .withNextOccurrenceStart(nextStarts.get(activity.id())))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Début de la prochaine occurrence par activité, en une requête pour toute la liste : date affichée à la place
+     * de {@code startDate}, qui reste la première date d'une activité à plusieurs dates une fois celle-ci passée.
+     * Une activité absente du résultat garde {@code startDate}.
+     */
+    private Map<Long, LocalDateTime> resolveNextOccurrenceStarts(List<Long> activityIds, LocalDate referenceDate) {
+        Map<Long, LocalDateTime> nextStarts =
+                nextOccurrenceRepository.findNextStartByActivityIds(activityIds, referenceDate);
+        return nextStarts == null ? Map.of() : nextStarts;
+    }
+
+    /**
+     * Date de référence de la prochaine occurrence : la date filtrée quand il y en a une (format déjà validé par
+     * {@link ActivityService}), sinon aujourd'hui.
+     */
+    private static LocalDate referenceDate(String date) {
+        return date == null || date.isBlank() ? null : LocalDate.parse(date);
     }
 
     /**
@@ -525,7 +555,9 @@ public class ActivityController {
                     return ResponseEntity.ok(premiumAccessPolicy.hasPremiumAccess(authentication)
                             ? toDetailResponse(activity).withCoordinatePrecision(precision).withHostPlace(hostPlace)
                             : (Object) ActivitySummaryResponse.from(activity, resolveMainImageUrl(activity.id()))
-                                    .withCoordinatePrecision(precision).withHostPlace(hostPlace));
+                                    .withCoordinatePrecision(precision).withHostPlace(hostPlace)
+                                    .withNextOccurrenceStart(resolveNextOccurrenceStarts(List.of(activity.id()), null)
+                                            .get(activity.id())));
                 })
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
