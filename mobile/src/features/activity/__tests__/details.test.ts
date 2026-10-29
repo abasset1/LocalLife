@@ -1,6 +1,7 @@
 import {
   accessibilityLabels,
   formatAgeRange,
+  formatDetailDate,
   formatOccurrence,
   formatRecurrence,
   formatSchedule,
@@ -69,6 +70,24 @@ describe('occurrences', () => {
     expect(formatOccurrence(occ(1, '2026-10-17T10:00:00', '2026-10-17T12:30:00'))).toBe(
       'samedi 17 octobre · 10h00 – 12h30',
     );
+  });
+
+  it('date de la fiche : la prochaine occurrence plutôt que toute la période', () => {
+    // Vide-grenier d'Eygalières : le 19 avril (passé) et le 1er novembre.
+    const twoDates = {
+      startDate: '2026-04-19T00:00:00',
+      endDate: '2026-11-01T23:59:00',
+      occurrences: [
+        occ(1, '2026-04-19T00:00:00', '2026-04-19T23:59:00'),
+        occ(2, '2026-11-01T00:00:00', '2026-11-01T23:59:00'),
+      ],
+    };
+    expect(formatDetailDate(twoDates, now)).toBe('1 novembre 2026');
+  });
+
+  it('date de la fiche : la période sans occurrence à venir', () => {
+    const unscheduled = { startDate: '2026-12-05T09:00:00', endDate: '2026-12-07T18:00:00', occurrences: [] };
+    expect(formatDetailDate(unscheduled, now)).toBe('du 5 décembre 2026 au 7 décembre 2026');
   });
 });
 

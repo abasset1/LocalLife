@@ -3,7 +3,9 @@
  * sans dépendance à React Native pour rester testable. Reprend les règles du site web
  * (`frontend/src/utils/recurrence.ts`).
  */
-import type { AccessibilitySummary, LinkSummary, OccurrenceSummary, ScheduleSummary } from '@/api';
+import type { AccessibilitySummary, ActivityDetail, LinkSummary, OccurrenceSummary, ScheduleSummary } from '@/api';
+
+import { formatDateRange } from './format';
 
 const WEEKDAYS: Record<string, string> = {
   MO: 'lundi',
@@ -71,6 +73,19 @@ export function upcomingOccurrences(occurrences: readonly OccurrenceSummary[], n
     .filter((o) => o.status !== 'CANCELLED')
     .filter((o) => new Date(o.endAt ?? o.startAt).getTime() >= now.getTime())
     .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+}
+
+/**
+ * Date en tête de fiche : la prochaine occurrence, sinon la période de l'activité. La période seule
+ * trompe pour des dates séparées (vide-grenier le 19 avril et le 1er novembre : « du 19 avril au
+ * 1er novembre »).
+ */
+export function formatDetailDate(
+  detail: Pick<ActivityDetail, 'occurrences' | 'startDate' | 'endDate'>,
+  now: Date = new Date(),
+): string | null {
+  const next = upcomingOccurrences(detail.occurrences, now)[0];
+  return next ? formatDateRange(next.startAt, next.endAt) : formatDateRange(detail.startDate, detail.endDate);
 }
 
 /** « samedi 17 octobre · 10h00 – 12h00 ». */
