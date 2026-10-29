@@ -1,6 +1,11 @@
 # Changelog
 
 ## 0.9.59 — non publiée
+
+### Import OpenAgenda : seulement les événements en cours et à venir
+- Le collecteur demande à l'API OpenAgenda les seuls événements en cours ou à venir (`relative[]=current&relative[]=upcoming`). Il téléchargeait jusqu'ici tout l'historique des agendas : mesuré sur la bêta le 28/10/2026, 1 910 785 événements reçus (8 544 pages) pour environ 100 000 retenus, et 1 h 39 de collecte cumulée sur un tour de 2 h. Le tri local des événements à venir reste appliqué, inchangé.
+- `infra/verification/import_duree_mesure.sql` (lecture seule) : où passe le temps d'un tour d'import (durée par agenda, temps entre agendas, répartition par volume, agendas les plus longs, agendas vides ou millésimés).
+- `infra/verification/openagenda_filtre_verif.sh` (lecture seule, interroge OpenAgenda) : vérifie sur la vraie API qu'aucun événement classé « passé » n'a encore un horaire à venir, avant déploiement.
 ### Import : durée fortement réduite
 - Les recherches de lieu (adresse, ou coordonnées) et de média (URL) faites pour chaque événement importé parcouraient toute la table : elles sont désormais indexées (migration `V76`). Leur coût ne grandit plus avec la base (≈ 3 ms → 0,02 ms chacune avec 50 000 lieux et médias en base).
 - Toutes les écritures d'un événement partent en une seule transaction au lieu d'une par requête (≈ 12 commits → 1). Un événement en erreur est annulé en entier et retenté au prochain import ; l'échec de l'enrichissement (lieu, créneaux, médias…) laisse toujours l'activité enregistrée.

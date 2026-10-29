@@ -428,6 +428,27 @@ class OpenAgendaCollectorTest {
     }
 
     @Test
+    void collect_ShouldAskOnlyForCurrentAndUpcomingEvents_OnEveryPage() {
+        OpenAgendaCollector collector = newCollector("key", "12345");
+        // Sans ce filtre, l'API renvoie tout l'historique de l'agenda (95 % d'événements passés sur la bêta).
+        mockServer.expect(requestTo(allOf(
+                        containsString("relative%5B%5D=current"),
+                        containsString("relative%5B%5D=upcoming"))))
+                .andRespond(withSuccess(
+                        "{\"events\": [" + EVENT_JSON + "], \"after\": [1700000000, 42]}", MediaType.APPLICATION_JSON));
+        mockServer.expect(requestTo(allOf(
+                        containsString("relative%5B%5D=current"),
+                        containsString("relative%5B%5D=upcoming"),
+                        containsString("after%5B%5D=42"))))
+                .andRespond(withSuccess("{\"events\": [], \"after\": null}", MediaType.APPLICATION_JSON));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(1, result.size());
+        mockServer.verify();
+    }
+
+    @Test
     void collect_ShouldFollowAfterCursor_UntilEmptyPage() {
         OpenAgendaCollector collector = newCollector("key", "12345");
         String secondEvent = """
