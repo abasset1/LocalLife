@@ -3,6 +3,7 @@ package com.locallife.backend.like.api;
 import com.locallife.backend.activity.api.ActivityResponse;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
+import com.locallife.backend.activity.infrastructure.ActivityNextOccurrenceRepository;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.like.application.LikeService;
 import com.locallife.backend.media.application.ActivityMediaService;
@@ -12,6 +13,7 @@ import com.locallife.backend.media.domain.Media;
 import com.locallife.backend.place.domain.CoordinatePrecision;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -42,15 +44,18 @@ public class LikeController {
     private final MediaService mediaService;
 
     private final ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
+    private final ActivityNextOccurrenceRepository nextOccurrenceRepository;
 
     public LikeController(
             LikeService likeService, SourceService sourceService, ActivityMediaService activityMediaService,
-            MediaService mediaService, ActivityCoordinatePrecisionRepository coordinatePrecisionRepository) {
+            MediaService mediaService, ActivityCoordinatePrecisionRepository coordinatePrecisionRepository,
+            ActivityNextOccurrenceRepository nextOccurrenceRepository) {
         this.likeService = likeService;
         this.sourceService = sourceService;
         this.activityMediaService = activityMediaService;
         this.mediaService = mediaService;
         this.coordinatePrecisionRepository = coordinatePrecisionRepository;
+        this.nextOccurrenceRepository = nextOccurrenceRepository;
     }
 
     /**
@@ -82,12 +87,16 @@ public class LikeController {
 
         Map<Long, CoordinatePrecision> precisions = coordinatePrecisionRepository.findByActivityIds(
                 likedActivities.stream().map(Activity::id).toList());
+        // Date affichée : prochaine occurrence plutôt que la première date (voir ActivityNextOccurrenceRepository).
+        Map<Long, LocalDateTime> nextStarts = nextOccurrenceRepository.findNextStartByActivityIds(
+                likedActivities.stream().map(Activity::id).toList(), null);
 
         return likedActivities.stream()
                 .map(activity -> ActivityResponse.from(
                         activity, sourceNamesById.getOrDefault(activity.sourceId(), UNKNOWN_SOURCE_NAME),
                         null, true, resolveMainImageUrl(activity.id()))
-                        .withCoordinatePrecision(precisions == null ? null : precisions.get(activity.id())))
+                        .withCoordinatePrecision(precisions == null ? null : precisions.get(activity.id()))
+                        .withNextOccurrenceStart(nextStarts == null ? null : nextStarts.get(activity.id())))
                 .collect(Collectors.toList());
     }
 

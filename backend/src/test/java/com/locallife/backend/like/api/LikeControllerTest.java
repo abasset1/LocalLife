@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.locallife.backend.activity.infrastructure.ActivityCoordinatePrecisionRepository;
+import com.locallife.backend.activity.infrastructure.ActivityNextOccurrenceRepository;
 import com.locallife.backend.activity.api.ActivityResponse;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.auth.application.JwtAuthentication;
@@ -38,6 +39,9 @@ class LikeControllerTest {
 
     @Mock
     private ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
+
+    @Mock
+    private ActivityNextOccurrenceRepository nextOccurrenceRepository;
 
     @InjectMocks
     private LikeController likeController;
