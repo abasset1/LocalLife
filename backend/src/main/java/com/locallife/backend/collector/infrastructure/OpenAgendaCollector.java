@@ -191,6 +191,15 @@ public class OpenAgendaCollector implements Collector {
     private static final int PAGE_SIZE = 300;
 
     /**
+     * Événements demandés à l'API : en cours ou à venir ({@code relative[]=current&relative[]=upcoming}). Sans ce
+     * filtre, l'API renvoie tout l'historique de l'agenda. Mesure sur la bêta (28/10/2026,
+     * {@code infra/verification/import_duree_mesure.sql}) : 1 910 785 événements reçus pour environ 100 000 retenus,
+     * 8 544 pages, 1 h 39 de collecte cumulée. Le filtre local {@link #hasUpcomingTiming} reste appliqué : il décide
+     * seul de ce qui est retenu, le filtre de l'API ne fait qu'éviter de télécharger le passé.
+     */
+    static final List<String> RELATIVE_PERIODS = List.of("current", "upcoming");
+
+    /**
      * Limite de sécurité par défaut (nombre de pages, soit 600 000 événements) : son déclenchement rend la
      * collecte {@code PARTIAL}, jamais complète — voir la Javadoc de la classe.
      */
@@ -376,7 +385,8 @@ public class OpenAgendaCollector implements Collector {
                     uriBuilder.path("/v2/agendas/{agendaUid}/events")
                             .queryParam("key", apiKey)
                             .queryParam("size", PAGE_SIZE)
-                            .queryParam("detailed", "1");
+                            .queryParam("detailed", "1")
+                            .queryParam("relative[]", RELATIVE_PERIODS.toArray());
                     OpenAgendaCursor.append(uriBuilder, currentAfter);
                     return uriBuilder.build(agendaUid);
                 })
