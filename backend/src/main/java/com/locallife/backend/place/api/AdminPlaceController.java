@@ -110,6 +110,16 @@ public class AdminPlaceController {
         }
     }
 
+    @Operation(summary = "Relier automatiquement les paires certaines",
+            description = "Lancé par un administrateur uniquement (ADR-0011, § 7.2.9) : relie les paires que le "
+                    + "rapport classe CERTAIN et dont le lieu d'événement n'est relié à aucun lieu permanent, 500 au "
+                    + "plus par appel ('remaining' indique le reste). Lien réversible, aucune fusion.")
+    @PostMapping("/links/auto")
+    public ResponseEntity<Object> autoLink(@RequestParam(required = false) String department,
+            Authentication authentication) {
+        return ResponseEntity.ok(linkService.autoLinkCertain(blankToNull(department), adminId(authentication)));
+    }
+
     @Operation(summary = "Délier un lieu d'événement", description = "Remet place_id à vide. 404 s'il n'était pas "
             + "relié.")
     @DeleteMapping("/links/{eventLocationId}")

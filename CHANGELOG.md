@@ -2,6 +2,9 @@
 
 ## 0.9.59 — non publiée
 
+### Lieux : liaison automatique des paires certaines
+- Les pages des lieux permanents n'affichaient aucune activité tant qu'aucun lieu d'événement n'y était relié à la main. L'onglet Rapprochements de l'admin a maintenant un bouton « Relier les paires certaines » : il relie en une fois, pour le département choisi, les paires classées certaines dont le lieu d'événement n'est relié à rien (500 au plus par clic). Seul un administrateur peut le lancer ; rien n'est relié par l'import. Les paires probables et ambiguës restent à trancher à la main ; chaque lien se retire avec « Délier ». API : `POST /api/v1/admin/places/links/auto?department=`.
+
 ### Classification : le titre en dernier recours
 - Un événement dont la source fournit des mots-clés, mais aucun reconnu (« gratuit », « nantes », nom d'organisateur…), n'est plus mis en quarantaine d'office : son titre est essayé, comme pour un événement sans mot-clé. Des mots-clés source reconnus gardent la priorité. Mesuré sur la bêta : environ 3 500 événements en quarantaine classés par leur titre, surtout en Culture. Toute la quarantaine est re-décidée au prochain import.
 - `infra/verification/categories_defaut_agendas.sql` (catégories par défaut de 8 agendas thématiques, à blanc par défaut) et `infra/verification/quarantaine_titre.sql` (estimation rapide de ce que le titre classerait).

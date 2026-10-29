@@ -31,6 +31,9 @@ function stubApi() {
                 matches: [match(10, 1), match(11, 2, { placeName: "Château de Simiane", linkedPlaceId: 2 })],
             });
         }
+        if (url.startsWith("/api/v1/admin/places/links/auto")) {
+            return json({ linked: 4, remaining: 0 });
+        }
         if (url === "/api/v1/admin/places/links") {
             return json({ linked: [{ eventLocationId: 10, placeId: 1 }], refused: [] });
         }
@@ -68,6 +71,19 @@ describe("AdminPlaceMatchesSection", () => {
         await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("1 reliée(s)."));
         const post = calls.find((call) => call.url === "/api/v1/admin/places/links");
         expect(JSON.parse(post?.init?.body as string)).toEqual({ links: [{ eventLocationId: 10, placeId: 1 }] });
+    });
+
+    it("relie automatiquement les paires certaines du département après confirmation", async () => {
+        const calls = stubApi();
+        const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+        render(<AdminPlaceMatchesSection />);
+
+        await userEvent.click(await screen.findByRole("button", { name: "Relier les paires certaines" }));
+
+        await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("4 reliée(s) automatiquement."));
+        expect(confirm.mock.calls[0][0]).toContain("du département 84");
+        expect(calls.some((call) => call.url === "/api/v1/admin/places/links/auto?department=84"
+            && call.init?.method === "POST")).toBe(true);
     });
 
     it("délie après confirmation", async () => {

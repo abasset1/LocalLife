@@ -216,6 +216,39 @@ class PlaceMatchIntegrationTest {
     }
 
     @Test
+    void autoLink_ShouldLinkOnlyFreeCertainPairs_WhenAnAdminRunsIt() {
+        Long theatre = location("Théâtre du Chêne Noir", "8 bis rue Sainte-Catherine", 0, "EXACT", "PUBLISHED");
+        Long certain = eventLocation("Theatre du Chene Noir", "8 bis rue Sainte Catherine", 10, "UNKNOWN");
+        Long probable = eventLocation("Chêne Noir", null, 60, "UNKNOWN");
+        Long sameAddress = eventLocation("Salle Léo Ferré", "8 bis rue Sainte-Catherine", 20, "UNKNOWN");
+        location("Chapelle des Pénitents Blancs", null, 3000, "EXACT", "PENDING");
+        location("Chapelle des Pénitents Noirs", null, 3060, "EXACT", "PENDING");
+        Long twoCandidates = eventLocation("Chapelle des Pénitents", null, 3030, "UNKNOWN");
+
+        client().post().uri("/api/v1/admin/places/links/auto?department=" + POSTAL).exchange()
+                .expectStatus().isUnauthorized();
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT id FROM location WHERE place_id IS NOT NULL AND postal_code = ?", Long.class, POSTAL))
+                .as("rien sans administrateur").isEmpty();
+
+        client().post().uri("/api/v1/admin/places/links/auto?department=" + POSTAL)
+                .header(HttpHeaders.AUTHORIZATION, admin()).exchange().expectStatus().isOk()
+                .expectBody().jsonPath("$.linked").isEqualTo(1).jsonPath("$.remaining").isEqualTo(0);
+
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT id FROM location WHERE place_id IS NOT NULL AND postal_code = ?", Long.class, POSTAL))
+                .containsExactly(certain);
+        assertThat(jdbcTemplate.queryForObject("SELECT place_id FROM location WHERE id = ?", Long.class, certain))
+                .isEqualTo(theatre);
+        assertThat(List.of(probable, sameAddress, twoCandidates)).allSatisfy(id -> assertThat(
+                jdbcTemplate.queryForObject("SELECT place_id FROM location WHERE id = ?", Long.class, id)).isNull());
+
+        client().post().uri("/api/v1/admin/places/links/auto?department=" + POSTAL)
+                .header(HttpHeaders.AUTHORIZATION, admin()).exchange().expectStatus().isOk()
+                .expectBody().jsonPath("$.linked").isEqualTo(0);
+    }
+
+    @Test
     void link_ShouldBeReservedToAdmins_AndValidated() {
         client().post().uri("/api/v1/admin/places/links").contentType(MediaType.APPLICATION_JSON)
                 .body("{\"links\":[]}").exchange().expectStatus().isUnauthorized();

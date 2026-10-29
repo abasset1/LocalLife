@@ -13,11 +13,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Lien réversible lieu d'événement → lieu permanent (ADR-0011, § 7.2.9, migration V63), posé par un administrateur
- * à partir du rapport de rapprochement. Jamais automatique, jamais de fusion : seul {@code location.place_id} change.
+ * à partir du rapport de rapprochement. Jamais de fusion : seul {@code location.place_id} change.
  *
  * <p>Une paire n'est reliée que si elle est encore candidate (lieu d'événement utilisé, lieu permanent en attente
  * ou publié à 100 m au plus) et que la règle {@link PlaceMatcher} ne la classe pas {@link Level#NONE} : un
  * administrateur peut trancher une paire ambiguë, pas relier deux lieux sans rapport.
+ *
+ * <p>Liaison automatique ({@link #autoLinkCertain}) : lancée par un administrateur, jamais par un import ni une
+ * tâche planifiée. Elle relie les seules paires que le rapport classe {@link Level#CERTAIN} (un lieu d'événement
+ * à plusieurs candidats y est ambigu) et dont le lieu d'événement n'est encore relié à aucun lieu permanent.
  */
 @Service
 public class PlaceLinkService {
@@ -26,9 +30,11 @@ public class PlaceLinkService {
     public static final int MAX_BULK = PlaceModerationService.MAX_BULK;
 
     private final PlaceMatchRepository repository;
+    private final PlaceMatchReportService reportService;
 
-    public PlaceLinkService(PlaceMatchRepository repository) {
+    public PlaceLinkService(PlaceMatchRepository repository, PlaceMatchReportService reportService) {
         this.repository = repository;
+        this.reportService = reportService;
     }
 
     public record LinkRequest(Long eventLocationId, Long placeId) {
@@ -38,6 +44,10 @@ public class PlaceLinkService {
     }
 
     public record LinkResult(List<LinkRequest> linked, List<Refused> refused) {
+    }
+
+    /** {@code remaining} : paires certaines non reliées au-delà du plafond, à relier par un nouvel appel. */
+    public record AutoLinkResult(int linked, int remaining) {
     }
 
     @Transactional
@@ -60,6 +70,23 @@ public class PlaceLinkService {
             }
         }
         return new LinkResult(linked, refused);
+    }
+
+    /** Relie, au plus {@value #MAX_BULK} à la fois, les paires certaines dont le lieu d'événement est libre. */
+    @Transactional
+    public AutoLinkResult autoLinkCertain(String department, Long adminId) {
+        List<LinkRequest> pending = reportService.report(department, Level.CERTAIN, Integer.MAX_VALUE).matches()
+                .stream()
+                .filter(match -> match.pair().linkedPlaceId() == null)
+                .map(match -> new LinkRequest(match.pair().eventLocationId(), match.pair().placeId()))
+                .toList();
+        int linked = 0;
+        for (LinkRequest request : pending.subList(0, Math.min(MAX_BULK, pending.size()))) {
+            if (repository.link(request.eventLocationId(), request.placeId(), adminId)) {
+                linked++;
+            }
+        }
+        return new AutoLinkResult(linked, Math.max(0, pending.size() - MAX_BULK));
     }
 
     @Transactional

@@ -5,7 +5,8 @@ import { placeTypeLabel } from "../places/placeTypes";
 /**
  * Rapprochements lieux d'événement ↔ lieux permanents (ADR-0011, § 7.2.9). Le rapport classe les paires
  * (certaines, probables, ambiguës) ; un administrateur relie les paires qu'il valide. Le lien est réversible
- * (« Délier ») et ne modifie ni le lieu d'événement ni ses programmations. Rien n'est relié automatiquement.
+ * (« Délier ») et ne modifie ni le lieu d'événement ni ses programmations. « Relier les paires certaines » relie en
+ * une fois les paires certaines encore libres du département : c'est l'administrateur qui le lance, jamais l'import.
  */
 
 export type MatchLevel = "CERTAIN" | "PROBABLE" | "AMBIGUOUS";
@@ -37,6 +38,11 @@ interface MatchReport {
 interface LinkResult {
     linked: { eventLocationId: number; placeId: number }[];
     refused: { eventLocationId: number; placeId: number; reason: string }[];
+}
+
+interface AutoLinkResult {
+    linked: number;
+    remaining: number;
 }
 
 const LEVELS: { value: MatchLevel; label: string }[] = [
@@ -134,6 +140,29 @@ function AdminPlaceMatchesSection() {
         }
     }
 
+    async function autoLinkCertain() {
+        const scope = department.trim() ? `du département ${department.trim()}` : "de tous les départements";
+        if (!window.confirm(`Relier automatiquement toutes les paires certaines non reliées ${scope} ?`)) {
+            return;
+        }
+        setBusy(true);
+        try {
+            const params = department.trim() ? `?${new URLSearchParams({ department: department.trim() }).toString()}` : "";
+            const response = await apiFetch(`/api/v1/admin/places/links/auto${params}`, { method: "POST" });
+            if (!response.ok) {
+                throw new Error(`Erreur ${response.status}`);
+            }
+            const result = (await response.json()) as AutoLinkResult;
+            setMessage(`${result.linked} reliée(s) automatiquement${result.remaining ? ` ; ${result.remaining} restante(s), relancer pour continuer` : ""}.`);
+            setSelected(new Set());
+            setRefreshKey((key) => key + 1);
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : "Erreur");
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function unlink(match: PlaceMatch) {
         if (!window.confirm("Délier ce lieu d'événement ?")) {
             return;
@@ -205,6 +234,14 @@ function AdminPlaceMatchesSection() {
                     type="button"
                 >
                     Relier la sélection
+                </button>
+                <button
+                    className="admin-approve-button"
+                    disabled={busy}
+                    onClick={() => void autoLinkCertain()}
+                    type="button"
+                >
+                    Relier les paires certaines
                 </button>
             </div>
             {message && <p className="activities-status" role="status">{message}</p>}
