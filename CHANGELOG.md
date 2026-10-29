@@ -2,6 +2,8 @@
 
 ## 0.9.59 — non publiée
 
+### Lieux : liaison automatique des paires certaines
+- Les pages des lieux permanents n'affichaient aucune activité tant qu'aucun lieu d'événement n'y était relié à la main. L'onglet Rapprochements de l'admin a maintenant un bouton « Relier les paires certaines » : il relie en une fois, pour le département choisi, les paires classées certaines dont le lieu d'événement n'est relié à rien (500 au plus par clic). Seul un administrateur peut le lancer ; rien n'est relié par l'import. Les paires probables et ambiguës restent à trancher à la main ; chaque lien se retire avec « Délier ». API : `POST /api/v1/admin/places/links/auto?department=`.
 ### Nouvelle source : vide-greniers et brocantes de toute la France (DATAtourisme)
 - Une source DATAtourisme peut ne garder qu'une famille d'événements (`source.event_selection`, migration `V77`). Première sélection : vide-greniers et brocantes (types DATAtourisme `GarageSale` et `BricABrac`, ou titre explicite : vide-grenier, brocante, braderie, puces, vide-dressing, bourse aux…).
 - Source « DATAtourisme France — vide-greniers et brocantes » créée **inactive**, catégorie par défaut Marchés, à activer après un essai à blanc. Mesuré sur l'export du 29/10/2026 : 1 049 événements à venir dans 68 départements, contre 138 publiés sur la bêta dans 32 départements.
