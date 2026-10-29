@@ -4,6 +4,31 @@
 
 ### Lieux : liaison automatique des paires certaines
 - Les pages des lieux permanents n'affichaient aucune activité tant qu'aucun lieu d'événement n'y était relié à la main. L'onglet Rapprochements de l'admin a maintenant un bouton « Relier les paires certaines » : il relie en une fois, pour le département choisi, les paires classées certaines dont le lieu d'événement n'est relié à rien (500 au plus par clic). Seul un administrateur peut le lancer ; rien n'est relié par l'import. Les paires probables et ambiguës restent à trancher à la main ; chaque lien se retire avec « Délier ». API : `POST /api/v1/admin/places/links/auto?department=`.
+### Nouvelle source : vide-greniers et brocantes de toute la France (DATAtourisme)
+- Une source DATAtourisme peut ne garder qu'une famille d'événements (`source.event_selection`, migration `V77`). Première sélection : vide-greniers et brocantes (types DATAtourisme `GarageSale` et `BricABrac`, ou titre explicite : vide-grenier, brocante, braderie, puces, vide-dressing, bourse aux…).
+- Source « DATAtourisme France — vide-greniers et brocantes » créée **inactive**, catégorie par défaut Marchés, à activer après un essai à blanc. Mesuré sur l'export du 29/10/2026 : 1 049 événements à venir dans 68 départements, contre 138 publiés sur la bêta dans 32 départements.
+- Les sources DATAtourisme existantes sont inchangées (aucune sélection : tous les événements). Détail : `docs/02_Architecture/DATAGOUV_SOURCES.md`, « Sélection d'événements ».
+
+### Import OpenAgenda : seulement les événements en cours et à venir
+- Le collecteur demande à l'API OpenAgenda les seuls événements en cours ou à venir (`relative[]=current&relative[]=upcoming`). Il téléchargeait jusqu'ici tout l'historique des agendas : mesuré sur la bêta le 28/10/2026, 1 910 785 événements reçus (8 544 pages) pour environ 100 000 retenus, et 1 h 39 de collecte cumulée sur un tour de 2 h. Le tri local des événements à venir reste appliqué, inchangé.
+- `infra/verification/import_duree_mesure.sql` (lecture seule) : où passe le temps d'un tour d'import (durée par agenda, temps entre agendas, répartition par volume, agendas les plus longs, agendas vides ou millésimés).
+- `infra/verification/openagenda_filtre_verif.sh` (lecture seule, interroge OpenAgenda) : vérifie sur la vraie API qu'aucun événement classé « passé » n'a encore un horaire à venir, avant déploiement.
+### Import : durée fortement réduite
+- Les recherches de lieu (adresse, ou coordonnées) et de média (URL) faites pour chaque événement importé parcouraient toute la table : elles sont désormais indexées (migration `V76`). Leur coût ne grandit plus avec la base (≈ 3 ms → 0,02 ms chacune avec 50 000 lieux et médias en base).
+- Toutes les écritures d'un événement partent en une seule transaction au lieu d'une par requête (≈ 12 commits → 1). Un événement en erreur est annulé en entier et retenté au prochain import ; l'échec de l'enrichissement (lieu, créneaux, médias…) laisse toujours l'activité enregistrée.
+- Mesuré en local (1 000 événements, 50 000 lieux et médias déjà en base) : premier import 21 s → 10–12 s, mise à jour 15 s → 5–6 s ; import sans changement inchangé (≈ 0,6 s).
+
+### Quarantaine de classification : agendas thématiques et annuaires (bêta, 25-27/10/2026)
+- `infra/verification/agendas_candidats.sql` (lecture seule) : agendas les plus chargés en quarantaine actuelle, avec la catégorie dominante de leurs activités publiées, pour repérer les agendas thématiques ; agendas qui ressemblent à des annuaires.
+- `infra/verification/categories_defaut_agendas_lot2.sql` : catégories par défaut de 39 agendas thématiques (bibliothèques, musées, scènes, agendas culturels ; une randonnée, un emploi). Appliqué sur la bêta.
+- `infra/verification/desactiver_agendas_non_evenements.sql` : désactivation des 102 « Catalogues … des structures d'accueil et d'hébergement » (annuaires, pas des événements) et de l'« Agenda de test », activités publiées archivées ; réversible par réactivation. Appliqué sur la bêta.
+- Les scripts qui écrivent refusent désormais d'écrire pendant un import (agenda collecté il y a moins de 15 minutes) : appliqués pendant un import, ils n'étaient vus qu'en partie et des activités archivées avaient été republiées (44, corrigé). Contournable avec `-v forcer=1`.
+
+
+### Import : avis aux organisateurs des événements récupérés
+- L'adresse e-mail de contact d'une activité importée (lien `EMAIL` fourni par la source) reçoit un message : LocalLife référence l'événement, et il faut créer un compte professionnel (inscription puis offre Pro depuis le profil) pour qu'il continue d'être référencé.
+- Un seul message par adresse et par passage, récapitulant ses événements ; jamais deux fois pour le même événement ; au plus un message tous les 30 jours par adresse. Seuls les événements publiés, à venir et importés depuis moins de 7 jours sont concernés (pas de rattrapage de l'existant) ; jamais une contribution manuelle ni l'adresse d'un compte professionnel ou administrateur.
+- **Désactivé par défaut** : `IMPORT_NOTICES_ENABLED=true` pour l'activer, `IMPORT_NOTICES_CRON` pour l'horaire (par défaut chaque jour à 9 h 30, heure de Paris). Migration `V75`.
 
 ### Classification : le titre en dernier recours
 - Un événement dont la source fournit des mots-clés, mais aucun reconnu (« gratuit », « nantes », nom d'organisateur…), n'est plus mis en quarantaine d'office : son titre est essayé, comme pour un événement sans mot-clé. Des mots-clés source reconnus gardent la priorité. Mesuré sur la bêta : environ 3 500 événements en quarantaine classés par leur titre, surtout en Culture. Toute la quarantaine est re-décidée au prochain import.

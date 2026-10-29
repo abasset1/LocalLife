@@ -174,4 +174,17 @@ public record ActivityResponse(
                 mainImageUrl, categoryCodes, publishedAt,
                 (precision == null ? CoordinatePrecision.UNKNOWN : precision).name());
     }
+
+    /**
+     * {@code startDate} remplacé par le début de la prochaine occurrence ({@code ActivityNextOccurrenceRepository}) ;
+     * {@code null} garde celui de l'activité (sans programmation ou sans occurrence à venir).
+     */
+    public ActivityResponse withNextOccurrenceStart(LocalDateTime nextStart) {
+        if (nextStart == null) {
+            return this;
+        }
+        return new ActivityResponse(id, title, description, category, latitude, longitude, nextStart, endDate,
+                status, sourceName, url, address, city, postalCode, createdBy, createdByUsername, likedByCurrentUser,
+                mainImageUrl, categoryCodes, publishedAt, coordinatePrecision);
+    }
 }

@@ -58,6 +58,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * LL-EF-005 : {@code ImportService} ne reçoit plus un {@code List<Collector>}
@@ -153,6 +154,9 @@ class ImportServiceTest {
     @Mock
     private SourceSyncStateRepository sourceSyncStateRepository;
 
+    @Mock
+    private PlatformTransactionManager transactionManager;
+
     private static final ClassificationOutcome AUTO_CLASSIFIED_AS_MARKETS = new ClassificationOutcome(
             new Decision(ClassificationStatus.AUTO_CLASSIFIED, List.of("MARKETS"), null, List.of(), "AUTO:MARKETS"),
             List.of(7L));
@@ -187,7 +191,7 @@ class ImportServiceTest {
                 activityMediaService, activityLinkService, accessibilityService, activityTagService,
                 activityMetadataService, classificationService, activityClassificationService,
                 importFingerprintService, sourceDefaultCategoryService, activityCoordinatePrecisionRepository,
-                sourceSyncStateRepository);
+                sourceSyncStateRepository, transactionManager);
     }
 
     private static final Source SOURCE = new Source(

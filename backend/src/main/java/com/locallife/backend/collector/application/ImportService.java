@@ -43,6 +43,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Persistance des imports (LL-5008) : orchestre {@code Collector} →
@@ -208,6 +211,12 @@ import org.springframework.stereotype.Service;
  * SourceDefaultCategoryService}) ; sinon il reste en quarantaine, comme
  * avant. Les mots-clés gardent toujours la priorité.
  *
+ * <b>Une transaction par élément</b> : toutes les écritures d'un élément collecté (activité, classification,
+ * enrichissement, empreinte) partent en une seule transaction, au lieu d'une par requête : un seul commit par
+ * élément, ce qui divise la durée d'un import. Un élément en erreur est annulé en entier (compté dans
+ * {@code errors}, retenté au prochain import) ; l'enrichissement a son propre point de sauvegarde, son échec
+ * laisse l'activité enregistrée, comme avant (LL-11016).
+ *
  * <b>Un seul import à la fois</b> : {@link #importAll()} refuse de
  * démarrer ({@link ImportAlreadyRunningException}) si un import est déjà
  * en cours dans cette instance. Verrou en mémoire : suffisant tant que
@@ -270,6 +279,12 @@ public class ImportService {
     private final ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository;
     private final SourceSyncStateRepository sourceSyncStateRepository;
 
+    /**
+     * Transaction d'un élément, et point de sauvegarde de son enrichissement à l'intérieur de celle-ci : voir la
+     * javadoc de la classe (« une transaction par élément »).
+     */
+    private final TransactionTemplate nestedTransaction;
+
     /** Vrai pendant un import, voir la javadoc de la classe (« un seul import à la fois »). */
     private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -294,7 +309,8 @@ public class ImportService {
             ImportFingerprintService importFingerprintService,
             SourceDefaultCategoryService sourceDefaultCategoryService,
             ActivityCoordinatePrecisionRepository activityCoordinatePrecisionRepository,
-            SourceSyncStateRepository sourceSyncStateRepository) {
+            SourceSyncStateRepository sourceSyncStateRepository,
+            PlatformTransactionManager transactionManager) {
         this.sourceService = sourceService;
         this.openAgendaCollectorFactory = openAgendaCollectorFactory;
         this.dataTourismeCollectorFactory = dataTourismeCollectorFactory;
@@ -316,6 +332,8 @@ public class ImportService {
         this.sourceDefaultCategoryService = sourceDefaultCategoryService;
         this.activityCoordinatePrecisionRepository = activityCoordinatePrecisionRepository;
         this.sourceSyncStateRepository = sourceSyncStateRepository;
+        this.nestedTransaction = new TransactionTemplate(transactionManager);
+        this.nestedTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_NESTED);
     }
 
     /**
@@ -437,120 +455,23 @@ public class ImportService {
         String referentialVersion = classificationService.referentialVersion() + "|défaut:" + defaultCategoryIds;
         Set<String> sameSourceDuplicateKeys = sameSourceDuplicateKeys(source, collected);
 
+        ImportContext context = new ImportContext(
+                source, knownFingerprints, defaultCategoryIds, referentialVersion, sameSourceDuplicateKeys);
+
         for (CollectedActivity item : collected) {
             try {
                 String key = deduplicationService.computeDeduplicationKey(item);
                 seenKeys.add(key);
-
-                // Déduplication dans la source (voir la javadoc de la classe) : avant l'import incrémental,
-                // pour qu'une activité publiée inchangée qui doublonne soit elle aussi archivée.
-                if (sameSourceDuplicateKeys.contains(key)) {
-                    duplicates++;
-                    archiveIfPublished(activityRepository.findBySourceIdAndImportKey(source.id(), key));
-                    continue;
-                }
-
-                Optional<Activity> normalized = normalizationService.normalize(item);
-                if (normalized.isEmpty()) {
-                    ignored++;
-                    continue;
-                }
-
-                Optional<Activity> existing = activityRepository.findBySourceIdAndImportKey(source.id(), key);
-
-                // Import incrémental : contenu identique à celui du dernier import réussi → rien à
-                // réécrire. Une activité archivée n'est jamais sautée : revenue dans la source, elle
-                // doit être republiée.
-                String fingerprint = importFingerprintService.compute(item);
-                if (existing.isPresent()
-                        && !ARCHIVED_STATUS.equals(existing.get().status())
-                        && fingerprint.equals(knownFingerprints.get(key))) {
-                    unchanged++;
-                    continue;
-                }
-
-                // Élément déjà en quarantaine, contenu et référentiel inchangés : la décision
-                // serait la même, inutile de la recalculer et de réécrire sa trace.
-                String quarantineFingerprint =
-                        importFingerprintService.computeQuarantined(fingerprint, referentialVersion);
-                if (existing.isEmpty() && quarantineFingerprint.equals(knownFingerprints.get(key))) {
-                    needsReview++;
-                    continue;
-                }
-
-                // Déduplication entre sources (voir la javadoc de la classe) : ne concerne qu'un
-                // élément sans activité publiée ici (nouveau, ou archivé), jamais une activité que
-                // cette source possède déjà.
-                boolean publishedHere = existing.isPresent() && !ARCHIVED_STATUS.equals(existing.get().status());
-                if (!publishedHere && isDuplicateOfAnotherSource(source, item, normalized.get())) {
-                    duplicates++;
-                    continue;
-                }
-
-                // CAT-008 : classification centralisée (ClassificationService). Une activité déjà
-                // importée garde ses catégories (un ré-import n'écrase jamais une classification
-                // existante, y compris validée par un humain). Pour un nouvel élément, si la
-                // classification n'est pas décidable (NEEDS_REVIEW / UNCLASSIFIED), aucune activité
-                // n'est créée : une activité a au moins une catégorie (activity_category, V42) et
-                // aucune catégorie n'est inventée. L'élément est consigné pour relecture
-                // (classification_record) et compté dans needsReview (distinct d'ignored).
-                // Fallback titre : le titre n'est exploité par ClassificationService que si la
-                // source ne fournit aucun keyword (catégorie d'origine / tags absents ou vides).
-                // Issue #45 : toutes les catégories détectées (1..N) sont enregistrées avec
-                // l'activité, dans la même transaction (ActivityClassificationService#createActivity).
-                Activity toSave = withSourceAndKey(
-                        normalized.get(), existing.map(Activity::id).orElse(null), source.id(), key);
-                // Un ré-import met à jour le contenu, jamais une décision de modération : une activité
-                // annulée par un administrateur (ou dans tout autre statut posé hors import) le reste.
-                // Seule une activité archivée par l'import lui-même (absente de la source) est republiée.
-                if (existing.isPresent() && !ARCHIVED_STATUS.equals(existing.get().status())) {
-                    toSave = withStatus(toSave, existing.get().status());
-                }
-                Activity saved;
-                if (existing.isPresent()) {
-                    saved = activityRepository.save(toSave);
-                } else {
-                    ClassificationOutcome classification =
-                            classificationService.decide(item.title(), item.category(), item.tags());
-                    if (!classification.classified() && !defaultCategoryIds.isEmpty()) {
-                        ClassificationOutcome byDefault = classificationService.sourceDefault(defaultCategoryIds);
-                        if (byDefault.classified()) {
-                            classification = byDefault;
-                        }
-                    }
-                    if (!classification.classified()) {
-                        classificationService.recordQuarantined(
-                                source.id(), key, item.title(), item.category(), item.tags(), classification);
-                        importFingerprintService.record(
-                                source.id(), key, quarantineFingerprint, item.externalId());
-                        needsReview++;
-                        continue;
-                    }
-                    saved = activityClassificationService.createActivity(toSave, classification.categoryIds());
-                    classificationService.recordClassified(
-                            source.id(), key, saved.id(), item.title(), item.category(), item.tags(), classification);
-                }
-
-                // Bug corrigé (LL-11016, révélé par mvn verify en CI) : created/updated
-                // s'incrémentaient après enrichActivity(...) — une exception dans
-                // l'enrichissement (Location/Schedule/Occurrence/Media/...) faisait donc
-                // compter l'élément entier en erreur, alors que l'Activity elle-même venait
-                // d'être sauvegardée avec succès juste au-dessus. Compté ici, avant
-                // l'enrichissement : reflète fidèlement que l'import de l'activité a réussi,
-                // même si son enrichissement (secondaire) échoue ensuite — voir
-                // enrichActivitySafely ci-dessous pour l'isolation de cette étape.
-                if (existing.isPresent()) {
-                    updated++;
-                } else {
-                    created++;
-                }
-
-                // L'empreinte n'est enregistrée qu'après un enrichissement réussi : sinon l'élément
-                // est retenté en entier au prochain import.
-                if (enrichActivitySafely(source, saved, item, existing.isPresent())) {
-                    importFingerprintService.record(source.id(), key, fingerprint, item.externalId());
-                } else {
-                    importFingerprintService.forget(source.id(), key);
+                // Une transaction par élément (voir la javadoc de la classe) : ses écritures partent en un seul
+                // commit, et un échec n'en laisse aucune à moitié faite.
+                ItemOutcome outcome = nestedTransaction.execute(status -> importItem(context, item, key));
+                switch (outcome) {
+                    case CREATED -> created++;
+                    case UPDATED -> updated++;
+                    case IGNORED -> ignored++;
+                    case NEEDS_REVIEW -> needsReview++;
+                    case UNCHANGED -> unchanged++;
+                    case DUPLICATE -> duplicates++;
                 }
             } catch (RuntimeException exception) {
                 errors++;
@@ -590,6 +511,119 @@ public class ImportService {
         return result;
     }
 
+    /** Traite un élément collecté, dans sa propre transaction (voir la boucle de {@link #importFromWithinBatch}). */
+    private ItemOutcome importItem(ImportContext context, CollectedActivity item, String key) {
+        Source source = context.source();
+        // Déduplication dans la source (voir la javadoc de la classe) : avant l'import incrémental,
+        // pour qu'une activité publiée inchangée qui doublonne soit elle aussi archivée.
+        if (context.sameSourceDuplicateKeys().contains(key)) {
+            archiveIfPublished(activityRepository.findBySourceIdAndImportKey(source.id(), key));
+            return ItemOutcome.DUPLICATE;
+        }
+
+        Optional<Activity> normalized = normalizationService.normalize(item);
+        if (normalized.isEmpty()) {
+            return ItemOutcome.IGNORED;
+        }
+
+        Optional<Activity> existing = activityRepository.findBySourceIdAndImportKey(source.id(), key);
+
+        // Import incrémental : contenu identique à celui du dernier import réussi → rien à
+        // réécrire. Une activité archivée n'est jamais sautée : revenue dans la source, elle
+        // doit être republiée.
+        String fingerprint = importFingerprintService.compute(item);
+        if (existing.isPresent()
+                && !ARCHIVED_STATUS.equals(existing.get().status())
+                && fingerprint.equals(context.knownFingerprints().get(key))) {
+            return ItemOutcome.UNCHANGED;
+        }
+
+        // Élément déjà en quarantaine, contenu et référentiel inchangés : la décision
+        // serait la même, inutile de la recalculer et de réécrire sa trace.
+        String quarantineFingerprint =
+                importFingerprintService.computeQuarantined(fingerprint, context.referentialVersion());
+        if (existing.isEmpty() && quarantineFingerprint.equals(context.knownFingerprints().get(key))) {
+            return ItemOutcome.NEEDS_REVIEW;
+        }
+
+        // Déduplication entre sources (voir la javadoc de la classe) : ne concerne qu'un
+        // élément sans activité publiée ici (nouveau, ou archivé), jamais une activité que
+        // cette source possède déjà.
+        boolean publishedHere = existing.isPresent() && !ARCHIVED_STATUS.equals(existing.get().status());
+        if (!publishedHere && isDuplicateOfAnotherSource(source, item, normalized.get())) {
+            return ItemOutcome.DUPLICATE;
+        }
+
+        // CAT-008 : classification centralisée (ClassificationService). Une activité déjà
+        // importée garde ses catégories (un ré-import n'écrase jamais une classification
+        // existante, y compris validée par un humain). Pour un nouvel élément, si la
+        // classification n'est pas décidable (NEEDS_REVIEW / UNCLASSIFIED), aucune activité
+        // n'est créée : une activité a au moins une catégorie (activity_category, V42) et
+        // aucune catégorie n'est inventée. L'élément est consigné pour relecture
+        // (classification_record) et compté dans needsReview (distinct d'ignored).
+        // Fallback titre : le titre n'est exploité par ClassificationService que si la
+        // source ne fournit aucun keyword (catégorie d'origine / tags absents ou vides).
+        // Issue #45 : toutes les catégories détectées (1..N) sont enregistrées avec
+        // l'activité, dans la même transaction (ActivityClassificationService#createActivity).
+        Activity toSave = withSourceAndKey(
+                normalized.get(), existing.map(Activity::id).orElse(null), source.id(), key);
+        // Un ré-import met à jour le contenu, jamais une décision de modération : une activité
+        // annulée par un administrateur (ou dans tout autre statut posé hors import) le reste.
+        // Seule une activité archivée par l'import lui-même (absente de la source) est republiée.
+        if (existing.isPresent() && !ARCHIVED_STATUS.equals(existing.get().status())) {
+            toSave = withStatus(toSave, existing.get().status());
+        }
+        Activity saved;
+        if (existing.isPresent()) {
+            saved = activityRepository.save(toSave);
+        } else {
+            ClassificationOutcome classification =
+                    classificationService.decide(item.title(), item.category(), item.tags());
+            if (!classification.classified() && !context.defaultCategoryIds().isEmpty()) {
+                ClassificationOutcome byDefault =
+                        classificationService.sourceDefault(context.defaultCategoryIds());
+                if (byDefault.classified()) {
+                    classification = byDefault;
+                }
+            }
+            if (!classification.classified()) {
+                classificationService.recordQuarantined(
+                        source.id(), key, item.title(), item.category(), item.tags(), classification);
+                importFingerprintService.record(
+                        source.id(), key, quarantineFingerprint, item.externalId());
+                return ItemOutcome.NEEDS_REVIEW;
+            }
+            saved = activityClassificationService.createActivity(toSave, classification.categoryIds());
+            classificationService.recordClassified(
+                    source.id(), key, saved.id(), item.title(), item.category(), item.tags(), classification);
+        }
+
+        // L'empreinte n'est enregistrée qu'après un enrichissement réussi : sinon l'élément
+        // est retenté en entier au prochain import.
+        if (enrichActivitySafely(source, saved, item, existing.isPresent())) {
+            importFingerprintService.record(source.id(), key, fingerprint, item.externalId());
+        } else {
+            importFingerprintService.forget(source.id(), key);
+        }
+        // Compté créé ou mis à jour même si l'enrichissement (secondaire) échoue : l'activité elle-même est
+        // bien enregistrée (LL-11016, voir enrichActivitySafely).
+        return existing.isPresent() ? ItemOutcome.UPDATED : ItemOutcome.CREATED;
+    }
+
+    /** Ce que le traitement d'un élément a donné, pour les compteurs du bilan ({@link ImportResult}). */
+    private enum ItemOutcome {
+        CREATED, UPDATED, IGNORED, NEEDS_REVIEW, UNCHANGED, DUPLICATE
+    }
+
+    /** Données lues une fois par source et communes au traitement de tous ses éléments. */
+    private record ImportContext(
+            Source source,
+            Map<String, String> knownFingerprints,
+            List<Long> defaultCategoryIds,
+            String referentialVersion,
+            Set<String> sameSourceDuplicateKeys) {
+    }
+
     /**
      * Persiste le reste du modèle événementiel riche pour l'activité
      * {@code activityId} (LL-11011), une fois l'{@code Activity}
@@ -624,7 +658,8 @@ public class ImportService {
     private boolean enrichActivitySafely(
             Source source, Activity saved, CollectedActivity item, boolean alreadyImported) {
         try {
-            enrichActivity(saved.id(), item, alreadyImported);
+            // Point de sauvegarde : un échec SQL ici n'annule que l'enrichissement, pas l'activité enregistrée.
+            nestedTransaction.executeWithoutResult(status -> enrichActivity(saved.id(), item, alreadyImported));
             return true;
         } catch (RuntimeException exception) {
             LOGGER.warn(

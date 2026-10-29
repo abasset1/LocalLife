@@ -269,6 +269,33 @@ class DataTourismeCollectorTest {
     }
 
     @Test
+    void collect_ShouldKeepOnlySelectedEvents_WhenSourceHasASelection() {
+        // Le type d'abord : « Concert, » figure aussi dans « core#Concert, ».
+        String garageSale = EVENT_ROW.replace("core#Concert", "core#GarageSale")
+                .replace("Concert,", "Collecte de textile,").replace("13/concert", "13/garage-sale");
+        String titledOnly = EVENT_ROW.replace("core#Concert", "core#SaleEvent")
+                .replace("Concert,", "Bourse aux jouets,").replace("13/concert", "13/bourse");
+        RestClient.Builder builder = RestClient.builder();
+        mockServer = MockRestServiceServer.bindTo(builder).build();
+        DataTourismeCollector collector = new DataTourismeCollector(builder, RESOURCE_URL, "DATAtourisme France",
+                null, DataTourismeEventSelection.VIDE_GRENIERS_BROCANTES, CLOCK);
+        mockServer.expect(requestTo(RESOURCE_URL)).andRespond(withSuccess(
+                HEADER + EVENT_ROW + garageSale + titledOnly, MediaType.parseMediaType("text/csv")));
+
+        List<CollectedActivity> result = collector.collect();
+
+        assertEquals(List.of("Collecte de textile", "Bourse aux jouets"), titles(result));
+    }
+
+    @Test
+    void collect_ShouldKeepEveryEvent_WithoutSelection() {
+        String garageSale = EVENT_ROW.replace("core#Concert", "core#GarageSale")
+                .replace("Concert,", "Vide-grenier,").replace("13/concert", "13/garage-sale");
+
+        assertEquals(List.of("Concert", "Vide-grenier"), titles(collectBody(HEADER + EVENT_ROW + garageSale, null)));
+    }
+
+    @Test
     void collect_ShouldKeepOneActivityPerUri() {
         assertEquals(1, collectBody(HEADER + EVENT_ROW + EVENT_ROW, null).size());
     }
