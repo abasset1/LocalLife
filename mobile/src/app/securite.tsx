@@ -145,6 +145,7 @@ export default function SecuriteScreen() {
                 value={current}
                 onChangeText={setCurrent}
                 secureTextEntry
+                revealable
                 autoComplete="current-password"
                 textContentType="password"
               />
@@ -154,6 +155,7 @@ export default function SecuriteScreen() {
               value={next}
               onChangeText={setNext}
               secureTextEntry
+              revealable
               autoComplete="new-password"
               textContentType="newPassword"
             />
@@ -196,6 +198,7 @@ export default function SecuriteScreen() {
                 value={secret}
                 onChangeText={setSecret}
                 secureTextEntry={hasPassword}
+                revealable
                 autoCapitalize={hasPassword ? 'none' : 'characters'}
               />
               <Button label="Supprimer mon compte" variant="danger" loading={busy} onPress={confirmDeletion} />

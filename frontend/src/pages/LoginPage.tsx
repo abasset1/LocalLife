@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { saveToken } from "../auth/authStorage";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import PasswordInput from "../components/PasswordInput";
 
 interface ApiErrorBody {
     message: string;
@@ -85,13 +86,12 @@ function LoginPage() {
                     type="email"
                     value={email}
                 />
-                <input
+                <PasswordInput
                     aria-label="Mot de passe"
                     autoComplete="current-password"
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="Mot de passe"
                     required
-                    type="password"
                     value={password}
                 />
                 <button disabled={isSubmitting} type="submit">

@@ -437,6 +437,7 @@ export default function CompteScreen() {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
+                revealable
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoComplete={isLogin ? 'current-password' : 'new-password'}

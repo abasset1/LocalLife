@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import PasswordInput from "../components/PasswordInput";
 
 interface ApiErrorBody {
     message: string;
@@ -64,14 +65,13 @@ function ResetPasswordPage() {
         <main className="auth-shell">
             <form className="auth-form" onSubmit={(event) => void handleSubmit(event)}>
                 <h1>Nouveau mot de passe</h1>
-                <input
+                <PasswordInput
                     aria-label="Nouveau mot de passe"
                     autoComplete="new-password"
                     minLength={8}
                     onChange={(event) => setNewPassword(event.target.value)}
                     placeholder="Nouveau mot de passe (8 caractères minimum)"
                     required
-                    type="password"
                     value={newPassword}
                 />
                 <button disabled={isSubmitting} type="submit">
