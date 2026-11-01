@@ -2,6 +2,15 @@
 
 ## 0.9.59 — non publiée
 
+### Popup « Nouveau », montrée une fois aux membres gratuits
+- Site et application mobile : à l'ouverture de la carte, une popup annonce la cloche « Suivre » et rappelle que Premium est gratuit pour le moment. « Découvrir » ouvre la page « Nouveautés » (et ferme aussi le bandeau) ; « Plus tard », ✕, Échap, un appui à côté ou le bouton retour la ferment en laissant le bandeau comme rappel.
+- Montrée **une seule fois** par compte et par appareil (marquée vue dès son affichage), seulement aux membres dont le serveur confirme qu'ils n'ont pas le suivi. Jamais par-dessus une autre fenêtre (fiche, formulaire), ni pendant une visite où l'accueil de première connexion s'est ouvert : elle viendra à la visite suivante.
+
+### Bandeau « Nouveau » sur la carte pour les membres gratuits
+- Site et application mobile : un bandeau sous la barre de recherche de la carte annonce la cloche « Suivre » et rappelle que Premium est gratuit pour le moment ; « Découvrir » ouvre la page « Nouveautés ».
+- Affiché seulement aux membres connectés dont le serveur confirme qu'ils n'ont pas le suivi (`limits.canFollow` faux) : jamais aux visiteurs ni aux membres Premium ou Pro. Une fois fermé (✕ ou « Découvrir »), il ne revient plus pour ce compte sur cet appareil.
+- Site : `GET /api/v1/users/me` reste lu une seule fois par la carte (`useAccountAccess`, qui donne aussi l'accès professionnel).
+
 ### Page « Nouveautés » : annonce du suivi des activités et des lieux
 - Site : nouvelle page `/nouveautes` (menu → « Aide » → « Nouveautés », avec une pastille « Nouveau »). Elle présente la cloche « Suivre » (ce que l'on peut suivre, comment ça marche, où retrouver ses suivis) et propose de passer à Premium, **gratuit pour le moment**. Un membre gratuit passe à Premium en un clic depuis la page ; un visiteur est invité à créer un compte ou à se connecter ; un membre Premium ou Pro voit qu'il en profite déjà.
 - Application mobile : écran « Nouveautés » au même contenu (menu → « Aide »).

@@ -12,6 +12,7 @@ import { BrandMark } from '@/components/brand-mark';
 import { Notice } from '@/components/notice';
 import { Brand, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/auth';
+import { markOnboardingShown } from '@/features/news';
 import { alertError, preferencesError } from '@/features/onboarding';
 import {
   ChannelSwitch,
@@ -62,6 +63,11 @@ export default function BienvenueScreen() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [created, setCreated] = useState(false);
+
+  // Pas de popup de nouveauté pendant la session où l'accueil s'ouvre.
+  useEffect(() => {
+    markOnboardingShown();
+  }, []);
 
   // Bouton retour Android : sans effet tant que l'accueil est affiché.
   useEffect(() => {

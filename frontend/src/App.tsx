@@ -31,7 +31,9 @@ import type { Place } from "./components/places/types";
 import { useConfirmDialog } from "./components/admin/useConfirmDialog";
 import { proRequest } from "./components/pro/proApi";
 import type { ManagedPlace } from "./components/pro/types";
-import { useProAccess } from "./components/pro/useProAccess";
+import FollowNewsBanner from "./components/news/FollowNewsBanner";
+import FollowNewsPopup from "./components/news/FollowNewsPopup";
+import { useAccountAccess } from "./components/pro/useProAccess";
 import type {
     Activity,
     ActivityDetail,
@@ -140,7 +142,7 @@ function App() {
     const [selectedDateTo, setSelectedDateTo] = useState(NO_DATE_FILTER);
     const [currentUser, setCurrentUser] = useState(() => getPayload());
     /** Accès à l'espace professionnel (`hasProAccess` de `GET /api/v1/users/me`) : seul critère des entrées pro. */
-    const hasProAccess = useProAccess(currentUser !== null);
+    const { hasProAccess, canFollow } = useAccountAccess(currentUser !== null);
     /** Lieu publié géré par l'auteur qui propose l'activité (`hostPlaceId`), `null` sinon. */
     const [hostPlaceId, setHostPlaceId] = useState<number | null>(null);
     /** Lieux publiés gérés par le professionnel, proposés comme lieu hôte dans le formulaire. */
@@ -200,6 +202,8 @@ function App() {
     const [arePreferencesApplied, setArePreferencesApplied] = useState(() => getPayload() === null);
     /** Première connexion : préférences jamais enregistrées, l'accueil les fait choisir (OnboardingModal). */
     const [needsOnboarding, setNeedsOnboarding] = useState(false);
+    /** L'accueil de première connexion s'est ouvert pendant cette visite : pas de popup de nouveauté en plus. */
+    const [wasOnboardingShown, setWasOnboardingShown] = useState(false);
 
     /**
      * Applique des préférences à la carte : catégories cochées, rayon de
@@ -308,6 +312,7 @@ function App() {
                     hasDefaultCity = applyPreferences(preferences);
                     if (preferences.configured === false && !isOnboardingPostponed(getPayload()?.userId)) {
                         setNeedsOnboarding(true);
+                        setWasOnboardingShown(true);
                     }
                 }
             } catch {
@@ -1250,6 +1255,7 @@ function App() {
                             value={searchQuery}
                         />
                     </div>
+                    <FollowNewsBanner canFollow={canFollow} userId={currentUser?.userId ?? null} />
                     <SearchResultBanner
                         hasActiveFilters={selectedCategoriesKey !== "" || selectedDate !== NO_DATE_FILTER}
                         isLoadingActivities={isLoadingActivities}
@@ -1396,6 +1402,13 @@ function App() {
                     </div>
                 </div>
             </div>
+
+            <FollowNewsPopup
+                blocked={!arePreferencesApplied || needsOnboarding || wasOnboardingShown || isContributionModalOpen
+                    || detailActivity !== null}
+                canFollow={canFollow}
+                userId={currentUser?.userId ?? null}
+            />
 
             {needsOnboarding && currentUser && (
                 <OnboardingModal
