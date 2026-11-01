@@ -3,6 +3,7 @@ package com.locallife.backend.alert.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -21,6 +22,7 @@ import com.locallife.backend.category.domain.CategoryTranslation;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
 import com.locallife.backend.push.application.ExpoPushService;
 import com.locallife.backend.push.infrastructure.PushTokenRepository;
+import com.locallife.backend.subscription.application.PlanLimits;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +53,9 @@ class ActivityAlertNotifierTest {
     @Mock
     private PushTokenRepository pushTokenRepository;
 
+    @Mock
+    private PlanLimits planLimits;
+
     private ActivityAlertNotifier notifier;
 
     private final AlertRecipient alice = new AlertRecipient(
@@ -63,7 +68,7 @@ class ActivityAlertNotifierTest {
     @BeforeEach
     void setUp() {
         notifier = new ActivityAlertNotifier(activityAlertRepository, categoryRepository, emailService,
-                expoPushService, pushTokenRepository, "https://locallife.test");
+                expoPushService, pushTokenRepository, planLimits, "https://locallife.test");
     }
 
     private void givenCategories() {
@@ -125,6 +130,24 @@ class ActivityAlertNotifierTest {
 
         assertTrue(body.contains("- Fête au village — Gordes (emplacement approximatif)\n"));
         assertTrue(body.contains("- Concert au théâtre — Apt\n"));
+    }
+
+    @Test
+    void sendAll_ShouldSkipAKeywordAlert_OnceTheAccountIsFreeAgain_WithoutBacklog() {
+        AlertRecipient keywords = new AlertRecipient(
+                new ActivityAlert(3L, 12L, "Lyon", 45.76, 4.83, 10, List.of(), false, true, false, LocalDateTime.now(),
+                        List.of("jazz")),
+                "carol@example.com", "tok-carol");
+        when(activityAlertRepository.findAllRecipients()).thenReturn(List.of(keywords));
+        when(activityAlertRepository.findNewMatchingActivities(eq(3L), anyInt()))
+                .thenReturn(List.of(new AlertActivity(42L, "Soirée jazz", "Lyon", null)));
+        when(planLimits.canUseAlertKeywords(12L)).thenReturn(false);
+
+        assertEquals(0, notifier.sendAll());
+
+        verify(emailService, never()).sendActivityAlertEmail(anyString(), anyString(), anyString());
+        verify(expoPushService, never()).send(any(), anyString(), anyString(), any());
+        verify(activityAlertRepository).markSent(3L, List.of(42L));
     }
 
     @Test

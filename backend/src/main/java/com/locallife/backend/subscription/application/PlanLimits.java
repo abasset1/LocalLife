@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service;
  * Suivre une activité ou un lieu (cloche « Suivre », être prévenu de ses mises à jour) et personnaliser ses alertes
  * par mots-clés : Premium, Pro et administrateur.
  * Une limite bloque seulement l'ajout : un compte déjà au-delà (offre terminée, limite apparue après coup) garde tout.
+ * Exceptions, réservées aux offres payantes et coupées à la fin de l'offre : les notifications de suivi et l'envoi des
+ * alertes à mots-clés.
  * Rôle et offre relus en base à chaque appel.
  */
 @Service
@@ -68,11 +70,17 @@ public class PlanLimits {
     }
 
     /**
-     * Avant d'ajouter ou de changer les mots-clés d'une alerte : réservé aux offres Premium et Pro. Retirer les
-     * mots-clés reste permis, et une alerte qui en a déjà continue d'être envoyée telle quelle après la fin de l'offre.
+     * Mots-clés dans les alertes : réservés aux offres Premium et Pro. Un compte revenu au gratuit garde ses alertes à
+     * mots-clés et peut retirer ces mots-clés, mais ces alertes ne lui sont plus envoyées tant qu'elles en ont
+     * ({@code ActivityAlertNotifier}).
      */
+    public boolean canUseAlertKeywords(Long userId) {
+        return tier(userId) != Tier.FREE;
+    }
+
+    /** Avant d'ajouter ou de changer les mots-clés d'une alerte ; les retirer reste permis. */
     public void checkCanUseAlertKeywords(Long userId) {
-        if (tier(userId) == Tier.FREE) {
+        if (!canUseAlertKeywords(userId)) {
             throw new PlanLimitException("Personnaliser une alerte avec des mots-clés est réservé aux offres Premium "
                     + "et Pro.");
         }

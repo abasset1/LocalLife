@@ -88,10 +88,11 @@ describe("Mots-clés des alertes (Premium et Pro)", () => {
         stubFetch();
         render(<ActivityAlertsSection canUseKeywords={false} maxAlerts={1} />);
 
-        expect(await screen.findByText(/réservés à Premium/)).toHaveTextContent("gratuit pour le moment");
+        expect(await screen.findByText(/Les mots-clés sont réservés à Premium/)).toHaveTextContent("gratuit pour le moment");
         expect(screen.getByRole("link", { name: "Passer à Premium" })).toHaveAttribute("href", "#profile-subscription-title");
         expect(screen.queryByPlaceholderText(/jazz, marché de Noël/)).toBeNull();
-        // Une alerte qui a déjà des mots-clés peut toujours les retirer.
+        // Une alerte à mots-clés n'est plus envoyée ; ses mots-clés peuvent toujours être retirés.
+        expect(screen.getByRole("note")).toHaveTextContent("Cette alerte n'est plus envoyée");
         expect(screen.getByRole("button", { name: "Modifier les mots-clés de l'alerte Lyon" })).toBeInTheDocument();
     });
 });

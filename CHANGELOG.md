@@ -2,10 +2,14 @@
 
 ## 0.9.59 — non publiée
 
+### Alertes à mots-clés : plus envoyées quand le compte redevient gratuit
+- Une alerte qui a des mots-clés n'est plus envoyée quand l'offre Premium ou Pro se termine, comme le suivi des activités et des lieux. Les nouveautés de cette période sont marquées traitées sans envoi : pas d'arriéré si le compte reprend une offre. En retirant ses mots-clés, l'alerte repart normalement.
+- Site et application mobile : sous une telle alerte, un message l'indique (« Cette alerte n'est plus envoyée… ») et propose de retirer les mots-clés ou de passer à Premium, gratuit pour le moment.
+
 ### Alertes personnalisées par mots-clés (offres Premium et Pro)
 - Une alerte peut porter jusqu'à **10 mots-clés ou expressions** (« jazz », « marché de Noël », « randonnée »). Une nouvelle activité est retenue si l'un d'eux apparaît dans son titre ou sa description, **au début d'un mot**, sans tenir compte des majuscules, des accents ni de la ponctuation : « concert » trouve « Concerts », « noel » trouve « Noël », « art » ne trouve pas « départ ». Les mots-clés s'appliquent aussi aux food trucks de l'alerte (nom, cuisine, description).
 - Avec des catégories, les deux se combinent (Musique **et** « jazz ») ; avec des mots-clés seuls, les catégories deviennent facultatives (« Toutes catégories »).
-- Site (« Mon profil » → « Mes alertes ») et application mobile (« Mes alertes ») : champ « Mots-clés » à la création, bouton « Mots-clés » pour modifier ceux d'une alerte existante, mots-clés affichés sous chaque alerte et rappelés dans l'e-mail. Un compte gratuit voit à la place du champ l'offre Premium, gratuite pour le moment ; il peut toujours retirer les mots-clés d'une alerte qui en a, et une telle alerte continue d'être envoyée.
+- Site (« Mon profil » → « Mes alertes ») et application mobile (« Mes alertes ») : champ « Mots-clés » à la création, bouton « Mots-clés » pour modifier ceux d'une alerte existante, mots-clés affichés sous chaque alerte et rappelés dans l'e-mail. Un compte gratuit voit à la place du champ l'offre Premium, gratuite pour le moment ; il peut toujours retirer les mots-clés d'une alerte qui en a.
 - API : `keywords` dans `POST /api/v1/users/me/alerts` et dans la réponse ; `PATCH /api/v1/users/me/alerts/{id}` accepte `keywords` (403 pour en ajouter ou en changer sans Premium ou Pro). `limits.alertKeywords` dans `GET /api/v1/users/me`. Migration `V80` (table `activity_alert_keyword`).
 
 ### Popup « Nouveau », montrée une fois aux membres gratuits
