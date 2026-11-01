@@ -21,8 +21,9 @@ describe("FollowNewsPopup — popup de nouveauté, une seule fois", () => {
     it("s'affiche une fois à un membre gratuit, puis plus jamais pour ce compte", async () => {
         const user = userEvent.setup();
         const { unmount } = renderPopup({ userId: 7, canFollow: false });
-        const dialog = screen.getByRole("dialog", { name: "Suis tes activités et tes lieux préférés" });
+        const dialog = screen.getByRole("dialog", { name: "Deux nouveautés Premium" });
         expect(dialog).toHaveTextContent("Premium est gratuit pour le moment");
+        expect(dialog).toHaveTextContent("Des alertes sur mesure, avec tes mots-clés");
         expect(window.localStorage.getItem(followNewsPopupKey(7))).toBe("1");
 
         await user.click(screen.getByRole("button", { name: "Plus tard" }));

@@ -11,8 +11,8 @@ interface FollowNewsPopupProps {
 }
 
 /**
- * Popup montrée une seule fois à un membre gratuit, par compte et par appareil : annonce la cloche « Suivre » et
- * Premium gratuit pour le moment. « Découvrir » ouvre la page « Nouveautés » (et ferme aussi le bandeau de la carte) ;
+ * Popup montrée une seule fois à un membre gratuit, par compte et par appareil : annonce la cloche « Suivre », les
+ * alertes par mots-clés et Premium gratuit pour le moment. « Découvrir » ouvre la page « Nouveautés » (et ferme aussi le bandeau de la carte) ;
  * « Plus tard », ✕, Échap ou un clic à côté la ferment en laissant le bandeau comme rappel. Marquée vue dès son
  * affichage : un rechargement de la page ne la remontre pas.
  */
@@ -65,11 +65,20 @@ function FollowNewsPopup({ userId, canFollow, blocked }: FollowNewsPopupProps) {
                 <button aria-label="Fermer" className="news-popup-close" onClick={close} type="button">✕</button>
                 <p className="news-badge">Nouveau</p>
                 <div aria-hidden="true" className="news-bell">🔔</div>
-                <h2 id="news-popup-title">Suis tes activités et tes lieux préférés</h2>
-                <p className="news-popup-lead">
-                    Touche 🔔 « Suivre » sur une activité ou un lieu : LocalLife te prévient quand ses dates changent,
-                    qu'il est annulé ou qu'un lieu programme une nouvelle activité.
-                </p>
+                <h2 id="news-popup-title">Deux nouveautés Premium</h2>
+                <ul className="news-popup-features">
+                    <li>
+                        <strong>🔔 Suis tes activités et tes lieux préférés</strong>
+                        <span>
+                            LocalLife te prévient quand leurs dates changent, qu'une activité est annulée ou qu'un lieu
+                            en programme une nouvelle.
+                        </span>
+                    </li>
+                    <li>
+                        <strong>🔎 Des alertes sur mesure, avec tes mots-clés</strong>
+                        <span>« jazz », « marché de Noël »… : ne reçois que ce qui t'intéresse vraiment.</span>
+                    </li>
+                </ul>
                 <p className="news-free">🎁 Premium est gratuit pour le moment</p>
                 <div className="news-popup-actions">
                     <Link

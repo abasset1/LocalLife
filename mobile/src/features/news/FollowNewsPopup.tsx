@@ -19,7 +19,7 @@ import {
 
 /**
  * Popup montrée une seule fois à un membre gratuit, par compte et par appareil, quand la carte est à l'écran :
- * annonce la cloche « Suivre » et Premium gratuit pour le moment. « Découvrir » ouvre l'écran « Nouveautés » (et ferme
+ * annonce la cloche « Suivre », les alertes par mots-clés et Premium gratuit pour le moment. « Découvrir » ouvre l'écran « Nouveautés » (et ferme
  * aussi le bandeau de la carte) ; « Plus tard » ou le bouton retour la ferment en laissant le bandeau comme rappel.
  * Marquée vue dès son affichage. Pas de popup pendant une session où l'accueil de première connexion s'est ouvert.
  */
@@ -88,12 +88,21 @@ export function FollowNewsPopup() {
             🔔
           </ThemedText>
           <ThemedText type="heading" accessibilityRole="header" style={styles.center}>
-            Suivez vos activités et vos lieux préférés
+            Deux nouveautés Premium
           </ThemedText>
-          <ThemedText themeColor="textSecondary" style={styles.center}>
-            Touchez 🔔 « Suivre » sur une activité ou un lieu : LocalLife vous prévient quand ses dates changent, qu’il
-            est annulé ou qu’un lieu programme une nouvelle activité.
-          </ThemedText>
+          <View style={[styles.feature, { borderColor: theme.border }]}>
+            <ThemedText type="smallBold">🔔 Suivez vos activités et vos lieux préférés</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              LocalLife vous prévient quand leurs dates changent, qu’une activité est annulée ou qu’un lieu en
+              programme une nouvelle.
+            </ThemedText>
+          </View>
+          <View style={[styles.feature, { borderColor: theme.border }]}>
+            <ThemedText type="smallBold">🔎 Des alertes sur mesure, avec vos mots-clés</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              « jazz », « marché de Noël »… : ne recevez que ce qui vous intéresse vraiment.
+            </ThemedText>
+          </View>
           <View style={styles.free}>
             <ThemedText type="smallBold" style={styles.freeText}>
               🎁 Premium est gratuit pour le moment
@@ -140,6 +149,13 @@ const styles = StyleSheet.create({
   },
   center: {
     textAlign: 'center',
+  },
+  feature: {
+    alignSelf: 'stretch',
+    gap: Spacing.half,
+    padding: Spacing.three,
+    borderRadius: Radius.md,
+    borderWidth: 1,
   },
   free: {
     paddingHorizontal: Spacing.three,
