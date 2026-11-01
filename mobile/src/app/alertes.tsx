@@ -56,8 +56,8 @@ function messageFor(error: unknown): string {
  * (récapitulatif quotidien côté backend).
  *
  * Mots-clés (Premium et Pro, `limits.alertKeywords`) : à la création ou plus tard (« Mots-clés » sur une alerte) ;
- * avec eux, les catégories deviennent facultatives. Un compte gratuit voit l'offre Premium à la place du champ, et
- * peut toujours retirer les mots-clés d'une alerte qui en a.
+ * avec eux, les catégories deviennent facultatives. Un compte gratuit voit l'offre Premium à la place du champ ;
+ * une alerte à mots-clés ne lui est plus envoyée (il en est averti) tant qu'il ne les retire pas.
  */
 export default function AlertesScreen() {
   const { state } = useAuth();
@@ -259,6 +259,12 @@ export default function AlertesScreen() {
               <ThemedText type="small" themeColor="textSecondary">
                 📍 À moins de {alert.radiusKm} km de {alert.city}
               </ThemedText>
+              {canUseKeywords === false && (alert.keywords ?? []).length > 0 && (
+                <Notice tone="warning">
+                  ⏸ Cette alerte n’est plus envoyée : ses mots-clés sont réservés à Premium (gratuit pour le moment).
+                  Retirez-les ou passez à Premium.
+                </Notice>
+              )}
               <ChannelSwitch
                 label="Notification"
                 value={alert.notifyPush}

@@ -11,6 +11,7 @@ import com.locallife.backend.category.domain.CategoryTranslation;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
 import com.locallife.backend.push.application.ExpoPushService;
 import com.locallife.backend.push.infrastructure.PushTokenRepository;
+import com.locallife.backend.subscription.application.PlanLimits;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -35,6 +36,10 @@ import org.springframework.stereotype.Service;
  * Les activités sont marquées envoyées dès qu'au moins un canal a réussi
  * (sinon elles seront retentées au prochain passage) ; l'échec d'une alerte
  * n'empêche pas le traitement des suivantes.
+ *
+ * Une alerte à mots-clés (Premium et Pro) n'est plus envoyée quand le compte est revenu au gratuit : ses
+ * nouveautés sont marquées traitées sans envoi, pour qu'il ne reçoive pas d'arriéré s'il reprend une offre. Sans
+ * ses mots-clés, elle repart normalement.
  */
 @Service
 public class ActivityAlertNotifier {
@@ -55,17 +60,19 @@ public class ActivityAlertNotifier {
     private final EmailService emailService;
     private final ExpoPushService expoPushService;
     private final PushTokenRepository pushTokenRepository;
+    private final PlanLimits planLimits;
     private final String frontendBaseUrl;
 
     public ActivityAlertNotifier(
             ActivityAlertRepository activityAlertRepository, CategoryRepository categoryRepository,
             EmailService emailService, ExpoPushService expoPushService, PushTokenRepository pushTokenRepository,
-            @Value("${app.frontend-base-url:http://localhost:5173}") String frontendBaseUrl) {
+            PlanLimits planLimits, @Value("${app.frontend-base-url:http://localhost:5173}") String frontendBaseUrl) {
         this.activityAlertRepository = activityAlertRepository;
         this.categoryRepository = categoryRepository;
         this.emailService = emailService;
         this.expoPushService = expoPushService;
         this.pushTokenRepository = pushTokenRepository;
+        this.planLimits = planLimits;
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
@@ -103,6 +110,10 @@ public class ActivityAlertNotifier {
         if (activities.isEmpty() && foodTrucks.isEmpty()) {
             return false;
         }
+        if (!alert.keywords().isEmpty() && !planLimits.canUseAlertKeywords(alert.userId())) {
+            markAllSent(alert, activities, foodTrucks);
+            return false;
+        }
 
         String title = title(alert.city(), activities, foodTrucks);
         boolean delivered = false;
@@ -135,15 +146,19 @@ public class ActivityAlertNotifier {
         }
 
         if (delivered) {
-            if (!activities.isEmpty()) {
-                activityAlertRepository.markSent(alert.id(), activities.stream().map(AlertActivity::id).toList());
-            }
-            if (!foodTrucks.isEmpty()) {
-                activityAlertRepository.markFoodTrucksSent(
-                        alert.id(), foodTrucks.stream().map(AlertFoodTruck::id).toList());
-            }
+            markAllSent(alert, activities, foodTrucks);
         }
         return delivered;
+    }
+
+    private void markAllSent(ActivityAlert alert, List<AlertActivity> activities, List<AlertFoodTruck> foodTrucks) {
+        if (!activities.isEmpty()) {
+            activityAlertRepository.markSent(alert.id(), activities.stream().map(AlertActivity::id).toList());
+        }
+        if (!foodTrucks.isEmpty()) {
+            activityAlertRepository.markFoodTrucksSent(
+                    alert.id(), foodTrucks.stream().map(AlertFoodTruck::id).toList());
+        }
     }
 
     /** « 1 nouvelle activité », « 2 nouveaux food trucks » ou « 3 nouveautés » près de la ville. */

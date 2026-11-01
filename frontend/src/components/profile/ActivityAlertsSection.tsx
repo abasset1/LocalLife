@@ -33,8 +33,8 @@ const DEFAULT_ALERT_RADIUS_KM = 10;
  * l'offre (1 en Gratuit, 10 en Premium/Pro) : à la limite, la création est désactivée et renvoie vers les offres.
  *
  * Mots-clés (Premium et Pro, `limits.alertKeywords`) : à la création ou plus tard (« Mots-clés » sur une alerte). Avec
- * des mots-clés, les catégories deviennent facultatives. Un compte gratuit voit l'offre Premium à la place du champ,
- * et peut toujours retirer les mots-clés d'une alerte qui en a.
+ * des mots-clés, les catégories deviennent facultatives. Un compte gratuit voit l'offre Premium à la place du champ ;
+ * une alerte à mots-clés ne lui est plus envoyée (il en est averti) tant qu'il ne les retire pas.
  */
 function ActivityAlertsSection({ maxAlerts = null, canUseKeywords = null }: {
     /** Nombre maximal d'alertes de l'offre (`limits.maxAlerts`), `null` s'il est inconnu. */
@@ -256,6 +256,13 @@ function ActivityAlertsSection({ maxAlerts = null, canUseKeywords = null }: {
                                         <p className="pp-alert-place">
                                             📍 {alert.city} · {alert.radiusKm} km
                                         </p>
+                                        {canUseKeywords === false && (alert.keywords ?? []).length > 0 && (
+                                            <p className="pp-alert-paused" role="note">
+                                                ⏸ Cette alerte n'est plus envoyée : ses mots-clés sont réservés à
+                                                Premium (gratuit pour le moment). Retire-les ou{" "}
+                                                <a href="#profile-subscription-title">passe à Premium</a>.
+                                            </p>
+                                        )}
                                         <div className="pp-badges">
                                             {alert.notifyEmail && <span className="pp-badge">✉️ E-mail</span>}
                                             {alert.notifyPush && <span className="pp-badge">📱 Notification</span>}
