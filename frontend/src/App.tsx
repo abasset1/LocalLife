@@ -32,6 +32,7 @@ import { useConfirmDialog } from "./components/admin/useConfirmDialog";
 import { proRequest } from "./components/pro/proApi";
 import type { ManagedPlace } from "./components/pro/types";
 import FollowNewsBanner from "./components/news/FollowNewsBanner";
+import FollowNewsPopup from "./components/news/FollowNewsPopup";
 import { useAccountAccess } from "./components/pro/useProAccess";
 import type {
     Activity,
@@ -201,6 +202,8 @@ function App() {
     const [arePreferencesApplied, setArePreferencesApplied] = useState(() => getPayload() === null);
     /** Première connexion : préférences jamais enregistrées, l'accueil les fait choisir (OnboardingModal). */
     const [needsOnboarding, setNeedsOnboarding] = useState(false);
+    /** L'accueil de première connexion s'est ouvert pendant cette visite : pas de popup de nouveauté en plus. */
+    const [wasOnboardingShown, setWasOnboardingShown] = useState(false);
 
     /**
      * Applique des préférences à la carte : catégories cochées, rayon de
@@ -309,6 +312,7 @@ function App() {
                     hasDefaultCity = applyPreferences(preferences);
                     if (preferences.configured === false && !isOnboardingPostponed(getPayload()?.userId)) {
                         setNeedsOnboarding(true);
+                        setWasOnboardingShown(true);
                     }
                 }
             } catch {
@@ -1398,6 +1402,13 @@ function App() {
                     </div>
                 </div>
             </div>
+
+            <FollowNewsPopup
+                blocked={!arePreferencesApplied || needsOnboarding || wasOnboardingShown || isContributionModalOpen
+                    || detailActivity !== null}
+                canFollow={canFollow}
+                userId={currentUser?.userId ?? null}
+            />
 
             {needsOnboarding && currentUser && (
                 <OnboardingModal

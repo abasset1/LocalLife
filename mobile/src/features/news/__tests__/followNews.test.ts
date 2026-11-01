@@ -2,9 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   followNewsDismissKey,
+  followNewsPopupKey,
   loadFollowNewsDismissed,
+  loadFollowNewsPopupSeen,
+  markOnboardingShown,
   saveFollowNewsDismissed,
+  saveFollowNewsPopupSeen,
   shouldShowFollowNews,
+  shouldShowFollowNewsPopup,
+  wasOnboardingShown,
 } from '../followNews';
 
 jest.mock('@react-native-async-storage/async-storage', () => {
@@ -40,5 +46,23 @@ describe('bandeau de nouveauté (suivi)', () => {
     await saveFollowNewsDismissed(7);
     await expect(loadFollowNewsDismissed(7)).resolves.toBe(true);
     await expect(loadFollowNewsDismissed(8)).resolves.toBe(false);
+  });
+
+  it('montre la popup une seule fois à un membre gratuit, jamais pendant une session avec l’accueil', async () => {
+    expect(shouldShowFollowNewsPopup(7, false, false, false)).toBe(true);
+    expect(shouldShowFollowNewsPopup(7, false, true, false)).toBe(false);
+    expect(shouldShowFollowNewsPopup(7, false, null, false)).toBe(false);
+    expect(shouldShowFollowNewsPopup(7, true, false, false)).toBe(false);
+    expect(shouldShowFollowNewsPopup(null, false, false, false)).toBe(false);
+    expect(shouldShowFollowNewsPopup(7, false, false, true)).toBe(false);
+
+    expect(followNewsPopupKey(7)).toBe('locallife.news.follow.popupSeen.7');
+    await expect(loadFollowNewsPopupSeen(7)).resolves.toBe(false);
+    await saveFollowNewsPopupSeen(7);
+    await expect(loadFollowNewsPopupSeen(7)).resolves.toBe(true);
+
+    expect(wasOnboardingShown()).toBe(false);
+    markOnboardingShown();
+    expect(wasOnboardingShown()).toBe(true);
   });
 });

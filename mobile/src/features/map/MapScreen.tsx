@@ -24,7 +24,7 @@ import {
 import { PERIOD_OPTIONS } from '@/features/list/filters';
 import { usePeriod } from '@/features/list/periodStore';
 import { MenuButton } from '@/features/navigation/AppMenu';
-import { FollowNewsBanner } from '@/features/news';
+import { FollowNewsBanner, FollowNewsPopup } from '@/features/news';
 import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -445,6 +445,7 @@ export default function MapScreen() {
             </View>
           </View>
           {!selection && <FollowNewsBanner />}
+          <FollowNewsPopup />
           {!place && !loading && !error && (
             <View
               accessibilityLiveRegion="polite"
