@@ -420,8 +420,8 @@ export const GUIDE_STEPS: GuideStep[] = [
     {
         id: "fin",
         title: "À toi de jouer !",
-        text: "Tu connais l'essentiel de LocalLife. Retrouve ce guide à tout moment depuis le menu, rubrique "
-            + "« Aide ».",
+        text: "Tu connais l'essentiel de LocalLife. Retrouve ce guide à tout moment depuis le menu (rubrique "
+            + "« Aide ») ou depuis « Mon profil ».",
         tips: [],
         scene: FinishScene,
     },

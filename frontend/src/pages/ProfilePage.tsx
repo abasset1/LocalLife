@@ -314,6 +314,18 @@ function ProfilePage() {
                             <div className="pp-column pp-column-wide">
                                 <SearchPreferencesForm />
                                 <ActivityAlertsSection maxAlerts={profile.limits?.maxAlerts ?? null} />
+                                <ProfileCard
+                                    icon="🎓"
+                                    subtitle="Revois en quelques étapes animées tout ce que permet LocalLife."
+                                    title="Guide de l'application"
+                                    titleId="profile-guide-title"
+                                >
+                                    <div className="pp-actions">
+                                        <Link className="pp-button pp-button-secondary" to="/guide">
+                                            Revoir le guide
+                                        </Link>
+                                    </div>
+                                </ProfileCard>
                             </div>
                         </div>
                     </>

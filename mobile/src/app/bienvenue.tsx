@@ -36,7 +36,8 @@ function messageFor(error: unknown): string {
  *    l'écran ne se ferme pas (pas de geste retour, bouton retour Android
  *    bloqué), seule la déconnexion permet d'en sortir sans enregistrer ;
  * 2. alerte facultative, préremplie avec ces préférences (notification sur
- *    ce téléphone par défaut, e-mail en option), ou « Plus tard ».
+ *    ce téléphone par défaut, e-mail en option), ou « Plus tard » ; le lien
+ *    « Voir le guide de l'application » termine aussi l'accueil et ouvre `/guide`.
  */
 export default function BienvenueScreen() {
   const router = useRouter();
@@ -85,6 +86,8 @@ export default function BienvenueScreen() {
   }, []);
 
   const finish = useCallback(() => router.replace('/'), [router]);
+  // Termine l'accueil (les préférences sont déjà enregistrées) et ouvre le guide à sa place.
+  const openGuide = useCallback(() => router.replace('/guide'), [router]);
 
   async function savePreferences() {
     setSaveError(null);
@@ -267,6 +270,18 @@ export default function BienvenueScreen() {
                     <Button label="Plus tard" variant="secondary" disabled={creating} onPress={finish} />
                   </>
                 )}
+                <View style={styles.guide}>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.guideText}>
+                    Envie d’un tour complet de LocalLife ?
+                  </ThemedText>
+                  <Button
+                    label="Voir le guide de l’application"
+                    variant="ghost"
+                    disabled={creating}
+                    icon={{ ios: 'questionmark.circle', android: 'help', web: 'help' }}
+                    onPress={openGuide}
+                  />
+                </View>
               </>
             )}
           </ScrollView>
@@ -316,6 +331,14 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
     padding: Spacing.four,
     paddingBottom: Spacing.six,
+  },
+  guide: {
+    alignItems: 'center',
+    gap: Spacing.one,
+    marginTop: Spacing.two,
+  },
+  guideText: {
+    textAlign: 'center',
   },
   logout: {
     minHeight: 44,

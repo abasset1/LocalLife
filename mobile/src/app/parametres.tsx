@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 
@@ -25,6 +26,7 @@ function messageFor(error: unknown): string {
  */
 export default function ParametresScreen() {
   const { state } = useAuth();
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryCodes, setCategoryCodes] = useState<string[]>([]);
   const [radius, setRadius] = useState<string>(DEFAULT_RADIUS);
@@ -147,6 +149,13 @@ export default function ParametresScreen() {
                 loading={saving}
                 disabled={cityPicker.blocksSubmit}
                 onPress={() => void save()}
+              />
+
+              <Button
+                label="Revoir le guide de l’application"
+                variant="ghost"
+                icon={{ ios: 'questionmark.circle', android: 'help', web: 'help' }}
+                onPress={() => router.push('/guide')}
               />
             </>
           )}
