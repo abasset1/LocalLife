@@ -194,10 +194,17 @@ public class ActivityAlertNotifier {
         if (alert.includeFoodTrucks()) {
             criteria.add("Food trucks");
         }
+        if (criteria.isEmpty()) {
+            criteria.add("Toutes catégories");
+        }
         StringBuilder text = new StringBuilder()
                 .append("Bonjour,\n\n")
-                .append("Du nouveau pour ton alerte « ").append(String.join(", ", criteria))
-                .append(" » à moins de ").append(alert.radiusKm()).append(" km de ").append(alert.city())
+                .append("Du nouveau pour ton alerte « ").append(String.join(", ", criteria)).append(" »");
+        if (!alert.keywords().isEmpty()) {
+            text.append(" avec les mots-clés ").append(alert.keywords().stream()
+                    .map(keyword -> "« " + keyword + " »").collect(Collectors.joining(", ")));
+        }
+        text.append(" à moins de ").append(alert.radiusKm()).append(" km de ").append(alert.city())
                 .append(" :\n\n");
         boolean sections = !activities.isEmpty() && !foodTrucks.isEmpty();
         if (!activities.isEmpty()) {

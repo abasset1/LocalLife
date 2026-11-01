@@ -5466,3 +5466,87 @@ body {
         animation: none;
     }
 }
+
+/* Mots-clés des alertes (Premium et Pro). */
+.pp-premium-tag {
+    margin-left: 0.35rem;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    background-color: #f2c14e;
+    color: var(--ll-ink);
+    font-size: 0.7rem;
+    font-weight: 800;
+    vertical-align: middle;
+}
+
+.pp-keywords {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.pp-keyword-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.pp-keyword {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.3rem 0.2rem 0.7rem;
+    border-radius: 999px;
+    background-color: var(--ll-green);
+    color: #ffffff;
+    font-size: 0.85rem;
+}
+
+.pp-keyword button {
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.pp-keyword-entry {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.pp-keyword-entry .pp-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.pp-keyword-error {
+    margin: 0;
+    color: #b3261e;
+    font-size: 0.85rem;
+}
+
+.pp-keywords-locked {
+    margin: 0;
+    padding: 0.6rem 0.8rem;
+    border-radius: 12px;
+    background-color: #fdeee8;
+}
+
+.pp-tag-keyword {
+    background-color: #fdeee8;
+    color: #a3402a;
+}
+
+.pp-keywords-edit {
+    margin-top: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}

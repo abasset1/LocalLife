@@ -50,7 +50,8 @@ public class ActivityAlertController {
         try {
             ActivityAlert created = activityAlertService.createAlert(
                     userId, request.categoryCodes(), request.city(), request.latitude(), request.longitude(),
-                    request.radiusKm(), request.includeFoodTrucks(), request.notifyEmail(), request.notifyPush());
+                    request.radiusKm(), request.includeFoodTrucks(), request.notifyEmail(), request.notifyPush(),
+                    request.keywords());
             return ResponseEntity.status(HttpStatus.CREATED).body(AlertResponse.from(created));
         } catch (IllegalArgumentException | CityNotFoundException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -59,15 +60,28 @@ public class ActivityAlertController {
         }
     }
 
-    /** Change les canaux d'une alerte (e-mail / notification). */
+    /**
+     * Change les canaux d'une alerte (e-mail / notification) et/ou ses mots-clés (Premium et Pro pour en ajouter ou
+     * en changer ; 403 sinon). Canaux : les deux sont attendus ensemble, ou aucun pour les laisser tels quels ;
+     * {@code keywords} absent : inchangés, liste vide : retirés.
+     */
     @PatchMapping("/api/v1/users/me/alerts/{id}")
-    public ResponseEntity<Object> updateChannels(
-            Authentication authentication, @PathVariable Long id, @RequestBody UpdateChannelsRequest request,
+    public ResponseEntity<Object> updateAlert(
+            Authentication authentication, @PathVariable Long id, @RequestBody UpdateAlertRequest request,
             HttpServletRequest httpRequest) {
         Long userId = ((JwtAuthentication) authentication).getUserId();
         try {
-            ActivityAlert updated = activityAlertService.updateChannels(
-                    userId, id, Boolean.TRUE.equals(request.notifyEmail()), Boolean.TRUE.equals(request.notifyPush()));
+            ActivityAlert updated = null;
+            if (request.notifyEmail() != null || request.notifyPush() != null) {
+                updated = activityAlertService.updateChannels(userId, id, Boolean.TRUE.equals(request.notifyEmail()),
+                        Boolean.TRUE.equals(request.notifyPush()));
+            }
+            if (request.keywords() != null) {
+                updated = activityAlertService.updateKeywords(userId, id, request.keywords());
+            }
+            if (updated == null) {
+                return errorResponse(HttpStatus.BAD_REQUEST, "Rien à modifier.", httpRequest);
+            }
             return ResponseEntity.ok(AlertResponse.from(updated));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -105,10 +119,10 @@ public class ActivityAlertController {
 
     public record CreateAlertRequest(
             List<String> categoryCodes, String city, Double latitude, Double longitude, Integer radiusKm,
-            Boolean includeFoodTrucks, Boolean notifyEmail, Boolean notifyPush) {
+            Boolean includeFoodTrucks, Boolean notifyEmail, Boolean notifyPush, List<String> keywords) {
     }
 
-    public record UpdateChannelsRequest(Boolean notifyEmail, Boolean notifyPush) {
+    public record UpdateAlertRequest(Boolean notifyEmail, Boolean notifyPush, List<String> keywords) {
     }
 
     public record UnsubscribeRequest(String token) {
@@ -116,11 +130,12 @@ public class ActivityAlertController {
 
     public record AlertResponse(
             Long id, List<String> categoryCodes, boolean includeFoodTrucks, String city, double latitude,
-            double longitude, int radiusKm, boolean notifyEmail, boolean notifyPush) {
+            double longitude, int radiusKm, boolean notifyEmail, boolean notifyPush, List<String> keywords) {
 
         static AlertResponse from(ActivityAlert alert) {
             return new AlertResponse(alert.id(), alert.categoryCodes(), alert.includeFoodTrucks(), alert.city(),
-                    alert.latitude(), alert.longitude(), alert.radiusKm(), alert.notifyEmail(), alert.notifyPush());
+                    alert.latitude(), alert.longitude(), alert.radiusKm(), alert.notifyEmail(), alert.notifyPush(),
+                    alert.keywords());
         }
 
     }

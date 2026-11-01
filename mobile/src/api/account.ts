@@ -16,6 +16,8 @@ export interface AccountLimits {
   contributionsThisMonth: number;
   /** Suivre des activités et des lieux (cloche « Suivre ») : Premium et Pro. */
   canFollow?: boolean;
+  /** Personnaliser ses alertes avec des mots-clés : Premium et Pro. */
+  alertKeywords?: boolean;
 }
 
 /** `UserResponse` (backend) : profil du compte connecté, sans secret. */

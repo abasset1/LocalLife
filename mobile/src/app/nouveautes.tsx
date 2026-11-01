@@ -41,6 +41,7 @@ const PERKS = [
   '🔔 Suivi des activités et des lieux',
   '❤️ Favoris illimités (5 avec le compte gratuit)',
   '✉️ Jusqu’à 10 alertes (1 avec le compte gratuit)',
+  '🔎 Alertes personnalisées par mots-clés',
   '✍️ 2 propositions d’activités par mois',
 ];
 

@@ -21,7 +21,7 @@ export function alertCriteria(
   categories: readonly { code: string; label: string }[],
 ): string {
   const labels = categoryLabels(alert.categoryCodes, categories);
-  if (!alert.includeFoodTrucks) return labels;
+  if (!alert.includeFoodTrucks) return labels || 'Toutes catégories';
   return labels ? `${labels}, Food trucks` : 'Food trucks';
 }
 

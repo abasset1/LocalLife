@@ -17,6 +17,10 @@ describe('categoryLabels', () => {
 describe('alertCriteria', () => {
   const categories = [{ code: 'SPORT', label: 'Sport' }];
 
+  it('indique « Toutes catégories » pour une alerte par mots-clés seuls', () => {
+    expect(alertCriteria({ categoryCodes: [], includeFoodTrucks: false }, categories)).toBe('Toutes catégories');
+  });
+
   it('ajoute les food trucks aux catégories', () => {
     expect(alertCriteria({ categoryCodes: ['SPORT'], includeFoodTrucks: true }, categories)).toBe(
       'Sport, Food trucks',

@@ -28,6 +28,19 @@ export function updateAlertChannels(
   });
 }
 
+/**
+ * Remplace les mots-clés d'une alerte (liste vide : les retire). Ajouter ou changer des mots-clés est réservé à
+ * Premium et Pro (403) ; les retirer est toujours permis.
+ */
+export function updateAlertKeywords(id: number, keywords: string[], options: CallOptions = {}): Promise<ActivityAlert> {
+  return request<ActivityAlert>(`${BASE}/${id}`, {
+    method: 'PATCH',
+    body: { keywords },
+    authenticated: true,
+    signal: options.signal,
+  });
+}
+
 export function deleteAlert(id: number, options: CallOptions = {}): Promise<void> {
   return request<void>(`${BASE}/${id}`, { method: 'DELETE', authenticated: true, signal: options.signal });
 }

@@ -18,8 +18,8 @@ import org.springframework.stereotype.Service;
  *   <li>Pro (offre ou rôle) et administrateur : favoris illimités, {@value #PAID_MAX_ALERTS} alertes, contributions
  *       illimitées.</li>
  * </ul>
- * Suivre une activité ou un lieu (cloche « Suivre », être prévenu de ses mises à jour) : Premium, Pro et
- * administrateur.
+ * Suivre une activité ou un lieu (cloche « Suivre », être prévenu de ses mises à jour) et personnaliser ses alertes
+ * par mots-clés : Premium, Pro et administrateur.
  * Une limite bloque seulement l'ajout : un compte déjà au-delà (offre terminée, limite apparue après coup) garde tout.
  * Rôle et offre relus en base à chaque appel.
  */
@@ -46,10 +46,11 @@ public class PlanLimits {
 
     /**
      * Limites d'un compte ; {@code null} : illimité. {@code contributionsThisMonth} : compteur courant.
-     * {@code canFollow} : suivre des activités et des lieux (Premium et Pro).
+     * {@code canFollow} : suivre des activités et des lieux ; {@code alertKeywords} : mots-clés dans les alertes
+     * (Premium et Pro, les deux).
      */
     public record Limits(Integer maxLikes, int maxAlerts, Integer monthlyContributions, int contributionsThisMonth,
-            boolean canFollow) {
+            boolean canFollow, boolean alertKeywords) {
     }
 
     public Limits limits(Long userId) {
@@ -62,7 +63,19 @@ public class PlanLimits {
                     case UNLIMITED -> null;
                 },
                 contributionsThisMonth(userId),
+                tier != Tier.FREE,
                 tier != Tier.FREE);
+    }
+
+    /**
+     * Avant d'ajouter ou de changer les mots-clés d'une alerte : réservé aux offres Premium et Pro. Retirer les
+     * mots-clés reste permis, et une alerte qui en a déjà continue d'être envoyée telle quelle après la fin de l'offre.
+     */
+    public void checkCanUseAlertKeywords(Long userId) {
+        if (tier(userId) == Tier.FREE) {
+            throw new PlanLimitException("Personnaliser une alerte avec des mots-clés est réservé aux offres Premium "
+                    + "et Pro.");
+        }
     }
 
     /** Suivre une activité ou un lieu : réservé aux offres Premium et Pro. */
