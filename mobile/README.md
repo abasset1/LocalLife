@@ -141,6 +141,18 @@ empilé (`src/app/activite/[id].tsx`), avec un header natif portant le bouton
 retour. Le geste/bouton retour Android est géré nativement par le stack
 navigator, sans code additionnel.
 
+## Guide de l'application
+
+Écran `src/app/guide.tsx` : didacticiel animé en 11 étapes, même parcours que
+le guide du site (`/guide`), adapté au téléphone. Le contenu (textes, scènes)
+est dans `src/features/guide/steps.ts`, testé sans React Native ; l'écran
+anime ces scènes avec l'API `Animated` de React Native. Lecture automatique
+avec barre de progression et pause ; avec « Réduire les animations », les
+scènes sont fixes et la lecture automatique est coupée.
+
+On l'ouvre depuis le menu (rubrique « Aide »), depuis Compte, depuis les
+Paramètres de recherche et à la fin de l'accueil de première connexion.
+
 ## Explorateur : ville, catégories, critères partagés (FRONT-REV-02)
 
 - **Recherche de ville** (`src/features/explorer/CitySearch.tsx`), sur la carte

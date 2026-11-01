@@ -6,6 +6,8 @@
 - Nouvelle page `/guide`, ouverte à tous depuis le menu (rubrique « Aide » → « Guide de l'application ») : 11 étapes animées pour prendre en main LocalLife (carte, recherche, filtres, activités / lieux / food trucks, favoris, alertes e-mail, proposer une activité, profil, offres Gratuit / Premium / Pro).
 - L'accueil de première connexion propose le guide à sa dernière étape (« Voir le guide de l'application ») : le lien termine l'accueil et ouvre `/guide`.
 - Chaque étape montre une petite scène animée qui reproduit l'interface. Lecture automatique avec barre de progression, mise en pause au survol ou avec le bouton, navigation par boutons, par points ou avec les flèches du clavier. Si l'utilisateur a demandé moins d'animations, les scènes s'affichent fixes et la lecture automatique est coupée.
+- Site : « Mon profil » a une carte « Guide de l'application » avec un bouton « Revoir le guide ».
+- Application mobile : même guide, adapté au téléphone (écran `/guide`, 11 étapes animées, lecture automatique avec pause, préférence « Réduire les animations » respectée). On l'ouvre depuis le menu (nouvelle rubrique « Aide »), depuis Compte (« Guide de l'application »), depuis les Paramètres de recherche (« Revoir le guide de l'application ») et à la fin de l'accueil de première connexion (« Voir le guide de l'application », qui termine l'accueil).
 
 ### Administration : tout sélectionner dans les agendas découverts
 - Une case en tête de la colonne « Choisir » coche ou décoche d'un coup tous les agendas sans source de la page affichée (50 par page, la taille d'un lot de création). Elle est à moitié cochée quand une partie seulement l'est.

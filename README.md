@@ -23,7 +23,9 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
 * Page `/guide` (menu → « Aide » → « Guide de l'application ») : didacticiel
   animé, en 11 étapes, qui présente les possibilités de l'application, avec
   lecture automatique, navigation au clavier (← →, Espace) et animations
-  réduites si l'utilisateur le demande.
+  réduites si l'utilisateur le demande. Aussi proposé à la fin de l'accueil
+  de première connexion et dans « Mon profil » (« Revoir le guide »).
+* Application mobile : même guide, écran `/guide` (voir `mobile/README.md`).
 
 ## Authentification
 

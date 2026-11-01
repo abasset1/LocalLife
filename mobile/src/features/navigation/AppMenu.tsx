@@ -24,6 +24,7 @@ const ICONS: Record<MenuEntry['icon'], SymbolViewProps['name']> = {
   settings: { ios: 'slider.horizontal.3', android: 'tune', web: 'tune' },
   pro: { ios: 'briefcase', android: 'storefront', web: 'storefront' },
   star: { ios: 'star', android: 'star', web: 'star' },
+  help: { ios: 'questionmark.circle', android: 'help', web: 'help' },
 };
 
 /**

@@ -294,6 +294,12 @@ export default function CompteScreen() {
                 description="Gratuit, Premium ou Pro"
                 onPress={() => router.push('/abonnement')}
               />
+              <MenuRow
+                icon={{ ios: 'questionmark.circle', android: 'help', web: 'help' }}
+                label="Guide de l'application"
+                description="Revoir la présentation animée de LocalLife"
+                onPress={() => router.push('/guide')}
+              />
               {hasProAccess ? (
                 <MenuRow
                   icon={{ ios: 'briefcase', android: 'storefront', web: 'storefront' }}

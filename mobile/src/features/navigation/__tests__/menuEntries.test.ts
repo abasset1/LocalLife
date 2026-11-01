@@ -6,8 +6,8 @@ describe('menu rétractable', () => {
   it('garde l’accès à toutes les rubriques des anciens onglets et du compte', () => {
     expect(all.map((entry) => entry.href).sort()).toEqual(
       [
-        '/', '/abonnement', '/alertes', '/compte', '/contribution', '/contributions', '/favoris', '/liste',
-        '/parametres', '/pro', '/pro/foodtrucks',
+        '/', '/abonnement', '/alertes', '/compte', '/contribution', '/contributions', '/favoris', '/guide',
+        '/liste', '/parametres', '/pro', '/pro/foodtrucks',
       ].sort(),
     );
   });

@@ -6,7 +6,7 @@
 export interface MenuEntry {
   label: string;
   href: string;
-  icon: 'map' | 'list' | 'add' | 'account' | 'heart' | 'edit' | 'bell' | 'settings' | 'pro' | 'star';
+  icon: 'map' | 'list' | 'add' | 'account' | 'heart' | 'edit' | 'bell' | 'settings' | 'pro' | 'star' | 'help';
   /** Ancien onglet : on y bascule (état conservé) plutôt que d'empiler un écran. */
   main?: boolean;
   /** Réservée aux comptes avec accès professionnel (`hasProAccess` de `GET /users/me`). */
@@ -50,6 +50,10 @@ export const MENU_SECTIONS: readonly MenuSection[] = [
   {
     title: 'Compte',
     entries: [{ label: 'Compte', href: '/compte', icon: 'account', main: true }],
+  },
+  {
+    title: 'Aide',
+    entries: [{ label: "Guide de l'application", href: '/guide', icon: 'help' }],
   },
 ];
 
