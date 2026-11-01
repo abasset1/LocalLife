@@ -47,6 +47,10 @@ public class DataExportService {
         document.put("favorites", list("""
                 SELECT l.activity_id, a.title, l.created_at FROM activity_likes l
                 JOIN activity a ON a.id = l.activity_id WHERE l.user_id = ? ORDER BY l.created_at""", userId));
+        document.put("follows", list("""
+                SELECT f.activity_id, a.title AS activity, f.location_id, l.name AS place, f.created_at
+                FROM follow f LEFT JOIN activity a ON a.id = f.activity_id LEFT JOIN location l ON l.id = f.location_id
+                WHERE f.user_id = ? ORDER BY f.created_at""", userId));
         document.put("contributions", list("""
                 SELECT id, title, description, address, city, start_date, end_date, status, created_at, published_at,
                        moderation_reason

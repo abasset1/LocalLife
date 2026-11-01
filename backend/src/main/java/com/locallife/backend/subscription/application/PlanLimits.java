@@ -11,12 +11,15 @@ import org.springframework.stereotype.Service;
 /**
  * Limites par offre (décision du 22/10/2026, {@code ROLES_ET_PERMISSIONS.md} § « Limites par offre ») :
  * <ul>
- *   <li>compte gratuit : {@value #FREE_MAX_LIKES} favoris, {@value #FREE_MAX_ALERTS} alerte, pas de contribution ;</li>
+ *   <li>compte gratuit : {@value #FREE_MAX_LIKES} favoris, {@value #FREE_MAX_ALERTS} alerte, pas de contribution, pas
+ *       de suivi d'activité ou de lieu ;</li>
  *   <li>Premium : favoris illimités, {@value #PAID_MAX_ALERTS} alertes, {@value #PREMIUM_MONTHLY_CONTRIBUTIONS}
  *       nouvelles contributions par mois civil (heure de Paris), les contributions refusées ne comptant pas ;</li>
  *   <li>Pro (offre ou rôle) et administrateur : favoris illimités, {@value #PAID_MAX_ALERTS} alertes, contributions
  *       illimitées.</li>
  * </ul>
+ * Suivre une activité ou un lieu (cloche « Suivre », être prévenu de ses mises à jour) : Premium, Pro et
+ * administrateur.
  * Une limite bloque seulement l'ajout : un compte déjà au-delà (offre terminée, limite apparue après coup) garde tout.
  * Rôle et offre relus en base à chaque appel.
  */
@@ -41,8 +44,12 @@ public class PlanLimits {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    /** Limites d'un compte ; {@code null} : illimité. {@code contributionsThisMonth} : compteur courant. */
-    public record Limits(Integer maxLikes, int maxAlerts, Integer monthlyContributions, int contributionsThisMonth) {
+    /**
+     * Limites d'un compte ; {@code null} : illimité. {@code contributionsThisMonth} : compteur courant.
+     * {@code canFollow} : suivre des activités et des lieux (Premium et Pro).
+     */
+    public record Limits(Integer maxLikes, int maxAlerts, Integer monthlyContributions, int contributionsThisMonth,
+            boolean canFollow) {
     }
 
     public Limits limits(Long userId) {
@@ -54,7 +61,21 @@ public class PlanLimits {
                     case PREMIUM -> PREMIUM_MONTHLY_CONTRIBUTIONS;
                     case UNLIMITED -> null;
                 },
-                contributionsThisMonth(userId));
+                contributionsThisMonth(userId),
+                tier != Tier.FREE);
+    }
+
+    /** Suivre une activité ou un lieu : réservé aux offres Premium et Pro. */
+    public boolean canFollow(Long userId) {
+        return tier(userId) != Tier.FREE;
+    }
+
+    /** Avant de suivre une activité ou un lieu. */
+    public void checkCanFollow(Long userId) {
+        if (!canFollow(userId)) {
+            throw new PlanLimitException("Suivre une activité ou un lieu pour être prévenu de ses mises à jour est "
+                    + "réservé aux offres Premium et Pro.");
+        }
     }
 
     /** Avant d'ajouter un favori : {@code currentLikes} favoris déjà enregistrés. */

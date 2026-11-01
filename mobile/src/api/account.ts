@@ -14,6 +14,8 @@ export interface AccountLimits {
   monthlyContributions: number | null;
   /** Contributions de ce mois qui comptent (ni refusées ni modifications). */
   contributionsThisMonth: number;
+  /** Suivre des activités et des lieux (cloche « Suivre ») : Premium et Pro. */
+  canFollow?: boolean;
 }
 
 /** `UserResponse` (backend) : profil du compte connecté, sans secret. */

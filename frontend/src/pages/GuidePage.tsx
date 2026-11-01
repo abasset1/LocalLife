@@ -294,7 +294,7 @@ function ProfileScene() {
 function PlansScene() {
     const plans = [
         { name: "Gratuit", icon: "🌱", items: ["Carte, liste et fiches", "5 favoris", "1 alerte"] },
-        { name: "Premium", icon: "⭐", items: ["Favoris illimités", "10 alertes", "2 contributions / mois"] },
+        { name: "Premium", icon: "⭐", items: ["Favoris illimités", "10 alertes", "🔔 Suivre activités et lieux"] },
         { name: "Pro", icon: "🏢", items: ["Contributions illimitées", "Gérer tes lieux", "Food trucks et planning"] },
     ];
     return (
@@ -382,7 +382,10 @@ export const GUIDE_STEPS: GuideStep[] = [
         title: "Garde tes coups de cœur",
         text: "Sur la fiche d'une activité, retrouve les dates, l'adresse, la description et le lien de "
             + "l'organisateur. Le cœur l'ajoute à « Mes favoris », accessibles depuis le menu.",
-        tips: ["Connexion requise pour les favoris", "5 favoris avec l'offre gratuite, illimités ensuite"],
+        tips: [
+            "5 favoris avec l'offre gratuite, illimités ensuite",
+            "🔔 « Suivre » : prévenu des mises à jour d'une activité ou d'un lieu (Premium et Pro)",
+        ],
         scene: FavoritesScene,
     },
     {
@@ -412,7 +415,8 @@ export const GUIDE_STEPS: GuideStep[] = [
     {
         id: "offres",
         title: "Choisis ton offre",
-        text: "La carte reste gratuite pour tous. Premium élargit favoris, alertes et contributions. Pro ouvre "
+        text: "La carte reste gratuite pour tous. Premium élargit favoris, alertes et contributions, et permet de "
+            + "suivre activités et lieux. Pro ouvre "
             + "l'Espace professionnel : revendiquer ou créer un lieu, gérer ses food trucks et leur planning.",
         tips: ["Change d'offre depuis « Mon profil » → « Mon abonnement »", "L'offre Pro est validée par l'équipe"],
         scene: PlansScene,

@@ -7,6 +7,7 @@ import { AuthProvider } from '@/auth';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { Colors } from '@/constants/theme';
 import { FavoritesProvider } from '@/features/favorites';
+import { FollowsProvider } from '@/features/follow';
 import { OnboardingGate } from '@/features/onboarding';
 import { useNotificationRouting } from '@/notifications';
 
@@ -50,6 +51,7 @@ export default function RootLayout() {
       <AnimatedSplashOverlay />
       <AuthProvider>
         <FavoritesProvider>
+          <FollowsProvider>
           <Stack
             screenOptions={{
               headerStyle: { backgroundColor: colors.background },
@@ -68,6 +70,7 @@ export default function RootLayout() {
             <Stack.Screen name="parametres" options={{ title: 'Paramètres de recherche' }} />
             <Stack.Screen name="alertes" options={{ title: 'Mes alertes' }} />
             <Stack.Screen name="favoris" options={{ title: 'Mes favoris' }} />
+            <Stack.Screen name="suivis" options={{ title: 'Activités et lieux suivis' }} />
             <Stack.Screen name="mot-de-passe-oublie" options={{ title: 'Mot de passe oublié' }} />
             <Stack.Screen name="contributions/index" options={{ title: 'Mes contributions' }} />
             <Stack.Screen name="contributions/[id]" options={{ title: "Modifier l'activité" }} />
@@ -87,6 +90,7 @@ export default function RootLayout() {
             />
           </Stack>
           <OnboardingGate />
+          </FollowsProvider>
         </FavoritesProvider>
       </AuthProvider>
     </ThemeProvider>

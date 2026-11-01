@@ -265,6 +265,12 @@ export default function CompteScreen() {
                 onPress={() => router.push('/favoris')}
               />
               <MenuRow
+                icon={{ ios: 'bell.badge', android: 'notifications_active', web: 'notifications_active' }}
+                label="Activités et lieux suivis"
+                description="Être prévenu de leurs mises à jour (Premium et Pro)"
+                onPress={() => router.push('/suivis')}
+              />
+              <MenuRow
                 icon={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }}
                 label="Paramètres de recherche"
                 description="Ville, rayon et catégories de la carte"

@@ -23,6 +23,7 @@ import { useActivity } from '@/features/activity/useActivity';
 import { useAuth } from '@/auth';
 import { ContributorActions, STATUS_LABELS } from '@/features/contribution';
 import { LikeButton } from '@/features/favorites';
+import { FollowBell } from '@/features/follow';
 
 /**
  * Détail d'une activité (LL-MOB-0008), atteint depuis l'aperçu d'un marqueur
@@ -152,6 +153,9 @@ export default function ActiviteDetailScreen() {
                   <ThemedText type="smallBold" themeColor="textSecondary">
                     Proposé par {activity.hostPlace.name}
                   </ThemedText>
+                ) : null}
+                {!detail || detail.status === 'PUBLISHED' || detail.status === 'CANCELLED' ? (
+                  <FollowBell type="activity" id={activity.id} title={activity.title} city={activity.city} />
                 ) : null}
               </View>
               <View style={styles.quickActions}>

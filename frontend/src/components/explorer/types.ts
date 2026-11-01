@@ -212,4 +212,6 @@ export interface UserLimits {
     /** Contributions par mois civil (heure de Paris) : 0 pour Gratuit, `null` si illimité. */
     monthlyContributions: number | null;
     contributionsThisMonth: number;
+    /** Suivre des activités et des lieux (cloche « Suivre ») : offres Premium et Pro. */
+    canFollow?: boolean;
 }

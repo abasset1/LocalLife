@@ -7,7 +7,7 @@ describe('menu rétractable', () => {
     expect(all.map((entry) => entry.href).sort()).toEqual(
       [
         '/', '/abonnement', '/alertes', '/compte', '/contribution', '/contributions', '/favoris', '/guide',
-        '/liste', '/parametres', '/pro', '/pro/foodtrucks',
+        '/liste', '/parametres', '/pro', '/pro/foodtrucks', '/suivis',
       ].sort(),
     );
   });
@@ -15,7 +15,7 @@ describe('menu rétractable', () => {
   it('réserve « Mon espace » aux utilisateurs connectés, le reste est visible de tous', () => {
     const reserved = MENU_SECTIONS.filter((section) => section.authenticated).flatMap((s) => s.entries);
     expect(reserved.map((entry) => entry.href)).toEqual([
-      '/favoris', '/contributions', '/alertes', '/parametres', '/pro', '/pro/foodtrucks', '/abonnement',
+      '/favoris', '/suivis', '/contributions', '/alertes', '/parametres', '/pro', '/pro/foodtrucks', '/abonnement',
     ]);
   });
 
