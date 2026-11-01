@@ -2,6 +2,14 @@
 
 ## 0.9.59 — non publiée
 
+### Suivre une activité ou un lieu (offres Premium et Pro)
+- Nouvelle cloche **🔔 Suivre** sur la fiche d'une activité et d'un lieu, sur le site (fiche d'activité, liste des lieux) et dans l'application mobile (fiche d'activité, aperçu d'un lieu). Réservée aux offres Premium et Pro : un compte gratuit voit le refus avec un lien vers les offres ; un visiteur n'a pas la cloche sur le site et se voit proposer la connexion sur le mobile.
+- Notifié pour une activité : annulation, retrait par l'équipe, dates, adresse ou contenu modifiés, retour en ligne après une modification relue. Pour un lieu : nouvelles activités publiées, adresse, nom ou description, coordonnées modifiés, retrait de la carte. Les changements sont enregistrés par des triggers en base (migration `V79`), donc quel que soit leur origine (import, contributeur, administration, espace professionnel), et seulement pour ce que quelqu'un suit.
+- Envoi groupé : un seul message par utilisateur et par passage, par défaut toutes les heures de 8 h à 21 h (`FOLLOWS_CRON`). Notification push si un appareil est enregistré, sinon e-mail à l'adresse vérifiée. Changements conservés 30 jours.
+- Liste des suivis avec « Ne plus suivre » : « Mon profil » → « Activités et lieux suivis » sur le site, Compte → « Activités et lieux suivis » (et menu « Mon espace ») sur le mobile. Toucher la notification ouvre la fiche de l'activité, ou la liste des suivis.
+- Un compte revenu au gratuit garde ses suivis et peut les retirer, mais n'est plus prévenu, et ne reçoit pas d'arriéré s'il reprend une offre. `GET /api/v1/users/me` expose `limits.canFollow` ; les suivis font partie de l'export des données personnelles.
+- API : `POST|DELETE /api/v1/activities/{id}/follow`, `POST|DELETE /api/v1/places/{id}/follow`, `GET /api/v1/users/me/follows`.
+
 ### Voir le mot de passe saisi
 - Site : un bouton « Afficher » / « Masquer » dans chaque champ mot de passe rend la saisie lisible : Connexion, Créer un compte, réinitialisation du mot de passe, « Mon profil » (mot de passe actuel, nouveau mot de passe, confirmation de la suppression du compte) et confirmation par mot de passe dans l'administration. La saisie est masquée de nouveau à l'envoi du formulaire.
 - Application mobile : une icône œil fait de même dans Compte (Connexion et Inscription) et dans « Mot de passe et compte » (mot de passe actuel, nouveau mot de passe, confirmation de la suppression du compte).

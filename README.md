@@ -27,6 +27,20 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
   de première connexion et dans « Mon profil » (« Revoir le guide »).
 * Application mobile : même guide, écran `/guide` (voir `mobile/README.md`).
 
+## Suivre une activité ou un lieu (offres Premium et Pro)
+
+* Cloche **🔔 Suivre** sur la fiche d'une activité et d'un lieu (site et application mobile) : être prévenu de
+  ses mises à jour. Liste et « Ne plus suivre » dans « Mon profil » (site) et Compte → « Activités et lieux suivis »
+  (mobile).
+* API : `POST|DELETE /api/v1/activities/{id}/follow`, `POST|DELETE /api/v1/places/{id}/follow` (403 pour un compte
+  gratuit, 404 si la cible n'est pas visible), `GET /api/v1/users/me/follows`.
+* Ce qui est notifié : pour une activité, annulation, retrait, dates, adresse ou contenu modifiés, retour en ligne
+  après modification ; pour un lieu, nouvelles activités, adresse, nom ou description, coordonnées modifiés, retrait
+  de la carte. Les changements sont enregistrés par des triggers (`V79__follows.sql`), quel que soit le chemin
+  (import, contributeur, administration, espace professionnel).
+* Envoi : `FollowNotifier`, un récapitulatif par utilisateur, par défaut toutes les heures de 8 h à 21 h
+  (`app.follows.cron`) ; notification push si un appareil est enregistré, sinon e-mail.
+
 ## Authentification
 
 * Inscription : `POST /api/v1/auth/register` (`username`, `email`,

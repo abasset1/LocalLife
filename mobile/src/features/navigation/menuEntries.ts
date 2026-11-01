@@ -39,6 +39,7 @@ export const MENU_SECTIONS: readonly MenuSection[] = [
     authenticated: true,
     entries: [
       { label: 'Mes favoris', href: '/favoris', icon: 'heart' },
+      { label: 'Activités et lieux suivis', href: '/suivis', icon: 'bell' },
       { label: 'Mes contributions', href: '/contributions', icon: 'edit' },
       { label: 'Mes alertes', href: '/alertes', icon: 'bell' },
       { label: 'Paramètres de recherche', href: '/parametres', icon: 'settings' },

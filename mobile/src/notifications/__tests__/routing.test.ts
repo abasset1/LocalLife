@@ -14,6 +14,11 @@ describe('routeForNotification', () => {
     expect(routeForNotification({ type: 'activity-alert' })).toBe('/');
   });
 
+  it("ouvre la fiche de l'activité suivie, sinon la liste des suivis", () => {
+    expect(routeForNotification({ type: 'follow-update', activityId: 42 })).toBe('/activite/42');
+    expect(routeForNotification({ type: 'follow-update' })).toBe('/suivis');
+  });
+
   it('ignore les autres notifications et les données invalides', () => {
     expect(routeForNotification({ type: 'autre', activityId: 7 })).toBeNull();
     expect(routeForNotification(null)).toBeNull();

@@ -1,7 +1,8 @@
 /**
  * Écran à ouvrir au toucher d'une notification d'alerte (données envoyées
  * par `ActivityAlertNotifier` côté backend) : la fiche de l'activité ou du
- * food truck s'il n'y a qu'une nouveauté, sinon la carte. Fonction pure,
+ * food truck s'il n'y a qu'une nouveauté, sinon la carte. Mise à jour d'un
+ * suivi (`FollowNotifier`) : la fiche de l'activité, sinon la liste des suivis. Fonction pure,
  * testable sans React Native.
  */
 export function routeForNotification(data: unknown): string | null {
@@ -11,6 +12,11 @@ export function routeForNotification(data: unknown): string | null {
     activityId?: unknown;
     foodTruckId?: unknown;
   };
+  if (type === 'follow-update') {
+    // Mise à jour d'une activité ou d'un lieu suivi : sa fiche s'il n'y en a qu'une, sinon la liste des suivis.
+    const followed = validId(activityId);
+    return followed ? `/activite/${followed}` : '/suivis';
+  }
   if (type !== 'activity-alert') return null;
   const activity = validId(activityId);
   if (activity) return `/activite/${activity}`;

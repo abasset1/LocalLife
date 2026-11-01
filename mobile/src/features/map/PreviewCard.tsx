@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 import { describeToday } from '@/features/foodtruck/presence';
 import { useProAccess } from '@/features/pro/useProAccess';
+import { FollowBell } from '@/features/follow';
 
 import { placeTypeLabel } from './placeTypes';
 import { usePlaceActivities } from './usePlaceActivities';
@@ -92,6 +93,7 @@ function PlacePreview({ place, onClose }: { place: Place; onClose: () => void })
           {place.description}
         </ThemedText>
       ) : null}
+      <FollowBell type="place" id={place.id} title={place.name} city={place.city} />
       {activities && activities.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
           Aucune activité à venir connue ici.

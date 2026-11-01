@@ -4,6 +4,7 @@ import { buildGoogleCalendarUrl } from "../../utils/googleCalendar";
 import { formatDateOfDay, formatRecurrenceRule, formatTimeRange } from "../../utils/recurrence";
 import { formatActivityLocation, formatCategoryLabels } from "./activityUtils";
 import { hasCoordinates } from "./globalSearch";
+import FollowBell from "../follow/FollowBell";
 import type { Activity, ActivityDetail, AccessibilitySummary, Category, ExplorerCurrentUser } from "./types";
 
 /**
@@ -228,6 +229,10 @@ function ActivityDetailModal({
                     </button>
                 </div>
                 <div className="explorer-detail-body">
+                    {currentUser && (activity.status === undefined || activity.status === "PUBLISHED"
+                        || activity.status === "CANCELLED") && (
+                        <FollowBell city={activity.city} id={activity.id} title={activity.title} type="activity" />
+                    )}
                     {likeError && (
                         <p className="explorer-detail-row explorer-detail-error" role="alert">
                             {likeError.message}

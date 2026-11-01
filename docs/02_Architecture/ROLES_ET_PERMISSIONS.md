@@ -163,6 +163,7 @@ Vérifié par `ProAccountRulesIntegrationTest`, `ProFoodTruckIntegrationTest`, `
 | Favoris | **5** | illimités | illimités |
 | Alertes | **1** | 10 | 10 |
 | Nouvelles contributions | aucune | **2 par mois civil** (heure de Paris) | illimitées |
+| Suivre une activité ou un lieu (cloche 🔔) | non | oui | oui |
 
 * Une limite bloque seulement l'ajout (**403** avec un message explicite) : un compte déjà au-delà (offre terminée)
   garde tout ce qu'il a, y compris l'envoi de ses alertes. Re-liker un favori existant ou modifier une contribution
@@ -171,7 +172,9 @@ Vérifié par `ProAccountRulesIntegrationTest`, `ProFoodTruckIntegrationTest`, `
   par la modération ou supprimée par son auteur ne compte pas. Les activités antérieures à V72 n'ont pas de date et
   ne comptent dans aucun mois.
 * `GET /api/v1/users/me` expose `limits` : `maxLikes` (`null` = illimité), `maxAlerts`, `monthlyContributions`
-  (`null` = illimité, `0` sans offre) et `contributionsThisMonth`.
+  (`null` = illimité, `0` sans offre), `contributionsThisMonth` et `canFollow`.
+* Suivi (décidé le 01/11/2026) : un compte gratuit ne peut pas suivre (403) ; revenu au gratuit, il garde ses suivis
+  et peut les retirer, mais n'est plus prévenu (et ne reçoit pas d'arriéré s'il reprend une offre).
 * Mise en œuvre : `PlanLimits`. Vérifié par `PlanLimitsIntegrationTest`.
 
 ### Administrateur — décidé le 22/10/2026

@@ -6,6 +6,7 @@ import { clearToken, getPayload } from "../auth/authStorage";
 import { USERNAME_MAX_LENGTH, useUsernameAvailability } from "../auth/useUsernameAvailability";
 import UsernameStatusMessage from "../components/UsernameStatusMessage";
 import { DeleteAccountCard, PasswordCard } from "../components/profile/AccountSecurityCards";
+import FollowedItemsCard from "../components/follow/FollowedItemsCard";
 import ActivityAlertsSection from "../components/profile/ActivityAlertsSection";
 import { proRequest } from "../components/pro/proApi";
 import MyDataCard from "../components/profile/MyDataCard";
@@ -314,6 +315,7 @@ function ProfilePage() {
                             <div className="pp-column pp-column-wide">
                                 <SearchPreferencesForm />
                                 <ActivityAlertsSection maxAlerts={profile.limits?.maxAlerts ?? null} />
+                                <FollowedItemsCard canFollow={profile.limits?.canFollow ?? false} />
                                 <ProfileCard
                                     icon="🎓"
                                     subtitle="Revois en quelques étapes animées tout ce que permet LocalLife."

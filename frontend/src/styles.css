@@ -4952,3 +4952,86 @@ body {
         color: #ffffff;
     }
 }
+
+/* Cloche « Suivre » (FollowBell) : suivre une activité ou un lieu pour être prévenu de ses mises à jour. */
+.follow-bell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    margin-bottom: 0.6rem;
+}
+
+.follow-bell-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--ll-line);
+    border-radius: 999px;
+    background-color: #ffffff;
+    color: var(--ll-green);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.follow-bell-button:hover:not(:disabled) {
+    background-color: var(--ll-sand);
+}
+
+.follow-bell-button-active {
+    border-color: var(--ll-green);
+    background-color: var(--ll-green);
+    color: #ffffff;
+}
+
+.follow-bell-button-active:hover:not(:disabled) {
+    background-color: var(--ll-green2);
+}
+
+.follow-bell-button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.follow-bell-error {
+    margin: 0;
+    color: #b3261e;
+    font-size: 0.85rem;
+}
+
+.follow-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.follow-list-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--ll-line);
+    border-radius: 12px;
+}
+
+.follow-list-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.follow-list-text strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.follow-list-text small {
+    color: var(--ll-muted);
+}

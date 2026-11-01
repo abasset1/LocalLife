@@ -37,8 +37,9 @@ export const PLAN_DESCRIPTIONS: Record<Plan, string> = {
 /** Limites de chaque offre (décision du 22/10/2026), appliquées par le serveur. */
 export const PLAN_LIMITS: Record<Plan, string[]> = {
     FREE: ["5 favoris", "1 alerte"],
-    PREMIUM: ["Favoris illimités", "10 alertes", "2 contributions par mois"],
-    PRO: ["Favoris illimités", "10 alertes", "Contributions illimitées", "Espace professionnel"],
+    PREMIUM: ["Favoris illimités", "10 alertes", "2 contributions par mois", "Suivi des activités et des lieux"],
+    PRO: ["Favoris illimités", "10 alertes", "Contributions illimitées", "Suivi des activités et des lieux",
+        "Espace professionnel"],
 };
 
 export function formatDay(value: string | null): string {

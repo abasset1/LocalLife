@@ -117,7 +117,10 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     text:
       'La fiche d’une activité donne les dates, l’adresse, la description et le lien de l’organisateur. Le cœur ' +
       'l’ajoute à « Mes favoris », que vous retrouvez dans le menu.',
-    tips: ['Connexion requise pour les favoris', '5 favoris avec l’offre gratuite, illimités ensuite'],
+    tips: [
+      '5 favoris avec l’offre gratuite, illimités ensuite',
+      '🔔 « Suivre » : prévenu des mises à jour d’une activité ou d’un lieu (Premium et Pro)',
+    ],
     scene: {
       kind: 'rows',
       header: '❤️ Mes favoris',
@@ -175,14 +178,15 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     id: 'offres',
     title: 'Choisissez votre offre',
     text:
-      'La carte reste gratuite pour tous. Premium élargit favoris, alertes et contributions. Pro ouvre l’Espace ' +
+      'La carte reste gratuite pour tous. Premium élargit favoris, alertes et contributions, et permet de suivre ' +
+      'activités et lieux. Pro ouvre l’Espace ' +
       'professionnel : gérer un lieu, ses food trucks et leur planning.',
     tips: ['Changez d’offre dans « Mon abonnement »', 'L’offre Pro est validée par l’équipe'],
     scene: {
       kind: 'rows',
       rows: [
         { emoji: '🌱', title: 'Gratuit', meta: 'Carte, liste et fiches · 5 favoris · 1 alerte' },
-        { emoji: '⭐', title: 'Premium', meta: 'Favoris illimités · 10 alertes · 2 contributions / mois' },
+        { emoji: '⭐', title: 'Premium', meta: 'Favoris illimités · 10 alertes · suivis · 2 contributions / mois' },
         { emoji: '🏢', title: 'Pro', meta: 'Contributions illimitées · lieux et food trucks' },
       ],
     },
