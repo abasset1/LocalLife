@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { apiFetch } from "../../api/apiClient";
 import { saveToken } from "../../auth/authStorage";
+import PasswordInput from "../PasswordInput";
 import { Notice, ProfileCard } from "./ProfileUi";
 
 async function errorMessage(response: Response, fallback: string): Promise<string> {
@@ -54,14 +55,14 @@ export function PasswordCard({ hasPassword }: { hasPassword: boolean }) {
                 {hasPassword && (
                     <div className="pp-field">
                         <label className="pp-label" htmlFor="profile-current-password">Mot de passe actuel</label>
-                        <input autoComplete="current-password" className="pp-input" id="profile-current-password"
-                            onChange={(event) => setCurrent(event.target.value)} required type="password" value={current} />
+                        <PasswordInput autoComplete="current-password" className="pp-input" id="profile-current-password"
+                            onChange={(event) => setCurrent(event.target.value)} required value={current} />
                     </div>
                 )}
                 <div className="pp-field">
                     <label className="pp-label" htmlFor="profile-new-password">Nouveau mot de passe (8 caractères au moins)</label>
-                    <input autoComplete="new-password" className="pp-input" id="profile-new-password" minLength={8}
-                        onChange={(event) => setNext(event.target.value)} required type="password" value={next} />
+                    <PasswordInput autoComplete="new-password" className="pp-input" id="profile-new-password" minLength={8}
+                        onChange={(event) => setNext(event.target.value)} required value={next} />
                 </div>
                 <div className="pp-actions">
                     <button className="pp-button pp-button-primary" disabled={busy} type="submit">
@@ -134,9 +135,13 @@ export function DeleteAccountCard({ hasPassword, isAdmin, onDeleted }: {
                         <label className="pp-label" htmlFor="profile-delete-secret">
                             {hasPassword ? "Ton mot de passe" : "Saisis SUPPRIMER pour confirmer"}
                         </label>
-                        <input autoComplete={hasPassword ? "current-password" : "off"} className="pp-input"
-                            id="profile-delete-secret" onChange={(event) => setSecret(event.target.value)} required
-                            type={hasPassword ? "password" : "text"} value={secret} />
+                        {hasPassword ? (
+                            <PasswordInput autoComplete="current-password" className="pp-input" id="profile-delete-secret"
+                                onChange={(event) => setSecret(event.target.value)} required value={secret} />
+                        ) : (
+                            <input autoComplete="off" className="pp-input" id="profile-delete-secret"
+                                onChange={(event) => setSecret(event.target.value)} required type="text" value={secret} />
+                        )}
                     </div>
                     <div className="pp-actions">
                         <button className="pp-button pp-button-danger" disabled={busy} type="submit">

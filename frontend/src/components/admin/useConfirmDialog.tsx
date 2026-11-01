@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
+import PasswordInput from "../PasswordInput";
 
 /** En-tête attendu par le serveur pour les actions sensibles (sinon 428). */
 export const CONFIRM_PASSWORD_HEADER = "X-Confirm-Password";
@@ -64,9 +65,9 @@ function ConfirmDialogView({ dialog, onClose }: {
                     {dialog.password && (
                         <div className="form-field">
                             <label htmlFor="confirm-dialog-password">Ton mot de passe (confirmation)</label>
-                            <input autoComplete="current-password" autoFocus={!dialog.reason} id="confirm-dialog-password"
-                                onChange={(event) => setPassword(event.target.value)} required type="password"
-                                value={password} />
+                            <PasswordInput autoComplete="current-password" autoFocus={!dialog.reason}
+                                id="confirm-dialog-password" onChange={(event) => setPassword(event.target.value)}
+                                required value={password} />
                         </div>
                     )}
                     <div className="modal-actions admin-confirm-actions">
