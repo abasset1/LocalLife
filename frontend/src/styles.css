@@ -5313,3 +5313,73 @@ body {
         animation: none;
     }
 }
+
+/* Bandeau de nouveauté sur la carte (FollowNewsBanner) : membres gratuits seulement. */
+.news-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 1rem 0.6rem;
+    padding: 0.5rem 0.6rem 0.5rem 0.8rem;
+    border: 1px solid rgba(232, 106, 74, 0.35);
+    border-radius: 14px;
+    background-color: #fdeee8;
+    animation: guide-slide-up 0.4s ease both;
+}
+
+.news-banner-bell {
+    font-size: 1.2rem;
+    transform-origin: 50% 10%;
+    animation: news-ring 2.4s 0.8s ease-in-out 2;
+}
+
+.news-banner-text {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.35;
+    color: var(--ll-ink);
+}
+
+.news-banner-text span {
+    color: var(--ll-muted);
+}
+
+.news-banner-link {
+    flex: none;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    background-color: var(--ll-coral);
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.news-banner-link:hover {
+    background-color: #d65a3b;
+}
+
+.news-banner-close {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--ll-muted);
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.news-banner-close:hover {
+    background-color: rgba(23, 32, 29, 0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .news-banner,
+    .news-banner-bell {
+        animation: none;
+    }
+}

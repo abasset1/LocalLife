@@ -1,0 +1,1 @@
+export { FollowNewsBanner } from './FollowNewsBanner';
