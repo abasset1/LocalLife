@@ -237,4 +237,72 @@ class ActivityAlertRepositoryIntegrationTest {
                 java.sql.Timestamp.class, id).toLocalDateTime()).isEqualTo(LocalDateTime.of(2026, 1, 1, 10, 0));
     }
 
+
+    private ActivityAlert createKeywordAlert(List<String> categoryCodes, List<String> keywords, boolean foodTrucks) {
+        ActivityAlert alert = activityAlertRepository.create(new ActivityAlert(
+                null, userId, "Lyon", LYON_LATITUDE, LYON_LONGITUDE, 10, categoryCodes, foodTrucks, true, false, null,
+                keywords), "token-kw-" + keywords.size() + "-" + categoryCodes.size());
+        jdbcTemplate.update(
+                "UPDATE activity_alert SET created_at = now() - interval '1 hour' WHERE id = ?", alert.id());
+        return alert;
+    }
+
+    @Test
+    void keywords_ShouldMatchTheStartOfAWord_IgnoringCaseAndAccents_InAnyCategory() {
+        LocalDateTime nextWeek = LocalDateTime.now().plusDays(7);
+        ActivityAlert alert = createKeywordAlert(List.of(), List.of("noel", "Jazz"), false);
+        assertThat(activityAlertRepository.findByUserId(userId).get(0).keywords()).containsExactly("noel", "Jazz");
+
+        Long christmas = insertActivity("Grand marché de Noël", LYON_LATITUDE, LYON_LONGITUDE, "CULTURE",
+                "PUBLISHED", nextWeek);
+        Long jazz = insertActivity("Soirée JAZZ manouche", LYON_LATITUDE, LYON_LONGITUDE, "SPORT", "PUBLISHED",
+                nextWeek);
+        Long inDescription = insertActivity("Concert du dimanche", LYON_LATITUDE, LYON_LONGITUDE, "CULTURE",
+                "PUBLISHED", nextWeek);
+        jdbcTemplate.update("UPDATE activity SET description = 'Un quartet de jazz' WHERE id = ?", inDescription);
+        insertActivity("Brunch de Noëlle", LYON_LATITUDE, LYON_LONGITUDE, "CULTURE", "PUBLISHED", nextWeek);
+        insertActivity("Jeux de société", LYON_LATITUDE, LYON_LONGITUDE, "CULTURE", "PUBLISHED", nextWeek);
+
+        List<AlertActivity> found = activityAlertRepository.findNewMatchingActivities(alert.id(), 100);
+
+        // « noel » commence aussi « Noëlle » : la correspondance se fait au début d'un mot.
+        assertThat(found).extracting(AlertActivity::title)
+                .contains("Grand marché de Noël", "Soirée JAZZ manouche", "Concert du dimanche", "Brunch de Noëlle")
+                .doesNotContain("Jeux de société");
+        assertThat(found).extracting(AlertActivity::id).contains(christmas, jazz, inDescription);
+    }
+
+    @Test
+    void keywords_ShouldCombineWithCategories_AndNotMatchInsideAWord() {
+        LocalDateTime nextWeek = LocalDateTime.now().plusDays(7);
+        ActivityAlert alert = createKeywordAlert(List.of("CULTURE"), List.of("art"), false);
+
+        Long match = insertActivity("Atelier d'art floral", LYON_LATITUDE, LYON_LONGITUDE, "CULTURE", "PUBLISHED",
+                nextWeek);
+        insertActivity("Art martial", LYON_LATITUDE, LYON_LONGITUDE, "SPORT", "PUBLISHED", nextWeek);
+        insertActivity("Départ du marathon", LYON_LATITUDE, LYON_LONGITUDE, "CULTURE", "PUBLISHED", nextWeek);
+
+        assertThat(activityAlertRepository.findNewMatchingActivities(alert.id(), 100))
+                .extracting(AlertActivity::id).containsExactly(match);
+    }
+
+    @Test
+    void replaceKeywords_ShouldReplaceForTheOwnerOnly() {
+        ActivityAlert alert = createKeywordAlert(List.of("SPORT"), List.of("yoga"), false);
+
+        assertThat(activityAlertRepository.replaceKeywords(alert.id(), userId + 1, List.of("pilates"))).isFalse();
+        assertThat(activityAlertRepository.replaceKeywords(alert.id(), userId, List.of("pilates", "danse"))).isTrue();
+        assertThat(activityAlertRepository.findByUserId(userId).get(0).keywords()).containsExactly("pilates", "danse");
+        assertThat(activityAlertRepository.replaceKeywords(alert.id(), userId, List.of())).isTrue();
+        assertThat(activityAlertRepository.findByUserId(userId).get(0).keywords()).isEmpty();
+    }
+
+    @Test
+    void aFoodTrucksOnlyAlert_ShouldStillReceiveNoActivity() {
+        ActivityAlert alert = createKeywordAlert(List.of(), List.of(), true);
+        insertActivity("Concert", LYON_LATITUDE, LYON_LONGITUDE, "CULTURE", "PUBLISHED",
+                LocalDateTime.now().plusDays(2));
+
+        assertThat(activityAlertRepository.findNewMatchingActivities(alert.id(), 100)).isEmpty();
+    }
 }

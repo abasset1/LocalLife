@@ -33,7 +33,10 @@ public class ActivityAlertRepository {
      *       contribution soumise avant l'alerte mais validée après), jamais envoyées pour elle, et pas
      *       créées par le destinataire lui-même. Activité publiée avant V54 (date inconnue) : repli sur
      *       {@code min_activity_id} ;</li>
-     *   <li>portant au moins une des catégories de l'alerte ({@code activity_category}) ;</li>
+     *   <li>portant au moins une des catégories de l'alerte ({@code activity_category}), si elle en a ;</li>
+     *   <li>contenant au moins un de ses mots-clés (V80) au début d'un mot du titre ou de la description, normalisés
+     *       ({@code ll_search_normalize}), si elle en a — une alerte sans catégorie ni mot-clé (food trucks seuls)
+     *       ne reçoit aucune activité ;</li>
      *   <li>à venir et dans le rayon : même double branche que {@code ActivityRepository#findWithinRadius}
      *       (occurrences non annulées et leur lieu effectif, sinon repli sur les colonnes
      *       d'{@code activity} pour une activité sans {@code schedule}), sans sa fenêtre de 7 jours.</li>
@@ -49,11 +52,19 @@ public class ActivityAlertRepository {
               AND (a.created_by IS NULL OR a.created_by <> al.user_id)
               AND NOT EXISTS (
                   SELECT 1 FROM activity_alert_sent sent WHERE sent.alert_id = al.id AND sent.activity_id = a.id)
-              AND EXISTS (
-                  SELECT 1 FROM activity_category ac
-                  JOIN category c ON c.id = ac.category_id
-                  JOIN activity_alert_category aac ON aac.category_code = c.code AND aac.alert_id = al.id
-                  WHERE ac.activity_id = a.id)
+              AND (EXISTS (SELECT 1 FROM activity_alert_category aac0 WHERE aac0.alert_id = al.id)
+                   OR EXISTS (SELECT 1 FROM activity_alert_keyword k0 WHERE k0.alert_id = al.id))
+              AND (NOT EXISTS (SELECT 1 FROM activity_alert_category aac1 WHERE aac1.alert_id = al.id)
+                   OR EXISTS (
+                      SELECT 1 FROM activity_category ac
+                      JOIN category c ON c.id = ac.category_id
+                      JOIN activity_alert_category aac ON aac.category_code = c.code AND aac.alert_id = al.id
+                      WHERE ac.activity_id = a.id))
+              AND (NOT EXISTS (SELECT 1 FROM activity_alert_keyword k1 WHERE k1.alert_id = al.id)
+                   OR EXISTS (
+                      SELECT 1 FROM activity_alert_keyword k WHERE k.alert_id = al.id
+                        AND (' ' || a.search_title || ' ' || a.search_description)
+                            LIKE '% ' || ll_search_normalize(k.keyword) || '%'))
               AND (
                   EXISTS (
                       SELECT 1 FROM schedule s
@@ -82,7 +93,8 @@ public class ActivityAlertRepository {
      * food truck publié après la création de l'alerte (V55 ; {@code published_at} inconnu pour les
      * food trucks antérieurs, jamais envoyés), jamais envoyé pour elle, et dans le rayon : au moins
      * un emplacement de ses présences publiées dans le rayon (ADR-0013 — un food truck n'a plus de
-     * position propre).
+     * position propre). Si l'alerte a des mots-clés (V80), l'un d'eux doit apparaître dans son nom, sa cuisine ou sa
+     * description.
      */
     private static final String NEW_MATCHING_FOOD_TRUCKS = """
             SELECT ft.id, ft.name, ft.category
@@ -91,6 +103,12 @@ public class ActivityAlertRepository {
             WHERE al.id = ?
               AND al.include_food_trucks
               AND ft.status = 'PUBLISHED'
+              AND (NOT EXISTS (SELECT 1 FROM activity_alert_keyword k1 WHERE k1.alert_id = al.id)
+                   OR EXISTS (
+                      SELECT 1 FROM activity_alert_keyword k WHERE k.alert_id = al.id
+                        AND (' ' || COALESCE(ll_search_normalize(ft.name || ' ' || COALESCE(ft.category, '') || ' '
+                                                                 || COALESCE(ft.description, '')), ''))
+                            LIKE '% ' || ll_search_normalize(k.keyword) || '%'))
               AND NOT EXISTS (
                   SELECT 1 FROM activity_alert_food_truck_sent sent
                   WHERE sent.alert_id = al.id AND sent.food_truck_id = ft.id)
@@ -137,6 +155,7 @@ public class ActivityAlertRepository {
         jdbcTemplate.batchUpdate(
                 "INSERT INTO activity_alert_category (alert_id, category_code) VALUES (?, ?)",
                 alert.categoryCodes().stream().map(code -> new Object[] {id, code}).toList());
+        insertKeywords(id, alert.keywords());
         return findByUserId(alert.userId()).stream()
                 .filter(created -> created.id().equals(id))
                 .findFirst()
@@ -148,6 +167,31 @@ public class ActivityAlertRepository {
         return jdbcTemplate.update(
                 "UPDATE activity_alert SET notify_email = ?, notify_push = ? WHERE id = ? AND user_id = ?",
                 notifyEmail, notifyPush, id, userId) > 0;
+    }
+
+    /**
+     * Remplace les mots-clés d'une alerte de l'utilisateur.
+     *
+     * @return {@code false} si l'alerte n'existe pas ou appartient à un autre utilisateur
+     */
+    public boolean replaceKeywords(Long id, Long userId, List<String> keywords) {
+        Integer owned = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM activity_alert WHERE id = ? AND user_id = ?", Integer.class, id, userId);
+        if (owned == null || owned == 0) {
+            return false;
+        }
+        jdbcTemplate.update("DELETE FROM activity_alert_keyword WHERE alert_id = ?", id);
+        insertKeywords(id, keywords);
+        return true;
+    }
+
+    private void insertKeywords(Long alertId, List<String> keywords) {
+        List<Object[]> rows = new ArrayList<>();
+        for (int index = 0; index < keywords.size(); index++) {
+            rows.add(new Object[] {alertId, keywords.get(index), index});
+        }
+        jdbcTemplate.batchUpdate(
+                "INSERT INTO activity_alert_keyword (alert_id, keyword, position) VALUES (?, ?, ?)", rows);
     }
 
     /** @return {@code false} si l'alerte n'existe pas ou appartient à un autre utilisateur */
@@ -221,7 +265,7 @@ public class ActivityAlertRepository {
                 resultSet.getTimestamp("created_at").toLocalDateTime());
     }
 
-    /** Complète les alertes de leurs catégories, en une requête pour toute la liste. */
+    /** Complète les alertes de leurs catégories et de leurs mots-clés, en une requête chacun pour toute la liste. */
     private List<ActivityAlert> withCategories(List<ActivityAlert> alerts) {
         if (alerts.isEmpty()) {
             return alerts;
@@ -236,11 +280,20 @@ public class ActivityAlertRepository {
                             .add(resultSet.getString("category_code"));
                 },
                 alerts.stream().map(ActivityAlert::id).toArray());
+        Map<Long, List<String>> keywordsByAlert = new HashMap<>();
+        jdbcTemplate.query(
+                "SELECT alert_id, keyword FROM activity_alert_keyword WHERE alert_id IN (" + placeholders
+                        + ") ORDER BY alert_id, position",
+                resultSet -> {
+                    keywordsByAlert.computeIfAbsent(resultSet.getLong("alert_id"), id -> new ArrayList<>())
+                            .add(resultSet.getString("keyword"));
+                },
+                alerts.stream().map(ActivityAlert::id).toArray());
         return alerts.stream()
                 .map(alert -> new ActivityAlert(alert.id(), alert.userId(), alert.city(), alert.latitude(),
                         alert.longitude(), alert.radiusKm(), List.copyOf(codesByAlert.getOrDefault(alert.id(),
                         List.of())), alert.includeFoodTrucks(), alert.notifyEmail(), alert.notifyPush(),
-                        alert.createdAt()))
+                        alert.createdAt(), keywordsByAlert.getOrDefault(alert.id(), List.of())))
                 .toList();
     }
 

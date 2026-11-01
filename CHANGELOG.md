@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### Alertes personnalisées par mots-clés (offres Premium et Pro)
+- Une alerte peut porter jusqu'à **10 mots-clés ou expressions** (« jazz », « marché de Noël », « randonnée »). Une nouvelle activité est retenue si l'un d'eux apparaît dans son titre ou sa description, **au début d'un mot**, sans tenir compte des majuscules, des accents ni de la ponctuation : « concert » trouve « Concerts », « noel » trouve « Noël », « art » ne trouve pas « départ ». Les mots-clés s'appliquent aussi aux food trucks de l'alerte (nom, cuisine, description).
+- Avec des catégories, les deux se combinent (Musique **et** « jazz ») ; avec des mots-clés seuls, les catégories deviennent facultatives (« Toutes catégories »).
+- Site (« Mon profil » → « Mes alertes ») et application mobile (« Mes alertes ») : champ « Mots-clés » à la création, bouton « Mots-clés » pour modifier ceux d'une alerte existante, mots-clés affichés sous chaque alerte et rappelés dans l'e-mail. Un compte gratuit voit à la place du champ l'offre Premium, gratuite pour le moment ; il peut toujours retirer les mots-clés d'une alerte qui en a, et une telle alerte continue d'être envoyée.
+- API : `keywords` dans `POST /api/v1/users/me/alerts` et dans la réponse ; `PATCH /api/v1/users/me/alerts/{id}` accepte `keywords` (403 pour en ajouter ou en changer sans Premium ou Pro). `limits.alertKeywords` dans `GET /api/v1/users/me`. Migration `V80` (table `activity_alert_keyword`).
+
 ### Popup « Nouveau », montrée une fois aux membres gratuits
 - Site et application mobile : à l'ouverture de la carte, une popup annonce la cloche « Suivre » et rappelle que Premium est gratuit pour le moment. « Découvrir » ouvre la page « Nouveautés » (et ferme aussi le bandeau) ; « Plus tard », ✕, Échap, un appui à côté ou le bouton retour la ferment en laissant le bandeau comme rappel.
 - Montrée **une seule fois** par compte et par appareil (marquée vue dès son affichage), seulement aux membres dont le serveur confirme qu'ils n'ont pas le suivi. Jamais par-dessus une autre fenêtre (fiche, formulaire), ni pendant une visite où l'accueil de première connexion s'est ouvert : elle viendra à la visite suivante.

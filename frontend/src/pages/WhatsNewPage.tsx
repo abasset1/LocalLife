@@ -156,6 +156,7 @@ function WhatsNewPage() {
                                 <li>🔔 Suivi des activités et des lieux</li>
                                 <li>❤️ Favoris illimités (5 avec le compte gratuit)</li>
                                 <li>✉️ Jusqu'à 10 alertes (1 avec le compte gratuit)</li>
+                                <li>🔎 Alertes personnalisées par mots-clés</li>
                                 <li>✍️ 2 propositions d'activités par mois</li>
                             </ul>
                             {planState.kind === "visitor" && (

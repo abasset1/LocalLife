@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { apiFetch, describeErrorResponse } from "../../api/apiClient";
 import type { ApiErrorBody, Category, UserPreferences } from "../explorer/types";
+import AlertKeywordsInput from "./AlertKeywordsInput";
 import CityField, { RADIUS_OPTIONS_KM, useCityPicker } from "./CityField";
 import { Chip, ChipGroup, Notice, ProfileCard } from "./ProfileUi";
 
@@ -18,6 +19,8 @@ interface ActivityAlert {
     notifyEmail: boolean;
     /** Notification push, activée depuis l'application mobile. */
     notifyPush: boolean;
+    /** Mots-clés (Premium et Pro) : l'un d'eux doit apparaître dans le titre ou la description. */
+    keywords?: string[];
 }
 
 const DEFAULT_ALERT_RADIUS_KM = 10;
@@ -28,10 +31,16 @@ const DEFAULT_ALERT_RADIUS_KM = 10;
  * d'une ville (envoi quotidien côté backend, voir ActivityAlertNotifier).
  * Le formulaire de création est prérempli avec les paramètres de recherche. Le nombre d'alertes est limité par
  * l'offre (1 en Gratuit, 10 en Premium/Pro) : à la limite, la création est désactivée et renvoie vers les offres.
+ *
+ * Mots-clés (Premium et Pro, `limits.alertKeywords`) : à la création ou plus tard (« Mots-clés » sur une alerte). Avec
+ * des mots-clés, les catégories deviennent facultatives. Un compte gratuit voit l'offre Premium à la place du champ,
+ * et peut toujours retirer les mots-clés d'une alerte qui en a.
  */
-function ActivityAlertsSection({ maxAlerts = null }: {
+function ActivityAlertsSection({ maxAlerts = null, canUseKeywords = null }: {
     /** Nombre maximal d'alertes de l'offre (`limits.maxAlerts`), `null` s'il est inconnu. */
     maxAlerts?: number | null;
+    /** Mots-clés autorisés (`limits.alertKeywords`), `null` s'il est inconnu. */
+    canUseKeywords?: boolean | null;
 } = {}) {
     const [categories, setCategories] = useState<Category[]>([]);
     const [alerts, setAlerts] = useState<ActivityAlert[]>([]);
@@ -40,6 +49,11 @@ function ActivityAlertsSection({ maxAlerts = null }: {
 
     const [categoryCodes, setCategoryCodes] = useState<string[]>([]);
     const [includeFoodTrucks, setIncludeFoodTrucks] = useState(false);
+    const [keywords, setKeywords] = useState<string[]>([]);
+    /** Alerte dont les mots-clés sont en cours de modification, et leur brouillon. */
+    const [editing, setEditing] = useState<{ id: number; keywords: string[] } | null>(null);
+    const [isSavingKeywords, setIsSavingKeywords] = useState(false);
+    const [keywordsError, setKeywordsError] = useState<string | null>(null);
     const [radiusKm, setRadiusKm] = useState(String(DEFAULT_ALERT_RADIUS_KM));
     const cityPicker = useCityPicker(() => setCreateSuccess(false));
     const [isCreating, setIsCreating] = useState(false);
@@ -119,8 +133,8 @@ function ActivityAlertsSection({ maxAlerts = null }: {
         event.preventDefault();
         setCreateError(null);
         setCreateSuccess(false);
-        if (categoryCodes.length === 0 && !includeFoodTrucks) {
-            setCreateError("Choisis au moins une catégorie, ou les food trucks.");
+        if (categoryCodes.length === 0 && !includeFoodTrucks && keywords.length === 0) {
+            setCreateError("Choisis au moins une catégorie, un mot-clé ou les food trucks.");
             return;
         }
         setIsCreating(true);
@@ -136,11 +150,13 @@ function ActivityAlertsSection({ maxAlerts = null }: {
                     latitude: cityPicker.position?.latitude ?? null,
                     longitude: cityPicker.position?.longitude ?? null,
                     radiusKm: Number(radiusKm),
+                    keywords,
                 }),
             });
             if (response.ok) {
                 const created: ActivityAlert = await response.json();
                 setAlerts((current) => [...current, created]);
+                setKeywords([]);
                 setCreateSuccess(true);
             } else {
                 const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
@@ -150,6 +166,33 @@ function ActivityAlertsSection({ maxAlerts = null }: {
             setCreateError("Impossible de contacter le serveur, réessaie plus tard.");
         } finally {
             setIsCreating(false);
+        }
+    }
+
+    async function saveKeywords() {
+        if (!editing) {
+            return;
+        }
+        setIsSavingKeywords(true);
+        setKeywordsError(null);
+        try {
+            const response = await apiFetch(`/api/v1/users/me/alerts/${editing.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ keywords: editing.keywords }),
+            });
+            if (response.ok) {
+                const updated: ActivityAlert = await response.json();
+                setAlerts((current) => current.map((alert) => (alert.id === updated.id ? updated : alert)));
+                setEditing(null);
+            } else {
+                const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+                setKeywordsError(body?.message ?? "Impossible d'enregistrer les mots-clés, réessaie.");
+            }
+        } catch {
+            setKeywordsError("Impossible de contacter le serveur, réessaie plus tard.");
+        } finally {
+            setIsSavingKeywords(false);
         }
     }
 
@@ -201,6 +244,14 @@ function ActivityAlertsSection({ maxAlerts = null }: {
                                                     {criterion}
                                                 </span>
                                             ))}
+                                            {alert.categoryCodes.length === 0 && !alert.includeFoodTrucks && (
+                                                <span className="pp-tag">Toutes catégories</span>
+                                            )}
+                                            {(alert.keywords ?? []).map((keyword) => (
+                                                <span className="pp-tag pp-tag-keyword" key={`kw-${keyword}`}>
+                                                    « {keyword} »
+                                                </span>
+                                            ))}
                                         </div>
                                         <p className="pp-alert-place">
                                             📍 {alert.city} · {alert.radiusKm} km
@@ -209,7 +260,54 @@ function ActivityAlertsSection({ maxAlerts = null }: {
                                             {alert.notifyEmail && <span className="pp-badge">✉️ E-mail</span>}
                                             {alert.notifyPush && <span className="pp-badge">📱 Notification</span>}
                                         </div>
+                                        {editing?.id === alert.id && (
+                                            <div className="pp-keywords-edit">
+                                                <AlertKeywordsInput
+                                                    id={`alert-${alert.id}-keywords`}
+                                                    label={`Ajouter un mot-clé à l'alerte ${alert.city}`}
+                                                    keywords={editing.keywords}
+                                                    onChange={(next) => setEditing({ id: alert.id, keywords: next })}
+                                                    disabled={isSavingKeywords}
+                                                />
+                                                <div className="pp-actions">
+                                                    <button
+                                                        className="pp-button pp-button-primary"
+                                                        disabled={isSavingKeywords}
+                                                        onClick={() => void saveKeywords()}
+                                                        type="button"
+                                                    >
+                                                        {isSavingKeywords ? "Enregistrement…" : "Enregistrer"}
+                                                    </button>
+                                                    <button
+                                                        className="pp-button pp-button-secondary"
+                                                        disabled={isSavingKeywords}
+                                                        onClick={() => {
+                                                            setEditing(null);
+                                                            setKeywordsError(null);
+                                                        }}
+                                                        type="button"
+                                                    >
+                                                        Annuler
+                                                    </button>
+                                                </div>
+                                                {keywordsError && <Notice kind="error">{keywordsError}</Notice>}
+                                            </div>
+                                        )}
                                     </div>
+                                    {editing?.id !== alert.id
+                                        && (canUseKeywords === true || (alert.keywords ?? []).length > 0) && (
+                                        <button
+                                            aria-label={`Modifier les mots-clés de l'alerte ${alert.city}`}
+                                            className="pp-button pp-button-secondary"
+                                            onClick={() => {
+                                                setEditing({ id: alert.id, keywords: alert.keywords ?? [] });
+                                                setKeywordsError(null);
+                                            }}
+                                            type="button"
+                                        >
+                                            Mots-clés
+                                        </button>
+                                    )}
                                     <button
                                         aria-label={`Supprimer l'alerte ${alert.city}`}
                                         className="pp-button pp-button-danger"
@@ -226,7 +324,7 @@ function ActivityAlertsSection({ maxAlerts = null }: {
 
                     <form className="pp-form pp-subform" onSubmit={(event) => void handleCreate(event)}>
                         <h3 className="pp-subtitle">Nouvelle alerte</h3>
-                        <ChipGroup legend="Catégories et/ou food trucks">
+                        <ChipGroup legend="Catégories et/ou food trucks (facultatives avec des mots-clés)">
                             {categories.map((category) => (
                                 <Chip
                                     checked={categoryCodes.includes(category.code)}
@@ -246,6 +344,29 @@ function ActivityAlertsSection({ maxAlerts = null }: {
                                 🚚 Food trucks
                             </Chip>
                         </ChipGroup>
+
+                        <div className="pp-field">
+                            <label className="pp-label" htmlFor="alert-keywords">
+                                Mots-clés <span className="pp-premium-tag">Premium</span>
+                            </label>
+                            {canUseKeywords === false ? (
+                                <p className="pp-hint pp-keywords-locked">
+                                    Ne reçois que ce qui t'intéresse vraiment : « jazz », « marché de Noël »,
+                                    « randonnée »… Les mots-clés sont réservés à Premium,{" "}
+                                    <strong>gratuit pour le moment</strong>.{" "}
+                                    <a href="#profile-subscription-title">Passer à Premium</a>
+                                </p>
+                            ) : (
+                                <AlertKeywordsInput
+                                    id="alert-keywords"
+                                    keywords={keywords}
+                                    onChange={(next) => {
+                                        setKeywords(next);
+                                        setCreateSuccess(false);
+                                    }}
+                                />
+                            )}
+                        </div>
 
                         <CityField id="alert-city" label="Ville" picker={cityPicker} required />
 

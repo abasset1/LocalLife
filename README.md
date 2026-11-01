@@ -41,6 +41,15 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
 * Envoi : `FollowNotifier`, un récapitulatif par utilisateur, par défaut toutes les heures de 8 h à 21 h
   (`app.follows.cron`) ; notification push si un appareil est enregistré, sinon e-mail.
 
+## Alertes par mots-clés (offres Premium et Pro)
+
+* Une alerte (`/api/v1/users/me/alerts`) peut porter jusqu'à 10 mots-clés ou expressions (`keywords`) : une nouvelle
+  activité est retenue si l'un d'eux apparaît au début d'un mot de son titre ou de sa description, normalisés par
+  `ll_search_normalize` (majuscules, accents et ponctuation ignorés). Avec des catégories, les deux se combinent ;
+  avec des mots-clés seuls, les catégories sont facultatives. Ils filtrent aussi les food trucks de l'alerte.
+* Modification : `PATCH /api/v1/users/me/alerts/{id}` avec `keywords` (liste vide : retirés). Ajouter ou changer des
+  mots-clés est réservé à Premium et Pro (403) ; `limits.alertKeywords` dans `GET /api/v1/users/me`.
+
 ## Authentification
 
 * Inscription : `POST /api/v1/auth/register` (`username`, `email`,

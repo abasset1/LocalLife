@@ -314,7 +314,10 @@ function ProfilePage() {
 
                             <div className="pp-column pp-column-wide">
                                 <SearchPreferencesForm />
-                                <ActivityAlertsSection maxAlerts={profile.limits?.maxAlerts ?? null} />
+                                <ActivityAlertsSection
+                                    canUseKeywords={profile.limits?.alertKeywords ?? null}
+                                    maxAlerts={profile.limits?.maxAlerts ?? null}
+                                />
                                 <FollowedItemsCard canFollow={profile.limits?.canFollow ?? false} />
                                 <ProfileCard
                                     icon="🎓"

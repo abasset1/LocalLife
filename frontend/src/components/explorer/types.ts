@@ -214,4 +214,6 @@ export interface UserLimits {
     contributionsThisMonth: number;
     /** Suivre des activités et des lieux (cloche « Suivre ») : offres Premium et Pro. */
     canFollow?: boolean;
+    /** Personnaliser ses alertes avec des mots-clés : offres Premium et Pro. */
+    alertKeywords?: boolean;
 }

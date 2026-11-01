@@ -245,6 +245,8 @@ export interface ActivityAlert {
   radiusKm: number;
   notifyEmail: boolean;
   notifyPush: boolean;
+  /** Mots-clés (Premium et Pro) : l'un d'eux doit apparaître dans le titre ou la description. */
+  keywords?: string[];
 }
 
 /** `CreateAlertRequest` — même règle de ville que `UpdatePreferencesRequest`. */
@@ -257,6 +259,8 @@ export interface CreateAlertRequest {
   radiusKm: number;
   notifyEmail: boolean;
   notifyPush: boolean;
+  /** Mots-clés (Premium et Pro, 403 sinon) ; avec eux, les catégories deviennent facultatives. */
+  keywords?: string[];
 }
 
 /** `FoodTruck` (`GET /foodtrucks`, uniquement ceux au statut `PUBLISHED`). */

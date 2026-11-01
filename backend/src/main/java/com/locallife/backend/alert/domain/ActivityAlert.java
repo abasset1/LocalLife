@@ -12,6 +12,10 @@ import java.util.List;
  * application mobile — au moins un des deux). Le jeton de désinscription n'est
  * volontairement pas porté ici : il ne sort de la base que pour construire
  * le lien de l'email (voir {@code AlertRecipient}).
+ *
+ * {@code keywords} (V80, Premium et Pro) : mots-clés ou expressions dont l'un doit apparaître dans le titre ou la
+ * description d'une activité (ou le nom, la cuisine ou la description d'un food truck). Vide : aucun filtre. Une alerte
+ * a au moins une catégorie, un mot-clé ou les food trucks.
  */
 public record ActivityAlert(
         Long id,
@@ -24,5 +28,24 @@ public record ActivityAlert(
         boolean includeFoodTrucks,
         boolean notifyEmail,
         boolean notifyPush,
-        LocalDateTime createdAt) {
+        LocalDateTime createdAt,
+        List<String> keywords) {
+
+    public ActivityAlert {
+        keywords = keywords == null ? List.of() : List.copyOf(keywords);
+    }
+
+    /** Alerte sans mot-clé. */
+    public ActivityAlert(Long id, Long userId, String city, double latitude, double longitude, int radiusKm,
+            List<String> categoryCodes, boolean includeFoodTrucks, boolean notifyEmail, boolean notifyPush,
+            LocalDateTime createdAt) {
+        this(id, userId, city, latitude, longitude, radiusKm, categoryCodes, includeFoodTrucks, notifyEmail,
+                notifyPush, createdAt, List.of());
+    }
+
+    /** Même alerte avec d'autres mots-clés. */
+    public ActivityAlert withKeywords(List<String> newKeywords) {
+        return new ActivityAlert(id, userId, city, latitude, longitude, radiusKm, categoryCodes, includeFoodTrucks,
+                notifyEmail, notifyPush, createdAt, newKeywords);
+    }
 }

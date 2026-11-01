@@ -128,6 +128,20 @@ class ActivityAlertNotifierTest {
     }
 
     @Test
+    void body_ShouldMentionTheKeywords_AndAllCategoriesWhenThereIsNone() {
+        AlertRecipient keywords = new AlertRecipient(
+                new ActivityAlert(3L, 12L, "Lyon", 45.76, 4.83, 10, List.of(), false, true, false, LocalDateTime.now(),
+                        List.of("jazz", "marché de Noël")),
+                "carol@example.com", "tok-carol");
+
+        String body = notifier.body(keywords, List.of(new AlertActivity(1L, "Soirée jazz", "Lyon", null)), List.of(),
+                java.util.Map.of());
+
+        assertTrue(body.contains("ton alerte « Toutes catégories » avec les mots-clés « jazz », « marché de Noël » à "
+                + "moins de 10 km de Lyon"));
+    }
+
+    @Test
     void body_ShouldListAtMostTwentyActivities() {
         List<AlertActivity> activities = LongStream.rangeClosed(1, 25)
                 .mapToObj(id -> new AlertActivity(id, "Activité " + id, null, null))

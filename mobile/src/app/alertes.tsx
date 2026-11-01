@@ -6,6 +6,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  View,
 } from 'react-native';
 
 import {
@@ -17,6 +18,7 @@ import {
   listAlerts,
   listCategories,
   updateAlertChannels,
+  updateAlertKeywords,
 } from '@/api';
 import type { ActivityAlert, Category } from '@/api';
 import { Button } from '@/components/button';
@@ -37,6 +39,8 @@ import {
   toggleCode,
   useCityPicker,
 } from '@/features/settings';
+import { KeywordsField } from '@/features/alerts/KeywordsField';
+import { formatKeywords } from '@/features/alerts/keywords';
 import { ALERTS_NOUN, formatUsage, isAtLimit } from '@/features/limits/limits';
 import { useCurrentAccount } from '@/features/pro/useProAccess';
 import { enablePushOrExplain } from '@/notifications';
@@ -50,12 +54,18 @@ function messageFor(error: unknown): string {
  * une ou plusieurs catégories, dans un rayon autour d'une ville. Chaque
  * alerte est envoyée par notification sur ce téléphone et/ou par e-mail
  * (récapitulatif quotidien côté backend).
+ *
+ * Mots-clés (Premium et Pro, `limits.alertKeywords`) : à la création ou plus tard (« Mots-clés » sur une alerte) ;
+ * avec eux, les catégories deviennent facultatives. Un compte gratuit voit l'offre Premium à la place du champ, et
+ * peut toujours retirer les mots-clés d'une alerte qui en a.
  */
 export default function AlertesScreen() {
   const { state } = useAuth();
   const router = useRouter();
   // Limite d'alertes de l'offre (1 en Gratuit, 10 sinon) ; le backend refuse l'ajout au-delà (403).
-  const maxAlerts = useCurrentAccount()?.limits?.maxAlerts;
+  const limits = useCurrentAccount()?.limits;
+  const maxAlerts = limits?.maxAlerts;
+  const canUseKeywords = limits?.alertKeywords;
   const [categories, setCategories] = useState<Category[]>([]);
   const [alerts, setAlerts] = useState<ActivityAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +74,9 @@ export default function AlertesScreen() {
 
   const [categoryCodes, setCategoryCodes] = useState<string[]>([]);
   const [includeFoodTrucks, setIncludeFoodTrucks] = useState(false);
+  const [keywords, setKeywords] = useState<string[]>([]);
+  /** Alerte dont les mots-clés sont en cours de modification, et leur brouillon. */
+  const [editing, setEditing] = useState<{ id: number; keywords: string[] } | null>(null);
   const [radius, setRadius] = useState(String(DEFAULT_ALERT_RADIUS_KM));
   const [notifyPush, setNotifyPush] = useState(true);
   const [notifyEmail, setNotifyEmail] = useState(false);
@@ -102,8 +115,8 @@ export default function AlertesScreen() {
   async function create() {
     setCreateError(null);
     setCreated(false);
-    if (categoryCodes.length === 0 && !includeFoodTrucks) {
-      setCreateError('Choisissez au moins une catégorie, ou les food trucks.');
+    if (categoryCodes.length === 0 && !includeFoodTrucks && keywords.length === 0) {
+      setCreateError('Choisissez au moins une catégorie, un mot-clé ou les food trucks.');
       return;
     }
     if (!notifyPush && !notifyEmail) {
@@ -128,8 +141,10 @@ export default function AlertesScreen() {
         radiusKm: Number(radius),
         notifyEmail,
         notifyPush,
+        keywords,
       });
       setAlerts((current) => [...current, alert]);
+      setKeywords([]);
       setCreated(true);
     } catch (e) {
       setCreateError(messageFor(e));
@@ -155,6 +170,21 @@ export default function AlertesScreen() {
       }
       const updated = await updateAlertChannels(alert.id, channels);
       setAlerts((current) => current.map((a) => (a.id === updated.id ? updated : a)));
+    } catch (e) {
+      setListError(messageFor(e));
+    } finally {
+      setBusyAlertId(null);
+    }
+  }
+
+  async function saveKeywords() {
+    if (!editing) return;
+    setListError(null);
+    setBusyAlertId(editing.id);
+    try {
+      const updated = await updateAlertKeywords(editing.id, editing.keywords);
+      setAlerts((current) => current.map((a) => (a.id === updated.id ? updated : a)));
+      setEditing(null);
     } catch (e) {
       setListError(messageFor(e));
     } finally {
@@ -221,6 +251,11 @@ export default function AlertesScreen() {
           {alerts.map((alert) => (
             <Card key={alert.id} style={styles.card}>
               <ThemedText type="heading">{alertCriteria(alert, categories)}</ThemedText>
+              {(alert.keywords ?? []).length > 0 && (
+                <ThemedText type="smallBold" themeColor="accent">
+                  Mots-clés : {formatKeywords(alert.keywords)}
+                </ThemedText>
+              )}
               <ThemedText type="small" themeColor="textSecondary">
                 📍 À moins de {alert.radiusKm} km de {alert.city}
               </ThemedText>
@@ -240,6 +275,30 @@ export default function AlertesScreen() {
                   void changeChannels(alert, { notifyEmail: value, notifyPush: alert.notifyPush })
                 }
               />
+              {editing?.id === alert.id ? (
+                <>
+                  <KeywordsField
+                    label={`Mots-clés de l’alerte ${alert.city}`}
+                    keywords={editing.keywords}
+                    onChange={(next) => setEditing({ id: alert.id, keywords: next })}
+                    disabled={busyAlertId === alert.id}
+                  />
+                  <Button
+                    label="Enregistrer les mots-clés"
+                    loading={busyAlertId === alert.id}
+                    onPress={() => void saveKeywords()}
+                  />
+                  <Button label="Annuler" variant="ghost" onPress={() => setEditing(null)} />
+                </>
+              ) : canUseKeywords === true || (alert.keywords ?? []).length > 0 ? (
+                <Button
+                  label="Mots-clés"
+                  variant="secondary"
+                  icon={{ ios: 'text.magnifyingglass', android: 'manage_search', web: 'manage_search' }}
+                  disabled={busyAlertId === alert.id}
+                  onPress={() => setEditing({ id: alert.id, keywords: alert.keywords ?? [] })}
+                />
+              ) : null}
               <Button
                 label="Supprimer"
                 variant="danger"
@@ -257,7 +316,7 @@ export default function AlertesScreen() {
             Nouvelle alerte
           </ThemedText>
           <ChipGroup
-            label="Catégories et/ou food trucks"
+            label="Catégories et/ou food trucks (facultatives avec des mots-clés)"
             options={[
               ...categories.map((c) => ({ value: c.code, label: c.label })),
               { value: FOOD_TRUCKS_CHIP, label: '🚚 Food trucks' },
@@ -269,6 +328,25 @@ export default function AlertesScreen() {
               setCreated(false);
             }}
           />
+          {canUseKeywords === false ? (
+            <View style={styles.locked}>
+              <ThemedText type="smallBold">Mots-clés · Premium</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Ne recevez que ce qui vous intéresse vraiment : « jazz », « marché de Noël », « randonnée »… Les
+                mots-clés sont réservés à Premium, gratuit pour le moment.
+              </ThemedText>
+              <Button label="Passer à Premium" variant="secondary" onPress={() => router.push('/abonnement')} />
+            </View>
+          ) : (
+            <KeywordsField
+              label="Mots-clés (Premium)"
+              keywords={keywords}
+              onChange={(next) => {
+                setKeywords(next);
+                setCreated(false);
+              }}
+            />
+          )}
           <CityPicker label="Ville" picker={cityPicker} />
           <ChipGroup
             label="Rayon"
@@ -347,5 +425,11 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
+  },
+  locked: {
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: 14,
+    backgroundColor: 'rgba(232, 106, 74, 0.1)',
   },
 });

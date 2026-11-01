@@ -24,7 +24,7 @@ export {
 export type { CallOptions } from './activities';
 export { EXPORT_FILE_NAME, changePassword, deleteAccount, exportMyData, getCurrentAccount } from './account';
 export type { AccountLimits, CurrentAccount } from './account';
-export { createAlert, deleteAlert, listAlerts, updateAlertChannels } from './alerts';
+export { createAlert, deleteAlert, listAlerts, updateAlertChannels, updateAlertKeywords } from './alerts';
 export { listCategories } from './categories';
 export { follow, listFollows, unfollow } from './follows';
 export type { FollowStatus, FollowTargetType, FollowedItem } from './follows';
