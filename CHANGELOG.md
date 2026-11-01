@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Page « Nouveautés » : annonce du suivi des activités et des lieux
+- Site : nouvelle page `/nouveautes` (menu → « Aide » → « Nouveautés », avec une pastille « Nouveau »). Elle présente la cloche « Suivre » (ce que l'on peut suivre, comment ça marche, où retrouver ses suivis) et propose de passer à Premium, **gratuit pour le moment**. Un membre gratuit passe à Premium en un clic depuis la page ; un visiteur est invité à créer un compte ou à se connecter ; un membre Premium ou Pro voit qu'il en profite déjà.
+- Application mobile : écran « Nouveautés » au même contenu (menu → « Aide »).
+
 ### Suivre une activité ou un lieu (offres Premium et Pro)
 - Nouvelle cloche **🔔 Suivre** sur la fiche d'une activité et d'un lieu, sur le site (fiche d'activité, liste des lieux) et dans l'application mobile (fiche d'activité, aperçu d'un lieu). Réservée aux offres Premium et Pro : un compte gratuit voit le refus avec un lien vers les offres ; un visiteur n'a pas la cloche sur le site et se voit proposer la connexion sur le mobile.
 - Notifié pour une activité : annulation, retrait par l'équipe, dates, adresse ou contenu modifiés, retour en ligne après une modification relue. Pour un lieu : nouvelles activités publiées, adresse, nom ou description, coordonnées modifiés, retrait de la carte. Les changements sont enregistrés par des triggers en base (migration `V79`), donc quel que soit leur origine (import, contributeur, administration, espace professionnel), et seulement pour ce que quelqu'un suit.

@@ -12,6 +12,7 @@ import ProPage from "./pages/ProPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import UnsubscribeAlertPage from "./pages/UnsubscribeAlertPage";
+import WhatsNewPage from "./pages/WhatsNewPage";
 import ConfirmEmailChangePage from "./pages/ConfirmEmailChangePage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 
@@ -25,6 +26,7 @@ function AppRoutes() {
             <Route element={<ProPage />} path="/pro" />
             <Route element={<FavoritesPage />} path="/favorites" />
             <Route element={<GuidePage />} path="/guide" />
+            <Route element={<WhatsNewPage />} path="/nouveautes" />
             <Route element={<MyContributionsPage />} path="/contributions" />
             <Route element={<LoginPage />} path="/login" />
             <Route element={<RegisterPage />} path="/register" />

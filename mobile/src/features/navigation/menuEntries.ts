@@ -54,7 +54,10 @@ export const MENU_SECTIONS: readonly MenuSection[] = [
   },
   {
     title: 'Aide',
-    entries: [{ label: "Guide de l'application", href: '/guide', icon: 'help' }],
+    entries: [
+      { label: 'Nouveautés', href: '/nouveautes', icon: 'star' },
+      { label: "Guide de l'application", href: '/guide', icon: 'help' },
+    ],
   },
 ];
 

@@ -77,6 +77,7 @@ export default function RootLayout() {
             <Stack.Screen name="abonnement" options={{ title: 'Mon abonnement' }} />
             <Stack.Screen name="securite" options={{ title: 'Mot de passe et compte' }} />
             <Stack.Screen name="guide" options={{ title: "Guide de l'application" }} />
+            <Stack.Screen name="nouveautes" options={{ title: 'Nouveautés' }} />
             <Stack.Screen name="pro/index" options={{ title: 'Espace professionnel' }} />
             <Stack.Screen name="pro/revendiquer" options={{ title: 'Gérer un lieu existant' }} />
             <Stack.Screen name="pro/nouveau-lieu" options={{ title: 'Créer un lieu' }} />

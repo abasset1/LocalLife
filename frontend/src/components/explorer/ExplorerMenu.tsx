@@ -114,6 +114,9 @@ function ExplorerMenu({
 
                 <div className="explorer-menu-section">
                     <span className="explorer-menu-section-title">Aide</span>
+                    <Link className="explorer-menu-link" onClick={onClose} to="/nouveautes">
+                        Nouveautés <span className="explorer-menu-new">Nouveau</span>
+                    </Link>
                     <Link className="explorer-menu-link" onClick={onClose} to="/guide">
                         Guide de l'application
                     </Link>
