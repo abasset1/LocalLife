@@ -254,6 +254,44 @@ describe("AdminImportsSection — découverte et sélection des agendas", () => 
         expect(JSON.parse(String(activationCall?.[1]?.body))).toEqual({ agendaUids: ["101"] });
     });
 
+    it("sélectionne d'un coup les agendas sans source de la page, puis les désélectionne", async () => {
+        const item = (uid: string, sourceId: number | null) => ({
+            agendaUid: uid,
+            title: `Agenda ${uid}`,
+            url: null,
+            official: false,
+            sourceId,
+            sourceName: sourceId === null ? null : `Source ${uid}`,
+            sourceStatus: sourceId === null ? null : "ACTIVE",
+            currentEvents: 0,
+            upcomingEvents: 3,
+        });
+        stubFetch((url) =>
+            url.includes("/discovered-agendas?")
+                ? json({ items: [item("301", null), item("302", null), item("303", 7)], total: 3, page: 0, size: 50 })
+                : undefined,
+        );
+        render(<AdminImportsSection onSourcesChanged={vi.fn()} />);
+
+        const table = await screen.findByRole("table");
+        const selectAll = within(table).getByLabelText("Tout sélectionner sur cette page");
+        await userEvent.click(selectAll);
+
+        expect(within(table).getByLabelText("Choisir Agenda 301")).toBeChecked();
+        expect(within(table).getByLabelText("Choisir Agenda 302")).toBeChecked();
+        // L'agenda qui a déjà une source n'est pas choisissable.
+        expect(within(table).queryByLabelText("Choisir Agenda 303")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Créer les sources sélectionnées (2)" })).toBeEnabled();
+
+        await userEvent.click(within(table).getByLabelText("Choisir Agenda 302"));
+        expect((selectAll as HTMLInputElement).indeterminate).toBe(true);
+
+        await userEvent.click(selectAll);
+        await userEvent.click(selectAll);
+        expect(within(table).getByLabelText("Choisir Agenda 301")).not.toBeChecked();
+        expect(within(table).getByLabelText("Choisir Agenda 302")).not.toBeChecked();
+    });
+
     it("ne propose par défaut que les agendas avec des événements en cours ou à venir, et affiche leurs nombres", async () => {
         const item = (uid: string, currentEvents: number | null, upcomingEvents: number | null) => ({
             agendaUid: uid,

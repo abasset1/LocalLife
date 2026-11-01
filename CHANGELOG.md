@@ -2,6 +2,9 @@
 
 ## 0.9.59 — non publiée
 
+### Administration : tout sélectionner dans les agendas découverts
+- Une case en tête de la colonne « Choisir » coche ou décoche d'un coup tous les agendas sans source de la page affichée (50 par page, la taille d'un lot de création). Elle est à moitié cochée quand une partie seulement l'est.
+
 ### Administration : agendas découverts filtrés sur leurs événements
 - La découverte des agendas OpenAgenda enregistre le nombre d'événements en cours et à venir de chaque agenda, lu dans le résumé de l'annuaire sans appel supplémentaire (migration `V78`).
 - Administration → Imports : la liste des agendas découverts ne montre par défaut que ceux qui ont au moins un événement en cours ou à venir (case « Avec des événements en cours ou à venir », décochable), avec une colonne « Événements en cours / à venir ». Sur la bêta, 17 758 agendas découverts n'ont pas encore de source, la plupart sans aucun événement à venir.

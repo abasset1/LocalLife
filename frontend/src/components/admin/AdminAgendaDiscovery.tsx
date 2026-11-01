@@ -245,6 +245,26 @@ function AdminAgendaDiscovery({ onSourcesChanged }: AdminAgendaDiscoveryProps) {
         });
     }
 
+    /** Agendas de la page affichée qui peuvent être choisis : ceux qui n'ont pas encore de source. */
+    const selectableOnPage = (catalog?.items ?? []).filter((item) => item.sourceId === null).map((item) => item.agendaUid);
+    const selectedOnPage = selectableOnPage.filter((uid) => selected.has(uid)).length;
+    const allOnPageSelected = selectableOnPage.length > 0 && selectedOnPage === selectableOnPage.length;
+
+    /** Coche tous les agendas choisissables de la page, ou les décoche s'ils le sont déjà tous. */
+    function toggleAllOnPage() {
+        setSelected((current) => {
+            const next = new Set(current);
+            for (const uid of selectableOnPage) {
+                if (allOnPageSelected) {
+                    next.delete(uid);
+                } else {
+                    next.add(uid);
+                }
+            }
+            return next;
+        });
+    }
+
     const maxActivation = settings?.maxActivationBatch ?? null;
     const tooMany = maxActivation !== null && selected.size > maxActivation;
 
@@ -426,7 +446,22 @@ function AdminAgendaDiscovery({ onSourcesChanged }: AdminAgendaDiscoveryProps) {
                         <table className="admin-import-table">
                             <thead>
                                 <tr>
-                                    <th scope="col">Choisir</th>
+                                    <th scope="col">
+                                        <input
+                                            aria-label="Tout sélectionner sur cette page"
+                                            checked={allOnPageSelected}
+                                            disabled={selectableOnPage.length === 0}
+                                            onChange={toggleAllOnPage}
+                                            ref={(input) => {
+                                                if (input) {
+                                                    input.indeterminate = selectedOnPage > 0 && !allOnPageSelected;
+                                                }
+                                            }}
+                                            title="Tout sélectionner sur cette page"
+                                            type="checkbox"
+                                        />{" "}
+                                        Choisir
+                                    </th>
                                     <th scope="col">Agenda</th>
                                     <th scope="col">Identifiant</th>
                                     <th scope="col">Officiel</th>
