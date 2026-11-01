@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import App from "./App";
 import AdminPage from "./pages/AdminPage";
 import FavoritesPage from "./pages/FavoritesPage";
+import GuidePage from "./pages/GuidePage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LegalPage from "./pages/LegalPage";
 import LoginPage from "./pages/LoginPage";
@@ -23,6 +24,7 @@ function AppRoutes() {
             <Route element={<ProfilePage />} path="/profile" />
             <Route element={<ProPage />} path="/pro" />
             <Route element={<FavoritesPage />} path="/favorites" />
+            <Route element={<GuidePage />} path="/guide" />
             <Route element={<MyContributionsPage />} path="/contributions" />
             <Route element={<LoginPage />} path="/login" />
             <Route element={<RegisterPage />} path="/register" />

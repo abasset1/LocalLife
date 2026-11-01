@@ -18,6 +18,13 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
   `POST /api/v1/activities` (statut `PENDING` par défaut — modération
   décrite dans la section Sprint 6 ci-dessous).
 
+## Guide de l'application
+
+* Page `/guide` (menu → « Aide » → « Guide de l'application ») : didacticiel
+  animé, en 11 étapes, qui présente les possibilités de l'application, avec
+  lecture automatique, navigation au clavier (← →, Espace) et animations
+  réduites si l'utilisateur le demande.
+
 ## Authentification
 
 * Inscription : `POST /api/v1/auth/register` (`username`, `email`,

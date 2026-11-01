@@ -112,6 +112,13 @@ function ExplorerMenu({
                     )}
                 </div>
 
+                <div className="explorer-menu-section">
+                    <span className="explorer-menu-section-title">Aide</span>
+                    <Link className="explorer-menu-link" onClick={onClose} to="/guide">
+                        Guide de l'application
+                    </Link>
+                </div>
+
                 {/* Pied du menu : textes légaux (contrat RGPD). */}
                 <div className="explorer-menu-legal">
                     {Object.values(LEGAL_DOCUMENTS).map((legalDocument) => (
