@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Popup et page « Nouveautés » : les alertes par mots-clés en plus du suivi
+- Site et application mobile : la page « Nouveautés » présente aussi les alertes par mots-clés (« Nouveau aussi » : exemples, combinaison avec les catégories, où les régler) et précise qu'une alerte à mots-clés est mise en pause si l'offre se termine. Le bloc Premium parle de deux fonctionnalités offertes en ce moment.
+- La popup de nouveauté s'intitule « Deux nouveautés Premium » et présente le suivi des activités et des lieux, puis les alertes par mots-clés.
+
 ### Alertes à mots-clés : plus envoyées quand le compte redevient gratuit
 - Une alerte qui a des mots-clés n'est plus envoyée quand l'offre Premium ou Pro se termine, comme le suivi des activités et des lieux. Les nouveautés de cette période sont marquées traitées sans envoi : pas d'arriéré si le compte reprend une offre. En retirant ses mots-clés, l'alerte repart normalement.
 - Site et application mobile : sous une telle alerte, un message l'indique (« Cette alerte n'est plus envoyée… ») et propose de retirer les mots-clés ou de passer à Premium, gratuit pour le moment.

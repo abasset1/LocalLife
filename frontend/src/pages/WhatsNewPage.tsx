@@ -38,8 +38,8 @@ const STEPS = [
 ];
 
 /**
- * Page « Nouveautés » (`/nouveautes`) : présente aux membres la cloche « Suivre » (activités et lieux, PR #188), une
- * fonctionnalité Premium et Pro, et propose de passer à Premium — gratuit pour le moment, aucun paiement n'étant
+ * Page « Nouveautés » (`/nouveautes`) : présente aux membres la cloche « Suivre » (activités et lieux, PR #188) et les
+ * alertes par mots-clés (PR #191, #192), des fonctionnalités Premium et Pro, et propose de passer à Premium — gratuit pour le moment, aucun paiement n'étant
  * branché (BILLING-01). Le bouton active Premium tout de suite (`POST /users/me/subscription/subscribe`) ; un visiteur
  * est invité à créer un compte, un membre Premium ou Pro voit qu'il en profite déjà.
  */
@@ -125,10 +125,35 @@ function WhatsNewPage() {
                     </p>
                 </section>
 
+                <section aria-labelledby="news-keywords-title" className="news-section news-keywords">
+                    <p className="news-badge">Nouveau aussi</p>
+                    <h2 id="news-keywords-title">🔎 Des alertes sur mesure, avec tes mots-clés</h2>
+                    <p>
+                        Ajoute des mots-clés ou des expressions à tes alertes : tu ne reçois que les nouveautés qui en
+                        parlent vraiment. Combine-les avec des catégories (Musique <strong>et</strong> « jazz »), ou
+                        utilise-les seuls pour chercher dans toutes les catégories.
+                    </p>
+                    <ul aria-label="Exemples de mots-clés" className="news-keyword-examples">
+                        <li>jazz</li>
+                        <li>marché de Noël</li>
+                        <li>randonnée</li>
+                        <li>atelier enfants</li>
+                    </ul>
+                    <p className="news-hint">
+                        Jusqu'à 10 mots-clés par alerte, trouvés dans le titre ou la description d'une activité, sans
+                        tenir compte des majuscules ni des accents : « noel » trouve aussi « Noël ». À régler dans
+                        « Mon profil » → « Mes alertes », au moment de créer une alerte ou avec le bouton « Mots-clés ».
+                    </p>
+                    <p className="news-hint">
+                        Réservé à Premium : si ton offre se termine, une alerte à mots-clés est mise en pause. Retire
+                        ses mots-clés et elle repart aussitôt.
+                    </p>
+                </section>
+
                 <section aria-labelledby="news-premium-title" className="news-premium">
                     <p className="news-free">🎁 Gratuit pour le moment</p>
                     <h2 id="news-premium-title">
-                        {hasAccess ? "Tu en profites déjà" : "Une fonctionnalité Premium, offerte en ce moment"}
+                        {hasAccess ? "Tu en profites déjà" : "Deux fonctionnalités Premium, offertes en ce moment"}
                     </h2>
 
                     {hasAccess ? (
@@ -137,8 +162,8 @@ function WhatsNewPage() {
                                 {justSubscribed
                                     ? "C'est fait : tu es Premium ! "
                                     : `Ton offre ${planState.kind === "loaded" && planState.plan === "PRO" ? "Pro" : "Premium"} `
-                                        + "comprend le suivi des activités et des lieux. "}
-                                Ouvre une fiche et touche 🔔 « Suivre » pour commencer.
+                                        + "comprend le suivi des activités et des lieux, et les alertes par mots-clés. "}
+                                Ouvre une fiche et touche 🔔 « Suivre », ou ajoute des mots-clés à tes alertes.
                             </p>
                             <div className="news-actions">
                                 <Link className="pp-button pp-button-primary" to="/">Explorer la carte</Link>
@@ -148,7 +173,8 @@ function WhatsNewPage() {
                     ) : (
                         <>
                             <p>
-                                Suivre des activités et des lieux est réservé à l'offre Premium. Pour l'instant, Premium
+                                Suivre des activités et des lieux et personnaliser ses alertes avec des mots-clés sont
+                                réservés à l'offre Premium. Pour l'instant, Premium
                                 est <strong>gratuit</strong> : aucun paiement n'est demandé, il s'active tout de suite et
                                 tu peux le résilier à tout moment depuis « Mon profil ».
                             </p>

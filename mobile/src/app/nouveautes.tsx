@@ -45,6 +45,8 @@ const PERKS = [
   '✍️ 2 propositions d’activités par mois',
 ];
 
+const KEYWORD_EXAMPLES = ['jazz', 'marché de Noël', 'randonnée', 'atelier enfants'];
+
 type PlanState = { kind: 'loading' } | { kind: 'loaded'; plan: Plan } | { kind: 'error' };
 
 /**
@@ -136,6 +138,39 @@ export default function NouveautesScreen() {
           Retrouvez tout ce que vous suivez dans Compte → « Activités et lieux suivis ».
         </ThemedText>
 
+        <Card style={styles.keywords}>
+          <View style={[styles.badge, styles.badgeStart, { backgroundColor: theme.accent }]}>
+            <ThemedText type="smallBold" style={styles.badgeText}>
+              NOUVEAU AUSSI
+            </ThemedText>
+          </View>
+          <ThemedText type="heading" accessibilityRole="header">
+            🔎 Des alertes sur mesure, avec vos mots-clés
+          </ThemedText>
+          <ThemedText>
+            Ajoutez des mots-clés ou des expressions à vos alertes : vous ne recevez que les nouveautés qui en parlent
+            vraiment. Combinez-les avec des catégories (Musique et « jazz »), ou utilisez-les seuls pour chercher dans
+            toutes les catégories.
+          </ThemedText>
+          <View style={styles.examples}>
+            {KEYWORD_EXAMPLES.map((example) => (
+              <View key={example} style={[styles.example, { backgroundColor: theme.primary }]}>
+                <ThemedText type="small" style={{ color: theme.onPrimary }}>
+                  {example}
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+          <ThemedText type="small" themeColor="textSecondary">
+            Jusqu’à 10 mots-clés par alerte, trouvés dans le titre ou la description d’une activité, sans tenir compte
+            des majuscules ni des accents. À régler dans « Mes alertes », à la création ou avec le bouton « Mots-clés ».
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Réservé à Premium : si votre offre se termine, une alerte à mots-clés est mise en pause. Retirez ses
+            mots-clés et elle repart aussitôt.
+          </ThemedText>
+        </Card>
+
         <View style={[styles.premium, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}>
           <View style={styles.free}>
             <ThemedText type="smallBold" style={styles.freeText}>
@@ -143,13 +178,13 @@ export default function NouveautesScreen() {
             </ThemedText>
           </View>
           <ThemedText type="heading">
-            {hasAccess ? 'Vous en profitez déjà' : 'Une fonctionnalité Premium, offerte en ce moment'}
+            {hasAccess ? 'Vous en profitez déjà' : 'Deux fonctionnalités Premium, offertes en ce moment'}
           </ThemedText>
           {hasAccess ? (
             <>
               <ThemedText>
                 {justSubscribed ? 'C’est fait : vous êtes Premium ! ' : ''}
-                Ouvrez une fiche et touchez 🔔 « Suivre » pour commencer.
+                Ouvrez une fiche et touchez 🔔 « Suivre », ou ajoutez des mots-clés à vos alertes.
               </ThemedText>
               <Button label="Explorer la carte" onPress={() => router.navigate('/')} />
               <Button label="Mes suivis" variant="secondary" onPress={() => router.push('/suivis')} />
@@ -157,7 +192,8 @@ export default function NouveautesScreen() {
           ) : (
             <>
               <ThemedText>
-                Suivre des activités et des lieux est réservé à l’offre Premium. Pour l’instant, Premium est gratuit :
+                Suivre des activités et des lieux et personnaliser ses alertes avec des mots-clés sont réservés à l’offre
+                Premium. Pour l’instant, Premium est gratuit :
                 aucun paiement n’est demandé, il s’active tout de suite et vous pouvez le résilier à tout moment dans
                 « Mon abonnement ».
               </ThemedText>
@@ -195,6 +231,24 @@ export default function NouveautesScreen() {
 }
 
 const styles = StyleSheet.create({
+  keywords: {
+    gap: Spacing.three,
+    padding: Spacing.four,
+    marginTop: Spacing.three,
+  },
+  badgeStart: {
+    alignSelf: 'flex-start',
+  },
+  examples: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  example: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderRadius: 999,
+  },
   container: {
     flex: 1,
   },

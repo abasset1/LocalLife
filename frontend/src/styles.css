@@ -5559,3 +5559,57 @@ body {
     color: #8a5a00;
     font-size: 0.85rem;
 }
+
+/* Page « Nouveautés » : section des alertes par mots-clés, et liste de la popup. */
+.news-keywords {
+    padding: 1.5rem;
+    border: 1px solid var(--ll-line);
+    border-radius: 20px;
+    background-color: #ffffff;
+}
+
+.news-keywords p {
+    line-height: 1.6;
+}
+
+.news-keyword-examples {
+    list-style: none;
+    margin: 0.75rem 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.news-keyword-examples li {
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    background-color: var(--ll-green);
+    color: #ffffff;
+    font-size: 0.88rem;
+}
+
+.news-popup-features {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0;
+    display: grid;
+    gap: 0.6rem;
+    text-align: left;
+}
+
+.news-popup-features li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 14px;
+    background-color: #ffffff;
+    border: 1px solid var(--ll-line);
+}
+
+.news-popup-features span {
+    color: var(--ll-muted);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}

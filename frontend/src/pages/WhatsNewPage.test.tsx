@@ -26,6 +26,8 @@ describe("WhatsNewPage — nouveauté « Suivre »", () => {
         renderPage();
         expect(screen.getByRole("heading", { level: 1, name: "Suis tes activités et tes lieux préférés" })).toBeInTheDocument();
         expect(screen.getByText("🎁 Gratuit pour le moment")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "🔎 Des alertes sur mesure, avec tes mots-clés" })).toBeInTheDocument();
+        expect(screen.getByText(/une alerte à mots-clés est mise en pause/)).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Créer mon compte" })).toHaveAttribute("href", "/register");
     });
 
