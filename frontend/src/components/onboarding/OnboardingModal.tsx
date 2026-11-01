@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { apiFetch, describeErrorResponse } from "../../api/apiClient";
 import type { Category, UserPreferences } from "../explorer/types";
 import CityField, { RADIUS_OPTIONS_KM, useCityPicker } from "../profile/CityField";
@@ -29,7 +30,8 @@ interface OnboardingModalProps {
  *    (spec P0-C) : « Plus tard », ✕ ou Échap ferment l'accueil sans rien
  *    enregistrer, la découverte reste immédiate ;
  * 2. proposition facultative de créer une alerte e-mail préremplie avec ces
- *    préférences.
+ *    préférences, et lien vers le guide de l'application (`/guide`), qui
+ *    termine l'accueil.
  */
 function OnboardingModal({ categories, onPreferencesSaved, onFinish, onPostpone, onLogout }: OnboardingModalProps) {
     const [step, setStep] = useState<"preferences" | "alert">("preferences");
@@ -277,6 +279,13 @@ function OnboardingModal({ categories, onPreferencesSaved, onFinish, onPostpone,
                                 {alertError && <Notice kind="error">{alertError}</Notice>}
                             </>
                         )}
+
+                        <p className="pp-hint onboarding-guide">
+                            Envie d'un tour complet de LocalLife ?{" "}
+                            <Link onClick={onFinish} to="/guide">
+                                Voir le guide de l'application
+                            </Link>
+                        </p>
 
                         <div className="onboarding-footer">
                             {alertCreated ? (

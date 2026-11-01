@@ -3059,6 +3059,18 @@ body {
     padding-top: 0.5rem;
 }
 
+.onboarding-guide {
+    margin: 0;
+    padding: 0.6rem 0.8rem;
+    border-radius: 12px;
+    background-color: rgba(232, 106, 74, 0.09);
+}
+
+.onboarding-guide a {
+    color: var(--ll-green);
+    font-weight: 600;
+}
+
 .onboarding-link {
     margin-right: auto;
     padding: 0;

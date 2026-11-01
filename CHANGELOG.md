@@ -4,6 +4,7 @@
 
 ### Guide de l'application : didacticiel animé
 - Nouvelle page `/guide`, ouverte à tous depuis le menu (rubrique « Aide » → « Guide de l'application ») : 11 étapes animées pour prendre en main LocalLife (carte, recherche, filtres, activités / lieux / food trucks, favoris, alertes e-mail, proposer une activité, profil, offres Gratuit / Premium / Pro).
+- L'accueil de première connexion propose le guide à sa dernière étape (« Voir le guide de l'application ») : le lien termine l'accueil et ouvre `/guide`.
 - Chaque étape montre une petite scène animée qui reproduit l'interface. Lecture automatique avec barre de progression, mise en pause au survol ou avec le bouton, navigation par boutons, par points ou avec les flèches du clavier. Si l'utilisateur a demandé moins d'animations, les scènes s'affichent fixes et la lecture automatique est coupée.
 
 ### Administration : tout sélectionner dans les agendas découverts
