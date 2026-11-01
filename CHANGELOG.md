@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Guide de l'application : didacticiel animé
+- Nouvelle page `/guide`, ouverte à tous depuis le menu (rubrique « Aide » → « Guide de l'application ») : 11 étapes animées pour prendre en main LocalLife (carte, recherche, filtres, activités / lieux / food trucks, favoris, alertes e-mail, proposer une activité, profil, offres Gratuit / Premium / Pro).
+- Chaque étape montre une petite scène animée qui reproduit l'interface. Lecture automatique avec barre de progression, mise en pause au survol ou avec le bouton, navigation par boutons, par points ou avec les flèches du clavier. Si l'utilisateur a demandé moins d'animations, les scènes s'affichent fixes et la lecture automatique est coupée.
+
 ### Administration : tout sélectionner dans les agendas découverts
 - Une case en tête de la colonne « Choisir » coche ou décoche d'un coup tous les agendas sans source de la page affichée (50 par page, la taille d'un lot de création). Elle est à moitié cochée quand une partie seulement l'est.
 
