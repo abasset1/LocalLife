@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import AdminTrashSection from "./AdminTrashSection";
@@ -47,7 +47,8 @@ describe("AdminTrashSection", () => {
 
         await user.click(screen.getAllByRole("button", { name: "Restaurer" })[0]);
         expect(await screen.findByText("« Concert au parc » restaurée.")).toBeInTheDocument();
-        expect(screen.queryByText("Concert au parc")).not.toBeInTheDocument();
+        // Le message précède le rechargement de la liste : attendre que la ligne en disparaisse.
+        await waitFor(() => expect(screen.queryByText("Concert au parc")).not.toBeInTheDocument());
 
         await user.click(screen.getByRole("button", { name: "Restaurer le lot" }));
         expect(await screen.findByText("Lot b-42 : 1 activité restaurée.")).toBeInTheDocument();
