@@ -17,10 +17,12 @@ public class DiscoveredAgendaCatalogService {
     }
 
     /**
+     * @param withEvents {@code true} : seulement les agendas qui ont au moins un événement en cours ou à venir
      * @throws IllegalArgumentException si {@code page} est négative ou {@code size} hors de
      *     1..{@value #MAX_PAGE_SIZE}
      */
-    public DiscoveredAgendaView search(CatalogFilter filter, String query, Boolean official, int page, int size) {
+    public DiscoveredAgendaView search(
+            CatalogFilter filter, String query, Boolean official, boolean withEvents, int page, int size) {
         if (page < 0) {
             throw new IllegalArgumentException("Le paramètre 'page' doit être positif ou nul.");
         }
@@ -28,11 +30,13 @@ public class DiscoveredAgendaCatalogService {
             throw new IllegalArgumentException("Le paramètre 'size' doit être compris entre 1 et " + MAX_PAGE_SIZE
                     + ".");
         }
-        long total = repository.count(filter, query, official);
-        var items = repository.search(filter, query, official, Math.multiplyExact(page, size), size).stream()
+        long total = repository.count(filter, query, official, withEvents);
+        var items = repository.search(filter, query, official, withEvents, Math.multiplyExact(page, size), size)
+                .stream()
                 .map(entry -> new DiscoveredAgendaView.Item(entry.agendaUid(), entry.title(),
                         AgendaActivationService.publicUrl(entry.slug()), entry.official(), entry.firstSeenAt(),
-                        entry.lastSeenAt(), entry.sourceId(), entry.sourceName(), entry.sourceStatus()))
+                        entry.lastSeenAt(), entry.sourceId(), entry.sourceName(), entry.sourceStatus(),
+                        entry.currentEvents(), entry.upcomingEvents()))
                 .toList();
         return new DiscoveredAgendaView(items, total, page, size);
     }

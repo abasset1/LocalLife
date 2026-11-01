@@ -217,18 +217,20 @@ public class AdminImportController {
     @Operation(summary = "Aperçu du catalogue des agendas découverts (réservé aux administrateurs)",
             description = "Nom, identifiant OpenAgenda, URL publique, statut officiel et source éventuelle de "
                     + "chaque agenda découvert, paginé. filter=NEW : agendas sans source ; KNOWN : avec source ; "
-                    + "ALL : tous.")
+                    + "ALL : tous. withEvents=true : seulement les agendas qui ont au moins un événement en cours "
+                    + "ou à venir (nombres lus à la dernière découverte).")
     @GetMapping("/discovered-agendas")
     public ResponseEntity<Object> discoveredAgendas(
             @RequestParam(defaultValue = "NEW") String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) Boolean official,
+            @RequestParam(defaultValue = "false") boolean withEvents,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             HttpServletRequest httpRequest) {
         try {
             CatalogFilter catalogFilter = parseEnum(CatalogFilter.class, filter, "filter");
-            return ResponseEntity.ok(catalogService.search(catalogFilter, q, official, page, size));
+            return ResponseEntity.ok(catalogService.search(catalogFilter, q, official, withEvents, page, size));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
         }

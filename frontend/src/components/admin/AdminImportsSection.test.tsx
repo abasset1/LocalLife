@@ -253,4 +253,41 @@ describe("AdminImportsSection — découverte et sélection des agendas", () => 
         const activationCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/discovered-agendas/sources"));
         expect(JSON.parse(String(activationCall?.[1]?.body))).toEqual({ agendaUids: ["101"] });
     });
+
+    it("ne propose par défaut que les agendas avec des événements en cours ou à venir, et affiche leurs nombres", async () => {
+        const item = (uid: string, currentEvents: number | null, upcomingEvents: number | null) => ({
+            agendaUid: uid,
+            title: `Agenda ${uid}`,
+            url: null,
+            official: false,
+            sourceId: null,
+            sourceName: null,
+            sourceStatus: null,
+            currentEvents,
+            upcomingEvents,
+        });
+        const fetchMock = stubFetch((url) =>
+            url.includes("/discovered-agendas?")
+                ? json({
+                      items: url.includes("withEvents=true") ? [item("201", 2, 11)] : [item("201", 2, 11), item("202", null, null)],
+                      total: url.includes("withEvents=true") ? 1 : 2,
+                      page: 0,
+                      size: 50,
+                  })
+                : undefined,
+        );
+        render(<AdminImportsSection onSourcesChanged={vi.fn()} />);
+
+        const table = await screen.findByRole("table");
+        expect(within(table).getByText("2 / 11")).toBeInTheDocument();
+        expect(within(table).queryByText("Agenda 202")).not.toBeInTheDocument();
+        const catalogCalls = () => fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes("/discovered-agendas?"));
+        expect(catalogCalls()[0]).toContain("withEvents=true");
+
+        await userEvent.click(screen.getByRole("checkbox", { name: "Avec des événements en cours ou à venir" }));
+
+        expect(await screen.findByText("Agenda 202")).toBeInTheDocument();
+        expect(within(screen.getByRole("table")).getByText("?")).toBeInTheDocument();
+        expect(catalogCalls().at(-1)).toContain("withEvents=false");
+    });
 });

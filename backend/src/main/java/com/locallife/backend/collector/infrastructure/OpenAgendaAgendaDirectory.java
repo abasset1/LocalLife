@@ -24,7 +24,9 @@ import org.springframework.web.client.RestClient;
  * <p>⚠️ Écrit d'après la documentation, sans appel réel possible depuis l'environnement de développement
  * (clé API indisponible) : paramètres, tri par défaut, forme du curseur et champ {@code total} sont à
  * confirmer au premier essai (voir {@code COLLECTOR_OPERATIONS.md}). Seuls {@code uid}, {@code title},
- * {@code slug} et {@code official} sont lus ; tout autre champ est ignoré.
+ * {@code slug}, {@code official} et, demandé par {@code fields[]=summary}, le nombre d'événements publiés en
+ * cours et à venir ({@code summary.publishedEvents.current} / {@code .upcoming}, vérifié sur l'API réelle le
+ * 31/10/2026) sont lus ; tout autre champ est ignoré.
  */
 @Component
 public class OpenAgendaAgendaDirectory {
@@ -75,7 +77,8 @@ public class OpenAgendaAgendaDirectory {
                 .uri(uriBuilder -> {
                     uriBuilder.path("/v2/agendas")
                             .queryParam("key", apiKey)
-                            .queryParam("size", PAGE_SIZE);
+                            .queryParam("size", PAGE_SIZE)
+                            .queryParam("fields[]", "summary");
                     if (scope == DiscoveryScope.OFFICIAL) {
                         uriBuilder.queryParam("official", "1");
                     }
@@ -90,11 +93,14 @@ public class OpenAgendaAgendaDirectory {
         }
         List<DiscoveredAgenda> agendas = new ArrayList<>();
         for (Agenda agenda : response.agendas()) {
+            PublishedEvents events = agenda.summary() == null ? null : agenda.summary().publishedEvents();
             agendas.add(new DiscoveredAgenda(
                     agenda.uid() == null ? null : String.valueOf(agenda.uid()),
                     agenda.title(),
                     agenda.slug(),
-                    scope == DiscoveryScope.OFFICIAL && agenda.official() == null ? Boolean.TRUE : agenda.official()));
+                    scope == DiscoveryScope.OFFICIAL && agenda.official() == null ? Boolean.TRUE : agenda.official(),
+                    events == null ? null : events.current(),
+                    events == null ? null : events.upcoming()));
         }
         return new AgendaPage(agendas, response.after(), response.total());
     }
@@ -113,7 +119,17 @@ public class OpenAgendaAgendaDirectory {
     private record AgendasResponse(List<Agenda> agendas, List<Object> after, Integer total) {
     }
 
-    private record Agenda(Long uid, String title, String slug, Boolean official) {
+    private record Agenda(Long uid, String title, String slug, Boolean official, Summary summary) {
+    }
+
+    /**
+     * Résumé demandé par {@code fields[]=summary} : nombres d'événements publiés de l'agenda. Constaté sur l'API
+     * le 31/10/2026 : {@code {"publishedEvents": {"current": 0, "upcoming": 11, "passed": 0, ...}, ...}}.
+     */
+    private record Summary(PublishedEvents publishedEvents) {
+    }
+
+    private record PublishedEvents(Integer current, Integer upcoming) {
     }
 
 }

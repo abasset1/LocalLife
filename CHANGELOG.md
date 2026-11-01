@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Administration : agendas découverts filtrés sur leurs événements
+- La découverte des agendas OpenAgenda enregistre le nombre d'événements en cours et à venir de chaque agenda, lu dans le résumé de l'annuaire sans appel supplémentaire (migration `V78`).
+- Administration → Imports : la liste des agendas découverts ne montre par défaut que ceux qui ont au moins un événement en cours ou à venir (case « Avec des événements en cours ou à venir », décochable), avec une colonne « Événements en cours / à venir ». Sur la bêta, 17 758 agendas découverts n'ont pas encore de source, la plupart sans aucun événement à venir.
+- Les nombres se remplissent à la prochaine découverte : en lancer une après la mise à jour.
+
 ### Lieux : liaison automatique des paires certaines
 - Les pages des lieux permanents n'affichaient aucune activité tant qu'aucun lieu d'événement n'y était relié à la main. L'onglet Rapprochements de l'admin a maintenant un bouton « Relier les paires certaines » : il relie en une fois, pour le département choisi, les paires classées certaines dont le lieu d'événement n'est relié à rien (500 au plus par clic). Seul un administrateur peut le lancer ; rien n'est relié par l'import. Les paires probables et ambiguës restent à trancher à la main ; chaque lien se retire avec « Délier ». API : `POST /api/v1/admin/places/links/auto?department=`.
 ### Nouvelle source : vide-greniers et brocantes de toute la France (DATAtourisme)

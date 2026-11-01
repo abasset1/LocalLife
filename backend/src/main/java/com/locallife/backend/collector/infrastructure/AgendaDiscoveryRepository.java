@@ -44,33 +44,42 @@ public class AgendaDiscoveryRepository {
     // --- Catalogue ---
 
     /**
-     * Insère l'agenda, ou met à jour titre, slug, statut officiel et date de dernière observation s'il est déjà
-     * au catalogue : un agenda n'y figure jamais deux fois.
+     * Insère l'agenda, ou met à jour titre, slug, statut officiel, nombres d'événements et date de dernière
+     * observation s'il est déjà au catalogue : un agenda n'y figure jamais deux fois. Des nombres d'événements
+     * absents de la réponse ne remplacent pas ceux déjà connus.
      *
      * @return {@code true} si l'agenda vient d'entrer au catalogue
      */
     public boolean upsert(DiscoveredAgenda agenda, Long runId, LocalDateTime seenAt) {
         Boolean inserted = jdbcTemplate.queryForObject("""
                 INSERT INTO discovered_agenda
-                    (provider, agenda_uid, title, slug, official, first_seen_at, last_seen_at, last_run_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (provider, agenda_uid, title, slug, official, first_seen_at, last_seen_at, last_run_id,
+                     current_events, upcoming_events, events_counted_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (provider, agenda_uid) DO UPDATE SET
                     title = EXCLUDED.title,
                     slug = EXCLUDED.slug,
                     official = COALESCE(EXCLUDED.official, discovered_agenda.official),
                     last_seen_at = EXCLUDED.last_seen_at,
-                    last_run_id = EXCLUDED.last_run_id
+                    last_run_id = EXCLUDED.last_run_id,
+                    current_events = COALESCE(EXCLUDED.current_events, discovered_agenda.current_events),
+                    upcoming_events = COALESCE(EXCLUDED.upcoming_events, discovered_agenda.upcoming_events),
+                    events_counted_at = COALESCE(EXCLUDED.events_counted_at, discovered_agenda.events_counted_at)
                 RETURNING (xmax = 0)
                 """, Boolean.class, PROVIDER, agenda.uid(), truncate(agenda.title(), MAX_TITLE_LENGTH),
                 truncate(agenda.slug(), MAX_SLUG_LENGTH), agenda.official(), Timestamp.valueOf(seenAt),
-                Timestamp.valueOf(seenAt), runId);
+                Timestamp.valueOf(seenAt), runId, agenda.currentEvents(), agenda.upcomingEvents(),
+                agenda.currentEvents() == null && agenda.upcomingEvents() == null ? null : Timestamp.valueOf(seenAt));
         return Boolean.TRUE.equals(inserted);
     }
 
     /** Filtre de l'aperçu : agendas sans source, avec source, ou tous. */
     public enum CatalogFilter { NEW, KNOWN, ALL }
 
-    /** Une ligne de l'aperçu : l'agenda et, s'il en a une, sa source. */
+    /**
+     * Une ligne de l'aperçu : l'agenda, ses nombres d'événements en cours et à venir ({@code null} : pas encore
+     * comptés) et, s'il en a une, sa source.
+     */
     public record CatalogEntry(
             String agendaUid,
             String title,
@@ -80,23 +89,33 @@ public class AgendaDiscoveryRepository {
             LocalDateTime lastSeenAt,
             Long sourceId,
             String sourceName,
-            String sourceStatus) {
+            String sourceStatus,
+            Integer currentEvents,
+            Integer upcomingEvents) {
     }
 
-    public List<CatalogEntry> search(CatalogFilter filter, String query, Boolean official, int offset, int limit) {
+    /** Colonnes d'une ligne de l'aperçu, communes à la recherche et à la lecture par identifiants. */
+    private static final String CATALOG_COLUMNS = "SELECT d.agenda_uid, d.title, d.slug, d.official, d.first_seen_at, "
+            + "d.last_seen_at, src.id AS source_id, src.name AS source_name, src.status AS source_status, "
+            + "d.current_events, d.upcoming_events ";
+
+    /**
+     * @param withEvents {@code true} : seulement les agendas qui ont au moins un événement en cours ou à venir (un
+     *     agenda pas encore compté en est exclu) ; {@code false} : tous
+     */
+    public List<CatalogEntry> search(
+            CatalogFilter filter, String query, Boolean official, boolean withEvents, int offset, int limit) {
         List<Object> arguments = new ArrayList<>();
-        String where = where(filter, query, official, arguments);
+        String where = where(filter, query, official, withEvents, arguments);
         arguments.add(limit);
         arguments.add(offset);
-        return jdbcTemplate.query("SELECT d.agenda_uid, d.title, d.slug, d.official, d.first_seen_at, "
-                + "d.last_seen_at, src.id AS source_id, src.name AS source_name, src.status AS source_status "
-                + "FROM discovered_agenda d " + KNOWN_SOURCE_JOIN + where
+        return jdbcTemplate.query(CATALOG_COLUMNS + "FROM discovered_agenda d " + KNOWN_SOURCE_JOIN + where
                 + " ORDER BY lower(d.title) NULLS LAST, d.id LIMIT ? OFFSET ?", CATALOG_ENTRY, arguments.toArray());
     }
 
-    public long count(CatalogFilter filter, String query, Boolean official) {
+    public long count(CatalogFilter filter, String query, Boolean official, boolean withEvents) {
         List<Object> arguments = new ArrayList<>();
-        String where = where(filter, query, official, arguments);
+        String where = where(filter, query, official, withEvents, arguments);
         Long count = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM discovered_agenda d " + KNOWN_SOURCE_JOIN + where, Long.class,
                 arguments.toArray());
@@ -112,14 +131,13 @@ public class AgendaDiscoveryRepository {
         List<Object> arguments = new ArrayList<>();
         arguments.add(PROVIDER);
         arguments.addAll(agendaUids);
-        return jdbcTemplate.query("SELECT d.agenda_uid, d.title, d.slug, d.official, d.first_seen_at, "
-                + "d.last_seen_at, src.id AS source_id, src.name AS source_name, src.status AS source_status "
-                + "FROM discovered_agenda d " + KNOWN_SOURCE_JOIN
+        return jdbcTemplate.query(CATALOG_COLUMNS + "FROM discovered_agenda d " + KNOWN_SOURCE_JOIN
                 + "WHERE d.provider = ? AND d.agenda_uid IN (" + placeholders + ")", CATALOG_ENTRY,
                 arguments.toArray());
     }
 
-    private static String where(CatalogFilter filter, String query, Boolean official, List<Object> arguments) {
+    private static String where(
+            CatalogFilter filter, String query, Boolean official, boolean withEvents, List<Object> arguments) {
         StringBuilder where = new StringBuilder(" WHERE d.provider = ?");
         arguments.add(PROVIDER);
         if (filter == CatalogFilter.NEW) {
@@ -129,6 +147,9 @@ public class AgendaDiscoveryRepository {
         }
         if (official != null) {
             where.append(official ? " AND d.official IS TRUE" : " AND d.official IS NOT TRUE");
+        }
+        if (withEvents) {
+            where.append(" AND coalesce(d.current_events, 0) + coalesce(d.upcoming_events, 0) > 0");
         }
         if (query != null && !query.isBlank()) {
             String pattern = "%" + query.trim().toLowerCase().replace("\\", "\\\\").replace("%", "\\%")
@@ -150,7 +171,9 @@ public class AgendaDiscoveryRepository {
             toLocalDateTime(resultSet.getTimestamp("last_seen_at")),
             (Long) resultSet.getObject("source_id"),
             resultSet.getString("source_name"),
-            resultSet.getString("source_status"));
+            resultSet.getString("source_status"),
+            (Integer) resultSet.getObject("current_events"),
+            (Integer) resultSet.getObject("upcoming_events"));
 
     // --- Parcours ---
 

@@ -38,6 +38,9 @@ interface CatalogItem {
     sourceId: number | null;
     sourceName: string | null;
     sourceStatus: string | null;
+    /** Événements en cours et à venir à la dernière découverte ; `null` tant qu'ils n'ont pas été comptés. */
+    currentEvents: number | null;
+    upcomingEvents: number | null;
 }
 
 interface CatalogPage {
@@ -95,6 +98,14 @@ interface AdminAgendaDiscoveryProps {
  * 2. aperçu du catalogue et création de sources pour les seuls agendas sélectionnés, par lot borné.
  * Seul le statut « Annuaire lu en entier » signifie que la découverte est exhaustive.
  */
+/** « 2 / 11 », ou « ? » tant que la découverte n'a pas compté les événements de l'agenda. */
+function formatEvents(item: CatalogItem): string {
+    if (item.currentEvents === null && item.upcomingEvents === null) {
+        return "?";
+    }
+    return `${item.currentEvents ?? 0} / ${item.upcomingEvents ?? 0}`;
+}
+
 function AdminAgendaDiscovery({ onSourcesChanged }: AdminAgendaDiscoveryProps) {
     const [scope, setScope] = useState<DiscoveryScope>("ALL");
     const [settings, setSettings] = useState<DiscoverySettings | null>(null);
@@ -105,6 +116,9 @@ function AdminAgendaDiscovery({ onSourcesChanged }: AdminAgendaDiscoveryProps) {
     const stopRequested = useRef(false);
 
     const [filter, setFilter] = useState<CatalogFilter>("NEW");
+    // Par défaut, seuls les agendas qui ont un événement en cours ou à venir : la plupart des agendas découverts
+    // n'en ont aucun.
+    const [withEvents, setWithEvents] = useState(true);
     const [query, setQuery] = useState("");
     const [appliedQuery, setAppliedQuery] = useState("");
     const [page, setPage] = useState(0);
@@ -144,7 +158,12 @@ function AdminAgendaDiscovery({ onSourcesChanged }: AdminAgendaDiscoveryProps) {
 
     const loadCatalog = useCallback(async () => {
         setCatalogError(null);
-        const params = new URLSearchParams({ filter, page: String(page), size: String(CATALOG_PAGE_SIZE) });
+        const params = new URLSearchParams({
+            filter,
+            page: String(page),
+            size: String(CATALOG_PAGE_SIZE),
+            withEvents: String(withEvents),
+        });
         if (appliedQuery.trim()) {
             params.set("q", appliedQuery.trim());
         }
@@ -158,7 +177,7 @@ function AdminAgendaDiscovery({ onSourcesChanged }: AdminAgendaDiscoveryProps) {
         } catch {
             setCatalogError("Impossible de contacter le serveur, réessaie plus tard.");
         }
-    }, [filter, page, appliedQuery]);
+    }, [filter, page, appliedQuery, withEvents]);
 
     useEffect(() => {
         void loadCatalog();
@@ -365,6 +384,17 @@ function AdminAgendaDiscovery({ onSourcesChanged }: AdminAgendaDiscoveryProps) {
                     </select>
                 </label>
                 <label>
+                    <input
+                        checked={withEvents}
+                        onChange={(event) => {
+                            setWithEvents(event.target.checked);
+                            setPage(0);
+                        }}
+                        type="checkbox"
+                    />{" "}
+                    Avec des événements en cours ou à venir
+                </label>
+                <label>
                     Recherche{" "}
                     <input
                         className="admin-discovery-search"
@@ -384,7 +414,11 @@ function AdminAgendaDiscovery({ onSourcesChanged }: AdminAgendaDiscoveryProps) {
                 </p>
             )}
             {catalog && catalog.total === 0 && (
-                <p className="admin-import-hint">Aucun agenda dans le catalogue pour ce filtre.</p>
+                <p className="admin-import-hint">
+                    Aucun agenda dans le catalogue pour ce filtre.
+                    {withEvents && " Les nombres d'événements sont lus à chaque découverte : si aucune n'a été "
+                        + "lancée depuis la mise à jour, lance-en une, ou décoche « Avec des événements »."}
+                </p>
             )}
             {catalog && catalog.total > 0 && (
                 <>
@@ -396,6 +430,7 @@ function AdminAgendaDiscovery({ onSourcesChanged }: AdminAgendaDiscoveryProps) {
                                     <th scope="col">Agenda</th>
                                     <th scope="col">Identifiant</th>
                                     <th scope="col">Officiel</th>
+                                    <th scope="col">Événements en cours / à venir</th>
                                     <th scope="col">Source</th>
                                 </tr>
                             </thead>
@@ -423,6 +458,7 @@ function AdminAgendaDiscovery({ onSourcesChanged }: AdminAgendaDiscoveryProps) {
                                         </th>
                                         <td>{item.agendaUid}</td>
                                         <td>{item.official === null ? "?" : item.official ? "oui" : "non"}</td>
+                                        <td>{formatEvents(item)}</td>
                                         <td>
                                             {item.sourceId === null
                                                 ? "—"

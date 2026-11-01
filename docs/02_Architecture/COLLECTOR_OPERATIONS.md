@@ -140,9 +140,22 @@ n'est lancé.**
 
 ### Aperçu et sélection (AGD-03)
 
-* `GET /api/v1/admin/import/discovered-agendas?filter=NEW|KNOWN|ALL&q=&official=&page=&size=`
-  : nom, identifiant, URL publique, statut officiel et source
-  éventuelle (nom, statut) de chaque agenda, paginé (`size` ≤ 200).
+* `GET /api/v1/admin/import/discovered-agendas?filter=NEW|KNOWN|ALL&q=&official=&withEvents=&page=&size=`
+  : nom, identifiant, URL publique, statut officiel, nombres
+  d'événements en cours et à venir, et source éventuelle (nom, statut)
+  de chaque agenda, paginé (`size` ≤ 200). `withEvents=true` : seulement
+  les agendas qui ont au moins un événement en cours ou à venir.
+* Nombres d'événements (V78, `current_events`, `upcoming_events`,
+  `events_counted_at`) : lus pendant la découverte, sans appel
+  supplémentaire, dans le résumé que l'annuaire renvoie quand on le
+  demande (`GET /v2/agendas?fields[]=summary` →
+  `summary.publishedEvents.current` / `.upcoming`, vérifié sur l'API le
+  31/10/2026). Une réponse sans résumé ne remplace pas les nombres déjà
+  connus ; un agenda jamais revu depuis V78 a des nombres inconnus
+  (`null`) et n'apparaît pas avec `withEvents=true`. Constat à l'origine
+  (bêta, 31/10/2026) : 22 501 agendas découverts, 17 758 sans source, la
+  plupart sans aucun événement ou avec un seul, passé. L'administration
+  coche « Avec des événements en cours ou à venir » par défaut.
 * `POST /api/v1/admin/import/discovered-agendas/sources`, corps
   `{"agendaUids": ["…"]}` : crée une source `API` active, sans filtre
   région, pour chaque agenda **sélectionné** du catalogue qui n'en a
