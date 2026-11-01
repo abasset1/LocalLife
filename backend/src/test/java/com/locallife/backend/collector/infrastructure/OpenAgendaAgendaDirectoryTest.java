@@ -71,6 +71,31 @@ class OpenAgendaAgendaDirectoryTest {
     }
 
     @Test
+    void fetchPage_ShouldAskForTheSummary_AndReadCurrentAndUpcomingEvents() {
+        OpenAgendaAgendaDirectory directory = newDirectory("key");
+        // Réponse réelle de l'API (31/10/2026), abrégée ; un agenda sans résumé garde des nombres inconnus.
+        mockServer.expect(requestTo(containsString("fields%5B%5D=summary")))
+                .andRespond(withSuccess("""
+                        {"agendas": [
+                          {"uid": 1, "title": "Villefranche", "official": false,
+                           "summary": {"keywords": ["Rhône"], "publishedEvents": {
+                             "eventsByEndDay": {"2026-11-19": 1}, "current": 2, "laterDays": 0, "passed": 40,
+                             "upcoming": 11}, "recentlyAddedEvents": {"shared": 0, "contribution": 11}}},
+                          {"uid": 2, "title": "Vide", "summary": {"publishedEvents": {"current": 0, "upcoming": 0}}},
+                          {"uid": 3, "title": "Sans résumé"}
+                        ]}
+                        """, MediaType.APPLICATION_JSON));
+
+        AgendaPage page = directory.fetchPage(DiscoveryScope.ALL, null);
+
+        assertEquals(List.of(
+                new DiscoveredAgenda("1", "Villefranche", null, false, 2, 11),
+                new DiscoveredAgenda("2", "Vide", null, null, 0, 0),
+                new DiscoveredAgenda("3", "Sans résumé", null, null, null, null)), page.agendas());
+        mockServer.verify();
+    }
+
+    @Test
     void fetchPage_ShouldNotFilterOnOfficial_WhenScopeIsAll() {
         OpenAgendaAgendaDirectory directory = newDirectory("key");
         mockServer.expect(requestTo(allOf(containsString("/v2/agendas"), not(containsString("official")))))

@@ -404,6 +404,61 @@ class AgendaDiscoveryIntegrationTest {
     }
 
     @Test
+    void catalog_ShouldOfferOnlyAgendasWithCurrentOrUpcomingEvents_WhenAsked() {
+        when(directory.fetchPage(eq(DiscoveryScope.ALL), isNull())).thenReturn(new AgendaPage(List.of(
+                new DiscoveredAgenda("910001", prefix + "a-avenir", "a-venir", false, 0, 3),
+                new DiscoveredAgenda("910002", prefix + "b-encours", "en-cours", false, 1, 0),
+                new DiscoveredAgenda("910003", prefix + "c-vide", "vide", false, 0, 0),
+                new DiscoveredAgenda("910004", prefix + "d-pascompte", "pas-compte", false)), null, null));
+        String token = "Bearer " + adminToken();
+        client().post().uri("/api/v1/admin/import/discover-agendas?maxPages=5")
+                .header(HttpHeaders.AUTHORIZATION, token)
+                .exchange()
+                .expectStatus().isOk();
+
+        DiscoveredAgendaView withEvents = catalog(token, "&withEvents=true");
+        DiscoveredAgendaView all = catalog(token, "");
+
+        assertThat(withEvents.total()).isEqualTo(2);
+        assertThat(withEvents.items()).extracting(DiscoveredAgendaView.Item::agendaUid)
+                .containsExactly("910001", "910002");
+        assertThat(withEvents.items().get(0).upcomingEvents()).isEqualTo(3);
+        assertThat(withEvents.items().get(1).currentEvents()).isEqualTo(1);
+        assertThat(all.total()).isEqualTo(4);
+        assertThat(all.items()).filteredOn(item -> item.agendaUid().equals("910004"))
+                .singleElement().satisfies(item -> assertThat(item.upcomingEvents()).isNull());
+    }
+
+    @Test
+    void discover_ShouldKeepKnownEventCounts_WhenTheProviderOmitsTheSummary() {
+        when(directory.fetchPage(eq(DiscoveryScope.ALL), isNull()))
+                .thenReturn(new AgendaPage(List.of(
+                        new DiscoveredAgenda("920001", prefix + "compté", "compte", false, 0, 5)), null, null))
+                .thenReturn(new AgendaPage(List.of(
+                        new DiscoveredAgenda("920001", prefix + "compté", "compte", false)), null, null));
+
+        discoveryService.discover(DiscoveryScope.ALL, 5, false);
+        discoveryService.discover(DiscoveryScope.ALL, 5, true);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT upcoming_events FROM discovered_agenda WHERE agenda_uid = '920001'", Integer.class))
+                .isEqualTo(5);
+    }
+
+    private DiscoveredAgendaView catalog(String token, String extraParameters) {
+        DiscoveredAgendaView view = client().get()
+                .uri("/api/v1/admin/import/discovered-agendas?filter=NEW&size=50" + extraParameters)
+                .header(HttpHeaders.AUTHORIZATION, token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(DiscoveredAgendaView.class)
+                .returnResult()
+                .getResponseBody();
+        assertThat(view).isNotNull();
+        return view;
+    }
+
+    @Test
     void createSources_ShouldRefuseAnOversizedSelectionEntirely() {
         givenDirectoryOf(DiscoveryScope.ALL, 1);
         discoveryService.discover(DiscoveryScope.ALL, 1, false);

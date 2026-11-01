@@ -15,6 +15,8 @@ public record DiscoveredAgendaView(List<Item> items, long total, int page, int s
      * @param url          URL publique de l'agenda, {@code null} sans slug
      * @param sourceId     source déjà créée pour cet agenda, {@code null} s'il n'en a pas
      * @param sourceStatus statut de cette source ({@code ACTIVE}, {@code INACTIVE}...), {@code null} sans source
+     * @param currentEvents  événements en cours à la dernière découverte, {@code null} si pas encore comptés
+     * @param upcomingEvents événements à venir à la dernière découverte, {@code null} si pas encore comptés
      */
     public record Item(
             String agendaUid,
@@ -25,6 +27,8 @@ public record DiscoveredAgendaView(List<Item> items, long total, int page, int s
             LocalDateTime lastSeenAt,
             Long sourceId,
             String sourceName,
-            String sourceStatus) {
+            String sourceStatus,
+            Integer currentEvents,
+            Integer upcomingEvents) {
     }
 }

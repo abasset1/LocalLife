@@ -33,7 +33,7 @@ class AgendaActivationServiceTest {
     }
 
     private static CatalogEntry entry(String uid, String title, String slug) {
-        return new CatalogEntry(uid, title, slug, true, null, null, null, null, null);
+        return new CatalogEntry(uid, title, slug, true, null, null, null, null, null, null, null);
     }
 
     @Test
