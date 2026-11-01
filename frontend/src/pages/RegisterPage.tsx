@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import PasswordInput from "../components/PasswordInput";
 import TermsConsentCheckbox from "../components/TermsConsentCheckbox";
 import UsernameStatusMessage from "../components/UsernameStatusMessage";
 import { USERNAME_MAX_LENGTH, useUsernameAvailability } from "../auth/useUsernameAvailability";
@@ -101,14 +102,13 @@ function RegisterPage() {
                     type="email"
                     value={email}
                 />
-                <input
+                <PasswordInput
                     aria-label="Mot de passe"
                     autoComplete="new-password"
                     minLength={8}
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="Mot de passe (8 caractères minimum)"
                     required
-                    type="password"
                     value={password}
                 />
                 <TermsConsentCheckbox checked={acceptTerms} id="register-terms-consent" onChange={setAcceptTerms} />

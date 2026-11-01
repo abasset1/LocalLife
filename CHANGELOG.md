@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Connexion et création de compte : voir le mot de passe saisi
+- Site (pages Connexion et Créer un compte) : un bouton « Afficher » / « Masquer » dans le champ mot de passe rend la saisie lisible. Elle est masquée de nouveau à l'envoi du formulaire.
+- Application mobile (Compte, onglets Connexion et Inscription) : une icône œil dans le champ mot de passe fait de même. Les autres champs mot de passe (changement de mot de passe, suppression du compte) sont inchangés.
+
 ### Guide de l'application : didacticiel animé
 - Nouvelle page `/guide`, ouverte à tous depuis le menu (rubrique « Aide » → « Guide de l'application ») : 11 étapes animées pour prendre en main LocalLife (carte, recherche, filtres, activités / lieux / food trucks, favoris, alertes e-mail, proposer une activité, profil, offres Gratuit / Premium / Pro).
 - L'accueil de première connexion propose le guide à sa dernière étape (« Voir le guide de l'application ») : le lien termine l'accueil et ouvre `/guide`.
