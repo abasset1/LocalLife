@@ -145,7 +145,9 @@ class PlanLimitsIntegrationTest {
 
         // Les modifications ne comptent pas ; un compte Pro n'a pas de limite.
         call(HttpMethod.PUT, "/api/v1/activities/" + third, premium, contribution(), 200);
-        jdbcTemplate.update("UPDATE users SET role = 'PRO', pro_role_source = 'ADMIN' WHERE id = ?", userId);
+        jdbcTemplate.update("UPDATE subscription SET status = 'REPLACED' WHERE user_id = ? AND status = 'ACTIVE'", userId);
+        jdbcTemplate.update("INSERT INTO subscription (user_id, plan, status, provider, current_period_start) "
+                + "VALUES (?, 'PRO', 'ACTIVE', 'MANUAL', now())", userId);
         assertThat(call(HttpMethod.GET, "/api/v1/users/me", premium, null, 200).get("limits")
                 .get("monthlyContributions").isNull()).isTrue();
         call(HttpMethod.POST, "/api/v1/activities", premium, contribution(), 201);

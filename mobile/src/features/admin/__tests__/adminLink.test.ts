@@ -13,8 +13,9 @@ describe('adminWebUrl', () => {
 });
 
 describe('shouldOfferAdminLink', () => {
-  it("ne propose le lien qu'à un administrateur confirmé par le serveur", () => {
+  it("ne propose le lien qu'à un administrateur ou à l'équipe LocalLife, confirmés par le serveur", () => {
     expect(shouldOfferAdminLink('ADMIN')).toBe(true);
+    expect(shouldOfferAdminLink('LOCALLIFE')).toBe(true);
     expect(shouldOfferAdminLink('PRO')).toBe(false);
     expect(shouldOfferAdminLink('USER')).toBe(false);
     expect(shouldOfferAdminLink(undefined)).toBe(false);

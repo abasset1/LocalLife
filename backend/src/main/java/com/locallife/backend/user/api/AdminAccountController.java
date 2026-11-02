@@ -3,6 +3,10 @@ package com.locallife.backend.user.api;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.auth.application.ReauthenticationService;
 import com.locallife.backend.common.ErrorResponse;
+import com.locallife.backend.pro.application.ProActionException;
+import com.locallife.backend.subscription.api.SubscriptionResponses;
+import com.locallife.backend.subscription.application.SubscriptionService;
+import com.locallife.backend.subscription.domain.Plan;
 import com.locallife.backend.user.application.AccountActionException;
 import com.locallife.backend.user.application.AccountAdministrationService;
 import com.locallife.backend.user.application.AccountAdministrationService.AccountPage;
@@ -14,6 +18,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.Locale;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -21,6 +28,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,15 +46,24 @@ public class AdminAccountController {
 
     private final AccountAdministrationService service;
     private final ReauthenticationService reauthenticationService;
+    private final SubscriptionService subscriptionService;
 
     public AdminAccountController(AccountAdministrationService service,
-            ReauthenticationService reauthenticationService) {
+            ReauthenticationService reauthenticationService, SubscriptionService subscriptionService) {
         this.service = service;
         this.reauthenticationService = reauthenticationService;
+        this.subscriptionService = subscriptionService;
     }
 
-    /** Corps d'un changement de rôle : {@code USER} ou {@code PRO}. */
+    /** Corps d'un changement de rôle : {@code USER} ou {@code LOCALLIFE}. */
     public record RoleRequest(String role) {
+    }
+
+    /**
+     * Corps d'un changement de type de compte : {@code FREE}, {@code PREMIUM} ou {@code PRO} ; {@code endsOn}
+     * ({@code yyyy-MM-dd}, facultatif) : dernier jour d'accès d'une offre payante.
+     */
+    public record PlanRequest(String plan, String endsOn) {
     }
 
     /** Corps d'une suspension (motif obligatoire) ou d'une réactivation (motif facultatif). */
@@ -54,8 +71,8 @@ public class AdminAccountController {
     }
 
     @Operation(summary = "Liste paginée des comptes",
-            description = "q : partie de l'adresse ou du nom d'utilisateur, ou identifiant exact ; role : USER, PRO "
-                    + "ou ADMIN ; status : ACTIVE ou SUSPENDED ; size ≤ 100. Plus récents d'abord.")
+            description = "q : partie de l'adresse ou du nom d'utilisateur, ou identifiant exact ; role : USER, "
+                    + "LOCALLIFE ou ADMIN ; status : ACTIVE ou SUSPENDED ; size ≤ 100. Plus récents d'abord.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Page de comptes."),
         @ApiResponse(responseCode = "400", description = "Filtre ou pagination invalide."),
@@ -85,6 +102,36 @@ public class AdminAccountController {
     public Account changeRole(
             @PathVariable Long id, @RequestBody(required = false) RoleRequest body, Authentication authentication) {
         return service.changeRole(actor(authentication), id, body == null ? null : body.role());
+    }
+
+    @Operation(summary = "Changer le type de compte",
+            description = "FREE : l'abonnement en cours prend fin ; PREMIUM ou PRO : offre activée tout de suite "
+                    + "(une demande en attente pour cette offre est validée), avec une date de fin facultative. 403 "
+                    + "pour son propre compte. Journalisé, l'utilisateur est prévenu.")
+    @PutMapping("/{id}/plan")
+    public ResponseEntity<Object> changePlan(@PathVariable Long id, @RequestBody(required = false) PlanRequest body,
+            Authentication authentication, HttpServletRequest request) {
+        return SubscriptionResponses.handle(request, () -> {
+            if (service.find(id).isEmpty()) {
+                throw ProActionException.notFound("Aucun compte avec cet identifiant.");
+            }
+            Plan plan;
+            try {
+                plan = Plan.valueOf(body == null || body.plan() == null ? "" : body.plan().trim()
+                        .toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException exception) {
+                throw ProActionException.invalid("Type de compte inconnu : FREE, PREMIUM ou PRO.");
+            }
+            LocalDate endsOn;
+            try {
+                endsOn = body == null || body.endsOn() == null || body.endsOn().isBlank() ? null
+                        : LocalDate.parse(body.endsOn().trim());
+            } catch (DateTimeParseException exception) {
+                throw ProActionException.invalid("Date de fin invalide : yyyy-MM-dd attendu.");
+            }
+            subscriptionService.changePlanByAdmin(actor(authentication).userId(), id, plan, endsOn);
+            return ResponseEntity.ok(service.find(id).orElseThrow());
+        });
     }
 
     @Operation(summary = "Suspendre un compte",

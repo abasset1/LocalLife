@@ -13,6 +13,7 @@ import MyDataCard from "../components/profile/MyDataCard";
 import { Notice, ProfileCard } from "../components/profile/ProfileUi";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
 import SubscriptionCard from "../components/subscription/SubscriptionCard";
+import { roleLabel } from "../auth/roles";
 import type { UserLimits } from "../components/explorer/types";
 
 /**
@@ -211,8 +212,7 @@ function ProfilePage() {
                                 <p className="pp-hero-email">{profile.email}</p>
                                 <div className="pp-hero-badges">
                                     <span className="pp-hero-badge">
-                                        {profile.role === "ADMIN" ? "Administrateur"
-                                            : profile.role === "PRO" ? "Professionnel" : "Utilisateur"}
+                                        {roleLabel(profile.role)}
                                     </span>
                                     {/* Accès relu en base : le lien apparaît dès l'attribution, sans reconnexion. */}
                                     {profile.hasProAccess && (

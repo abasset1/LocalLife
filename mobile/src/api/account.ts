@@ -26,7 +26,8 @@ export interface CurrentAccount {
   username: string;
   email: string;
   /** Rôle tel que relu en base par le serveur, pas celui du jeton stocké sur le téléphone. */
-  role: 'USER' | 'PRO' | 'ADMIN';
+  /** Rôle (02/11/2026) : utilisateur, équipe LocalLife (modération) ou administrateur ; distinct de l'offre. */
+  role: 'USER' | 'LOCALLIFE' | 'ADMIN';
   createdAt: string | null;
   /** Nouvelle adresse en attente de confirmation, `null` sinon. */
   pendingEmail?: string | null;

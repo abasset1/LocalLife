@@ -101,7 +101,7 @@ class VisitorAccessIntegrationTest {
         for (String route : List.of("/api/v1/sources", "/api/v1/sources/1", "/api/v1/sources/default-categories")) {
             assertThat(status(HttpMethod.GET, route, null, null)).as(route).isEqualTo(401);
             assertThat(status(HttpMethod.GET, route, testAccounts.bearer(Role.USER), null)).as(route).isEqualTo(403);
-            assertThat(status(HttpMethod.GET, route, testAccounts.bearer(Role.PRO), null)).as(route).isEqualTo(403);
+            assertThat(status(HttpMethod.GET, route, testAccounts.bearer(Role.LOCALLIFE), null)).as(route).isEqualTo(403);
         }
         assertThat(status(HttpMethod.GET, "/api/v1/sources", testAccounts.bearer(Role.ADMIN), null)).isEqualTo(200);
         assertThat(status(HttpMethod.GET, "/api/v1/sources/default-categories", testAccounts.bearer(Role.ADMIN), null))

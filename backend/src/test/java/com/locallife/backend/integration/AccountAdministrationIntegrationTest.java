@@ -77,6 +77,14 @@ class AccountAdministrationIntegrationTest {
         return jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ?", Long.class, email);
     }
 
+    /** Compte de type Pro (abonnement Pro sans échéance) : l'ancien rôle PRO, V81. */
+    private Long proAccount() {
+        Long id = account(Role.USER);
+        jdbcTemplate.update("INSERT INTO subscription (user_id, plan, status, provider, current_period_start) "
+                + "VALUES (?, 'PRO', 'ACTIVE', 'MANUAL', now())", id);
+        return id;
+    }
+
     private String emailOf(Long id) {
         return jdbcTemplate.queryForObject("SELECT email FROM users WHERE id = ?", String.class, id);
     }
@@ -147,16 +155,19 @@ class AccountAdministrationIntegrationTest {
     // --- Accès ---
 
     @Test
-    void accountEndpoints_ShouldAnswer401WithoutToken_403ForUserAndPro_AndServeAdmins() throws Exception {
+    void accountEndpoints_ShouldAnswer401WithoutToken_403ForUserProAndLocalLife_AndServeAdmins() throws Exception {
         Long target = account(Role.USER);
         String user = bearer(account(Role.USER), Role.USER);
-        String pro = bearer(account(Role.PRO), Role.PRO);
+        String pro = bearer(proAccount(), Role.USER);
+        String team = bearer(account(Role.LOCALLIFE), Role.LOCALLIFE);
         String admin = testAccounts.bearer(Role.ADMIN);
         List<Object[]> endpoints = List.of(
                 new Object[] {HttpMethod.GET, "/api/v1/admin/accounts", null},
                 new Object[] {HttpMethod.GET, "/api/v1/admin/accounts/" + target, null},
                 new Object[] {HttpMethod.GET, "/api/v1/admin/accounts/audit", null},
-                new Object[] {HttpMethod.PATCH, "/api/v1/admin/accounts/" + target + "/role", Map.of("role", "PRO")},
+                new Object[] {HttpMethod.PATCH, "/api/v1/admin/accounts/" + target + "/role",
+                    Map.of("role", "LOCALLIFE")},
+                new Object[] {HttpMethod.PUT, "/api/v1/admin/accounts/" + target + "/plan", Map.of("plan", "PRO")},
                 new Object[] {HttpMethod.POST, "/api/v1/admin/accounts/" + target + "/suspend",
                     Map.of("reason", "Test d'accès")},
                 new Object[] {HttpMethod.POST, "/api/v1/admin/accounts/" + target + "/reactivate", Map.of()},
@@ -165,6 +176,7 @@ class AccountAdministrationIntegrationTest {
             call((HttpMethod) endpoint[0], (String) endpoint[1], null, endpoint[2], 401);
             call((HttpMethod) endpoint[0], (String) endpoint[1], user, endpoint[2], 403);
             call((HttpMethod) endpoint[0], (String) endpoint[1], pro, endpoint[2], 403);
+            call((HttpMethod) endpoint[0], (String) endpoint[1], team, endpoint[2], 403);
         }
         // Aucune des tentatives refusées par la sécurité n'a touché au compte.
         assertThat(jdbcTemplate.queryForObject("SELECT role || '/' || account_status FROM users WHERE id = ?",
@@ -189,7 +201,7 @@ class AccountAdministrationIntegrationTest {
     @Test
     void search_ShouldFilterAndPaginate_WithoutExposingAnySecret() throws Exception {
         Long first = account(Role.USER);
-        Long second = account(Role.PRO);
+        Long second = account(Role.LOCALLIFE);
         String admin = testAccounts.bearer(Role.ADMIN);
 
         JsonNode page = call(HttpMethod.GET, "/api/v1/admin/accounts?q=acc-" + marker + "&size=1", admin, null, 200);
@@ -201,8 +213,9 @@ class AccountAdministrationIntegrationTest {
         assertThat(item.get("status").asText()).isEqualTo("ACTIVE");
         assertThat(item.has("emailVerified")).isTrue();
 
-        JsonNode pros = call(HttpMethod.GET, "/api/v1/admin/accounts?q=acc-" + marker + "&role=pro", admin, null, 200);
-        assertThat(pros.get("items")).singleElement()
+        JsonNode team = call(HttpMethod.GET, "/api/v1/admin/accounts?q=acc-" + marker + "&role=locallife", admin, null,
+                200);
+        assertThat(team.get("items")).singleElement()
                 .satisfies(node -> assertThat(node.get("id").asLong()).isEqualTo(second));
         JsonNode byId = call(HttpMethod.GET, "/api/v1/admin/accounts?q=" + first, admin, null, 200);
         assertThat(byId.get("items").findValuesAsText("id")).contains(String.valueOf(first));
@@ -217,25 +230,30 @@ class AccountAdministrationIntegrationTest {
     // --- Rôles ---
 
     @Test
-    void roleChanges_ShouldOnlySwitchUserAndPro_AndBeAudited() throws Exception {
+    void roleChanges_ShouldOnlySwitchUserAndLocalLife_AndBeAudited() throws Exception {
         Long user = account(Role.USER);
         Long otherAdmin = account(Role.ADMIN);
         Long adminId = testAccounts.sharedAccount(Role.ADMIN);
         String admin = testAccounts.bearer(Role.ADMIN);
         String userToken = bearer(user, Role.USER);
 
-        assertThat(call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", admin, Map.of("role", "pro"), 200)
-                .get("role").asText()).isEqualTo("PRO");
-        // Effet immédiat, sans nouvelle connexion : l'ancien jeton (rôle USER inscrit) ouvre l'espace pro.
-        call(HttpMethod.GET, "/api/v1/pro/claims", userToken, null, 200);
+        call(HttpMethod.GET, "/api/v1/admin/activities?status=PENDING", userToken, null, 403);
+        assertThat(call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", admin,
+                Map.of("role", "locallife"), 200).get("role").asText()).isEqualTo("LOCALLIFE");
+        // Effet immédiat, sans nouvelle connexion : l'ancien jeton (rôle USER inscrit) ouvre la modération, pas le
+        // reste de l'administration.
+        call(HttpMethod.GET, "/api/v1/admin/activities?status=PENDING", userToken, null, 200);
+        call(HttpMethod.GET, "/api/v1/admin/subscriptions", userToken, null, 200);
+        call(HttpMethod.GET, "/api/v1/admin/accounts", userToken, null, 403);
+        call(HttpMethod.GET, "/api/v1/admin/categories", userToken, null, 403);
         call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", admin, Map.of("role", "USER"), 200);
-        call(HttpMethod.GET, "/api/v1/pro/claims", userToken, null, 403);
+        call(HttpMethod.GET, "/api/v1/admin/activities?status=PENDING", userToken, null, 403);
 
         call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", admin, Map.of("role", "ADMIN"), 403);
-        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", admin, Map.of("role", "MODERATOR"), 400);
+        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", admin, Map.of("role", "PRO"), 400);
         call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + otherAdmin + "/role", admin, Map.of("role", "USER"), 403);
-        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + adminId + "/role", admin, Map.of("role", "PRO"), 403);
-        call(HttpMethod.PATCH, "/api/v1/admin/accounts/-5/role", admin, Map.of("role", "PRO"), 404);
+        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + adminId + "/role", admin, Map.of("role", "LOCALLIFE"), 403);
+        call(HttpMethod.PATCH, "/api/v1/admin/accounts/-5/role", admin, Map.of("role", "LOCALLIFE"), 404);
 
         assertThat(jdbcTemplate.queryForObject("SELECT role FROM users WHERE id = ?", String.class, user))
                 .isEqualTo("USER");
@@ -248,7 +266,7 @@ class AccountAdministrationIntegrationTest {
                 + "target_user_id = ? AND outcome = 'SUCCESS' ORDER BY id LIMIT 1", user);
         assertThat(entry.get("actor_user_id")).isEqualTo(adminId);
         assertThat(entry.get("old_value")).isEqualTo("USER");
-        assertThat(entry.get("new_value")).isEqualTo("PRO");
+        assertThat(entry.get("new_value")).isEqualTo("LOCALLIFE");
         assertThat(entry.get("occurred_at")).isNotNull();
     }
 
@@ -263,15 +281,15 @@ class AccountAdministrationIntegrationTest {
 
         assertThat(jdbcTemplate.queryForObject("SELECT role FROM users WHERE id = ?", String.class, user))
                 .isEqualTo("USER");
-        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", token, Map.of("role", "PRO"), 403);
+        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", token, Map.of("role", "LOCALLIFE"), 403);
     }
 
     // --- Suspension ---
 
     @Test
     void suspension_ShouldBlockLoginAndTheAlreadyIssuedToken_KeepTheData_AndBeReversible() throws Exception {
-        Long user = account(Role.PRO);
-        String token = bearer(user, Role.PRO);
+        Long user = proAccount();
+        String token = bearer(user, Role.USER);
         String email = emailOf(user);
         String admin = testAccounts.bearer(Role.ADMIN);
         String usernameBefore = jdbcTemplate.queryForObject("SELECT username FROM users WHERE id = ?", String.class,
@@ -310,7 +328,7 @@ class AccountAdministrationIntegrationTest {
         call(HttpMethod.GET, "/api/v1/pro/claims", token, null, 200);
         call(HttpMethod.POST, "/api/v1/auth/login", null, Map.of("email", email, "password", PASSWORD), 200);
         assertThat(jdbcTemplate.queryForObject("SELECT username || '/' || role FROM users WHERE id = ?", String.class,
-                user)).isEqualTo(usernameBefore + "/PRO");
+                user)).isEqualTo(usernameBefore + "/USER");
 
         assertThat(auditCount(user, "SUSPEND", "SUCCESS")).isEqualTo(1);
         assertThat(auditCount(user, "SUSPEND", "REFUSED")).isEqualTo(3);

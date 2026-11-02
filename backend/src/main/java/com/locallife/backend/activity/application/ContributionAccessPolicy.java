@@ -2,7 +2,6 @@ package com.locallife.backend.activity.application;
 
 import com.locallife.backend.subscription.application.SubscriptionService;
 import com.locallife.backend.subscription.domain.Plan;
-import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.infrastructure.AccountRepository;
 import org.springframework.stereotype.Service;
 
@@ -33,7 +32,7 @@ public class ContributionAccessPolicy {
             return false;
         }
         boolean byRole = accountRepository.findAccess(userId)
-                .map(access -> access.role() == Role.PRO || access.role() == Role.ADMIN)
+                .map(access -> access.role().isStaff())
                 .orElse(false);
         if (byRole) {
             return true;

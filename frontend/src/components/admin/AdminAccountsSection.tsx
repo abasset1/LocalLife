@@ -6,7 +6,7 @@ import { PLAN_LABELS } from "../subscription/types";
 import type { Plan } from "../subscription/types";
 import { CONFIRM_PASSWORD_HEADER, useConfirmDialog } from "./useConfirmDialog";
 
-type Role = "USER" | "PRO" | "ADMIN";
+type Role = "USER" | "LOCALLIFE" | "ADMIN";
 type AccountStatus = "ACTIVE" | "SUSPENDED";
 
 /** `AccountRepository.Account` (backend) : aucun secret. */
@@ -56,7 +56,7 @@ interface AuditPage {
 
 const PAGE_SIZE = 20;
 
-const ROLE_LABELS: Record<Role, string> = { USER: "Utilisateur", PRO: "Professionnel", ADMIN: "Administrateur" };
+const ROLE_LABELS: Record<Role, string> = { USER: "Utilisateur", LOCALLIFE: "LocalLife", ADMIN: "Administrateur" };
 const STATUS_LABELS: Record<AccountStatus, string> = { ACTIVE: "Actif", SUSPENDED: "Suspendu" };
 const ACTION_LABELS: Record<string, string> = {
     ROLE_CHANGE: "Changement de rôle",
@@ -80,11 +80,14 @@ function formatUtc(value: string): string {
 
 /**
  * Console générale des comptes (sprint « Rôles et comptes », WEB-01) : recherche, filtres, pagination, et les seules
- * actions que l'API autorise — attribuer ou retirer le rôle PRO, suspendre (motif obligatoire) ou réactiver un compte
- * non administrateur, le déconnecter partout ou supprimer son compte. Suspendre et supprimer exigent le mot de passe
- * de l'administrateur (`X-Confirm-Password`, 428 sinon). L'API reste seule juge : un refus est affiché tel qu'elle l'explique. Le rôle PRO est un rôle
- * d'accès, distinct de l'abonnement Pro (Professionnels → Abonnements) : la colonne « Offre » montre l'abonnement
- * (Gratuit, Premium ou Pro) et une offre demandée en attente.
+ * actions que l'API autorise — donner ou retirer le rôle LocalLife, changer le type de compte, suspendre (motif
+ * obligatoire) ou réactiver un compte non administrateur, le déconnecter partout ou supprimer son compte. Suspendre et
+ * supprimer exigent le mot de passe de l'administrateur (`X-Confirm-Password`, 428 sinon). L'API reste seule juge : un
+ * refus est affiché tel qu'elle l'explique.
+ *
+ * Rôle et type de compte sont distincts (décision du 02/11/2026) : le rôle dit ce que le compte peut faire
+ * (Utilisateur, LocalLife pour l'équipe de modération, Administrateur) ; le type de compte est son offre (Gratuit,
+ * Premium ou Pro, abonnement), avec une demande d'offre en attente signalée.
  */
 function AdminAccountsSection() {
     const [query, setQuery] = useState("");
@@ -99,6 +102,8 @@ function AdminAccountsSection() {
     const [suspending, setSuspending] = useState<Account | null>(null);
     const [reason, setReason] = useState("");
     const [busy, setBusy] = useState(false);
+    /** Compte dont le type est en cours de modification, avec le choix en cours. */
+    const [editingPlan, setEditingPlan] = useState<{ account: Account; plan: Plan; endsOn: string } | null>(null);
     const [audit, setAudit] = useState<AuditPage | null>(null);
     const [auditTarget, setAuditTarget] = useState<Account | null>(null);
     const { ask, dialog } = useConfirmDialog();
@@ -161,16 +166,36 @@ function AdminAccountsSection() {
         await loadAudit();
     }
 
-    async function changeRole(account: Account, target: "USER" | "PRO") {
-        const question = target === "PRO"
-            ? `Attribuer le rôle professionnel à ${account.email} ? (sans effet sur son abonnement)`
-            : `Retirer le rôle professionnel de ${account.email} ?`;
+    async function changeRole(account: Account, target: "USER" | "LOCALLIFE") {
+        const question = target === "LOCALLIFE"
+            ? `Donner le rôle LocalLife à ${account.email} ? Il aura accès à la modération (activités, lieux, demandes `
+                + "Pro, food trucks), sans les actions sensibles."
+            : `Retirer le rôle LocalLife de ${account.email} ? Il redevient utilisateur.`;
         if (!window.confirm(question)) {
             return;
         }
         setBusy(true);
         const result = await proRequest<Account>(`/api/v1/admin/accounts/${account.id}/role`, "PATCH", { role: target });
-        await afterAction(result, target === "PRO" ? `${account.email} est professionnel.` : `${account.email} n'est plus professionnel.`);
+        await afterAction(result, target === "LOCALLIFE"
+            ? `${account.email} fait partie de l'équipe LocalLife.`
+            : `${account.email} est de nouveau utilisateur.`);
+    }
+
+    /** Type de compte choisi (Gratuit, Premium ou Pro) : abonnement créé, remplacé ou terminé par le serveur. */
+    async function changePlan(event: FormEvent) {
+        event.preventDefault();
+        if (!editingPlan) {
+            return;
+        }
+        const { account, plan, endsOn } = editingPlan;
+        setBusy(true);
+        const result = await proRequest<Account>(`/api/v1/admin/accounts/${account.id}/plan`, "PUT",
+            { plan, endsOn: plan === "FREE" || endsOn === "" ? null : endsOn });
+        if (result.ok) {
+            setEditingPlan(null);
+        }
+        await afterAction(result, `${account.email} : compte ${PLAN_LABELS[plan]}`
+            + (plan !== "FREE" && endsOn ? ` jusqu'au ${new Date(endsOn).toLocaleDateString("fr-FR")}.` : "."));
     }
 
     async function suspend(event: FormEvent) {
@@ -256,7 +281,7 @@ function AdminAccountsSection() {
                     <select onChange={(event) => setRole(event.target.value)} value={role}>
                         <option value="">Tous</option>
                         <option value="USER">Utilisateur</option>
-                        <option value="PRO">Professionnel</option>
+                        <option value="LOCALLIFE">LocalLife</option>
                         <option value="ADMIN">Administrateur</option>
                     </select>
                 </label>
@@ -297,7 +322,7 @@ function AdminAccountsSection() {
                                 <tr>
                                     <th scope="col">Compte</th>
                                     <th scope="col">Rôle</th>
-                                    <th scope="col">Offre</th>
+                                    <th scope="col">Type de compte</th>
                                     <th scope="col">E-mail confirmé</th>
                                     <th scope="col">Statut</th>
                                     <th scope="col">Créé le</th>
@@ -337,10 +362,21 @@ function AdminAccountsSection() {
                                                     <button
                                                         className="admin-import-button"
                                                         disabled={busy}
-                                                        onClick={() => void changeRole(account, account.role === "PRO" ? "USER" : "PRO")}
+                                                        onClick={() => setEditingPlan({
+                                                            account, plan: account.plan ?? "FREE", endsOn: "",
+                                                        })}
                                                         type="button"
                                                     >
-                                                        {account.role === "PRO" ? "Retirer PRO" : "Attribuer PRO"}
+                                                        Type de compte
+                                                    </button>
+                                                    <button
+                                                        className="admin-import-button"
+                                                        disabled={busy}
+                                                        onClick={() => void changeRole(account,
+                                                            account.role === "LOCALLIFE" ? "USER" : "LOCALLIFE")}
+                                                        type="button"
+                                                    >
+                                                        {account.role === "LOCALLIFE" ? "Retirer LocalLife" : "Rôle LocalLife"}
                                                     </button>
                                                     {account.status === "ACTIVE" ? (
                                                         <button
@@ -417,6 +453,45 @@ function AdminAccountsSection() {
                         </button>
                     </div>
                 </>
+            )}
+
+            {editingPlan && (
+                <form className="admin-import-card admin-accounts-suspend" onSubmit={(event) => void changePlan(event)}>
+                    <h3>Type de compte de {editingPlan.account.email}</h3>
+                    <p className="admin-import-hint">
+                        Actuellement : {PLAN_LABELS[editingPlan.account.plan ?? "FREE"]}. Premium ou Pro est activé tout de
+                        suite, offert par LocalLife (une demande en attente pour cette offre est validée) ; Gratuit met fin à
+                        l'abonnement en cours. L'utilisateur est prévenu.
+                    </p>
+                    <label>
+                        Type de compte{" "}
+                        <select
+                            onChange={(event) => setEditingPlan({ ...editingPlan, plan: event.target.value as Plan })}
+                            value={editingPlan.plan}
+                        >
+                            <option value="FREE">Gratuit</option>
+                            <option value="PREMIUM">Premium</option>
+                            <option value="PRO">Pro</option>
+                        </select>
+                    </label>
+                    {editingPlan.plan !== "FREE" && (
+                        <label>
+                            Fin d'accès (facultative, dernier jour inclus){" "}
+                            <input
+                                onChange={(event) => setEditingPlan({ ...editingPlan, endsOn: event.target.value })}
+                                type="date"
+                                value={editingPlan.endsOn}
+                            />
+                        </label>
+                    )}
+                    <div className="admin-accounts-actions">
+                        <button className="admin-import-button" disabled={busy} type="submit">Appliquer</button>
+                        <button className="admin-import-button" disabled={busy} onClick={() => setEditingPlan(null)}
+                            type="button">
+                            Annuler
+                        </button>
+                    </div>
+                </form>
             )}
 
             {suspending && (

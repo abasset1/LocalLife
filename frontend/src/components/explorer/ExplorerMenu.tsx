@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { LEGAL_DOCUMENTS } from "../../legal/legalDocuments";
+import { canModerate } from "../../auth/roles";
 import type { ExplorerCurrentUser } from "./types";
 
 interface ExplorerMenuProps {
@@ -89,7 +90,7 @@ function ExplorerMenu({
                                     Espace professionnel
                                 </Link>
                             )}
-                            {currentUser.role === "ADMIN" && (
+                            {canModerate(currentUser.role) && (
                                 <Link className="explorer-menu-link" onClick={onClose} to="/admin">
                                     Administration
                                 </Link>
