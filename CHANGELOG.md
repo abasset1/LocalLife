@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Rôles et types de compte séparés : Pro devient un type de compte, nouveau rôle LocalLife
+- **Type de compte** (offre) : Gratuit, Premium ou Pro. **Rôle** : Utilisateur, LocalLife (équipe de modération) ou Administrateur. Le rôle `PRO` disparaît (migration `V81`).
+- **Migration** : un compte au rôle PRO attribué par un administrateur devient un **compte Pro sans échéance** (abonnement offert par LocalLife) et garde son espace professionnel ; un abonnement Premium en cours est remplacé. Un compte dont le rôle PRO venait d'une offre Pro garde son abonnement. Tous repassent au rôle Utilisateur ; la colonne `users.pro_role_source` est supprimée.
+- **Rôle LocalLife** : accès à la modération de l'administration (activités, lieux, rapprochements et doublons, demandes de gestion et modifications de lieux, food trucks, demandes d'offre Pro), sans les actions sensibles (comptes, rôles, types de compte, suppression et corbeille, imports, sources, catégories, e-mails, journal, retrait d'un abonnement). Contributions sans limite, comme un administrateur. Le site n'affiche à l'équipe que les sections de modération ; le lien « Administration » apparaît aussi pour elle sur le site et le mobile.
+- **Administration → Comptes** : colonnes **Rôle** et **Type de compte** ; boutons « Rôle LocalLife » / « Retirer LocalLife » et « Type de compte » (Gratuit, Premium ou Pro, avec une date de fin facultative) à la place de « Attribuer PRO ». Professionnels : « Passer en compte Pro » / « Repasser en compte Gratuit ».
+- **API** : `PATCH /api/v1/admin/accounts/{id}/role` accepte `USER` ou `LOCALLIFE` ; nouveau `PUT /api/v1/admin/accounts/{id}/plan` (`plan` : `FREE`, `PREMIUM` ou `PRO` ; `endsOn` facultatif), journalisé, l'utilisateur est prévenu ; un administrateur ne change pas son propre type de compte.
+
 ### Administration : l'offre de chaque compte (Gratuit, Premium, Pro)
 - Administration → Comptes : nouvelle colonne « Offre » à côté du rôle, avec une pastille Gratuit, Premium ou Pro. Un compte Premium n'apparaît plus seulement comme « Utilisateur » ; une demande d'offre Pro en attente est signalée (« Pro demandé »). La fiche d'un compte dans Professionnels affiche aussi son offre.
 - L'offre affichée est l'offre effective : abonnement actif, ou résilié jusqu'à la fin de sa période (même règle que les droits), sinon Gratuit.

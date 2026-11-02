@@ -8,13 +8,15 @@ import { CLAIM_STATUS_LABELS } from "../pro/types";
 import { PLAN_LABELS } from "../subscription/types";
 import type { Plan } from "../subscription/types";
 import { PlanBadge } from "./AdminAccountsSection";
+import { roleLabel } from "../../auth/roles";
+import type { Role } from "../../auth/roles";
 import type { AdminClaim, ClaimReview, ClaimStatus } from "../pro/types";
 
 interface UserAccount {
     id: number;
     username: string;
     email: string;
-    role: "USER" | "PRO" | "ADMIN";
+    role: Role;
     plan?: Plan;
     requestedPlan?: Exclude<Plan, "FREE"> | null;
 }
@@ -40,7 +42,9 @@ interface AdminFoodTruck {
  * d'une demande montre son historique, les demandes concurrentes sur le même lieu et ses gestionnaires actuels ;
  * refuser ou demander des informations exige un motif, visible du demandeur.
  */
-function AdminProSection({ onPendingSubscriptionsChange }: {
+function AdminProSection({ canManageAccounts = true, onPendingSubscriptionsChange }: {
+    /** Recherche d'un compte et type de compte : administrateurs seulement (l'équipe LocalLife modère). */
+    canManageAccounts?: boolean;
     /** Nombre de demandes d'offre Pro en attente, pour la pastille de l'onglet « Professionnels ». */
     onPendingSubscriptionsChange?: (count: number) => void;
 } = {}) {
@@ -98,14 +102,14 @@ function AdminProSection({ onPendingSubscriptionsChange }: {
         setAccountMessage(result.ok ? (found ? null : "Aucun compte avec cet email.") : result.message);
     }
 
-    async function changeRole(role: "USER" | "PRO") {
+    async function changePlan(plan: Plan) {
         if (!account) {
             return;
         }
-        const result = await proRequest<UserAccount>(`/api/v1/admin/accounts/${account.id}/role`, "PATCH", { role });
+        const result = await proRequest<UserAccount>(`/api/v1/admin/accounts/${account.id}/plan`, "PUT", { plan });
         if (result.ok) {
             setAccount(result.data);
-            setAccountMessage(role === "PRO" ? "Compte professionnel activé." : "Rôle professionnel retiré.");
+            setAccountMessage(plan === "PRO" ? "Compte Pro activé, sans échéance." : "Compte repassé en Gratuit.");
         } else {
             setAccountMessage(result.message);
         }
@@ -149,7 +153,12 @@ function AdminProSection({ onPendingSubscriptionsChange }: {
 
             <AdminSubscriptionsSection onPendingCountChange={onPendingSubscriptionsChange} />
 
+            {canManageAccounts && (<>
             <h3>Comptes professionnels</h3>
+            <p className="activities-status">
+                Pro est un type de compte (offre), pas un rôle : ici, il est donné sans échéance. Pour une date de fin ou
+                Premium, passer par Comptes → « Type de compte ».
+            </p>
             <form className="contribution-form" onSubmit={(event) => void findAccount(event)}>
                 <div className="form-field">
                     <label htmlFor="pro-account-email">Email du compte</label>
@@ -163,20 +172,20 @@ function AdminProSection({ onPendingSubscriptionsChange }: {
                     <div className="admin-activity-header">
                         <h3>{account.username}</h3>
                         <span>
-                            {account.role} · <PlanBadge plan={account.plan ?? "FREE"} />
+                            {roleLabel(account.role)} · <PlanBadge plan={account.plan ?? "FREE"} />
                             {account.requestedPlan ? ` · ${PLAN_LABELS[account.requestedPlan]} demandé` : ""}
                         </span>
                     </div>
                     <p className="admin-activity-description">{account.email}</p>
                     {account.role !== "ADMIN" && (
                         <div className="admin-activity-actions">
-                            {account.role === "USER" ? (
-                                <button className="admin-approve-button" onClick={() => void changeRole("PRO")} type="button">
-                                    Activer le compte professionnel
+                            {account.plan !== "PRO" ? (
+                                <button className="admin-approve-button" onClick={() => void changePlan("PRO")} type="button">
+                                    Passer en compte Pro
                                 </button>
                             ) : (
-                                <button className="admin-reject-button" onClick={() => void changeRole("USER")} type="button">
-                                    Retirer le rôle professionnel
+                                <button className="admin-reject-button" onClick={() => void changePlan("FREE")} type="button">
+                                    Repasser en compte Gratuit
                                 </button>
                             )}
                         </div>
@@ -184,6 +193,7 @@ function AdminProSection({ onPendingSubscriptionsChange }: {
                 </div>
             )}
             {accountMessage && <p className="activities-status" role="status">{accountMessage}</p>}
+            </>)}
 
 
             <h3>Food trucks</h3>

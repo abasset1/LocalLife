@@ -79,31 +79,37 @@ class ProSpaceIntegrationTest {
     }
 
     @Test
-    void proRole_ShouldBeGrantedByAnAdmin_AndTakeEffectWithoutNewLogin() throws Exception {
+    void proAccountType_ShouldBeGrantedByAnAdmin_AndTakeEffectWithoutNewLogin() throws Exception {
         Long admin = user("ADMIN");
         Long user = user("USER");
         String email = jdbcTemplate.queryForObject("SELECT email FROM users WHERE id = ?", String.class, user);
-        // Jeton délivré avant l'attribution du rôle : le rôle est relu en base.
+        // Jeton délivré avant le changement : le type de compte et le rôle sont relus en base.
         String oldToken = token(user, "USER");
 
-        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", oldToken, Map.of("role", "PRO"), 403);
+        call(HttpMethod.PUT, "/api/v1/admin/accounts/" + user + "/plan", oldToken, Map.of("plan", "PRO"), 403);
         assertThat(call(HttpMethod.GET, "/api/v1/admin/accounts?q=" + email, token(admin, "ADMIN"), null, 200)
                 .get("items").get(0).get("id").asLong()).isEqualTo(user);
-        // Transitions interdites : 403 depuis le sprint « Rôles et comptes » (400 auparavant), voir
-        // ROLES_ET_PERMISSIONS.md ; un rôle inconnu reste 400.
+        // Rôles (décision du 02/11/2026) : USER ↔ LOCALLIFE seulement ; ADMIN interdit (403), PRO n'est plus un rôle.
         call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", token(admin, "ADMIN"),
                 Map.of("role", "ADMIN"), 403);
         call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + admin + "/role", token(admin, "ADMIN"),
-                Map.of("role", "PRO"), 403);
+                Map.of("role", "LOCALLIFE"), 403);
         call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", token(admin, "ADMIN"),
-                Map.of("role", "CHEF"), 400);
-        assertThat(call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", token(admin, "ADMIN"),
-                Map.of("role", "pro"), 200).get("role").asText()).isEqualTo("PRO");
+                Map.of("role", "PRO"), 400);
+        call(HttpMethod.PUT, "/api/v1/admin/accounts/" + user + "/plan", token(admin, "ADMIN"),
+                Map.of("plan", "CHEF"), 400);
+        call(HttpMethod.PUT, "/api/v1/admin/accounts/" + admin + "/plan", token(admin, "ADMIN"),
+                Map.of("plan", "PRO"), 403);
+        call(HttpMethod.GET, "/api/v1/pro/claims", oldToken, null, 403);
 
+        JsonNode pro = call(HttpMethod.PUT, "/api/v1/admin/accounts/" + user + "/plan", token(admin, "ADMIN"),
+                Map.of("plan", "pro"), 200);
+        assertThat(pro.get("role").asText()).isEqualTo("USER");
+        assertThat(pro.get("plan").asText()).isEqualTo("PRO");
         call(HttpMethod.GET, "/api/v1/pro/claims", oldToken, null, 200);
 
-        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + user + "/role", token(admin, "ADMIN"),
-                Map.of("role", "USER"), 200);
+        call(HttpMethod.PUT, "/api/v1/admin/accounts/" + user + "/plan", token(admin, "ADMIN"),
+                Map.of("plan", "FREE"), 200);
         call(HttpMethod.GET, "/api/v1/pro/claims", oldToken, null, 403);
     }
 
@@ -369,7 +375,12 @@ class ProSpaceIntegrationTest {
         String unique = UUID.randomUUID().toString().substring(0, 12);
         Long id = jdbcTemplate.queryForObject("INSERT INTO users (username, email, role, created_at, email_verified) "
                 + "VALUES (?, ?, ?, now(), true) RETURNING id", Long.class, "pro-" + unique,
-                "pro-" + unique + "@example.com", role);
+                "pro-" + unique + "@example.com", "PRO".equals(role) ? "USER" : role);
+        // Ancien rôle PRO (V81) : un compte de type Pro, abonnement Pro en cours sans échéance.
+        if ("PRO".equals(role)) {
+            jdbcTemplate.update("INSERT INTO subscription (user_id, plan, status, provider, current_period_start) "
+                    + "VALUES (?, 'PRO', 'ACTIVE', 'MANUAL', now())", id);
+        }
         userIds.add(id);
         return id;
     }

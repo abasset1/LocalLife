@@ -88,20 +88,19 @@ class ProAccountRulesIntegrationTest {
     }
 
     @Test
-    void theProOffer_ShouldDriveTheRole_AndItsEnd_ShouldHideThenRestoreTheProContent() throws Exception {
+    void theProOffer_ShouldOpenTheProSpace_AndItsEnd_ShouldHideThenRestoreTheProContent() throws Exception {
         long userId = user("USER");
         String pro = token(userId, "USER");
         String admin = token(user("ADMIN"), "ADMIN");
         assertThat(call(HttpMethod.GET, ME, pro, null, 200).get("hasProAccess").asBoolean()).isFalse();
 
-        // Demande puis validation : le compte devient PRO, prévenu par e-mail.
+        // Demande puis validation : le compte devient de type Pro (son rôle reste USER), prévenu par e-mail.
         long first = approvePro(userId, pro, admin);
-        assertThat(roleState(userId)).isEqualTo("PRO/SUBSCRIPTION");
+        assertThat(role(userId)).isEqualTo("USER");
         assertThat(call(HttpMethod.GET, ME, pro, null, 200).get("hasProAccess").asBoolean()).isTrue();
         verify(emailService, atLeastOnce()).sendProDecisionEmail(anyString(), contains("Pro"), anyString());
 
-        // Un rôle issu de l'offre ne se retire pas à la main ; Premium ne remplace pas une offre Pro en cours.
-        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + userId + "/role", admin, Map.of("role", "USER"), 409);
+        // Premium ne remplace pas une offre Pro en cours.
         call(HttpMethod.POST, ME + "/subscription/subscribe", pro, Map.of("plan", "PREMIUM"), 409);
 
         // Contenus professionnels : un food truck publié, un lieu géré, une demande de gestion en cours.
@@ -112,10 +111,10 @@ class ProAccountRulesIntegrationTest {
         long claim = call(HttpMethod.POST, "/api/v1/pro/places/" + claimed + "/claims", pro,
                 Map.of("relationship", "Gérant"), 201).get("id").asLong();
 
-        // Fin de l'accès (retrait par l'équipe) : rôle retiré, food truck masqué, droits révoqués, demande retirée.
+        // Fin de l'accès (retrait par l'équipe) : food truck masqué, droits révoqués, demande retirée.
         call(HttpMethod.POST, "/api/v1/admin/subscriptions/" + first + "/revoke", admin, Map.of("reason", "Test"),
                 200);
-        assertThat(roleState(userId)).isEqualTo("USER/-");
+        assertThat(call(HttpMethod.GET, ME, pro, null, 200).get("hasProAccess").asBoolean()).isFalse();
         call(HttpMethod.GET, "/api/v1/foodtrucks/" + truck, null, null, 404);
         assertThat(managerActive(managed, userId)).isFalse();
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM place_claim WHERE id = ?", String.class, claim))
@@ -138,16 +137,22 @@ class ProAccountRulesIntegrationTest {
     }
 
     @Test
-    void aRoleGrantedByAnAdmin_ShouldNotDependOnTheOffer_AndItsRemoval_ShouldEndTheAccess() throws Exception {
+    void aProAccountTypeChosenByAnAdmin_ShouldOpenTheProSpace_AndGoingBackToFree_ShouldEndTheAccess()
+            throws Exception {
         long userId = user("USER");
         String admin = token(user("ADMIN"), "ADMIN");
-        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + userId + "/role", admin, Map.of("role", "PRO"), 200);
-        assertThat(roleState(userId)).isEqualTo("PRO/ADMIN");
+        JsonNode account = call(HttpMethod.PUT, "/api/v1/admin/accounts/" + userId + "/plan", admin,
+                Map.of("plan", "PRO"), 200);
+        assertThat(account.get("plan").asText()).isEqualTo("PRO");
+        assertThat(role(userId)).isEqualTo("USER");
+        // Sans date de fin : abonnement Pro sans échéance, offert par LocalLife.
+        assertThat(jdbcTemplate.queryForObject("SELECT provider || '/' || COALESCE(current_period_end::text, '-') "
+                + "FROM subscription WHERE user_id = ? AND status = 'ACTIVE'", String.class, userId))
+                .isEqualTo("MANUAL/-");
         long managed = place("PUBLISHED");
         grantManager(managed, userId);
 
-        call(HttpMethod.PATCH, "/api/v1/admin/accounts/" + userId + "/role", admin, Map.of("role", "USER"), 200);
-        assertThat(roleState(userId)).isEqualTo("USER/-");
+        call(HttpMethod.PUT, "/api/v1/admin/accounts/" + userId + "/plan", admin, Map.of("plan", "FREE"), 200);
         assertThat(managerActive(managed, userId)).isFalse();
     }
 
@@ -163,7 +168,7 @@ class ProAccountRulesIntegrationTest {
         OffsetDateTime end = OffsetDateTime.parse(overview.get("current").get("accessEndsAt").asText());
         assertThat(end.atZoneSameInstant(ZoneId.of("Europe/Paris")).getDayOfMonth()).isEqualTo(1);
         assertThat(end).isAfter(OffsetDateTime.now());
-        assertThat(roleState(userId)).isEqualTo("PRO/SUBSCRIPTION");
+        assertThat(role(userId)).isEqualTo("USER");
     }
 
     @Test
@@ -300,9 +305,8 @@ class ProAccountRulesIntegrationTest {
         return truck;
     }
 
-    private String roleState(long userId) {
-        return jdbcTemplate.queryForObject("SELECT role || '/' || COALESCE(pro_role_source, '-') FROM users "
-                + "WHERE id = ?", String.class, userId);
+    private String role(long userId) {
+        return jdbcTemplate.queryForObject("SELECT role FROM users WHERE id = ?", String.class, userId);
     }
 
     private boolean managerActive(long placeId, long userId) {
@@ -333,7 +337,12 @@ class ProAccountRulesIntegrationTest {
         String unique = UUID.randomUUID().toString().substring(0, 12);
         Long id = jdbcTemplate.queryForObject("INSERT INTO users (username, email, role, created_at, email_verified) "
                 + "VALUES (?, ?, ?, now(), true) RETURNING id", Long.class, "pr-" + unique,
-                "pr-" + unique + "@example.com", role);
+                "pr-" + unique + "@example.com", "PRO".equals(role) ? "USER" : role);
+        // Ancien rôle PRO (V81) : un compte de type Pro, abonnement Pro en cours sans échéance.
+        if ("PRO".equals(role)) {
+            jdbcTemplate.update("INSERT INTO subscription (user_id, plan, status, provider, current_period_start) "
+                    + "VALUES (?, 'PRO', 'ACTIVE', 'MANUAL', now())", id);
+        }
         userIds.add(id);
         return id;
     }

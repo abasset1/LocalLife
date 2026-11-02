@@ -1,9 +1,7 @@
 package com.locallife.backend.user.application;
 
 import com.locallife.backend.admin.application.AdminActionLog;
-import com.locallife.backend.pro.application.ProAccessChanged;
 import com.locallife.backend.pro.infrastructure.ProAccountRepository;
-import com.locallife.backend.pro.infrastructure.ProAccountRepository.ProRoleSource;
 import com.locallife.backend.user.domain.AccountStatus;
 import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.infrastructure.AccountAuditRepository;
@@ -136,8 +134,10 @@ public class AccountAdministrationService {
     // --- Rôle ---
 
     /**
-     * Bascule {@code USER} ↔ {@code PRO}, attribution manuelle indépendante de l'offre Pro. Sans effet (et sans
-     * erreur) si le compte a déjà ce rôle.
+     * Bascule {@code USER} ↔ {@code LOCALLIFE} (équipe LocalLife, modération) ; le rôle {@code ADMIN} ne s'attribue
+     * pas depuis l'application, et un administrateur n'est jamais modifié. Le type de compte (Gratuit, Premium, Pro)
+     * se change à part ({@code SubscriptionService#changePlanByAdmin}). Sans effet (et sans erreur) si le compte a déjà
+     * ce rôle.
      *
      * @throws AccountActionException 400 rôle inconnu, 403 transition interdite, 404 compte inconnu
      */
@@ -148,7 +148,7 @@ public class AccountAdministrationService {
             role = Role.valueOf(requested == null ? "" : requested);
         } catch (IllegalArgumentException exception) {
             throw refuse(actor, targetId, ROLE_CHANGE, null, requested, null,
-                    AccountActionException.badRequest("Rôle inconnu : USER ou PRO."));
+                    AccountActionException.badRequest("Rôle inconnu : USER ou LOCALLIFE."));
         }
         Account target = requireTarget(actor, targetId, ROLE_CHANGE, role.name(), null);
         if (role == Role.ADMIN) {
@@ -160,18 +160,7 @@ public class AccountAdministrationService {
         if (target.role() == role) {
             return target;
         }
-        boolean fromSubscription = proAccountRepository.findRoleState(targetId)
-                .filter(state -> state.source() == ProRoleSource.SUBSCRIPTION).isPresent();
-        if (role == Role.USER && fromSubscription) {
-            throw refuse(actor, targetId, ROLE_CHANGE, target.role().name(), role.name(), null,
-                    AccountActionException.conflict("Ce rôle découle d'une offre Pro en cours : retire l'abonnement "
-                            + "pour le retirer."));
-        }
         userService.changeRole(targetId, role);
-        // Rôle PRO attribué à la main : il ne dépend d'aucun abonnement (décision du 22/10/2026). Retiré, il
-        // emporte l'accès professionnel, sauf offre Pro en cours.
-        proAccountRepository.setRole(targetId, role, role == Role.PRO ? ProRoleSource.ADMIN : null);
-        events.publishEvent(new ProAccessChanged(targetId));
         record(actor, targetId, ROLE_CHANGE, target.role().name(), role.name(), null, "SUCCESS", null);
         LOGGER.info("Rôle du compte {} : {} → {} (par le compte {})", targetId, target.role(), role, actor.userId());
         return accountRepository.findById(targetId).orElseThrow();

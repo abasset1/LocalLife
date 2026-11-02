@@ -1,6 +1,5 @@
 package com.locallife.backend.subscription.application;
 
-import com.locallife.backend.user.domain.Role;
 import com.locallife.backend.user.infrastructure.AccountRepository;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -15,7 +14,8 @@ import org.springframework.stereotype.Service;
  *       de suivi d'activité ou de lieu ;</li>
  *   <li>Premium : favoris illimités, {@value #PAID_MAX_ALERTS} alertes, {@value #PREMIUM_MONTHLY_CONTRIBUTIONS}
  *       nouvelles contributions par mois civil (heure de Paris), les contributions refusées ne comptant pas ;</li>
- *   <li>Pro (offre ou rôle) et administrateur : favoris illimités, {@value #PAID_MAX_ALERTS} alertes, contributions
+ *   <li>Pro (type de compte), équipe LocalLife et administrateur : favoris illimités,
+ *       {@value #PAID_MAX_ALERTS} alertes, contributions
  *       illimitées.</li>
  * </ul>
  * Suivre une activité ou un lieu (cloche « Suivre », être prévenu de ses mises à jour) et personnaliser ses alertes
@@ -146,7 +146,7 @@ public class PlanLimits {
 
     private Tier tier(Long userId) {
         boolean byRole = accountRepository.findAccess(userId)
-                .map(access -> access.role() == Role.PRO || access.role() == Role.ADMIN).orElse(false);
+                .map(access -> access.role().isStaff()).orElse(false);
         if (byRole) {
             return Tier.UNLIMITED;
         }

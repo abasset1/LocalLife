@@ -337,7 +337,7 @@ export default function CompteScreen() {
                 <MenuRow
                   icon={{ ios: 'lock.shield', android: 'admin_panel_settings', web: 'admin_panel_settings' }}
                   label="Administration (site web)"
-                  description="Comptes, modération et imports, sur le site"
+                  description={serverRole === 'ADMIN' ? 'Comptes, modération et imports, sur le site' : 'Modération, sur le site'}
                   onPress={() => void openAdministration()}
                   last
                 />

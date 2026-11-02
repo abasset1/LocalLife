@@ -42,7 +42,11 @@ public class ImportedActivityContactNoticeRepository {
                   WHERE n.email = lower(trim(l.value)) AND n.sent_at > now() - make_interval(days => ?))
               AND NOT EXISTS (
                   SELECT 1 FROM users u
-                  WHERE lower(u.email) = lower(trim(l.value)) AND u.role IN ('PRO', 'ADMIN'))
+                  WHERE lower(u.email) = lower(trim(l.value))
+                    AND (u.role = 'ADMIN' OR EXISTS (
+                        SELECT 1 FROM subscription s
+                        WHERE s.user_id = u.id AND s.plan = 'PRO' AND s.status IN ('ACTIVE', 'CANCELED')
+                          AND (s.current_period_end IS NULL OR s.current_period_end > now()))))
             ORDER BY email, a.start_date NULLS LAST, a.id
             LIMIT ?
             """;

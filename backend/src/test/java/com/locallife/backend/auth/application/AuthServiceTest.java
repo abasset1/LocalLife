@@ -247,7 +247,7 @@ class AuthServiceTest {
 
     @Test
     void login_ShouldRefuseASuspendedAccount_WithoutIssuingAToken() {
-        User user = new User(1L, "bob", "bob@example.com", "hash", Role.PRO, LocalDateTime.now(), true);
+        User user = new User(1L, "bob", "bob@example.com", "hash", Role.LOCALLIFE, LocalDateTime.now(), true);
         when(userRepository.findByEmail("bob@example.com")).thenReturn(Optional.of(user));
         when(passwordHashingService.matches("motDePasse123", "hash")).thenReturn(true);
         when(accountRepository.findStatus(1L)).thenReturn(Optional.of(AccountStatus.SUSPENDED));

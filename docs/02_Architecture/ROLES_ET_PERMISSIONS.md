@@ -4,21 +4,23 @@ Matrice de référence (sprint « Rôles, permissions et gestion des comptes »,
 ce que le **serveur** autorise ; le site et l'application mobile n'en sont que le reflet. Aucune décision d'accès
 n'est prise par une interface seule.
 
-## 1. Rôles techniques et offres commerciales : deux notions distinctes
+## 1. Rôles et types de compte : deux notions distinctes (décision du 02/11/2026)
 
 | Notion | Valeurs | Où | Qui la change | Ce qu'elle ouvre |
 |---|---|---|---|---|
-| **Rôle** (accès technique) | `USER`, `PRO`, `ADMIN` | `users.role` (+ `users.pro_role_source`, V71) | `USER` à l'inscription ; `PRO` posé par la validation de l'offre Pro et retiré à sa fin, ou attribué à la main par un administrateur ; `ADMIN` uniquement par procédure d'exploitation (§ 5) | Routes protégées (§ 3) |
+| **Rôle** (ce que le compte peut faire) | `USER` (utilisateur), `LOCALLIFE` (équipe LocalLife), `ADMIN` (administrateur) | `users.role` (contrainte `chk_users_role`, V81) | `USER` à l'inscription ; `LOCALLIFE` donné ou retiré par un administrateur (Comptes → « Rôle LocalLife ») ; `ADMIN` uniquement par procédure d'exploitation (§ 5) | Routes protégées (§ 3) ; `LOCALLIFE` : la modération |
+| **Type de compte** (offre) | `FREE` (Gratuit), `PREMIUM`, `PRO` | `subscription` (V67, ADR-0014) | L'utilisateur souscrit Premium ou demande Pro, l'équipe valide ; un administrateur peut aussi le choisir (Comptes → « Type de compte », date de fin facultative) | Avantages de l'offre ; le compte Pro ouvre l'espace professionnel |
 | **Statut** du compte | `ACTIVE`, `SUSPENDED` | `users.account_status` (V69) | Un administrateur (suspension motivée, réactivation) | `SUSPENDED` : plus de connexion ni de route authentifiée |
-| **Offre** (commerciale) | `FREE`, `PREMIUM`, `PRO` | `subscription` (V67, ADR-0014) | L'utilisateur demande, l'équipe active | Avantages de l'offre ; l'offre Pro ouvre l'espace professionnel |
 
-* Un abonnement, quel qu'il soit, ne donne **jamais** de droit d'administration.
-* **L'offre Pro pilote le rôle** (décision du 22/10/2026) : sa validation donne le rôle `PRO`
-  (`pro_role_source = SUBSCRIPTION`), sa fin le retire. Un administrateur peut aussi attribuer `PRO` à la main
-  (`pro_role_source = ADMIN`, partenaire, gratuité) : ce rôle-là ne dépend d'aucun abonnement. Les interfaces ne
-  consultent qu'un indicateur, `hasProAccess` (`GET /api/v1/users/me`).
-* La carte, les listes et les fiches restent consultables gratuitement, sans compte et quelle que soit l'offre.
-* Pas de rôle `MODERATOR` ni `SUPERADMIN` : à introduire dans un sprint dédié, avec sa propre matrice et sa migration.
+* **Pro n'est plus un rôle** (V81) : c'est un type de compte. Les anciens comptes au rôle `PRO` attribué par un
+  administrateur sont devenus des comptes Pro sans échéance (abonnement offert, `provider = MANUAL`) ; ceux dont le
+  rôle découlait d'une offre Pro gardent leur abonnement. Tous ont le rôle `USER`. La colonne
+  `users.pro_role_source` (V71) est supprimée.
+* Un type de compte, quel qu'il soit, ne donne **jamais** de droit d'administration ; un rôle ne donne pas d'offre.
+* L'espace professionnel s'ouvre à un compte Pro (offre en cours, jusqu'à son échéance exacte) et à un
+  administrateur. Les interfaces ne consultent qu'un indicateur, `hasProAccess` (`GET /api/v1/users/me`).
+* Équipe LocalLife et administrateur contribuent sans limite d'offre (comme Pro).
+* La carte, les listes et les fiches restent consultables gratuitement, sans compte et quel que soit le type de compte.
 
 ## 2. Comment le serveur décide
 
@@ -27,8 +29,8 @@ n'est prise par une interface seule.
    sprint, un administrateur rétrogradé gardait ses droits jusqu'à l'expiration de son jeton).
 2. Compte introuvable ou suspendu : **401** (message explicite). Les clients effacent alors le jeton et continuent en
    visiteur.
-3. Règles par chemin dans `SecurityConfig` (`authenticated()` / `hasRole("ADMIN")`, filet de sécurité
-   `/api/v1/admin/** → ADMIN`), puis règles métier dans les services (propriétaire d'une activité, accès pro, un
+3. Règles par chemin dans `SecurityConfig` (`authenticated()` / `hasRole("ADMIN")` / `hasAnyRole(MODERATORS)` pour
+   la modération, filet de sécurité `/api/v1/admin/** → ADMIN`), puis règles métier dans les services (propriétaire d'une activité, accès pro, un
    administrateur ne modère pas sa propre demande...).
 
 ## 3. Matrice des permissions
@@ -36,7 +38,10 @@ n'est prise par une interface seule.
 Légende : ✅ autorisé · ❌ refusé (401 sans jeton, 403 avec un rôle insuffisant) · 🔒 autorisé sous condition métier
 vérifiée côté serveur.
 
-| Domaine (endpoints) | Visiteur | USER | PRO | ADMIN |
+Les droits liés au type de compte (Premium, Pro) sont notés « 🔒 compte Pro » ou « 🔒 offre Premium ou Pro » dans la
+colonne USER.
+
+| Domaine (endpoints) | Visiteur | USER | LOCALLIFE | ADMIN |
 |---|---|---|---|---|
 | Consultation : activités, lieux, food trucks, catégories, référentiels (`GET /api/v1/activities`, `/places`, `/foodtrucks`, `/categories`...) — liste exacte au § 3 bis | ✅ | ✅ | ✅ | ✅ |
 | Liste interne des sources (`GET /api/v1/sources/**`) | ❌ | ❌ | ❌ | ✅ |
@@ -44,15 +49,16 @@ vérifiée côté serveur.
 | Inscription, connexion, mot de passe oublié, confirmation d'e-mail (`/api/v1/auth/**`) | ✅ | ✅ | ✅ | ✅ |
 | Profil et préférences (`GET/PATCH /api/v1/users/me`, `/me/preferences`, `/me/alerts`, `/me/likes`, `/me/push-tokens`) | ❌ | ✅ | ✅ | ✅ |
 | Rôle, statut ou offre de son propre compte | ❌ | ❌ (champs ignorés par `PATCH /me`) | ❌ | ❌ |
-| Proposer une activité, modifier la sienne (`POST /activities`, `PUT /activities/{id}`) | ❌ | 🔒 offre Premium ou Pro, propriétaire | 🔒 propriétaire | ✅ toutes |
+| Proposer une activité, modifier la sienne (`POST /activities`, `PUT /activities/{id}`) | ❌ | 🔒 offre Premium ou Pro, propriétaire | 🔒 propriétaire, sans limite | ✅ toutes |
 | Annuler / supprimer sa contribution (`PATCH /activities/{id}/cancel`, `DELETE /activities/{id}`) | ❌ | 🔒 propriétaire | 🔒 propriétaire | ✅ toutes |
 | Mot de passe, adresse e-mail confirmée, suppression de son compte (`/api/v1/users/me/password`, `PATCH /me`, `/me/deletion`) | ❌ | ✅ | ✅ | ✅ (sauf suppression) |
-| Food trucks : création et gestion (`/api/v1/pro/foodtrucks/**`, l'ancien `POST /api/v1/foodtrucks` est retiré) | ❌ | ❌ | 🔒 propriétaire, 1re publication validée | ✅ (sans valider les siens) |
+| Food trucks : création et gestion (`/api/v1/pro/foodtrucks/**`, l'ancien `POST /api/v1/foodtrucks` est retiré) | ❌ | 🔒 compte Pro, propriétaire, 1re publication validée | 🔒 compte Pro | ✅ (sans valider les siens) |
 | Abonnement (`/api/v1/users/me/subscription/**`) | ❌ | ✅ | ✅ | ✅ |
-| Espace professionnel (`/api/v1/pro/**`) | ❌ | ❌ (403 ; l'offre Pro validée donne le rôle PRO) | ✅ | ✅ (sans valider ses propres contenus) |
+| Espace professionnel (`/api/v1/pro/**`) | ❌ | 🔒 compte Pro (403 sinon) | 🔒 compte Pro | ✅ (sans valider ses propres contenus) |
 | Comptes ciblés (`GET /api/v1/users/{id}`, `POST /api/v1/users`) | ❌ | ❌ | ❌ | ✅ |
 | Gestion des sources (`POST/PUT/DELETE /api/v1/sources/**`) | ❌ | ❌ | ❌ | ✅ |
-| Toute l'administration (`/api/v1/admin/**` : modération, lieux, imports, catégories, e-mails, suppression, professionnels, abonnements, **comptes**) | ❌ | ❌ | ❌ | ✅ |
+| Modération (`GET /admin/activities`, publier/refuser une activité ; `/admin/places/**` hors imports, `/admin/place-claims/**`, `/admin/place-changes/**`, `/admin/foodtrucks/**` ; demandes d'offre : `GET /admin/subscriptions`, `approve`, `reject`) | ❌ | ❌ | ✅ | ✅ |
+| Reste de l'administration (`/api/v1/admin/**` : **comptes, rôles, types de compte**, suppression et corbeille, imports d'activités et de lieux, catégories, e-mails, journal, retrait d'un abonnement) | ❌ | ❌ | ❌ | ✅ |
 
 Vérifié par les tests d'intégration (`AccountAdministrationIntegrationTest`, `ProSpaceIntegrationTest`,
 `AdminActivityControllerIntegrationTest`, `AdminImportControllerIntegrationTest`, `AgendaDiscoveryIntegrationTest`,
@@ -119,12 +125,12 @@ passer à Premium). `GET /api/v1/users/me` expose `canContribute` pour que les i
 Vérifié par `AccountSelfServiceIntegrationTest`, `ContributionManagementIntegrationTest`,
 `SubscriptionIntegrationTest`, `AuthenticationFlowIntegrationTest` et `ActivityControllerTest`.
 
-### Professionnel (rôle PRO, offre Pro ou attribution) — décidé le 22/10/2026
+### Professionnel (type de compte Pro) — décidé le 22/10/2026, révisé le 02/11/2026
 
-**Accès.** L'offre Pro, demandée par l'utilisateur et validée par l'équipe, donne le rôle `PRO` ; sa fin
-(résiliation échue, retrait par l'équipe, expiration) le retire. Un administrateur peut attribuer `PRO` à la main,
-indépendamment de tout abonnement ; il ne peut pas retirer un rôle qui découle d'une offre en cours (409 : retirer
-l'abonnement). `ProAccessPolicy` décide à chaque requête ; `hasProAccess` le reflète pour les interfaces.
+**Accès.** Un compte Pro : l'offre Pro, demandée par l'utilisateur et validée par l'équipe, ou choisie par un
+administrateur (Comptes → « Type de compte », avec une date de fin facultative ; `PUT /api/v1/admin/accounts/{id}/plan`).
+Sa fin (résiliation échue, retrait par l'équipe, expiration, passage en Gratuit) ferme l'espace professionnel. Il n'y a
+plus de rôle `PRO` (V81). `ProAccessPolicy` décide à chaque requête ; `hasProAccess` le reflète pour les interfaces.
 
 **Peut, en plus de tout ce que fait un utilisateur connecté :**
 
@@ -276,11 +282,13 @@ L'API ne crée, ne promeut, ne rétrograde ni ne suspend jamais un administrateu
 
 ## 6. Interfaces
 
-* **Site** : Administration → **Comptes** (recherche, filtres rôle et statut, pagination, attribuer/retirer PRO,
-  suspendre avec motif, réactiver, historique par compte). L'écran d'administration n'est accessible qu'à un
-  administrateur, mais l'API reste seule juge.
+* **Site** : Administration → **Comptes** (recherche, filtres rôle et statut, pagination ; colonnes **Rôle** et
+  **Type de compte** ; donner ou retirer le rôle LocalLife, changer le type de compte, suspendre avec motif,
+  réactiver, historique par compte). L'administration est ouverte à un administrateur (toutes les sections) et à
+  l'équipe LocalLife (Modération des activités, Lieux, Rapprochements, Doublons de lieux, Professionnels sans la
+  gestion des comptes) ; l'API reste seule juge.
 * **Application mobile** (MOB-01) : décision de **ne pas** embarquer d'administration native. Un administrateur voit,
   dans Compte, une entrée « Administration (site web) » qui ouvre la console du site (même domaine que l'API). Elle
-  n'apparaît que si `GET /api/v1/users/me` (rôle relu en base) répond `ADMIN` ; aucune logique de permission n'est
+  n'apparaît que si `GET /api/v1/users/me` (rôle relu en base) répond `ADMIN` ou `LOCALLIFE` ; aucune logique de permission n'est
   dupliquée dans l'application. Un compte suspendu reçoit 401 et sa session est fermée ; la connexion affiche le
   message du serveur (423).

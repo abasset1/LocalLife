@@ -70,7 +70,8 @@ describe("AdminAccountsSection", () => {
         const lou = screen.getByText("lou").closest("tr") as HTMLElement;
         expect(within(lou).getByText("Gratuit")).toBeInTheDocument();
         expect(within(lou).getByText("Pro demandé")).toBeInTheDocument();
-        expect(screen.getByRole("columnheader", { name: "Offre" })).toBeInTheDocument();
+        expect(screen.getByRole("columnheader", { name: "Rôle" })).toBeInTheDocument();
+        expect(screen.getByRole("columnheader", { name: "Type de compte" })).toBeInTheDocument();
     });
 
     it("affiche l'état vide", async () => {
@@ -85,13 +86,13 @@ describe("AdminAccountsSection", () => {
         render(<AdminAccountsSection />);
 
         await userEvent.type(screen.getByPlaceholderText("e-mail, nom ou identifiant"), "camille");
-        await userEvent.selectOptions(screen.getByLabelText(/Rôle/), "PRO");
+        await userEvent.selectOptions(screen.getByLabelText(/Rôle/), "LOCALLIFE");
         await userEvent.selectOptions(screen.getByLabelText(/Statut/), "SUSPENDED");
         await userEvent.click(screen.getByRole("button", { name: "Rechercher" }));
 
         await vi.waitFor(() =>
             expect(fetchMock).toHaveBeenCalledWith(
-                expect.stringContaining("/api/v1/admin/accounts?page=0&size=20&q=camille&role=PRO&status=SUSPENDED"),
+                expect.stringContaining("/api/v1/admin/accounts?page=0&size=20&q=camille&role=LOCALLIFE&status=SUSPENDED"),
                 expect.anything(),
             ),
         );
@@ -107,7 +108,8 @@ describe("AdminAccountsSection", () => {
 
         const row = (await screen.findByText("admin@example.com")).closest("tr") as HTMLElement;
         expect(within(row).queryByRole("button", { name: "Suspendre" })).not.toBeInTheDocument();
-        expect(within(row).queryByRole("button", { name: "Attribuer PRO" })).not.toBeInTheDocument();
+        expect(within(row).queryByRole("button", { name: "Rôle LocalLife" })).not.toBeInTheDocument();
+        expect(within(row).queryByRole("button", { name: "Type de compte" })).not.toBeInTheDocument();
         expect(within(row).getByRole("button", { name: "Historique" })).toBeInTheDocument();
     });
 
@@ -155,9 +157,40 @@ describe("AdminAccountsSection", () => {
         vi.stubGlobal("confirm", vi.fn(() => true));
         render(<AdminAccountsSection />);
 
-        await userEvent.click(await screen.findByRole("button", { name: "Attribuer PRO" }));
+        await userEvent.click(await screen.findByRole("button", { name: "Rôle LocalLife" }));
 
         expect(await screen.findByRole("alert")).toHaveTextContent("Le rôle ADMIN ne s'attribue pas");
+    });
+
+    it("donne le rôle LocalLife, et change le type de compte avec une date de fin facultative", async () => {
+        const fetchMock = stubFetch((url, init) => {
+            if (url.includes("/accounts/7/role") && init?.method === "PATCH") {
+                return json(account({ role: "LOCALLIFE" }));
+            }
+            if (url.includes("/accounts/7/plan") && init?.method === "PUT") {
+                return json(account({ plan: "PREMIUM" }));
+            }
+            if (url.includes("/api/v1/admin/accounts?")) {
+                return json({ items: [account({ plan: "FREE" })], total: 1, page: 0, size: 20 });
+            }
+            return undefined;
+        });
+        vi.stubGlobal("confirm", vi.fn(() => true));
+        render(<AdminAccountsSection />);
+
+        await userEvent.click(await screen.findByRole("button", { name: "Rôle LocalLife" }));
+        expect(await screen.findByText("camille@example.com fait partie de l'équipe LocalLife.")).toBeInTheDocument();
+        const roleCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/role"));
+        expect(JSON.parse(String(roleCall?.[1]?.body))).toEqual({ role: "LOCALLIFE" });
+
+        await userEvent.click(screen.getByRole("button", { name: "Type de compte" }));
+        await userEvent.selectOptions(screen.getByLabelText("Type de compte"), "PREMIUM");
+        await userEvent.type(screen.getByLabelText(/Fin d'accès/), "2026-12-31");
+        await userEvent.click(screen.getByRole("button", { name: "Appliquer" }));
+
+        expect(await screen.findByText(/camille@example.com : compte Premium jusqu'au/)).toBeInTheDocument();
+        const planCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/plan"));
+        expect(JSON.parse(String(planCall?.[1]?.body))).toEqual({ plan: "PREMIUM", endsOn: "2026-12-31" });
     });
 
     it("affiche une erreur de chargement", async () => {

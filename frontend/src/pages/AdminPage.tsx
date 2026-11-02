@@ -15,6 +15,7 @@ import AdminProSection from "../components/admin/AdminProSection";
 import AdminActionLogSection from "../components/admin/AdminActionLogSection";
 import AdminTrashSection from "../components/admin/AdminTrashSection";
 import { proRequest } from "../components/pro/proApi";
+import { canModerate } from "../auth/roles";
 import { confirmHeaders, useConfirmDialog } from "../components/admin/useConfirmDialog";
 
 /**
@@ -128,6 +129,15 @@ const ADMIN_SECTIONS = [
 type AdminSection = (typeof ADMIN_SECTIONS)[number]["value"];
 
 /**
+ * Sections ouvertes à l'équipe LocalLife (rôle `LOCALLIFE`, décision du 02/11/2026) : la modération. Le reste
+ * (agendas, comptes, catégories, imports, e-mails, suppression, corbeille, journal) est réservé aux administrateurs,
+ * ce que le serveur vérifie de son côté.
+ */
+const MODERATION_SECTIONS: ReadonlySet<AdminSection> = new Set<AdminSection>([
+    "moderation", "places", "placeMatches", "placeDuplicates", "pro",
+]);
+
+/**
  * Statuts de modération formalisés en LL-6003 (voir la javadoc de
  * `Activity` côté backend) — trois valeurs, aucune autre n'existe.
  * Le point d'architecture demandé par LL-EF-004 (« prévoir un véritable
@@ -164,6 +174,9 @@ function matchesSourceSearch(source: Source, query: string): boolean {
 function AdminPage() {
     const navigate = useNavigate();
     const [activeSection, setActiveSection] = useState<AdminSection>(ADMIN_SECTIONS[0].value);
+    /** Administrateur (tout) ou équipe LocalLife (modération seulement). */
+    const isAdmin = getPayload()?.role === "ADMIN";
+    const visibleSections = ADMIN_SECTIONS.filter((section) => isAdmin || MODERATION_SECTIONS.has(section.value));
     /** Demandes d'offre Pro en attente : pastille sur l'onglet « Professionnels », visible dès l'arrivée. */
     const [pendingProRequests, setPendingProRequests] = useState(0);
 
@@ -235,7 +248,7 @@ function AdminPage() {
             navigate("/login");
             return;
         }
-        if (payload.role !== "ADMIN") {
+        if (!canModerate(payload.role)) {
             navigate("/");
         }
     }, [navigate]);
@@ -602,7 +615,7 @@ function AdminPage() {
             </header>
 
             <nav className="admin-tabs admin-section-tabs">
-                {ADMIN_SECTIONS.map((section) => (
+                {visibleSections.map((section) => (
                     <button
                         className={section.value === activeSection ? "admin-tab admin-tab-active" : "admin-tab"}
                         key={section.value}
@@ -701,14 +714,16 @@ function AdminPage() {
                                                     </button>
                                                 </>
                                             )}
-                                            <button
-                                                className="admin-delete-activity-button"
-                                                disabled={pendingActionId === activity.id}
-                                                onClick={() => void handleDeleteActivity(activity)}
-                                                type="button"
-                                            >
-                                                Supprimer
-                                            </button>
+                                            {isAdmin && (
+                                                <button
+                                                    className="admin-delete-activity-button"
+                                                    disabled={pendingActionId === activity.id}
+                                                    onClick={() => void handleDeleteActivity(activity)}
+                                                    type="button"
+                                                >
+                                                    Supprimer
+                                                </button>
+                                            )}
                                         </div>
                                     </li>
                                 ))}
@@ -996,7 +1011,7 @@ function AdminPage() {
 
             {activeSection === "places" && (
                 <main className="admin-content">
-                    <AdminPlacesSection />
+                    <AdminPlacesSection canImport={isAdmin} />
                 </main>
             )}
 
@@ -1008,7 +1023,7 @@ function AdminPage() {
 
             {activeSection === "pro" && (
                 <main className="admin-content">
-                    <AdminProSection onPendingSubscriptionsChange={setPendingProRequests} />
+                    <AdminProSection canManageAccounts={isAdmin} onPendingSubscriptionsChange={setPendingProRequests} />
                 </main>
             )}
 

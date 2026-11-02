@@ -15,7 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 /** Réponses des abonnements (BILLING-01, ADR-0014). */
-final class SubscriptionResponses {
+public final class SubscriptionResponses {
 
     private SubscriptionResponses() {
     }
@@ -57,7 +57,7 @@ final class SubscriptionResponses {
         }
     }
 
-    static ResponseEntity<Object> handle(HttpServletRequest request, Supplier<ResponseEntity<Object>> action) {
+    public static ResponseEntity<Object> handle(HttpServletRequest request, Supplier<ResponseEntity<Object>> action) {
         try {
             return action.get();
         } catch (ProActionException exception) {

@@ -277,7 +277,10 @@ class NonRegressionIntegrationTest {
         // l'équipe à sa première publication (22/10/2026).
         String email = uniqueEmail();
         String userToken = registerAndLoginAsUser(email);
-        jdbcTemplate.update("UPDATE users SET role = 'PRO' WHERE email = ?", email);
+        jdbcTemplate.update("UPDATE subscription SET status = 'REPLACED' WHERE status IN ('ACTIVE', 'CANCELED') "
+                + "AND user_id = (SELECT id FROM users WHERE email = ?)", email);
+        jdbcTemplate.update("INSERT INTO subscription (user_id, plan, status, provider, current_period_start) "
+                + "SELECT id, 'PRO', 'ACTIVE', 'MANUAL', now() FROM users WHERE email = ?", email);
         String name = cleaner.trackFoodTruck("Le Camion qui Fume " + UUID.randomUUID());
         long truck = OBJECT_MAPPER.readTree(proPost("/api/v1/pro/foodtrucks", userToken,
                 "{\"name\":\"" + name + "\",\"category\":\"burger\"}", 201)).get("id").asLong();

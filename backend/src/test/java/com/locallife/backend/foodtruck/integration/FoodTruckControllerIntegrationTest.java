@@ -83,12 +83,15 @@ class FoodTruckControllerIntegrationTest {
     }
 
     /**
-     * Compte professionnel (PRO-01 lot C) : la création d'un food truck lui est réservée. Le rôle est relu en base
-     * à chaque appel ({@code RoleProAccessPolicy}) : le jeton obtenu avant le changement de rôle suffit.
+     * Compte professionnel (PRO-01 lot C) : la création d'un food truck lui est réservée. Le type de compte
+     * (offre Pro) est relu en base à chaque appel ({@code RoleProAccessPolicy}) : le jeton obtenu avant suffit.
      */
     private String registerAndLoginAsPro(String email) {
         String token = registerAndLoginAsUser(email);
-        jdbcTemplate.update("UPDATE users SET role = 'PRO' WHERE email = ?", email);
+        jdbcTemplate.update("UPDATE subscription SET status = 'REPLACED' WHERE status IN ('ACTIVE', 'CANCELED') "
+                + "AND user_id = (SELECT id FROM users WHERE email = ?)", email);
+        jdbcTemplate.update("INSERT INTO subscription (user_id, plan, status, provider, current_period_start) "
+                + "SELECT id, 'PRO', 'ACTIVE', 'MANUAL', now() FROM users WHERE email = ?", email);
         return token;
     }
 

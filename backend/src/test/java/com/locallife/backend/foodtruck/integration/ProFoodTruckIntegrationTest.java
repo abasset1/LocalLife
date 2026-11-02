@@ -313,7 +313,12 @@ class ProFoodTruckIntegrationTest {
         String unique = UUID.randomUUID().toString().substring(0, 12);
         Long id = jdbcTemplate.queryForObject("INSERT INTO users (username, email, role, created_at, email_verified) "
                 + "VALUES (?, ?, ?, now(), true) RETURNING id", Long.class, "ft-" + unique,
-                "ft-" + unique + "@example.com", role);
+                "ft-" + unique + "@example.com", "PRO".equals(role) ? "USER" : role);
+        // Ancien rôle PRO (V81) : un compte de type Pro, abonnement Pro en cours sans échéance.
+        if ("PRO".equals(role)) {
+            jdbcTemplate.update("INSERT INTO subscription (user_id, plan, status, provider, current_period_start) "
+                    + "VALUES (?, 'PRO', 'ACTIVE', 'MANUAL', now())", id);
+        }
         userIds.add(id);
         return id;
     }

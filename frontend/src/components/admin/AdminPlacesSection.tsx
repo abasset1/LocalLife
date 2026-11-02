@@ -72,7 +72,10 @@ async function errorMessage(response: Response, fallback: string): Promise<strin
     return body?.message ?? fallback;
 }
 
-function AdminPlacesSection() {
+function AdminPlacesSection({ canImport = true }: {
+    /** Imports de lieux (sources) : administrateurs seulement ; l'équipe LocalLife modère la file. */
+    canImport?: boolean;
+} = {}) {
     // --- Source des lieux ---
     const [sources, setSources] = useState<PlaceSource[]>([]);
     const [sourcesRefreshKey, setSourcesRefreshKey] = useState(0);
@@ -95,6 +98,9 @@ function AdminPlacesSection() {
     const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
+        if (!canImport) {
+            return;
+        }
         const abortController = new AbortController();
         async function loadSources() {
             try {
@@ -248,70 +254,72 @@ function AdminPlacesSection() {
         <section aria-labelledby="admin-places-title">
             <h2 id="admin-places-title">Lieux permanents</h2>
 
-            <div className="admin-places-sources">
-                {sources.length === 0 && <p className="activities-status">Aucune source de lieux configurée.</p>}
-                {sources.map((source) => (
-                    <div className="admin-activity-card" key={source.id}>
-                        <div className="admin-activity-header">
-                            <h3>{source.name}</h3>
-                            <span>{source.status === "ACTIVE" ? "Active" : "Inactive"}</span>
-                        </div>
-                        <p className="admin-activity-description">
-                            Dernier import : {source.lastSyncAt ? new Date(source.lastSyncAt).toLocaleString("fr-FR") : "jamais"}.
-                            {source.status !== "ACTIVE" && " Lance un essai à blanc, puis active la source s'il est réussi."}
-                        </p>
-                        <div className="admin-activity-actions">
-                            <button
-                                disabled={busySourceId === source.id}
-                                onClick={() => void handleSourceAction(source, "dry-run")}
-                                type="button"
-                            >
-                                Essai à blanc
-                            </button>
-                            {source.status !== "ACTIVE" ? (
+            {canImport && (
+                <div className="admin-places-sources">
+                    {sources.length === 0 && <p className="activities-status">Aucune source de lieux configurée.</p>}
+                    {sources.map((source) => (
+                        <div className="admin-activity-card" key={source.id}>
+                            <div className="admin-activity-header">
+                                <h3>{source.name}</h3>
+                                <span>{source.status === "ACTIVE" ? "Active" : "Inactive"}</span>
+                            </div>
+                            <p className="admin-activity-description">
+                                Dernier import : {source.lastSyncAt ? new Date(source.lastSyncAt).toLocaleString("fr-FR") : "jamais"}.
+                                {source.status !== "ACTIVE" && " Lance un essai à blanc, puis active la source s'il est réussi."}
+                            </p>
+                            <div className="admin-activity-actions">
                                 <button
-                                    className="admin-approve-button"
                                     disabled={busySourceId === source.id}
-                                    onClick={() => void handleSourceAction(source, "activate")}
+                                    onClick={() => void handleSourceAction(source, "dry-run")}
                                     type="button"
                                 >
-                                    Activer après vérification
+                                    Essai à blanc
                                 </button>
-                            ) : (
-                                <button
-                                    className="admin-approve-button"
-                                    disabled={busySourceId === source.id}
-                                    onClick={() => void handleSourceAction(source, "import")}
-                                    type="button"
-                                >
-                                    Importer maintenant
-                                </button>
-                            )}
-                        </div>
-                        {busySourceId === source.id && (
-                            <p className="activities-status" role="status">Lecture du fichier DATAtourisme…</p>
-                        )}
-                        {reports[source.id] && (
-                            <div className="admin-dry-run-report" role="status">
-                                <p>
-                                    <strong>
-                                        {reports[source.id].dryRun ? "Essai à blanc" : "Import"} :{" "}
-                                        {VERDICT_LABELS[reports[source.id].verdict]}
-                                    </strong>{" "}
-                                    — {reportSummary(reports[source.id])}.
-                                    {reports[source.id].dryRun && " Aucune écriture."}
-                                </p>
-                                {reports[source.id].problems.length > 0 && (
-                                    <ul>
-                                        {reports[source.id].problems.map((problem) => <li key={problem}>{problem}</li>)}
-                                    </ul>
+                                {source.status !== "ACTIVE" ? (
+                                    <button
+                                        className="admin-approve-button"
+                                        disabled={busySourceId === source.id}
+                                        onClick={() => void handleSourceAction(source, "activate")}
+                                        type="button"
+                                    >
+                                        Activer après vérification
+                                    </button>
+                                ) : (
+                                    <button
+                                        className="admin-approve-button"
+                                        disabled={busySourceId === source.id}
+                                        onClick={() => void handleSourceAction(source, "import")}
+                                        type="button"
+                                    >
+                                        Importer maintenant
+                                    </button>
                                 )}
                             </div>
-                        )}
-                    </div>
-                ))}
-                {sourceError && <p className="activities-status activities-status-error" role="alert">{sourceError}</p>}
-            </div>
+                            {busySourceId === source.id && (
+                                <p className="activities-status" role="status">Lecture du fichier DATAtourisme…</p>
+                            )}
+                            {reports[source.id] && (
+                                <div className="admin-dry-run-report" role="status">
+                                    <p>
+                                        <strong>
+                                            {reports[source.id].dryRun ? "Essai à blanc" : "Import"} :{" "}
+                                            {VERDICT_LABELS[reports[source.id].verdict]}
+                                        </strong>{" "}
+                                        — {reportSummary(reports[source.id])}.
+                                        {reports[source.id].dryRun && " Aucune écriture."}
+                                    </p>
+                                    {reports[source.id].problems.length > 0 && (
+                                        <ul>
+                                            {reports[source.id].problems.map((problem) => <li key={problem}>{problem}</li>)}
+                                        </ul>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    {sourceError && <p className="activities-status activities-status-error" role="alert">{sourceError}</p>}
+                </div>
+            )}
 
             <nav aria-label="Statut des lieux" className="admin-tabs">
                 {STATUS_TABS.map((tab) => (

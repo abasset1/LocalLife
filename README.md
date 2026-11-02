@@ -83,11 +83,16 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
 
 Décisions et modèle : [`docs/ADR-0012-espace-professionnel-revendication.md`](docs/ADR-0012-espace-professionnel-revendication.md).
 
-* **Compte professionnel** : rôle `PRO`, attribué par un administrateur
-  (`GET /api/v1/admin/users?email=...`, `PATCH /api/v1/admin/users/{id}/role`
-  avec `{"role":"PRO"}` ou `{"role":"USER"}`). Relu en base à chaque appel.
+* **Compte professionnel** : type de compte Pro (offre), pas un rôle (V81). Offre
+  demandée par l'utilisateur et validée par l'équipe, ou choisie par un
+  administrateur (`PUT /api/v1/admin/accounts/{id}/plan` avec `{"plan":"PRO"}`,
+  date de fin facultative `endsOn`). Relu en base à chaque appel.
+* **Rôles** : `USER` (utilisateur), `LOCALLIFE` (équipe LocalLife : modération),
+  `ADMIN` (administrateur) — `PATCH /api/v1/admin/accounts/{id}/role` avec
+  `{"role":"LOCALLIFE"}` ou `{"role":"USER"}`. Détail :
+  [`docs/02_Architecture/ROLES_ET_PERMISSIONS.md`](docs/02_Architecture/ROLES_ET_PERMISSIONS.md).
 * **Espace pro** (page `/pro`, endpoints `/api/v1/pro/**`, connexion requise,
-  `403` sans rôle `PRO`, `404` pour la demande ou le lieu d'un autre) :
+  `403` sans compte Pro, `404` pour la demande ou le lieu d'un autre) :
   * demandes de gestion d'un lieu existant : `POST /pro/places/{id}/claims`
     (brouillon), `PATCH /pro/claims/{id}`, `POST /pro/claims/{id}/submit`,
     `POST /pro/claims/{id}/withdraw`, `GET /pro/claims` ;

@@ -35,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
  * facultative fixe la fin de la période ; sans durée, l'abonnement court jusqu'à résiliation. Une résiliation garde
  * l'accès jusqu'à la fin de la période en cours (sans période : fin du mois pour Pro, immédiate sinon) ;
  * l'expiration est appliquée au moment prévu. Chaque changement est journalisé ({@code subscription_event}) et tout
- * changement qui peut toucher l'accès professionnel publie {@code ProAccessChanged} (rôle PRO, contenus pro). La
+ * changement qui peut toucher l'accès professionnel publie {@code ProAccessChanged} (contenus pro). La
  * consultation de la carte et de la liste reste gratuite quoi qu'il arrive.
  */
 @Service
@@ -47,6 +47,8 @@ public class SubscriptionService {
     private static final int MAX_REASON_LENGTH = 2000;
     /** Abonnements activés sans prestataire de paiement, à distinguer des activations par un administrateur. */
     private static final String SIMULATED_PROVIDER = "SIMULATED";
+    /** Abonnements offerts par LocalLife (type de compte choisi par un administrateur, ancien rôle PRO). */
+    private static final String MANUAL_PROVIDER = "MANUAL";
 
     private final SubscriptionRepository repository;
     private final ApplicationEventPublisher events;
@@ -225,6 +227,84 @@ public class SubscriptionService {
         notifier.notify(request.userId(), "Ta demande d'offre " + label(request.plan()) + " n'a pas été acceptée",
                 "L'équipe LocalLife n'a pas validé ta demande d'offre " + label(request.plan()) + ".", cleanReason);
         return repository.findById(id).orElseThrow();
+    }
+
+    /**
+     * Type de compte choisi par un administrateur (décision du 02/11/2026, Administration → Comptes) :
+     * <ul>
+     *   <li>{@code FREE} : l'abonnement en cours prend fin immédiatement ;</li>
+     *   <li>{@code PREMIUM} ou {@code PRO} : une demande en attente pour cette offre est activée ; sinon un abonnement
+     *       est créé et activé tout de suite (offert par LocalLife, {@code provider} MANUAL), en remplaçant
+     *       l'abonnement en cours et en retirant une demande d'une autre offre. {@code endsOn} : dernier jour d'accès
+     *       (inclus), ou {@code null} sans échéance.</li>
+     * </ul>
+     * Un administrateur ne décide jamais de son propre compte. Journalisé ; l'utilisateur est prévenu.
+     */
+    @Transactional
+    public Overview changePlanByAdmin(Long adminId, Long userId, Plan plan, LocalDate endsOn) {
+        if (plan == null) {
+            throw ProActionException.invalid("Type de compte inconnu : FREE, PREMIUM ou PRO.");
+        }
+        if (adminId != null && adminId.equals(userId)) {
+            throw ProActionException.forbidden("Un administrateur ne change pas son propre type de compte : un autre "
+                    + "administrateur s'en charge.");
+        }
+        Plan before = effectivePlan(userId);
+        OffsetDateTime now = OffsetDateTime.now();
+        Optional<Subscription> current = repository.findCurrent(userId);
+        Optional<Subscription> pending = repository.findRequested(userId);
+        if (plan == Plan.FREE) {
+            if (current.isPresent()) {
+                apply(current.get(), SubscriptionStatus.EXPIRED,
+                        new Change(false, null, true, now, null, adminId, null), adminId,
+                        "Type de compte changé en Gratuit par l'équipe LocalLife");
+                events.publishEvent(new ProAccessChanged(userId));
+                notifier.notify(userId, "Ton compte est passé à l'offre gratuite",
+                        "L'équipe LocalLife a changé ton type de compte : tu as maintenant l'offre gratuite.", null);
+            }
+            recordPlanChange(adminId, userId, before, Plan.FREE, null);
+            return overview(userId);
+        }
+        if (pending.isPresent() && pending.get().plan() == plan) {
+            approve(adminId, pending.get().id(), endsOn);
+            return overview(userId);
+        }
+        OffsetDateTime end = endsOn == null ? null : endsOn.plusDays(1).atStartOfDay(ZONE).toOffsetDateTime();
+        if (end != null && !end.isAfter(now)) {
+            throw ProActionException.invalid("La date de fin doit être aujourd'hui ou plus tard.");
+        }
+        if (pending.isPresent()) {
+            apply(pending.get(), SubscriptionStatus.WITHDRAWN, Change.none(), adminId,
+                    "Remplacée par un changement de type de compte par l'équipe LocalLife");
+        }
+        Long id;
+        try {
+            id = repository.insertRequest(userId, plan, MANUAL_PROVIDER);
+        } catch (DuplicateKeyException exception) {
+            throw ProActionException.conflict("L'abonnement a changé entre-temps, recharge la page.");
+        }
+        repository.insertEvent(id, adminId, null, SubscriptionStatus.REQUESTED, "Type de compte choisi par l'équipe");
+        if (current.isPresent()) {
+            apply(current.get(), SubscriptionStatus.REPLACED, new Change(false, null, true, now, null, adminId, null),
+                    adminId, "Remplacé par l'offre " + plan);
+        }
+        apply(repository.findById(id).orElseThrow(), SubscriptionStatus.ACTIVE,
+                new Change(true, now, true, end, false, adminId, null), adminId, null);
+        LOGGER.info("Compte {} : type de compte {} → {} par l'administrateur {} jusqu'au {}", userId, before, plan,
+                adminId, endsOn == null ? "résiliation" : endsOn);
+        events.publishEvent(new ProAccessChanged(userId));
+        recordPlanChange(adminId, userId, before, plan, endsOn);
+        notifier.notify(userId, "Ton compte " + label(plan) + " est actif",
+                "L'équipe LocalLife t'a donné l'offre " + label(plan)
+                        + (endsOn == null ? "." : " jusqu'au " + endsOn + " inclus.")
+                        + (plan == Plan.PRO ? " Ton espace professionnel est ouvert." : ""), null);
+        return overview(userId);
+    }
+
+    private void recordPlanChange(Long adminId, Long userId, Plan before, Plan after, LocalDate endsOn) {
+        actionLog.record(adminId, "ACCOUNT_PLAN_CHANGE", "USER", userId, "Type de compte du compte " + userId,
+                Map.of("plan", before.name()),
+                Map.of("plan", after.name(), "endsOn", endsOn == null ? "" : endsOn.toString()), null);
     }
 
     /** Retire immédiatement l'accès d'un abonnement en cours. */
