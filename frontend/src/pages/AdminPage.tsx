@@ -14,6 +14,7 @@ import AdminPlacesSection from "../components/admin/AdminPlacesSection";
 import AdminProSection from "../components/admin/AdminProSection";
 import AdminActionLogSection from "../components/admin/AdminActionLogSection";
 import AdminTrashSection from "../components/admin/AdminTrashSection";
+import { proRequest } from "../components/pro/proApi";
 import { confirmHeaders, useConfirmDialog } from "../components/admin/useConfirmDialog";
 
 /**
@@ -163,6 +164,16 @@ function matchesSourceSearch(source: Source, query: string): boolean {
 function AdminPage() {
     const navigate = useNavigate();
     const [activeSection, setActiveSection] = useState<AdminSection>(ADMIN_SECTIONS[0].value);
+    /** Demandes d'offre Pro en attente : pastille sur l'onglet « Professionnels », visible dès l'arrivée. */
+    const [pendingProRequests, setPendingProRequests] = useState(0);
+
+    useEffect(() => {
+        void proRequest<unknown[]>("/api/v1/admin/subscriptions?status=REQUESTED&limit=200").then((result) => {
+            if (result.ok) {
+                setPendingProRequests(result.data.length);
+            }
+        });
+    }, []);
     const [selectedStatus, setSelectedStatus] = useState(STATUS_TABS[0].value);
     const [activities, setActivities] = useState<AdminActivity[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -599,6 +610,14 @@ function AdminPage() {
                         type="button"
                     >
                         {section.label}
+                        {section.value === "pro" && pendingProRequests > 0 && (
+                            <span
+                                aria-label={`${pendingProRequests} demande${pendingProRequests > 1 ? "s" : ""} d'offre Pro en attente`}
+                                className="admin-tab-badge"
+                            >
+                                {pendingProRequests}
+                            </span>
+                        )}
                     </button>
                 ))}
             </nav>
@@ -989,7 +1008,7 @@ function AdminPage() {
 
             {activeSection === "pro" && (
                 <main className="admin-content">
-                    <AdminProSection />
+                    <AdminProSection onPendingSubscriptionsChange={setPendingProRequests} />
                 </main>
             )}
 

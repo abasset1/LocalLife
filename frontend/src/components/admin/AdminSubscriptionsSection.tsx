@@ -10,19 +10,24 @@ interface AdminSubscription {
     subscription: Subscription;
 }
 
+const REQUESTED = "REQUESTED";
+
 const TABS = [
-    { value: "ACTIVE,CANCELED", label: "En cours" },
-    { value: "REQUESTED", label: "Anciennes demandes" },
+    { value: REQUESTED, label: "Demandes Pro à traiter" },
+    { value: "ACTIVE,CANCELED", label: "Abonnements en cours" },
 ];
 
 /**
- * Abonnements (BILLING-01, ADR-0014) : sans paiement branché, l'offre choisie est activée tout de suite ; un
- * administrateur peut retirer un accès, et traite encore les demandes créées avant la souscription directe (activation
- * avec une date de fin facultative, ou refus motivé).
+ * Abonnements (BILLING-01, ADR-0014). Premium est activé tout de suite, sans paiement branché ; l'offre Pro est une
+ * demande que l'équipe valide ici (décision du 21/10/2026) : activation avec une date de fin facultative, ou refus
+ * motivé, visible de l'utilisateur. Les demandes en attente s'affichent en premier, avec leur nombre ; un
+ * administrateur peut aussi retirer un accès en cours. `onPendingCountChange` : nombre de demandes en attente, pour la
+ * pastille de l'onglet « Professionnels ».
  */
-function AdminSubscriptionsSection() {
+function AdminSubscriptionsSection({ onPendingCountChange }: { onPendingCountChange?: (count: number) => void } = {}) {
     const [tab, setTab] = useState(TABS[0].value);
     const [items, setItems] = useState<AdminSubscription[]>([]);
+    const [pendingCount, setPendingCount] = useState<number | null>(null);
     const [endsOn, setEndsOn] = useState<Record<number, string>>({});
     const [message, setMessage] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
@@ -36,6 +41,17 @@ function AdminSubscriptionsSection() {
             }
         });
     }, [tab, refreshKey]);
+
+    // Nombre de demandes en attente, quel que soit l'onglet affiché (rechargé après chaque décision).
+    useEffect(() => {
+        void proRequest<AdminSubscription[]>(`/api/v1/admin/subscriptions?status=${REQUESTED}&limit=200`)
+            .then((result) => {
+                if (result.ok) {
+                    setPendingCount(result.data.length);
+                    onPendingCountChange?.(result.data.length);
+                }
+            });
+    }, [refreshKey, onPendingCountChange]);
 
     async function decide(item: AdminSubscription, action: "approve" | "reject" | "revoke") {
         let body: unknown = {};
@@ -58,19 +74,27 @@ function AdminSubscriptionsSection() {
 
     return (
         <>
-            <h3>Abonnements</h3>
-            <p className="activities-status">Pas de paiement branché : l'offre choisie par l'utilisateur est activée tout de suite.</p>
+            <h3>Abonnements et demandes d'offre Pro</h3>
+            <p className="activities-status">
+                Premium est activé tout de suite (pas de paiement branché). Une demande d'offre Pro doit être activée ou
+                refusée ici : le compte ne reçoit l'espace professionnel qu'après activation.
+            </p>
             <nav className="admin-tabs">
                 {TABS.map((item) => (
                     <button className={item.value === tab ? "admin-tab admin-tab-active" : "admin-tab"} key={item.value}
                         onClick={() => setTab(item.value)} type="button">
                         {item.label}
+                        {item.value === REQUESTED && pendingCount !== null && (
+                            <span className="admin-tab-count"> ({pendingCount})</span>
+                        )}
                     </button>
                 ))}
             </nav>
             {message && <p className="activities-status" role="status">{message}</p>}
             {items.length === 0 ? (
-                <p className="activities-status">Rien à afficher.</p>
+                <p className="activities-status">
+                    {tab === REQUESTED ? "Aucune demande d'offre Pro en attente." : "Aucun abonnement en cours."}
+                </p>
             ) : (
                 <ul className="favorites-list">
                     {items.map((item) => (

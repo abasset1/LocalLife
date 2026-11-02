@@ -5613,3 +5613,21 @@ body {
     font-size: 0.9rem;
     line-height: 1.45;
 }
+
+/* Administration : nombre de demandes en attente sur un onglet. */
+.admin-tab-badge {
+    display: inline-block;
+    min-width: 1.3rem;
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    background-color: #dc2626;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.admin-tab-count {
+    font-weight: 700;
+}
