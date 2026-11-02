@@ -35,7 +35,10 @@ interface AdminFoodTruck {
  * d'une demande montre son historique, les demandes concurrentes sur le même lieu et ses gestionnaires actuels ;
  * refuser ou demander des informations exige un motif, visible du demandeur.
  */
-function AdminProSection() {
+function AdminProSection({ onPendingSubscriptionsChange }: {
+    /** Nombre de demandes d'offre Pro en attente, pour la pastille de l'onglet « Professionnels ». */
+    onPendingSubscriptionsChange?: (count: number) => void;
+} = {}) {
     const [email, setEmail] = useState("");
     const [account, setAccount] = useState<UserAccount | null>(null);
     const [accountMessage, setAccountMessage] = useState<string | null>(null);
@@ -139,6 +142,8 @@ function AdminProSection() {
         <section aria-labelledby="admin-pro-title">
             <h2 id="admin-pro-title">Professionnels</h2>
 
+            <AdminSubscriptionsSection onPendingCountChange={onPendingSubscriptionsChange} />
+
             <h3>Comptes professionnels</h3>
             <form className="contribution-form" onSubmit={(event) => void findAccount(event)}>
                 <div className="form-field">
@@ -172,7 +177,6 @@ function AdminProSection() {
             )}
             {accountMessage && <p className="activities-status" role="status">{accountMessage}</p>}
 
-            <AdminSubscriptionsSection />
 
             <h3>Food trucks</h3>
             <p className="activities-status">

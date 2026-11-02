@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Correctif : les demandes d'offre Pro n'apparaissaient pas dans l'administration
+- Les demandes étaient bien enregistrées, mais l'écran Administration → Professionnels → Abonnements datait d'avant la validation des demandes Pro (21/10/2026) : il s'ouvrait sur les abonnements en cours et rangeait les demandes en attente sous « Anciennes demandes », avec un texte qui disait l'offre activée tout de suite.
+- La section s'ouvre maintenant sur « Demandes Pro à traiter (n) », est placée en tête de l'onglet « Professionnels », et explique que Premium est activé tout de suite alors qu'une demande Pro doit être activée ou refusée ici.
+- L'onglet « Professionnels » de l'administration porte une pastille avec le nombre de demandes Pro en attente, visible dès l'ouverture de l'administration et mise à jour après chaque décision.
+
 ### Popup et page « Nouveautés » : les alertes par mots-clés en plus du suivi
 - Site et application mobile : la page « Nouveautés » présente aussi les alertes par mots-clés (« Nouveau aussi » : exemples, combinaison avec les catégories, où les régler) et précise qu'une alerte à mots-clés est mise en pause si l'offre se termine. Le bloc Premium parle de deux fonctionnalités offertes en ce moment.
 - La popup de nouveauté s'intitule « Deux nouveautés Premium » et présente le suivi des activités et des lieux, puis les alertes par mots-clés.
