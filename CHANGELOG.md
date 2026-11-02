@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Administration : l'offre de chaque compte (Gratuit, Premium, Pro)
+- Administration → Comptes : nouvelle colonne « Offre » à côté du rôle, avec une pastille Gratuit, Premium ou Pro. Un compte Premium n'apparaît plus seulement comme « Utilisateur » ; une demande d'offre Pro en attente est signalée (« Pro demandé »). La fiche d'un compte dans Professionnels affiche aussi son offre.
+- L'offre affichée est l'offre effective : abonnement actif, ou résilié jusqu'à la fin de sa période (même règle que les droits), sinon Gratuit.
+- API : `plan` et `requestedPlan` dans les comptes de `GET /api/v1/admin/accounts` et `GET /api/v1/admin/accounts/{id}`.
+
 ### Correctif : les demandes d'offre Pro n'apparaissaient pas dans l'administration
 - Les demandes étaient bien enregistrées, mais l'écran Administration → Professionnels → Abonnements datait d'avant la validation des demandes Pro (21/10/2026) : il s'ouvrait sur les abonnements en cours et rangeait les demandes en attente sous « Anciennes demandes », avec un texte qui disait l'offre activée tout de suite.
 - La section s'ouvre maintenant sur « Demandes Pro à traiter (n) », est placée en tête de l'onglet « Professionnels », et explique que Premium est activé tout de suite alors qu'une demande Pro doit être activée ou refusée ici.

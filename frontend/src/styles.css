@@ -5631,3 +5631,27 @@ body {
 .admin-tab-count {
     font-weight: 700;
 }
+
+/* Administration : offre d'un compte (abonnement), à côté du rôle. */
+.admin-plan-badge {
+    display: inline-block;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.admin-plan-badge-free {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
+.admin-plan-badge-premium {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.admin-plan-badge-pro {
+    background-color: #dbeafe;
+    color: #1e40af;
+}

@@ -52,6 +52,27 @@ describe("AdminAccountsSection", () => {
         vi.unstubAllGlobals();
     });
 
+    it("affiche l'offre de chaque compte à côté de son rôle, et une demande Pro en attente", async () => {
+        stubFetch((url) => url.includes("/api/v1/admin/accounts?")
+            ? json({
+                items: [
+                    account({ id: 7, username: "camille", email: "camille@example.com", plan: "PREMIUM" }),
+                    account({ id: 8, username: "lou", email: "lou@example.com", plan: "FREE", requestedPlan: "PRO" }),
+                ],
+                total: 2, page: 0, size: 20,
+            })
+            : undefined);
+        render(<AdminAccountsSection />);
+
+        const camille = (await screen.findByText("camille")).closest("tr") as HTMLElement;
+        expect(within(camille).getByText("Utilisateur")).toBeInTheDocument();
+        expect(within(camille).getByText("Premium")).toHaveClass("admin-plan-badge-premium");
+        const lou = screen.getByText("lou").closest("tr") as HTMLElement;
+        expect(within(lou).getByText("Gratuit")).toBeInTheDocument();
+        expect(within(lou).getByText("Pro demandé")).toBeInTheDocument();
+        expect(screen.getByRole("columnheader", { name: "Offre" })).toBeInTheDocument();
+    });
+
     it("affiche l'état vide", async () => {
         stubFetch(() => undefined);
         render(<AdminAccountsSection />);
