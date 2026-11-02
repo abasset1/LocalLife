@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { proRequest } from "../pro/proApi";
 import type { ProResult } from "../pro/proApi";
+import { PLAN_LABELS } from "../subscription/types";
+import type { Plan } from "../subscription/types";
 import { CONFIRM_PASSWORD_HEADER, useConfirmDialog } from "./useConfirmDialog";
 
 type Role = "USER" | "PRO" | "ADMIN";
@@ -18,6 +20,10 @@ export interface Account {
     status: AccountStatus;
     statusReason: string | null;
     statusChangedAt: string | null;
+    /** Offre effective (abonnement en cours non échu), distincte du rôle. */
+    plan?: Plan;
+    /** Offre demandée en attente de validation (offre Pro), sinon `null`. */
+    requestedPlan?: Exclude<Plan, "FREE"> | null;
 }
 
 interface AccountPage {
@@ -58,6 +64,11 @@ const ACTION_LABELS: Record<string, string> = {
     REACTIVATE: "Réactivation",
 };
 
+/** Offre d'un compte : Gratuit, Premium ou Pro (abonnement), à côté du rôle. */
+export function PlanBadge({ plan }: { plan: Plan }) {
+    return <span className={`admin-plan-badge admin-plan-badge-${plan.toLowerCase()}`}>{PLAN_LABELS[plan]}</span>;
+}
+
 function formatDateTime(value: string | null): string {
     return value ? new Date(value).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—";
 }
@@ -72,7 +83,8 @@ function formatUtc(value: string): string {
  * actions que l'API autorise — attribuer ou retirer le rôle PRO, suspendre (motif obligatoire) ou réactiver un compte
  * non administrateur, le déconnecter partout ou supprimer son compte. Suspendre et supprimer exigent le mot de passe
  * de l'administrateur (`X-Confirm-Password`, 428 sinon). L'API reste seule juge : un refus est affiché tel qu'elle l'explique. Le rôle PRO est un rôle
- * d'accès, distinct de l'abonnement Pro (Professionnels → Abonnements).
+ * d'accès, distinct de l'abonnement Pro (Professionnels → Abonnements) : la colonne « Offre » montre l'abonnement
+ * (Gratuit, Premium ou Pro) et une offre demandée en attente.
  */
 function AdminAccountsSection() {
     const [query, setQuery] = useState("");
@@ -285,6 +297,7 @@ function AdminAccountsSection() {
                                 <tr>
                                     <th scope="col">Compte</th>
                                     <th scope="col">Rôle</th>
+                                    <th scope="col">Offre</th>
                                     <th scope="col">E-mail confirmé</th>
                                     <th scope="col">Statut</th>
                                     <th scope="col">Créé le</th>
@@ -300,6 +313,14 @@ function AdminAccountsSection() {
                                             <span className="admin-accounts-email">{account.email}</span>
                                         </th>
                                         <td>{ROLE_LABELS[account.role]}</td>
+                                        <td>
+                                            <PlanBadge plan={account.plan ?? "FREE"} />
+                                            {account.requestedPlan && (
+                                                <div className="admin-accounts-reason">
+                                                    {PLAN_LABELS[account.requestedPlan]} demandé
+                                                </div>
+                                            )}
+                                        </td>
                                         <td>{account.emailVerified ? "oui" : "non"}</td>
                                         <td>
                                             <span className={`admin-account-status admin-account-status-${account.status.toLowerCase()}`}>

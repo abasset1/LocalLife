@@ -112,6 +112,38 @@ class AccountAdministrationIntegrationTest {
         return count == null ? 0 : count;
     }
 
+    // --- Offre ---
+
+    @Test
+    void accounts_ShouldShowTheEffectivePlan_AndAPendingProRequest() throws Exception {
+        Long free = account(Role.USER);
+        Long premium = account(Role.USER);
+        Long expired = account(Role.USER);
+        Long requested = account(Role.USER);
+        jdbcTemplate.update("INSERT INTO subscription (user_id, plan, status, provider, current_period_start) "
+                + "VALUES (?, 'PREMIUM', 'ACTIVE', 'SIMULATED', now())", premium);
+        jdbcTemplate.update("INSERT INTO subscription (user_id, plan, status, provider, current_period_start, "
+                + "current_period_end) VALUES (?, 'PREMIUM', 'CANCELED', 'SIMULATED', now() - interval '40 days', "
+                + "now() - interval '1 day')", expired);
+        jdbcTemplate.update("INSERT INTO subscription (user_id, plan, status, provider) "
+                + "VALUES (?, 'PRO', 'REQUESTED', 'SIMULATED')", requested);
+        String admin = testAccounts.bearer(Role.ADMIN);
+
+        JsonNode page = call(HttpMethod.GET, "/api/v1/admin/accounts?q=acc-" + marker + "&size=50", admin, null, 200);
+        java.util.Map<String, JsonNode> byEmail = new java.util.HashMap<>();
+        page.get("items").forEach(item -> byEmail.put(item.get("email").asText(), item));
+
+        assertThat(byEmail.get(emailOf(free)).get("plan").asText()).isEqualTo("FREE");
+        assertThat(byEmail.get(emailOf(premium)).get("plan").asText()).isEqualTo("PREMIUM");
+        // Résilié et période terminée : plus d'offre, même si la tâche d'expiration n'est pas encore passée.
+        assertThat(byEmail.get(emailOf(expired)).get("plan").asText()).isEqualTo("FREE");
+        assertThat(byEmail.get(emailOf(requested)).get("plan").asText()).isEqualTo("FREE");
+        assertThat(byEmail.get(emailOf(requested)).get("requestedPlan").asText()).isEqualTo("PRO");
+        assertThat(byEmail.get(emailOf(premium)).get("requestedPlan").isNull()).isTrue();
+        assertThat(call(HttpMethod.GET, "/api/v1/admin/accounts/" + premium, admin, null, 200).get("plan").asText())
+                .isEqualTo("PREMIUM");
+    }
+
     // --- Accès ---
 
     @Test

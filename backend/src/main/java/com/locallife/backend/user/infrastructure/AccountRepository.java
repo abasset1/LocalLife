@@ -21,8 +21,18 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class AccountRepository {
 
+    /**
+     * Colonnes d'un compte, plus son offre : {@code current_plan}, celle d'un abonnement en cours non échu (actif ou
+     * résilié jusqu'à la fin de sa période, même règle que {@code Entitlements#effectivePlan}), et
+     * {@code requested_plan}, celle d'une demande en attente (offre Pro à valider).
+     */
     private static final String ACCOUNT_COLUMNS = "id, username, email, role, email_verified, created_at, "
-            + "account_status, status_reason, status_changed_at";
+            + "account_status, status_reason, status_changed_at, "
+            + "(SELECT s.plan FROM subscription s WHERE s.user_id = users.id AND s.status IN ('ACTIVE', 'CANCELED') "
+            + "AND (s.current_period_end IS NULL OR s.current_period_end > now()) "
+            + "ORDER BY s.id DESC LIMIT 1) AS current_plan, "
+            + "(SELECT s.plan FROM subscription s WHERE s.user_id = users.id AND s.status = 'REQUESTED' "
+            + "ORDER BY s.id DESC LIMIT 1) AS requested_plan";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -39,7 +49,11 @@ public class AccountRepository {
     public record Access(Long userId, String email, Role role, AccountStatus status, LocalDateTime tokensValidAfter) {
     }
 
-    /** Compte vu par l'administration : aucun secret (ni hash de mot de passe, ni jeton). */
+    /**
+     * Compte vu par l'administration : aucun secret (ni hash de mot de passe, ni jeton). {@code plan} : offre effective
+     * ({@code FREE}, {@code PREMIUM} ou {@code PRO}), distincte du rôle ; {@code requestedPlan} : offre demandée en
+     * attente de validation, sinon {@code null}.
+     */
     public record Account(
             Long id,
             String username,
@@ -49,7 +63,9 @@ public class AccountRepository {
             LocalDateTime createdAt,
             AccountStatus status,
             String statusReason,
-            LocalDateTime statusChangedAt) {
+            LocalDateTime statusChangedAt,
+            String plan,
+            String requestedPlan) {
     }
 
     public Optional<Access> findAccess(Long userId) {
@@ -154,7 +170,9 @@ public class AccountRepository {
                 createdAt == null ? null : createdAt.toLocalDateTime(),
                 AccountStatus.valueOf(resultSet.getString("account_status")),
                 resultSet.getString("status_reason"),
-                changedAt == null ? null : changedAt.toLocalDateTime());
+                changedAt == null ? null : changedAt.toLocalDateTime(),
+                resultSet.getString("current_plan") == null ? "FREE" : resultSet.getString("current_plan"),
+                resultSet.getString("requested_plan"));
     }
 
     /**

@@ -5,6 +5,9 @@ import { formatDate, proRequest } from "../pro/proApi";
 import AdminProModerationSection, { AdminPlaceManagersList } from "./AdminProModerationSection";
 import AdminSubscriptionsSection from "./AdminSubscriptionsSection";
 import { CLAIM_STATUS_LABELS } from "../pro/types";
+import { PLAN_LABELS } from "../subscription/types";
+import type { Plan } from "../subscription/types";
+import { PlanBadge } from "./AdminAccountsSection";
 import type { AdminClaim, ClaimReview, ClaimStatus } from "../pro/types";
 
 interface UserAccount {
@@ -12,6 +15,8 @@ interface UserAccount {
     username: string;
     email: string;
     role: "USER" | "PRO" | "ADMIN";
+    plan?: Plan;
+    requestedPlan?: Exclude<Plan, "FREE"> | null;
 }
 
 const QUEUE_TABS: { value: string; label: string }[] = [
@@ -157,7 +162,10 @@ function AdminProSection({ onPendingSubscriptionsChange }: {
                 <div className="admin-activity-card">
                     <div className="admin-activity-header">
                         <h3>{account.username}</h3>
-                        <span>{account.role}</span>
+                        <span>
+                            {account.role} · <PlanBadge plan={account.plan ?? "FREE"} />
+                            {account.requestedPlan ? ` · ${PLAN_LABELS[account.requestedPlan]} demandé` : ""}
+                        </span>
                     </div>
                     <p className="admin-activity-description">{account.email}</p>
                     {account.role !== "ADMIN" && (
