@@ -276,6 +276,18 @@ interface ClusterSelection {
     activities: Activity[];
 }
 
+/**
+ * Au-delà de ce nombre d'activités, une pastille dont les activités sont à des endroits différents
+ * zoome sur son groupe au lieu d'ouvrir la popup (comme la carte Finishers) : on ne fait pas défiler
+ * des dizaines d'activités une à une.
+ */
+const CLUSTER_POPUP_MAX_ACTIVITIES = 10;
+
+/** Positions arrondies à environ 100 m : en dessous, deux activités sont considérées au même endroit. */
+function placeKey(activity: Activity): string {
+    return `${activity.latitude.toFixed(3)},${activity.longitude.toFixed(3)}`;
+}
+
 function compareByStartDate(a: Activity, b: Activity): number {
     if (!a.startDate || !b.startDate) {
         return a.startDate ? -1 : b.startDate ? 1 : 0;
@@ -309,16 +321,41 @@ function ExplorerMap({
     handleClusterClickRef.current = (event) => {
         /** Pastille cliquée (`L.MarkerCluster` de leaflet.markercluster). */
         const cluster = (event as LeafletMouseEvent & {
-            layer: { getAllChildMarkers: () => L.Marker[]; getLatLng: () => LatLngLiteral };
+            layer: {
+                getAllChildMarkers: () => L.Marker[];
+                getLatLng: () => LatLngLiteral;
+                zoomToBounds: (options?: L.FitBoundsOptions) => void;
+            };
         }).layer;
         const clusterActivities = cluster.getAllChildMarkers()
             .map((marker: L.Marker) => activityByMarker.current.get(marker))
             .filter((activity: Activity | undefined): activity is Activity => activity !== undefined)
             .sort(compareByStartDate);
-        if (clusterActivities.length > 0) {
-            setClusterSelection({ position: cluster.getLatLng(), activities: clusterActivities });
+        if (clusterActivities.length === 0) {
+            return;
         }
+        // Carte du groupe de marqueurs (propriété interne de Leaflet, présente tant qu'il est affiché).
+        const map = (event.target as { _map?: L.Map })._map;
+        const isSpreadOut = new Set(clusterActivities.map(placeKey)).size > 1;
+        const canZoom = map ? map.getZoom() < map.getMaxZoom() : false;
+        if (clusterActivities.length > CLUSTER_POPUP_MAX_ACTIVITIES && isSpreadOut && canZoom) {
+            setClusterSelection(null);
+            cluster.zoomToBounds({ padding: [40, 40] });
+            return;
+        }
+        setClusterSelection({ position: cluster.getLatLng(), activities: clusterActivities });
     };
+
+    /** Marqueur seul : même popup, avec les activités situées au même endroit. */
+    function handleMarkerClick(activity: Activity) {
+        const key = placeKey(activity);
+        const samePlace = activities.filter((other) => other.id !== activity.id && hasCoordinates(other)
+            && placeKey(other) === key);
+        setClusterSelection({
+            position: { lat: activity.latitude, lng: activity.longitude },
+            activities: [activity, ...samePlace.sort(compareByStartDate)],
+        });
+    }
 
     // Autre contenu affiché ou nouvelle recherche : la popup d'une pastille n'a plus lieu d'être.
     useEffect(() => setClusterSelection(null), [layer, fitKey]);
@@ -372,7 +409,7 @@ function ExplorerMap({
             >
                 {layer === "activities" && activities.filter(hasCoordinates).map((activity) => (
                     <Marker
-                        eventHandlers={{ click: () => onSelectActivity(activity) }}
+                        eventHandlers={{ click: () => handleMarkerClick(activity) }}
                         key={activity.id}
                         // ADR-0011, phase A : position approximative signalée (marqueur atténué, info-bulle).
                         opacity={isApproximateLocation(activity) ? 0.55 : 1}
@@ -390,7 +427,7 @@ function ExplorerMap({
                 <Popup
                     className="explorer-cluster-leaflet-popup"
                     eventHandlers={{ remove: () => setClusterSelection(null) }}
-                    key={`${clusterSelection.position.lat},${clusterSelection.position.lng}`}
+                    key={`${clusterSelection.position.lat},${clusterSelection.position.lng},${clusterSelection.activities.map((activity) => activity.id).join("-")}`}
                     maxWidth={300}
                     minWidth={240}
                     position={clusterSelection.position}
