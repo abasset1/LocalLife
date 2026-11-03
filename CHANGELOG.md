@@ -4,6 +4,7 @@
 
 ### Explorer : carte et liste liées, comme sur la carte Finishers
 - **Ordinateur** : la liste des activités de la zone affichée passe à gauche (380 px) et la carte à droite. En tête de liste, le nombre d'activités de la zone (« 37 activités dans cette zone »), mis à jour à chaque déplacement ou zoom.
+- **Clic sur une pastille** (groupe d'activités) : plus de zoom sur la zone ; une popup s'ouvre sur la pastille et montre ses activités une par une, de la plus proche à la plus lointaine dans le temps, avec des flèches pour passer de l'une à l'autre (« 2 / 4 ») et « Voir l'activité » pour ouvrir la fiche. Le clic sur un marqueur seul ouvre toujours l'aperçu.
 - **Survol d'une activité dans la liste** (ou focus au clavier) : son point est mis en évidence sur la carte avec son titre, même quand elle est regroupée avec ses voisines.
 - **Position de la carte dans l'adresse** (`?lat=…&lng=…&zoom=…`), mise à jour sans entrée d'historique : un lien copié ou un rechargement rouvre la carte au même endroit. Ouverte avec une position dans l'adresse, la carte ne se recentre ni sur la ville enregistrée ni sur la position déjà autorisée ; les catégories enregistrées s'appliquent toujours.
 - **Téléphone** : bouton flottant « Voir la liste (n) » en bas de la carte, et « Voir la carte » qui reste en bas de la liste pendant le défilement.

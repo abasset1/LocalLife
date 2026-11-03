@@ -1880,6 +1880,81 @@ body {
     display: none;
 }
 
+/* Popup d'une pastille : une activité à la fois, flèches pour passer à la suivante. */
+.explorer-cluster-leaflet-popup .leaflet-popup-content {
+    margin: 0.75rem;
+}
+
+.explorer-cluster-popup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-family: inherit;
+}
+
+.explorer-cluster-popup-thumbnail {
+    width: 100%;
+    max-height: 110px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.explorer-cluster-popup-date {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--ll-coral);
+}
+
+.explorer-cluster-popup-title {
+    font-size: 0.95rem;
+    color: var(--ll-ink);
+}
+
+.explorer-cluster-popup-meta {
+    font-size: 0.8rem;
+    color: var(--ll-muted);
+}
+
+.explorer-cluster-popup-cta {
+    align-self: flex-start;
+    margin-top: 0.25rem;
+    padding: 0.4rem 0.8rem;
+    border: none;
+    border-radius: 999px;
+    background-color: var(--ll-green);
+    color: #ffffff;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.explorer-cluster-popup-nav {
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.4rem;
+    padding: 0.2rem;
+    border-radius: 999px;
+    background-color: var(--ll-green);
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.explorer-cluster-popup-nav button {
+    width: 1.7rem;
+    height: 1.7rem;
+    border: none;
+    border-radius: 50%;
+    background-color: var(--ll-coral);
+    color: #ffffff;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
 /* Activité survolée dans la liste : point mis en avant sur la carte, avec son titre. */
 .explorer-highlight-marker span {
     display: block;
@@ -2141,8 +2216,9 @@ body {
         width: 100%;
     }
 
-    /* Aperçu ouvert (bottom sheet) : il occupe le bas de l'écran. */
-    .explorer-map-wrapper:has(.explorer-preview) .explorer-map-notices {
+    /* Aperçu ouvert (bottom sheet) ou popup d'une pastille : les messages du bas les masqueraient. */
+    .explorer-map-wrapper:has(.explorer-preview) .explorer-map-notices,
+    .explorer-map-wrapper:has(.explorer-cluster-popup) .explorer-map-notices {
         display: none;
     }
 }
