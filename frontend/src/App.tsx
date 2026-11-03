@@ -34,6 +34,7 @@ import { proRequest } from "./components/pro/proApi";
 import type { ManagedPlace } from "./components/pro/types";
 import FollowNewsBanner from "./components/news/FollowNewsBanner";
 import FollowNewsPopup from "./components/news/FollowNewsPopup";
+import FeedbackModal from "./components/feedback/FeedbackModal";
 import PremiumOfferPopup from "./components/news/PremiumOfferPopup";
 import { useAccountAccess } from "./components/pro/useProAccess";
 import type {
@@ -171,6 +172,8 @@ function App() {
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [isContributionModalOpen, setIsContributionModalOpen] = useState(false);
+    /** Formulaire « Une idée, un problème ? » (utilisateur connecté). */
+    const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
     const [isLoadingActivities, setIsLoadingActivities] = useState(true);
     const [searchError, setSearchError] = useState<string | null>(null);
@@ -1256,6 +1259,7 @@ function App() {
                 onClose={() => setIsMenuOpen(false)}
                 onLogout={handleLogout}
                 onOpenContributionForm={handleOpenContributionForm}
+                onOpenFeedback={() => (currentUser ? setIsFeedbackOpen(true) : navigate("/login"))}
             />
 
             <div className="explorer-main" data-mobile-view={viewMode}>
@@ -1456,14 +1460,14 @@ function App() {
 
             <FollowNewsPopup
                 blocked={!arePreferencesApplied || needsOnboarding || wasOnboardingShown || isContributionModalOpen
-                    || detailActivity !== null}
+                    || isFeedbackOpen || detailActivity !== null}
                 canFollow={canFollow}
                 userId={currentUser?.userId ?? null}
             />
 
             <PremiumOfferPopup
                 blocked={!arePreferencesApplied || needsOnboarding || wasOnboardingShown || isContributionModalOpen
-                    || detailActivity !== null}
+                    || isFeedbackOpen || detailActivity !== null}
                 canFollow={canFollow}
                 loggedInAt={currentUser?.iat}
                 userId={currentUser?.userId ?? null}
@@ -1483,6 +1487,8 @@ function App() {
                     }}
                 />
             )}
+
+            {isFeedbackOpen && currentUser && <FeedbackModal onClose={() => setIsFeedbackOpen(false)} />}
 
             {isContributionModalOpen && currentUser && (
                 <ContributionModal

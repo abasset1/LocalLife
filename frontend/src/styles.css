@@ -5658,6 +5658,103 @@ body {
     color: var(--ll-ink);
 }
 
+/* Formulaire « Une idée, un problème ? ». */
+.explorer-form textarea {
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--ll-line);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.feedback-sent .explorer-modal-actions button {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 999px;
+    background-color: var(--ll-green);
+    color: #ffffff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.feedback-kinds {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.feedback-kind {
+    flex: 1;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--ll-line);
+    border-radius: 12px;
+    background-color: #ffffff;
+    color: var(--ll-ink);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.feedback-kind-active {
+    border-color: var(--ll-green);
+    background-color: var(--ll-green);
+    color: #ffffff;
+}
+
+.feedback-counter {
+    align-self: flex-end;
+    font-size: 0.75rem;
+    color: var(--ll-muted);
+}
+
+.feedback-sent-title {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--ll-green);
+}
+
+/* Administration → Retours. */
+.admin-feedback-item {
+    align-items: flex-start;
+}
+
+.admin-feedback-kind {
+    display: inline-block;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.admin-feedback-kind-suggestion {
+    background-color: #e6f1ed;
+    color: var(--ll-green);
+}
+
+.admin-feedback-kind-bug {
+    background-color: #fde9e1;
+    color: #b3261e;
+}
+
+.admin-feedback-done {
+    margin-left: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--ll-muted);
+}
+
+.admin-feedback-message {
+    margin: 0.4rem 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--ll-ink);
+}
+
+.admin-feedback-agent {
+    font-size: 0.72rem;
+}
+
 /* Mots-clés des alertes (Premium et Pro). */
 .pp-premium-tag {
     margin-left: 0.35rem;

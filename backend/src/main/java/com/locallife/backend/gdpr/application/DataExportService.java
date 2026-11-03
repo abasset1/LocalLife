@@ -81,6 +81,9 @@ public class DataExportService {
         document.put("foodTrucks", list("""
                 SELECT id, name, description, category, contact, status, approved_at, review_reason, updated_at
                 FROM food_truck WHERE owner_id = ? ORDER BY id""", userId));
+        document.put("feedback", list("""
+                SELECT id, kind, message, page_url, status, created_at, handled_at
+                FROM feedback WHERE user_id = ? ORDER BY id""", userId));
         document.put("accountHistory", list("""
                 SELECT occurred_at, action, old_value, new_value, reason, outcome, detail
                 FROM account_audit_event WHERE target_user_id = ? ORDER BY occurred_at, id""", userId));

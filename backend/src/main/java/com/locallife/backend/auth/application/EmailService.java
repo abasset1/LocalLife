@@ -61,4 +61,10 @@ public interface EmailService {
      */
     void sendImportedActivityNoticeEmail(String to, String subject, String text);
 
+    /**
+     * Alerte destinée à un administrateur (nouvelle suggestion ou anomalie signalée, voir {@code FeedbackNotifier}) :
+     * texte complet, sans lien secret.
+     */
+    void sendAdminNotificationEmail(String to, String subject, String text);
+
 }

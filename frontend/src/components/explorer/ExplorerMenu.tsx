@@ -11,6 +11,8 @@ interface ExplorerMenuProps {
     hasProAccess?: boolean;
     onOpenContributionForm: () => void;
     onLogout: () => void;
+    /** « Une idée, un problème ? » : formulaire de suggestion ou de signalement d'anomalie. */
+    onOpenFeedback?: () => void;
 }
 
 /**
@@ -26,7 +28,7 @@ interface ExplorerMenuProps {
  * et ne sont donc pas ajoutés ici (hors périmètre de ce ticket).
  */
 function ExplorerMenu({
-    isOpen, onClose, currentUser, hasProAccess = false, onOpenContributionForm, onLogout,
+    isOpen, onClose, currentUser, hasProAccess = false, onOpenContributionForm, onLogout, onOpenFeedback,
 }: ExplorerMenuProps) {
     return (
         <>
@@ -121,6 +123,18 @@ function ExplorerMenu({
                     <Link className="explorer-menu-link" onClick={onClose} to="/guide">
                         Guide de l'application
                     </Link>
+                    {onOpenFeedback && (
+                        <button
+                            className="explorer-menu-link explorer-menu-link-button"
+                            onClick={() => {
+                                onClose();
+                                onOpenFeedback();
+                            }}
+                            type="button"
+                        >
+                            Une idée, un problème ?
+                        </button>
+                    )}
                 </div>
 
                 {/* Pied du menu : textes légaux (contrat RGPD). */}
