@@ -74,6 +74,28 @@ describe("AdminAccountsSection", () => {
         expect(screen.getByRole("columnheader", { name: "Type de compte" })).toBeInTheDocument();
     });
 
+    it("affiche le nombre de connexions et la date de la dernière", async () => {
+        stubFetch((url) => url.includes("/api/v1/admin/accounts?")
+            ? json({
+                items: [
+                    account({ id: 7, username: "camille", loginCount: 12, lastLoginAt: "2026-11-03T18:42:00" }),
+                    account({ id: 8, username: "lou", email: "lou@example.com", loginCount: 0, lastLoginAt: null }),
+                ],
+                total: 2, page: 0, size: 20,
+            })
+            : undefined);
+        render(<AdminAccountsSection />);
+
+        const camille = (await screen.findByText("camille")).closest("tr") as HTMLElement;
+        const cells = within(camille).getAllByRole("cell").map((cell) => cell.textContent);
+        expect(cells).toContain("12");
+        expect(cells).toContain(new Date("2026-11-03T18:42:00").toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }));
+        const lou = screen.getByText("lou").closest("tr") as HTMLElement;
+        expect(within(lou).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(expect.arrayContaining(["0", "—"]));
+        expect(screen.getByRole("columnheader", { name: "Connexions" })).toBeInTheDocument();
+        expect(screen.getByRole("columnheader", { name: "Dernière connexion" })).toBeInTheDocument();
+    });
+
     it("affiche l'état vide", async () => {
         stubFetch(() => undefined);
         render(<AdminAccountsSection />);

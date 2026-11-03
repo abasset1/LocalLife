@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Administration → Comptes : nombre de connexions et dernière connexion
+- Deux colonnes dans la liste des comptes : **Connexions** (connexions réussies, par mot de passe ou avec Google ; un échec ne compte pas) et **Dernière connexion** (date et heure).
+- Le décompte commence avec cette version (migration `V83`) : les connexions antérieures ne sont pas connues, un compte affiche 0 et « — » jusqu'à sa prochaine connexion.
+- API : `loginCount` et `lastLoginAt` dans les comptes de `GET /api/v1/admin/accounts` et `GET /api/v1/admin/accounts/{id}`.
+
 ### Suggestions et anomalies : formulaire, administration et alerte par e-mail
 - **Formulaire « Une idée, un problème ? »** dans le menu (rubrique Aide) : choix « 💡 Une idée » ou « 🐞 Un problème » et un message (5 à 2000 caractères). Réservé aux utilisateurs connectés (un visiteur est envoyé vers la connexion) ; la page d'où il est envoyé est jointe pour aider à reproduire un problème. Au plus 10 messages par heure et par compte.
 - **Administration → Retours** (administrateurs) : messages les plus récents d'abord, filtres « À traiter », « Traités », « Tous », auteur avec son adresse cliquable pour lui répondre, page d'envoi et navigateur. « Marquer traité » / « Remettre à traiter ». Pastille sur l'onglet avec le nombre de retours à traiter ; `/admin?tab=feedback` ouvre directement la section.

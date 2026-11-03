@@ -301,8 +301,10 @@ public class AuthService {
         }
     }
 
+    /** Jeton d'une connexion réussie (mot de passe ou Google) : comptée pour l'administration. */
     private String issueToken(User user) {
         accountRepository.touchActivity(user.id());
+        accountRepository.recordLogin(user.id());
         return jwtService.generateToken(user.id(), user.email(), user.role());
     }
 }
