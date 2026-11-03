@@ -34,6 +34,7 @@ import { proRequest } from "./components/pro/proApi";
 import type { ManagedPlace } from "./components/pro/types";
 import FollowNewsBanner from "./components/news/FollowNewsBanner";
 import FollowNewsPopup from "./components/news/FollowNewsPopup";
+import PremiumOfferPopup from "./components/news/PremiumOfferPopup";
 import { useAccountAccess } from "./components/pro/useProAccess";
 import type {
     Activity,
@@ -1457,6 +1458,14 @@ function App() {
                 blocked={!arePreferencesApplied || needsOnboarding || wasOnboardingShown || isContributionModalOpen
                     || detailActivity !== null}
                 canFollow={canFollow}
+                userId={currentUser?.userId ?? null}
+            />
+
+            <PremiumOfferPopup
+                blocked={!arePreferencesApplied || needsOnboarding || wasOnboardingShown || isContributionModalOpen
+                    || detailActivity !== null}
+                canFollow={canFollow}
+                loggedInAt={currentUser?.iat}
                 userId={currentUser?.userId ?? null}
             />
 

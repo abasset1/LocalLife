@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Popup Premium pour les comptes gratuits
+- Sur la carte, un compte gratuit voit une popup « Passe à Premium » : quatre avantages en une ligne (suivi des activités et des lieux, alertes par mots-clés, favoris illimités et 10 alertes, proposer ses activités) et « Gratuit pour le moment ». « Passer à Premium » l'active tout de suite.
+- Elle s'affiche à chaque visite pendant 7 jours après chaque connexion ; « Plus tard », ✕ ou Échap la ferment pour la visite en cours. « Ne plus me proposer », en petit en bas, l'arrête définitivement pour ce compte sur cet appareil.
+- Elle laisse passer d'abord la popup de nouveauté « Suivre » (jamais deux popups dans la même visite) et n'apparaît pas par-dessus l'accueil de première connexion, une fiche ou le formulaire de contribution.
+
 ### Explorer : carte et liste liées, comme sur la carte Finishers
 - **Ordinateur** : la liste des activités de la zone affichée passe à gauche (380 px) et la carte à droite. En tête de liste, le nombre d'activités de la zone (« 37 activités dans cette zone »), mis à jour à chaque déplacement ou zoom.
 - **Clic sur une pastille** (groupe d'activités) : une popup s'ouvre sur la pastille et montre ses activités une par une, de la plus proche à la plus lointaine dans le temps, avec des flèches pour passer de l'une à l'autre (« 2 / 4 ») et « Voir l'activité » pour ouvrir la fiche. Comme sur Finishers, une pastille de plus de 10 activités situées à des endroits différents zoome sur son groupe au lieu d'ouvrir la popup ; des activités au même endroit (à 100 m près) s'ouvrent toujours dans la popup, quel que soit leur nombre.

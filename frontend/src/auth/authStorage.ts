@@ -4,6 +4,8 @@ interface JwtPayload {
     userId: number;
     email: string;
     role: string;
+    /** Date d'émission du jeton (secondes) : celle de la connexion. */
+    iat?: number;
     exp?: number;
 }
 
