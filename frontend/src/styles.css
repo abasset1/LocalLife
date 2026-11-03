@@ -5614,6 +5614,50 @@ body {
     }
 }
 
+/* Popup Premium des comptes gratuits : avantages en une ligne chacun, « Ne plus me proposer » discret. */
+.premium-offer-benefits {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0;
+    display: grid;
+    gap: 0.45rem;
+    text-align: left;
+}
+
+.premium-offer-benefits li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 12px;
+    background-color: #ffffff;
+    border: 1px solid var(--ll-line);
+    font-size: 0.92rem;
+    line-height: 1.35;
+}
+
+.premium-offer-benefits li span {
+    flex-shrink: 0;
+    font-size: 1.15rem;
+}
+
+.premium-offer-opt-out {
+    display: block;
+    margin: 1rem auto 0;
+    padding: 0.25rem 0.5rem;
+    border: none;
+    background: none;
+    color: var(--ll-muted);
+    font: inherit;
+    font-size: 0.75rem;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.premium-offer-opt-out:hover {
+    color: var(--ll-ink);
+}
+
 /* Mots-clés des alertes (Premium et Pro). */
 .pp-premium-tag {
     margin-left: 0.35rem;
