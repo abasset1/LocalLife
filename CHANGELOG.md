@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### Explorer : carte et liste liées, comme sur la carte Finishers
+- **Ordinateur** : la liste des activités de la zone affichée passe à gauche (380 px) et la carte à droite. En tête de liste, le nombre d'activités de la zone (« 37 activités dans cette zone »), mis à jour à chaque déplacement ou zoom.
+- **Survol d'une activité dans la liste** (ou focus au clavier) : son point est mis en évidence sur la carte avec son titre, même quand elle est regroupée avec ses voisines.
+- **Position de la carte dans l'adresse** (`?lat=…&lng=…&zoom=…`), mise à jour sans entrée d'historique : un lien copié ou un rechargement rouvre la carte au même endroit. Ouverte avec une position dans l'adresse, la carte ne se recentre ni sur la ville enregistrée ni sur la position déjà autorisée ; les catégories enregistrées s'appliquent toujours.
+- **Téléphone** : bouton flottant « Voir la liste (n) » en bas de la carte, et « Voir la carte » qui reste en bas de la liste pendant le défilement.
+
 ### Rôles et types de compte séparés : Pro devient un type de compte, nouveau rôle LocalLife
 - **Type de compte** (offre) : Gratuit, Premium ou Pro. **Rôle** : Utilisateur, LocalLife (équipe de modération) ou Administrateur. Le rôle `PRO` disparaît (migration `V81`).
 - **Migration** : un compte au rôle PRO attribué par un administrateur devient un **compte Pro sans échéance** (abonnement offert par LocalLife) et garde son espace professionnel ; un abonnement Premium en cours est remplacé. Un compte dont le rôle PRO venait d'une offre Pro garde son abonnement. Tous repassent au rôle Utilisateur ; la colonne `users.pro_role_source` est supprimée.

@@ -1855,13 +1855,57 @@ body {
     height: 100%;
 }
 
+/* Comme sur la carte Finishers : la liste de la zone affichée à gauche, la carte à droite. */
 .explorer-list-panel {
+    order: -1;
     width: 380px;
     flex-shrink: 0;
     overflow-y: auto;
     background-color: var(--ll-sand);
-    border-left: 1px solid var(--ll-line);
+    border-right: 1px solid var(--ll-line);
     padding: 1rem;
+}
+
+/* Nombre d'activités de la zone affichée, en tête de liste. */
+.explorer-list-count {
+    margin: 0 0 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--ll-green);
+}
+
+/* Boutons de bascule Carte/Liste flottants : téléphone seulement. */
+.explorer-show-list-button,
+.explorer-show-map-button {
+    display: none;
+}
+
+/* Activité survolée dans la liste : point mis en avant sur la carte, avec son titre. */
+.explorer-highlight-marker span {
+    display: block;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background-color: var(--ll-coral);
+    border: 3px solid #ffffff;
+    box-shadow: 0 0 0 6px rgba(232, 106, 74, 0.3), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.leaflet-tooltip.explorer-highlight-tooltip {
+    width: max-content;
+    max-width: 240px;
+    padding: 0.35rem 0.6rem;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--ll-green);
+    color: #ffffff;
+    font-weight: 700;
+    white-space: normal;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.leaflet-tooltip-top.explorer-highlight-tooltip::before {
+    border-top-color: var(--ll-green);
 }
 
 @media (max-width: 959px) {
@@ -1897,6 +1941,33 @@ body {
 
     .explorer-list-panel {
         width: 100%;
+        border-right: none;
+    }
+
+    .explorer-show-list-button,
+    .explorer-show-map-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.65rem 1.25rem;
+        border: none;
+        border-radius: 999px;
+        background-color: var(--ll-green);
+        color: #ffffff;
+        font: inherit;
+        font-weight: 700;
+        box-shadow: 0 8px 20px rgba(23, 63, 53, 0.3);
+        cursor: pointer;
+    }
+
+    /* Vue Liste : « Voir la carte » reste en bas de l'écran pendant le défilement. */
+    .explorer-show-map-button {
+        display: flex;
+        width: fit-content;
+        position: sticky;
+        bottom: 1rem;
+        margin: 1rem auto 0;
+        z-index: 5;
     }
 }
 
