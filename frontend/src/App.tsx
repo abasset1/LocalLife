@@ -17,6 +17,7 @@ import ExplorerMap from "./components/explorer/ExplorerMap";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
 import ExplorerSearch from "./components/explorer/ExplorerSearch";
 import LocationPrompt from "./components/explorer/LocationPrompt";
+import { readMapUrlView } from "./components/explorer/mapUrlView";
 import type { GeolocationStatus } from "./components/explorer/LocationPrompt";
 import { hasCoordinates, SEARCH_PAGE_SIZE, toActivity } from "./components/explorer/globalSearch";
 import SearchResultBanner from "./components/explorer/SearchResultBanner";
@@ -200,6 +201,11 @@ function App() {
      * non connecté : rien à attendre.
      */
     const [arePreferencesApplied, setArePreferencesApplied] = useState(() => getPayload() === null);
+    /**
+     * Position de carte présente dans l'adresse à l'ouverture (lien partagé, rechargement) : la carte
+     * s'ouvre à cet endroit, que ni la ville enregistrée ni la position déjà autorisée ne remplacent.
+     */
+    const [initialMapView] = useState(() => readMapUrlView(window.location.search));
     /** Première connexion : préférences jamais enregistrées, l'accueil les fait choisir (OnboardingModal). */
     const [needsOnboarding, setNeedsOnboarding] = useState(false);
     /** L'accueil de première connexion s'est ouvert pendant cette visite : pas de popup de nouveauté en plus. */
@@ -208,10 +214,14 @@ function App() {
     /**
      * Applique des préférences à la carte : catégories cochées, rayon de
      * recherche et de cadrage, ville comme point de départ. Retourne `true` si
-     * elles contiennent une ville aux coordonnées valides.
+     * elles contiennent une ville aux coordonnées valides. `keepMapView` : seules les catégories
+     * s'appliquent, la carte reste sur la position reçue dans l'adresse.
      */
-    function applyPreferences(preferences: UserPreferences): boolean {
+    function applyPreferences(preferences: UserPreferences, keepMapView = false): boolean {
         setSelectedCategoryCodes(preferences.defaultCategoryCodes);
+        if (keepMapView) {
+            return false;
+        }
         if (preferences.defaultRadiusKm !== null) {
             setSearchRadiusKm(preferences.defaultRadiusKm);
             setActiveRadiusKm(preferences.defaultRadiusKm);
@@ -254,6 +264,8 @@ function App() {
      * (fiche complète), ouverte à la demande depuis cet aperçu.
      */
     const [previewActivity, setPreviewActivity] = useState<Activity | null>(null);
+    /** Ligne de la liste survolée : l'activité est mise en évidence sur la carte. */
+    const [hoveredActivity, setHoveredActivity] = useState<Activity | null>(null);
     const [detailActivity, setDetailActivity] = useState<Activity | null>(null);
     const [activityDetail, setActivityDetail] = useState<ActivityDetail | null>(null);
     const [isLoadingActivityDetail, setIsLoadingActivityDetail] = useState(false);
@@ -294,7 +306,9 @@ function App() {
      */
     useEffect(() => {
         if (arePreferencesApplied) {
-            resumeGrantedGeolocation();
+            if (!initialMapView) {
+                resumeGrantedGeolocation();
+            }
             return;
         }
         const token = getToken();
@@ -309,7 +323,7 @@ function App() {
                 });
                 if (response.ok) {
                     const preferences: UserPreferences = await response.json();
-                    hasDefaultCity = applyPreferences(preferences);
+                    hasDefaultCity = applyPreferences(preferences, initialMapView !== null);
                     if (preferences.configured === false && !isOnboardingPostponed(getPayload()?.userId)) {
                         setNeedsOnboarding(true);
                         setWasOnboardingShown(true);
@@ -320,7 +334,7 @@ function App() {
             } finally {
                 if (!abortController.signal.aborted) {
                     setArePreferencesApplied(true);
-                    if (!hasDefaultCity) {
+                    if (!hasDefaultCity && !initialMapView) {
                         resumeGrantedGeolocation();
                     }
                 }
@@ -577,6 +591,15 @@ function App() {
             && foodTruck.latitude <= mapBounds.neLatitude && foodTruck.longitude >= mapBounds.swLongitude
             && foodTruck.longitude <= mapBounds.neLongitude)
         : foodTrucks;
+
+    /**
+     * Nombre d'activités de la zone affichée, en tête de liste et sur le bouton « Voir la liste » en
+     * mobile (comme sur la carte Finishers). Hors recherche texte, qui a son propre bandeau.
+     */
+    const zoneActivityCount = activeLayer === "activities" && !isTextSearch && !isLoadingActivities && !searchError
+        ? listedActivities.length
+        : 0;
+    const zoneActivityCountLabel = `${zoneActivityCount} ${zoneActivityCount > 1 ? "activités" : "activité"} dans cette zone`;
 
     let emptyMessage = "Aucune activité trouvée dans cette zone.";
     if (isTextSearch) {
@@ -1161,6 +1184,7 @@ function App() {
     /** LL-EF-017, section 8 : sélection depuis un marqueur ou une ligne de liste → aperçu. */
     function handleSelectActivity(activity: Activity) {
         setPreviewActivity(activity);
+        setHoveredActivity(null);
         // Mobile, vue Liste : l'aperçu et la carte centrée sur l'activité sont dans la vue Carte (#92).
         setViewMode("map");
     }
@@ -1299,6 +1323,8 @@ function App() {
                             activities={mapActivities}
                             fitKey={searchFitKey}
                             foodTrucks={foodTrucks}
+                            highlightedActivity={hoveredActivity}
+                            initialView={initialMapView}
                             layer={activeLayer}
                             onBoundsChange={setMapBounds}
                             onPlacesChange={setPlaces}
@@ -1368,6 +1394,16 @@ function App() {
                                     status={geolocationStatus}
                                 />
                             )}
+                            {/* Téléphone : accès direct à la liste de la zone affichée (masqué en desktop). */}
+                            {zoneActivityCount > 0 && (
+                                <button
+                                    className="explorer-show-list-button"
+                                    onClick={() => setViewMode("list")}
+                                    type="button"
+                                >
+                                    <span aria-hidden="true">☰</span> Voir la liste ({zoneActivityCount})
+                                </button>
+                            )}
                         </div>
                         {previewActivity && (
                             <ActivityPreview
@@ -1380,6 +1416,9 @@ function App() {
                     </div>
 
                     <div className="explorer-list-panel" ref={searchListRef}>
+                        {zoneActivityCount > 0 && (
+                            <p className="explorer-list-count" role="status">{zoneActivityCountLabel}</p>
+                        )}
                         {activeLayer === "foodTrucks" ? (
                             <FoodTruckList foodTrucks={visibleFoodTrucks} />
                         ) : activeLayer === "places" ? (
@@ -1395,10 +1434,19 @@ function App() {
                             onRetry={isTextSearch ? undefined : retryActivities}
                             isLoading={isTextSearch ? textStatus?.status === "loading" : isLoadingActivities}
                             label={isTextSearch ? "Résultats de la recherche" : undefined}
+                            onHoverActivity={setHoveredActivity}
                             onSelectActivity={handleSelectActivity}
                             ordered={isTextSearch}
                         />
                         )}
+                        {/* Téléphone, vue Liste : retour à la carte (masqué en desktop). */}
+                        <button
+                            className="explorer-show-map-button"
+                            onClick={() => setViewMode("map")}
+                            type="button"
+                        >
+                            <span aria-hidden="true">🗺</span> Voir la carte
+                        </button>
                     </div>
                 </div>
             </div>

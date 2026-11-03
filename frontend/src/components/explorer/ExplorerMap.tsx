@@ -4,11 +4,12 @@ import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
-import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { Circle, MapContainer, Marker, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, MAP_BOUNDS_DEBOUNCE_MS } from "./constants";
 import { APPROXIMATE_LOCATION_LABEL, isApproximateLocation } from "./activityUtils";
 import { hasCoordinates } from "./globalSearch";
+import { type MapUrlView, writeMapUrlView } from "./mapUrlView";
 import PlacesLayer from "../places/PlacesLayer";
 import type { Place } from "../places/types";
 import { describePresence } from "../foodtrucks/foodTruckFormat";
@@ -33,6 +34,17 @@ const FOOD_TRUCK_MARKER_ICON = L.divIcon({
     html: "🚚",
     iconSize: [32, 32],
     iconAnchor: [16, 16],
+});
+
+/**
+ * Activité survolée dans la liste (comme sur la carte Finishers) : marqueur dédié, hors des groupes,
+ * pour rester visible même quand l'activité est regroupée avec ses voisines.
+ */
+const HIGHLIGHT_MARKER_ICON = L.divIcon({
+    className: "explorer-highlight-marker",
+    html: "<span></span>",
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
 });
 
 /** Zoom minimal quand la carte est centrée sur une ville ou une position. */
@@ -101,6 +113,24 @@ function MapBoundsWatcher({ onBoundsChange }: { onBoundsChange: (bounds: MapBoun
         };
     }, []);
 
+    return null;
+}
+
+/**
+ * Recopie le centre et le zoom de la carte dans l'adresse de la page après chaque geste (voir
+ * `mapUrlView.ts`). Une carte masquée (bascule mobile Carte/Liste) n'écrit rien.
+ */
+function MapUrlViewSync() {
+    const map = useMapEvents({
+        moveend: () => {
+            const size = map.getSize();
+            if (size.x === 0 || size.y === 0) {
+                return;
+            }
+            const center = map.getCenter();
+            writeMapUrlView({ latitude: center.lat, longitude: L.Util.wrapNum(center.lng, [-180, 180], true), zoom: map.getZoom() });
+        },
+    });
     return null;
 }
 
@@ -229,6 +259,10 @@ interface ExplorerMapProps {
     onBoundsChange: (bounds: MapBounds) => void;
     /** Recherche globale : identifiant de la page de résultats affichée, `null` hors recherche. */
     fitKey?: string | null;
+    /** Position lue dans l'adresse au chargement (lien partagé, rechargement) : vue initiale de la carte. */
+    initialView?: MapUrlView | null;
+    /** Activité survolée dans la liste : mise en évidence sur la carte. */
+    highlightedActivity?: Activity | null;
 }
 
 function ExplorerMap({
@@ -242,10 +276,15 @@ function ExplorerMap({
     onSelectActivity,
     onBoundsChange,
     fitKey = null,
+    initialView = null,
+    highlightedActivity = null,
 }: ExplorerMapProps) {
-    const initialCenter: LatLngExpression = userPosition
-        ? [userPosition.latitude, userPosition.longitude]
-        : DEFAULT_MAP_CENTER;
+    const initialCenter: LatLngExpression = initialView
+        ? [initialView.latitude, initialView.longitude]
+        : userPosition
+            ? [userPosition.latitude, userPosition.longitude]
+            : DEFAULT_MAP_CENTER;
+    const initialZoom = initialView ? initialView.zoom : userPosition ? 13 : DEFAULT_MAP_ZOOM;
 
     return (
         // zoomSnap fractionnaire : le cadrage sur le rayon favori (fitBounds) colle au rayon au lieu
@@ -253,7 +292,7 @@ function ExplorerMap({
         <MapContainer
             center={initialCenter}
             className="explorer-map"
-            zoom={userPosition ? 13 : DEFAULT_MAP_ZOOM}
+            zoom={initialZoom}
             zoomControl={false}
             zoomSnap={0.25}
         >
@@ -262,6 +301,7 @@ function ExplorerMap({
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapBoundsWatcher onBoundsChange={onBoundsChange} />
+            <MapUrlViewSync />
             <MapRecenterOnUserPosition position={userPosition} radiusKm={radiusKm} />
             {userPosition && radiusKm && (
                 // Rayon actif, matérialisé autour de la ville (ou de la position) de recherche.
@@ -292,6 +332,20 @@ function ExplorerMap({
                     />
                 ))}
             </MarkerClusterGroup>
+            {layer === "activities" && highlightedActivity && hasCoordinates(highlightedActivity) && (
+                <Marker
+                    icon={HIGHLIGHT_MARKER_ICON}
+                    interactive={false}
+                    key={`highlight-${highlightedActivity.id}`}
+                    keyboard={false}
+                    position={[highlightedActivity.latitude, highlightedActivity.longitude]}
+                    zIndexOffset={1000}
+                >
+                    <Tooltip className="explorer-highlight-tooltip" direction="top" offset={[0, -14]} permanent>
+                        {highlightedActivity.title}
+                    </Tooltip>
+                </Marker>
+            )}
             <PlacesLayer enabled={layer === "places"} onPlacesChange={onPlacesChange} onSelectActivity={onSelectActivity} />
             {layer === "foodTrucks" && foodTrucks.map((foodTruck) => (
                 <Marker

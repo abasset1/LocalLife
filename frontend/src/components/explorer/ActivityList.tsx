@@ -23,6 +23,11 @@ interface ActivityListProps {
     onRetry?: () => void;
     /** Aucune activité : aide affichée à la place de `emptyMessage` (actions utiles, spec P0-D). */
     emptyActions?: ReactNode;
+    /**
+     * Ligne survolée ou atteinte au clavier (`null` en la quittant) : la carte met l'activité en
+     * évidence, comme sur la carte Finishers.
+     */
+    onHoverActivity?: (activity: Activity | null) => void;
 }
 
 function formatWhen(startDate: string): string {
@@ -66,6 +71,7 @@ function ActivityList({
     label,
     onRetry,
     emptyActions,
+    onHoverActivity,
 }: ActivityListProps) {
     if (isLoading) {
         return <p className="explorer-status">Chargement des activités…</p>;
@@ -97,7 +103,15 @@ function ActivityList({
         const categoryLabels = formatCategoryLabels(activity, categories);
         return (
             <li key={activity.id}>
-                <button className="explorer-list-item" onClick={() => onSelectActivity(activity)} type="button">
+                <button
+                    className="explorer-list-item"
+                    onBlur={() => onHoverActivity?.(null)}
+                    onClick={() => onSelectActivity(activity)}
+                    onFocus={() => onHoverActivity?.(activity)}
+                    onMouseEnter={() => onHoverActivity?.(activity)}
+                    onMouseLeave={() => onHoverActivity?.(null)}
+                    type="button"
+                >
                     {activity.mainImageUrl && (
                         <img alt="" className="explorer-list-item-thumbnail" loading="lazy" src={activity.mainImageUrl} />
                     )}

@@ -136,3 +136,30 @@ describe("ActivityList — précision de la position (ADR-0011, phase A)", () =>
         expect(screen.getAllByText(/Emplacement approximatif/)).toHaveLength(1);
     });
 });
+
+describe("ActivityList — lien avec la carte", () => {
+    it("signale l'activité survolée ou atteinte au clavier, puis la fin du survol", async () => {
+        const onHoverActivity = vi.fn();
+        const user = userEvent.setup();
+        const first = activity(1);
+        render(
+            <ActivityList
+                activities={[first, activity(2)]}
+                categories={CATEGORIES}
+                error={null}
+                isLoading={false}
+                onHoverActivity={onHoverActivity}
+                onSelectActivity={() => undefined}
+            />,
+        );
+        const button = screen.getByRole("button", { name: /Activité 1/ });
+
+        await user.hover(button);
+        expect(onHoverActivity).toHaveBeenLastCalledWith(first);
+        await user.unhover(button);
+        expect(onHoverActivity).toHaveBeenLastCalledWith(null);
+
+        await user.tab();
+        expect(onHoverActivity).toHaveBeenLastCalledWith(first);
+    });
+});
