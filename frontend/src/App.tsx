@@ -1323,7 +1323,9 @@ function App() {
                             activities={mapActivities}
                             fitKey={searchFitKey}
                             foodTrucks={foodTrucks}
+                            categories={categories}
                             highlightedActivity={hoveredActivity}
+                            onOpenDetail={handleOpenDetail}
                             initialView={initialMapView}
                             layer={activeLayer}
                             onBoundsChange={setMapBounds}
