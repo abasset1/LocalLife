@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Suggestions et anomalies : formulaire, administration et alerte par e-mail
+- **Formulaire « Une idée, un problème ? »** dans le menu (rubrique Aide) : choix « 💡 Une idée » ou « 🐞 Un problème » et un message (5 à 2000 caractères). Réservé aux utilisateurs connectés (un visiteur est envoyé vers la connexion) ; la page d'où il est envoyé est jointe pour aider à reproduire un problème. Au plus 10 messages par heure et par compte.
+- **Administration → Retours** (administrateurs) : messages les plus récents d'abord, filtres « À traiter », « Traités », « Tous », auteur avec son adresse cliquable pour lui répondre, page d'envoi et navigateur. « Marquer traité » / « Remettre à traiter ». Pastille sur l'onglet avec le nombre de retours à traiter ; `/admin?tab=feedback` ouvre directement la section.
+- **Alerte** : chaque nouveau message envoie un e-mail à tous les administrateurs actifs, avec le texte et un lien vers la section.
+- **RGPD** : les messages font partie de l'export des données et sont supprimés avec le compte de leur auteur.
+- **API** : `POST /api/v1/feedback` (`kind` : `SUGGESTION` ou `BUG`, `message`, `pageUrl` facultatif) ; `GET /api/v1/admin/feedback` (`status` : `NEW` ou `DONE`, `page`, `size` ; `newCount`) et `PATCH /api/v1/admin/feedback/{id}` (`done`). Migration `V82`.
+
 ### Popup Premium pour les comptes gratuits
 - Sur la carte, un compte gratuit voit une popup « Passe à Premium » : quatre avantages en une ligne (suivi des activités et des lieux, alertes par mots-clés, favoris illimités et 10 alertes, proposer ses activités) et « Gratuit pour le moment ». « Passer à Premium » l'active tout de suite.
 - Elle s'affiche à chaque visite pendant 7 jours après chaque connexion ; « Plus tard », ✕ ou Échap la ferment pour la visite en cours. « Ne plus me proposer », en petit en bas, l'arrête définitivement pour ce compte sur cet appareil.

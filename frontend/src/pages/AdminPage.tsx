@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 import { getPayload } from "../auth/authStorage";
 import AdminAccountsSection from "../components/admin/AdminAccountsSection";
@@ -13,6 +13,7 @@ import AdminPlaceMatchesSection from "../components/admin/AdminPlaceMatchesSecti
 import AdminPlacesSection from "../components/admin/AdminPlacesSection";
 import AdminProSection from "../components/admin/AdminProSection";
 import AdminActionLogSection from "../components/admin/AdminActionLogSection";
+import AdminFeedbackSection from "../components/admin/AdminFeedbackSection";
 import AdminTrashSection from "../components/admin/AdminTrashSection";
 import { proRequest } from "../components/pro/proApi";
 import { canModerate } from "../auth/roles";
@@ -116,6 +117,7 @@ const ADMIN_SECTIONS = [
     { value: "places", label: "Lieux" },
     { value: "placeMatches", label: "Rapprochements" },
     { value: "placeDuplicates", label: "Doublons de lieux" },
+    { value: "feedback", label: "Retours" },
     { value: "accounts", label: "Comptes" },
     { value: "pro", label: "Professionnels" },
     { value: "categories", label: "Catégories" },
@@ -173,10 +175,26 @@ function matchesSourceSearch(source: Source, query: string): boolean {
 
 function AdminPage() {
     const navigate = useNavigate();
-    const [activeSection, setActiveSection] = useState<AdminSection>(ADMIN_SECTIONS[0].value);
     /** Administrateur (tout) ou équipe LocalLife (modération seulement). */
     const isAdmin = getPayload()?.role === "ADMIN";
     const visibleSections = ADMIN_SECTIONS.filter((section) => isAdmin || MODERATION_SECTIONS.has(section.value));
+    const [searchParams] = useSearchParams();
+    // `?tab=feedback` (lien de l'e-mail d'alerte) : ouvre directement la section demandée, si elle est accessible.
+    const [activeSection, setActiveSection] = useState<AdminSection>(() => visibleSections
+        .find((section) => section.value === searchParams.get("tab"))?.value ?? ADMIN_SECTIONS[0].value);
+    /** Retours des utilisateurs à traiter : pastille sur l'onglet « Retours ». */
+    const [newFeedbackCount, setNewFeedbackCount] = useState(0);
+
+    useEffect(() => {
+        if (!isAdmin) {
+            return;
+        }
+        void proRequest<{ newCount: number }>("/api/v1/admin/feedback?status=NEW&size=1").then((result) => {
+            if (result.ok) {
+                setNewFeedbackCount(result.data.newCount);
+            }
+        });
+    }, [isAdmin]);
     /** Demandes d'offre Pro en attente : pastille sur l'onglet « Professionnels », visible dès l'arrivée. */
     const [pendingProRequests, setPendingProRequests] = useState(0);
 
@@ -623,6 +641,14 @@ function AdminPage() {
                         type="button"
                     >
                         {section.label}
+                        {section.value === "feedback" && newFeedbackCount > 0 && (
+                            <span
+                                aria-label={`${newFeedbackCount} retour${newFeedbackCount > 1 ? "s" : ""} à traiter`}
+                                className="admin-tab-badge"
+                            >
+                                {newFeedbackCount}
+                            </span>
+                        )}
                         {section.value === "pro" && pendingProRequests > 0 && (
                             <span
                                 aria-label={`${pendingProRequests} demande${pendingProRequests > 1 ? "s" : ""} d'offre Pro en attente`}
@@ -1060,6 +1086,12 @@ function AdminPage() {
             {activeSection === "trash" && (
                 <main className="admin-content">
                     <AdminTrashSection onRestored={() => setActivitiesRefreshKey((key) => key + 1)} />
+                </main>
+            )}
+
+            {activeSection === "feedback" && (
+                <main className="admin-content">
+                    <AdminFeedbackSection onNewCountChange={setNewFeedbackCount} />
                 </main>
             )}
 
