@@ -27,7 +27,7 @@ public class AccountRepository {
      * {@code requested_plan}, celle d'une demande en attente (offre Pro à valider).
      */
     private static final String ACCOUNT_COLUMNS = "id, username, email, role, email_verified, created_at, "
-            + "account_status, status_reason, status_changed_at, "
+            + "account_status, status_reason, status_changed_at, login_count, last_login_at, "
             + "(SELECT s.plan FROM subscription s WHERE s.user_id = users.id AND s.status IN ('ACTIVE', 'CANCELED') "
             + "AND (s.current_period_end IS NULL OR s.current_period_end > now()) "
             + "ORDER BY s.id DESC LIMIT 1) AS current_plan, "
@@ -65,7 +65,9 @@ public class AccountRepository {
             String statusReason,
             LocalDateTime statusChangedAt,
             String plan,
-            String requestedPlan) {
+            String requestedPlan,
+            int loginCount,
+            LocalDateTime lastLoginAt) {
     }
 
     public Optional<Access> findAccess(Long userId) {
@@ -161,6 +163,7 @@ public class AccountRepository {
     private static Account mapAccount(ResultSet resultSet, int rowNumber) throws SQLException {
         Timestamp createdAt = resultSet.getTimestamp("created_at");
         Timestamp changedAt = resultSet.getTimestamp("status_changed_at");
+        Timestamp lastLogin = resultSet.getTimestamp("last_login_at");
         return new Account(
                 resultSet.getLong("id"),
                 resultSet.getString("username"),
@@ -172,13 +175,20 @@ public class AccountRepository {
                 resultSet.getString("status_reason"),
                 changedAt == null ? null : changedAt.toLocalDateTime(),
                 resultSet.getString("current_plan") == null ? "FREE" : resultSet.getString("current_plan"),
-                resultSet.getString("requested_plan"));
+                resultSet.getString("requested_plan"),
+                resultSet.getInt("login_count"),
+                lastLogin == null ? null : lastLogin.toLocalDateTime());
     }
 
     /**
      * Dernière activité du compte, au jour près (RGPD, 22/10/2026) : base de la suppression des comptes inactifs.
      * Une activité retire l'avertissement d'inactivité éventuel. Au plus une écriture par jour et par compte.
      */
+    /** Connexion réussie (jeton délivré) : une de plus, et sa date. */
+    public void recordLogin(Long id) {
+        jdbcTemplate.update("UPDATE users SET login_count = login_count + 1, last_login_at = now() WHERE id = ?", id);
+    }
+
     public void touchActivity(Long id) {
         jdbcTemplate.update("""
                 UPDATE users SET last_active_at = now(), inactivity_warned_at = NULL

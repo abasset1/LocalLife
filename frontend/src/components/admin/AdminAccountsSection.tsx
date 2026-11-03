@@ -24,6 +24,10 @@ export interface Account {
     plan?: Plan;
     /** Offre demandée en attente de validation (offre Pro), sinon `null`. */
     requestedPlan?: Exclude<Plan, "FREE"> | null;
+    /** Connexions réussies (mot de passe ou Google), comptées depuis le 03/11/2026. */
+    loginCount?: number;
+    /** Date de la dernière connexion, `null` si aucune depuis le début du décompte. */
+    lastLoginAt?: string | null;
 }
 
 interface AccountPage {
@@ -326,6 +330,8 @@ function AdminAccountsSection() {
                                     <th scope="col">E-mail confirmé</th>
                                     <th scope="col">Statut</th>
                                     <th scope="col">Créé le</th>
+                                    <th scope="col">Connexions</th>
+                                    <th scope="col">Dernière connexion</th>
                                     <th scope="col">Actions</th>
                                 </tr>
                             </thead>
@@ -356,6 +362,8 @@ function AdminAccountsSection() {
                                             )}
                                         </td>
                                         <td>{formatDateTime(account.createdAt)}</td>
+                                        <td>{account.loginCount ?? 0}</td>
+                                        <td>{formatDateTime(account.lastLoginAt ?? null)}</td>
                                         <td className="admin-accounts-actions">
                                             {account.role !== "ADMIN" && (
                                                 <>

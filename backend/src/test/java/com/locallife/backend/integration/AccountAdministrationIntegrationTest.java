@@ -152,6 +152,27 @@ class AccountAdministrationIntegrationTest {
                 .isEqualTo("PREMIUM");
     }
 
+    @Test
+    void accounts_ShouldCountSuccessfulLogins_AndShowTheLastOne() throws Exception {
+        Long user = account(Role.USER);
+        String email = emailOf(user);
+        String admin = testAccounts.bearer(Role.ADMIN);
+
+        JsonNode before = call(HttpMethod.GET, "/api/v1/admin/accounts/" + user, admin, null, 200);
+        assertThat(before.get("loginCount").asInt()).isZero();
+        assertThat(before.get("lastLoginAt").isNull()).isTrue();
+
+        call(HttpMethod.POST, "/api/v1/auth/login", null, Map.of("email", email, "password", PASSWORD), 200);
+        call(HttpMethod.POST, "/api/v1/auth/login", null, Map.of("email", email, "password", "mauvais-mdp"), 401);
+        call(HttpMethod.POST, "/api/v1/auth/login", null, Map.of("email", email, "password", PASSWORD), 200);
+
+        JsonNode page = call(HttpMethod.GET, "/api/v1/admin/accounts?q=" + email, admin, null, 200);
+        JsonNode listed = page.get("items").get(0);
+        // Un échec ne compte pas ; une requête authentifiée n'est pas une connexion.
+        assertThat(listed.get("loginCount").asInt()).isEqualTo(2);
+        assertThat(listed.get("lastLoginAt").isNull()).isFalse();
+    }
+
     // --- Accès ---
 
     @Test
