@@ -1,4 +1,4 @@
-import { describeSchedule, describeToday, formatDays, formatHours } from '../presence';
+import { describeSchedule, describeToday, formatDays, formatHours, spotAddressLine } from '../presence';
 
 describe('presence', () => {
   const market = {
@@ -18,5 +18,15 @@ describe('presence', () => {
     expect(formatHours({ startTime: null, endTime: null })).toBeNull();
     expect(formatDays(null)).toBe('Tous les jours');
     expect(describeToday({ ...market, spotName: null, startTime: null, endTime: null })).toBe('Marché');
+  });
+});
+
+describe('adresse exacte', () => {
+  it('ajoute l’adresse au planning, sauf si elle sert déjà de nom', () => {
+    const base = { spotKind: 'MARKET' as const, daysOfWeek: 'SA', startTime: null, endTime: null };
+    expect(describeSchedule({ ...base, spotName: 'Place Pie', spotAddress: 'Place Pie, 84000 Avignon' }))
+      .toBe('sam. · Marché · Place Pie · Place Pie, 84000 Avignon');
+    expect(spotAddressLine({ spotName: '3 rue Neuve', spotAddress: '3 rue Neuve' })).toBeNull();
+    expect(spotAddressLine({ spotName: 'Parking', spotAddress: null })).toBeNull();
   });
 });

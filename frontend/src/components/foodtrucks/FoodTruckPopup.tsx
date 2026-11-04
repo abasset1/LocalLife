@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FoodTruck } from "../explorer/types";
 import { cuisineLabel, markerOf } from "./cuisines";
-import { SPOT_KIND_LABELS, formatHours } from "./foodTruckFormat";
+import { SPOT_KIND_LABELS, formatHours, socialUrl, spotAddressLine } from "./foodTruckFormat";
 
 interface FoodTruckPopupProps {
     /** Food trucks de la pastille cliquée (même emplacement ou groupe de marqueurs). */
@@ -23,6 +23,9 @@ function FoodTruckPopup({ foodTrucks, onOpenDetail }: FoodTruckPopupProps) {
     const hours = formatHours(foodTruck);
     const spot = [SPOT_KIND_LABELS[foodTruck.spotKind] ?? null, foodTruck.spotName].filter(Boolean).join(" · ");
     const cuisine = [cuisineLabel(foodTruck.cuisineType), foodTruck.category].filter(Boolean).join(" · ");
+    const address = spotAddressLine(foodTruck);
+    const instagram = socialUrl(foodTruck.instagramUrl, "instagram");
+    const facebook = socialUrl(foodTruck.facebookUrl, "facebook");
     const move = (step: number) => setIndex((current) => (current + step + total) % total);
 
     return (
@@ -41,6 +44,13 @@ function FoodTruckPopup({ foodTrucks, onOpenDetail }: FoodTruckPopupProps) {
                 {spot && cuisine ? " · " : ""}
                 {cuisine}
             </span>
+            {address && <span className="explorer-cluster-popup-meta food-truck-address">🏠 {address}</span>}
+            {(instagram || facebook) && (
+                <span className="food-truck-social-links">
+                    {instagram && <a href={instagram} rel="noopener noreferrer" target="_blank">Instagram</a>}
+                    {facebook && <a href={facebook} rel="noopener noreferrer" target="_blank">Facebook</a>}
+                </span>
+            )}
             <button className="explorer-cluster-popup-cta" onClick={() => onOpenDetail(foodTruck)} type="button">
                 Voir le food truck →
             </button>

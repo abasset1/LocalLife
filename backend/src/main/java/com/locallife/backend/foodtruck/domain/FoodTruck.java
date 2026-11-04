@@ -50,7 +50,9 @@ public record FoodTruck(
         @ReadOnlyProperty LocalDateTime publishedAt,
         @ReadOnlyProperty String cuisineType,
         @ReadOnlyProperty String markerEmoji,
-        @ReadOnlyProperty String markerColor) {
+        @ReadOnlyProperty String markerColor,
+        @ReadOnlyProperty String instagramUrl,
+        @ReadOnlyProperty String facebookUrl) {
 
     /**
      * Constructeur canonique, utilisé par Spring Data JDBC à la lecture.
@@ -58,7 +60,8 @@ public record FoodTruck(
      * posé par le trigger {@code trg_food_truck_set_published_at} (V55) et
      * jamais écrit par l'application ; {@code null} pour les food trucks
      * publiés avant V55. {@code cuisineType}, {@code markerEmoji}, {@code markerColor} (V84) : écrits par
-     * {@code OwnedFoodTruckRepository}, en lecture seule ici.
+     * {@code OwnedFoodTruckRepository}, en lecture seule ici, comme {@code instagramUrl} et
+     * {@code facebookUrl} (V85).
      */
     @PersistenceCreator
     public FoodTruck {
@@ -68,6 +71,6 @@ public record FoodTruck(
     public FoodTruck(
             Long id, String name, String description, Double latitude, Double longitude, String category,
             String contact, String status) {
-        this(id, name, description, latitude, longitude, category, contact, status, null, null, null, null);
+        this(id, name, description, latitude, longitude, category, contact, status, null, null, null, null, null, null);
     }
 }

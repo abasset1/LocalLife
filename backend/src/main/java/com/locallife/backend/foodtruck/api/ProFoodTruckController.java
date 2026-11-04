@@ -53,7 +53,8 @@ public class ProFoodTruckController {
     public record OwnedFoodTruckResponse(
             Long id, String name, String description, String category, String contact, FoodTruckStatus status,
             boolean suspendedByLocalLife, OffsetDateTime updatedAt, boolean approved, String reviewReason,
-            boolean suspendedForAccess, String cuisineType, String markerEmoji, String markerColor, String photoUrl) {
+            boolean suspendedForAccess, String cuisineType, String markerEmoji, String markerColor, String photoUrl,
+            String instagramUrl, String facebookUrl) {
 
         static OwnedFoodTruckResponse from(OwnedFoodTruck foodTruck) {
             return new OwnedFoodTruckResponse(foodTruck.id(), foodTruck.name(), foodTruck.description(),
@@ -61,7 +62,8 @@ public class ProFoodTruckController {
                     foodTruck.suspendedByAdminAt() != null, foodTruck.updatedAt(), foodTruck.approvedAt() != null,
                     foodTruck.reviewReason(), foodTruck.suspendedForAccessAt() != null, foodTruck.cuisineType(),
                     foodTruck.markerEmoji(), foodTruck.markerColor(),
-                    FoodTruckController.photoUrl(foodTruck.id(), foodTruck.photoUpdatedAt()));
+                    FoodTruckController.photoUrl(foodTruck.id(), foodTruck.photoUpdatedAt()), foodTruck.instagramUrl(),
+                    foodTruck.facebookUrl());
         }
     }
 
@@ -69,14 +71,14 @@ public class ProFoodTruckController {
     public record ManagedPresenceResponse(
             Long id, Long foodTruckId, PresenceStatus status, Long locationId, String spotName, Double latitude,
             Double longitude, SpotKind spotKind, String daysOfWeek, LocalTime startTime, LocalTime endTime,
-            LocalDate validFrom, LocalDate validUntil, Long placeId) {
+            LocalDate validFrom, LocalDate validUntil, Long placeId, String spotAddress) {
 
         static ManagedPresenceResponse from(ManagedPresence managed) {
             FoodTruckPresence presence = managed.presence();
             return new ManagedPresenceResponse(presence.id(), presence.foodTruckId(), managed.status(),
                     managed.locationId(), presence.spotName(), presence.latitude(), presence.longitude(),
                     presence.spotKind(), presence.daysOfWeek(), presence.startTime(), presence.endTime(),
-                    presence.validFrom(), presence.validUntil(), presence.placeId());
+                    presence.validFrom(), presence.validUntil(), presence.placeId(), presence.spotAddress());
         }
     }
 
@@ -92,7 +94,7 @@ public class ProFoodTruckController {
     @Operation(summary = "Créer un food truck", description = "Profil en brouillon : nom, spécialité (category), type "
             + "de cuisine (cuisineType : BURGER, PIZZA, ASIAN, MEXICAN, CREPES, SANDWICH, FRENCH, ITALIAN, WORLD, "
             + "VEGETARIAN, DESSERT, DRINKS, OTHER), description, contact, pastille (markerEmoji, markerColor "
-            + "#rrggbb). Publication : POST /pro/foodtrucks/{id}/publish. Distinct des lieux.")
+            + "#rrggbb), instagram et facebook (adresse ou nom du compte, renvoyés en instagramUrl/facebookUrl). Publication : POST /pro/foodtrucks/{id}/publish. Distinct des lieux.")
     @PostMapping("/foodtrucks")
     public ResponseEntity<Object> create(@RequestBody(required = false) ProfileInput body,
             Authentication authentication, HttpServletRequest request) {

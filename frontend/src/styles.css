@@ -6006,3 +6006,15 @@ body {
     background-color: #dbeafe;
     color: #1e40af;
 }
+
+/* Food trucks : liens Instagram / Facebook (popup, fiche, modération). */
+.food-truck-social-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+}
+
+.food-truck-social-links a {
+    font-weight: 600;
+}

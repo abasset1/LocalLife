@@ -6,7 +6,7 @@ import { Radius, Shadows, Spacing } from '@/constants/theme';
 import { RemoteImage } from '@/components/remote-image';
 import { cuisineLabel, markerOf } from '@/features/foodtruck/cuisines';
 import { photoUri } from '@/features/foodtruck/photo';
-import { describeToday } from '@/features/foodtruck/presence';
+import { describeToday, spotAddressLine } from '@/features/foodtruck/presence';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -26,13 +26,14 @@ export function FoodTruckCard({
   const theme = useTheme();
   const presence = describeToday(foodTruck);
   const meta = [presence, distance].filter(Boolean).join(' · ');
+  const address = spotAddressLine(foodTruck);
   const marker = markerOf(foodTruck);
   const cuisine = [cuisineLabel(foodTruck.cuisineType), foodTruck.category].filter(Boolean).join(' · ');
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={['Food truck', foodTruck.name, cuisine, meta].filter(Boolean).join(', ')}
+      accessibilityLabel={['Food truck', foodTruck.name, cuisine, meta, address].filter(Boolean).join(', ')}
       accessibilityHint="Ouvre la fiche du food truck"
       onPress={onPress}
       style={({ pressed }) => [
@@ -56,6 +57,11 @@ export function FoodTruckCard({
         {foodTruck.description ? (
           <ThemedText type="small" numberOfLines={2}>
             {foodTruck.description}
+          </ThemedText>
+        ) : null}
+        {address ? (
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+            🏠 {address}
           </ThemedText>
         ) : null}
         <View style={styles.footer}>

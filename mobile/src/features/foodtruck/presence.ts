@@ -11,7 +11,18 @@ const DAY_LABELS: Record<string, string> = {
   MO: 'lun.', TU: 'mar.', WE: 'mer.', TH: 'jeu.', FR: 'ven.', SA: 'sam.', SU: 'dim.',
 };
 
-type PresenceLike = Pick<FoodTruckPresence, 'spotName' | 'spotKind' | 'daysOfWeek' | 'startTime' | 'endTime'>;
+type PresenceLike = Pick<FoodTruckPresence, 'spotName' | 'spotKind' | 'daysOfWeek' | 'startTime' | 'endTime'>
+  & Partial<Pick<FoodTruckPresence, 'spotAddress'>>;
+
+/**
+ * Adresse exacte à afficher en plus du nom de l'emplacement : `null` si elle est inconnue ou si elle se confond avec
+ * ce nom (un emplacement sans nom prend son adresse comme nom).
+ */
+export function spotAddressLine(presence: Pick<PresenceLike, 'spotName' | 'spotAddress'>): string | null {
+  const address = presence.spotAddress?.trim();
+  if (!address) return null;
+  return address.toLowerCase() === presence.spotName?.trim().toLowerCase() ? null : address;
+}
 
 /** Horaires d'une présence (`08h00 – 13h00`), ou `null` s'ils ne sont pas précisés. */
 export function formatHours(presence: Pick<PresenceLike, 'startTime' | 'endTime'>): string | null {
@@ -33,8 +44,8 @@ export function describeToday(presence: PresenceLike): string {
     .join(' · ');
 }
 
-/** Une ligne du planning : jours, horaires, type et nom de l'emplacement. */
+/** Une ligne du planning : jours, horaires, type, nom et adresse exacte de l'emplacement. */
 export function describeSchedule(presence: PresenceLike): string {
   return [formatDays(presence.daysOfWeek), formatHours(presence), SPOT_KIND_LABELS[presence.spotKind],
-    presence.spotName].filter(Boolean).join(' · ');
+    presence.spotName, spotAddressLine(presence)].filter(Boolean).join(' · ');
 }

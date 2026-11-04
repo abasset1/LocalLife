@@ -1,6 +1,6 @@
 import type { FoodTruck } from "../explorer/types";
 import { cuisineLabel, markerOf } from "./cuisines";
-import { describePresence } from "./foodTruckFormat";
+import { describePresence, spotAddressLine } from "./foodTruckFormat";
 
 /**
  * Liste « Food trucks » (ADR-0013) : les food trucks présents aujourd'hui dans la zone affichée, une ligne par
@@ -35,6 +35,9 @@ function FoodTruckList({ foodTrucks, onSelectFoodTruck }: {
                                 {[cuisineLabel(foodTruck.cuisineType), foodTruck.category].filter(Boolean).join(" · ")}
                             </span>
                             <span className="explorer-list-item-meta">{describePresence(foodTruck)}</span>
+                            {spotAddressLine(foodTruck) && (
+                                <span className="explorer-list-item-meta">🏠 {spotAddressLine(foodTruck)}</span>
+                            )}
                             {foodTruck.description && (
                                 <span className="explorer-list-item-description">{foodTruck.description}</span>
                             )}

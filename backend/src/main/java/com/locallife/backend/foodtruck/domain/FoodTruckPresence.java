@@ -15,6 +15,9 @@ import java.time.OffsetDateTime;
  *
  * <p>{@code cuisineType}, {@code markerEmoji}, {@code markerColor} : type de cuisine et pastille du food truck
  * ({@code null} = non renseignés) ; {@code photoUpdatedAt} : dernière mise à jour de sa photo, {@code null} sans photo.
+ *
+ * <p>{@code spotAddress} : adresse exacte de l'emplacement (« 12 rue des Lilas, 35000 Rennes »), {@code null} si
+ * l'emplacement n'en a pas ; {@code instagramUrl}/{@code facebookUrl} : pages du food truck, {@code null} sinon.
  */
 public record FoodTruckPresence(
         Long id,
@@ -36,13 +39,16 @@ public record FoodTruckPresence(
         String cuisineType,
         String markerEmoji,
         String markerColor,
-        OffsetDateTime photoUpdatedAt) {
+        OffsetDateTime photoUpdatedAt,
+        String spotAddress,
+        String instagramUrl,
+        String facebookUrl) {
 
     /** Présence d'un food truck sans type de cuisine, pastille ni photo. */
     public FoodTruckPresence(Long id, Long foodTruckId, String foodTruckName, String description, String category,
             String contact, Double latitude, Double longitude, String spotName, SpotKind spotKind, String daysOfWeek,
             LocalTime startTime, LocalTime endTime, LocalDate validFrom, LocalDate validUntil, Long placeId) {
         this(id, foodTruckId, foodTruckName, description, category, contact, latitude, longitude, spotName, spotKind,
-                daysOfWeek, startTime, endTime, validFrom, validUntil, placeId, null, null, null, null);
+                daysOfWeek, startTime, endTime, validFrom, validUntil, placeId, null, null, null, null, null, null, null);
     }
 }
