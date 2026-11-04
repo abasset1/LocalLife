@@ -110,6 +110,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                        JOIN occurrence o ON o.schedule_id = s.id
                        JOIN location l ON l.id = COALESCE(o.location_id, s.location_id)
                        WHERE s.activity_id = a.id AND o.status <> 'CANCELLED'
+                         AND COALESCE(o.end_at, o.start_at)
+                             >= ((:date::date - 2)::timestamp AT TIME ZONE 'UTC')
                          AND :date::date BETWEEN
                              (o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'))::date
                              AND (COALESCE(o.end_at, o.start_at) AT TIME ZONE COALESCE(l.timezone,
@@ -200,6 +202,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                     JOIN occurrence o ON o.schedule_id = s.id
                     JOIN location l ON l.id = COALESCE(o.location_id, s.location_id)
                     WHERE s.activity_id = a.id AND o.status <> 'CANCELLED'
+                      AND COALESCE(o.end_at, o.start_at) >= ((COALESCE(:date::date,
+                            (now() AT TIME ZONE 'Europe/Paris')::date) - 2)::timestamp AT TIME ZONE 'UTC')
                       AND l.geo_location IS NOT NULL
                       AND ST_DWithin(l.geo_location,
                             ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
@@ -224,6 +228,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                     AND a.location IS NOT NULL
                     AND ST_DWithin(a.location,
                           ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
+                    AND COALESCE(a.end_date, a.start_date)
+                          >= COALESCE(:date::date, (now() AT TIME ZONE 'Europe/Paris')::date)::timestamp
                     AND ((:date::date IS NULL
                           AND a.start_date::date <= (now() AT TIME ZONE 'Europe/Paris')::date + INTERVAL '7 days'
                           AND COALESCE(a.end_date, a.start_date)::date >= (now() AT TIME ZONE 'Europe/Paris')::date)
@@ -294,6 +300,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                     JOIN occurrence o ON o.schedule_id = s.id
                     JOIN location l ON l.id = COALESCE(o.location_id, s.location_id)
                     WHERE s.activity_id = a.id AND o.status <> 'CANCELLED'
+                      AND COALESCE(o.end_at, o.start_at) >= ((COALESCE(:date::date,
+                            (now() AT TIME ZONE 'Europe/Paris')::date) - 2)::timestamp AT TIME ZONE 'UTC')
                       AND l.geo_location IS NOT NULL
                       AND ((:neLongitude - :swLongitude < 180
                             AND l.geo_location && ST_MakeEnvelope(
@@ -324,6 +332,8 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                               :swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography)
                          OR (:neLongitude - :swLongitude >= 180
                           AND ST_Y(a.location::geometry) BETWEEN :swLatitude AND :neLatitude))
+                    AND COALESCE(a.end_date, a.start_date)
+                          >= COALESCE(:date::date, (now() AT TIME ZONE 'Europe/Paris')::date)::timestamp
                     AND ((:date::date IS NULL
                           AND a.start_date::date <= (now() AT TIME ZONE 'Europe/Paris')::date + INTERVAL '7 days'
                           AND COALESCE(a.end_date, a.start_date)::date >= (now() AT TIME ZONE 'Europe/Paris')::date)
