@@ -272,19 +272,89 @@ class DataTourismeCollectorTest {
     void collect_ShouldKeepOnlySelectedEvents_WhenSourceHasASelection() {
         // Le type d'abord : « Concert, » figure aussi dans « core#Concert, ».
         String garageSale = EVENT_ROW.replace("core#Concert", "core#GarageSale")
-                .replace("Concert,", "Collecte de textile,").replace("13/concert", "13/garage-sale");
+                .replace("Concert,", "Vide ta chambre,").replace("13/concert", "13/garage-sale");
         String titledOnly = EVENT_ROW.replace("core#Concert", "core#SaleEvent")
                 .replace("Concert,", "Bourse aux jouets,").replace("13/concert", "13/bourse");
+        // Typé GarageSale, mais d'un autre genre ; la description annonce ou non une vente d'occasion.
+        String otherKind = EVENT_ROW.replace("core#Concert", "core#GarageSale")
+                .replace("Concert,", "Marché de Noël,").replace("13/concert", "13/marche-de-noel");
+        String otherKindWithSale = otherKind.replace("Un concert", "Artisanat et brocante")
+                .replace("13/marche-de-noel", "13/marche-de-noel-brocante");
+
+        List<CollectedActivity> result = collectSelection(
+                HEADER + EVENT_ROW + garageSale + titledOnly + otherKind + otherKindWithSale, null);
+
+        assertEquals(List.of("Vide ta chambre", "Bourse aux jouets", "Marché de Noël"), titles(result));
+        assertEquals("https://data.datatourisme.fr/13/marche-de-noel-brocante", result.get(2).externalId());
+    }
+
+    private List<CollectedActivity> collectSelection(String body, String regionFilter) {
         RestClient.Builder builder = RestClient.builder();
         mockServer = MockRestServiceServer.bindTo(builder).build();
         DataTourismeCollector collector = new DataTourismeCollector(builder, RESOURCE_URL, "DATAtourisme France",
-                null, DataTourismeEventSelection.VIDE_GRENIERS_BROCANTES, CLOCK);
-        mockServer.expect(requestTo(RESOURCE_URL)).andRespond(withSuccess(
-                HEADER + EVENT_ROW + garageSale + titledOnly, MediaType.parseMediaType("text/csv")));
+                regionFilter, DataTourismeEventSelection.VIDE_GRENIERS_BROCANTES, CLOCK);
+        mockServer.expect(requestTo(RESOURCE_URL)).andRespond(withSuccess(body, MediaType.parseMediaType("text/csv")));
+        return collector.collect();
+    }
 
-        List<CollectedActivity> result = collector.collect();
+    /**
+     * Annulation signalée par le titre seulement (export France du 04/11/2026 : « Brocante de Sancerre annulée »,
+     * typée BricABrac) : l'événement n'est pas collecté. « Reporté » ne suffit pas : la période de « REPORTÉ - VIDE
+     * DRESSING SOLIDAIRE » était déjà celle de la nouvelle date.
+     */
+    @Test
+    void collect_ShouldDropCancelledEvents_ButKeepPostponedOnes() {
+        String cancelled = EVENT_ROW.replace("Concert,", "Brocante de Sancerre annulée,")
+                .replace("13/concert", "13/sancerre");
+        String cancelledPrefix = EVENT_ROW.replace("Concert,", "ANNULÉ - Feu d'artifice à Cahors,")
+                .replace("13/concert", "13/cahors");
+        String postponed = EVENT_ROW.replace("Concert,", "REPORTÉ - VIDE DRESSING SOLIDAIRE,")
+                .replace("13/concert", "13/vide-dressing");
+        String partial = EVENT_ROW.replace("Concert,", "Winter Jazz Festival - China MOSES (annulation Rhoda SCOTT),")
+                .replace("13/concert", "13/jazz");
 
-        assertEquals(List.of("Collecte de textile", "Bourse aux jouets"), titles(result));
+        List<String> result = titles(collectBody(HEADER + cancelled + cancelledPrefix + postponed + partial, null));
+
+        assertEquals(List.of("REPORTÉ - VIDE DRESSING SOLIDAIRE",
+                "Winter Jazz Festival - China MOSES (annulation Rhoda SCOTT)"), result);
+    }
+
+    /** Export France du 04/11/2026 : « VIDE-GRENIER DE MOVEMBER », Oupia (34210), placé en Floride. */
+    @Test
+    void collect_ShouldDropPositionsOutsideTheTerritoryOfThePostalCode() {
+        String florida = EVENT_ROW.replace("43.95,4.81", "27.4361633,-82.615927")
+                .replace("84000#Avignon", "34210#Oupia").replace("13/concert", "13/movember");
+        String swapped = EVENT_ROW.replace("43.95,4.81", "4.81,43.95").replace("13/concert", "13/inverse");
+        String reunion = EVENT_ROW.replace("43.95,4.81", "-20.88,55.45")
+                .replace("84000#Avignon", "97400#Saint-Denis").replace("13/concert", "13/reunion");
+        String reunionInParis = reunion.replace("-20.88,55.45", "48.85,2.35").replace("13/reunion", "13/reunion-paris");
+
+        List<CollectedActivity> result = collectBody(HEADER + florida + swapped + EVENT_ROW + reunion + reunionInParis,
+                null);
+
+        assertEquals(List.of("https://data.datatourisme.fr/13/concert", "https://data.datatourisme.fr/13/reunion"),
+                result.stream().map(CollectedActivity::externalId).toList());
+    }
+
+    /** Emprise par territoire : les extrémités et les communes frontalières restent dans la collecte. */
+    @Test
+    void isPlausiblePosition_ShouldAcceptFrenchExtremesAndBorders() {
+        assertTrue(DataTourismeCollector.isPlausiblePosition("29242", 48.46, -5.09)); // Ouessant
+        assertTrue(DataTourismeCollector.isPlausiblePosition("59140", 51.03, 2.37)); // Dunkerque
+        assertTrue(DataTourismeCollector.isPlausiblePosition("20169", 41.39, 9.16)); // Bonifacio
+        assertTrue(DataTourismeCollector.isPlausiblePosition("06500", 43.77, 7.50)); // Menton
+        assertTrue(DataTourismeCollector.isPlausiblePosition("67000", 48.58, 7.75)); // Strasbourg
+        // Une position dans un département voisin n'est pas écartée.
+        assertTrue(DataTourismeCollector.isPlausiblePosition("84000", 43.53, 5.45)); // Aix-en-Provence
+        assertTrue(DataTourismeCollector.isPlausiblePosition("97150", 18.07, -63.08)); // Saint-Martin
+        assertTrue(DataTourismeCollector.isPlausiblePosition("97300", 4.94, -52.33)); // Cayenne
+        assertTrue(DataTourismeCollector.isPlausiblePosition("98714", -17.53, -149.57)); // Papeete : pas d'emprise
+        assertTrue(DataTourismeCollector.isPlausiblePosition("", 48.85, 2.35));
+
+        assertFalse(DataTourismeCollector.isPlausiblePosition("34210", 27.4361633, -82.615927));
+        assertFalse(DataTourismeCollector.isPlausiblePosition("84000", 0, 0));
+        assertFalse(DataTourismeCollector.isPlausiblePosition("97200", 48.85, 2.35));
+        assertFalse(DataTourismeCollector.isPlausiblePosition(null, 27.4, -82.6));
     }
 
     @Test

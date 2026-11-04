@@ -156,7 +156,19 @@ Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
   * période de plus de 31 jours pour un type non continu → période de
     validité, écartée (pas de récurrence inventée) ;
   * adresse générique → nom du lieu, sans adresse ;
-  * liens : site de l'événement, puis tiers, puis billetterie.
+  * liens : site de l'événement, puis tiers, puis billetterie ;
+  * **annulé** : titre contenant « annulé(e)(s) » (seul signal : le CSV n'a
+    pas de statut) → écarté ; déjà importé, il disparaît de la collecte et
+    l'import l'archive (garde-fou de disparition massive compris).
+    « Annulation » et « reporté » ne suffisent pas (export France du
+    04/11/2026 : les 69 titres « annulé » sont des annulations ; « annulation
+    Rhoda SCOTT » ne vise qu'un artiste, « REPORTÉ - VIDE DRESSING » avait
+    déjà sa nouvelle date) ;
+  * **coordonnées hors du territoire** du code postal (emprise de la
+    métropole Corse comprise, ou du DROM, avec marge) → écarté. Même export :
+    30 événements sur 67 086, tous faux (Floride, Asie, latitude = longitude),
+    aucun dans le Vaucluse. Pas de contrôle par département : voir
+    « Contrôle géographique » ci-dessous.
 * Garde-fous techniques : voir « Garde-fous de l'import » ci-dessous.
 * Fichier réel du 13/10/2026, Vaucluse : 239 événements, 118 retenus, 100
   périodes de validité seulement (88 marchés publiés pour toute l'année),
@@ -176,12 +188,52 @@ tous les événements (sources existantes, inchangées).
 
 | Valeur | Événements gardés |
 |---|---|
-| `VIDE_GRENIERS_BROCANTES` | types `GarageSale` ou `BricABrac`, ou titre explicite : vide-grenier, brocante, braderie, puces, vide-dressing, bourse aux… (`DataTourismeEventSelection`) |
+| `VIDE_GRENIERS_BROCANTES` | titre explicite (vide-grenier, brocante, braderie, puces, vide-dressing, bourse aux…, foire à tout, bric à brac, vide ta chambre, vide-jardin, bourse puériculture), ou types `GarageSale` ou `BricABrac` (`DataTourismeEventSelection`, règles ci-dessous) |
 
 Mesure (export France du 29/10/2026, 72 581 événements) : 1 049 retenus,
 dans 68 départements, contre 138 vide-greniers et brocantes publiés sur la
 bêta (32 départements). 20 % ne sont reconnus qu'à leur titre (types
 génériques `SaleEvent`, `SocialEvent`, `Event`).
+
+**Faux positifs et faux négatifs (export France du 04/11/2026, relus un à
+un).** Les règles, dans l'ordre :
+
+1. titre avec un mot-clé : gardé, sauf mot-clé ambigu (« puces »,
+   « bourse… ») dans le titre d'un spectacle ou d'une réunion (« Spectacle
+   musical "Aux puces superphoniques" », « Réunion de préparation de la
+   bourse aux jouets ») ;
+2. sinon, type `GarageSale` ou `BricABrac` : gardé, sauf titre d'un autre
+   genre d'événement (concert, fête de…, kermesse, marché de Noël ou
+   artisanal, atelier, collecte, Repair Café…) qui ne nomme aucune vente
+   d'occasion ; ce titre-là n'est gardé que si la description en annonce une
+   (« Marché de Noël » avec brocante, « Téléthon » avec vide-grenier). Des
+   producteurs typent `GarageSale` des fêtes ou des concerts ; exclure tout
+   le type perdrait les 60 « Vide ta chambre », « Gratiferia »,
+   « Bric à brac »… qui ne se reconnaissent qu'à lui ;
+3. sinon : écarté.
+
+| Export du 04/11/2026 | Avant | Après |
+|---|---|---|
+| Retenus | 1 074 | 1 043 |
+| Hors sujet par le type (fêtes, concerts, marchés de Noël…) | 39 | 0 |
+| Hors sujet par le titre (spectacles, réunion) | 4 | 0 |
+| Vide-greniers manqués (foire à tout, vide ta chambre, bric à brac…) | 14 | 0 |
+| Annulé / position hors du territoire | 1 / 1 | 0 / 0 |
+| Restants discutables | — | ≈ 9 : 5 sans description (« Azé en Foires », « ParcExpo »…), 4 braderies d'usine ou de boutique |
+
+Les bourses aux jouets représentent un quart des retenus (272) : voulu par
+V77, à confirmer côté produit.
+
+### Contrôle géographique
+
+Seule l'emprise du territoire est contrôlée (ci-dessus). Un contrôle par
+département n'est pas implémenté : sur l'export du 04/11/2026, 18
+événements de métropole sont à plus de 150 km de la médiane de leur
+département, tous des homonymes mal géocodés (Torcy 62 placé à Torcy 77,
+Saint-Léonard 62 en Haute-Vienne) ; aucun vide-grenier retenu. Un tel
+contrôle demanderait un point de référence par département (source
+officielle à choisir) et un rayon adapté aux départements allongés
+(Bagnères-de-Luchon est à 111 km de la médiane de la Haute-Garonne).
 
 Source créée par V77, **inactive** : « DATAtourisme France — vide-greniers
 et brocantes (data.gouv.fr) », fichier France (`datatourisme-fma.csv`,
@@ -192,8 +244,26 @@ catégorie par défaut Marchés. À activer après un essai à blanc réussi
 Pourquoi pas tout l'export France : les offices de tourisme publient aussi
 sur OpenAgenda, et le rapprochement entre sources de types différents
 (`CrossSourceDuplicateMatcher`) n'est pas branché ; la niche des
-vide-greniers limite ces doublons. À mesurer après activation
-(`infra/verification/doublons_detail.sql`).
+vide-greniers limite ces doublons.
+
+**Doublons avec OpenAgenda, avant activation.** L'import ne rapproche que
+des identifiants externes égaux : une URI DATAtourisme n'égale jamais un
+identifiant OpenAgenda. `CrossSourceDuplicateMatcher` n'est appelé que par
+l'outil de mesure `collectors/verification/DuplicateReport.java`. Mesure à
+faire sur la bêta, en lecture seule :
+`infra/verification/v77_controle.sql` (V77 et état de la source), puis
+`infra/verification/v77_export_vide_greniers.sql` (vide-greniers déjà
+publiés par les autres sources), comparé par `DuplicateReport` aux
+événements retenus par la sélection.
+
+Pour brancher la règle (ADR-0011, § 2.9), il manque : une table de liens
+réversibles (`activity_duplicate_link` : activité, doublon de, niveau,
+statut automatique, confirmé ou rejeté ; migration à valider) ; dans
+`ImportService`, la recherche des candidats d'une autre source (même jour,
+position à 300 m ou même commune) et l'appel de la règle ; le masquage
+de l'événement DATAtourisme au niveau `PROBABLE` dans la recherche
+publique et la carte ; une file de relecture des paires `POSSIBLE` dans
+l'administration ; l'étalonnage de la règle sur les données de la bêta.
 
 Non couvert : lieux DATAtourisme, Data ES, Basilic, JEP, Fête de la
 science (voir § 5).

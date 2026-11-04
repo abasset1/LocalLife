@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### DATAtourisme : vide-greniers mieux sélectionnés, annulations et positions aberrantes écartées
+- **Sélection « vide-greniers et brocantes »** (source V77, toujours inactive) : un événement typé `GarageSale` ou `BricABrac` dont le titre désigne un autre genre d'événement (concert, fête de…, kermesse, marché de Noël ou artisanal, atelier, collecte, Repair Café…) n'est plus gardé, sauf si son titre nomme aussi une vente d'occasion (« Vide jouets – Téléthon ») ou si sa description en annonce une (« Marché de Noël » avec brocante). « Puces » ou « bourse aux » dans le titre d'un spectacle ou d'une réunion ne suffit plus. Nouveaux mots-clés du titre : foire à tout, bric à brac, vide ta chambre, vide-jardin, vide-poussette, vide-maison, bourse puériculture.
+- Mesure sur l'export France du 04/11/2026, sans écriture : 1 074 → 1 043 retenus ; 43 hors sujet retirés (39 par le type, 4 par le titre), 14 vide-greniers manqués ajoutés. Restent environ 9 cas discutables (sans description, braderies d'usine).
+- **Toutes les sources DATAtourisme** : un événement dont le titre dit « annulé(e)(s) » n'est plus collecté ; déjà importé, il disparaît de la collecte et l'import l'archive. Un événement placé hors du territoire de son code postal (métropole Corse comprise, ou DROM) n'est plus collecté : 30 sur 67 086 dans l'export du 04/11/2026, tous faux (un vide-grenier d'Oupia placé en Floride), aucun dans le Vaucluse.
+- Vérification de la bêta avant activation : `infra/verification/v77_controle.sql` (V77, état de la source) et `infra/verification/v77_export_vide_greniers.sql` (vide-greniers déjà publiés, à comparer avec `DuplicateReport`), en lecture seule. Détail : `docs/02_Architecture/DATAGOUV_SOURCES.md`.
+
 ### Administration → Comptes : nombre de connexions et dernière connexion
 - Deux colonnes dans la liste des comptes : **Connexions** (connexions réussies, par mot de passe ou avec Google ; un échec ne compte pas) et **Dernière connexion** (date et heure).
 - Le décompte commence avec cette version (migration `V83`) : les connexions antérieures ne sont pas connues, un compte affiche 0 et « — » jusqu'à sa prochaine connexion.
