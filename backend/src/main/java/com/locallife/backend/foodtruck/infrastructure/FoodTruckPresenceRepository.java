@@ -33,7 +33,9 @@ public class FoodTruckPresenceRepository {
                    CASE WHEN l.place_status = 'PUBLISHED' THEN l.id
                         WHEN linked.place_status = 'PUBLISHED' THEN linked.id END AS place_id,
                    p.status, p.location_id, ft.cuisine_type, ft.marker_emoji, ft.marker_color,
-                   photo.updated_at AS photo_updated_at
+                   photo.updated_at AS photo_updated_at, ft.instagram_url, ft.facebook_url,
+                   NULLIF(concat_ws(', ', NULLIF(trim(l.address), ''),
+                                    NULLIF(trim(concat_ws(' ', l.postal_code, l.city)), '')), '') AS spot_address
             FROM food_truck_presence p
             JOIN food_truck ft ON ft.id = p.food_truck_id
             LEFT JOIN food_truck_photo photo ON photo.food_truck_id = ft.id
@@ -181,6 +183,7 @@ public class FoodTruckPresenceRepository {
                 row.getObject("start_time", LocalTime.class), row.getObject("end_time", LocalTime.class),
                 row.getObject("valid_from", LocalDate.class), row.getObject("valid_until", LocalDate.class),
                 row.getObject("place_id", Long.class), row.getString("cuisine_type"), row.getString("marker_emoji"),
-                row.getString("marker_color"), row.getObject("photo_updated_at", OffsetDateTime.class));
+                row.getString("marker_color"), row.getObject("photo_updated_at", OffsetDateTime.class),
+                row.getString("spot_address"), row.getString("instagram_url"), row.getString("facebook_url"));
     }
 }

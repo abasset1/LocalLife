@@ -1,0 +1,9 @@
+-- Vide-greniers et brocantes déjà publiés, pour DuplicateReport.java (doublons avec la source V77) — LECTURE SEULE.
+-- Adapté de infra/verification/phase_d_export_doublons.sql : France entière, mots-clés du titre de
+-- DataTourismeEventSelection (sans ses exclusions : la comparaison reste large), toutes sources sauf contributions (MANUAL) et sauf la source V77 elle-même.
+-- Usage (VPS, depuis infra/, après « set -a; . ./.env.beta; set +a ») :
+--   docker compose --env-file .env.beta -f docker-compose.beta.yml exec -T postgres \
+--     psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
+--     < verification/v77_export_vide_greniers.sql > beta-vide-greniers.csv
+-- Une seule commande \copy … TO STDOUT : aucune écriture en base, le fichier est écrit côté client.
+\copy (SELECT a.id, s.name AS source, a.title, COALESCE(string_agg(DISTINCT to_char((o.start_at AT TIME ZONE 'Europe/Paris')::date, 'YYYY-MM-DD') || '/' || to_char((COALESCE(o.end_at, o.start_at) AT TIME ZONE 'Europe/Paris')::date, 'YYYY-MM-DD'), ';'), to_char(a.start_date::date, 'YYYY-MM-DD') || '/' || to_char(COALESCE(a.end_date, a.start_date)::date, 'YYYY-MM-DD')) AS periods, a.latitude, a.longitude, a.address, a.city, COALESCE(a.url, '') AS urls FROM activity a JOIN source s ON s.id = a.source_id LEFT JOIN schedule sc ON sc.activity_id = a.id LEFT JOIN occurrence o ON o.schedule_id = sc.id WHERE a.status = 'PUBLISHED' AND s.type <> 'MANUAL' AND s.event_selection IS DISTINCT FROM 'VIDE_GRENIERS_BROCANTES' AND COALESCE(a.end_date, a.start_date) >= CURRENT_DATE AND ll_search_normalize(a.title) ~ '\m(vide ?greniers?|brocantes?|braderies?|puces|vide ?dressings?|bourses? aux|troc et puces|foires? a tout|bric a brac|vide (jardins?|maisons?|poussettes?|ta chambre|chambres?)|bourses? (de |a la )?puericulture)\M' GROUP BY a.id, s.name) TO STDOUT WITH CSV HEADER

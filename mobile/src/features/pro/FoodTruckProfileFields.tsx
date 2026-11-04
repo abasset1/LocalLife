@@ -30,6 +30,8 @@ export const EMPTY_PROFILE: ProfileForm = {
   cuisineType: '',
   markerEmoji: '',
   markerColor: '',
+  instagram: '',
+  facebook: '',
 };
 
 /** Photo du formulaire : inchangée, nouvelle (envoyée après l'enregistrement du profil) ou à retirer. */
@@ -44,6 +46,8 @@ export function profileFormOf(truck: OwnedFoodTruck): ProfileForm {
     cuisineType: truck.cuisineType ?? '',
     markerEmoji: truck.markerEmoji ?? '',
     markerColor: truck.markerColor ?? '',
+    instagram: truck.instagramUrl ?? '',
+    facebook: truck.facebookUrl ?? '',
   };
 }
 
@@ -54,6 +58,8 @@ export function profileInputOf(form: ProfileForm): ProfileInput {
     cuisineType: form.cuisineType || null,
     markerEmoji: form.markerEmoji || null,
     markerColor: form.markerColor || null,
+    instagram: form.instagram.trim() || null,
+    facebook: form.facebook.trim() || null,
   };
 }
 
@@ -148,6 +154,26 @@ export function FoodTruckProfileFields({
         onChangeText={(v) => onChange({ ...profile, contact: v })}
         autoCapitalize="none"
         maxLength={512}
+      />
+      <TextField
+        label="Instagram (facultatif)"
+        placeholder="https://www.instagram.com/moncamion ou @moncamion"
+        value={profile.instagram}
+        onChangeText={(v) => onChange({ ...profile, instagram: v })}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+        maxLength={300}
+      />
+      <TextField
+        label="Facebook (facultatif)"
+        placeholder="https://www.facebook.com/moncamion"
+        value={profile.facebook}
+        onChangeText={(v) => onChange({ ...profile, facebook: v })}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+        maxLength={300}
       />
 
       <View style={styles.section}>

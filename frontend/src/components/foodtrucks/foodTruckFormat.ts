@@ -46,3 +46,35 @@ export function contactUrl(contact: string | null | undefined): string | null {
         return null;
     }
 }
+
+/**
+ * Adresse exacte à afficher en plus du nom de l'emplacement : `null` si elle est inconnue ou si elle se confond avec
+ * ce nom (un emplacement sans nom prend son adresse comme nom).
+ */
+export function spotAddressLine(foodTruck: { spotName?: string | null; spotAddress?: string | null }): string | null {
+    const address = foodTruck.spotAddress?.trim();
+    if (!address) {
+        return null;
+    }
+    return address.toLowerCase() === foodTruck.spotName?.trim().toLowerCase() ? null : address;
+}
+
+const SOCIAL_HOSTS = {
+    instagram: ["instagram.com", "instagr.am"],
+    facebook: ["facebook.com", "fb.com", "fb.me"],
+} as const;
+
+/** Lien Instagram ou Facebook affichable : une adresse https du réseau attendu, sinon `null`. */
+export function socialUrl(url: string | null | undefined, network: keyof typeof SOCIAL_HOSTS): string | null {
+    if (!url) {
+        return null;
+    }
+    try {
+        const parsed = new URL(url);
+        const host = parsed.hostname.toLowerCase();
+        const known = SOCIAL_HOSTS[network].some((domain) => host === domain || host.endsWith(`.${domain}`));
+        return parsed.protocol === "https:" && known ? parsed.toString() : null;
+    } catch {
+        return null;
+    }
+}

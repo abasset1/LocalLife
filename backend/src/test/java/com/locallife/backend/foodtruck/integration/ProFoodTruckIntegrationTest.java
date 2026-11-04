@@ -292,6 +292,43 @@ class ProFoodTruckIntegrationTest {
         call(HttpMethod.GET, "/api/v1/foodtrucks/" + truck + "/photo", null, null, 404);
     }
 
+    @Test
+    void profile_ShouldCarrySocialLinksAndExactAddress_UpToTheMap() throws Exception {
+        String owner = token(user("PRO"), "PRO");
+        call(HttpMethod.POST, "/api/v1/pro/foodtrucks", owner,
+                with(profile("X"), "instagram", "https://evil.example/instagram.com/x"), 400);
+        call(HttpMethod.POST, "/api/v1/pro/foodtrucks", owner, with(profile("X"), "facebook", "javascript:alert(1)"),
+                400);
+
+        Map<String, Object> body = with(with(profile("Tacos Social"), "instagram", "@tacos.social"), "facebook",
+                "facebook.com/tacossocial");
+        JsonNode created = call(HttpMethod.POST, "/api/v1/pro/foodtrucks", owner, body, 201);
+        long truck = created.get("id").asLong();
+        assertThat(created.get("instagramUrl").asText()).isEqualTo("https://www.instagram.com/tacos.social");
+        assertThat(created.get("facebookUrl").asText()).isEqualTo("https://facebook.com/tacossocial");
+
+        publishValidated(truck, owner);
+        double latitude = 44 + ThreadLocalRandom.current().nextDouble(0.5);
+        double longitude = 4 + ThreadLocalRandom.current().nextDouble(0.5);
+        long presence = call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/presences", owner,
+                presence(newSpot(latitude, longitude), "MARKET", List.of(), "11:00", "14:00"), 201).get("id").asLong();
+        call(HttpMethod.POST, "/api/v1/pro/presences/" + presence + "/publish", owner, null, 200);
+
+        JsonNode shown = ours(truck).get(0);
+        assertThat(shown.get("spotName").asText()).isEqualTo("Parking de la zone");
+        assertThat(shown.get("spotAddress").asText()).isEqualTo("1 rue Test, 84000 Testville");
+        assertThat(shown.get("instagramUrl").asText()).isEqualTo("https://www.instagram.com/tacos.social");
+        JsonNode detail = call(HttpMethod.GET, "/api/v1/foodtrucks/" + truck, null, null, 200);
+        assertThat(detail.get("facebookUrl").asText()).isEqualTo("https://facebook.com/tacossocial");
+        assertThat(detail.get("presences").get(0).get("spotAddress").asText()).isEqualTo("1 rue Test, 84000 Testville");
+
+        // Vider le champ retire le lien.
+        JsonNode updated = call(HttpMethod.PUT, "/api/v1/pro/foodtrucks/" + truck, owner,
+                with(with(profile("Tacos Social"), "instagram", ""), "facebook", "tacossocial"), 200);
+        assertThat(updated.get("instagramUrl").isNull()).isTrue();
+        assertThat(updated.get("facebookUrl").asText()).isEqualTo("https://www.facebook.com/tacossocial");
+    }
+
     // ---------------------------------------------------------------- outils
 
     /** Première publication puis validation par un administrateur. */

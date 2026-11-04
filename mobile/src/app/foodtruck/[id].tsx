@@ -14,6 +14,7 @@ import { contactAction } from '@/features/foodtruck/contact';
 import { cuisineLabel, markerOf } from '@/features/foodtruck/cuisines';
 import { photoUri } from '@/features/foodtruck/photo';
 import { describeSchedule } from '@/features/foodtruck/presence';
+import { socialLinks } from '@/features/foodtruck/social';
 import { useFoodTruck } from '@/features/foodtruck/useFoodTruck';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -62,6 +63,7 @@ export default function FoodTruckDetailScreen() {
           const marker = markerOf(state.foodTruck);
           const cuisine = cuisineLabel(state.foodTruck.cuisineType);
           const action = contactAction(contact);
+          const socials = socialLinks(state.foodTruck);
 
           return (
             <ScrollView contentContainerStyle={styles.content}>
@@ -112,6 +114,16 @@ export default function FoodTruckDetailScreen() {
                   }}
                 />
               )}
+              {socials.map((social) => (
+                <Button
+                  key={social.network}
+                  label={social.label}
+                  variant="secondary"
+                  onPress={() => {
+                    WebBrowser.openBrowserAsync(social.url).catch(() => undefined);
+                  }}
+                />
+              ))}
               <Button label="Retour à la carte" variant="ghost" onPress={() => router.back()} />
             </ScrollView>
           );

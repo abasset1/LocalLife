@@ -131,7 +131,8 @@ public class FoodTruckController {
             Long id, String name, String description, Double latitude, Double longitude, String category,
             String contact, String status, Long presenceId, String spotName, SpotKind spotKind, String daysOfWeek,
             LocalTime startTime, LocalTime endTime, LocalDate validFrom, LocalDate validUntil, Long placeId,
-            String cuisineType, String markerEmoji, String markerColor, String photoUrl) {
+            String cuisineType, String markerEmoji, String markerColor, String photoUrl, String spotAddress,
+            String instagramUrl, String facebookUrl) {
 
         static FoodTruckMapResponse from(FoodTruckPresence presence) {
             return new FoodTruckMapResponse(presence.foodTruckId(), presence.foodTruckName(), presence.description(),
@@ -139,19 +140,22 @@ public class FoodTruckController {
                     presence.id(), presence.spotName(), presence.spotKind(), presence.daysOfWeek(),
                     presence.startTime(), presence.endTime(), presence.validFrom(), presence.validUntil(),
                     presence.placeId(), presence.cuisineType(), presence.markerEmoji(), presence.markerColor(),
-                    FoodTruckController.photoUrl(presence.foodTruckId(), presence.photoUpdatedAt()));
+                    FoodTruckController.photoUrl(presence.foodTruckId(), presence.photoUpdatedAt()),
+                    presence.spotAddress(), presence.instagramUrl(), presence.facebookUrl());
         }
     }
 
     /** Présence dans le planning d'un food truck. */
     public record PresenceResponse(
             Long id, Double latitude, Double longitude, String spotName, SpotKind spotKind, String daysOfWeek,
-            LocalTime startTime, LocalTime endTime, LocalDate validFrom, LocalDate validUntil, Long placeId) {
+            LocalTime startTime, LocalTime endTime, LocalDate validFrom, LocalDate validUntil, Long placeId,
+            String spotAddress) {
 
         static PresenceResponse from(FoodTruckPresence presence) {
             return new PresenceResponse(presence.id(), presence.latitude(), presence.longitude(),
                     presence.spotName(), presence.spotKind(), presence.daysOfWeek(), presence.startTime(),
-                    presence.endTime(), presence.validFrom(), presence.validUntil(), presence.placeId());
+                    presence.endTime(), presence.validFrom(), presence.validUntil(), presence.placeId(),
+                    presence.spotAddress());
         }
     }
 
@@ -159,7 +163,7 @@ public class FoodTruckController {
     public record FoodTruckDetailResponse(
             Long id, String name, String description, String category, String contact,
             List<PresenceResponse> presences, String cuisineType, String markerEmoji, String markerColor,
-            String photoUrl) {
+            String photoUrl, String instagramUrl, String facebookUrl) {
 
         static FoodTruckDetailResponse from(FoodTruckDetail detail) {
             FoodTruck foodTruck = detail.foodTruck();
@@ -167,7 +171,8 @@ public class FoodTruckController {
                     foodTruck.category(), foodTruck.contact(),
                     detail.presences().stream().map(PresenceResponse::from).toList(), foodTruck.cuisineType(),
                     foodTruck.markerEmoji(), foodTruck.markerColor(),
-                    FoodTruckController.photoUrl(foodTruck.id(), detail.photoUpdatedAt()));
+                    FoodTruckController.photoUrl(foodTruck.id(), detail.photoUpdatedAt()), foodTruck.instagramUrl(),
+                    foodTruck.facebookUrl());
         }
     }
 

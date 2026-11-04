@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import type { FoodTruck } from "../explorer/types";
+import { buildDirectionsUrl } from "../../utils/directions";
 import { cuisineLabel, markerOf } from "./cuisines";
-import { SPOT_KIND_LABELS, contactUrl, describeDays, formatHours } from "./foodTruckFormat";
+import { SPOT_KIND_LABELS, contactUrl, describeDays, formatHours, socialUrl, spotAddressLine } from "./foodTruckFormat";
 
 /** Présence du planning public (`PresenceResponse`, backend). */
 interface PresenceDetail {
     id: number;
     spotName: string | null;
+    spotAddress: string | null;
+    latitude: number | null;
+    longitude: number | null;
     spotKind: FoodTruck["spotKind"];
     daysOfWeek: string | null;
     startTime: string | null;
@@ -26,6 +30,8 @@ interface FoodTruckDetail {
     markerEmoji: string | null;
     markerColor: string | null;
     photoUrl: string | null;
+    instagramUrl: string | null;
+    facebookUrl: string | null;
     presences: PresenceDetail[];
 }
 
@@ -83,6 +89,11 @@ function FoodTruckDetailModal({ foodTruck, onClose }: { foodTruck: FoodTruck; on
     const link = contactUrl(contact);
     const marker = markerOf(detail ?? foodTruck);
     const hours = formatHours(foodTruck);
+    const directions = buildDirectionsUrl({
+        latitude: foodTruck.latitude, longitude: foodTruck.longitude, address: foodTruck.spotAddress ?? null, city: null,
+    });
+    const instagram = socialUrl(detail?.instagramUrl ?? foodTruck.instagramUrl, "instagram");
+    const facebook = socialUrl(detail?.facebookUrl ?? foodTruck.facebookUrl, "facebook");
 
     return (
         <div className="explorer-modal-overlay" onClick={onClose} role="presentation">
@@ -117,11 +128,24 @@ function FoodTruckDetailModal({ foodTruck, onClose }: { foodTruck: FoodTruck; on
                         <strong>Aujourd'hui :</strong>{" "}
                         {[SPOT_KIND_LABELS[foodTruck.spotKind], foodTruck.spotName, hours].filter(Boolean).join(" · ")}
                     </p>
+                    {foodTruck.spotAddress && (
+                        <p className="explorer-detail-row">
+                            <strong>Adresse :</strong> {foodTruck.spotAddress} ·{" "}
+                            <a href={directions} rel="noopener noreferrer" target="_blank">Y aller</a>
+                        </p>
+                    )}
                     {description && <p className="explorer-detail-row explorer-detail-long-description">{description}</p>}
                     {contact && (
                         <p className="explorer-detail-row">
                             <strong>Contact :</strong>{" "}
                             {link ? <a href={link} rel="noopener noreferrer" target="_blank">{contact}</a> : contact}
+                        </p>
+                    )}
+                    {(instagram || facebook) && (
+                        <p className="explorer-detail-row food-truck-social-links">
+                            <strong>Réseaux :</strong>
+                            {instagram && <a href={instagram} rel="noopener noreferrer" target="_blank">Instagram</a>}
+                            {facebook && <a href={facebook} rel="noopener noreferrer" target="_blank">Facebook</a>}
                         </p>
                     )}
                     {detail && detail.presences.length > 0 && (
@@ -132,7 +156,7 @@ function FoodTruckDetailModal({ foodTruck, onClose }: { foodTruck: FoodTruck; on
                                     <li key={presence.id}>
                                         {[describeDays(presence.daysOfWeek), formatHours(presence),
                                             [SPOT_KIND_LABELS[presence.spotKind], presence.spotName].filter(Boolean).join(" "),
-                                            formatPeriod(presence)].filter(Boolean).join(" · ")}
+                                            spotAddressLine(presence), formatPeriod(presence)].filter(Boolean).join(" · ")}
                                     </li>
                                 ))}
                             </ul>

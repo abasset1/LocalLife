@@ -22,11 +22,14 @@ import com.locallife.backend.pro.application.ProNotifier;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Base64;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -65,6 +68,11 @@ public class ProFoodTruckService {
     private static final int MAX_SPOT_TEXT_LENGTH = 255;
     private static final int MAX_ADDRESS_LENGTH = 512;
     private static final int MAX_EMOJI_CODE_POINTS = 8;
+    private static final int MAX_SOCIAL_URL_LENGTH = 300;
+    /** Nom de compte Instagram : lettres, chiffres, points et soulignés. */
+    private static final Pattern INSTAGRAM_HANDLE = Pattern.compile("[A-Za-z0-9._]{1,30}");
+    /** Nom de page Facebook : lettres, chiffres, points et tirets. */
+    private static final Pattern FACEBOOK_HANDLE = Pattern.compile("[A-Za-z0-9.\\-]{1,100}");
     /** Taille maximale d'une photo, une fois décodée. */
     static final int MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 
@@ -89,14 +97,21 @@ public class ProFoodTruckService {
 
     /**
      * Profil saisi. {@code cuisineType} : code de {@link FoodTruckCuisine} (facultatif) ; {@code markerEmoji} et
-     * {@code markerColor} ({@code #rrggbb}) : pastille de la carte, facultatives.
+     * {@code markerColor} ({@code #rrggbb}) : pastille de la carte, facultatives ; {@code instagram} et
+     * {@code facebook} : adresse de la page ou nom du compte (« @moncamion »), facultatifs.
      */
     public record ProfileInput(String name, String description, String category, String contact, String cuisineType,
-            String markerEmoji, String markerColor) {
+            String markerEmoji, String markerColor, String instagram, String facebook) {
 
-        /** Profil sans type de cuisine ni pastille personnalisée. */
+        /** Profil sans type de cuisine, pastille personnalisée ni réseaux sociaux. */
         public ProfileInput(String name, String description, String category, String contact) {
-            this(name, description, category, contact, null, null, null);
+            this(name, description, category, contact, null, null, null, null, null);
+        }
+
+        /** Profil sans réseaux sociaux. */
+        public ProfileInput(String name, String description, String category, String contact, String cuisineType,
+                String markerEmoji, String markerColor) {
+            this(name, description, category, contact, cuisineType, markerEmoji, markerColor, null, null);
         }
     }
 
@@ -424,7 +439,60 @@ public class ProFoodTruckService {
         }
         return new ProfileFields(name, text(input.description(), MAX_DESCRIPTION_LENGTH, "La description"), category,
                 text(input.contact(), MAX_CONTACT_LENGTH, "Le contact"), cuisineType, markerEmoji(input.markerEmoji()),
-                markerColor(input.markerColor()));
+                markerColor(input.markerColor()), instagramUrl(input.instagram()), facebookUrl(input.facebook()));
+    }
+
+    /**
+     * Lien Instagram : une adresse {@code instagram.com} ou un nom de compte ({@code @moncamion}, {@code moncamion}),
+     * toujours enregistré comme adresse {@code https://www.instagram.com/…}.
+     */
+    static String instagramUrl(String value) {
+        return socialUrl(value, INSTAGRAM_HANDLE, List.of("instagram.com", "instagr.am"),
+                "https://www.instagram.com/",
+                "Le lien Instagram doit être une adresse instagram.com ou un nom de compte.");
+    }
+
+    /**
+     * Lien Facebook : une adresse {@code facebook.com} (ou {@code fb.com}) ou un nom de page, toujours enregistré
+     * comme adresse {@code https://www.facebook.com/…}.
+     */
+    static String facebookUrl(String value) {
+        return socialUrl(value, FACEBOOK_HANDLE, List.of("facebook.com", "fb.com", "fb.me"),
+                "https://www.facebook.com/", "Le lien Facebook doit être une adresse facebook.com ou un nom de page.");
+    }
+
+    private static String socialUrl(String value, Pattern handlePattern, List<String> hosts, String prefix,
+            String error) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String trimmed = value.strip();
+        if (trimmed.length() > MAX_SOCIAL_URL_LENGTH) {
+            throw ProActionException.invalid(error);
+        }
+        String handle = trimmed.startsWith("@") ? trimmed.substring(1) : trimmed;
+        if (handlePattern.matcher(handle).matches() && !handle.contains("..") && !handle.startsWith(".")) {
+            return prefix + handle;
+        }
+        String candidate = trimmed.matches("(?i)^https?://.*") ? trimmed : "https://" + trimmed;
+        URI uri;
+        try {
+            uri = new URI(candidate);
+        } catch (URISyntaxException exception) {
+            throw ProActionException.invalid(error);
+        }
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+        String rawPath = uri.getRawPath() == null ? "" : uri.getRawPath();
+        boolean knownHost = hosts.stream().anyMatch(known -> host.equals(known) || host.endsWith("." + known));
+        if (!knownHost || uri.getUserInfo() != null || rawPath.isEmpty() || "/".equals(rawPath)) {
+            throw ProActionException.invalid(error);
+        }
+        String query = uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery();
+        String url = "https://" + host + rawPath + query;
+        if (url.length() > MAX_SOCIAL_URL_LENGTH) {
+            throw ProActionException.invalid(error);
+        }
+        return url;
     }
 
     /**
