@@ -1,5 +1,6 @@
 package com.locallife.backend.category.api;
 
+import com.locallife.backend.activityclassification.application.CategoryBackfillService;
 import com.locallife.backend.category.application.CategoryAdminService;
 import com.locallife.backend.category.application.CategoryAdminService.CategoryView;
 import com.locallife.backend.category.application.CategoryAdminService.ConflictException;
@@ -30,9 +31,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminCategoryController {
 
     private final CategoryAdminService service;
+    private final CategoryBackfillService backfillService;
 
-    public AdminCategoryController(CategoryAdminService service) {
+    public AdminCategoryController(CategoryAdminService service, CategoryBackfillService backfillService) {
         this.service = service;
+        this.backfillService = backfillService;
     }
 
     public record CreateCategoryRequest(String code, String label, String description) {
@@ -89,6 +92,15 @@ public class AdminCategoryController {
             return error(HttpStatus.BAD_REQUEST, "Corps de requête obligatoire.", request);
         }
         return handle(() -> service.addKeyword(code, body.keyword(), body.scope()), HttpStatus.CREATED, request);
+    }
+
+    @Operation(summary = "Appliquer une catégorie aux activités existantes",
+            description = "Re-classe les activités à venir avec les mots-clés actuels (titre et signaux source, "
+                    + "mêmes règles qu'à l'import) et leur ajoute la catégorie quand elle correspond. Ne retire "
+                    + "aucune catégorie. 400 si la catégorie est désactivée.")
+    @PostMapping("/{code}/apply-to-existing")
+    public ResponseEntity<Object> applyToExisting(@PathVariable String code, HttpServletRequest request) {
+        return handle(() -> backfillService.applyToExistingActivities(code), HttpStatus.OK, request);
     }
 
     @Operation(summary = "Modifier un mot-clé", description = "Activation et/ou portée (ALL ou SOURCE).")

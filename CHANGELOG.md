@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Classification : une nouvelle catégorie s'applique aussi aux activités déjà importées
+- **Le titre est toujours lu à l'import** : ses catégories s'ajoutent à celles des tags de la source au lieu d'être ignorées dès qu'un tag est reconnu. Un « Marché de Noël » tagué « Marché » reçoit désormais MARKETS **et** la catégorie du mot-clé « marché de noël ». Les catégories des tags ne sont jamais retirées. Origine tracée : `SOURCE_KEYWORD+TITLE_KEYWORD`. Les éléments en quarantaine sont re-décidés au prochain import.
+- **Administration → Catégories : « Appliquer aux activités existantes »** sur chaque catégorie active. Re-classe les activités à venir déjà importées avec les mots-clés actuels (titre et tags d'origine, mêmes règles qu'à l'import) et leur **ajoute** la catégorie quand elle correspond, sans retirer aucune catégorie. Jusqu'ici, une activité importée gardait ses catégories pour toujours : un mot-clé ajouté après coup ne touchait que les nouveaux éléments. Rejouable sans effet de bord.
+- API : `POST /api/v1/admin/categories/{code}/apply-to-existing` → `{ categoryCode, examined, added }` ; 400 si la catégorie est désactivée.
+
 ### Administration → Comptes : nombre de connexions et dernière connexion
 - Deux colonnes dans la liste des comptes : **Connexions** (connexions réussies, par mot de passe ou avec Google ; un échec ne compte pas) et **Dernière connexion** (date et heure).
 - Le décompte commence avec cette version (migration `V83`) : les connexions antérieures ne sont pas connues, un compte affiche 0 et « — » jusqu'à sa prochaine connexion.
