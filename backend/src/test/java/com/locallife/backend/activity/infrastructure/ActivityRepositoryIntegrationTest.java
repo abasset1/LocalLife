@@ -873,4 +873,43 @@ class ActivityRepositoryIntegrationTest {
         assertThat(resultIds).contains(activity.id());
     }
 
+    // --- V85 : borne directe sur la fin des occurrences (index idx_occurrence_schedule_last_at) ---
+
+    @Test
+    void findWithinRadius_ShouldKeepOccurrenceStartingAtLocalMidnight_InFarEastTimeZone() {
+        // UTC+14 : minuit local du jour recherché tombe la veille à 10 h UTC, le cas le plus éloigné de la
+        // borne « jour recherché - 2 jours, minuit UTC » ajoutée aux requêtes.
+        ZoneId kiritimati = ZoneId.of("Pacific/Kiritimati");
+        LocalDate day = LocalDate.now(PARIS_ZONE).plusDays(3);
+        Activity activity = activityWithSchedule();
+        Location location = locationRepository.save(new Location(
+                null, "Lieu " + UUID.randomUUID(), null, null, "Kiritimati", null, null, null, null,
+                1.87, -157.4, "Pacific/Kiritimati", null, null, null));
+        Schedule schedule = scheduleFor(activity.id(), location.id());
+        occurrenceRepository.save(new Occurrence(null, schedule.id(),
+                day.atTime(0, 5).atZone(kiritimati).toInstant(), null, location.id(), "SCHEDULED", false));
+
+        List<Long> resultIds = activityRepository.findWithinRadius(1.87, -157.4, 1000, "PUBLISHED", null, day, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(activity.id());
+    }
+
+    @Test
+    void findWithinRadius_ShouldIgnoreEndedOccurrences_AndKeepUpcomingOnes() {
+        Location place = locationAt("Marseille", MARSEILLE_LAT, MARSEILLE_LON);
+        Activity ended = activityWithSchedule();
+        Schedule endedSchedule = scheduleFor(ended.id(), place.id());
+        occurrenceAt(endedSchedule.id(), LocalDateTime.now(PARIS_ZONE).minusDays(30), place.id(), "SCHEDULED");
+        Activity recurring = activityWithSchedule();
+        Schedule recurringSchedule = scheduleFor(recurring.id(), place.id());
+        occurrenceAt(recurringSchedule.id(), LocalDateTime.now(PARIS_ZONE).minusDays(30), place.id(), "SCHEDULED");
+        occurrenceAt(recurringSchedule.id(), LocalDateTime.now(PARIS_ZONE).plusDays(2), place.id(), "SCHEDULED");
+
+        List<Long> resultIds = activityRepository.findWithinRadius(
+                        MARSEILLE_LAT, MARSEILLE_LON, 1000, "PUBLISHED", null, null, null)
+                .stream().map(Activity::id).toList();
+
+        assertThat(resultIds).contains(recurring.id()).doesNotContain(ended.id());
+    }
 }
