@@ -9,6 +9,7 @@ import java.sql.SQLException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -31,9 +32,11 @@ public class FoodTruckPresenceRepository {
                    p.days_of_week, p.start_time, p.end_time, p.valid_from, p.valid_until,
                    CASE WHEN l.place_status = 'PUBLISHED' THEN l.id
                         WHEN linked.place_status = 'PUBLISHED' THEN linked.id END AS place_id,
-                   p.status, p.location_id
+                   p.status, p.location_id, ft.cuisine_type, ft.marker_emoji, ft.marker_color,
+                   photo.updated_at AS photo_updated_at
             FROM food_truck_presence p
             JOIN food_truck ft ON ft.id = p.food_truck_id
+            LEFT JOIN food_truck_photo photo ON photo.food_truck_id = ft.id
             JOIN location l ON l.id = p.location_id
             LEFT JOIN location linked ON linked.id = l.place_id
             """;
@@ -135,6 +138,12 @@ public class FoodTruckPresenceRepository {
         return key.getKey().longValue();
     }
 
+    /** Dernière mise à jour de la photo d'un food truck, vide sans photo. */
+    public Optional<OffsetDateTime> findPhotoUpdatedAt(Long foodTruckId) {
+        return jdbc.queryForList("SELECT updated_at FROM food_truck_photo WHERE food_truck_id = :id",
+                new MapSqlParameterSource("id", foodTruckId), OffsetDateTime.class).stream().findFirst();
+    }
+
     /** Lieu LocalLife publié, utilisable comme emplacement existant. */
     public boolean isPublishedPlace(Long locationId) {
         return Boolean.TRUE.equals(jdbc.queryForObject(
@@ -171,6 +180,7 @@ public class FoodTruckPresenceRepository {
                 SpotKind.valueOf(row.getString("spot_kind")), row.getString("days_of_week"),
                 row.getObject("start_time", LocalTime.class), row.getObject("end_time", LocalTime.class),
                 row.getObject("valid_from", LocalDate.class), row.getObject("valid_until", LocalDate.class),
-                row.getObject("place_id", Long.class));
+                row.getObject("place_id", Long.class), row.getString("cuisine_type"), row.getString("marker_emoji"),
+                row.getString("marker_color"), row.getObject("photo_updated_at", OffsetDateTime.class));
     }
 }

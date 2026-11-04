@@ -11,12 +11,16 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -85,6 +89,27 @@ public class FoodTruckController {
                 .map(FoodTruckMapResponse::from).toList();
     }
 
+    @Operation(summary = "Photo d'un food truck", description = "Image JPEG, PNG ou WebP ; 404 sans photo.")
+    @GetMapping("/foodtrucks/{id}/photo")
+    public ResponseEntity<byte[]> getPhoto(@PathVariable Long id) {
+        return foodTruckService.findPhoto(id)
+                .map(photo -> ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(photo.contentType()))
+                        // L'adresse change à chaque nouvelle photo (?v=…) : le contenu d'une adresse ne change pas.
+                        .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic())
+                        .body(photo.data()))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Adresse de la photo d'un food truck, versionnée par sa date de mise à jour (le navigateur peut la garder en
+     * cache), ou {@code null} sans photo.
+     */
+    public static String photoUrl(Long foodTruckId, OffsetDateTime photoUpdatedAt) {
+        return photoUpdatedAt == null ? null
+                : "/api/v1/foodtrucks/" + foodTruckId + "/photo?v=" + photoUpdatedAt.toInstant().toEpochMilli();
+    }
+
     private ResponseEntity<Object> errorResponse(HttpStatus status, String message, HttpServletRequest request) {
         ErrorResponse body = new ErrorResponse(
                 Instant.now(), status.value(), status.getReasonPhrase(), message, request.getRequestURI());
@@ -105,14 +130,16 @@ public class FoodTruckController {
     public record FoodTruckMapResponse(
             Long id, String name, String description, Double latitude, Double longitude, String category,
             String contact, String status, Long presenceId, String spotName, SpotKind spotKind, String daysOfWeek,
-            LocalTime startTime, LocalTime endTime, LocalDate validFrom, LocalDate validUntil, Long placeId) {
+            LocalTime startTime, LocalTime endTime, LocalDate validFrom, LocalDate validUntil, Long placeId,
+            String cuisineType, String markerEmoji, String markerColor, String photoUrl) {
 
         static FoodTruckMapResponse from(FoodTruckPresence presence) {
             return new FoodTruckMapResponse(presence.foodTruckId(), presence.foodTruckName(), presence.description(),
                     presence.latitude(), presence.longitude(), presence.category(), presence.contact(), "PUBLISHED",
                     presence.id(), presence.spotName(), presence.spotKind(), presence.daysOfWeek(),
                     presence.startTime(), presence.endTime(), presence.validFrom(), presence.validUntil(),
-                    presence.placeId());
+                    presence.placeId(), presence.cuisineType(), presence.markerEmoji(), presence.markerColor(),
+                    FoodTruckController.photoUrl(presence.foodTruckId(), presence.photoUpdatedAt()));
         }
     }
 
@@ -131,13 +158,16 @@ public class FoodTruckController {
     /** Fiche publique d'un food truck : son profil et son planning, distincts. */
     public record FoodTruckDetailResponse(
             Long id, String name, String description, String category, String contact,
-            List<PresenceResponse> presences) {
+            List<PresenceResponse> presences, String cuisineType, String markerEmoji, String markerColor,
+            String photoUrl) {
 
         static FoodTruckDetailResponse from(FoodTruckDetail detail) {
             FoodTruck foodTruck = detail.foodTruck();
             return new FoodTruckDetailResponse(foodTruck.id(), foodTruck.name(), foodTruck.description(),
                     foodTruck.category(), foodTruck.contact(),
-                    detail.presences().stream().map(PresenceResponse::from).toList());
+                    detail.presences().stream().map(PresenceResponse::from).toList(), foodTruck.cuisineType(),
+                    foodTruck.markerEmoji(), foodTruck.markerColor(),
+                    FoodTruckController.photoUrl(foodTruck.id(), detail.photoUpdatedAt()));
         }
     }
 

@@ -290,6 +290,13 @@ export interface FoodTruck {
   validUntil: string | null;
   /** Lieu LocalLife où se trouve l'emplacement, ou `null`. */
   placeId: number | null;
+  /** Type de cuisine (`FoodTruckCuisine` backend), `null` si non renseigné. */
+  cuisineType?: string | null;
+  /** Pastille choisie par le propriétaire ; `null` = pastille par défaut. */
+  markerEmoji?: string | null;
+  markerColor?: string | null;
+  /** Chemin de la photo (`/api/v1/foodtrucks/{id}/photo?v=…`), `null` sans photo. */
+  photoUrl?: string | null;
 }
 
 /** Présence du planning d'un food truck (`PresenceResponse` backend). */
@@ -307,6 +314,10 @@ export interface FoodTruckDetail {
   category: string;
   contact: string | null;
   presences: FoodTruckPresence[];
+  cuisineType?: string | null;
+  markerEmoji?: string | null;
+  markerColor?: string | null;
+  photoUrl?: string | null;
 }
 
 /** Rôle utilisateur (`Role` backend). */

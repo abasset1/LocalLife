@@ -43,9 +43,17 @@ describe("ProFoodTrucksSection", () => {
 
         await user.click(await screen.findByRole("button", { name: "Créer un food truck" }));
         await user.type(screen.getByLabelText("Nom commercial"), "Tacos Loco");
-        await user.type(screen.getByLabelText("Cuisine"), "Tacos");
+        await user.selectOptions(screen.getByLabelText("Type de cuisine"), "MEXICAN");
+        await user.type(screen.getByLabelText("Spécialité"), "Tacos");
+        await user.type(screen.getByLabelText("Description"), "Tacos maison au feu de bois");
+        await user.click(screen.getByRole("button", { name: "Emoji 🌮" }));
+        await user.click(screen.getByRole("button", { name: "Couleur #16a34a" }));
         await user.click(screen.getByRole("button", { name: "Enregistrer" }));
         expect(await screen.findByText(/créé en brouillon/)).toBeInTheDocument();
+        expect(calls.find((call) => call.url === "/api/v1/pro/foodtrucks" && call.method === "POST")?.body).toMatchObject({
+            name: "Tacos Loco", category: "Tacos", cuisineType: "MEXICAN", description: "Tacos maison au feu de bois",
+            markerEmoji: "🌮", markerColor: "#16a34a",
+        });
 
         expect(await screen.findByText(/aucune autorisation de stationnement/)).toBeInTheDocument();
         await user.click(screen.getByRole("button", { name: "Ajouter un emplacement" }));

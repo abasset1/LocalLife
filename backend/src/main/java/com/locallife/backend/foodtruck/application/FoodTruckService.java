@@ -4,7 +4,10 @@ import com.locallife.backend.foodtruck.domain.FoodTruck;
 import com.locallife.backend.foodtruck.domain.FoodTruckPresence;
 import com.locallife.backend.foodtruck.infrastructure.FoodTruckPresenceRepository;
 import com.locallife.backend.foodtruck.infrastructure.FoodTruckRepository;
+import com.locallife.backend.foodtruck.infrastructure.OwnedFoodTruckRepository;
+import com.locallife.backend.foodtruck.infrastructure.OwnedFoodTruckRepository.Photo;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
@@ -33,17 +36,30 @@ public class FoodTruckService {
 
     private final FoodTruckRepository foodTruckRepository;
     private final FoodTruckPresenceRepository presenceRepository;
+    private final OwnedFoodTruckRepository ownedFoodTruckRepository;
 
-    public FoodTruckService(FoodTruckRepository foodTruckRepository, FoodTruckPresenceRepository presenceRepository) {
+    public FoodTruckService(FoodTruckRepository foodTruckRepository, FoodTruckPresenceRepository presenceRepository,
+            OwnedFoodTruckRepository ownedFoodTruckRepository) {
         this.foodTruckRepository = foodTruckRepository;
         this.presenceRepository = presenceRepository;
+        this.ownedFoodTruckRepository = ownedFoodTruckRepository;
+    }
+
+    /** Photo d'un food truck non archivé, vide sinon. */
+    public Optional<Photo> findPhoto(Long id) {
+        return ownedFoodTruckRepository.findPhoto(id);
     }
 
     /** Fuseau des dates de présence (« aujourd'hui » pour la carte). */
     public static final ZoneId PRESENCE_ZONE = ZoneId.of("Europe/Paris");
 
     /** Fiche publique d'un food truck et son planning (ADR-0013). */
-    public record FoodTruckDetail(FoodTruck foodTruck, List<FoodTruckPresence> presences) {
+    public record FoodTruckDetail(FoodTruck foodTruck, List<FoodTruckPresence> presences,
+            OffsetDateTime photoUpdatedAt) {
+
+        public FoodTruckDetail(FoodTruck foodTruck, List<FoodTruckPresence> presences) {
+            this(foodTruck, presences, null);
+        }
     }
 
     /**
@@ -63,7 +79,8 @@ public class FoodTruckService {
     /** Food truck publié et ses présences encore valables à partir de {@code from} ; vide s'il n'est pas publié. */
     public Optional<FoodTruckDetail> findPublishedDetail(Long id, LocalDate from) {
         return foodTruckRepository.findById(id).filter(foodTruck -> PUBLIC_STATUS.equals(foodTruck.status()))
-                .map(foodTruck -> new FoodTruckDetail(foodTruck, presenceRepository.findUpcomingForTruck(id, from)));
+                .map(foodTruck -> new FoodTruckDetail(foodTruck, presenceRepository.findUpcomingForTruck(id, from),
+                        presenceRepository.findPhotoUpdatedAt(id).orElse(null)));
     }
 
     public static LocalDate today() {

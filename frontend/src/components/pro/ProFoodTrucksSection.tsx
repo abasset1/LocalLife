@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { SPOT_KIND_LABELS, formatHours } from "../foodtrucks/foodTruckFormat";
+import { CUISINE_TYPES, DEFAULT_MARKER_COLOR, MARKER_COLORS, MARKER_EMOJIS, cuisineLabel, markerOf } from "../foodtrucks/cuisines";
 import { proRequest } from "./proApi";
+import { resizeImage } from "./resizeImage";
 import type { SimilarResult } from "./types";
 
 type SpotKind = "MARKET" | "PRIVATE" | "EVENT" | "OTHER";
@@ -23,6 +25,11 @@ interface OwnedFoodTruck {
     reviewReason: string | null;
     /** Masqué automatiquement à la fin de l'accès professionnel (republié à son retour). */
     suspendedForAccess: boolean;
+    /** Type de cuisine (filtre de la carte), pastille et photo. */
+    cuisineType: string | null;
+    markerEmoji: string | null;
+    markerColor: string | null;
+    photoUrl: string | null;
 }
 
 /** Présence vue par le propriétaire (`ManagedPresenceResponse`, backend). */
@@ -61,7 +68,12 @@ const DAYS = [
     { code: "SU", label: "Dim" },
 ];
 
-const EMPTY_PROFILE = { name: "", category: "", description: "", contact: "" };
+const EMPTY_PROFILE = {
+    name: "", category: "", description: "", contact: "", cuisineType: "", markerEmoji: "", markerColor: "",
+};
+
+/** Photo du formulaire : inchangée, nouvelle (à envoyer après l'enregistrement du profil) ou à retirer. */
+type PhotoChange = { kind: "keep" } | { kind: "new"; data: string } | { kind: "remove" };
 const EMPTY_PRESENCE = {
     spotMode: "place" as "place" | "new",
     placeId: null as number | null,
@@ -122,6 +134,7 @@ function ProFoodTrucksSection({ readOnly = false }: {
     const [refreshKey, setRefreshKey] = useState(0);
     const [editing, setEditing] = useState<OwnedFoodTruck | "new" | null>(null);
     const [profile, setProfile] = useState(EMPTY_PROFILE);
+    const [photoChange, setPhotoChange] = useState<PhotoChange>({ kind: "keep" });
     const [selected, setSelected] = useState<OwnedFoodTruck | null>(null);
     const [presences, setPresences] = useState<ManagedPresence[]>([]);
     const [presenceForm, setPresenceForm] = useState(EMPTY_PRESENCE);
@@ -158,16 +171,39 @@ function ProFoodTrucksSection({ readOnly = false }: {
         setEditing(truck);
         setProfile(truck === "new" ? EMPTY_PROFILE : {
             name: truck.name, category: truck.category, description: truck.description ?? "", contact: truck.contact ?? "",
+            cuisineType: truck.cuisineType ?? "", markerEmoji: truck.markerEmoji ?? "", markerColor: truck.markerColor ?? "",
         });
+        setPhotoChange({ kind: "keep" });
         setMessage(null);
     }
 
     async function saveProfile(event: FormEvent) {
         event.preventDefault();
         setBusy(true);
-        const result = editing === "new"
-            ? await proRequest<OwnedFoodTruck>("/api/v1/pro/foodtrucks", "POST", profile)
-            : await proRequest<OwnedFoodTruck>(`/api/v1/pro/foodtrucks/${(editing as OwnedFoodTruck).id}`, "PUT", profile);
+        const body = {
+            ...profile,
+            cuisineType: profile.cuisineType || null,
+            markerEmoji: profile.markerEmoji || null,
+            markerColor: profile.markerColor || null,
+        };
+        let result = editing === "new"
+            ? await proRequest<OwnedFoodTruck>("/api/v1/pro/foodtrucks", "POST", body)
+            : await proRequest<OwnedFoodTruck>(`/api/v1/pro/foodtrucks/${(editing as OwnedFoodTruck).id}`, "PUT", body);
+        // La photo s'enregistre une fois le profil enregistré (un nouveau food truck n'a pas d'identifiant avant).
+        if (result.ok && photoChange.kind !== "keep") {
+            const photoResult = photoChange.kind === "new"
+                ? await proRequest<OwnedFoodTruck>(`/api/v1/pro/foodtrucks/${result.data.id}/photo`, "PUT", { data: photoChange.data })
+                : await proRequest<OwnedFoodTruck>(`/api/v1/pro/foodtrucks/${result.data.id}/photo`, "DELETE");
+            if (!photoResult.ok) {
+                setBusy(false);
+                setMessage(`Profil enregistré, mais pas la photo : ${photoResult.message}`);
+                setEditing(null);
+                setSelected(result.data);
+                setRefreshKey((key) => key + 1);
+                return;
+            }
+            result = photoResult;
+        }
         setBusy(false);
         if (result.ok) {
             setMessage(editing === "new"
@@ -270,6 +306,22 @@ function ProFoodTrucksSection({ readOnly = false }: {
         setPresenceForm((current) => ({ ...current, [key]: value }));
     }
 
+    async function choosePhoto(file: File | undefined) {
+        if (!file) {
+            return;
+        }
+        try {
+            setPhotoChange({ kind: "new", data: await resizeImage(file) });
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : "Image illisible.");
+        }
+    }
+
+    const currentPhoto = photoChange.kind === "new"
+        ? photoChange.data
+        : photoChange.kind === "remove" || editing === "new" || !editing ? null : editing.photoUrl;
+    const marker = markerOf(profile);
+
     const publishedPlaces = placeResults?.candidates.filter((candidate) => candidate.status === "PUBLISHED") ?? [];
 
     return (
@@ -290,16 +342,70 @@ function ProFoodTrucksSection({ readOnly = false }: {
                             onChange={(event) => setProfile({ ...profile, name: event.target.value })} />
                     </div>
                     <div className="form-field">
-                        <label htmlFor="truck-category">Cuisine</label>
-                        <input id="truck-category" maxLength={255} placeholder="Tacos, crêpes, burgers…" required
+                        <label htmlFor="truck-cuisine-type">Type de cuisine</label>
+                        <select id="truck-cuisine-type" required value={profile.cuisineType}
+                            onChange={(event) => setProfile({ ...profile, cuisineType: event.target.value })}>
+                            <option disabled value="">Choisir…</option>
+                            {CUISINE_TYPES.map((cuisine) => (
+                                <option key={cuisine.code} value={cuisine.code}>{cuisine.emoji} {cuisine.label}</option>
+                            ))}
+                        </select>
+                        <small>Les visiteurs filtrent la carte et la liste des food trucks sur ce type.</small>
+                    </div>
+                    <div className="form-field">
+                        <label htmlFor="truck-category">Spécialité</label>
+                        <input id="truck-category" maxLength={255} placeholder="Tacos maison, crêpes bretonnes…" required
                             type="text" value={profile.category}
                             onChange={(event) => setProfile({ ...profile, category: event.target.value })} />
                     </div>
                     <div className="form-field">
                         <label htmlFor="truck-description">Description</label>
-                        <textarea id="truck-description" maxLength={2000} value={profile.description}
+                        <textarea id="truck-description" maxLength={2000} rows={5} value={profile.description}
+                            placeholder="Ton histoire, ta carte, tes produits, tes formules…"
                             onChange={(event) => setProfile({ ...profile, description: event.target.value })} />
+                        <small>{profile.description.length} / 2000</small>
                     </div>
+                    <div className="form-field">
+                        <label htmlFor="truck-photo">Photo</label>
+                        {currentPhoto && <img alt="Photo du food truck" className="food-truck-photo-preview" src={currentPhoto} />}
+                        <input accept="image/jpeg,image/png,image/webp" id="truck-photo" type="file"
+                            onChange={(event) => void choosePhoto(event.target.files?.[0])} />
+                        {currentPhoto && (
+                            <button className="contribution-action" onClick={() => setPhotoChange({ kind: "remove" })} type="button">
+                                Retirer la photo
+                            </button>
+                        )}
+                    </div>
+                    <fieldset className="form-field">
+                        <legend>Pastille sur la carte</legend>
+                        <p className="food-truck-marker-current">
+                            <span aria-hidden="true" className="food-truck-marker-preview" style={{ backgroundColor: marker.color }}>
+                                {marker.emoji}
+                            </span>{" "}
+                            Aperçu{profile.markerEmoji ? "" : " (emoji du type de cuisine par défaut)"}
+                        </p>
+                        <div aria-label="Emoji de la pastille" className="food-truck-marker-picker" role="group">
+                            <button aria-label="Emoji par défaut" aria-pressed={profile.markerEmoji === ""} type="button"
+                                onClick={() => setProfile({ ...profile, markerEmoji: "" })}>
+                                ∅
+                            </button>
+                            {MARKER_EMOJIS.map((emoji) => (
+                                <button aria-label={`Emoji ${emoji}`} aria-pressed={profile.markerEmoji === emoji} key={emoji}
+                                    onClick={() => setProfile({ ...profile, markerEmoji: emoji })} type="button">
+                                    {emoji}
+                                </button>
+                            ))}
+                        </div>
+                        <div aria-label="Couleur de la pastille" className="food-truck-marker-picker" role="group">
+                            {MARKER_COLORS.map((color) => (
+                                <button aria-label={`Couleur ${color}`} key={color} style={{ backgroundColor: color }} type="button"
+                                    aria-pressed={(profile.markerColor || DEFAULT_MARKER_COLOR) === color}
+                                    onClick={() => setProfile({ ...profile, markerColor: color === DEFAULT_MARKER_COLOR ? "" : color })} />
+                            ))}
+                            <input aria-label="Autre couleur" type="color" value={profile.markerColor || DEFAULT_MARKER_COLOR}
+                                onChange={(event) => setProfile({ ...profile, markerColor: event.target.value })} />
+                        </div>
+                    </fieldset>
                     <div className="form-field">
                         <label htmlFor="truck-contact">Contact ou lien utile</label>
                         <input id="truck-contact" maxLength={512} placeholder="Téléphone, site, réseau social…"
@@ -326,9 +432,9 @@ function ProFoodTrucksSection({ readOnly = false }: {
                     {trucks.map((truck) => (
                         <li className="favorites-list-item contributions-list-item" key={truck.id}>
                             <div className="favorites-list-item-info">
-                                <span className="favorites-list-item-title">🚚 {truck.name}</span>
+                                <span className="favorites-list-item-title">{`${markerOf(truck).emoji} ${truck.name}`}</span>
                                 <span className="favorites-list-item-meta">
-                                    {TRUCK_STATUS_LABELS[truck.status]} · {truck.category}
+                                    {TRUCK_STATUS_LABELS[truck.status]} · {[cuisineLabel(truck.cuisineType), truck.category].filter(Boolean).join(" · ")}
                                     {truck.suspendedByLocalLife ? " · suspendu par LocalLife" : ""}
                                 </span>
                                 {truck.status === "PENDING" && (

@@ -40,6 +40,8 @@ import {
 } from './geo';
 import { MapControl } from './MapControl';
 import { ActivityMarker, ClusterMarker, FoodTruckMarker, PlaceMarker } from './markers';
+import { CuisineFilterBar } from '@/features/foodtruck/CuisineFilterBar';
+import { markerOf } from '@/features/foodtruck/cuisines';
 import { PlaceListPanel } from './PlaceListPanel';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData, type RadiusSearch } from './useMapData';
@@ -288,10 +290,16 @@ export default function MapScreen() {
     [index, bounds, zoom, showActivities],
   );
 
+  // Filtre « type de cuisine » de la couche food trucks (`null` = toutes).
+  const [cuisine, setCuisine] = useState<string | null>(null);
   const visibleFoodTrucks = useMemo(
     () =>
-      bounds && showFoodTrucks ? foodTrucks.filter((t) => pointInBounds(bounds, t.latitude, t.longitude)) : [],
-    [foodTrucks, bounds, showFoodTrucks],
+      bounds && showFoodTrucks
+        ? foodTrucks.filter(
+            (t) => pointInBounds(bounds, t.latitude, t.longitude) && (cuisine === null || t.cuisineType === cuisine),
+          )
+        : [],
+    [foodTrucks, bounds, showFoodTrucks, cuisine],
   );
 
   const visiblePlaces = useMemo(
@@ -412,6 +420,8 @@ export default function MapScreen() {
             key={`t-${foodTruck.presenceId}`}
             coordinate={{ latitude: foodTruck.latitude, longitude: foodTruck.longitude }}
             name={foodTruck.name}
+            emoji={markerOf(foodTruck).emoji}
+            color={markerOf(foodTruck).color}
             onPress={() => select({ kind: 'foodTruck', foodTruck })}
           />
         ))}
@@ -444,6 +454,17 @@ export default function MapScreen() {
               <CitySearch floating />
             </View>
           </View>
+          {showFoodTrucks && (
+            <CuisineFilterBar
+              floating
+              foodTrucks={foodTrucks}
+              selected={cuisine}
+              onChange={(code) => {
+                setCuisine(code);
+                setSelection(null);
+              }}
+            />
+          )}
           {!selection && <FollowNewsBanner />}
           <FollowNewsPopup />
           {!place && !loading && !error && (

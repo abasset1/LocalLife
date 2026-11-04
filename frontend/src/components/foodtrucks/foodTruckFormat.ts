@@ -21,3 +21,28 @@ export function describePresence(foodTruck: FoodTruck): string {
     return [SPOT_KIND_LABELS[foodTruck.spotKind] ?? null, foodTruck.spotName, formatHours(foodTruck)]
         .filter(Boolean).join(" · ");
 }
+
+const DAY_LABELS: Record<string, string> = {
+    MO: "Lun", TU: "Mar", WE: "Mer", TH: "Jeu", FR: "Ven", SA: "Sam", SU: "Dim",
+};
+
+/** Jours d'une présence (`MO,TU…`), « Tous les jours » sans précision. */
+export function describeDays(days: string | null | undefined): string {
+    if (!days) {
+        return "Tous les jours";
+    }
+    return days.split(",").map((code) => DAY_LABELS[code] ?? code).join(", ");
+}
+
+/** Contact cliquable : une adresse web http(s), sinon `null` (téléphone, réseau social en texte libre). */
+export function contactUrl(contact: string | null | undefined): string | null {
+    if (!contact) {
+        return null;
+    }
+    try {
+        const url = new URL(contact.trim());
+        return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+    } catch {
+        return null;
+    }
+}

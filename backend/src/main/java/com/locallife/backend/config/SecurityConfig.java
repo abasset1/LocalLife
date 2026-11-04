@@ -125,6 +125,7 @@ public class SecurityConfig {
         "/api/v1/places/*/foodtrucks",
         "/api/v1/foodtrucks",
         "/api/v1/foodtrucks/*",
+        "/api/v1/foodtrucks/*/photo",
         "/api/v1/categories",
         "/api/v1/activitytypes",
         "/api/v1/audiences",

@@ -1,6 +1,8 @@
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+
+import { Radius } from '@/constants/theme';
 
 import {
   createPresence,
@@ -40,6 +42,17 @@ import {
   truckStatusLabel,
 } from '@/features/pro/format';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
+import {
+  EMPTY_PROFILE,
+  FoodTruckProfileFields,
+  profileFormOf,
+  profileInputOf,
+  savePhoto,
+  type PhotoChange,
+} from '@/features/pro/FoodTruckProfileFields';
+import { RemoteImage } from '@/components/remote-image';
+import { cuisineLabel, markerOf } from '@/features/foodtruck/cuisines';
+import { photoUri } from '@/features/foodtruck/photo';
 import { useProAccessEnded } from '@/features/pro/useProAccess';
 import { ChipGroup } from '@/features/settings';
 
@@ -80,7 +93,8 @@ export default function MyFoodTruckScreen() {
   const [presences, setPresences] = useState<ManagedPresence[]>([]);
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(false);
-  const [profile, setProfile] = useState({ name: '', category: '', description: '', contact: '' });
+  const [profile, setProfile] = useState(EMPTY_PROFILE);
+  const [photo, setPhoto] = useState<PhotoChange>({ kind: 'keep' });
   const [editingProfile, setEditingProfile] = useState(false);
   const [editing, setEditing] = useState<ManagedPresence | 'new' | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -232,10 +246,10 @@ export default function MyFoodTruckScreen() {
             {truck && (
               <Card style={styles.form}>
                 <ThemedText type="subtitle" accessibilityRole="header">
-                  🚚 {truck.name}
+                  {markerOf(truck).emoji} {truck.name}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {truckStatusLabel(truck)} · {truck.category}
+                  {truckStatusLabel(truck)} · {[cuisineLabel(truck.cuisineType), truck.category].filter(Boolean).join(' · ')}
                   {truck.suspendedByLocalLife ? ' · suspendu par LocalLife' : ''}
                 </ThemedText>
                 {truck.status === 'PENDING' && (
@@ -264,25 +278,22 @@ export default function MyFoodTruckScreen() {
                 )}
                 {editingProfile ? (
                   <>
-                    <TextField label="Nom commercial" value={profile.name} onChangeText={(v) => setProfile({ ...profile, name: v })} />
-                    <TextField label="Cuisine" value={profile.category} onChangeText={(v) => setProfile({ ...profile, category: v })} />
-                    <TextField
-                      label="Description"
-                      value={profile.description}
-                      onChangeText={(v) => setProfile({ ...profile, description: v })}
-                      multiline
-                    />
-                    <TextField
-                      label="Contact ou lien utile"
-                      value={profile.contact}
-                      onChangeText={(v) => setProfile({ ...profile, contact: v })}
-                      autoCapitalize="none"
+                    <FoodTruckProfileFields
+                      profile={profile}
+                      onChange={setProfile}
+                      currentPhotoUrl={truck.photoUrl}
+                      photo={photo}
+                      onPhotoChange={setPhoto}
+                      onError={setError}
                     />
                     <Button
                       label="Enregistrer"
                       loading={busy}
                       onPress={() =>
-                        void run(() => updateFoodTruck(truck.id, profile), 'Profil enregistré.').then((ok) => {
+                        void run(async () => {
+                          await updateFoodTruck(truck.id, profileInputOf(profile));
+                          await savePhoto(truck.id, photo);
+                        }, 'Profil enregistré.').then((ok) => {
                           if (ok) setEditingProfile(false);
                         })
                       }
@@ -291,18 +302,15 @@ export default function MyFoodTruckScreen() {
                   </>
                 ) : (
                   <>
+                    <RemoteImage url={photoUri(truck.photoUrl)} alt={`Photo de ${truck.name}`} style={localStyles.photo} />
                     {truck.description ? <ThemedText>{truck.description}</ThemedText> : null}
                     {truck.status !== 'ARCHIVED' && !readOnly && (
                       <Button
                         label="Modifier le profil"
                         variant="secondary"
                         onPress={() => {
-                          setProfile({
-                            name: truck.name,
-                            category: truck.category,
-                            description: truck.description ?? '',
-                            contact: truck.contact ?? '',
-                          });
+                          setProfile(profileFormOf(truck));
+                          setPhoto({ kind: 'keep' });
                           setEditingProfile(true);
                         }}
                       />
@@ -475,3 +483,10 @@ export default function MyFoodTruckScreen() {
     </ProGate>
   );
 }
+
+const localStyles = StyleSheet.create({
+  photo: {
+    height: 180,
+    borderRadius: Radius.md,
+  },
+});

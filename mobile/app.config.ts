@@ -97,6 +97,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     [
+      // Photo d'un food truck, choisie dans la galerie par son propriétaire (espace professionnel).
+      "expo-image-picker",
+      {
+        photosPermission: "LocalLife accède à vos photos pour ajouter celle de votre food truck.",
+        cameraPermission: false,
+        microphonePermission: false,
+      },
+    ],
+    [
       "expo-splash-screen",
       {
         // Vert forêt de la charte ; logo LocalLife (« L » et point corail).

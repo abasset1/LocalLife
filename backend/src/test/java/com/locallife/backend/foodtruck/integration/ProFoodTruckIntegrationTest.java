@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +41,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 class ProFoodTruckIntegrationTest {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    /** Image PNG d'un pixel. */
+    private static final String PNG_PIXEL =
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
     @LocalServerPort
     private int port;
@@ -235,6 +240,56 @@ class ProFoodTruckIntegrationTest {
         long own = createTruck(admin, "Camion de l'admin");
         call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + own + "/publish", admin, null, 200);
         call(HttpMethod.POST, "/api/v1/admin/foodtrucks/" + own + "/approve", admin, null, 403);
+    }
+
+    @Test
+    void profile_ShouldCarryCuisineTypeMarkerAndPhoto_UpToTheMap() throws Exception {
+        String owner = token(user("PRO"), "PRO");
+        call(HttpMethod.POST, "/api/v1/pro/foodtrucks", owner, with(profile("X"), "cuisineType", "SUSHI_PARTY"), 400);
+        call(HttpMethod.POST, "/api/v1/pro/foodtrucks", owner, with(profile("X"), "markerEmoji", "<b>"), 400);
+        call(HttpMethod.POST, "/api/v1/pro/foodtrucks", owner, with(profile("X"), "markerColor", "red"), 400);
+
+        Map<String, Object> body = with(with(with(profile("Pizza Nomade"), "cuisineType", "pizza"),
+                "markerEmoji", "🍕"), "markerColor", "#16A34A");
+        JsonNode created = call(HttpMethod.POST, "/api/v1/pro/foodtrucks", owner, body, 201);
+        long truck = created.get("id").asLong();
+        assertThat(created.get("cuisineType").asText()).isEqualTo("PIZZA");
+        assertThat(created.get("markerEmoji").asText()).isEqualTo("🍕");
+        assertThat(created.get("markerColor").asText()).isEqualTo("#16a34a");
+        assertThat(created.get("photoUrl").isNull()).isTrue();
+
+        call(HttpMethod.PUT, "/api/v1/pro/foodtrucks/" + truck + "/photo", owner,
+                Map.of("data", Base64.getEncoder().encodeToString("pas une image".getBytes(StandardCharsets.UTF_8))),
+                400);
+        call(HttpMethod.PUT, "/api/v1/pro/foodtrucks/" + truck + "/photo", token(user("PRO"), "PRO"),
+                Map.of("data", "data:image/png;base64," + PNG_PIXEL), 404);
+        JsonNode withPhoto = call(HttpMethod.PUT, "/api/v1/pro/foodtrucks/" + truck + "/photo", owner,
+                Map.of("data", "data:image/png;base64," + PNG_PIXEL), 200);
+        String photoUrl = withPhoto.get("photoUrl").asText();
+        assertThat(photoUrl).startsWith("/api/v1/foodtrucks/" + truck + "/photo?v=");
+        byte[] photo = RestTestClient.bindToServer().baseUrl("http://localhost:" + port).build().get().uri(photoUrl)
+                .exchange().expectStatus().isOk().expectHeader().contentType(MediaType.IMAGE_PNG)
+                .expectBody(byte[].class).returnResult().getResponseBody();
+        assertThat(photo).isEqualTo(Base64.getDecoder().decode(PNG_PIXEL));
+
+        publishValidated(truck, owner);
+        double latitude = 44 + ThreadLocalRandom.current().nextDouble(0.5);
+        double longitude = 4 + ThreadLocalRandom.current().nextDouble(0.5);
+        long presence = call(HttpMethod.POST, "/api/v1/pro/foodtrucks/" + truck + "/presences", owner,
+                presence(newSpot(latitude, longitude), "MARKET", List.of(), "11:00", "14:00"), 201).get("id").asLong();
+        call(HttpMethod.POST, "/api/v1/pro/presences/" + presence + "/publish", owner, null, 200);
+        JsonNode shown = ours(truck).get(0);
+        assertThat(shown.get("cuisineType").asText()).isEqualTo("PIZZA");
+        assertThat(shown.get("markerColor").asText()).isEqualTo("#16a34a");
+        assertThat(shown.get("photoUrl").asText()).isEqualTo(photoUrl);
+        assertThat(shown.get("description").asText()).isEqualTo("Fait maison");
+        JsonNode detail = call(HttpMethod.GET, "/api/v1/foodtrucks/" + truck, null, null, 200);
+        assertThat(detail.get("photoUrl").asText()).isEqualTo(photoUrl);
+        assertThat(detail.get("markerEmoji").asText()).isEqualTo("🍕");
+
+        JsonNode removed = call(HttpMethod.DELETE, "/api/v1/pro/foodtrucks/" + truck + "/photo", owner, null, 200);
+        assertThat(removed.get("photoUrl").isNull()).isTrue();
+        call(HttpMethod.GET, "/api/v1/foodtrucks/" + truck + "/photo", null, null, 404);
     }
 
     // ---------------------------------------------------------------- outils
