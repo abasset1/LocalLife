@@ -94,7 +94,8 @@ public class ProFoodTruckController {
     @Operation(summary = "Créer un food truck", description = "Profil en brouillon : nom, spécialité (category), type "
             + "de cuisine (cuisineType : BURGER, PIZZA, ASIAN, MEXICAN, CREPES, SANDWICH, FRENCH, ITALIAN, WORLD, "
             + "VEGETARIAN, DESSERT, DRINKS, OTHER), description, contact, pastille (markerEmoji, markerColor "
-            + "#rrggbb), instagram et facebook (adresse ou nom du compte, renvoyés en instagramUrl/facebookUrl). Publication : POST /pro/foodtrucks/{id}/publish. Distinct des lieux.")
+            + "#rrggbb), instagram et facebook (adresse ou nom du compte, renvoyés en instagramUrl/facebookUrl). "
+            + "Publication : POST /pro/foodtrucks/{id}/publish. Distinct des lieux.")
     @PostMapping("/foodtrucks")
     public ResponseEntity<Object> create(@RequestBody(required = false) ProfileInput body,
             Authentication authentication, HttpServletRequest request) {

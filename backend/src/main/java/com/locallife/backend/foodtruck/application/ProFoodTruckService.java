@@ -448,7 +448,8 @@ public class ProFoodTruckService {
      */
     static String instagramUrl(String value) {
         return socialUrl(value, INSTAGRAM_HANDLE, List.of("instagram.com", "instagr.am"),
-                "https://www.instagram.com/", "Le lien Instagram doit être une adresse instagram.com ou un nom de compte.");
+                "https://www.instagram.com/",
+                "Le lien Instagram doit être une adresse instagram.com ou un nom de compte.");
     }
 
     /**

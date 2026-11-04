@@ -49,6 +49,7 @@ public record FoodTruckPresence(
             String contact, Double latitude, Double longitude, String spotName, SpotKind spotKind, String daysOfWeek,
             LocalTime startTime, LocalTime endTime, LocalDate validFrom, LocalDate validUntil, Long placeId) {
         this(id, foodTruckId, foodTruckName, description, category, contact, latitude, longitude, spotName, spotKind,
-                daysOfWeek, startTime, endTime, validFrom, validUntil, placeId, null, null, null, null, null, null, null);
+                daysOfWeek, startTime, endTime, validFrom, validUntil, placeId, null, null, null, null, null, null,
+                null);
     }
 }
