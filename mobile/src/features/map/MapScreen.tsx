@@ -28,7 +28,7 @@ import { FollowNewsBanner, FollowNewsPopup, PremiumOfferPopup } from '@/features
 import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
 import { useTheme } from '@/hooks/use-theme';
 
-import { ActivityGroupPanel } from './ActivityGroupPanel';
+import { activitiesAtSamePlace, clusterTapAction, sortByStartDate } from './activityGroups';
 import {
   Region,
   pointInBounds,
@@ -39,7 +39,7 @@ import {
   zoomForRegion,
 } from './geo';
 import { MapControl } from './MapControl';
-import { ActivityMarker, ClusterMarker, FoodTruckMarker, PlaceMarker } from './markers';
+import { ActivityMarker, ClusterMarker, FoodTruckMarker, HighlightedActivityMarker, PlaceMarker } from './markers';
 import { CuisineFilterBar } from '@/features/foodtruck/CuisineFilterBar';
 import { markerOf } from '@/features/foodtruck/cuisines';
 import { PlaceListPanel } from './PlaceListPanel';
@@ -49,6 +49,7 @@ import { type MapLayer, loadMapLayer, saveMapLayer } from './placesPreference';
 import { usePlaces } from './usePlaces';
 import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
+import { ZoneActivityList } from './ZoneActivityList';
 
 /**
  * Vue de départ tant qu'aucun lieu n'est choisi : vue d'ensemble de la zone couverte par les sources
@@ -131,15 +132,15 @@ export default function MapScreen() {
   const [periodPanelOpen, setPeriodPanelOpen] = useState(false);
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
   const [placeListOpen, setPlaceListOpen] = useState(false);
-  /** Activités d'un groupe de marqueurs au même endroit, listées après un appui sur ce groupe. */
-  const [activityGroup, setActivityGroup] = useState<Activity[] | null>(null);
+  /** Liste des activités de la zone affichée, liée à la carte (comme la page Explorer du site web). */
+  const [zoneListOpen, setZoneListOpen] = useState(false);
   /** Un seul panneau ouvert à la fois. */
   const closePanels = useCallback(() => {
     setRadiusPanelOpen(false);
     setPeriodPanelOpen(false);
     setCategoryPanelOpen(false);
     setPlaceListOpen(false);
-    setActivityGroup(null);
+    setZoneListOpen(false);
   }, []);
   const [period, setPeriod] = usePeriod();
   const periodLabel = PERIOD_OPTIONS.find((option) => option.value === period)?.label ?? 'Tout';
@@ -308,25 +309,38 @@ export default function MapScreen() {
   );
 
   /**
-   * Appui sur un groupe de marqueurs, comme sur le site web : la carte cadre toutes ses activités d'un
-   * coup (au lieu d'avancer d'un niveau de zoom à la fois). Si elles sont au même endroit, ou si le
-   * regroupement ne s'arrêterait qu'au-delà du zoom maximal, elles sont listées.
+   * Appui sur une pastille, comme sur le site web : l'aperçu fait défiler ses activités une à une, de la plus
+   * proche dans le temps à la plus lointaine (« ‹ 2 / 4 › »). Une pastille de plus de 10 activités à des endroits
+   * différents cadre plutôt toutes ses activités d'un coup, tant que le zoom peut encore les séparer.
    */
   const openCluster = useCallback(
     (clusterId: number) => {
-      const leaves = index
-        .getLeaves(clusterId, Infinity)
-        .map((feature) => (feature.properties as { activity: Activity }).activity);
+      const leaves = sortByStartDate(
+        index.getLeaves(clusterId, Infinity).map((feature) => (feature.properties as { activity: Activity }).activity),
+      );
+      if (leaves.length === 0) return;
       const target = regionToFit(leaves, region);
-      if (!target || index.getClusterExpansionZoom(clusterId) > CLUSTER_MAX_ZOOM) {
-        closePanels();
-        setActivityGroup(leaves);
+      const canZoom = target !== null && index.getClusterExpansionZoom(clusterId) <= CLUSTER_MAX_ZOOM;
+      closePanels();
+      if (target && clusterTapAction(leaves, canZoom) === 'zoom') {
+        setSelection(null);
+        mapRef.current?.animateToRegion(target, 300);
         return;
       }
-      mapRef.current?.animateToRegion(target, 300);
+      select({ kind: 'activity', activity: leaves[0], group: leaves });
     },
-    [index, region, closePanels],
+    [index, region, closePanels, select],
   );
+
+  /** Activités de la zone affichée, par date, pour la liste liée à la carte. */
+  const zoneActivities = useMemo(
+    () =>
+      bounds && showActivities
+        ? sortByStartDate(activities.filter((a) => pointInBounds(bounds, a.latitude, a.longitude)))
+        : [],
+    [activities, bounds, showActivities],
+  );
+  const highlighted = selection?.kind === 'activity' && showActivities ? selection.activity : null;
 
   // « Ma position » : la position devient le lieu de recherche (carte et liste) ; la carte s'y cadre
   // (effet ci-dessus) et `useMapData` recharge les activités autour.
@@ -362,7 +376,6 @@ export default function MapScreen() {
         onPress={(event) => {
           if (event.nativeEvent.action === 'marker-press' || Date.now() - markerPressedAt.current < 400) return;
           setSelection(null);
-          setActivityGroup(null);
         }}
         showsUserLocation={showUser}
         showsMyLocationButton={false}
@@ -410,10 +423,24 @@ export default function MapScreen() {
               coordinate={coordinate}
               title={activity.title}
               approximate={isApproximateLocation(activity)}
-              onPress={() => select({ kind: 'activity', activity })}
+              onPress={() => {
+                closePanels();
+                // Même aperçu que les pastilles, avec les autres activités au même endroit (à 100 m près).
+                select({ kind: 'activity', activity, group: activitiesAtSamePlace(activity, activities) });
+              }}
             />
           );
         })}
+        {highlighted && (
+          <HighlightedActivityMarker
+            key={`h-${highlighted.id}`}
+            coordinate={{ latitude: highlighted.latitude, longitude: highlighted.longitude }}
+            title={highlighted.title}
+            onPress={() => {
+              markerPressedAt.current = Date.now();
+            }}
+          />
+        )}
 
         {visibleFoodTrucks.map((foodTruck) => (
           <FoodTruckMarker
@@ -550,13 +577,17 @@ export default function MapScreen() {
         </View>
 
         <View style={styles.bottom} pointerEvents="box-none">
-          {!selection && activityGroup && (
-            <ActivityGroupPanel
-              activities={activityGroup}
-              onClose={() => setActivityGroup(null)}
+          {!selection && zoneListOpen && showActivities && (
+            <ZoneActivityList
+              activities={zoneActivities}
+              onClose={() => setZoneListOpen(false)}
               onSelect={(activity) => {
-                setActivityGroup(null);
+                setZoneListOpen(false);
                 select({ kind: 'activity', activity });
+              }}
+              onOpenFullList={() => {
+                closePanels();
+                router.navigate('/liste');
               }}
             />
           )}
@@ -606,14 +637,21 @@ export default function MapScreen() {
             // Une seule rangée d'icônes (FRONT-REV-02) : l'état choisi se lit à la couleur, le détail est
             // annoncé par le libellé accessible.
             <View style={styles.bottomActions} pointerEvents="box-none">
-              <MapControl
-                icon={{ ios: 'list.bullet.rectangle', android: 'view_list', web: 'view_list' }}
-                accessibilityLabel="Afficher la liste des activités"
-                onPress={() => {
-                  closePanels();
-                  router.navigate('/liste');
-                }}
-              />
+              {showActivities && (
+                <MapControl
+                  icon={{ ios: 'list.bullet.rectangle', android: 'view_list', web: 'view_list' }}
+                  accessibilityLabel={
+                    zoneListOpen ? 'Fermer la liste' : `Voir la liste des activités de cette zone (${zoneActivities.length})`
+                  }
+                  badge={zoneActivities.length}
+                  active={zoneListOpen}
+                  onPress={() => {
+                    const open = zoneListOpen;
+                    closePanels();
+                    setZoneListOpen(!open);
+                  }}
+                />
+              )}
               <MapControl
                 icon={{ ios: 'square.grid.2x2', android: 'category', web: 'category' }}
                 accessibilityLabel={
@@ -688,7 +726,9 @@ export default function MapScreen() {
               />
             </View>
           )}
-          {selection && <PreviewCard selection={selection} onClose={() => setSelection(null)} />}
+          {selection && (
+            <PreviewCard selection={selection} onClose={() => setSelection(null)} onChange={setSelection} />
+          )}
         </View>
       </SafeAreaView>
     </View>
