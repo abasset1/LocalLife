@@ -109,7 +109,11 @@ import org.springframework.web.client.RestClientException;
  *       libellé ou l'URL) ; {@code sourceUrl} = premier lien de cet ordre,
  *       à défaut l'URI DATAtourisme ;</li>
  *   <li>événements entièrement passés ou sans coordonnées ignorés, comme
- *       pour {@link OpenAgendaCollector}.</li>
+ *       pour {@link OpenAgendaCollector} ;</li>
+ *   <li><b>annulés</b> ({@link #CANCELLED}, titre seul) ignorés : déjà importé, l'événement disparaît de la
+ *       collecte et son activité est archivée par l'import, comme tout élément disparu ;</li>
+ *   <li><b>coordonnées hors du territoire</b> du code postal ({@link #isPlausiblePosition}) ignorées : la
+ *       position serait fausse sur la carte.</li>
  * </ul>
  *
  * <p>Le fichier est lu en flux (le fichier national dépasse 50 Mo) : seuls
@@ -138,6 +142,31 @@ public class DataTourismeCollector implements Collector {
             "reserv|billet|ticket|booking|shotgun|helloasso|weezevent|mapado", Pattern.CASE_INSENSITIVE);
 
     private static final String BOOKING_LABEL = "Réservation";
+
+    /**
+     * Annulation, seulement signalée par le titre : le CSV n'a pas de statut (« ANNULÉ - Feu d'artifice »,
+     * « Brocante de Sancerre annulée »). Les 69 titres de ce motif de l'export France du 04/11/2026 sont tous
+     * des annulations. « Annulation » (« annulation Rhoda SCOTT » : un artiste seulement) et « reporté » (la
+     * période est en général mise à jour à la nouvelle date) ne suffisent pas.
+     */
+    private static final Pattern CANCELLED = Pattern.compile("\\bannule(e|es|s)?\\b");
+
+    /**
+     * Emprise (latitude et longitude minimales et maximales, avec une marge) de la métropole, Corse comprise :
+     * une position hors de cette emprise pour un code postal métropolitain est une erreur de saisie (export
+     * France du 04/11/2026 : un vide-grenier d'Oupia, 34210, placé en Floride). Une emprise par territoire
+     * plutôt que par département : un événement près d'une limite départementale n'est jamais écarté.
+     */
+    private static final Bounds METROPOLE_BOUNDS = new Bounds(41.2, 51.2, -5.3, 9.7);
+
+    /** Emprises des DROM et de Saint-Pierre-et-Miquelon, par préfixe de code postal (971 : avec les îles du Nord). */
+    private static final Map<String, Bounds> OVERSEAS_BOUNDS = Map.of(
+            "971", new Bounds(15.8, 18.2, -63.2, -60.9),
+            "972", new Bounds(14.3, 15.0, -61.3, -60.7),
+            "973", new Bounds(2.0, 6.0, -54.7, -51.5),
+            "974", new Bounds(-21.5, -20.8, 55.1, 56.0),
+            "975", new Bounds(46.7, 47.2, -56.5, -56.0),
+            "976", new Bounds(-13.1, -12.5, 44.9, 45.4));
 
     private static final String EVENT_TYPE = "EntertainmentAndEvent";
     private static final String LINK_TYPE_WEBSITE = "WEBSITE";
@@ -327,8 +356,11 @@ public class DataTourismeCollector implements Collector {
             return reject(rejected, "sans URI");
         }
         List<String> types = types(row.get("Categories_de_POI"));
-        if (selection != null && !selection.matches(row.get("Nom_du_POI"), types)) {
+        if (selection != null && !selection.matches(row.get("Nom_du_POI"), row.get("Description"), types)) {
             return reject(rejected, "hors sélection");
+        }
+        if (CANCELLED.matcher(DataTourismeEventSelection.normalize(row.get("Nom_du_POI"))).find()) {
+            return reject(rejected, "annulé");
         }
         String[] postalCodeAndCity = firstObject(row.get("Code_postal_et_commune")).split("#", -1);
         String postalCode = postalCodeAndCity[0].trim();
@@ -339,6 +371,9 @@ public class DataTourismeCollector implements Collector {
         Double longitude = parseDouble(row.get("Longitude"));
         if (latitude == null || longitude == null) {
             return reject(rejected, "sans coordonnées");
+        }
+        if (!isPlausiblePosition(postalCode, latitude, longitude)) {
+            return reject(rejected, "coordonnées hors du territoire");
         }
         List<Period> periods = periods(row.get("Periodes_regroupees"));
         boolean continuous = types.stream().anyMatch(CONTINUOUS_TYPES::contains);
@@ -407,6 +442,27 @@ public class DataTourismeCollector implements Collector {
      */
     static boolean isGenericAddress(String address, String city) {
         return CoordinatePrecisionPolicy.isGenericPlaceText(address, city);
+    }
+
+    /**
+     * Vrai si la position est dans l'emprise du territoire de son code postal : métropole, ou DROM par préfixe.
+     * Code postal absent ou illisible : dans l'une des emprises connues. Autres collectivités d'outre-mer
+     * (98…) : pas de contrôle, faute d'emprise.
+     */
+    static boolean isPlausiblePosition(String postalCode, double latitude, double longitude) {
+        String code = postalCode == null ? "" : postalCode.trim();
+        if (code.matches("\\d{5}")) {
+            if (code.startsWith("98")) {
+                return true;
+            }
+            if (code.startsWith("97")) {
+                Bounds overseas = OVERSEAS_BOUNDS.get(code.substring(0, 3));
+                return overseas == null || overseas.contains(latitude, longitude);
+            }
+            return METROPOLE_BOUNDS.contains(latitude, longitude);
+        }
+        return METROPOLE_BOUNDS.contains(latitude, longitude)
+                || OVERSEAS_BOUNDS.values().stream().anyMatch(bounds -> bounds.contains(latitude, longitude));
     }
 
     private boolean matchesDepartments(String postalCode) {
@@ -528,6 +584,15 @@ public class DataTourismeCollector implements Collector {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    /** Emprise d'un territoire, bornes incluses. */
+    private record Bounds(double minLatitude, double maxLatitude, double minLongitude, double maxLongitude) {
+
+        boolean contains(double latitude, double longitude) {
+            return latitude >= minLatitude && latitude <= maxLatitude
+                    && longitude >= minLongitude && longitude <= maxLongitude;
+        }
     }
 
     /** Période de la source, bornes incluses. */
