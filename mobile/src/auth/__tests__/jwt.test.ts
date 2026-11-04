@@ -16,6 +16,12 @@ describe('decodeJwtPayload', () => {
     });
   });
 
+  it('lit la date de connexion (iat) quand le jeton la porte', () => {
+    const token = tokenFor({ userId: 7, email: 'a@b.fr', role: 'USER', iat: 1_700_000_000, exp: 1_800_000_000 });
+    expect(decodeJwtPayload(token)?.iat).toBe(1_700_000_000);
+    expect(decodeJwtPayload(tokenFor({ userId: 7, email: 'a@b.fr', role: 'USER' }))?.iat).toBeUndefined();
+  });
+
   it('rejette un token illisible ou incomplet', () => {
     expect(decodeJwtPayload('')).toBeNull();
     expect(decodeJwtPayload('pas-un-jwt')).toBeNull();

@@ -8,6 +8,8 @@ export interface JwtPayload {
   userId: number;
   email: string;
   role: string;
+  /** Date d'émission du jeton, en secondes depuis l'epoch (claim `iat`) : celle de la connexion. */
+  iat?: number;
   /** Expiration, en secondes depuis l'epoch (claim `exp`). */
   exp?: number;
 }
@@ -24,11 +26,17 @@ export function decodeJwtPayload(token: string): JwtPayload | null {
     );
     const payload: unknown = JSON.parse(json);
     if (payload === null || typeof payload !== 'object') return null;
-    const { userId, email, role, exp } = payload as Record<string, unknown>;
+    const { userId, email, role, iat, exp } = payload as Record<string, unknown>;
     if (typeof userId !== 'number' || typeof email !== 'string' || typeof role !== 'string') {
       return null;
     }
-    return { userId, email, role, exp: typeof exp === 'number' ? exp : undefined };
+    return {
+      userId,
+      email,
+      role,
+      iat: typeof iat === 'number' ? iat : undefined,
+      exp: typeof exp === 'number' ? exp : undefined,
+    };
   } catch {
     return null;
   }
