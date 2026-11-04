@@ -873,7 +873,7 @@ class ActivityRepositoryIntegrationTest {
         assertThat(resultIds).contains(activity.id());
     }
 
-    // --- V85 : borne directe sur la fin des occurrences (index idx_occurrence_schedule_last_at) ---
+    // --- V86 : borne directe sur la fin des occurrences (index idx_occurrence_schedule_last_at) ---
 
     @Test
     void findWithinRadius_ShouldKeepOccurrenceStartingAtLocalMidnight_InFarEastTimeZone() {
