@@ -10,6 +10,7 @@ interface PendingFoodTruck {
     foodTruck: {
         id: number; name: string; category: string; description: string | null; contact: string | null;
         cuisineType?: string | null; markerEmoji?: string | null; markerColor?: string | null; photoUrl?: string | null;
+        instagramUrl?: string | null; facebookUrl?: string | null;
     };
     ownerId: number | null;
     ownerEmail: string | null;
@@ -186,6 +187,16 @@ function AdminProModerationSection() {
                                 </span>
                                 {item.foodTruck.description && (
                                     <span className="favorites-list-item-meta">{item.foodTruck.description}</span>
+                                )}
+                                {(item.foodTruck.instagramUrl || item.foodTruck.facebookUrl) && (
+                                    <span className="favorites-list-item-meta food-truck-social-links">
+                                        {item.foodTruck.instagramUrl && (
+                                            <a href={item.foodTruck.instagramUrl} rel="noopener noreferrer" target="_blank">Instagram</a>
+                                        )}
+                                        {item.foodTruck.facebookUrl && (
+                                            <a href={item.foodTruck.facebookUrl} rel="noopener noreferrer" target="_blank">Facebook</a>
+                                        )}
+                                    </span>
                                 )}
                             </div>
                             <div className="contributions-list-item-actions">

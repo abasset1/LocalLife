@@ -155,6 +155,11 @@ export interface FoodTruck {
     markerColor?: string | null;
     /** Adresse de la photo, `null` sans photo. */
     photoUrl?: string | null;
+    /** Adresse exacte de l'emplacement (« 12 rue des Lilas, 35000 Rennes »), `null` si inconnue. */
+    spotAddress?: string | null;
+    /** Pages Instagram et Facebook du food truck, `null` si non renseignées. */
+    instagramUrl?: string | null;
+    facebookUrl?: string | null;
 }
 
 export interface ApiErrorBody {

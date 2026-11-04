@@ -25,7 +25,7 @@ public class OwnedFoodTruckRepository {
      * {@code markerEmoji}/{@code markerColor} : pastille personnalisée, {@code null} = pastille par défaut.
      */
     public record ProfileFields(String name, String description, String category, String contact, String cuisineType,
-            String markerEmoji, String markerColor) {
+            String markerEmoji, String markerColor, String instagramUrl, String facebookUrl) {
     }
 
     /** Photo d'un food truck. */
@@ -37,14 +37,15 @@ public class OwnedFoodTruckRepository {
             Long id, String name, String description, String category, String contact, FoodTruckStatus status,
             Long ownerId, String ownerEmail, OffsetDateTime updatedAt, OffsetDateTime suspendedByAdminAt,
             OffsetDateTime approvedAt, String reviewReason, OffsetDateTime suspendedForAccessAt, String cuisineType,
-            String markerEmoji, String markerColor, OffsetDateTime photoUpdatedAt) {
+            String markerEmoji, String markerColor, OffsetDateTime photoUpdatedAt, String instagramUrl,
+            String facebookUrl) {
     }
 
     private static final String SELECT = """
             SELECT ft.id, ft.name, ft.description, ft.category, ft.contact, ft.status, ft.owner_id, u.email,
                    ft.updated_at, ft.suspended_by_admin_at, ft.approved_at, ft.review_reason,
                    ft.suspended_for_access_at, ft.cuisine_type, ft.marker_emoji, ft.marker_color,
-                   photo.updated_at AS photo_updated_at
+                   photo.updated_at AS photo_updated_at, ft.instagram_url, ft.facebook_url
             FROM food_truck ft LEFT JOIN users u ON u.id = ft.owner_id
             LEFT JOIN food_truck_photo photo ON photo.food_truck_id = ft.id
             """;
@@ -59,9 +60,9 @@ public class OwnedFoodTruckRepository {
         KeyHolder key = new GeneratedKeyHolder();
         jdbc.update("""
                 INSERT INTO food_truck (name, description, category, contact, cuisine_type, marker_emoji,
-                                        marker_color, status, owner_id, updated_at)
-                VALUES (:name, :description, :category, :contact, :cuisineType, :markerEmoji, :markerColor, :status,
-                        :ownerId, now())
+                                        marker_color, instagram_url, facebook_url, status, owner_id, updated_at)
+                VALUES (:name, :description, :category, :contact, :cuisineType, :markerEmoji, :markerColor,
+                        :instagramUrl, :facebookUrl, :status, :ownerId, now())
                 """, params(fields).addValue("status", status.name()).addValue("ownerId", ownerId), key,
                 new String[] {"id"});
         return key.getKey().longValue();
@@ -71,7 +72,8 @@ public class OwnedFoodTruckRepository {
         jdbc.update("""
                 UPDATE food_truck SET name = :name, description = :description, category = :category,
                        contact = :contact, cuisine_type = :cuisineType, marker_emoji = :markerEmoji,
-                       marker_color = :markerColor, updated_at = now()
+                       marker_color = :markerColor, instagram_url = :instagramUrl, facebook_url = :facebookUrl,
+                       updated_at = now()
                 WHERE id = :id
                 """, params(fields).addValue("id", id));
     }
@@ -177,7 +179,8 @@ public class OwnedFoodTruckRepository {
         return new MapSqlParameterSource("name", fields.name()).addValue("description", fields.description())
                 .addValue("category", fields.category()).addValue("contact", fields.contact())
                 .addValue("cuisineType", fields.cuisineType()).addValue("markerEmoji", fields.markerEmoji())
-                .addValue("markerColor", fields.markerColor());
+                .addValue("markerColor", fields.markerColor()).addValue("instagramUrl", fields.instagramUrl())
+                .addValue("facebookUrl", fields.facebookUrl());
     }
 
     private static OwnedFoodTruck toFoodTruck(ResultSet row) throws SQLException {
@@ -189,6 +192,7 @@ public class OwnedFoodTruckRepository {
                 row.getObject("approved_at", OffsetDateTime.class), row.getString("review_reason"),
                 row.getObject("suspended_for_access_at", OffsetDateTime.class), row.getString("cuisine_type"),
                 row.getString("marker_emoji"), row.getString("marker_color"),
-                row.getObject("photo_updated_at", OffsetDateTime.class));
+                row.getObject("photo_updated_at", OffsetDateTime.class), row.getString("instagram_url"),
+                row.getString("facebook_url"));
     }
 }

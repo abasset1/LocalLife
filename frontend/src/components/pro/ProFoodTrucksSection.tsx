@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { SPOT_KIND_LABELS, formatHours } from "../foodtrucks/foodTruckFormat";
+import { SPOT_KIND_LABELS, formatHours, spotAddressLine } from "../foodtrucks/foodTruckFormat";
 import { CUISINE_TYPES, DEFAULT_MARKER_COLOR, MARKER_COLORS, MARKER_EMOJIS, cuisineLabel, markerOf } from "../foodtrucks/cuisines";
 import { proRequest } from "./proApi";
 import { resizeImage } from "./resizeImage";
@@ -30,6 +30,9 @@ interface OwnedFoodTruck {
     markerEmoji: string | null;
     markerColor: string | null;
     photoUrl: string | null;
+    /** Pages Instagram et Facebook, adresses complètes. */
+    instagramUrl: string | null;
+    facebookUrl: string | null;
 }
 
 /** Présence vue par le propriétaire (`ManagedPresenceResponse`, backend). */
@@ -37,6 +40,8 @@ interface ManagedPresence {
     id: number;
     status: PresenceStatus;
     spotName: string | null;
+    /** Adresse exacte de l'emplacement, `null` si inconnue. */
+    spotAddress: string | null;
     spotKind: SpotKind;
     daysOfWeek: string | null;
     startTime: string | null;
@@ -70,6 +75,7 @@ const DAYS = [
 
 const EMPTY_PROFILE = {
     name: "", category: "", description: "", contact: "", cuisineType: "", markerEmoji: "", markerColor: "",
+    instagram: "", facebook: "",
 };
 
 /** Photo du formulaire : inchangée, nouvelle (à envoyer après l'enregistrement du profil) ou à retirer. */
@@ -172,6 +178,7 @@ function ProFoodTrucksSection({ readOnly = false }: {
         setProfile(truck === "new" ? EMPTY_PROFILE : {
             name: truck.name, category: truck.category, description: truck.description ?? "", contact: truck.contact ?? "",
             cuisineType: truck.cuisineType ?? "", markerEmoji: truck.markerEmoji ?? "", markerColor: truck.markerColor ?? "",
+            instagram: truck.instagramUrl ?? "", facebook: truck.facebookUrl ?? "",
         });
         setPhotoChange({ kind: "keep" });
         setMessage(null);
@@ -185,6 +192,8 @@ function ProFoodTrucksSection({ readOnly = false }: {
             cuisineType: profile.cuisineType || null,
             markerEmoji: profile.markerEmoji || null,
             markerColor: profile.markerColor || null,
+            instagram: profile.instagram.trim() || null,
+            facebook: profile.facebook.trim() || null,
         };
         let result = editing === "new"
             ? await proRequest<OwnedFoodTruck>("/api/v1/pro/foodtrucks", "POST", body)
@@ -412,6 +421,19 @@ function ProFoodTrucksSection({ readOnly = false }: {
                             type="text" value={profile.contact}
                             onChange={(event) => setProfile({ ...profile, contact: event.target.value })} />
                     </div>
+                    <div className="form-field">
+                        <label htmlFor="truck-instagram">Instagram</label>
+                        <input id="truck-instagram" maxLength={300} placeholder="https://www.instagram.com/moncamion ou @moncamion"
+                            type="text" value={profile.instagram}
+                            onChange={(event) => setProfile({ ...profile, instagram: event.target.value })} />
+                    </div>
+                    <div className="form-field">
+                        <label htmlFor="truck-facebook">Facebook</label>
+                        <input id="truck-facebook" maxLength={300} placeholder="https://www.facebook.com/moncamion"
+                            type="text" value={profile.facebook}
+                            onChange={(event) => setProfile({ ...profile, facebook: event.target.value })} />
+                        <small>Facultatifs : les liens s'affichent sur la fiche et la popup du food truck.</small>
+                    </div>
                     <div className="modal-actions">
                         <button className="admin-approve-button" disabled={busy} type="submit">Enregistrer</button>
                         <button className="contribution-action" onClick={() => setEditing(null)} type="button">
@@ -507,6 +529,9 @@ function ProFoodTrucksSection({ readOnly = false }: {
                                         <span className="favorites-list-item-title">
                                             {presence.spotName ?? "Emplacement"} · {SPOT_KIND_LABELS[presence.spotKind]}
                                         </span>
+                                        {spotAddressLine(presence) && (
+                                            <span className="favorites-list-item-meta">🏠 {spotAddressLine(presence)}</span>
+                                        )}
                                         <span className="favorites-list-item-meta">
                                             {PRESENCE_STATUS_LABELS[presence.status]} · {describeDays(presence.daysOfWeek)}
                                             {formatHours(presence) ? ` · ${formatHours(presence)}` : ""}

@@ -135,6 +135,9 @@ export interface OwnedFoodTruck {
   markerEmoji?: string | null;
   markerColor?: string | null;
   photoUrl?: string | null;
+  /** Pages Instagram et Facebook (adresses complètes), `null` si non renseignées. */
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
 }
 
 export interface ProfileInput {
@@ -148,12 +151,17 @@ export interface ProfileInput {
   /** Pastille de la carte ; vide = pastille par défaut. */
   markerEmoji?: string | null;
   markerColor?: string | null;
+  /** Instagram et Facebook : adresse de la page ou nom du compte ; vide = non renseigné. */
+  instagram?: string | null;
+  facebook?: string | null;
 }
 
 export interface ManagedPresence {
   id: number;
   status: PresenceStatus;
   spotName: string | null;
+  /** Adresse exacte de l'emplacement, `null` si inconnue. */
+  spotAddress?: string | null;
   spotKind: SpotKind;
   daysOfWeek: string | null;
   startTime: string | null;

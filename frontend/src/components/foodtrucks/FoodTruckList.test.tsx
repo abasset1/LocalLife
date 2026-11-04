@@ -66,4 +66,29 @@ describe("FoodTruckPopup", () => {
         await user.click(screen.getByRole("button", { name: "Voir le food truck →" }));
         expect(onOpen).toHaveBeenCalledWith(crepes);
     });
+
+    it("affiche l'adresse exacte et les liens Instagram et Facebook", () => {
+        const truck: FoodTruck = { ...TACOS, spotAddress: "12 rue des Lilas, 35000 Rennes",
+            instagramUrl: "https://www.instagram.com/tacosloco", facebookUrl: "https://www.facebook.com/tacosloco" };
+        render(<FoodTruckPopup foodTrucks={[truck]} onOpenDetail={vi.fn()} />);
+        expect(screen.getByText("🏠 12 rue des Lilas, 35000 Rennes")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Instagram" })).toHaveAttribute("href", "https://www.instagram.com/tacosloco");
+        expect(screen.getByRole("link", { name: "Facebook" })).toHaveAttribute("href", "https://www.facebook.com/tacosloco");
+    });
+
+    it("n'affiche pas un lien qui ne mène pas au réseau annoncé", () => {
+        render(<FoodTruckPopup foodTrucks={[{ ...TACOS, instagramUrl: "javascript:alert(1)",
+            facebookUrl: "https://evil.example/facebook.com" }]} onOpenDetail={vi.fn()} />);
+        expect(screen.queryByRole("link", { name: "Instagram" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: "Facebook" })).not.toBeInTheDocument();
+    });
+});
+
+describe("FoodTruckList · adresse", () => {
+    it("montre l'adresse exacte sous l'emplacement, sauf si elle sert déjà de nom", () => {
+        render(<FoodTruckList foodTrucks={[{ ...TACOS, spotAddress: "Place Pie, 84000 Avignon" },
+            { ...TACOS, presenceId: 11, spotName: "3 rue Neuve", spotAddress: "3 rue Neuve" }]} />);
+        expect(screen.getByText("🏠 Place Pie, 84000 Avignon")).toBeInTheDocument();
+        expect(screen.queryByText("🏠 3 rue Neuve")).not.toBeInTheDocument();
+    });
 });

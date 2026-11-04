@@ -13,7 +13,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { RemoteImage } from '@/components/remote-image';
 import { cuisineLabel, markerOf } from '@/features/foodtruck/cuisines';
 import { photoUri } from '@/features/foodtruck/photo';
-import { describeToday } from '@/features/foodtruck/presence';
+import { describeToday, spotAddressLine } from '@/features/foodtruck/presence';
 import { useProAccess } from '@/features/pro/useProAccess';
 import { FollowBell } from '@/features/follow';
 
@@ -192,6 +192,7 @@ function ItemPreview({
   // ADR-0013 : où et quand ce food truck est présent aujourd'hui.
   const presence = isActivity ? null : describeToday(selection.foodTruck);
   const contact = isActivity ? null : selection.foodTruck.contact;
+  const address = isActivity ? null : spotAddressLine(selection.foodTruck);
 
   const cuisine = isActivity ? null : cuisineLabel(selection.foodTruck.cuisineType);
   const eyebrow = isActivity
@@ -209,6 +210,11 @@ function ItemPreview({
       {meta ? (
         <ThemedText type="small" themeColor="textSecondary">
           {meta}
+        </ThemedText>
+      ) : null}
+      {address ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          🏠 {address}
         </ThemedText>
       ) : null}
       {description ? (

@@ -297,13 +297,18 @@ export interface FoodTruck {
   markerColor?: string | null;
   /** Chemin de la photo (`/api/v1/foodtrucks/{id}/photo?v=…`), `null` sans photo. */
   photoUrl?: string | null;
+  /** Adresse exacte de l'emplacement (« 12 rue des Lilas, 35000 Rennes »), `null` si inconnue. */
+  spotAddress?: string | null;
+  /** Pages Instagram et Facebook du food truck, `null` si non renseignées. */
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
 }
 
 /** Présence du planning d'un food truck (`PresenceResponse` backend). */
 export type FoodTruckPresence = Pick<
   FoodTruck,
   'latitude' | 'longitude' | 'spotName' | 'spotKind' | 'daysOfWeek' | 'startTime' | 'endTime' | 'validFrom'
-  | 'validUntil' | 'placeId'
+  | 'validUntil' | 'placeId' | 'spotAddress'
 > & { id: number };
 
 /** Fiche d'un food truck (`GET /foodtrucks/{id}`) : profil et planning, distincts. */
@@ -318,6 +323,8 @@ export interface FoodTruckDetail {
   markerEmoji?: string | null;
   markerColor?: string | null;
   photoUrl?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
 }
 
 /** Rôle utilisateur (`Role` backend). */
