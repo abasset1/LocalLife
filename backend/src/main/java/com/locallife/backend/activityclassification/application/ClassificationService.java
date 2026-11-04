@@ -28,10 +28,9 @@ import org.springframework.stereotype.Service;
  * écarté, et si aucun code n'est résolu le résultat est {@code NEEDS_REVIEW},
  * jamais une catégorie créée à la volée.
  *
- * <p><b>Fallback titre</b> ({@link #decide(String, String, List)}) : si la source ne fournit aucun keyword
- * (ni catégorie d'origine, ni tag non blanc), ou si aucun de ses keywords n'est reconnu ; les mots-clés
- * viennent de {@code category_keyword}. Des keywords source reconnus décident seuls, exactement comme
- * {@link #decide(String, List)} : le titre n'est alors pas lu.
+ * <p><b>Titre</b> ({@link #decide(String, String, List)}) : les mots-clés du titre viennent de
+ * {@code category_keyword}. Ils décident seuls si la source ne fournit aucun keyword reconnu, et ajoutent leurs
+ * catégories à celles des keywords source sinon.
  *
  * <p><b>1..N catégories</b> (issue #45) : toutes les catégories détectées sont conservées, sans
  * principale ni secondaire, sans score ni arbitrage ; plusieurs catégories ne sont jamais un conflit.
@@ -52,12 +51,15 @@ public class ClassificationService {
      */
     public static final String SOURCE_DEFAULT = "SOURCE_DEFAULT";
 
+    /** Origine tracée quand les keywords source et le titre ont chacun donné au moins une catégorie. */
+    public static final String SOURCE_AND_TITLE = ActivityClassifier.SOURCE + "+" + TitleKeywordClassifier.SOURCE;
+
     /**
      * Version des règles de décision, incluse dans {@link #referentialVersion()} : la changer quand une règle
      * de {@link #decide(String, String, List)} change, pour que l'import re-décide toute la quarantaine au
      * passage suivant (sinon un élément inchangé y resterait avec l'ancienne décision).
      */
-    static final String DECISION_RULES_VERSION = "regles-2:titre-apres-keywords-source-non-reconnus";
+    static final String DECISION_RULES_VERSION = "regles-3:titre-ajoute-ses-categories-aux-keywords-source";
 
     private final CategoryRepository categoryRepository;
     private final ClassificationRecordRepository recordRepository;
@@ -140,27 +142,56 @@ public class ClassificationService {
     }
 
     /**
-     * Décide en tenant compte du fallback titre, sans rien persister. Les keywords source (catégorie
-     * d'origine ou tag non blanc) ont toujours priorité : s'ils donnent au moins une catégorie, le résultat
-     * est exactement celui de {@link #decide(String, List)}. Sinon (aucun keyword source, ou aucun reconnu),
-     * le titre est comparé aux mots-clés actifs de {@code category_keyword} de portée {@code ALL} (les
-     * mots-clés {@code SOURCE}, trop ambigus dans un titre libre, sont exclus). Si le titre ne classe rien
-     * non plus, des keywords source non reconnus restent {@code NEEDS_REVIEW} ({@code UNRECOGNIZED}).
+     * Décide à partir des keywords source et du titre, sans rien persister. Le titre est comparé aux
+     * mots-clés actifs de {@code category_keyword} de portée {@code ALL} (les mots-clés {@code SOURCE}, trop
+     * ambigus dans un titre libre, sont exclus). Si les keywords source (catégorie d'origine ou tag non blanc)
+     * donnent au moins une catégorie, les catégories du titre s'y <b>ajoutent</b> (jamais ne les remplacent) ;
+     * sinon le titre décide seul. Si le titre ne classe rien non plus, des keywords source non reconnus
+     * restent {@code NEEDS_REVIEW} ({@code UNRECOGNIZED}).
+     *
+     * <p>Le titre est lu même quand les tags sont reconnus depuis le 04/11/2026 : un « Marché de Noël » tagué
+     * « Marché » restait sinon dans MARKETS sans jamais recevoir la catégorie dédiée ajoutée en administration.
      *
      * <p>Mesure à l'origine du repli après des keywords non reconnus (bêta, 24/10/2026) : 14 559 éléments
      * en quarantaine pour cette raison, souvent des étiquettes de public, de lieu ou d'organisateur
      * (« gratuit », « nantes », « CLAVIM ») ; le titre en classait environ 3 500.
      */
     public ClassificationOutcome decide(String title, String sourceCategory, List<String> sourceTags) {
+        ClassificationOutcome byTitle = decideByTitle(title);
         if (hasSourceKeywords(sourceCategory, sourceTags)) {
             ClassificationOutcome bySource = decide(sourceCategory, sourceTags);
             if (bySource.classified()) {
-                return bySource;
+                return byTitle.classified() ? merge(bySource, byTitle) : bySource;
             }
-            ClassificationOutcome byTitle = decideByTitle(title);
             return byTitle.classified() ? byTitle : bySource;
         }
-        return decideByTitle(title);
+        return byTitle;
+    }
+
+    /**
+     * Union des catégories des keywords source puis du titre (modèle 1..N, issue #45) : un titre « Marché de
+     * Noël » ajoute la catégorie de « marché de noël » à celle d'un tag « Fête ». Si le titre n'apporte aucune
+     * catégorie nouvelle, la décision source est rendue telle quelle.
+     */
+    private static ClassificationOutcome merge(ClassificationOutcome bySource, ClassificationOutcome byTitle) {
+        List<String> codes = new ArrayList<>(bySource.decision().categoryCodes());
+        List<Long> ids = new ArrayList<>(bySource.categoryIds());
+        for (int i = 0; i < byTitle.categoryIds().size(); i++) {
+            if (!ids.contains(byTitle.categoryIds().get(i))) {
+                ids.add(byTitle.categoryIds().get(i));
+                codes.add(byTitle.decision().categoryCodes().get(i));
+            }
+        }
+        if (ids.size() == bySource.categoryIds().size()) {
+            return bySource;
+        }
+        List<String> matched = new ArrayList<>(bySource.decision().matchedKeywords());
+        byTitle.decision().matchedKeywords().stream().filter(keyword -> !matched.contains(keyword))
+                .forEach(matched::add);
+        Decision decision = new Decision(
+                ClassificationStatus.AUTO_CLASSIFIED, List.copyOf(codes), null, List.of(),
+                ActivityClassifier.autoRuleId(codes), SOURCE_AND_TITLE, List.copyOf(matched));
+        return new ClassificationOutcome(decision, List.copyOf(ids));
     }
 
     private ClassificationOutcome decideByTitle(String title) {

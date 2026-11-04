@@ -169,19 +169,18 @@ class TitleKeywordClassificationIntegrationTest {
     }
 
     @Test
-    void sourceKeywordsPresent_ContradictoryTitle_ShouldNotBeUsed() {
+    void sourceKeywordsPresent_TitleCategoriesAreAdded() {
         String sourceName = "Test Source " + UUID.randomUUID();
         Long sourceId = createSource(sourceName);
 
-        // « théâtre » → CULTURE (keyword source) ; le titre « marché » (MARKETS) ne doit pas l'emporter.
+        // « théâtre » → CULTURE (keyword source) ; le titre « marché » ajoute MARKETS sans retirer CULTURE.
         importOne(sourceName, item(sourceName, "Grand marché de Noël", "théâtre", List.of("théâtre")));
 
         Activity activity = singleActivity(sourceId);
-        assertThat(categoryIds(activity.id())).containsExactly(categoryId("CULTURE"));
+        assertThat(categoryIds(activity.id())).containsExactly(categoryId("CULTURE"), categoryId("MARKETS"));
         ClassificationRecord record = recordRepository.findByActivityId(activity.id()).orElseThrow();
-        // Décision issue des keywords source (référentiel unique, issue #50) : tracée comme telle, pas le titre.
-        assertThat(record.classificationSource()).isEqualTo("SOURCE_KEYWORD");
-        assertThat(record.matchedKeywords()).isEqualTo("théâtre");
+        assertThat(record.classificationSource()).isEqualTo("SOURCE_KEYWORD+TITLE_KEYWORD");
+        assertThat(record.matchedKeywords()).startsWith("théâtre|").contains("marché");
     }
 
     @Test
