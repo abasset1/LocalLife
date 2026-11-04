@@ -5,7 +5,8 @@ import { apiFetch, describeErrorResponse } from "../../api/apiClient";
  * Référentiel des catégories et des mots-clés de classification (`/api/v1/admin/categories`). Ajout et
  * désactivation seulement, jamais de suppression : une catégorie désactivée n'est plus proposée ni attribuée par la
  * classification (les activités qui la portent la gardent) ; un mot-clé désactivé n'est plus lu par la
- * classification. Les changements s'appliquent aux prochains imports.
+ * classification. Les changements s'appliquent aux prochains imports ; « Appliquer aux activités existantes » ajoute
+ * une catégorie aux activités déjà importées qui correspondent à ses mots-clés.
  */
 
 export type KeywordScope = "ALL" | "SOURCE";
@@ -122,6 +123,37 @@ function AdminCategoriesSection() {
         );
     }
 
+    /** Ajoute la catégorie aux activités déjà importées dont le titre ou les tags correspondent aux mots-clés. */
+    async function applyToExisting(category: AdminCategory) {
+        if (!window.confirm(
+            `Ajouter « ${category.label} » aux activités à venir déjà importées qui correspondent à ses mots-clés ? `
+                + "Aucune catégorie existante n'est retirée.",
+        )) {
+            return;
+        }
+        const context = "Application aux activités existantes impossible";
+        setBusy(true);
+        try {
+            const response = await apiFetch(
+                `/api/v1/admin/categories/${encodeURIComponent(category.code)}/apply-to-existing`,
+                { method: "POST" },
+            );
+            if (!response.ok) {
+                setMessage({ text: await describeErrorResponse(response, context), error: true });
+                return;
+            }
+            const result = (await response.json()) as { examined: number; added: number };
+            setMessage({
+                text: `« ${category.label} » ajoutée à ${result.added} activité(s) sur ${result.examined} examinée(s).`,
+                error: false,
+            });
+        } catch {
+            setMessage({ text: `${context} : le serveur ne répond pas.`, error: true });
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function addKeyword(event: FormEvent, category: AdminCategory) {
         event.preventDefault();
         const draft = drafts[category.code] ?? EMPTY_DRAFT;
@@ -169,7 +201,7 @@ function AdminCategoriesSection() {
             <p>
                 Les mots-clés servent à classer automatiquement les activités importées. Rien n'est supprimé : une
                 catégorie ou un mot-clé désactivé peut être réactivé. Les changements s'appliquent aux prochains
-                imports.
+                imports ; pour les activités déjà importées, utilisez « Appliquer aux activités existantes ».
             </p>
 
             <form aria-label="Nouvelle catégorie" className="admin-places-filters" onSubmit={(event) => void createCategory(event)}>
@@ -249,6 +281,17 @@ function AdminCategoriesSection() {
                                 >
                                     {category.active ? "Désactiver" : "Réactiver"}
                                 </button>
+                                {category.active && (
+                                    <button
+                                        aria-label={`Appliquer la catégorie ${category.label} aux activités existantes`}
+                                        className="admin-approve-button"
+                                        disabled={busy}
+                                        onClick={() => void applyToExisting(category)}
+                                        type="button"
+                                    >
+                                        Appliquer aux activités existantes
+                                    </button>
+                                )}
                             </div>
 
                             <details className="admin-category-keywords" open={query !== ""}>
