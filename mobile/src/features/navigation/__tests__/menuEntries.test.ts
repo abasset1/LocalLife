@@ -7,7 +7,7 @@ describe('menu rétractable', () => {
     expect(all.map((entry) => entry.href).sort()).toEqual(
       [
         '/', '/abonnement', '/alertes', '/compte', '/contribution', '/contributions', '/favoris', '/guide',
-        '/liste', '/nouveautes', '/parametres', '/pro', '/pro/foodtrucks', '/suivis',
+        '/liste', '/nouveautes', '/parametres', '/pro', '/pro/foodtrucks', '/retours', '/suivis',
       ].sort(),
     );
   });

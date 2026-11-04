@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Application : formulaire « Une idée, un problème ? » et popup Premium, comme sur le site
+- **« Une idée, un problème ? »** (rubrique Aide du menu, utilisateur connecté) : type de message (idée ou problème) et texte de 5 à 2000 caractères, envoyés à `POST /api/v1/feedback` comme depuis le site. Le message indique qu'il vient de l'application et le système du téléphone ; il apparaît dans la section « Retours » de l'administration et les administrateurs sont prévenus par e-mail.
+- **Popup Premium** sur la carte, pour les comptes gratuits, à chaque lancement de l'application pendant 7 jours après chaque connexion. « Plus tard » la ferme jusqu'au lancement suivant, « Ne plus me proposer » l'arrête pour ce compte sur ce téléphone, « Passer à Premium » active l'offre tout de suite (gratuite pour le moment). Elle laisse passer d'abord la popup de nouveauté « Suivre » et l'accueil de première connexion.
+- Aucune dépendance native ajoutée.
+
 ### Food trucks : liens Instagram et Facebook, adresse exacte de l'emplacement
 - **Instagram et Facebook** (site et application) : deux champs facultatifs dans le profil d'un food truck. On peut coller l'adresse de la page ou taper le nom du compte (« @moncamion ») : LocalLife enregistre toujours une adresse `https://www.instagram.com/…` ou `https://www.facebook.com/…`. Une adresse d'un autre site est refusée. Les liens s'affichent dans la popup de la pastille et sur la fiche du food truck (site), en boutons sur la fiche (application), et dans la modération.
 - **Adresse exacte** : la popup, la liste, la fiche et le planning d'un food truck affichent l'adresse complète de l'emplacement (« 1 rue Test, 84000 Testville ») en plus de son nom, avec un lien « Y aller » vers l'itinéraire sur la fiche (site). Pareil dans l'aperçu de la carte, la liste et la fiche de l'application, et dans le planning de l'espace pro. Rien n'est répété quand l'emplacement n'a pas d'autre nom que son adresse.

@@ -29,6 +29,8 @@ export interface SessionUser {
   userId: number;
   email: string;
   role: string;
+  /** Date de la connexion (émission du jeton, en secondes) ; `undefined` si le jeton ne la porte pas. */
+  loggedInAt?: number;
 }
 
 export type AuthState =
@@ -92,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenRef.current = token;
     setState({
       status: 'authenticated',
-      user: { userId: payload.userId, email: payload.email, role: payload.role },
+      user: { userId: payload.userId, email: payload.email, role: payload.role, loggedInAt: payload.iat },
     });
     return true;
   }, []);

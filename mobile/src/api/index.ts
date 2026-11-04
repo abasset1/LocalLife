@@ -40,3 +40,5 @@ export { getPreferences, lookupCity, updatePreferences } from './preferences';
 export { registerPushToken, unregisterPushToken } from './pushTokens';
 export * from './pro';
 export * from './subscription';
+export { submitFeedback } from './feedback';
+export type { FeedbackKind } from './feedback';

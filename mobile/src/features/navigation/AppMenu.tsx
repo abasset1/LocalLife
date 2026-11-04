@@ -25,6 +25,7 @@ const ICONS: Record<MenuEntry['icon'], SymbolViewProps['name']> = {
   pro: { ios: 'briefcase', android: 'storefront', web: 'storefront' },
   star: { ios: 'star', android: 'star', web: 'star' },
   help: { ios: 'questionmark.circle', android: 'help', web: 'help' },
+  feedback: { ios: 'bubble.left', android: 'feedback', web: 'feedback' },
 };
 
 /**
