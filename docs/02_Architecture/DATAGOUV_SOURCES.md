@@ -241,6 +241,17 @@ et brocantes (data.gouv.fr) », fichier France (`datatourisme-fma.csv`,
 catégorie par défaut Marchés. À activer après un essai à blanc réussi
 (Administration → Imports, « Activer après vérification »).
 
+**Constat du 04/11/2026 sur le serveur déployé** (`v77_controle.sql`) : la
+source (id 4733) y est **active depuis le 29/10/2026** (première activité à
+22:06 UTC, 38 min après V77), avec l'ancien filtre : 1 058 activités
+publiées, dont 44 que le filtre corrigé ne collecte plus (39 hors sujet par
+le type, 3 par le titre, « Brocante de Sancerre annulée », un vide-grenier
+d'Oupia placé en Floride ; `v77_effet_correction.sql`). Elles sont archivées
+au premier import après déploiement de la correction. Sur ce serveur, la
+source « DATAtourisme PACA » n'a pas de filtre de département et une source
+« DATAtourisme Languedoc » est active ; les URI communes au fichier France
+sont dédoublonnées par l'import (même identifiant externe).
+
 Pourquoi pas tout l'export France : les offices de tourisme publient aussi
 sur OpenAgenda, et le rapprochement entre sources de types différents
 (`CrossSourceDuplicateMatcher`) n'est pas branché ; la niche des
