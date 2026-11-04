@@ -10,6 +10,9 @@ import { isSafeWebUrl } from '@/features/activity/format';
 import { buildDirectionsUrl, withApproximateMention } from '@/features/activity/location';
 import { useTheme } from '@/hooks/use-theme';
 
+import { RemoteImage } from '@/components/remote-image';
+import { cuisineLabel, markerOf } from '@/features/foodtruck/cuisines';
+import { photoUri } from '@/features/foodtruck/photo';
 import { describeToday } from '@/features/foodtruck/presence';
 import { useProAccess } from '@/features/pro/useProAccess';
 import { FollowBell } from '@/features/follow';
@@ -190,7 +193,11 @@ function ItemPreview({
   const presence = isActivity ? null : describeToday(selection.foodTruck);
   const contact = isActivity ? null : selection.foodTruck.contact;
 
-  const eyebrow = isActivity ? category : `🚚 Food truck · ${category}`;
+  const cuisine = isActivity ? null : cuisineLabel(selection.foodTruck.cuisineType);
+  const eyebrow = isActivity
+    ? category
+    : `${markerOf(selection.foodTruck).emoji} Food truck · ${[cuisine, category].filter(Boolean).join(' · ')}`;
+  const photo = isActivity ? selection.activity.mainImageUrl : photoUri(selection.foodTruck.photoUrl);
   const meta = [place ? `📍 ${place}` : null, date ? `📅 ${date}` : null, presence ? `📍 ${presence}` : null]
     .filter(Boolean)
     .join('   ');
@@ -198,6 +205,7 @@ function ItemPreview({
   return (
     <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
       <CardHeader eyebrow={eyebrow} title={title} onClose={onClose} />
+      <RemoteImage url={photo} style={styles.photo} />
       {meta ? (
         <ThemedText type="small" themeColor="textSecondary">
           {meta}
@@ -257,6 +265,10 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     gap: Spacing.one,
+  },
+  photo: {
+    height: 120,
+    borderRadius: Radius.md,
   },
   activities: {
     gap: Spacing.one,

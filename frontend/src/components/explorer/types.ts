@@ -145,6 +145,16 @@ export interface FoodTruck {
     endTime: string | null;
     /** Lieu LocalLife où se trouve l'emplacement, ou `null`. */
     placeId: number | null;
+    /** Spécialité saisie librement et description du food truck. */
+    description?: string | null;
+    contact?: string | null;
+    /** Type de cuisine (`FoodTruckCuisine`, backend), `null` si non renseigné. */
+    cuisineType?: string | null;
+    /** Pastille choisie par le propriétaire, `null` = pastille par défaut. */
+    markerEmoji?: string | null;
+    markerColor?: string | null;
+    /** Adresse de la photo, `null` sans photo. */
+    photoUrl?: string | null;
 }
 
 export interface ApiErrorBody {

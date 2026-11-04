@@ -1,5 +1,6 @@
 package com.locallife.backend.foodtruck.application;
 
+import com.locallife.backend.foodtruck.domain.FoodTruckCuisine;
 import com.locallife.backend.foodtruck.domain.FoodTruckStatus;
 import com.locallife.backend.foodtruck.domain.ManagedPresence;
 import com.locallife.backend.foodtruck.domain.PresenceRules;
@@ -21,6 +22,7 @@ import com.locallife.backend.pro.application.ProNotifier;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.util.Base64;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -62,6 +64,9 @@ public class ProFoodTruckService {
     private static final int MAX_CONTACT_LENGTH = 512;
     private static final int MAX_SPOT_TEXT_LENGTH = 255;
     private static final int MAX_ADDRESS_LENGTH = 512;
+    private static final int MAX_EMOJI_CODE_POINTS = 8;
+    /** Taille maximale d'une photo, une fois décodée. */
+    static final int MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 
     private static final Set<PresenceStatus> NOT_ARCHIVED =
             EnumSet.of(PresenceStatus.DRAFT, PresenceStatus.PUBLISHED, PresenceStatus.SUSPENDED);
@@ -82,8 +87,21 @@ public class ProFoodTruckService {
         this.notifier = notifier;
     }
 
-    /** Profil saisi. */
-    public record ProfileInput(String name, String description, String category, String contact) {
+    /**
+     * Profil saisi. {@code cuisineType} : code de {@link FoodTruckCuisine} (facultatif) ; {@code markerEmoji} et
+     * {@code markerColor} ({@code #rrggbb}) : pastille de la carte, facultatives.
+     */
+    public record ProfileInput(String name, String description, String category, String contact, String cuisineType,
+            String markerEmoji, String markerColor) {
+
+        /** Profil sans type de cuisine ni pastille personnalisée. */
+        public ProfileInput(String name, String description, String category, String contact) {
+            this(name, description, category, contact, null, null, null);
+        }
+    }
+
+    /** Photo envoyée : image JPEG, PNG ou WebP encodée en base64 (préfixe {@code data:…;base64,} accepté). */
+    public record PhotoInput(String data) {
     }
 
     /** Nouvel emplacement saisi : position facultative, déduite de l'adresse si absente. */
@@ -398,8 +416,108 @@ public class ProFoodTruckService {
         if (name == null || category == null) {
             throw ProActionException.invalid("Le nom et la cuisine sont obligatoires.");
         }
+        String cuisineType;
+        try {
+            cuisineType = FoodTruckCuisine.parse(input.cuisineType()).map(Enum::name).orElse(null);
+        } catch (IllegalArgumentException exception) {
+            throw ProActionException.invalid("Type de cuisine inconnu : " + input.cuisineType() + ".");
+        }
         return new ProfileFields(name, text(input.description(), MAX_DESCRIPTION_LENGTH, "La description"), category,
-                text(input.contact(), MAX_CONTACT_LENGTH, "Le contact"));
+                text(input.contact(), MAX_CONTACT_LENGTH, "Le contact"), cuisineType, markerEmoji(input.markerEmoji()),
+                markerColor(input.markerColor()));
+    }
+
+    /**
+     * Emoji de la pastille : un emoji (ou une courte séquence), jamais de texte ordinaire — aucun caractère ASCII,
+     * aucun espace ni caractère de contrôle.
+     */
+    static String markerEmoji(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String emoji = value.strip();
+        boolean valid = emoji.codePointCount(0, emoji.length()) <= MAX_EMOJI_CODE_POINTS && emoji.length() <= 16
+                && emoji.codePoints().noneMatch(cp -> cp < 0x80 || Character.isWhitespace(cp)
+                        || Character.getType(cp) == Character.CONTROL);
+        if (!valid) {
+            throw ProActionException.invalid("La pastille doit être un emoji.");
+        }
+        return emoji;
+    }
+
+    /** Couleur de la pastille, {@code #rrggbb}. */
+    static String markerColor(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String color = value.trim();
+        if (!color.matches("#[0-9a-fA-F]{6}")) {
+            throw ProActionException.invalid("La couleur de la pastille doit être au format #rrggbb.");
+        }
+        return color.toLowerCase(Locale.ROOT);
+    }
+
+    // ---------------------------------------------------------------- photo
+
+    /** Ajoute ou remplace la photo d'un de ses food trucks (sauf archivé). */
+    @Transactional
+    public OwnedFoodTruck savePhoto(Long userId, Long id, PhotoInput input) {
+        OwnedFoodTruck foodTruck = owned(userId, id);
+        if (foodTruck.status() == FoodTruckStatus.ARCHIVED) {
+            throw ProActionException.conflict("Un food truck archivé n'est plus modifiable.");
+        }
+        byte[] data = decodePhoto(input);
+        foodTruckRepository.savePhoto(id, photoContentType(data), data);
+        LOGGER.info("Photo du food truck {} mise à jour par le professionnel {}", id, userId);
+        return foodTruckRepository.findById(id).orElseThrow();
+    }
+
+    /** Retire la photo d'un de ses food trucks. */
+    @Transactional
+    public OwnedFoodTruck deletePhoto(Long userId, Long id) {
+        owned(userId, id);
+        foodTruckRepository.deletePhoto(id);
+        return foodTruckRepository.findById(id).orElseThrow();
+    }
+
+    private static byte[] decodePhoto(PhotoInput input) {
+        if (input == null || input.data() == null || input.data().isBlank()) {
+            throw ProActionException.invalid("Photo manquante.");
+        }
+        String encoded = input.data().trim();
+        int comma = encoded.indexOf(',');
+        if (encoded.startsWith("data:") && comma > 0) {
+            encoded = encoded.substring(comma + 1);
+        }
+        // Estimation avant décodage : 4 caractères base64 pour 3 octets.
+        if ((long) encoded.length() * 3 / 4 > MAX_PHOTO_BYTES + 3) {
+            throw ProActionException.invalid("La photo ne doit pas dépasser 3 Mo.");
+        }
+        byte[] data;
+        try {
+            data = Base64.getMimeDecoder().decode(encoded);
+        } catch (IllegalArgumentException exception) {
+            throw ProActionException.invalid("Photo illisible.");
+        }
+        if (data.length > MAX_PHOTO_BYTES) {
+            throw ProActionException.invalid("La photo ne doit pas dépasser 3 Mo.");
+        }
+        return data;
+    }
+
+    /** Type de l'image d'après ses premiers octets : JPEG, PNG ou WebP, sinon refusée. */
+    static String photoContentType(byte[] data) {
+        if (data.length > 3 && (data[0] & 0xFF) == 0xFF && (data[1] & 0xFF) == 0xD8 && (data[2] & 0xFF) == 0xFF) {
+            return "image/jpeg";
+        }
+        if (data.length > 8 && (data[0] & 0xFF) == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G') {
+            return "image/png";
+        }
+        if (data.length > 12 && data[0] == 'R' && data[1] == 'I' && data[2] == 'F' && data[3] == 'F'
+                && data[8] == 'W' && data[9] == 'E' && data[10] == 'B' && data[11] == 'P') {
+            return "image/webp";
+        }
+        throw ProActionException.invalid("Format de photo non pris en charge : JPEG, PNG ou WebP.");
     }
 
     private static LocalTime time(String value, String label) {

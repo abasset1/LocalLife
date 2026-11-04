@@ -131,13 +131,23 @@ export interface OwnedFoodTruck {
   reviewReason: string | null;
   /** Masqué parce que l'accès professionnel a pris fin ; republié automatiquement s'il revient. */
   suspendedForAccess: boolean;
+  cuisineType?: string | null;
+  markerEmoji?: string | null;
+  markerColor?: string | null;
+  photoUrl?: string | null;
 }
 
 export interface ProfileInput {
   name: string;
+  /** Spécialité, saisie librement. */
   category: string;
   description: string;
   contact: string;
+  /** Type de cuisine (liste fermée) ; vide = non renseigné. */
+  cuisineType?: string | null;
+  /** Pastille de la carte ; vide = pastille par défaut. */
+  markerEmoji?: string | null;
+  markerColor?: string | null;
 }
 
 export interface ManagedPresence {
@@ -254,6 +264,15 @@ export function createFoodTruck(input: ProfileInput): Promise<OwnedFoodTruck> {
 
 export function updateFoodTruck(id: number, input: ProfileInput): Promise<OwnedFoodTruck> {
   return request<OwnedFoodTruck>(`${PRO}/foodtrucks/${id}`, { method: 'PUT', body: input, ...auth });
+}
+
+/** Ajoute ou remplace la photo : image JPEG, PNG ou WebP en base64 (3 Mo au plus). */
+export function uploadFoodTruckPhoto(id: number, data: string): Promise<OwnedFoodTruck> {
+  return request<OwnedFoodTruck>(`${PRO}/foodtrucks/${id}/photo`, { method: 'PUT', body: { data }, ...auth });
+}
+
+export function deleteFoodTruckPhoto(id: number): Promise<OwnedFoodTruck> {
+  return request<OwnedFoodTruck>(`${PRO}/foodtrucks/${id}/photo`, { method: 'DELETE', ...auth });
 }
 
 export function foodTruckAction(id: number, action: OwnerAction): Promise<OwnedFoodTruck> {

@@ -27,6 +27,8 @@ import { formatCityLabel } from "./components/explorer/useCitySuggestions";
 import type { CitySuggestion } from "./components/explorer/useCitySuggestions";
 import OnboardingModal from "./components/onboarding/OnboardingModal";
 import FoodTruckList from "./components/foodtrucks/FoodTruckList";
+import FoodTruckDetailModal from "./components/foodtrucks/FoodTruckDetailModal";
+import { CUISINE_TYPES } from "./components/foodtrucks/cuisines";
 import PlaceList from "./components/places/PlaceList";
 import type { Place } from "./components/places/types";
 import { useConfirmDialog } from "./components/admin/useConfirmDialog";
@@ -239,6 +241,10 @@ function App() {
     }
     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
     const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
+    /** Filtre « type de cuisine » de la couche food trucks : code de `CUISINE_TYPES`, `""` = toutes. */
+    const [selectedCuisine, setSelectedCuisine] = useState("");
+    /** Food truck dont la fiche est ouverte. */
+    const [detailFoodTruck, setDetailFoodTruck] = useState<FoodTruck | null>(null);
     const [mapLayer, setMapLayer] = useState<MapLayer>(() => readMapLayer());
     /** Lieux de la couche « Lieux » pour la zone affichée, chargés par la carte (PlacesLayer). */
     const [places, setPlaces] = useState<Place[]>([]);
@@ -590,11 +596,16 @@ function App() {
     const panelActivities = isTextSearch ? searchActivities : listedActivities;
     // Une recherche texte ne renvoie que des activités : elles seules sont affichées tant qu'elle est active.
     const activeLayer: MapLayer = isTextSearch ? "activities" : mapLayer;
+    // Types de cuisine présents aujourd'hui : seuls eux sont proposés dans le filtre.
+    const availableCuisines = CUISINE_TYPES.filter((cuisine) => foodTrucks.some((foodTruck) => foodTruck.cuisineType === cuisine.code));
+    const shownFoodTrucks = selectedCuisine
+        ? foodTrucks.filter((foodTruck) => foodTruck.cuisineType === selectedCuisine)
+        : foodTrucks;
     const visibleFoodTrucks = mapBounds
-        ? foodTrucks.filter((foodTruck) => foodTruck.latitude >= mapBounds.swLatitude
+        ? shownFoodTrucks.filter((foodTruck) => foodTruck.latitude >= mapBounds.swLatitude
             && foodTruck.latitude <= mapBounds.neLatitude && foodTruck.longitude >= mapBounds.swLongitude
             && foodTruck.longitude <= mapBounds.neLongitude)
-        : foodTrucks;
+        : shownFoodTrucks;
 
     /**
      * Nombre d'activités de la zone affichée, en tête de liste et sur le bouton « Voir la liste » en
@@ -1327,10 +1338,11 @@ function App() {
                         <ExplorerMap
                             activities={mapActivities}
                             fitKey={searchFitKey}
-                            foodTrucks={foodTrucks}
+                            foodTrucks={shownFoodTrucks}
                             categories={categories}
                             highlightedActivity={hoveredActivity}
                             onOpenDetail={handleOpenDetail}
+                            onOpenFoodTruck={setDetailFoodTruck}
                             initialView={initialMapView}
                             layer={activeLayer}
                             onBoundsChange={setMapBounds}
@@ -1358,6 +1370,23 @@ function App() {
                                     {layer.label}
                                 </button>
                             ))}
+                            {activeLayer === "foodTrucks" && (
+                                <select
+                                    aria-label="Type de cuisine"
+                                    className="explorer-cuisine-filter"
+                                    onChange={(event) => setSelectedCuisine(event.target.value)}
+                                    value={selectedCuisine}
+                                >
+                                    <option value="">🍽️ Toutes les cuisines</option>
+                                    {/* Le type choisi reste proposé même s'il n'y a plus de food truck. */}
+                                    {CUISINE_TYPES.filter((cuisine) => cuisine.code === selectedCuisine
+                                        || availableCuisines.includes(cuisine)).map((cuisine) => (
+                                        <option key={cuisine.code} value={cuisine.code}>
+                                            {cuisine.emoji} {cuisine.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
                         {/*
                           Pendant une recherche texte, le bandeau sous la barre donne son état. Chargement,
@@ -1427,7 +1456,7 @@ function App() {
                             <p className="explorer-list-count" role="status">{zoneActivityCountLabel}</p>
                         )}
                         {activeLayer === "foodTrucks" ? (
-                            <FoodTruckList foodTrucks={visibleFoodTrucks} />
+                            <FoodTruckList foodTrucks={visibleFoodTrucks} onSelectFoodTruck={setDetailFoodTruck} />
                         ) : activeLayer === "places" ? (
                             <PlaceList hasProAccess={hasProAccess} onSelectActivity={handleSelectActivity} places={places} />
                         ) : (
@@ -1525,6 +1554,10 @@ function App() {
                     title={title}
                     url={url}
                 />
+            )}
+
+            {detailFoodTruck && (
+                <FoodTruckDetailModal foodTruck={detailFoodTruck} onClose={() => setDetailFoodTruck(null)} />
             )}
 
             {detailActivity && (

@@ -1,3 +1,4 @@
+import { cuisineLabel, markerOf } from "../foodtrucks/cuisines";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { formatDate, proRequest } from "../pro/proApi";
@@ -6,7 +7,10 @@ import type { AdminPlaceChange, PlaceChangeReview, PlaceManager } from "../pro/t
 
 /** Food truck en attente de validation (`AdminFoodTruckResponse`, backend). */
 interface PendingFoodTruck {
-    foodTruck: { id: number; name: string; category: string; description: string | null; contact: string | null };
+    foodTruck: {
+        id: number; name: string; category: string; description: string | null; contact: string | null;
+        cuisineType?: string | null; markerEmoji?: string | null; markerColor?: string | null; photoUrl?: string | null;
+    };
     ownerId: number | null;
     ownerEmail: string | null;
 }
@@ -168,9 +172,16 @@ function AdminProModerationSection() {
                     {trucks.map((item) => (
                         <li className="favorites-list-item contributions-list-item" key={item.foodTruck.id}>
                             <div className="favorites-list-item-info">
-                                <span className="favorites-list-item-title">🚚 {item.foodTruck.name}</span>
+                                {item.foodTruck.photoUrl && (
+                                    <img alt={`Photo de ${item.foodTruck.name}`} className="food-truck-photo-preview"
+                                        loading="lazy" src={item.foodTruck.photoUrl} />
+                                )}
+                                <span className="favorites-list-item-title">
+                                    {markerOf(item.foodTruck).emoji} {item.foodTruck.name}
+                                </span>
                                 <span className="favorites-list-item-meta">
-                                    {item.foodTruck.category}{item.ownerEmail ? ` · ${item.ownerEmail}` : ""}
+                                    {[cuisineLabel(item.foodTruck.cuisineType), item.foodTruck.category].filter(Boolean).join(" · ")}
+                                    {item.ownerEmail ? ` · ${item.ownerEmail}` : ""}
                                     {item.foodTruck.contact ? ` · ${item.foodTruck.contact}` : ""}
                                 </span>
                                 {item.foodTruck.description && (

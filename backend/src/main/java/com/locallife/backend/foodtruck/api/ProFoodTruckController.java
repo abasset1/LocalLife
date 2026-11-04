@@ -4,6 +4,7 @@ import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.foodtruck.application.ProFoodTruckService;
 import com.locallife.backend.foodtruck.application.ProFoodTruckService.OwnerAction;
+import com.locallife.backend.foodtruck.application.ProFoodTruckService.PhotoInput;
 import com.locallife.backend.foodtruck.application.ProFoodTruckService.PresenceInput;
 import com.locallife.backend.foodtruck.application.ProFoodTruckService.ProfileInput;
 import com.locallife.backend.foodtruck.domain.FoodTruckPresence;
@@ -24,6 +25,7 @@ import java.util.function.Supplier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,13 +53,15 @@ public class ProFoodTruckController {
     public record OwnedFoodTruckResponse(
             Long id, String name, String description, String category, String contact, FoodTruckStatus status,
             boolean suspendedByLocalLife, OffsetDateTime updatedAt, boolean approved, String reviewReason,
-            boolean suspendedForAccess) {
+            boolean suspendedForAccess, String cuisineType, String markerEmoji, String markerColor, String photoUrl) {
 
         static OwnedFoodTruckResponse from(OwnedFoodTruck foodTruck) {
             return new OwnedFoodTruckResponse(foodTruck.id(), foodTruck.name(), foodTruck.description(),
                     foodTruck.category(), foodTruck.contact(), foodTruck.status(),
                     foodTruck.suspendedByAdminAt() != null, foodTruck.updatedAt(), foodTruck.approvedAt() != null,
-                    foodTruck.reviewReason(), foodTruck.suspendedForAccessAt() != null);
+                    foodTruck.reviewReason(), foodTruck.suspendedForAccessAt() != null, foodTruck.cuisineType(),
+                    foodTruck.markerEmoji(), foodTruck.markerColor(),
+                    FoodTruckController.photoUrl(foodTruck.id(), foodTruck.photoUpdatedAt()));
         }
     }
 
@@ -85,8 +89,10 @@ public class ProFoodTruckController {
                 .map(OwnedFoodTruckResponse::from).toList()));
     }
 
-    @Operation(summary = "Créer un food truck", description = "Profil en brouillon : nom, cuisine, description, "
-            + "contact. Publication : POST /pro/foodtrucks/{id}/publish. Distinct des lieux.")
+    @Operation(summary = "Créer un food truck", description = "Profil en brouillon : nom, spécialité (category), type "
+            + "de cuisine (cuisineType : BURGER, PIZZA, ASIAN, MEXICAN, CREPES, SANDWICH, FRENCH, ITALIAN, WORLD, "
+            + "VEGETARIAN, DESSERT, DRINKS, OTHER), description, contact, pastille (markerEmoji, markerColor "
+            + "#rrggbb). Publication : POST /pro/foodtrucks/{id}/publish. Distinct des lieux.")
     @PostMapping("/foodtrucks")
     public ResponseEntity<Object> create(@RequestBody(required = false) ProfileInput body,
             Authentication authentication, HttpServletRequest request) {
@@ -108,6 +114,24 @@ public class ProFoodTruckController {
             Authentication authentication, HttpServletRequest request) {
         return handle(request, () -> ResponseEntity.ok(OwnedFoodTruckResponse.from(
                 service.update(userId(authentication), id, body))));
+    }
+
+    @Operation(summary = "Ajouter ou remplacer la photo",
+            description = "Corps : {\"data\": \"<image JPEG, PNG ou WebP en base64>\"} (3 Mo au plus). Sauf food "
+                    + "truck archivé.")
+    @PutMapping("/foodtrucks/{id}/photo")
+    public ResponseEntity<Object> savePhoto(@PathVariable Long id, @RequestBody(required = false) PhotoInput body,
+            Authentication authentication, HttpServletRequest request) {
+        return handle(request, () -> ResponseEntity.ok(OwnedFoodTruckResponse.from(
+                service.savePhoto(userId(authentication), id, body))));
+    }
+
+    @Operation(summary = "Retirer la photo")
+    @DeleteMapping("/foodtrucks/{id}/photo")
+    public ResponseEntity<Object> deletePhoto(@PathVariable Long id, Authentication authentication,
+            HttpServletRequest request) {
+        return handle(request, () -> ResponseEntity.ok(OwnedFoodTruckResponse.from(
+                service.deletePhoto(userId(authentication), id))));
     }
 
     @Operation(summary = "Publier, suspendre ou archiver un food truck",

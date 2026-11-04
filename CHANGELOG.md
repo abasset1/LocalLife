@@ -2,10 +2,19 @@
 
 ## 0.9.59 — non publiée
 
+### Food trucks : popup comme les activités, photo, type de cuisine et pastille personnalisée
+- **Popup d'une pastille** (site) : un clic sur un food truck ou un groupe de food trucks ouvre la même popup que pour les activités — photo, horaires du jour, nom, emplacement et cuisine, « Voir le food truck → » et flèches pour passer d'un food truck à l'autre (« 1 / 3 »). Les food trucks proches sont regroupés en pastilles, comme les activités. « Voir le food truck » ouvre sa fiche : photo, cuisine, description, contact et planning complet. Un clic sur une ligne de la liste ouvre aussi la fiche. Sur l'application, l'aperçu d'un élément touché sur la carte montre désormais la photo (food truck comme activité).
+- **Saisie et modification d'un food truck** (site et application) : description (2000 caractères), **photo** (JPEG, PNG ou WebP ; réduite dans le navigateur avant l'envoi, 3 Mo au plus) et **type de cuisine** dans une liste fermée (Burgers, Pizzas, Asiatique, Mexicain, Crêpes et galettes, Sandwichs, Cuisine française, Italien, Cuisine du monde, Végétarien, Desserts et glaces, Boissons et café, Autre). Le champ libre « Cuisine » devient « Spécialité ». La photo et le type de cuisine sont visibles dans la modération.
+- **Filtre par type de cuisine** sur la carte et la liste des food trucks (site et application) : seuls les types présents aujourd'hui sont proposés.
+- **Pastille personnalisée** : le propriétaire choisit l'emoji et la couleur de son marqueur sur la carte (aperçu en direct) ; par défaut, l'emoji de son type de cuisine sur fond corail.
+- **API** : `cuisineType`, `markerEmoji`, `markerColor` (`#rrggbb`) dans le profil (`POST`/`PUT /api/v1/pro/foodtrucks`) et dans les réponses publiques et pro, avec `photoUrl`. `PUT /api/v1/pro/foodtrucks/{id}/photo` (`{"data": "<base64>"}`) et `DELETE …/photo` ; `GET /api/v1/foodtrucks/{id}/photo` (public, mis en cache, adresse versionnée). Migration `V84`.
+- **Application** : nouvelle dépendance `expo-image-picker` (choix de la photo dans la galerie) — une nouvelle version native de l'application est nécessaire.
+
 ### Classification : une nouvelle catégorie s'applique aussi aux activités déjà importées
 - **Le titre est toujours lu à l'import** : ses catégories s'ajoutent à celles des tags de la source au lieu d'être ignorées dès qu'un tag est reconnu. Un « Marché de Noël » tagué « Marché » reçoit désormais MARKETS **et** la catégorie du mot-clé « marché de noël ». Les catégories des tags ne sont jamais retirées. Origine tracée : `SOURCE_KEYWORD+TITLE_KEYWORD`. Les éléments en quarantaine sont re-décidés au prochain import.
 - **Administration → Catégories : « Appliquer aux activités existantes »** sur chaque catégorie active. Re-classe les activités à venir déjà importées avec les mots-clés actuels (titre et tags d'origine, mêmes règles qu'à l'import) et leur **ajoute** la catégorie quand elle correspond, sans retirer aucune catégorie. Jusqu'ici, une activité importée gardait ses catégories pour toujours : un mot-clé ajouté après coup ne touchait que les nouveaux éléments. Rejouable sans effet de bord.
 - API : `POST /api/v1/admin/categories/{code}/apply-to-existing` → `{ categoryCode, examined, added }` ; 400 si la catégorie est désactivée.
+
 
 ### Administration → Comptes : nombre de connexions et dernière connexion
 - Deux colonnes dans la liste des comptes : **Connexions** (connexions réussies, par mot de passe ou avec Google ; un échec ne compte pas) et **Dernière connexion** (date et heure).

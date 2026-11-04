@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FoodTruck } from "../explorer/types";
+import { markerOf } from "../foodtrucks/cuisines";
 import { formatHours } from "../foodtrucks/foodTruckFormat";
 
 /**
@@ -32,7 +33,7 @@ function PlaceFoodTrucks({ placeId }: { placeId: number }) {
             <ul>
                 {foodTrucks.map((foodTruck) => (
                     <li key={foodTruck.presenceId}>
-                        🚚 {foodTruck.name} · {foodTruck.category}
+                        {markerOf(foodTruck).emoji} {foodTruck.name} · {foodTruck.category}
                         {formatHours(foodTruck) ? ` · ${formatHours(foodTruck)}` : ""}
                     </li>
                 ))}
