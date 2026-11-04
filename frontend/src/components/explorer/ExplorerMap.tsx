@@ -13,7 +13,8 @@ import ClusterActivitiesPopup from "./ClusterActivitiesPopup";
 import { type MapUrlView, writeMapUrlView } from "./mapUrlView";
 import PlacesLayer from "../places/PlacesLayer";
 import type { Place } from "../places/types";
-import { describePresence } from "../foodtrucks/foodTruckFormat";
+import FoodTruckPopup from "../foodtrucks/FoodTruckPopup";
+import { escapeHtml, markerOf } from "../foodtrucks/cuisines";
 import type { Activity, Category, FoodTruck, MapBounds, UserPosition } from "./types";
 
 /**
@@ -29,13 +30,28 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
-/** Icône dédiée au marqueur food truck (LL-6009) — voir styles.css `.explorer-food-truck-marker`. */
-const FOOD_TRUCK_MARKER_ICON = L.divIcon({
-    className: "explorer-food-truck-marker",
-    html: "🚚",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-});
+/**
+ * Icône du marqueur food truck (LL-6009) : pastille personnalisée par son propriétaire (emoji, couleur), sinon
+ * l'emoji de son type de cuisine sur fond corail — voir styles.css `.explorer-food-truck-marker`. Une icône par
+ * combinaison, gardée en mémoire.
+ */
+const foodTruckIcons = new Map<string, L.DivIcon>();
+
+function foodTruckIcon(foodTruck: FoodTruck): L.DivIcon {
+    const { emoji, color } = markerOf(foodTruck);
+    const key = `${emoji}|${color}`;
+    let icon = foodTruckIcons.get(key);
+    if (!icon) {
+        icon = L.divIcon({
+            className: "explorer-food-truck-marker-wrapper",
+            html: `<span class="explorer-food-truck-marker" style="background-color:${color}">${escapeHtml(emoji)}</span>`,
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+        });
+        foodTruckIcons.set(key, icon);
+    }
+    return icon;
+}
 
 /**
  * Activité survolée dans la liste (comme sur la carte Finishers) : marqueur dédié, hors des groupes,
@@ -268,6 +284,14 @@ interface ExplorerMapProps {
     categories?: Category[];
     /** « Voir l'activité » depuis la popup d'une pastille : fiche complète. */
     onOpenDetail?: (activity: Activity) => void;
+    /** « Voir le food truck » depuis la popup d'une pastille food truck. */
+    onOpenFoodTruck?: (foodTruck: FoodTruck) => void;
+}
+
+/** Pastille food truck cliquée : sa position et ses food trucks. */
+interface FoodTruckSelection {
+    position: LatLngLiteral;
+    foodTrucks: FoodTruck[];
 }
 
 /** Pastille cliquée : sa position et ses activités, de la plus proche dans le temps à la plus lointaine. */
@@ -284,9 +308,20 @@ interface ClusterSelection {
 const CLUSTER_POPUP_MAX_ACTIVITIES = 10;
 
 /** Positions arrondies à environ 100 m : en dessous, deux activités sont considérées au même endroit. */
-function placeKey(activity: Activity): string {
-    return `${activity.latitude.toFixed(3)},${activity.longitude.toFixed(3)}`;
+function placeKey(item: { latitude: number; longitude: number }): string {
+    return `${item.latitude.toFixed(3)},${item.longitude.toFixed(3)}`;
 }
+
+function compareFoodTrucks(a: FoodTruck, b: FoodTruck): number {
+    return (a.startTime ?? "").localeCompare(b.startTime ?? "") || a.name.localeCompare(b.name, "fr");
+}
+
+/** Pastille (`L.MarkerCluster` de leaflet.markercluster) cliquée. */
+type ClusterLayer = {
+    getAllChildMarkers: () => L.Marker[];
+    getLatLng: () => LatLngLiteral;
+    zoomToBounds: (options?: L.FitBoundsOptions) => void;
+};
 
 function compareByStartDate(a: Activity, b: Activity): number {
     if (!a.startDate || !b.startDate) {
@@ -310,6 +345,7 @@ function ExplorerMap({
     highlightedActivity = null,
     categories = [],
     onOpenDetail,
+    onOpenFoodTruck,
 }: ExplorerMapProps) {
     /** Activité de chaque marqueur, pour retrouver celles d'une pastille cliquée. */
     const activityByMarker = useRef(new WeakMap<L.Marker, Activity>());
@@ -357,8 +393,48 @@ function ExplorerMap({
         });
     }
 
+    /** Food truck de chaque marqueur, pour retrouver ceux d'une pastille cliquée. */
+    const foodTruckByMarker = useRef(new WeakMap<L.Marker, FoodTruck>());
+    const [foodTruckSelection, setFoodTruckSelection] = useState<FoodTruckSelection | null>(null);
+    const handleFoodTruckClusterClickRef = useRef<(event: LeafletMouseEvent) => void>(() => undefined);
+    handleFoodTruckClusterClickRef.current = (event) => {
+        const cluster = (event as LeafletMouseEvent & { layer: ClusterLayer }).layer;
+        const clusterTrucks = cluster.getAllChildMarkers()
+            .map((marker: L.Marker) => foodTruckByMarker.current.get(marker))
+            .filter((foodTruck: FoodTruck | undefined): foodTruck is FoodTruck => foodTruck !== undefined)
+            .sort(compareFoodTrucks);
+        if (clusterTrucks.length === 0) {
+            return;
+        }
+        const map = (event.target as { _map?: L.Map })._map;
+        const isSpreadOut = new Set(clusterTrucks.map(placeKey)).size > 1;
+        const canZoom = map ? map.getZoom() < map.getMaxZoom() : false;
+        if (clusterTrucks.length > CLUSTER_POPUP_MAX_ACTIVITIES && isSpreadOut && canZoom) {
+            setFoodTruckSelection(null);
+            cluster.zoomToBounds({ padding: [40, 40] });
+            return;
+        }
+        setFoodTruckSelection({ position: cluster.getLatLng(), foodTrucks: clusterTrucks });
+    };
+
+    /** Marqueur food truck seul : même popup, avec les food trucks présents au même endroit. */
+    function handleFoodTruckClick(foodTruck: FoodTruck) {
+        const key = placeKey(foodTruck);
+        const samePlace = foodTrucks.filter((other) => other.presenceId !== foodTruck.presenceId
+            && placeKey(other) === key);
+        setFoodTruckSelection({
+            position: { lat: foodTruck.latitude, lng: foodTruck.longitude },
+            foodTrucks: [foodTruck, ...samePlace.sort(compareFoodTrucks)],
+        });
+    }
+
     // Autre contenu affiché ou nouvelle recherche : la popup d'une pastille n'a plus lieu d'être.
-    useEffect(() => setClusterSelection(null), [layer, fitKey]);
+    useEffect(() => {
+        setClusterSelection(null);
+        setFoodTruckSelection(null);
+    }, [layer, fitKey]);
+    // Filtre de cuisine changé : la popup peut montrer un food truck masqué.
+    useEffect(() => setFoodTruckSelection(null), [foodTrucks]);
 
     const initialCenter: LatLngExpression = initialView
         ? [initialView.latitude, initialView.longitude]
@@ -457,25 +533,47 @@ function ExplorerMap({
                 </Marker>
             )}
             <PlacesLayer enabled={layer === "places"} onPlacesChange={onPlacesChange} onSelectActivity={onSelectActivity} />
-            {layer === "foodTrucks" && foodTrucks.map((foodTruck) => (
-                <Marker
-                    icon={FOOD_TRUCK_MARKER_ICON}
-                    key={`food-truck-presence-${foodTruck.presenceId}`}
-                    position={[foodTruck.latitude, foodTruck.longitude]}
+            {layer === "foodTrucks" && (
+                <MarkerClusterGroup
+                    // Même comportement que les pastilles d'activités : popup qui fait défiler les food trucks.
+                    onClick={(event: LeafletMouseEvent) => handleFoodTruckClusterClickRef.current(event)}
+                    spiderfyOnMaxZoom={false}
+                    zoomToBoundsOnClick={false}
                 >
-                    <Popup>
-                        <strong>{foodTruck.name}</strong>
-                        <br />
-                        {foodTruck.category}
-                        {describePresence(foodTruck) && (
-                            <>
-                                <br />
-                                {describePresence(foodTruck)}
-                            </>
-                        )}
-                    </Popup>
-                </Marker>
-            ))}
+                    {foodTrucks.map((foodTruck) => (
+                        <Marker
+                            eventHandlers={{ click: () => handleFoodTruckClick(foodTruck) }}
+                            icon={foodTruckIcon(foodTruck)}
+                            key={`food-truck-presence-${foodTruck.presenceId}`}
+                            position={[foodTruck.latitude, foodTruck.longitude]}
+                            ref={(marker) => {
+                                if (marker) {
+                                    foodTruckByMarker.current.set(marker, foodTruck);
+                                }
+                            }}
+                            title={foodTruck.name}
+                        />
+                    ))}
+                </MarkerClusterGroup>
+            )}
+            {layer === "foodTrucks" && foodTruckSelection && (
+                <Popup
+                    className="explorer-cluster-leaflet-popup"
+                    eventHandlers={{ remove: () => setFoodTruckSelection(null) }}
+                    key={`${foodTruckSelection.position.lat},${foodTruckSelection.position.lng},${foodTruckSelection.foodTrucks.map((foodTruck) => foodTruck.presenceId).join("-")}`}
+                    maxWidth={300}
+                    minWidth={240}
+                    position={foodTruckSelection.position}
+                >
+                    <FoodTruckPopup
+                        foodTrucks={foodTruckSelection.foodTrucks}
+                        onOpenDetail={(foodTruck) => {
+                            setFoodTruckSelection(null);
+                            onOpenFoodTruck?.(foodTruck);
+                        }}
+                    />
+                </Popup>
+            )}
         </MapContainer>
     );
 }

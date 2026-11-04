@@ -3,6 +3,8 @@ package com.locallife.backend.category.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import com.locallife.backend.activityclassification.application.CategoryBackfillService;
+import com.locallife.backend.activityclassification.application.CategoryBackfillService.BackfillResult;
 import com.locallife.backend.category.api.AdminCategoryController.CreateCategoryRequest;
 import com.locallife.backend.category.api.AdminCategoryController.CreateKeywordRequest;
 import com.locallife.backend.category.api.AdminCategoryController.UpdateCategoryRequest;
@@ -29,10 +31,30 @@ class AdminCategoryControllerTest {
     @Mock
     private CategoryAdminService service;
 
+    @Mock
+    private CategoryBackfillService backfillService;
+
     @InjectMocks
     private AdminCategoryController controller;
 
     private final MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/admin/categories");
+
+    @Test
+    void applyToExisting_returnsTheResult_404WhenUnknown_400WhenInactive() {
+        BackfillResult result = new BackfillResult("MARCHES_NOEL", 120, 7);
+        when(backfillService.applyToExistingActivities("MARCHES_NOEL")).thenReturn(Optional.of(result));
+        when(backfillService.applyToExistingActivities("INCONNUE")).thenReturn(Optional.empty());
+        when(backfillService.applyToExistingActivities("ANCIENNE"))
+                .thenThrow(new IllegalArgumentException("désactivée"));
+
+        ResponseEntity<Object> ok = controller.applyToExisting("MARCHES_NOEL", request);
+
+        assertThat(ok.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(ok.getBody()).isEqualTo(result);
+        assertThat(controller.applyToExisting("INCONNUE", request).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(controller.applyToExisting("ANCIENNE", request).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
 
     @Test
     void create_returns201() {

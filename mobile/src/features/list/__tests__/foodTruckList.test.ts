@@ -18,6 +18,16 @@ describe('foodTrucksNear', () => {
   const nearer = truck({ presenceId: 2, id: 2, name: 'Crêpes du Rhône', category: 'Crêpes', latitude: 43.9494 });
   const far = truck({ presenceId: 3, id: 3, name: 'Loin', latitude: 43.2965, longitude: 5.3698 });
 
+  it('filtre sur le type de cuisine choisi, recherchable aussi par son libellé', () => {
+    const mexican = { ...near, cuisineType: 'MEXICAN' };
+    const crepes = { ...nearer, cuisineType: 'CREPES' };
+    expect(foodTrucksNear([mexican, crepes], AVIGNON, 20, '', 'MEXICAN').map((t) => t.foodTruck.presenceId))
+      .toEqual([1]);
+    expect(foodTrucksNear([mexican, crepes], AVIGNON, 20, 'mexicain').map((t) => t.foodTruck.presenceId))
+      .toEqual([1]);
+    expect(foodTrucksNear([mexican, crepes], AVIGNON, 20, '', null)).toHaveLength(2);
+  });
+
   it('garde les présences dans le rayon, les plus proches d’abord', () => {
     expect(foodTrucksNear([near, far, nearer], AVIGNON, 20, '').map((t) => t.foodTruck.presenceId))
       .toEqual([2, 1]);

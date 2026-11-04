@@ -117,4 +117,22 @@ describe("AdminCategoriesSection", () => {
         expect(screen.queryByText("conférence")).not.toBeInTheDocument();
         expect(screen.queryByText("Sport")).not.toBeInTheDocument();
     });
+
+    it("applique une catégorie aux activités existantes et affiche le nombre d'ajouts", async () => {
+        const calls: { url: string; init?: RequestInit }[] = [];
+        vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+            calls.push({ url, init });
+            return init?.method === "POST" ? json({ categoryCode: "CULTURE", examined: 40, added: 3 }) : json(CATEGORIES);
+        }));
+        vi.spyOn(window, "confirm").mockReturnValue(true);
+        render(<AdminCategoriesSection />);
+
+        await userEvent.click(await screen.findByRole("button", { name: "Appliquer la catégorie Culture aux activités existantes" }));
+
+        expect(await screen.findByText("« Culture » ajoutée à 3 activité(s) sur 40 examinée(s).")).toBeInTheDocument();
+        expect(calls.some((call) => call.url.endsWith("/api/v1/admin/categories/CULTURE/apply-to-existing")
+            && call.init?.method === "POST")).toBe(true);
+        // Pas proposé pour une catégorie désactivée.
+        expect(screen.queryByRole("button", { name: "Appliquer la catégorie Sport aux activités existantes" })).toBeNull();
+    });
 });

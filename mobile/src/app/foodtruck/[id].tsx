@@ -9,7 +9,10 @@ import { Field } from '@/components/field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
+import { RemoteImage } from '@/components/remote-image';
 import { contactAction } from '@/features/foodtruck/contact';
+import { cuisineLabel, markerOf } from '@/features/foodtruck/cuisines';
+import { photoUri } from '@/features/foodtruck/photo';
 import { describeSchedule } from '@/features/foodtruck/presence';
 import { useFoodTruck } from '@/features/foodtruck/useFoodTruck';
 import { useTheme } from '@/hooks/use-theme';
@@ -56,14 +59,21 @@ export default function FoodTruckDetailScreen() {
 
         {state.status === 'success' && (() => {
           const { name, category, description, contact, presences } = state.foodTruck;
+          const marker = markerOf(state.foodTruck);
+          const cuisine = cuisineLabel(state.foodTruck.cuisineType);
           const action = contactAction(contact);
 
           return (
             <ScrollView contentContainerStyle={styles.content}>
+              <RemoteImage
+                url={photoUri(state.foodTruck.photoUrl)}
+                alt={`Photo de ${name}`}
+                style={styles.photo}
+              />
               <View style={[styles.hero, { backgroundColor: theme.accentSoft }]}>
-                <ThemedText style={styles.heroIcon} importantForAccessibility="no">
-                  🚚
-                </ThemedText>
+                <View style={[styles.heroMarker, { backgroundColor: marker.color }]} importantForAccessibility="no">
+                  <ThemedText style={styles.heroIcon}>{marker.emoji}</ThemedText>
+                </View>
                 <ThemedText type="eyebrow">Food truck</ThemedText>
                 <ThemedText type="subtitle" accessibilityRole="header">
                   {name}
@@ -71,7 +81,8 @@ export default function FoodTruckDetailScreen() {
               </View>
 
               <Card style={styles.fields}>
-                <Field label="Cuisine" value={category} />
+                {cuisine ? <Field label="Type de cuisine" value={cuisine} /> : null}
+                <Field label="Spécialité" value={category} />
                 {description ? <Field label="Description" value={description} /> : null}
                 {contact?.trim() ? <Field label="Contact" value={contact.trim()} /> : null}
               </Card>
@@ -128,8 +139,21 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   heroIcon: {
-    fontSize: 36,
-    lineHeight: 44,
+    fontSize: 28,
+    lineHeight: 36,
+  },
+  heroMarker: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 3,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photo: {
+    height: 200,
+    borderRadius: Radius.xl,
   },
   fields: {
     gap: Spacing.three,

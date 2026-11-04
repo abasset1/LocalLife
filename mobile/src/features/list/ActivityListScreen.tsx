@@ -22,6 +22,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { ActivityCard } from './ActivityCard';
 import { FilterChips } from './FilterChips';
 import { PERIOD_OPTIONS, distanceKm, formatDistance, matchesQuery } from './filters';
+import { CuisineFilterBar } from '@/features/foodtruck/CuisineFilterBar';
+
 import { FoodTruckCard } from './FoodTruckCard';
 import { foodTrucksNear } from './foodTruckList';
 import { usePeriod } from './periodStore';
@@ -65,6 +67,8 @@ export default function ActivityListScreen() {
   const [query, setQuery] = useState('');
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
   const [tab, setTab] = useState<ListTab>('activities');
+  // Filtre « type de cuisine » de l'onglet food trucks (`null` = toutes).
+  const [cuisine, setCuisine] = useState<string | null>(null);
   const showFoodTrucks = tab === 'foodTrucks';
 
   const radiusKm = chosenRadiusKm ?? DEFAULT_RADIUS_KM;
@@ -84,9 +88,9 @@ export default function ActivityListScreen() {
   const foodTrucks = useMemo(
     () =>
       place && foodTruckList.state.status === 'success'
-        ? foodTrucksNear(foodTruckList.state.foodTrucks, place, radiusKm, query)
+        ? foodTrucksNear(foodTruckList.state.foodTrucks, place, radiusKm, query, cuisine)
         : [],
-    [foodTruckList.state, place, radiusKm, query],
+    [foodTruckList.state, place, radiusKm, query, cuisine],
   );
 
   const items: ListItem[] = showFoodTrucks
@@ -175,6 +179,11 @@ export default function ActivityListScreen() {
         </View>
       </View>
 
+      {showFoodTrucks && foodTruckList.state.status === 'success' && (
+        <View style={styles.padded}>
+          <CuisineFilterBar foodTrucks={foodTruckList.state.foodTrucks} selected={cuisine} onChange={setCuisine} />
+        </View>
+      )}
       {!showFoodTrucks && (
         <FilterChips label="Période" options={PERIOD_OPTIONS} value={period} onChange={setPeriod} />
       )}

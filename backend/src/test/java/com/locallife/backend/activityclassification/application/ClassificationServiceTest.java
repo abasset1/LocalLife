@@ -43,7 +43,8 @@ class ClassificationServiceTest {
 
     /** Ids des catégories du référentiel de test. */
     private static final Map<String, Long> IDS = Map.of(
-            "MARKETS", 1L, "CULTURE", 3L, "GASTRONOMY", 4L, "SPORT", 5L, "TOURISM", 8L, "EMPLOYMENT", 10L);
+            "MARKETS", 1L, "CULTURE", 3L, "GASTRONOMY", 4L, "SPORT", 5L, "TOURISM", 8L, "EMPLOYMENT", 10L,
+            "CHRISTMAS_MARKETS", 11L);
 
     @Mock
     private CategoryRepository categoryRepository;
@@ -159,8 +160,9 @@ class ClassificationServiceTest {
         ClassificationOutcome outcome = service.decide("Sans importance", "Concert", List.of());
 
         assertEquals(List.of("CULTURE"), outcome.decision().categoryCodes());
-        // Hors lot : un mot-clé modifié en base est pris en compte dès la décision suivante.
-        verify(keywordRepository, times(2)).findByActiveTrueOrderByIdAsc();
+        // Hors lot : un mot-clé modifié en base est pris en compte dès la décision suivante (lecture à
+        // l'ouverture du lot, puis une pour les keywords source et une pour le titre).
+        verify(keywordRepository, times(3)).findByActiveTrueOrderByIdAsc();
     }
 
     @Test
@@ -286,14 +288,29 @@ class ClassificationServiceTest {
     }
 
     @Test
-    void titleIsNeverReadWhenSourceKeywordsArePresent() {
-        givenDefaultReferential();
+    void titleCategoriesAreAddedToTheRecognisedSourceKeywords() {
+        givenReferential(
+                keyword("CULTURE", "théâtre"),
+                keyword("MARKETS", "marché"),
+                keyword("CHRISTMAS_MARKETS", "marché de noël"));
 
         ClassificationOutcome outcome = service.decide("Grand marché de Noël", "théâtre", List.of());
 
+        // Source d'abord (CULTURE), puis le titre (MARKETS par « marché », CHRISTMAS_MARKETS par l'expression).
+        assertEquals(List.of(3L, 1L, 11L), outcome.categoryIds());
+        assertEquals(List.of("CULTURE", "MARKETS", "CHRISTMAS_MARKETS"), outcome.decision().categoryCodes());
+        assertEquals(ClassificationService.SOURCE_AND_TITLE, outcome.decision().source());
+        assertEquals("AUTO:CULTURE+MARKETS+CHRISTMAS_MARKETS", outcome.decision().ruleId());
+        assertEquals(List.of("théâtre", "marché", "marché de noël"), outcome.decision().matchedKeywords());
+    }
+
+    @Test
+    void sourceDecisionIsUnchanged_WhenTheTitleAddsNoNewCategory() {
+        givenDefaultReferential();
+
+        ClassificationOutcome outcome = service.decide("Concert du soir", "théâtre", List.of());
+
         assertEquals(List.of(3L), outcome.categoryIds());
-        assertEquals(ActivityClassifier.SOURCE, outcome.decision().source());
-        // Même décision que la logique source seule.
         assertEquals(service.decide("théâtre", List.of()).decision(), outcome.decision());
     }
 

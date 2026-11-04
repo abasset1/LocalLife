@@ -97,14 +97,21 @@ export function PlaceMarker({
   );
 }
 
-/** Carré orange avec camion : forme ET pictogramme distincts des activités (pas seulement la couleur). */
+/**
+ * Carré avec pictogramme : forme ET pictogramme distincts des activités (pas seulement la couleur). Emoji et couleur
+ * choisis par le propriétaire, sinon l'emoji du type de cuisine sur fond orange.
+ */
 export function FoodTruckMarker({
   coordinate,
   name,
+  emoji = '🚚',
+  color = FOOD_TRUCK_COLOR,
   onPress,
 }: {
   coordinate: Coordinate;
   name: string;
+  emoji?: string;
+  color?: string;
   onPress: () => void;
 }) {
   const tracks = useTracksViewChanges();
@@ -119,8 +126,8 @@ export function FoodTruckMarker({
       tracksViewChanges={tracks}
       accessibilityLabel={`Food truck : ${name}`}>
       <View style={styles.markerPadding}>
-        <View style={[styles.foodTruck, { backgroundColor: FOOD_TRUCK_COLOR }]}>
-          <Text style={styles.foodTruckIcon}>🚚</Text>
+        <View style={[styles.foodTruck, { backgroundColor: color }]}>
+          <Text style={styles.foodTruckIcon}>{emoji}</Text>
         </View>
       </View>
     </Marker>

@@ -7,14 +7,20 @@ import type { OwnedFoodTruck } from '@/api';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { Notice } from '@/components/notice';
-import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { cuisineLabel, markerOf } from '@/features/foodtruck/cuisines';
 import { truckStatusLabel } from '@/features/pro/format';
+import {
+  EMPTY_PROFILE,
+  FoodTruckProfileFields,
+  profileInputOf,
+  savePhoto,
+  type PhotoChange,
+} from '@/features/pro/FoodTruckProfileFields';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
 import { useProAccessEnded } from '@/features/pro/useProAccess';
 
-const EMPTY = { name: '', category: '', description: '', contact: '' };
 
 /**
  * Mes food trucks (PRO-01 lot C), comme sur le site : profil distinct des lieux, créé en brouillon ; ses emplacements
@@ -27,7 +33,8 @@ export default function MyFoodTrucksScreen() {
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [profile, setProfile] = useState(EMPTY);
+  const [profile, setProfile] = useState(EMPTY_PROFILE);
+  const [photo, setPhoto] = useState<PhotoChange>({ kind: 'keep' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Sans accès pro (ancien compte Pro), les food trucks restent consultables et archivables, rien de plus.
@@ -56,9 +63,15 @@ export default function MyFoodTrucksScreen() {
     setBusy(true);
     setError(null);
     try {
-      const created = await createFoodTruck(profile);
-      setProfile(EMPTY);
+      const created = await createFoodTruck(profileInputOf(profile));
+      setProfile(EMPTY_PROFILE);
       setCreating(false);
+      try {
+        await savePhoto(created.id, photo);
+      } catch (e) {
+        setError(`Food truck créé, mais pas la photo : ${messageFor(e)}`);
+      }
+      setPhoto({ kind: 'keep' });
       router.push({ pathname: '/pro/foodtrucks/[id]', params: { id: String(created.id) } });
     } catch (e) {
       setError(messageFor(e));
@@ -87,33 +100,18 @@ export default function MyFoodTrucksScreen() {
             {accessEnded ? null : creating ? (
               <Card style={styles.form}>
                 <ThemedText type="heading">Créer un food truck</ThemedText>
-                <TextField label="Nom commercial" value={profile.name} onChangeText={(v) => setProfile({ ...profile, name: v })} maxLength={255} />
-                <TextField
-                  label="Cuisine"
-                  placeholder="Tacos, crêpes, burgers…"
-                  value={profile.category}
-                  onChangeText={(v) => setProfile({ ...profile, category: v })}
-                  maxLength={255}
-                />
-                <TextField
-                  label="Description"
-                  value={profile.description}
-                  onChangeText={(v) => setProfile({ ...profile, description: v })}
-                  multiline
-                  maxLength={2000}
-                />
-                <TextField
-                  label="Contact ou lien utile"
-                  placeholder="Téléphone, site, réseau social…"
-                  value={profile.contact}
-                  onChangeText={(v) => setProfile({ ...profile, contact: v })}
-                  autoCapitalize="none"
-                  maxLength={512}
+                <FoodTruckProfileFields
+                  profile={profile}
+                  onChange={setProfile}
+                  currentPhotoUrl={null}
+                  photo={photo}
+                  onPhotoChange={setPhoto}
+                  onError={setError}
                 />
                 <Button
                   label="Créer le brouillon"
                   loading={busy}
-                  disabled={profile.name.trim() === '' || profile.category.trim() === ''}
+                  disabled={profile.name.trim() === '' || profile.category.trim() === '' || profile.cuisineType === ''}
                   onPress={() => void create()}
                 />
                 <Button label="Annuler" variant="ghost" onPress={() => setCreating(false)} />
@@ -127,9 +125,11 @@ export default function MyFoodTrucksScreen() {
             )}
             {trucks.map((truck) => (
               <Card key={truck.id} style={styles.card}>
-                <ThemedText type="heading">🚚 {truck.name}</ThemedText>
+                <ThemedText type="heading">
+                  {markerOf(truck).emoji} {truck.name}
+                </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {truckStatusLabel(truck)} · {truck.category}
+                  {truckStatusLabel(truck)} · {[cuisineLabel(truck.cuisineType), truck.category].filter(Boolean).join(' · ')}
                   {truck.suspendedByLocalLife ? ' · suspendu par LocalLife' : ''}
                 </ThemedText>
                 {truck.status === 'REJECTED' && truck.reviewReason ? (
