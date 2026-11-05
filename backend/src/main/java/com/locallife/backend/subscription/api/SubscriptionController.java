@@ -1,6 +1,8 @@
 package com.locallife.backend.subscription.api;
 
 import com.locallife.backend.auth.application.JwtAuthentication;
+import com.locallife.backend.launch.Feature;
+import com.locallife.backend.launch.LaunchFeatures;
 import com.locallife.backend.pro.application.ProActionException;
 import com.locallife.backend.subscription.api.SubscriptionResponses.OverviewResponse;
 import com.locallife.backend.subscription.application.SubscriptionService;
@@ -26,9 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class SubscriptionController {
 
     private final SubscriptionService service;
+    private final LaunchFeatures launchFeatures;
 
-    public SubscriptionController(SubscriptionService service) {
+    public SubscriptionController(SubscriptionService service, LaunchFeatures launchFeatures) {
         this.service = service;
+        this.launchFeatures = launchFeatures;
     }
 
     /** Offre demandée : {@code PREMIUM} ou {@code PRO}. */
@@ -49,8 +53,16 @@ public class SubscriptionController {
     @PostMapping({"/subscribe", "/request"})
     public ResponseEntity<Object> request(@RequestBody(required = false) PlanRequest body,
             Authentication authentication, HttpServletRequest request) {
-        return SubscriptionResponses.handle(request, () -> ResponseEntity.ok(OverviewResponse.from(
-                service.subscribe(userId(authentication), plan(body)))));
+        return SubscriptionResponses.handle(request, () -> {
+            Plan plan = plan(body);
+            // Lancement (05/11/2026) : une offre pas encore ouverte ne se souscrit pas, sauf pour l'équipe.
+            if (plan != Plan.FREE
+                    && !launchFeatures.isAvailable(plan == Plan.PRO ? Feature.PRO : Feature.PREMIUM, authentication)) {
+                throw ProActionException.forbidden("L'offre " + (plan == Plan.PRO ? "Pro" : "Premium")
+                        + " n'est pas encore disponible.");
+            }
+            return ResponseEntity.ok(OverviewResponse.from(service.subscribe(userId(authentication), plan)));
+        });
     }
 
     @Operation(summary = "Retirer ma demande")

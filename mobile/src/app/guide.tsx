@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -18,13 +18,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Brand, Radius, Spacing } from '@/constants/theme';
 import {
-  GUIDE_STEPS,
+  guideStepsFor,
   GUIDE_STEP_DURATION_MS,
   clampStep,
   nextAutoplayStep,
   type GuideRow,
   type GuideScene,
 } from '@/features/guide/steps';
+import { useLaunchFeatures } from '@/features/launch';
 import { useTheme } from '@/hooks/use-theme';
 
 /** Préférence système « Réduire les animations » : scènes fixes et pas de lecture automatique. */
@@ -399,17 +400,20 @@ export default function GuideScreen() {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [progress] = useState(() => new Animated.Value(0));
-  const step = GUIDE_STEPS[index];
-  const isLast = index === GUIDE_STEPS.length - 1;
+  // Étapes des fonctions ouvertes seulement (lancement progressif, 05/11/2026).
+  const features = useLaunchFeatures();
+  const steps = useMemo(() => guideStepsFor(features), [features]);
+  const step = steps[Math.min(index, steps.length - 1)];
+  const isLast = index >= steps.length - 1;
   const running = reduceSetting === false && playing && !isLast;
 
   const goTo = useCallback(
     (next: number) => {
       progress.stopAnimation();
       progress.setValue(0);
-      setIndex(clampStep(next));
+      setIndex(clampStep(next, steps));
     },
-    [progress],
+    [progress, steps],
   );
 
   // Lecture automatique : la barre de l'étape se remplit, puis l'étape suivante s'affiche. En pause, la barre
@@ -431,11 +435,11 @@ export default function GuideScreen() {
     });
     animation.start(({ finished }) => {
       if (!finished) return;
-      const next = nextAutoplayStep(index);
+      const next = nextAutoplayStep(index, steps);
       if (next !== null) goTo(next);
     });
     return () => animation.stop();
-  }, [running, index, progress, goTo]);
+  }, [running, index, progress, goTo, steps]);
 
   const close = useCallback(() => {
     if (router.canGoBack()) router.back();
@@ -448,7 +452,7 @@ export default function GuideScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['bottom']} style={styles.container}>
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.progress}>
-          {GUIDE_STEPS.map((item, itemIndex) => (
+          {steps.map((item, itemIndex) => (
             <View key={item.id} style={[styles.progressSegment, { backgroundColor: theme.border }]}>
               <Animated.View
                 style={[
@@ -472,7 +476,7 @@ export default function GuideScreen() {
 
           <View style={styles.copy}>
             <ThemedText type="eyebrow">
-              Étape {index + 1} sur {GUIDE_STEPS.length}
+              Étape {index + 1} sur {steps.length}
             </ThemedText>
             <ThemedText type="subtitle" accessibilityRole="header">
               {step.title}

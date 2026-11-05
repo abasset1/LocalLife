@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { useLaunchFeatures, type LaunchFeatures } from "../features/launchFeatures";
 
 /** Durée d'affichage d'une étape en lecture automatique (ms). */
 export const GUIDE_STEP_DURATION_MS = 9000;
@@ -334,6 +335,8 @@ interface GuideStep {
     text: ReactNode;
     tips: string[];
     scene: () => ReactNode;
+    /** Étape montrée seulement si la fonction présentée est ouverte (lancement, 05/11/2026). */
+    available?: (features: LaunchFeatures) => boolean;
 }
 
 export const GUIDE_STEPS: GuideStep[] = [
@@ -371,6 +374,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     },
     {
         id: "couches",
+        available: (features) => features.places || features.foodTrucks,
         title: "Activités, lieux et food trucks",
         text: "Les boutons au-dessus de la carte changent ce qui est affiché : les activités datées, les lieux "
             + "(musées, monuments, équipements…) ou les food trucks présents aujourd'hui.",
@@ -398,6 +402,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     },
     {
         id: "contribuer",
+        available: (features) => features.premium || features.pro,
         title: "Propose une activité",
         text: "Tu organises un événement ? « Proposer une activité » dans le menu : titre, catégories, dates, "
             + "adresse, récurrence. Elle est relue par l'équipe avant d'apparaître sur la carte.",
@@ -414,6 +419,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     },
     {
         id: "offres",
+        available: (features) => features.premium || features.pro,
         title: "Choisis ton offre",
         text: "La carte reste gratuite pour tous. Premium élargit favoris, alertes et contributions, et permet de "
             + "suivre activités et lieux. Pro ouvre "
@@ -438,16 +444,18 @@ export const GUIDE_STEPS: GuideStep[] = [
  * préfère réduire les animations.
  */
 function GuidePage() {
+    const features = useLaunchFeatures();
+    const steps = useMemo(() => GUIDE_STEPS.filter((item) => !item.available || item.available(features)), [features]);
     const [index, setIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(() => !prefersReducedMotion());
     const [isHovered, setIsHovered] = useState(false);
-    const step = GUIDE_STEPS[index];
-    const isLast = index === GUIDE_STEPS.length - 1;
+    const step = steps[index] ?? steps[steps.length - 1];
+    const isLast = index === steps.length - 1;
     const isRunning = isPlaying && !isHovered && !isLast;
 
     const goTo = useCallback((next: number) => {
-        setIndex(Math.max(0, Math.min(GUIDE_STEPS.length - 1, next)));
-    }, []);
+        setIndex(Math.max(0, Math.min(steps.length - 1, next)));
+    }, [steps.length]);
 
     useEffect(() => {
         if (!isRunning) {
@@ -495,7 +503,7 @@ function GuidePage() {
                 onMouseLeave={() => setIsHovered(false)}
             >
                 <div className="guide-progress" aria-hidden="true">
-                    {GUIDE_STEPS.map((item, itemIndex) => (
+                    {steps.map((item, itemIndex) => (
                         <span className="guide-progress-segment" key={item.id}>
                             <span
                                 className={[
@@ -516,7 +524,7 @@ function GuidePage() {
                         <Scene />
                     </div>
                     <div className="guide-copy">
-                        <p className="guide-counter">Étape {index + 1} sur {GUIDE_STEPS.length}</p>
+                        <p className="guide-counter">Étape {index + 1} sur {steps.length}</p>
                         <h1 id="guide-step-title">{step.title}</h1>
                         <p className="guide-text">{step.text}</p>
                         {step.tips.length > 0 && (
@@ -546,7 +554,7 @@ function GuidePage() {
                         ← Précédent
                     </button>
                     <div className="guide-dots">
-                        {GUIDE_STEPS.map((item, itemIndex) => (
+                        {steps.map((item, itemIndex) => (
                             <button
                                 aria-current={itemIndex === index ? "step" : undefined}
                                 aria-label={`Étape ${itemIndex + 1} : ${item.title}`}

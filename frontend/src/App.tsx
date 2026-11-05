@@ -39,6 +39,7 @@ import FollowNewsPopup from "./components/news/FollowNewsPopup";
 import FeedbackModal from "./components/feedback/FeedbackModal";
 import PremiumOfferPopup from "./components/news/PremiumOfferPopup";
 import { useAccountAccess } from "./components/pro/useProAccess";
+import { useLaunchFeatures, type LaunchFeatures } from "./features/launchFeatures";
 import type {
     Activity,
     ActivityDetail,
@@ -77,6 +78,11 @@ const MAP_LAYERS: { value: MapLayer; label: string; title: string }[] = [
     { value: "places", label: "🏛 Lieux", title: "Afficher les lieux : musées, monuments, équipements…" },
     { value: "foodTrucks", label: "🚚 Food trucks", title: "Afficher les food trucks présents aujourd'hui" },
 ];
+
+/** Couche disponible au lancement (05/11/2026) : les activités toujours, lieux et food trucks une fois ouverts. */
+function isLayerAvailable(layer: MapLayer, features: LaunchFeatures): boolean {
+    return layer === "activities" || (layer === "places" ? features.places : features.foodTrucks);
+}
 
 function readMapLayer(): MapLayer {
     try {
@@ -148,6 +154,9 @@ function App() {
     const [currentUser, setCurrentUser] = useState(() => getPayload());
     /** Accès à l'espace professionnel (`hasProAccess` de `GET /api/v1/users/me`) : seul critère des entrées pro. */
     const { hasProAccess, canFollow } = useAccountAccess(currentUser !== null);
+    /** Fonctions ouvertes (lancement progressif, `GET /api/v1/features`) : le reste est masqué. */
+    const features = useLaunchFeatures();
+    const availableLayers = MAP_LAYERS.filter((layer) => isLayerAvailable(layer.value, features));
     /** Lieu publié géré par l'auteur qui propose l'activité (`hostPlaceId`), `null` sinon. */
     const [hostPlaceId, setHostPlaceId] = useState<number | null>(null);
     /** Lieux publiés gérés par le professionnel, proposés comme lieu hôte dans le formulaire. */
@@ -500,6 +509,10 @@ function App() {
     // Récupération des food trucks (LL-6009), isolée de celle des activités. Depuis ADR-0013 : présences du jour.
 
     useEffect(() => {
+        if (!features.foodTrucks) {
+            setFoodTrucks([]);
+            return;
+        }
         const abortController = new AbortController();
 
         async function loadFoodTrucks() {
@@ -517,7 +530,7 @@ function App() {
         void loadFoodTrucks();
 
         return () => abortController.abort();
-    }, []);
+    }, [features.foodTrucks]);
 
     /**
      * Activités de la liste hors recherche texte : seulement celles visibles sur la carte. Avec un rayon,
@@ -595,7 +608,8 @@ function App() {
     const mapActivities = isTextSearch ? searchActivities : activities;
     const panelActivities = isTextSearch ? searchActivities : listedActivities;
     // Une recherche texte ne renvoie que des activités : elles seules sont affichées tant qu'elle est active.
-    const activeLayer: MapLayer = isTextSearch ? "activities" : mapLayer;
+    // Couche mémorisée mais pas (ou plus) ouverte : retour aux activités.
+    const activeLayer: MapLayer = isTextSearch || !isLayerAvailable(mapLayer, features) ? "activities" : mapLayer;
     // Types de cuisine présents aujourd'hui : seuls eux sont proposés dans le filtre.
     const availableCuisines = CUISINE_TYPES.filter((cuisine) => foodTrucks.some((foodTruck) => foodTruck.cuisineType === cuisine.code));
     const shownFoodTrucks = selectedCuisine
@@ -1295,7 +1309,9 @@ function App() {
                             value={searchQuery}
                         />
                     </div>
-                    <FollowNewsBanner canFollow={canFollow} userId={currentUser?.userId ?? null} />
+                    {features.premium && (
+                        <FollowNewsBanner canFollow={canFollow} userId={currentUser?.userId ?? null} />
+                    )}
                     <SearchResultBanner
                         hasActiveFilters={selectedCategoriesKey !== "" || selectedDate !== NO_DATE_FILTER}
                         isLoadingActivities={isLoadingActivities}
@@ -1352,42 +1368,45 @@ function App() {
                             userPosition={userPosition}
                             radiusKm={activeRadiusKm}
                         />
-                        <div aria-label="Afficher sur la carte" className="explorer-layer-switch" role="group">
-                            {MAP_LAYERS.map((layer) => (
-                                <button
-                                    aria-pressed={activeLayer === layer.value}
-                                    className={activeLayer === layer.value
-                                        ? "explorer-places-toggle explorer-places-toggle-active"
-                                        : "explorer-places-toggle"}
-                                    disabled={isTextSearch && layer.value !== "activities"}
-                                    key={layer.value}
-                                    onClick={() => chooseMapLayer(layer.value)}
-                                    title={isTextSearch && layer.value !== "activities"
-                                        ? "Indisponible pendant une recherche"
-                                        : layer.title}
-                                    type="button"
-                                >
-                                    {layer.label}
-                                </button>
-                            ))}
-                            {activeLayer === "foodTrucks" && (
-                                <select
-                                    aria-label="Type de cuisine"
-                                    className="explorer-cuisine-filter"
-                                    onChange={(event) => setSelectedCuisine(event.target.value)}
-                                    value={selectedCuisine}
-                                >
-                                    <option value="">🍽️ Toutes les cuisines</option>
-                                    {/* Le type choisi reste proposé même s'il n'y a plus de food truck. */}
-                                    {CUISINE_TYPES.filter((cuisine) => cuisine.code === selectedCuisine
-                                        || availableCuisines.includes(cuisine)).map((cuisine) => (
-                                        <option key={cuisine.code} value={cuisine.code}>
-                                            {cuisine.emoji} {cuisine.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            )}
-                        </div>
+                        {/* Une seule couche ouverte (lancement) : pas de bascule à afficher. */}
+                        {availableLayers.length > 1 && (
+                            <div aria-label="Afficher sur la carte" className="explorer-layer-switch" role="group">
+                                {availableLayers.map((layer) => (
+                                    <button
+                                        aria-pressed={activeLayer === layer.value}
+                                        className={activeLayer === layer.value
+                                            ? "explorer-places-toggle explorer-places-toggle-active"
+                                            : "explorer-places-toggle"}
+                                        disabled={isTextSearch && layer.value !== "activities"}
+                                        key={layer.value}
+                                        onClick={() => chooseMapLayer(layer.value)}
+                                        title={isTextSearch && layer.value !== "activities"
+                                            ? "Indisponible pendant une recherche"
+                                            : layer.title}
+                                        type="button"
+                                    >
+                                        {layer.label}
+                                    </button>
+                                ))}
+                                {activeLayer === "foodTrucks" && (
+                                    <select
+                                        aria-label="Type de cuisine"
+                                        className="explorer-cuisine-filter"
+                                        onChange={(event) => setSelectedCuisine(event.target.value)}
+                                        value={selectedCuisine}
+                                    >
+                                        <option value="">🍽️ Toutes les cuisines</option>
+                                        {/* Le type choisi reste proposé même s'il n'y a plus de food truck. */}
+                                        {CUISINE_TYPES.filter((cuisine) => cuisine.code === selectedCuisine
+                                            || availableCuisines.includes(cuisine)).map((cuisine) => (
+                                            <option key={cuisine.code} value={cuisine.code}>
+                                                {cuisine.emoji} {cuisine.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+                        )}
                         {/*
                           Pendant une recherche texte, le bandeau sous la barre donne son état. Chargement,
                           erreur et absence de résultat sont exclusifs (spec P0-D). Sur téléphone, ces messages
@@ -1487,20 +1506,24 @@ function App() {
                 </div>
             </div>
 
-            <FollowNewsPopup
-                blocked={!arePreferencesApplied || needsOnboarding || wasOnboardingShown || isContributionModalOpen
-                    || isFeedbackOpen || detailActivity !== null}
-                canFollow={canFollow}
-                userId={currentUser?.userId ?? null}
-            />
+            {features.premium && (
+                <>
+                    <FollowNewsPopup
+                        blocked={!arePreferencesApplied || needsOnboarding || wasOnboardingShown
+                            || isContributionModalOpen || isFeedbackOpen || detailActivity !== null}
+                        canFollow={canFollow}
+                        userId={currentUser?.userId ?? null}
+                    />
 
-            <PremiumOfferPopup
-                blocked={!arePreferencesApplied || needsOnboarding || wasOnboardingShown || isContributionModalOpen
-                    || isFeedbackOpen || detailActivity !== null}
-                canFollow={canFollow}
-                loggedInAt={currentUser?.iat}
-                userId={currentUser?.userId ?? null}
-            />
+                    <PremiumOfferPopup
+                        blocked={!arePreferencesApplied || needsOnboarding || wasOnboardingShown
+                            || isContributionModalOpen || isFeedbackOpen || detailActivity !== null}
+                        canFollow={canFollow}
+                        loggedInAt={currentUser?.iat}
+                        userId={currentUser?.userId ?? null}
+                    />
+                </>
+            )}
 
             {needsOnboarding && currentUser && (
                 <OnboardingModal

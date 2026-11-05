@@ -1,3 +1,5 @@
+import { ALL_OPEN, hasOpenOffer, type LaunchFeatures } from '@/features/launch/launchFeatures';
+
 /**
  * Contenu du guide de l'application (écran `/guide`), même parcours que le guide du site web
  * (`frontend/src/pages/GuidePage.tsx`), adapté au mobile. Sans dépendance à React Native pour rester
@@ -33,6 +35,8 @@ export type GuideScene =
 
 export interface GuideStep {
   id: string;
+  /** Étape montrée seulement si la fonction présentée est ouverte (lancement progressif, 05/11/2026). */
+  available?: (features: LaunchFeatures) => boolean;
   title: string;
   text: string;
   tips: string[];
@@ -97,6 +101,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'couches',
+    available: (features) => features.places || features.foodTrucks,
     title: 'Activités, lieux et food trucks',
     text:
       'Les boutons « Lieux » et « Food trucks » remplacent les activités sur la carte par les lieux à visiter ' +
@@ -150,6 +155,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'contribuer',
+    available: (features) => hasOpenOffer(features),
     title: 'Proposez une activité',
     text:
       'Vous organisez un événement ? « Proposer une activité » dans le menu : titre, catégories, dates, ' +
@@ -176,6 +182,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'offres',
+    available: (features) => hasOpenOffer(features),
     title: 'Choisissez votre offre',
     text:
       'La carte reste gratuite pour tous. Premium élargit favoris, alertes et contributions, et permet de suivre ' +
@@ -202,12 +209,17 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
 ];
 
+/** Étapes du guide pour les fonctions ouvertes. */
+export function guideStepsFor(features: LaunchFeatures = ALL_OPEN): readonly GuideStep[] {
+  return GUIDE_STEPS.filter((step) => !step.available || step.available(features));
+}
+
 /** Étape suivante ou précédente, bornée au guide. */
-export function clampStep(index: number): number {
-  return Math.max(0, Math.min(GUIDE_STEPS.length - 1, index));
+export function clampStep(index: number, steps: readonly GuideStep[] = GUIDE_STEPS): number {
+  return Math.max(0, Math.min(steps.length - 1, index));
 }
 
 /** Prochaine étape en lecture automatique, ou `null` à la dernière (le guide s'y arrête). */
-export function nextAutoplayStep(index: number): number | null {
-  return index >= GUIDE_STEPS.length - 1 ? null : index + 1;
+export function nextAutoplayStep(index: number, steps: readonly GuideStep[] = GUIDE_STEPS): number | null {
+  return index >= steps.length - 1 ? null : index + 1;
 }

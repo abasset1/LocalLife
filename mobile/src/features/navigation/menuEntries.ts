@@ -1,3 +1,5 @@
+import { ALL_OPEN, hasOpenOffer, type LaunchFeatures } from '@/features/launch/launchFeatures';
+
 /**
  * Rubriques du menu rétractable (FRONT-REV-02, point C), sans dépendance à React Native pour rester
  * testables. Toutes les rubriques des anciens onglets et de l'écran « Compte » y sont, rien n'est retiré.
@@ -13,6 +15,17 @@ export interface MenuEntry {
   pro?: boolean;
   /** Réservée aux anciens comptes Pro qui possèdent encore des food trucks (consultation, archivage). */
   formerProOwner?: boolean;
+  /**
+   * Fonctions à ouvrir pour afficher la rubrique (lancement progressif, 05/11/2026) ; `offer` : Premium ou Pro.
+   * Toutes doivent être ouvertes.
+   */
+  requires?: readonly Requirement[];
+}
+
+type Requirement = keyof LaunchFeatures | 'offer';
+
+function isMet(requirement: Requirement, features: LaunchFeatures): boolean {
+  return requirement === 'offer' ? hasOpenOffer(features) : features[requirement];
 }
 
 export interface MenuSection {
@@ -32,20 +45,26 @@ export const MENU_SECTIONS: readonly MenuSection[] = [
   },
   {
     title: 'Communauté',
-    entries: [{ label: 'Proposer une activité', href: '/contribution', icon: 'add', main: true }],
+    entries: [{ label: 'Proposer une activité', href: '/contribution', icon: 'add', main: true, requires: ['offer'] }],
   },
   {
     title: 'Mon espace',
     authenticated: true,
     entries: [
       { label: 'Mes favoris', href: '/favoris', icon: 'heart' },
-      { label: 'Activités et lieux suivis', href: '/suivis', icon: 'bell' },
+      { label: 'Activités et lieux suivis', href: '/suivis', icon: 'bell', requires: ['premium'] },
       { label: 'Mes contributions', href: '/contributions', icon: 'edit' },
       { label: 'Mes alertes', href: '/alertes', icon: 'bell' },
       { label: 'Paramètres de recherche', href: '/parametres', icon: 'settings' },
       { label: 'Espace professionnel', href: '/pro', icon: 'pro', pro: true },
-      { label: 'Mes food trucks', href: '/pro/foodtrucks', icon: 'pro', formerProOwner: true },
-      { label: 'Mon abonnement', href: '/abonnement', icon: 'star' },
+      {
+        label: 'Mes food trucks',
+        href: '/pro/foodtrucks',
+        icon: 'pro',
+        formerProOwner: true,
+        requires: ['pro', 'foodTrucks'],
+      },
+      { label: 'Mon abonnement', href: '/abonnement', icon: 'star', requires: ['offer'] },
     ],
   },
   {
@@ -55,7 +74,7 @@ export const MENU_SECTIONS: readonly MenuSection[] = [
   {
     title: 'Aide',
     entries: [
-      { label: 'Nouveautés', href: '/nouveautes', icon: 'star' },
+      { label: 'Nouveautés', href: '/nouveautes', icon: 'star', requires: ['premium'] },
       { label: "Guide de l'application", href: '/guide', icon: 'help' },
       { label: 'Une idée, un problème ?', href: '/retours', icon: 'feedback' },
     ],
@@ -64,21 +83,25 @@ export const MENU_SECTIONS: readonly MenuSection[] = [
 
 /**
  * Rubriques visibles : « Mon espace » une fois connecté, l'espace professionnel avec un accès pro ; sans accès pro,
- * « Mes food trucks » pour qui en possède encore (`ownsFoodTrucks`).
+ * « Mes food trucks » pour qui en possède encore (`ownsFoodTrucks`). Les rubriques d'une fonction pas encore
+ * ouverte (`features`, tout ouvert par défaut) sont masquées ; une section vidée disparaît.
  */
 export function visibleSections(access: {
   authenticated: boolean;
   proAccess: boolean;
   ownsFoodTrucks?: boolean;
+  features?: LaunchFeatures;
 }): MenuSection[] {
+  const features = access.features ?? ALL_OPEN;
   return MENU_SECTIONS.filter((section) => !section.authenticated || access.authenticated).map((section) => ({
     ...section,
     entries: section.entries.filter(
       (entry) =>
         (!entry.pro || access.proAccess) &&
-        (!entry.formerProOwner || (!access.proAccess && access.ownsFoodTrucks === true)),
+        (!entry.formerProOwner || (!access.proAccess && access.ownsFoodTrucks === true)) &&
+        (entry.requires ?? []).every((requirement) => isMet(requirement, features)),
     ),
-  }));
+  })).filter((section) => section.entries.length > 0);
 }
 
 /** Rubrique de l'écran affiché (`usePathname` d'expo-router : « / », « /liste »…). */

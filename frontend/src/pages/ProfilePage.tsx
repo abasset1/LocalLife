@@ -13,6 +13,7 @@ import MyDataCard from "../components/profile/MyDataCard";
 import { Notice, ProfileCard } from "../components/profile/ProfileUi";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
 import SubscriptionCard from "../components/subscription/SubscriptionCard";
+import { useLaunchFeatures } from "../features/launchFeatures";
 import { roleLabel } from "../auth/roles";
 import type { UserLimits } from "../components/explorer/types";
 
@@ -63,6 +64,8 @@ function ProfilePage() {
     const navigate = useNavigate();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [searchParams] = useSearchParams();
+    /** Offres et suivi masqués tant qu'ils ne sont pas ouverts (lancement, 05/11/2026). */
+    const features = useLaunchFeatures();
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -124,7 +127,7 @@ function ProfilePage() {
     const [ownsFoodTrucks, setOwnsFoodTrucks] = useState(false);
     const hasProAccess = profile?.hasProAccess;
     useEffect(() => {
-        if (hasProAccess !== false) {
+        if (hasProAccess !== false || !features.pro || !features.foodTrucks) {
             setOwnsFoodTrucks(false);
             return;
         }
@@ -137,7 +140,7 @@ function ProfilePage() {
         return () => {
             isCurrent = false;
         };
-    }, [hasProAccess]);
+    }, [hasProAccess, features.pro, features.foodTrucks]);
 
     async function handleSubmit(event: FormEvent) {
         event.preventDefault();
@@ -285,13 +288,14 @@ function ProfilePage() {
                                     </form>
                                 </ProfileCard>
 
-                                {searchParams.get("premium") === "1" && !profile.canContribute && (
+                                {(features.premium || features.pro) && searchParams.get("premium") === "1"
+                                    && !profile.canContribute && (
                                     <Notice kind="info">
                                         Proposer une activité est réservé aux offres Premium et Pro. Choisis une offre
                                         ci-dessous pour contribuer.
                                     </Notice>
                                 )}
-                                <SubscriptionCard />
+                                {(features.premium || features.pro) && <SubscriptionCard />}
 
                                 <PasswordCard hasPassword={profile.hasPassword} />
 
@@ -318,7 +322,9 @@ function ProfilePage() {
                                     canUseKeywords={profile.limits?.alertKeywords ?? null}
                                     maxAlerts={profile.limits?.maxAlerts ?? null}
                                 />
-                                <FollowedItemsCard canFollow={profile.limits?.canFollow ?? false} />
+                                {features.premium && (
+                                    <FollowedItemsCard canFollow={profile.limits?.canFollow ?? false} />
+                                )}
                                 <ProfileCard
                                     icon="🎓"
                                     subtitle="Revois en quelques étapes animées tout ce que permet LocalLife."

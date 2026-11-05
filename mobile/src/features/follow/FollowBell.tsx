@@ -7,6 +7,7 @@ import { useAuth } from '@/auth';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useLaunchFeatures } from '@/features/launch';
 
 import { useFollows } from './FollowsProvider';
 
@@ -15,17 +16,20 @@ import { useFollows } from './FollowsProvider';
  * activités, adresse…). Réservée aux offres Premium et Pro : un compte gratuit se voit proposer les offres ; un
  * visiteur, la connexion.
  */
-export function FollowBell({
-  type,
-  id,
-  title,
-  city = null,
-}: {
+interface FollowBellProps {
   type: FollowTargetType;
   id: number;
   title: string;
   city?: string | null;
-}) {
+}
+
+/** Masquée tant que Premium n'est pas ouvert (lancement progressif, 05/11/2026). */
+export function FollowBell(props: FollowBellProps) {
+  const { premium } = useLaunchFeatures();
+  return premium ? <OpenFollowBell {...props} /> : null;
+}
+
+function OpenFollowBell({ type, id, title, city = null }: FollowBellProps) {
   const theme = useTheme();
   const router = useRouter();
   const { state } = useAuth();

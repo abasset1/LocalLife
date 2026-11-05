@@ -7,6 +7,8 @@ import com.locallife.backend.auth.api.UserResponse;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.activity.application.ContributionAccessPolicy;
+import com.locallife.backend.launch.Feature;
+import com.locallife.backend.launch.LaunchFeatures;
 import com.locallife.backend.pro.application.ProAccessPolicy;
 import com.locallife.backend.subscription.application.PlanLimits;
 import com.locallife.backend.user.application.AccountActionException;
@@ -20,6 +22,7 @@ import java.util.NoSuchElementException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,17 +53,19 @@ public class UserController {
     private final ProAccessPolicy proAccessPolicy;
     private final PlanLimits planLimits;
     private final DataExportService dataExportService;
+    private final LaunchFeatures launchFeatures;
 
     public UserController(
             UserService userService, AccountSelfService accountSelfService,
             ContributionAccessPolicy contributionAccessPolicy, ProAccessPolicy proAccessPolicy,
-            PlanLimits planLimits, DataExportService dataExportService) {
+            PlanLimits planLimits, DataExportService dataExportService, LaunchFeatures launchFeatures) {
         this.userService = userService;
         this.accountSelfService = accountSelfService;
         this.contributionAccessPolicy = contributionAccessPolicy;
         this.proAccessPolicy = proAccessPolicy;
         this.planLimits = planLimits;
         this.dataExportService = dataExportService;
+        this.launchFeatures = launchFeatures;
     }
 
     /**
@@ -180,7 +185,16 @@ public class UserController {
     private CurrentUserResponse current(User user) {
         return CurrentUserResponse.from(user, accountSelfService.pendingEmail(user.id()).orElse(null),
                 AccountSelfService.hasPassword(user), contributionAccessPolicy.canContribute(user.id()),
-                proAccessPolicy.hasProAccess(user.id()), planLimits.limits(user.id()));
+                hasProAccess(user), planLimits.limits(user.id()));
+    }
+
+    /**
+     * Accès pro affiché : faux tant que l'offre Pro n'est pas ouverte (lancement, 05/11/2026), sauf pour l'équipe.
+     * Le droit lui-même ({@link ProAccessPolicy}) n'est pas touché : aucun contenu pro n'est retiré.
+     */
+    private boolean hasProAccess(User user) {
+        return proAccessPolicy.hasProAccess(user.id())
+                && launchFeatures.isAvailable(Feature.PRO, SecurityContextHolder.getContext().getAuthentication());
     }
 
     private ResponseEntity<Object> errorResponse(HttpStatus status, String message, HttpServletRequest request) {

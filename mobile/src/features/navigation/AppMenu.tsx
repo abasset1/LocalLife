@@ -5,6 +5,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth';
+import { useLaunchFeatures } from '@/features/launch';
 import { useCurrentAccount, useOwnsFoodTrucks } from '@/features/pro/useProAccess';
 import { BrandMark } from '@/components/brand-mark';
 import { ThemedText } from '@/components/themed-text';
@@ -45,7 +46,11 @@ export function MenuButton({ floating = false }: { /** Posé sur la carte : past
   // garde l'accès à ses food trucks (consultation, archivage).
   const account = useCurrentAccount(open && authenticated);
   const proAccess = account?.hasProAccess === true;
-  const ownsFoodTrucks = useOwnsFoodTrucks(open && account !== null && !proAccess);
+  const features = useLaunchFeatures();
+  // Espace pro et food trucks fermés (lancement) : rien à demander au serveur.
+  const ownsFoodTrucks = useOwnsFoodTrucks(
+    open && account !== null && !proAccess && features.pro && features.foodTrucks,
+  );
 
   function go(entry: MenuEntry) {
     setOpen(false);
@@ -95,7 +100,7 @@ export function MenuButton({ floating = false }: { /** Posé sur la carte : past
               </Pressable>
             </View>
             <ScrollView contentContainerStyle={styles.sections}>
-              {visibleSections({ authenticated, proAccess, ownsFoodTrucks }).map((section) => (
+              {visibleSections({ authenticated, proAccess, ownsFoodTrucks, features }).map((section) => (
                 <View key={section.title} style={styles.section}>
                   <ThemedText type="eyebrow">{section.title}</ThemedText>
                   {section.entries.map((entry) => {
