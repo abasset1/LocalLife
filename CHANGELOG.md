@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Textes légaux rédigés : mentions légales, conditions d'utilisation, politique de confidentialité
+- Les pages `/mentions-legales`, `/conditions` et `/confidentialite` (ouvertes aussi depuis l'application) affichent leur texte au lieu de « Document en cours de rédaction ». Rédigés d'après ce que fait le Service : données réellement traitées, durées de conservation de `RetentionService`, sous-traitants (Hetzner, Backblaze, e-mails, Expo, Google), fonds de carte OpenStreetMap, licences des sources (Licence Ouverte, OpenAgenda, ODbL), information des organisateurs importés (RGPD art. 14), offres Premium et Pro gratuites, âge minimum de 15 ans.
+- **À compléter par l'éditeur** : identité, adresse, immatriculation, contacts, directeur de la publication, adresse du site, prestataire d'e-mails et région des sauvegardes, regroupés dans `LEGAL_EDITOR` (`frontend/src/legal/legalContent.ts`) et surlignés en jaune sur le site tant qu'ils manquent. Textes à faire relire par un avocat.
+- **Version des textes** : `2026-11-05` (site et `LegalTerms.VERSION`) ; les nouvelles inscriptions enregistrent cette version.
+
 ### Application : formulaire « Une idée, un problème ? » et popup Premium, comme sur le site
 - **« Une idée, un problème ? »** (rubrique Aide du menu, utilisateur connecté) : type de message (idée ou problème) et texte de 5 à 2000 caractères, envoyés à `POST /api/v1/feedback` comme depuis le site. Le message indique qu'il vient de l'application et le système du téléphone ; il apparaît dans la section « Retours » de l'administration et les administrateurs sont prévenus par e-mail.
 - **Popup Premium** sur la carte, pour les comptes gratuits, à chaque lancement de l'application pendant 7 jours après chaque connexion. « Plus tard » la ferme jusqu'au lancement suivant, « Ne plus me proposer » l'arrête pour ce compte sur ce téléphone, « Passer à Premium » active l'offre tout de suite (gratuite pour le moment). Elle laisse passer d'abord la popup de nouveauté « Suivre » et l'accueil de première connexion.
