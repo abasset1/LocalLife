@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Application : carte comme la page Explorer du site (pastilles, marqueurs, liste de la zone)
+- **Appui sur une pastille** (groupe d'activités) : l'aperçu montre ses activités une à une, de la plus proche à la plus lointaine dans le temps, avec « ‹ 2 / 4 › » pour passer de l'une à l'autre et « Voir la fiche ». Une pastille de plus de 10 activités situées à des endroits différents cadre plutôt la carte sur son groupe ; au même endroit (à 100 m près), ou quand le zoom ne peut plus les séparer, l'aperçu s'ouvre quel que soit leur nombre.
+- **Appui sur un marqueur seul** : le même aperçu, avec les autres activités au même endroit s'il y en a.
+- **Liste de la zone liée à la carte** : le bouton liste de la carte affiche le nombre d'activités de la zone et ouvre leur liste par date (« 37 activités dans cette zone »), mise à jour à chaque déplacement ou zoom. Un appui sur une ligne ouvre l'aperçu. « Recherche autour d'un lieu » ouvre la rubrique Liste.
+- **Activité mise en évidence** : celle de l'aperçu (touchée, choisie dans la liste ou atteinte avec « ‹ › ») apparaît en point corail agrandi, même quand elle est regroupée dans une pastille.
+- Le guide de l'application est mis à jour. La position de la carte dans l'adresse (site) n'a pas d'équivalent dans l'application. Aucune dépendance native ajoutée.
+
 ### Application : formulaire « Une idée, un problème ? » et popup Premium, comme sur le site
 - **« Une idée, un problème ? »** (rubrique Aide du menu, utilisateur connecté) : type de message (idée ou problème) et texte de 5 à 2000 caractères, envoyés à `POST /api/v1/feedback` comme depuis le site. Le message indique qu'il vient de l'application et le système du téléphone ; il apparaît dans la section « Retours » de l'administration et les administrateurs sont prévenus par e-mail.
 - **Popup Premium** sur la carte, pour les comptes gratuits, à chaque lancement de l'application pendant 7 jours après chaque connexion. « Plus tard » la ferme jusqu'au lancement suivant, « Ne plus me proposer » l'arrête pour ce compte sur ce téléphone, « Passer à Premium » active l'offre tout de suite (gratuite pour le moment). Elle laisse passer d'abord la popup de nouveauté « Suivre » et l'accueil de première connexion.

@@ -6,26 +6,32 @@ import { Radius, Shadows, Spacing } from '@/constants/theme';
 import { formatDateRange } from '@/features/activity/format';
 import { useTheme } from '@/hooks/use-theme';
 
+import { zoneCountLabel } from './activityGroups';
+
 /**
- * Activités d'un groupe de marqueurs au même endroit (même adresse, ou position approximative au centre
- * d'une commune) : zoomer ne les séparerait jamais. Comme le site web, qui les écarte en éventail, la
- * carte les liste ; un appui ouvre l'aperçu de l'activité, comme son marqueur.
+ * Liste des activités de la zone affichée, liée à la carte comme sur le site web (page Explorer) : en tête le
+ * nombre d'activités de la zone, mis à jour à chaque déplacement ou zoom ; un appui ouvre l'aperçu de l'activité
+ * et met son point en évidence sur la carte, même quand il est regroupé avec ses voisins. « Recherche autour d'un
+ * lieu » ouvre la rubrique Liste (recherche par rayon).
  */
-export function ActivityGroupPanel({
+export function ZoneActivityList({
   activities,
   onSelect,
   onClose,
+  onOpenFullList,
 }: {
+  /** Activités de la zone, déjà triées. */
   activities: readonly Activity[];
   onSelect: (activity: Activity) => void;
   onClose: () => void;
+  onOpenFullList: () => void;
 }) {
   const theme = useTheme();
   return (
     <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
       <View style={styles.header}>
         <ThemedText type="heading" style={styles.title}>
-          {activities.length} activités à cet endroit
+          {zoneCountLabel(activities.length)}
         </ThemedText>
         <Pressable
           accessibilityRole="button"
@@ -61,13 +67,18 @@ export function ActivityGroupPanel({
           );
         }}
       />
+      <Pressable accessibilityRole="link" hitSlop={6} onPress={onOpenFullList} style={styles.fullList}>
+        <ThemedText type="smallBold" themeColor="primary">
+          Recherche autour d’un lieu ›
+        </ThemedText>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   panel: {
-    maxHeight: 320,
+    maxHeight: 360,
     marginBottom: Spacing.two,
     padding: Spacing.three,
     borderRadius: Radius.xl,
@@ -85,6 +96,11 @@ const styles = StyleSheet.create({
     minWidth: 44,
     minHeight: 44,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullList: {
+    alignSelf: 'flex-end',
+    minHeight: 44,
     justifyContent: 'center',
   },
   item: {
