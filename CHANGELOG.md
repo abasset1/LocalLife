@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Textes légaux rédigés : mentions légales, conditions d'utilisation, politique de confidentialité
+- Les pages `/mentions-legales`, `/conditions` et `/confidentialite` (ouvertes aussi depuis l'application) affichent leur texte au lieu de « Document en cours de rédaction ». Rédigés d'après ce que fait le Service : données réellement traitées, durées de conservation de `RetentionService`, sous-traitants (Hetzner, Backblaze, e-mails, Expo, Google), fonds de carte OpenStreetMap, licences des sources (Licence Ouverte, OpenAgenda, ODbL), information des organisateurs importés (RGPD art. 14), offres Premium et Pro gratuites, âge minimum de 15 ans.
+- **À compléter par l'éditeur** : identité, adresse, immatriculation, contacts, directeur de la publication, adresse du site, prestataire d'e-mails et région des sauvegardes, regroupés dans `LEGAL_EDITOR` (`frontend/src/legal/legalContent.ts`) et surlignés en jaune sur le site tant qu'ils manquent. Textes à faire relire par un avocat.
+- **Version des textes** : `2026-11-05` (site et `LegalTerms.VERSION`) ; les nouvelles inscriptions enregistrent cette version.
 ### Application : carte comme la page Explorer du site (pastilles, marqueurs, liste de la zone)
 - **Appui sur une pastille** (groupe d'activités) : l'aperçu montre ses activités une à une, de la plus proche à la plus lointaine dans le temps, avec « ‹ 2 / 4 › » pour passer de l'une à l'autre et « Voir la fiche ». Une pastille de plus de 10 activités situées à des endroits différents cadre plutôt la carte sur son groupe ; au même endroit (à 100 m près), ou quand le zoom ne peut plus les séparer, l'aperçu s'ouvre quel que soit leur nombre.
 - **Appui sur un marqueur seul** : le même aperçu, avec les autres activités au même endroit s'il y en a.

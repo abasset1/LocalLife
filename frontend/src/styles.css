@@ -4110,7 +4110,25 @@ body {
 }
 
 .legal-page {
-    max-width: 480px;
+    max-width: 760px;
+    line-height: 1.55;
+}
+
+.legal-section h2 {
+    margin: 1.4rem 0 0.4rem;
+    font-size: 1.05rem;
+}
+
+.legal-section ul {
+    margin: 0.3rem 0 0.6rem;
+    padding-left: 1.2rem;
+}
+
+.legal-placeholder {
+    background: #fef3c7;
+    color: #92400e;
+    border-radius: 3px;
+    padding: 0 0.15rem;
 }
 
 .legal-version {
