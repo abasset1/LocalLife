@@ -133,6 +133,8 @@ public class SecurityConfig {
         "/api/v1/geocoding/city",
         "/api/v1/geocoding/city-suggestions",
         "/api/v1/auth/username-availability",
+        // Fonctions ouvertes au lancement (05/11/2026), lues au démarrage par le site et l'application.
+        "/api/v1/features",
         // Documentation de l'API et sonde de santé (inchangées).
         "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**", "/actuator/health",
     };

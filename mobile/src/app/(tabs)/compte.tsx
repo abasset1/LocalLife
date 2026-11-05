@@ -16,6 +16,7 @@ import { adminWebUrl, shouldOfferAdminLink } from '@/features/admin/adminLink';
 import { ConsentCheckbox } from '@/features/legal/ConsentCheckbox';
 import { LegalLinks } from '@/features/legal/LegalLinks';
 import { MenuButton } from '@/features/navigation/AppMenu';
+import { hasOpenOffer, useLaunchFeatures } from '@/features/launch';
 import { useOwnsFoodTrucks } from '@/features/pro/useProAccess';
 import { apiUrl } from '@/config/env';
 import { TextField } from '@/components/text-field';
@@ -85,7 +86,9 @@ export default function CompteScreen() {
   const accountKnown = serverAccount !== null && serverAccount.userId === authenticatedUserId;
   const hasProAccess = accountKnown && serverAccount.hasProAccess;
   // Ancien compte Pro : ses food trucks restent consultables et archivables.
-  const ownsFoodTrucks = useOwnsFoodTrucks(accountKnown && !hasProAccess);
+  // Lancement progressif (05/11/2026) : suivi, abonnement et espace pro masqués tant qu'ils sont fermés.
+  const features = useLaunchFeatures();
+  const ownsFoodTrucks = useOwnsFoodTrucks(accountKnown && !hasProAccess && features.pro && features.foodTrucks);
 
   useEffect(() => {
     if (authenticatedUserId === null) return;
@@ -264,12 +267,14 @@ export default function CompteScreen() {
                 description="Les activités que vous aimez"
                 onPress={() => router.push('/favoris')}
               />
-              <MenuRow
-                icon={{ ios: 'bell.badge', android: 'notifications_active', web: 'notifications_active' }}
-                label="Activités et lieux suivis"
-                description="Être prévenu de leurs mises à jour (Premium et Pro)"
-                onPress={() => router.push('/suivis')}
-              />
+              {features.premium && (
+                <MenuRow
+                  icon={{ ios: 'bell.badge', android: 'notifications_active', web: 'notifications_active' }}
+                  label="Activités et lieux suivis"
+                  description="Être prévenu de leurs mises à jour (Premium et Pro)"
+                  onPress={() => router.push('/suivis')}
+                />
+              )}
               <MenuRow
                 icon={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }}
                 label="Paramètres de recherche"
@@ -294,12 +299,14 @@ export default function CompteScreen() {
                 description="Changer de mot de passe, supprimer le compte"
                 onPress={() => router.push('/securite')}
               />
-              <MenuRow
-                icon={{ ios: 'star', android: 'star', web: 'star' }}
-                label="Mon abonnement"
-                description="Gratuit, Premium ou Pro"
-                onPress={() => router.push('/abonnement')}
-              />
+              {hasOpenOffer(features) && (
+                <MenuRow
+                  icon={{ ios: 'star', android: 'star', web: 'star' }}
+                  label="Mon abonnement"
+                  description="Gratuit, Premium ou Pro"
+                  onPress={() => router.push('/abonnement')}
+                />
+              )}
               <MenuRow
                 icon={{ ios: 'questionmark.circle', android: 'help', web: 'help' }}
                 label="Guide de l'application"
@@ -324,13 +331,15 @@ export default function CompteScreen() {
                     onPress={() => router.push('/pro/foodtrucks')}
                   />
                 )}
-                <MenuRow
-                  icon={{ ios: 'briefcase', android: 'storefront', web: 'storefront' }}
-                  label="Vous êtes professionnel ?"
-                  description="Gérez votre lieu ou votre food truck avec l’offre Pro"
-                  onPress={() => router.push('/abonnement')}
-                  last={!shouldOfferAdminLink(serverRole)}
-                />
+                {features.pro && (
+                  <MenuRow
+                    icon={{ ios: 'briefcase', android: 'storefront', web: 'storefront' }}
+                    label="Vous êtes professionnel ?"
+                    description="Gérez votre lieu ou votre food truck avec l’offre Pro"
+                    onPress={() => router.push('/abonnement')}
+                    last={!shouldOfferAdminLink(serverRole)}
+                  />
+                )}
                 </>
               )}
               {shouldOfferAdminLink(serverRole) && (

@@ -47,6 +47,7 @@ import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData, type RadiusSearch } from './useMapData';
 import { type MapLayer, loadMapLayer, saveMapLayer } from './placesPreference';
 import { usePlaces } from './usePlaces';
+import { useLaunchFeatures } from '@/features/launch';
 import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
 import { ZoneActivityList } from './ZoneActivityList';
@@ -98,6 +99,8 @@ const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
  * d'un élément, états chargement / erreur / aucun résultat.
  */
 export default function MapScreen() {
+  // Lancement progressif (05/11/2026) : lieux, food trucks et Premium n'apparaissent qu'une fois ouverts.
+  const features = useLaunchFeatures();
   const theme = useTheme();
   const mapRef = useRef<MapView>(null);
 
@@ -228,6 +231,7 @@ export default function MapScreen() {
     categoryCodes,
     radiusSearch,
     period,
+    features.foodTrucks,
   );
   // Activité demandée par « Voir sur la carte » : son aperçu s'ouvre dès qu'elle est chargée.
   useEffect(() => {
@@ -259,9 +263,14 @@ export default function MapScreen() {
     },
     [mapLayer, closePanels],
   );
-  const showActivities = mapLayer === 'activities';
-  const showPlaces = mapLayer === 'places';
-  const showFoodTrucks = mapLayer === 'foodTrucks';
+  // Contenu mémorisé mais pas (ou plus) ouvert : retour aux activités, sans effacer le choix enregistré.
+  const shownLayer: MapLayer =
+    (mapLayer === 'places' && !features.places) || (mapLayer === 'foodTrucks' && !features.foodTrucks)
+      ? 'activities'
+      : mapLayer;
+  const showActivities = shownLayer === 'activities';
+  const showPlaces = shownLayer === 'places';
+  const showFoodTrucks = shownLayer === 'foodTrucks';
   const places = usePlaces(region, showPlaces);
   const location = useUserLocation();
 
@@ -492,9 +501,13 @@ export default function MapScreen() {
               }}
             />
           )}
-          {!selection && <FollowNewsBanner />}
-          <FollowNewsPopup />
-          <PremiumOfferPopup />
+          {features.premium && (
+            <>
+              {!selection && <FollowNewsBanner />}
+              <FollowNewsPopup />
+              <PremiumOfferPopup />
+            </>
+          )}
           {!place && !loading && !error && (
             <View
               accessibilityLiveRegion="polite"
@@ -666,20 +679,24 @@ export default function MapScreen() {
                   setCategoryPanelOpen(!open);
                 }}
               />
-              <MapControl
-                icon={{ ios: 'building.columns', android: 'account_balance', web: 'account_balance' }}
-                accessibilityLabel={showPlaces ? 'Revenir aux activités' : 'Afficher les lieux à la place des activités'}
-                active={showPlaces}
-                onPress={() => toggleMapLayer('places')}
-              />
-              <MapControl
-                icon={{ ios: 'truck.box', android: 'local_shipping', web: 'local_shipping' }}
-                accessibilityLabel={
-                  showFoodTrucks ? 'Revenir aux activités' : 'Afficher les food trucks à la place des activités'
-                }
-                active={showFoodTrucks}
-                onPress={() => toggleMapLayer('foodTrucks')}
-              />
+              {features.places && (
+                <MapControl
+                  icon={{ ios: 'building.columns', android: 'account_balance', web: 'account_balance' }}
+                  accessibilityLabel={showPlaces ? 'Revenir aux activités' : 'Afficher les lieux à la place des activités'}
+                  active={showPlaces}
+                  onPress={() => toggleMapLayer('places')}
+                />
+              )}
+              {features.foodTrucks && (
+                <MapControl
+                  icon={{ ios: 'truck.box', android: 'local_shipping', web: 'local_shipping' }}
+                  accessibilityLabel={
+                    showFoodTrucks ? 'Revenir aux activités' : 'Afficher les food trucks à la place des activités'
+                  }
+                  active={showFoodTrucks}
+                  onPress={() => toggleMapLayer('foodTrucks')}
+                />
+              )}
               <MapControl
                 icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }}
                 accessibilityLabel={

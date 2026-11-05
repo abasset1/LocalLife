@@ -26,6 +26,8 @@ export { EXPORT_FILE_NAME, changePassword, deleteAccount, exportMyData, getCurre
 export type { AccountLimits, CurrentAccount } from './account';
 export { createAlert, deleteAlert, listAlerts, updateAlertChannels, updateAlertKeywords } from './alerts';
 export { listCategories } from './categories';
+export { getLaunchFeatures } from './features';
+export type { LaunchFeaturesResponse } from './features';
 export { follow, listFollows, unfollow } from './follows';
 export type { FollowStatus, FollowTargetType, FollowedItem } from './follows';
 export { getFoodTruck, listFoodTrucks } from './foodTrucks';

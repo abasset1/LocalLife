@@ -6,6 +6,7 @@ import PlaceActivities from "./PlaceActivities";
 import PlaceFoodTrucks from "./PlaceFoodTrucks";
 import { placeTypeLabel } from "./placeTypes";
 import FollowBell from "../follow/FollowBell";
+import { useLaunchFeatures } from "../../features/launchFeatures";
 import type { Place } from "./types";
 
 const NO_CITY = "Commune non renseignée";
@@ -21,6 +22,7 @@ function PlaceList({ places, onSelectActivity, hasProAccess = false }: {
     /** `hasProAccess` de `GET /api/v1/users/me` : affiche « Demander la gestion de ce lieu ». */
     hasProAccess?: boolean;
 }) {
+    const features = useLaunchFeatures();
     const [type, setType] = useState("");
     const [openId, setOpenId] = useState<number | null>(null);
     // Espace professionnel (ADR-0012) : le lien n'est qu'un raccourci, le backend vérifie le droit professionnel.
@@ -82,7 +84,9 @@ function PlaceList({ places, onSelectActivity, hasProAccess = false }: {
                                     </button>
                                     {open && (
                                         <div className="place-list-details">
-                                            <FollowBell city={place.city} id={place.id} title={place.name} type="place" />
+                                            {features.premium && (
+                                                <FollowBell city={place.city} id={place.id} title={place.name} type="place" />
+                                            )}
                                             {place.address && <p>{place.address}</p>}
                                             {place.description && (
                                                 <p>
@@ -97,7 +101,7 @@ function PlaceList({ places, onSelectActivity, hasProAccess = false }: {
                                             {hasProAccess && (
                                                 <Link to={`/pro?claim=${place.id}`}>Demander la gestion de ce lieu</Link>
                                             )}
-                                            <PlaceFoodTrucks placeId={place.id} />
+                                            {features.foodTrucks && <PlaceFoodTrucks placeId={place.id} />}
                                             <PlaceActivities onSelectActivity={onSelectActivity} placeId={place.id} />
                                         </div>
                                     )}

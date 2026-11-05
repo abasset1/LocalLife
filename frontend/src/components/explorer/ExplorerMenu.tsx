@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { LEGAL_DOCUMENTS } from "../../legal/legalDocuments";
 import { canModerate } from "../../auth/roles";
 import type { ExplorerCurrentUser } from "./types";
+import { useLaunchFeatures } from "../../features/launchFeatures";
 
 interface ExplorerMenuProps {
     isOpen: boolean;
@@ -30,6 +31,10 @@ interface ExplorerMenuProps {
 function ExplorerMenu({
     isOpen, onClose, currentUser, hasProAccess = false, onOpenContributionForm, onLogout, onOpenFeedback,
 }: ExplorerMenuProps) {
+    // Lancement (05/11/2026) : proposer une activité demande une offre Premium ou Pro, la page « Nouveautés »
+    // présente Premium ; tant que ces offres sont fermées, ces entrées sont masquées.
+    const features = useLaunchFeatures();
+    const canPropose = features.premium || features.pro;
     return (
         <>
             {/* Rétro-plan cliquable, mobile uniquement (voir styles.css) : ferme le tiroir. */}
@@ -61,16 +66,18 @@ function ExplorerMenu({
 
                 <div className="explorer-menu-section">
                     <span className="explorer-menu-section-title">Communauté</span>
-                    <button
-                        className="explorer-menu-link explorer-menu-link-button"
-                        onClick={() => {
-                            onClose();
-                            onOpenContributionForm();
-                        }}
-                        type="button"
-                    >
-                        Proposer une activité
-                    </button>
+                    {canPropose && (
+                        <button
+                            className="explorer-menu-link explorer-menu-link-button"
+                            onClick={() => {
+                                onClose();
+                                onOpenContributionForm();
+                            }}
+                            type="button"
+                        >
+                            Proposer une activité
+                        </button>
+                    )}
                     {currentUser && (
                         <Link className="explorer-menu-link" onClick={onClose} to="/contributions">
                             Mes contributions
@@ -117,9 +124,11 @@ function ExplorerMenu({
 
                 <div className="explorer-menu-section">
                     <span className="explorer-menu-section-title">Aide</span>
-                    <Link className="explorer-menu-link" onClick={onClose} to="/nouveautes">
-                        Nouveautés <span className="explorer-menu-new">Nouveau</span>
-                    </Link>
+                    {features.premium && (
+                        <Link className="explorer-menu-link" onClick={onClose} to="/nouveautes">
+                            Nouveautés <span className="explorer-menu-new">Nouveau</span>
+                        </Link>
+                    )}
                     <Link className="explorer-menu-link" onClick={onClose} to="/guide">
                         Guide de l'application
                     </Link>

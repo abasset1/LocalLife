@@ -8,6 +8,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { Colors } from '@/constants/theme';
 import { FavoritesProvider } from '@/features/favorites';
 import { FollowsProvider } from '@/features/follow';
+import { LaunchFeaturesProvider } from '@/features/launch';
 import { OnboardingGate } from '@/features/onboarding';
 import { useNotificationRouting } from '@/notifications';
 
@@ -50,6 +51,8 @@ export default function RootLayout() {
       <StatusBar style={dark ? 'light' : 'dark'} />
       <AnimatedSplashOverlay />
       <AuthProvider>
+        {/* Fonctions ouvertes au lancement (lieux, food trucks, Premium, Pro), relues sur le serveur. */}
+        <LaunchFeaturesProvider>
         <FavoritesProvider>
           <FollowsProvider>
           <Stack
@@ -94,6 +97,7 @@ export default function RootLayout() {
           <OnboardingGate />
           </FollowsProvider>
         </FavoritesProvider>
+        </LaunchFeaturesProvider>
       </AuthProvider>
     </ThemeProvider>
   );

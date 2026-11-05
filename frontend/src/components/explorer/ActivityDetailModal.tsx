@@ -5,6 +5,7 @@ import { formatDateOfDay, formatRecurrenceRule, formatTimeRange } from "../../ut
 import { formatActivityLocation, formatCategoryLabels } from "./activityUtils";
 import { hasCoordinates } from "./globalSearch";
 import FollowBell from "../follow/FollowBell";
+import { useLaunchFeatures } from "../../features/launchFeatures";
 import type { Activity, ActivityDetail, AccessibilitySummary, Category, ExplorerCurrentUser } from "./types";
 
 /**
@@ -192,6 +193,8 @@ function ActivityDetailModal({
     onDelete,
     onClose,
 }: ActivityDetailModalProps) {
+    // Suivre et les offres : seulement une fois Premium ouvert (lancement, 05/11/2026).
+    const { premium: premiumOpen } = useLaunchFeatures();
     const categoryLabels = formatCategoryLabels(activity, categories);
     const calendarOccurrence = detail?.occurrences.find((occurrence) => occurrence.status !== "CANCELLED");
     const hostPlace = detail ? detail.hostPlace ?? null : activity.hostPlace ?? null;
@@ -229,14 +232,14 @@ function ActivityDetailModal({
                     </button>
                 </div>
                 <div className="explorer-detail-body">
-                    {currentUser && (activity.status === undefined || activity.status === "PUBLISHED"
+                    {premiumOpen && currentUser && (activity.status === undefined || activity.status === "PUBLISHED"
                         || activity.status === "CANCELLED") && (
                         <FollowBell city={activity.city} id={activity.id} title={activity.title} type="activity" />
                     )}
                     {likeError && (
                         <p className="explorer-detail-row explorer-detail-error" role="alert">
                             {likeError.message}
-                            {likeError.isLimit && <> <Link to="/profile">Voir les offres</Link></>}
+                            {likeError.isLimit && premiumOpen && <> <Link to="/profile">Voir les offres</Link></>}
                         </p>
                     )}
                     <p className="explorer-detail-row">

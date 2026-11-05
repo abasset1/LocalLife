@@ -57,6 +57,13 @@ services:
       # Connexion Google (LL-EF-011) : audience attendue des ID tokens.
       # Facultatif ; vide, POST /api/v1/auth/google refuse tout token.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # Lancement progressif (05/11/2026) : fermé par défaut ici, ouvert un par un
+      # dans .env.beta (true) puis : docker compose ... up -d backend
+      # L'équipe LocalLife et les administrateurs voient tout, même fermé.
+      FEATURE_PLACES: ${FEATURE_PLACES:-false}
+      FEATURE_FOOD_TRUCKS: ${FEATURE_FOOD_TRUCKS:-false}
+      FEATURE_PREMIUM: ${FEATURE_PREMIUM:-false}
+      FEATURE_PRO: ${FEATURE_PRO:-false}
     depends_on:
       - postgres
     restart: unless-stopped

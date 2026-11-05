@@ -12,6 +12,7 @@ import { ThemedView } from '@/components/themed-view';
 import { PLAN_DESCRIPTIONS, PLAN_LABELS, describeSubscription, formatDay } from '@/features/pro/format';
 import { messageFor, proStyles as styles } from '@/features/pro/ProGate';
 import { PLAN_LIMITS } from '@/features/limits/limits';
+import { hasOpenOffer, useLaunchFeatures } from '@/features/launch';
 
 const CHOICES: Exclude<Plan, 'FREE'>[] = ['PREMIUM', 'PRO'];
 
@@ -23,6 +24,8 @@ const CHOICES: Exclude<Plan, 'FREE'>[] = ['PREMIUM', 'PRO'];
 export default function AbonnementScreen() {
   const { state } = useAuth();
   const authenticated = state.status === 'authenticated';
+  // Lancement progressif (05/11/2026) : seules les offres ouvertes se souscrivent.
+  const features = useLaunchFeatures();
   const [overview, setOverview] = useState<SubscriptionOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -119,7 +122,14 @@ export default function AbonnementScreen() {
             />
           </Card>
         )}
-        {CHOICES.filter((choice) => !(choice === plan && current?.status === 'ACTIVE'))
+        {!hasOpenOffer(features) && (
+          <Notice tone="info">
+            Les offres Premium et Pro arrivent bientôt. En attendant, votre compte gratuit donne accès à toute la carte
+            et à la liste des activités.
+          </Notice>
+        )}
+        {CHOICES.filter((choice) => (choice === 'PRO' ? features.pro : features.premium))
+          .filter((choice) => !(choice === plan && current?.status === 'ACTIVE'))
           .filter((choice) => pending?.plan !== choice)
           .map((choice) => (
           <Card key={choice} style={styles.card}>
@@ -156,10 +166,12 @@ export default function AbonnementScreen() {
             Dernière demande refusée : {lastRejected.decisionReason}
           </ThemedText>
         ) : null}
-        <ThemedText type="small" themeColor="textSecondary">
-          Paiement en ligne bientôt disponible ; pour l’instant, Premium est activé sans paiement et une demande Pro
-          est validée par l’équipe. La carte et la liste restent gratuites quelle que soit l’offre.
-        </ThemedText>
+        {hasOpenOffer(features) && (
+          <ThemedText type="small" themeColor="textSecondary">
+            Paiement en ligne bientôt disponible ; pour l’instant, Premium est activé sans paiement et une demande Pro
+            est validée par l’équipe. La carte et la liste restent gratuites quelle que soit l’offre.
+          </ThemedText>
+        )}
         {info && <Notice tone="success">{info}</Notice>}
         {error && <Notice tone="danger">{error}</Notice>}
       </ScrollView>

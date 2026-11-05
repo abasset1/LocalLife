@@ -41,11 +41,16 @@ export interface RadiusSearch {
   radiusKm: number;
 }
 
+/** Liste vide stable : pas de nouveau tableau à chaque rendu quand les food trucks sont fermés. */
+const NO_FOOD_TRUCKS: FoodTruck[] = [];
+
 export function useMapData(
   region: Region | null,
   categoryCodes: readonly string[] = [],
   radiusSearch: RadiusSearch | null = null,
   period: Period = 'all',
+  /** Food trucks ouverts (lancement progressif) : fermés, ils ne sont pas demandés au serveur. */
+  foodTrucksEnabled = true,
 ) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
@@ -66,6 +71,7 @@ export function useMapData(
 
   // Food trucks : une fois au montage, et à chaque « Réessayer ».
   useEffect(() => {
+    if (!foodTrucksEnabled) return;
     const controller = new AbortController();
     setFoodTrucksStatus('loading');
     listFoodTrucks({ signal: controller.signal })
@@ -79,7 +85,7 @@ export function useMapData(
         setError(messageFor(e));
       });
     return () => controller.abort();
-  }, [retryCount]);
+  }, [retryCount, foodTrucksEnabled]);
 
   // Rayon favori : activités dans le rayon (`/nearby`), indépendamment des
   // déplacements et du zoom de la carte, qui ne font que l'afficher.
@@ -169,11 +175,20 @@ export function useMapData(
     setRetryCount((count) => count + 1);
   }, []);
 
-  const loading = activitiesStatus === 'loading' || foodTrucksStatus === 'loading';
-  const failed = activitiesStatus === 'error' || foodTrucksStatus === 'error';
+  // Food trucks fermés : ni chargement ni erreur de leur côté, aucune pastille.
+  const trucksStatus: LoadStatus = foodTrucksEnabled ? foodTrucksStatus : 'success';
+  const loading = activitiesStatus === 'loading' || trucksStatus === 'loading';
+  const failed = activitiesStatus === 'error' || trucksStatus === 'error';
   const bounds = region ? regionToBounds(region) : null;
   // Avec un rayon favori, la zone visible ne limite pas la recherche.
   const tooWide = radiusKey === null && bounds !== null && !isSearchable(bounds);
 
-  return { activities, foodTrucks, loading, error: failed ? error : null, tooWide, retry };
+  return {
+    activities,
+    foodTrucks: foodTrucksEnabled ? foodTrucks : NO_FOOD_TRUCKS,
+    loading,
+    error: failed ? error : null,
+    tooWide,
+    retry,
+  };
 }

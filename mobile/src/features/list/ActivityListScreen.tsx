@@ -29,6 +29,7 @@ import { foodTrucksNear } from './foodTruckList';
 import { usePeriod } from './periodStore';
 import { useActivityList } from './useActivityList';
 import { useFoodTruckList } from './useFoodTruckList';
+import { useLaunchFeatures } from '@/features/launch';
 
 /** Rayon de la liste tant qu'aucun rayon n'est choisi (la carte cherche alors dans la zone visible). */
 const DEFAULT_RADIUS_KM = 20;
@@ -66,7 +67,10 @@ export default function ActivityListScreen() {
   const [period, setPeriod] = usePeriod();
   const [query, setQuery] = useState('');
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
-  const [tab, setTab] = useState<ListTab>('activities');
+  const [chosenTab, setTab] = useState<ListTab>('activities');
+  // Food trucks fermés (lancement progressif, 05/11/2026) : pas d'onglet, la liste montre les activités.
+  const { foodTrucks: foodTrucksOpen } = useLaunchFeatures();
+  const tab: ListTab = foodTrucksOpen ? chosenTab : 'activities';
   // Filtre « type de cuisine » de l'onglet food trucks (`null` = toutes).
   const [cuisine, setCuisine] = useState<string | null>(null);
   const showFoodTrucks = tab === 'foodTrucks';
@@ -151,7 +155,9 @@ export default function ActivityListScreen() {
         <CitySearch />
       </View>
 
-      <FilterChips label="Contenu de la liste" options={TAB_OPTIONS} value={tab} onChange={setTab} />
+      {foodTrucksOpen && (
+        <FilterChips label="Contenu de la liste" options={TAB_OPTIONS} value={tab} onChange={setTab} />
+      )}
 
       <View style={styles.padded}>
         <View style={[styles.search, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
