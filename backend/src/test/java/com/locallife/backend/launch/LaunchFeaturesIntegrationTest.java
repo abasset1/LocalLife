@@ -24,12 +24,15 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
  * Lancement progressif (05/11/2026) : lieux, food trucks, Premium et Pro fermés au public, ouverts à l'équipe ; les
- * activités, les catégories, les comptes gratuits et l'administration restent ouverts.
+ * activités, les catégories, les comptes gratuits et l'administration restent ouverts. Propriétés propres : contexte
+ * Spring à part, fermé après la classe ({@code DirtiesContext}) pour rendre ses connexions PostgreSQL aux autres tests.
  */
+@DirtiesContext
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
     "locallife.features.places=false",
     "locallife.features.food-trucks=false",
