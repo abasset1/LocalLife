@@ -58,8 +58,12 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     title: 'Explorez la carte',
     text:
       'Déplacez-vous et zoomez : la carte affiche les activités de la zone. Les nombres regroupent plusieurs ' +
-      'activités proches ; touchez un marqueur pour afficher son aperçu, puis sa fiche.',
-    tips: ['Zoomez sur un groupe pour le déplier', '« Ma position » recentre la carte sur vous'],
+      'activités proches ; touchez un marqueur ou un groupe pour afficher son aperçu, puis sa fiche.',
+    tips: [
+      'Dans un groupe, « ‹ › » passe d’une activité à l’autre',
+      'Le bouton liste montre les activités de la zone',
+      '« Ma position » recentre la carte sur vous',
+    ],
     scene: {
       kind: 'map',
       layers: [{ label: 'Activités', pins: ['📍', '📍', '📍', '📍'] }],

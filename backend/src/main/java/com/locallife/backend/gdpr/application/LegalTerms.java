@@ -7,7 +7,7 @@ package com.locallife.backend.gdpr.application;
  */
 public final class LegalTerms {
 
-    public static final String VERSION = "2026-10-22";
+    public static final String VERSION = "2026-11-05";
     public static final int MINIMUM_AGE = 15;
     public static final String CONSENT_REQUIRED_MESSAGE = "Coche la case : tu dois avoir au moins " + MINIMUM_AGE
             + " ans et accepter les conditions d'utilisation et la politique de confidentialité.";

@@ -1,9 +1,9 @@
 /**
  * Textes légaux publiés sur le site (contrat RGPD du 22/10/2026) : politique de
- * confidentialité, conditions d'utilisation, mentions légales. Le contenu est encore à
- * rédiger ; seule la date de version est fixée ici, côté client.
+ * confidentialité, conditions d'utilisation, mentions légales. Leur contenu est dans
+ * `legalContent.ts` ; la version doit rester égale à `LegalTerms.VERSION` côté serveur.
  */
-export const LEGAL_VERSION = "2026-10-22";
+export const LEGAL_VERSION = "2026-11-05";
 
 export type LegalDocumentKey = "privacy" | "terms" | "legalNotice";
 

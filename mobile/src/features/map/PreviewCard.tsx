@@ -17,6 +17,7 @@ import { describeToday, spotAddressLine } from '@/features/foodtruck/presence';
 import { useProAccess } from '@/features/pro/useProAccess';
 import { FollowBell } from '@/features/follow';
 
+import { positionInGroup, stepInGroup } from './activityGroups';
 import { placeTypeLabel } from './placeTypes';
 import { usePlaceActivities } from './usePlaceActivities';
 
@@ -24,7 +25,11 @@ import { usePlaceActivities } from './usePlaceActivities';
 const PLACE_ACTIVITIES_SHOWN = 3;
 
 export type Selection =
-  | { kind: 'activity'; activity: Activity }
+  /**
+   * `group` : activités de la pastille ou du même endroit (à 100 m près), triées par date, que l'aperçu fait
+   * défiler (« 2 / 4 ») comme la popup du site web. Absent ou d'une seule activité : pas de flèches.
+   */
+  | { kind: 'activity'; activity: Activity; group?: readonly Activity[] }
   | { kind: 'foodTruck'; foodTruck: FoodTruck }
   | { kind: 'place'; place: Place };
 
@@ -35,10 +40,62 @@ function formatDate(iso: string | null): string | null {
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-/** Consultation rapide d'un élément touché sur la carte. */
-export function PreviewCard({ selection, onClose }: { selection: Selection; onClose: () => void }) {
+/**
+ * Consultation rapide d'un élément touché sur la carte. `onChange` reçoit l'activité affichée après un appui sur
+ * « ‹ » ou « › » dans un groupe (la carte la met en évidence).
+ */
+export function PreviewCard({
+  selection,
+  onClose,
+  onChange,
+}: {
+  selection: Selection;
+  onClose: () => void;
+  onChange?: (selection: Selection) => void;
+}) {
   if (selection.kind === 'place') return <PlacePreview place={selection.place} onClose={onClose} />;
-  return <ItemPreview selection={selection} onClose={onClose} />;
+  return <ItemPreview selection={selection} onClose={onClose} onChange={onChange} />;
+}
+
+/** « ‹ 2 / 4 › » : passe d'une activité du groupe à l'autre, en boucle. */
+function GroupNav({
+  group,
+  activity,
+  onChange,
+}: {
+  group: readonly Activity[];
+  activity: Activity;
+  onChange: (selection: Selection) => void;
+}) {
+  const theme = useTheme();
+  const move = (step: number) => onChange({ kind: 'activity', activity: stepInGroup(group, activity, step), group });
+  return (
+    <View style={styles.nav}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Activité précédente"
+        hitSlop={8}
+        onPress={() => move(-1)}
+        style={({ pressed }) => [styles.navButton, { borderColor: theme.border }, pressed && styles.pressed]}>
+        <ThemedText type="heading" themeColor="textSecondary">
+          ‹
+        </ThemedText>
+      </Pressable>
+      <ThemedText type="smallBold" accessibilityLiveRegion="polite">
+        {positionInGroup(group, activity)}
+      </ThemedText>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Activité suivante"
+        hitSlop={8}
+        onPress={() => move(1)}
+        style={({ pressed }) => [styles.navButton, { borderColor: theme.border }, pressed && styles.pressed]}>
+        <ThemedText type="heading" themeColor="textSecondary">
+          ›
+        </ThemedText>
+      </Pressable>
+    </View>
+  );
 }
 
 /** Poignée, sur-titre (type d'élément), titre et bouton de fermeture de l'aperçu. */
@@ -176,9 +233,11 @@ function PlacePreview({ place, onClose }: { place: Place; onClose: () => void })
 function ItemPreview({
   selection,
   onClose,
+  onChange,
 }: {
   selection: Exclude<Selection, { kind: 'place' }>;
   onClose: () => void;
+  onChange?: (selection: Selection) => void;
 }) {
   const theme = useTheme();
   const router = useRouter();
@@ -202,6 +261,7 @@ function ItemPreview({
   const meta = [place ? `📍 ${place}` : null, date ? `📅 ${date}` : null, presence ? `📍 ${presence}` : null]
     .filter(Boolean)
     .join('   ');
+  const group = isActivity && selection.group && selection.group.length > 1 ? selection.group : null;
 
   return (
     <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
@@ -245,6 +305,9 @@ function ItemPreview({
               })
         }
       />
+      {group && isActivity && onChange ? (
+        <GroupNav group={group} activity={selection.activity} onChange={onChange} />
+      ) : null}
     </View>
   );
 }
@@ -285,6 +348,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
+  },
+  navButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.7,
   },
   close: {
     width: 32,

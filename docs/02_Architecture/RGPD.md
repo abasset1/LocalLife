@@ -51,7 +51,7 @@ supprimer une ligne de plus de 3 ans, et effacer l'adresse d'un compte supprimé
 
 | Droit | Mise en œuvre |
 |---|---|
-| Information (art. 13) | Case à cocher à l'inscription, liens vers les conditions et la politique de confidentialité (**textes à rédiger**) |
+| Information (art. 13 et 14) | Case à cocher à l'inscription, liens vers les conditions et la politique de confidentialité (version `2026-11-05`, `frontend/src/legal/legalContent.ts`) ; § 4 de la politique pour les organisateurs dont les coordonnées sont importées |
 | Accès et portabilité (art. 15, 20) | `GET /api/v1/users/me/export` : toutes les données du compte en JSON, sans secret ni adresse d'un autre compte ; bouton « Télécharger mes données » sur le site et l'application |
 | Rectification (art. 16) | Profil (nom, mot de passe), changement d'adresse confirmé depuis la nouvelle adresse |
 | Effacement (art. 17) | Suppression du compte par son titulaire (ou par un administrateur, avec motif) : contributions non publiées, favoris, alertes, préférences, identités Google, demandes et propositions supprimées ; activités publiées conservées sans auteur ; **adresse effacée des journaux** ; coordonnées des food trucks effacées ; abonnements détachés du compte |
@@ -67,8 +67,10 @@ supprimer une ligne de plus de 3 ans, et effacer l'adresse d'un compte supprimé
 
 ## 5. Reste à faire (hors code)
 
-- Rédiger et publier la politique de confidentialité, les conditions d'utilisation et les mentions légales (pages
-  `/confidentialite`, `/conditions`, `/mentions-legales` prêtes, contenu « en cours de rédaction »).
+- Textes légaux rédigés le 05/11/2026 (`frontend/src/legal/legalContent.ts`, version `2026-11-05`) : **compléter
+  `LEGAL_EDITOR`** (identité de l'éditeur, contacts, directeur de la publication, adresse du site, prestataire
+  d'e-mails, région Backblaze — surlignés sur le site tant qu'ils manquent) et **faire relire par un avocat**.
+  Toute modification de fond : nouvelle version ici et dans `LegalTerms.VERSION`.
 - Registre des traitements (art. 30) et procédure en cas de violation de données (art. 33-34).
 - Contrats de sous-traitance (art. 28) : Hetzner (hébergement, Allemagne), Backblaze B2 (sauvegardes — choisir une
   région européenne), prestataire d'envoi d'e-mails (à désigner), Expo (notifications push, États-Unis), Google

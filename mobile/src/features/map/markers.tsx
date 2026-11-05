@@ -8,6 +8,7 @@ const ACTIVITY_COLOR = Brand.green2;
 const FOOD_TRUCK_COLOR = Brand.coral;
 const CLUSTER_COLOR = Brand.green;
 const PLACE_COLOR = '#6B5CA5';
+const HIGHLIGHT_COLOR = Brand.coral;
 
 /** Ombre portée commune aux marqueurs, pour les détacher du fond de carte. */
 const MARKER_SHADOW = {
@@ -134,6 +135,40 @@ export function FoodTruckMarker({
   );
 }
 
+/**
+ * Activité affichée dans l'aperçu (touchée, choisie dans la liste de la zone ou atteinte avec « ‹ › ») : point
+ * agrandi en corail par-dessus les autres marqueurs, visible même quand elle est regroupée dans une pastille.
+ */
+export function HighlightedActivityMarker({
+  coordinate,
+  title,
+  onPress,
+}: {
+  coordinate: Coordinate;
+  title: string;
+  /** Appui sur le point : l'aperçu reste ouvert (la carte ne doit pas recevoir ce toucher). */
+  onPress: () => void;
+}) {
+  const tracks = useTracksViewChanges();
+  return (
+    <Marker
+      coordinate={coordinate}
+      zIndex={1000}
+      onPress={(event) => {
+        event.stopPropagation?.();
+        onPress();
+      }}
+      tracksViewChanges={tracks}
+      accessibilityLabel={`Activité affichée : ${title}`}>
+      <View style={styles.markerPadding}>
+        <View style={[styles.highlighted, { backgroundColor: HIGHLIGHT_COLOR }]}>
+          <View style={styles.highlightedDot} />
+        </View>
+      </View>
+    </Marker>
+  );
+}
+
 export function ClusterMarker({
   coordinate,
   count,
@@ -154,7 +189,7 @@ export function ClusterMarker({
         onPress();
       }}
       tracksViewChanges={tracks}
-      accessibilityLabel={`Groupe de ${count} activités. Toucher pour zoomer.`}>
+      accessibilityLabel={`Groupe de ${count} activités. Toucher pour les parcourir ou zoomer.`}>
       <View style={styles.markerPadding}>
         <View
           style={[
@@ -187,6 +222,22 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: '#ffffff',
+  },
+  highlighted: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 4,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...MARKER_SHADOW,
+  },
+  highlightedDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: '#ffffff',
   },
   approximate: {
