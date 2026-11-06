@@ -6,8 +6,13 @@ import SubscriptionCard from "./SubscriptionCard";
 
 vi.mock("../../auth/authStorage", () => ({
     getPayload: () => ({ userId: 7, email: "u@example.com", role: "USER" }),
-    getToken: () => "jeton",
-    clearToken: () => undefined,
+    isAuthenticated: () => true,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => null,
+    onAuthenticated: async () => null,
+    clearSession: async () => undefined,
+    clearSessionLocal: () => undefined,
+    readCsrfToken: () => null,
 }));
 
 function json(body: unknown, status = 200): Response {

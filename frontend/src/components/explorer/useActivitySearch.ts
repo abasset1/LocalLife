@@ -12,13 +12,13 @@ export type ActivitySearchState =
 const NO_LIKES: ReadonlySet<number> = new Set();
 
 /** Ids des activités aimées : la recherche ne les renvoie pas. Sans session ou en cas d'échec, aucun. */
-async function loadLikedIds(token: string | null, signal: AbortSignal): Promise<ReadonlySet<number>> {
-    if (!token) {
+async function loadLikedIds(authenticated: boolean, signal: AbortSignal): Promise<ReadonlySet<number>> {
+    if (!authenticated) {
         return NO_LIKES;
     }
     try {
         const response = await fetch("/api/v1/users/me/likes", {
-            headers: { Authorization: `Bearer ${token}` },
+            credentials: "include",
             signal,
         });
         if (!response.ok) {
@@ -38,7 +38,7 @@ async function loadLikedIds(token: string | null, signal: AbortSignal): Promise<
  */
 export function useActivitySearch(
     request: GlobalSearchRequest | null,
-    token: string | null,
+    authenticated: boolean,
     retryKey = 0,
 ): ActivitySearchState {
     const url = request ? buildSearchUrl(request) : null;
@@ -57,7 +57,7 @@ export function useActivitySearch(
         const setState = (state: ActivitySearchState) => setSettled({ key, state });
 
         (async () => {
-            const likedIdsPromise = loadLikedIds(token, signal);
+            const likedIdsPromise = loadLikedIds(authenticated, signal);
             try {
                 const response = await fetch(url, { signal });
                 if (signal.aborted) {
@@ -83,7 +83,7 @@ export function useActivitySearch(
         })();
 
         return () => abortController.abort();
-    }, [key, token]);
+    }, [key, authenticated]);
 
     if (url === null) {
         return { status: "idle" };

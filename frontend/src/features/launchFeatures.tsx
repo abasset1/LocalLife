@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
-import { getToken } from "../auth/authStorage";
+import { isAuthenticated, subscribeSession } from "../auth/authStorage";
 
 /**
  * Fonctions ouvertes progressivement après le lancement (05/11/2026, PACA et Occitanie) : lieux, food trucks, offres
@@ -38,32 +38,32 @@ export function parseLaunchFeatures(value: unknown): LaunchFeatures {
     };
 }
 
-async function fetchLaunchFeatures(token: string | null, signal: AbortSignal): Promise<LaunchFeatures> {
-    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    let response = await fetch("/api/v1/features", { headers, signal });
-    // Jeton expiré ou invalide : on demande comme un visiteur, sans rediriger vers la connexion.
-    if (response.status === 401 && token) {
-        response = await fetch("/api/v1/features", { signal });
-    }
+async function fetchLaunchFeatures(signal: AbortSignal): Promise<LaunchFeatures> {
+    // Cookie de session envoyé si présent : un membre de l'équipe voit les fonctions encore fermées. Une session
+    // absente ou invalide est traitée comme un visiteur par le serveur (route publique), sans 401 ni redirection.
+    const response = await fetch("/api/v1/features", { credentials: "include", signal });
     return response.ok ? parseLaunchFeatures(await response.json()) : ALL_CLOSED;
 }
 
 /**
- * Lit les fonctions disponibles au démarrage, puis à chaque connexion ou déconnexion (jeton différent au changement
- * de page) : un administrateur qui se connecte voit aussitôt les fonctions encore fermées au public.
+ * Lit les fonctions disponibles au démarrage, puis à chaque connexion ou déconnexion : un administrateur qui se
+ * connecte voit aussitôt les fonctions encore fermées au public. Le changement de session est détecté par
+ * {@link subscribeSession} (connexion/déconnexion) et par le changement de page.
  */
 export function LaunchFeaturesProvider({ children }: { children: ReactNode }) {
     const { pathname } = useLocation();
-    const [token, setToken] = useState<string | null>(() => getToken());
+    const [authed, setAuthed] = useState<boolean>(() => isAuthenticated());
     const [features, setFeatures] = useState<LaunchFeatures>(ALL_CLOSED);
 
     useEffect(() => {
-        setToken(getToken());
+        setAuthed(isAuthenticated());
     }, [pathname]);
+
+    useEffect(() => subscribeSession(() => setAuthed(isAuthenticated())), []);
 
     useEffect(() => {
         const controller = new AbortController();
-        fetchLaunchFeatures(token, controller.signal)
+        fetchLaunchFeatures(controller.signal)
             .then((loaded) => {
                 if (!controller.signal.aborted) {
                     setFeatures(loaded);
@@ -75,7 +75,7 @@ export function LaunchFeaturesProvider({ children }: { children: ReactNode }) {
                 }
             });
         return () => controller.abort();
-    }, [token]);
+    }, [authed]);
 
     return <LaunchFeaturesContext.Provider value={features}>{children}</LaunchFeaturesContext.Provider>;
 }

@@ -14,6 +14,7 @@ import com.locallife.backend.user.application.UsernamePolicy;
 import com.locallife.backend.user.domain.User;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,18 +49,21 @@ public class AuthController {
     private final EmailVerificationService emailVerificationService;
     private final UsernamePolicy usernamePolicy;
     private final AccountSelfService accountSelfService;
+    private final AuthCookie authCookie;
 
     public AuthController(
             AuthService authService,
             PasswordResetService passwordResetService,
             EmailVerificationService emailVerificationService,
             UsernamePolicy usernamePolicy,
-            AccountSelfService accountSelfService) {
+            AccountSelfService accountSelfService,
+            AuthCookie authCookie) {
         this.authService = authService;
         this.passwordResetService = passwordResetService;
         this.emailVerificationService = emailVerificationService;
         this.usernamePolicy = usernamePolicy;
         this.accountSelfService = accountSelfService;
+        this.authCookie = authCookie;
     }
 
     /**
@@ -118,7 +122,9 @@ public class AuthController {
     public ResponseEntity<Object> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         try {
             LoginResponse response = authService.login(request);
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, authCookie.forToken(response.token()).toString())
+                    .body(response);
         } catch (IllegalArgumentException exception) {
             return unauthorized(exception, httpRequest);
         } catch (EmailNotVerifiedException exception) {
@@ -164,7 +170,9 @@ public class AuthController {
         try {
             LoginResponse response = authService.loginOrRegisterWithGoogle(request.idToken(),
                     Boolean.TRUE.equals(request.acceptTerms()));
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, authCookie.forToken(response.token()).toString())
+                    .body(response);
         } catch (TermsNotAcceptedException exception) {
             HttpStatus status = HttpStatus.PRECONDITION_REQUIRED;
             return ResponseEntity.status(status).body(new ErrorResponse(Instant.now(), status.value(),
@@ -174,6 +182,20 @@ public class AuthController {
         } catch (AccountSuspendedException exception) {
             return suspended(exception, httpRequest);
         }
+    }
+
+    /**
+     * Déconnexion : efface le cookie de session {@code HttpOnly} du navigateur (correctif sécurité du 06/11/2026).
+     * Comme le cookie n'est pas lisible par JavaScript, seul le serveur peut l'effacer via un {@code Set-Cookie}
+     * expiré. Public : l'appel efface toujours le cookie, même si la session est déjà expirée ou absente — il n'y
+     * a rien à révéler ni à protéger ici. Les clients à en-tête {@code Authorization} (mobile) se déconnectent en
+     * oubliant leur jeton, sans cet endpoint.
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<Object> logout() {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, authCookie.expired().toString())
+                .body(new MessageResponse("Déconnecté."));
     }
 
     /**

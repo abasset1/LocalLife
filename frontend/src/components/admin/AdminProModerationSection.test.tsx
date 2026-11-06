@@ -5,8 +5,13 @@ import AdminProModerationSection from "./AdminProModerationSection";
 
 vi.mock("../../auth/authStorage", () => ({
     getPayload: () => ({ userId: 1, email: "admin@example.com", role: "ADMIN" }),
-    getToken: () => "jeton-admin",
-    clearToken: () => undefined,
+    isAuthenticated: () => true,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => null,
+    onAuthenticated: async () => null,
+    clearSession: async () => undefined,
+    clearSessionLocal: () => undefined,
+    readCsrfToken: () => null,
 }));
 
 function json(body: unknown, status = 200): Response {

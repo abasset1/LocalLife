@@ -3,6 +3,7 @@ package com.locallife.backend.user.api;
 import com.locallife.backend.gdpr.application.DataExportService;
 import java.util.Map;
 import org.springframework.http.HttpHeaders;
+import com.locallife.backend.auth.api.AuthCookie;
 import com.locallife.backend.auth.api.UserResponse;
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.common.ErrorResponse;
@@ -54,11 +55,13 @@ public class UserController {
     private final PlanLimits planLimits;
     private final DataExportService dataExportService;
     private final LaunchFeatures launchFeatures;
+    private final AuthCookie authCookie;
 
     public UserController(
             UserService userService, AccountSelfService accountSelfService,
             ContributionAccessPolicy contributionAccessPolicy, ProAccessPolicy proAccessPolicy,
-            PlanLimits planLimits, DataExportService dataExportService, LaunchFeatures launchFeatures) {
+            PlanLimits planLimits, DataExportService dataExportService, LaunchFeatures launchFeatures,
+            AuthCookie authCookie) {
         this.userService = userService;
         this.accountSelfService = accountSelfService;
         this.contributionAccessPolicy = contributionAccessPolicy;
@@ -66,6 +69,7 @@ public class UserController {
         this.planLimits = planLimits;
         this.dataExportService = dataExportService;
         this.launchFeatures = launchFeatures;
+        this.authCookie = authCookie;
     }
 
     /**
@@ -142,7 +146,11 @@ public class UserController {
         try {
             String token = accountSelfService.changePassword(userId,
                     request == null ? null : request.currentPassword(), request == null ? null : request.newPassword());
-            return ResponseEntity.ok(new TokenResponse(token));
+            // Le changement de mot de passe invalide les jetons émis avant (tokens_valid_after) : on renouvelle le
+            // cookie de session du navigateur avec le nouveau jeton, sinon l'utilisateur serait déconnecté ici même.
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, authCookie.forToken(token).toString())
+                    .body(new TokenResponse(token));
         } catch (AccountActionException exception) {
             return errorResponse(exception.status(), exception.getMessage(), httpRequest);
         }

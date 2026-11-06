@@ -2,8 +2,20 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getToken } from "../auth/authStorage";
 import LoginPage from "./LoginPage";
+
+// La connexion pose un cookie de session côté serveur puis appelle onAuthenticated() ; on l'espionne.
+const authMock = vi.hoisted(() => ({ onAuthenticated: vi.fn(async () => null) }));
+vi.mock("../auth/authStorage", () => ({
+    onAuthenticated: authMock.onAuthenticated,
+    getPayload: () => null,
+    isAuthenticated: () => false,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => null,
+    clearSession: async () => undefined,
+    clearSessionLocal: () => undefined,
+    readCsrfToken: () => null,
+}));
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -70,7 +82,7 @@ describe("LoginPage", () => {
         await user.click(screen.getByRole("checkbox", { name: /J'ai au moins 15 ans/ }));
         await user.click(retry);
 
-        await vi.waitFor(() => expect(getToken()).toBe("jwt-locallife"));
+        await vi.waitFor(() => expect(authMock.onAuthenticated).toHaveBeenCalled());
         expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(fetchMock.mock.calls[1][0]).toBe("/api/v1/auth/google");
         expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ idToken: "id-token-google", acceptTerms: true });

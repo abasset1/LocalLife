@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { saveToken } from "../auth/authStorage";
+import { onAuthenticated } from "../auth/authStorage";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import PasswordInput from "../components/PasswordInput";
 
@@ -43,8 +43,8 @@ function LoginPage() {
                 return;
             }
 
-            const { token } = (await response.json()) as { token: string };
-            saveToken(token);
+            // Le serveur a posé le cookie de session HttpOnly ; on charge le profil avant de naviguer.
+            await onAuthenticated();
             navigate("/");
         } catch {
             setError("Impossible de contacter le serveur, réessaie plus tard.");

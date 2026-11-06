@@ -5,6 +5,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type { Activity, MapBounds, UserPosition } from "./components/explorer/types";
 
+// Session simulée en mémoire (le JWT vit désormais dans un cookie HttpOnly, plus dans localStorage).
+const mockSession = vi.hoisted(() => ({ current: null as { userId: number; email: string; role: string } | null }));
+vi.mock("./auth/authStorage", () => ({
+    getPayload: () => mockSession.current,
+    isAuthenticated: () => mockSession.current !== null,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => mockSession.current,
+    onAuthenticated: async () => mockSession.current,
+    clearSession: async () => {
+        mockSession.current = null;
+    },
+    clearSessionLocal: () => {
+        mockSession.current = null;
+    },
+    readCsrfToken: () => null,
+}));
+
 /**
  * Spec P0-A — localisation explicite. Leaflet ne s'affiche pas dans jsdom : la carte est remplacée par
  * ses marqueurs et la position sur laquelle elle est centrée ; comme la vraie carte, elle transmet sa
@@ -185,7 +202,7 @@ describe("App — localisation explicite (spec P0-A)", () => {
 
     it("ville enregistrée dans les préférences : utilisée sans invitation ni demande de position", async () => {
         const geolocation = stubGeolocation();
-        window.localStorage.setItem("locallife.jwt", `x.${btoa(JSON.stringify({ userId: 1, email: "a@b.c", role: "USER" }))}.y`);
+        mockSession.current = { userId: 1, email: "a@b.c", role: "USER" };
         preferences = {
             defaultCity: "Avignon",
             defaultLatitude: 43.95,

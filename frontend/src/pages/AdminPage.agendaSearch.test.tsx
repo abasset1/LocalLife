@@ -6,8 +6,13 @@ import AdminPage from "./AdminPage";
 
 vi.mock("../auth/authStorage", () => ({
     getPayload: () => ({ role: "ADMIN" }),
-    getToken: () => "jeton-admin",
-    clearToken: () => undefined,
+    isAuthenticated: () => true,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => null,
+    onAuthenticated: async () => null,
+    clearSession: async () => undefined,
+    clearSessionLocal: () => undefined,
+    readCsrfToken: () => null,
 }));
 
 function source(id: number, name: string, agendaUid: string | null = null) {

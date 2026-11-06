@@ -4,8 +4,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import AdminAccountsSection from "./AdminAccountsSection";
 
 vi.mock("../../auth/authStorage", () => ({
-    getToken: () => "jeton-admin",
-    clearToken: () => undefined,
+    getPayload: () => ({ userId: 1, email: "admin@example.com", role: "ADMIN" }),
+    isAuthenticated: () => true,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => null,
+    onAuthenticated: async () => null,
+    clearSession: async () => undefined,
+    clearSessionLocal: () => undefined,
+    readCsrfToken: () => null,
 }));
 
 function account(overrides: Record<string, unknown>) {

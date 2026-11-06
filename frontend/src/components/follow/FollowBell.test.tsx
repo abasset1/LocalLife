@@ -6,6 +6,23 @@ import FollowBell from "./FollowBell";
 import FollowedItemsCard from "./FollowedItemsCard";
 import { resetFollowsForTests } from "./followStore";
 
+// Session simulée en mémoire (le JWT vit désormais dans un cookie HttpOnly, plus dans localStorage).
+const mockSession = vi.hoisted(() => ({ current: null as { userId: number; email: string; role: string } | null }));
+vi.mock("../../auth/authStorage", () => ({
+    getPayload: () => mockSession.current,
+    isAuthenticated: () => mockSession.current !== null,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => mockSession.current,
+    onAuthenticated: async () => mockSession.current,
+    clearSession: async () => {
+        mockSession.current = null;
+    },
+    clearSessionLocal: () => {
+        mockSession.current = null;
+    },
+    readCsrfToken: () => null,
+}));
+
 let followResponse: { status: number; body: unknown };
 let requests: { url: string; method: string }[];
 
@@ -13,7 +30,7 @@ beforeEach(() => {
     resetFollowsForTests();
     requests = [];
     followResponse = { status: 200, body: { following: true } };
-    window.localStorage.setItem("locallife.jwt", `x.${btoa(JSON.stringify({ userId: 7, email: "a@b.c", role: "USER" }))}.y`);
+    mockSession.current = { userId: 7, email: "a@b.c", role: "USER" };
     vi.stubGlobal("fetch", vi.fn((url: string, init?: RequestInit) => {
         const method = init?.method ?? "GET";
         requests.push({ url, method });
@@ -73,7 +90,7 @@ describe("FollowBell — suivre une activité ou un lieu", () => {
     });
 
     it("n'est pas affichée sans connexion", () => {
-        window.localStorage.clear();
+        mockSession.current = null;
         render(<MemoryRouter><FollowBell id={5} title="Musée" type="place" /></MemoryRouter>);
         expect(screen.queryByRole("button", { name: /Suivre/ })).toBeNull();
     });

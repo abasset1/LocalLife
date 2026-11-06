@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { getToken } from "../../auth/authStorage";
 
 /** Droits du compte connecté utiles à l'affichage, relus sur le serveur (`GET /api/v1/users/me`). */
 export interface AccountAccess {
@@ -15,20 +14,20 @@ const UNKNOWN: AccountAccess = { hasProAccess: false, canFollow: null };
  * Droits du compte connecté (`GET /api/v1/users/me`), en une requête : `hasProAccess` pour les entrées pro (lien
  * « Demander la gestion de ce lieu », lieu hôte d'une activité…), jamais le rôle du JWT ; `limits.canFollow` pour le
  * bandeau de nouveauté. Simple raccourci d'affichage : le backend vérifie le droit à chaque appel. `fetch` direct
- * avec le JWT plutôt qu'`apiFetch` : un token expiré ne doit pas rediriger vers /login depuis la carte publique.
+ * (cookie de session) plutôt qu'`apiFetch` : une session expirée ne doit pas rediriger vers /login depuis la carte
+ * publique.
  */
 export function useAccountAccess(isLoggedIn: boolean): AccountAccess {
     const [access, setAccess] = useState<AccountAccess>(UNKNOWN);
 
     useEffect(() => {
-        const token = getToken();
-        if (!isLoggedIn || !token) {
+        if (!isLoggedIn) {
             setAccess(UNKNOWN);
             return;
         }
         const abortController = new AbortController();
         void fetch("/api/v1/users/me", {
-            headers: { Authorization: `Bearer ${token}` },
+            credentials: "include",
             signal: abortController.signal,
         })
             .then(async (response) => {

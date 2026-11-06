@@ -1,9 +1,13 @@
 package com.locallife.backend.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.locallife.backend.auth.api.AuthCookie;
 import com.locallife.backend.auth.api.JwtFilter;
 import com.locallife.backend.user.infrastructure.AccountRepository;
 import com.locallife.backend.common.ErrorResponse;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -11,6 +15,7 @@ import java.time.Instant;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -19,6 +24,11 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Configuration de Spring Security pour activer le filtre JWT.
@@ -149,11 +159,16 @@ public class SecurityConfig {
         "/api/v1/auth/forgot-password",
         "/api/v1/auth/reset-password",
         "/api/v1/auth/confirm-email-change",
+        "/api/v1/auth/logout",
         "/api/v1/alerts/unsubscribe",
     };
 
     @Value("${jwt.secret}")
     private String jwtSecret;
+
+    /** Même réglage que {@link AuthCookie} : le cookie CSRF partage la posture {@code Secure} du cookie de session. */
+    @Value("${app.auth.cookie-secure:true}")
+    private boolean cookieSecure;
 
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
@@ -162,8 +177,19 @@ public class SecurityConfig {
             throws Exception {
         JwtFilter jwtFilter = new JwtFilter(jwtSecret, accountRepository, (response, status, message, path) ->
                 writeError(response, HttpStatus.valueOf(status), message, path));
+        // CSRF : activé uniquement pour les requêtes authentifiées par le cookie de session (navigateur web, voir
+        // AuthCookie). Les clients à en-tête Authorization: Bearer (application mobile, API, tests) et les visiteurs
+        // sans cookie ne sont pas concernés — un en-tête ne peut pas être forgé par un site tiers, et sans cookie il
+        // n'y a pas de session à détourner. Jeton par double-soumission : cookie XSRF-TOKEN (lisible par le JS du
+        // front, SameSite=Strict) renvoyé dans l'en-tête X-XSRF-TOKEN sur chaque écriture.
+        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfTokenRepository.setCookieCustomizer(cookie -> cookie.sameSite("Strict").secure(cookieSecure));
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(csrfTokenRepository)
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        .requireCsrfProtectionMatcher(SecurityConfig::requiresCsrfProtection))
+                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
@@ -278,5 +304,70 @@ public class SecurityConfig {
         ErrorResponse body = new ErrorResponse(
                 Instant.now(), status.value(), status.getReasonPhrase(), message, path);
         response.getWriter().write(objectMapper.writeValueAsString(body));
+    }
+
+    /**
+     * Quand exiger un jeton CSRF. Vrai seulement pour une écriture ({@code POST/PUT/PATCH/DELETE}) authentifiée par
+     * le cookie de session : c'est le seul cas qu'un site tiers pourrait détourner (le navigateur attacherait le
+     * cookie automatiquement). Faux sinon :
+     * <ul>
+     *   <li>méthodes sûres ({@code GET/HEAD/OPTIONS/TRACE}) — aucun effet de bord ;</li>
+     *   <li>en-tête {@code Authorization: Bearer} présent — un site tiers ne peut pas forger cet en-tête
+     *       (mobile, API, tests) ;</li>
+     *   <li>aucun cookie de session — rien à détourner (le visiteur recevra 401 de la règle d'autorisation, pas
+     *       403 d'un CSRF manquant, ce qui préserve le comportement attendu par les tests « visiteur ») ;</li>
+     *   <li>endpoints d'authentification publics (connexion, inscription, déconnexion…) — ils établissent la
+     *       session, aucun jeton CSRF n'existe encore avant la première connexion.</li>
+     * </ul>
+     */
+    static boolean requiresCsrfProtection(HttpServletRequest request) {
+        String method = request.getMethod();
+        if ("GET".equals(method) || "HEAD".equals(method) || "OPTIONS".equals(method) || "TRACE".equals(method)) {
+            return false;
+        }
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return false;
+        }
+        if (!hasSessionCookie(request)) {
+            return false;
+        }
+        String path = request.getRequestURI();
+        for (String publicPost : PUBLIC_POST) {
+            if (publicPost.equals(path)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean hasSessionCookie(HttpServletRequest request) {
+        if (request.getCookies() == null) {
+            return false;
+        }
+        for (Cookie cookie : request.getCookies()) {
+            if (AuthCookie.NAME.equals(cookie.getName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Force la résolution du jeton CSRF (chargé en différé par Spring Security) pour que le cookie {@code
+     * XSRF-TOKEN} soit bien écrit dans la réponse, y compris sur une requête sûre (ex. {@code GET /users/me} au
+     * chargement du site). Sans ce filtre, le cookie ne serait posé qu'au premier accès au jeton, et le front
+     * n'aurait rien à renvoyer sur sa première écriture. Motif documenté par Spring Security pour les SPA.
+     */
+    private static final class CsrfCookieFilter extends OncePerRequestFilter {
+        @Override
+        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+                throws ServletException, IOException {
+            CsrfToken csrfToken = (CsrfToken) request.getAttribute("_csrf");
+            if (csrfToken != null) {
+                csrfToken.getToken();
+            }
+            chain.doFilter(request, response);
+        }
     }
 }

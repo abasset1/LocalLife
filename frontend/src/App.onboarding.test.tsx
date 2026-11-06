@@ -9,11 +9,28 @@ vi.mock("./components/explorer/ExplorerMap", () => ({
     default: () => <div data-testid="map" />,
 }));
 
+// Session simulée en mémoire (le JWT vit désormais dans un cookie HttpOnly, plus dans localStorage).
+const mockSession = vi.hoisted(() => ({ current: null as { userId: number; email: string; role: string } | null }));
+vi.mock("./auth/authStorage", () => ({
+    getPayload: () => mockSession.current,
+    isAuthenticated: () => mockSession.current !== null,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => mockSession.current,
+    onAuthenticated: async () => mockSession.current,
+    clearSession: async () => {
+        mockSession.current = null;
+    },
+    clearSessionLocal: () => {
+        mockSession.current = null;
+    },
+    readCsrfToken: () => null,
+}));
+
 let requests: { url: string; method: string }[];
 
 beforeEach(() => {
     requests = [];
-    window.localStorage.setItem("locallife.jwt", `x.${btoa(JSON.stringify({ userId: 7, email: "a@b.c", role: "USER" }))}.y`);
+    mockSession.current = { userId: 7, email: "a@b.c", role: "USER" };
     vi.stubGlobal(
         "fetch",
         vi.fn((url: string, init?: RequestInit) => {
@@ -64,7 +81,7 @@ describe("App — accueil de première connexion facultatif (spec P0-C)", () => 
         await user.click(screen.getByRole("button", { name: "Plus tard" }));
 
         expect(screen.queryByRole("dialog")).toBeNull();
-        expect(window.localStorage.getItem("locallife.jwt")).not.toBeNull();
+        expect(mockSession.current).not.toBeNull();
         expect(requests.some((request) => request.method === "PUT")).toBe(false);
         expect(screen.getByRole("combobox", { name: /Rechercher une activité/ })).toBeInTheDocument();
 

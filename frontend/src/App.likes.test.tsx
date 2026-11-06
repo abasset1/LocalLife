@@ -7,8 +7,13 @@ import type { Activity, MapBounds } from "./components/explorer/types";
 
 vi.mock("./auth/authStorage", () => ({
     getPayload: () => ({ userId: 7, email: "u@example.com", role: "USER" }),
-    getToken: () => "jeton",
-    clearToken: () => undefined,
+    isAuthenticated: () => true,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => null,
+    onAuthenticated: async () => null,
+    clearSession: async () => undefined,
+    clearSessionLocal: () => undefined,
+    readCsrfToken: () => null,
 }));
 
 /** Carte remplacée par un bouton par marqueur (Leaflet ne s'affiche pas dans jsdom). */

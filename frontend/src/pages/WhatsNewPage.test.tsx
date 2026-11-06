@@ -4,8 +4,25 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WhatsNewPage from "./WhatsNewPage";
 
+// Session simulée en mémoire (le JWT vit désormais dans un cookie HttpOnly, plus dans localStorage).
+const mockSession = vi.hoisted(() => ({ current: null as { userId: number; email: string; role: string } | null }));
+vi.mock("../auth/authStorage", () => ({
+    getPayload: () => mockSession.current,
+    isAuthenticated: () => mockSession.current !== null,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => mockSession.current,
+    onAuthenticated: async () => mockSession.current,
+    clearSession: async () => {
+        mockSession.current = null;
+    },
+    clearSessionLocal: () => {
+        mockSession.current = null;
+    },
+    readCsrfToken: () => null,
+}));
+
 function login() {
-    window.localStorage.setItem("locallife.jwt", `x.${btoa(JSON.stringify({ userId: 7, email: "a@b.c", role: "USER" }))}.y`);
+    mockSession.current = { userId: 7, email: "a@b.c", role: "USER" };
 }
 
 function overview(plan: string) {
@@ -15,6 +32,7 @@ function overview(plan: string) {
 afterEach(() => {
     vi.unstubAllGlobals();
     window.localStorage.clear();
+    mockSession.current = null;
 });
 
 function renderPage() {

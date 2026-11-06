@@ -5,8 +5,13 @@ import AdminSubscriptionsSection from "./AdminSubscriptionsSection";
 
 vi.mock("../../auth/authStorage", () => ({
     getPayload: () => ({ userId: 1, email: "admin@example.com", role: "ADMIN" }),
-    getToken: () => "jeton",
-    clearToken: () => undefined,
+    isAuthenticated: () => true,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => null,
+    onAuthenticated: async () => null,
+    clearSession: async () => undefined,
+    clearSessionLocal: () => undefined,
+    readCsrfToken: () => null,
 }));
 
 const REQUEST = {
