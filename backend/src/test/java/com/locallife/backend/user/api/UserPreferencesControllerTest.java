@@ -57,7 +57,8 @@ class UserPreferencesControllerTest {
                 new UserPreferences(7L, "Lyon", 45.76, 4.83, 20, List.of("SPORT"), null));
 
         ResponseEntity<Object> response = userPreferencesController.updatePreferences(
-                authentication, new UpdatePreferencesRequest("Lyon", null, null, 20, List.of("SPORT"), null), httpRequest);
+                authentication, new UpdatePreferencesRequest("Lyon", null, null, 20, List.of("SPORT"), null),
+                httpRequest);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(45.76, ((UserPreferencesResponse) response.getBody()).defaultLatitude());
