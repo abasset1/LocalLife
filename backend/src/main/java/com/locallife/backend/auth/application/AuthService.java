@@ -152,12 +152,22 @@ public class AuthService {
      *         vérification du mot de passe, pour ne pas révéler l'existence d'un compte
      */
     public LoginResponse login(LoginRequest request) {
-        // 22/10/2026 : 5 échecs en 15 minutes bloquent l'adresse, qu'elle corresponde ou non à un compte.
-        loginThrottle.checkAllowed(request.email());
+        return login(request, null);
+    }
+
+    /**
+     * Comme {@link #login(LoginRequest)}, mais avec l'IP cliente pour la limitation anti « credential stuffing »
+     * (voir {@link LoginThrottle}). {@code clientIp} vient du contrôleur ({@code HttpServletRequest}) ; {@code null}
+     * pour un appel qui n'a pas d'IP exploitable (la limite par IP est alors ignorée, celle par e-mail s'applique).
+     */
+    public LoginResponse login(LoginRequest request, String clientIp) {
+        // 22/10/2026 : 5 échecs/15 min bloquent l'adresse ; 06/11/2026 : 30 échecs/15 min bloquent l'IP. Qu'elles
+        // correspondent ou non à un compte.
+        loginThrottle.checkAllowed(request.email(), clientIp);
         Optional<User> userOptional = userRepository.findByEmail(request.email());
 
         if (userOptional.isEmpty()) {
-            loginThrottle.recordFailure(request.email());
+            loginThrottle.recordFailure(request.email(), clientIp);
             throw new IllegalArgumentException("Email ou mot de passe incorrect");
         }
 
@@ -174,7 +184,7 @@ public class AuthService {
         // login classique sur un compte Google-only.
         if (user.passwordHash() == null || user.passwordHash().isBlank()
                 || !passwordHashingService.matches(request.password(), user.passwordHash())) {
-            loginThrottle.recordFailure(request.email());
+            loginThrottle.recordFailure(request.email(), clientIp);
             throw new IllegalArgumentException("Email ou mot de passe incorrect");
         }
         loginThrottle.clear(request.email());

@@ -121,7 +121,9 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<Object> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         try {
-            LoginResponse response = authService.login(request);
+            // getRemoteAddr() reflète l'IP cliente réelle via X-Forwarded-For derrière le proxy inverse
+            // (server.forward-headers-strategy), utilisée pour la limitation par IP (LoginThrottle).
+            LoginResponse response = authService.login(request, httpRequest.getRemoteAddr());
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, authCookie.forToken(response.token()).toString())
                     .body(response);

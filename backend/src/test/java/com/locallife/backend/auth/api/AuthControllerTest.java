@@ -2,6 +2,8 @@ package com.locallife.backend.auth.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -70,7 +72,7 @@ class AuthControllerTest {
 
     @Test
     void login_ShouldReturnOk_WithToken() {
-        when(authService.login(new LoginRequest("bob@example.com", "motDePasse123")))
+        when(authService.login(eq(new LoginRequest("bob@example.com", "motDePasse123")), nullable(String.class)))
                 .thenReturn(new LoginResponse("un.jwt.token"));
         when(authCookie.forToken("un.jwt.token"))
                 .thenReturn(ResponseCookie.from(AuthCookie.NAME, "un.jwt.token").build());
@@ -85,7 +87,7 @@ class AuthControllerTest {
 
     @Test
     void login_ShouldReturnUnauthorized_WhenCredentialsAreIncorrect() {
-        when(authService.login(new LoginRequest("bob@example.com", "mauvais")))
+        when(authService.login(eq(new LoginRequest("bob@example.com", "mauvais")), nullable(String.class)))
                 .thenThrow(new IllegalArgumentException("Email ou mot de passe incorrect"));
         when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/auth/login");
 
@@ -99,7 +101,7 @@ class AuthControllerTest {
 
     @Test
     void login_ShouldReturnForbidden_WhenEmailIsNotVerified() {
-        when(authService.login(new LoginRequest("bob@example.com", "motDePasse123")))
+        when(authService.login(eq(new LoginRequest("bob@example.com", "motDePasse123")), nullable(String.class)))
                 .thenThrow(new EmailNotVerifiedException());
         when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/auth/login");
 
