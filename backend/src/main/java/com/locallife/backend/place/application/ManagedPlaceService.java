@@ -142,7 +142,7 @@ public class ManagedPlaceService {
         LOGGER.info("Proposition {} validée par l'administrateur {} : lieu {} modifié", changeId, adminId,
                 change.locationId());
         notifier.notify(change.requesterId(), "Modification de « " + change.placeName() + " » publiée",
-                "L'équipe LocalLife a validé ta proposition : la fiche de « " + change.placeName()
+                "L'équipe Neiri a validé ta proposition : la fiche de « " + change.placeName()
                         + " » est à jour.", null);
         return changeRepository.findById(changeId).orElseThrow();
     }
@@ -158,7 +158,7 @@ public class ManagedPlaceService {
             throw ProActionException.conflict("Cette proposition n'est plus en attente.");
         }
         notifier.notify(change.requesterId(), "Modification de « " + change.placeName() + " » refusée",
-                "L'équipe LocalLife n'a pas validé ta proposition de modification de « " + change.placeName()
+                "L'équipe Neiri n'a pas validé ta proposition de modification de « " + change.placeName()
                         + " ».", cleanReason);
         return changeRepository.findById(changeId).orElseThrow();
     }
@@ -178,7 +178,7 @@ public class ManagedPlaceService {
         String place = proPlaceRepository.findPlace(placeId).map(found -> "« " + found.place().name() + " »")
                 .orElse("un lieu");
         notifier.notify(userId, "Tu ne gères plus " + place,
-                "L'équipe LocalLife t'a retiré la gestion de " + place + ".", cleanReason);
+                "L'équipe Neiri t'a retiré la gestion de " + place + ".", cleanReason);
     }
 
     public List<Manager> managers(Long placeId) {

@@ -162,7 +162,7 @@ describe('buildCalendarUrl', () => {
 describe('shareMessage', () => {
   it('assemble les informations disponibles', () => {
     expect(shareMessage({ title: 'Jazz', date: '20 octobre 2026', place: 'Aubagne', url: null })).toBe(
-      'Jazz\n20 octobre 2026 · Aubagne\nDécouvert sur LocalLife',
+      'Jazz\n20 octobre 2026 · Aubagne\nDécouvert sur Neiri',
     );
   });
 });

@@ -112,7 +112,7 @@ export default function AbonnementScreen() {
           <Card style={styles.card}>
             <Notice tone="info">
               Demande de passage à {PLAN_LABELS[pending.plan]} envoyée le {formatDay(pending.requestedAt)} : l’équipe
-              LocalLife va l’examiner.
+              Neiri va l’examiner.
             </Notice>
             <Button
               label="Retirer ma demande"
@@ -150,7 +150,7 @@ export default function AbonnementScreen() {
                 void run(
                   () => subscribePlan(choice),
                   choice === 'PRO'
-                    ? 'Demande d’offre Pro envoyée : l’équipe LocalLife va l’examiner.'
+                    ? 'Demande d’offre Pro envoyée : l’équipe Neiri va l’examiner.'
                     : `Offre ${PLAN_LABELS[choice]} activée.`,
                 )
               }

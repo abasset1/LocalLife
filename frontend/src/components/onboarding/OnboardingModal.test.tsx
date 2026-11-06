@@ -54,7 +54,7 @@ describe("OnboardingModal — lien vers le guide en fin d'accueil", () => {
             </MemoryRouter>,
         );
 
-        const dialog = screen.getByRole("dialog", { name: /Bienvenue sur LocalLife/ });
+        const dialog = screen.getByRole("dialog", { name: /Bienvenue sur Neiri/ });
         expect(within(dialog).queryByRole("link", { name: /guide/ })).toBeNull();
 
         await user.type(within(dialog).getByRole("textbox", { name: /Ta ville/ }), "lyon");

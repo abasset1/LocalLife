@@ -5,7 +5,7 @@
  * ouverte dans un nouvel onglet/l'application de navigation compatible de
  * l'utilisateur (sur mobile, cette url déclenche le sélecteur d'application
  * de navigation du système si plusieurs sont installées — Google Maps,
- * Waze, Plans, etc.) — LocalLife n'implémente aucun système de navigation
+ * Waze, Plans, etc.) — Neiri n'implémente aucun système de navigation
  * propre (critère d'acceptation explicite du ticket).
  *
  * Priorité explicite du ticket : coordonnées GPS d'abord, adresse en

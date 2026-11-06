@@ -94,14 +94,14 @@ interface GoogleSignInButtonProps {
 /**
  * Bouton « Continuer avec Google » (LL-EF-011). Contrat RGPD : le script Google
  * Identity Services n'est plus chargé à l'ouverture de la page — c'est un bouton
- * LocalLife, et le script n'est chargé qu'au clic, qui lance aussitôt la connexion
+ * Neiri, et le script n'est chargé qu'au clic, qui lance aussitôt la connexion
  * Google (`prompt`). Le bouton officiel de Google est rendu en secours au même
  * endroit, au cas où le navigateur bloquerait la fenêtre de connexion.
  *
  * Flux : Google renvoie un ID token signé directement au frontend (pas
  * de redirection serveur), transmis tel quel à `POST /api/v1/auth/google`
  * qui le vérifie côté serveur (voir `GoogleAuthService`) et renvoie le
- * JWT LocalLife habituel. Ce composant ne lit et n'envoie jamais l'email
+ * JWT Neiri habituel. Ce composant ne lit et n'envoie jamais l'email
  * ou le nom séparément — exigence de sécurité explicite du ticket, voir
  * ADR-0002.
  *
@@ -138,7 +138,7 @@ function GoogleSignInButton({ onError, mode = "login", consentAccepted = false }
             });
 
             if (apiResponse.status === 428) {
-                // Pas encore de compte LocalLife pour ce compte Google : consentement requis.
+                // Pas encore de compte Neiri pour ce compte Google : consentement requis.
                 const body = (await apiResponse.json().catch(() => null)) as ApiErrorBody | null;
                 setPendingIdToken(idToken);
                 setConsentMessage(body?.message ?? "Pour créer ton compte, coche la case ci-dessous.");

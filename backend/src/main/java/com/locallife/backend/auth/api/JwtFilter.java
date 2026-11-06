@@ -87,7 +87,7 @@ public class JwtFilter extends OncePerRequestFilter {
         }
         if (access.get().status() != AccountStatus.ACTIVE) {
             errorWriter.write(response, HttpServletResponse.SC_UNAUTHORIZED,
-                    "Ce compte est suspendu. Contacte l'équipe LocalLife pour en savoir plus.",
+                    "Ce compte est suspendu. Contacte l'équipe Neiri pour en savoir plus.",
                     request.getRequestURI());
             return;
         }

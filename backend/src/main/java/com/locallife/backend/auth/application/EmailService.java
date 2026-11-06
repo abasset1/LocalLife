@@ -57,7 +57,7 @@ public interface EmailService {
 
     /**
      * Avis au contact d'une activité importée d'une source externe (voir {@code ImportedActivityContactNotifier}) :
-     * LocalLife référence l'événement, un compte professionnel est nécessaire pour qu'il continue de l'être.
+     * Neiri référence l'événement, un compte professionnel est nécessaire pour qu'il continue de l'être.
      */
     void sendImportedActivityNoticeEmail(String to, String subject, String text);
 

@@ -179,12 +179,12 @@ public class PlaceClaimService {
         String place = claim.placeName() == null ? "ce lieu" : "« " + claim.placeName() + " »";
         switch (action) {
             case APPROVE -> notifier.notify(claim.requesterId(), "Tu gères maintenant " + place,
-                    "L'équipe LocalLife a accepté ta demande : tu gères " + place + " depuis ton espace professionnel.",
+                    "L'équipe Neiri a accepté ta demande : tu gères " + place + " depuis ton espace professionnel.",
                     null);
             case REJECT -> notifier.notify(claim.requesterId(), "Demande de gestion refusée",
-                    "L'équipe LocalLife n'a pas accepté ta demande de gestion de " + place + ".", reason);
+                    "L'équipe Neiri n'a pas accepté ta demande de gestion de " + place + ".", reason);
             case REQUEST_INFO -> notifier.notify(claim.requesterId(), "Précisions demandées sur ta demande",
-                    "L'équipe LocalLife a besoin de précisions sur ta demande de gestion de " + place
+                    "L'équipe Neiri a besoin de précisions sur ta demande de gestion de " + place
                             + " : complète-la depuis ton espace professionnel.", reason);
             default -> {
             }

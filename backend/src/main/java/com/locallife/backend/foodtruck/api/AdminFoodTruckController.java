@@ -111,7 +111,7 @@ public class AdminFoodTruckController {
             refuseOwn(adminId, id);
             if (!repository.reinstate(id)) {
                 throw new ProActionException(ProActionException.Reason.CONFLICT,
-                        "Ce food truck n'est pas suspendu par LocalLife.");
+                        "Ce food truck n'est pas suspendu par Neiri.");
             }
             LOGGER.info("Suspension du food truck {} levée par l'administrateur {}", id, adminId);
             return ResponseEntity.ok(OwnedFoodTruckResponse.from(repository.findById(id).orElseThrow()));

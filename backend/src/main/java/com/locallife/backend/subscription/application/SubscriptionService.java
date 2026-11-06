@@ -47,7 +47,7 @@ public class SubscriptionService {
     private static final int MAX_REASON_LENGTH = 2000;
     /** Abonnements activés sans prestataire de paiement, à distinguer des activations par un administrateur. */
     private static final String SIMULATED_PROVIDER = "SIMULATED";
-    /** Abonnements offerts par LocalLife (type de compte choisi par un administrateur, ancien rôle PRO). */
+    /** Abonnements offerts par Neiri (type de compte choisi par un administrateur, ancien rôle PRO). */
     private static final String MANUAL_PROVIDER = "MANUAL";
 
     private final SubscriptionRepository repository;
@@ -205,7 +205,7 @@ public class SubscriptionService {
                 + " du compte " + request.userId(), Map.of("status", "REQUESTED"),
                 Map.of("status", "ACTIVE", "endsOn", endsOn == null ? "" : endsOn.toString()), null);
         notifier.notify(request.userId(), "Ton offre " + label(request.plan()) + " est active",
-                "L'équipe LocalLife a validé ta demande : l'offre " + label(request.plan()) + " est active"
+                "L'équipe Neiri a validé ta demande : l'offre " + label(request.plan()) + " est active"
                         + (endsOn == null ? "." : " jusqu'au " + endsOn + " inclus.")
                         + (request.plan() == Plan.PRO ? " Ton espace professionnel est ouvert." : ""), null);
         return repository.findById(id).orElseThrow();
@@ -225,7 +225,7 @@ public class SubscriptionService {
                 + " du compte " + request.userId(), Map.of("status", "REQUESTED"),
                 Map.of("status", "REJECTED"), cleanReason);
         notifier.notify(request.userId(), "Ta demande d'offre " + label(request.plan()) + " n'a pas été acceptée",
-                "L'équipe LocalLife n'a pas validé ta demande d'offre " + label(request.plan()) + ".", cleanReason);
+                "L'équipe Neiri n'a pas validé ta demande d'offre " + label(request.plan()) + ".", cleanReason);
         return repository.findById(id).orElseThrow();
     }
 
@@ -234,7 +234,7 @@ public class SubscriptionService {
      * <ul>
      *   <li>{@code FREE} : l'abonnement en cours prend fin immédiatement ;</li>
      *   <li>{@code PREMIUM} ou {@code PRO} : une demande en attente pour cette offre est activée ; sinon un abonnement
-     *       est créé et activé tout de suite (offert par LocalLife, {@code provider} MANUAL), en remplaçant
+     *       est créé et activé tout de suite (offert par Neiri, {@code provider} MANUAL), en remplaçant
      *       l'abonnement en cours et en retirant une demande d'une autre offre. {@code endsOn} : dernier jour d'accès
      *       (inclus), ou {@code null} sans échéance.</li>
      * </ul>
@@ -257,10 +257,10 @@ public class SubscriptionService {
             if (current.isPresent()) {
                 apply(current.get(), SubscriptionStatus.EXPIRED,
                         new Change(false, null, true, now, null, adminId, null), adminId,
-                        "Type de compte changé en Gratuit par l'équipe LocalLife");
+                        "Type de compte changé en Gratuit par l'équipe Neiri");
                 events.publishEvent(new ProAccessChanged(userId));
                 notifier.notify(userId, "Ton compte est passé à l'offre gratuite",
-                        "L'équipe LocalLife a changé ton type de compte : tu as maintenant l'offre gratuite.", null);
+                        "L'équipe Neiri a changé ton type de compte : tu as maintenant l'offre gratuite.", null);
             }
             recordPlanChange(adminId, userId, before, Plan.FREE, null);
             return overview(userId);
@@ -275,7 +275,7 @@ public class SubscriptionService {
         }
         if (pending.isPresent()) {
             apply(pending.get(), SubscriptionStatus.WITHDRAWN, Change.none(), adminId,
-                    "Remplacée par un changement de type de compte par l'équipe LocalLife");
+                    "Remplacée par un changement de type de compte par l'équipe Neiri");
         }
         Long id;
         try {
@@ -295,7 +295,7 @@ public class SubscriptionService {
         events.publishEvent(new ProAccessChanged(userId));
         recordPlanChange(adminId, userId, before, plan, endsOn);
         notifier.notify(userId, "Ton compte " + label(plan) + " est actif",
-                "L'équipe LocalLife t'a donné l'offre " + label(plan)
+                "L'équipe Neiri t'a donné l'offre " + label(plan)
                         + (endsOn == null ? "." : " jusqu'au " + endsOn + " inclus.")
                         + (plan == Plan.PRO ? " Ton espace professionnel est ouvert." : ""), null);
         return overview(userId);

@@ -58,7 +58,7 @@ export function ConsentCheckbox({
           <Pressable
             key={page}
             accessibilityRole="link"
-            accessibilityHint="Ouvre la page sur le site LocalLife"
+            accessibilityHint="Ouvre la page sur le site Neiri"
             onPress={() => void open(page)}
             hitSlop={8}
             style={({ pressed }) => [styles.link, pressed && styles.pressed]}>

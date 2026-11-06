@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
  *       de suivi d'activité ou de lieu ;</li>
  *   <li>Premium : favoris illimités, {@value #PAID_MAX_ALERTS} alertes, {@value #PREMIUM_MONTHLY_CONTRIBUTIONS}
  *       nouvelles contributions par mois civil (heure de Paris), les contributions refusées ne comptant pas ;</li>
- *   <li>Pro (type de compte), équipe LocalLife et administrateur : favoris illimités,
+ *   <li>Pro (type de compte), équipe Neiri et administrateur : favoris illimités,
  *       {@value #PAID_MAX_ALERTS} alertes, contributions
  *       illimitées.</li>
  * </ul>

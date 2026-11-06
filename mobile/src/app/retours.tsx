@@ -65,12 +65,12 @@ export default function RetoursScreen() {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <ScreenHeader
             title="Une idée, un problème ?"
-            lead="Une suggestion pour améliorer LocalLife, ou quelque chose qui ne marche pas : dites-le-nous."
+            lead="Une suggestion pour améliorer Neiri, ou quelque chose qui ne marche pas : dites-le-nous."
           />
           {sent ? (
             <Card style={styles.form}>
               <ThemedText type="heading">🙏 Merci !</ThemedText>
-              <ThemedText>Votre message a bien été envoyé à l’équipe LocalLife. Nous le lisons avec attention.</ThemedText>
+              <ThemedText>Votre message a bien été envoyé à l’équipe Neiri. Nous le lisons avec attention.</ThemedText>
               <Button
                 label="Envoyer un autre message"
                 variant="secondary"

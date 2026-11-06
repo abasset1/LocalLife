@@ -38,7 +38,7 @@ public class ExternalActivityService {
      * supplémentaire) : pas un usage cryptographique à proprement
      * parler, seulement une empreinte de détection de changement, mais
      * SHA-256 reste un choix sûr par défaut (pas de collision pratique à
-     * l'échelle du volume d'activités de LocalLife).
+     * l'échelle du volume d'activités de Neiri).
      */
     public String computeHash(String rawPayload) {
         try {

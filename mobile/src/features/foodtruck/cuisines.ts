@@ -23,7 +23,7 @@ export function cuisineLabel(code: string | null | undefined): string | null {
 }
 
 export const DEFAULT_MARKER_EMOJI = '🚚';
-export const DEFAULT_MARKER_COLOR = '#e86a4a';
+export const DEFAULT_MARKER_COLOR = '#ec3b6e';
 
 /** Emojis proposés pour la pastille. */
 export const MARKER_EMOJIS = [
@@ -33,7 +33,7 @@ export const MARKER_EMOJIS = [
 
 /** Couleurs proposées pour la pastille. */
 export const MARKER_COLORS = [
-  '#e86a4a', '#e11d48', '#f97316', '#eab308', '#16a34a', '#0d9488', '#2563eb', '#7c3aed', '#db2777', '#1f2937',
+  '#ec3b6e', '#fba91e', '#7b2cb5', '#e11d48', '#f97316', '#eab308', '#16a34a', '#0d9488', '#2563eb', '#7c3aed', '#db2777', '#1f2937',
 ];
 
 /** Pastille effective : celle choisie, sinon l'emoji du type de cuisine, sinon le camion. */

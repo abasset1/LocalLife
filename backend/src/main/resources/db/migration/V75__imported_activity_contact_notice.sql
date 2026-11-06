@@ -1,5 +1,5 @@
 -- Avis aux contacts des activités importées (ImportedActivityContactNotifier) : l'adresse e-mail de contact d'une
--- activité récupérée chez une source externe reçoit un message indiquant que LocalLife référence l'événement, et
+-- activité récupérée chez une source externe reçoit un message indiquant que Neiri référence l'événement, et
 -- qu'un compte professionnel est nécessaire pour qu'il continue de l'être. Une ligne par activité et par adresse
 -- prévenue : jamais deux fois le même avis pour la même activité, même après un nouvel import (les liens de
 -- l'activité sont alors recréés, l'activité garde son identifiant).

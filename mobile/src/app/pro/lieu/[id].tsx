@@ -34,7 +34,7 @@ function formFrom(place: ManagedPlace): PlaceChangeInput {
 
 /**
  * Un lieu géré de l'espace professionnel (décisions du 22/10/2026), comme sur le site : proposer une modification
- * de sa fiche publiée (adresse, description, contacts — ni le nom ni la catégorie), examinée par LocalLife avant
+ * de sa fiche publiée (adresse, description, contacts — ni le nom ni la catégorie), examinée par Neiri avant
  * d'apparaître ; suivre et retirer ses propositions ; ne plus gérer le lieu.
  */
 export default function ManagedPlaceScreen() {
@@ -90,7 +90,7 @@ export default function ManagedPlaceScreen() {
     if (!form) return;
     const sent = await run(
       () => proposePlaceChange(placeId, form),
-      'Proposition envoyée : LocalLife va l’examiner avant de mettre la fiche à jour.',
+      'Proposition envoyée : Neiri va l’examiner avant de mettre la fiche à jour.',
     );
     if (sent) setForm(null);
   }
@@ -146,7 +146,7 @@ export default function ManagedPlaceScreen() {
                   <Card style={styles.form}>
                     <ThemedText type="heading">Proposer une modification</ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
-                      Le nom et la catégorie ne changent pas. LocalLife examine votre proposition avant de mettre la fiche à
+                      Le nom et la catégorie ne changent pas. Neiri examine votre proposition avant de mettre la fiche à
                       jour{hasPending ? ' ; elle remplace celle déjà en attente' : ''}.
                     </ThemedText>
                     <TextField label="Adresse" value={form.address} onChangeText={(v) => setForm({ ...form, address: v })} />

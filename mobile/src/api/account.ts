@@ -26,12 +26,12 @@ export interface CurrentAccount {
   username: string;
   email: string;
   /** Rôle tel que relu en base par le serveur, pas celui du jeton stocké sur le téléphone. */
-  /** Rôle (02/11/2026) : utilisateur, équipe LocalLife (modération) ou administrateur ; distinct de l'offre. */
+  /** Rôle (02/11/2026) : utilisateur, équipe Neiri (modération) ou administrateur ; distinct de l'offre. */
   role: 'USER' | 'LOCALLIFE' | 'ADMIN';
   createdAt: string | null;
   /** Nouvelle adresse en attente de confirmation, `null` sinon. */
   pendingEmail?: string | null;
-  /** Faux pour un compte créé avec Google, sans mot de passe LocalLife. */
+  /** Faux pour un compte créé avec Google, sans mot de passe Neiri. */
   hasPassword?: boolean;
   /** Droit de proposer ou modifier une activité (offre Premium ou Pro). */
   canContribute?: boolean;

@@ -41,14 +41,14 @@ public class FeedbackNotifier {
             return;
         }
         String label = feedback.kind() == Kind.BUG ? "Anomalie signalée" : "Nouvelle suggestion";
-        String subject = "LocalLife — " + label + " par " + feedback.username();
+        String subject = "Neiri — " + label + " par " + feedback.username();
         String body = "Bonjour,\n\n"
                 + feedback.username() + " (" + feedback.email() + ") a envoyé "
                 + (feedback.kind() == Kind.BUG ? "un signalement d'anomalie" : "une suggestion") + " :\n\n"
                 + feedback.message() + "\n\n"
                 + (feedback.pageUrl() == null ? "" : "Page : " + feedback.pageUrl() + "\n")
                 + "À consulter dans l'administration : " + frontendBaseUrl + "/admin?tab=feedback\n\n"
-                + "L'équipe LocalLife";
+                + "L'équipe Neiri";
         Runnable send = () -> recipients.forEach(recipient -> {
             try {
                 emailService.sendAdminNotificationEmail(recipient, subject, body);

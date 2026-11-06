@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 /**
  * Interrupteurs de lancement ({@link Feature}), lus au démarrage depuis {@code locallife.features.*}
  * (variables d'environnement {@code FEATURE_PLACES}, {@code FEATURE_FOOD_TRUCKS}, {@code FEATURE_PREMIUM},
- * {@code FEATURE_PRO}). Une fonction fermée reste ouverte à l'équipe LocalLife et aux administrateurs, qui peuvent la
+ * {@code FEATURE_PRO}). Une fonction fermée reste ouverte à l'équipe Neiri et aux administrateurs, qui peuvent la
  * vérifier en production avant de l'ouvrir à tous ; l'administration n'est jamais concernée.
  *
  * <p>Fermer une fonction ne supprime ni ne modifie aucune donnée : les lieux, food trucks et abonnements existants
@@ -37,7 +37,7 @@ public class LaunchFeatures {
         return open.get(feature);
     }
 
-    /** Fonction disponible pour l'appelant : ouverte à tous, ou appelant de l'équipe LocalLife ou administrateur. */
+    /** Fonction disponible pour l'appelant : ouverte à tous, ou appelant de l'équipe Neiri ou administrateur. */
     public boolean isAvailable(Feature feature, Authentication authentication) {
         return isOpen(feature) || isStaff(authentication);
     }
