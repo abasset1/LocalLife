@@ -28,7 +28,7 @@ public class UserPreferencesRepository {
                 "SELECT category_code FROM user_preference_category WHERE user_id = ? ORDER BY category_code",
                 String.class, userId);
         return jdbcTemplate.query(
-                "SELECT default_city, default_latitude, default_longitude, default_radius_km "
+                "SELECT default_city, default_latitude, default_longitude, default_radius_km, default_map_layer "
                         + "FROM user_preferences WHERE user_id = ?",
                 (resultSet, rowNumber) -> new UserPreferences(
                         userId,
@@ -36,7 +36,8 @@ public class UserPreferencesRepository {
                         resultSet.getObject("default_latitude", Double.class),
                         resultSet.getObject("default_longitude", Double.class),
                         resultSet.getObject("default_radius_km", Integer.class),
-                        categoryCodes),
+                        categoryCodes,
+                        resultSet.getString("default_map_layer")),
                 userId).stream().findFirst();
     }
 
@@ -48,14 +49,16 @@ public class UserPreferencesRepository {
     public void save(UserPreferences preferences) {
         jdbcTemplate.update(
                 "INSERT INTO user_preferences "
-                        + "(user_id, default_city, default_latitude, default_longitude, default_radius_km, updated_at) "
-                        + "VALUES (?, ?, ?, ?, ?, now()) "
+                        + "(user_id, default_city, default_latitude, default_longitude, default_radius_km, "
+                        + "default_map_layer, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, now()) "
                         + "ON CONFLICT (user_id) DO UPDATE SET default_city = EXCLUDED.default_city, "
                         + "default_latitude = EXCLUDED.default_latitude, "
                         + "default_longitude = EXCLUDED.default_longitude, "
-                        + "default_radius_km = EXCLUDED.default_radius_km, updated_at = now()",
+                        + "default_radius_km = EXCLUDED.default_radius_km, "
+                        + "default_map_layer = EXCLUDED.default_map_layer, updated_at = now()",
                 preferences.userId(), preferences.defaultCity(), preferences.defaultLatitude(),
-                preferences.defaultLongitude(), preferences.defaultRadiusKm());
+                preferences.defaultLongitude(), preferences.defaultRadiusKm(), preferences.defaultMapLayer());
         jdbcTemplate.update("DELETE FROM user_preference_category WHERE user_id = ?", preferences.userId());
         jdbcTemplate.batchUpdate(
                 "INSERT INTO user_preference_category (user_id, category_code) VALUES (?, ?)",

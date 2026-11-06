@@ -72,7 +72,10 @@ public class UserPreferencesController {
      * {@code null} efface la préférence correspondante). Ville : par
      * position si {@code defaultLatitude}/{@code defaultLongitude} sont
      * fournis, sinon par {@code defaultCity} (voir
-     * {@link UserPreferencesService#updatePreferences}).
+     * {@link UserPreferencesService#updatePreferences}). Exception :
+     * {@code defaultMapLayer} absent ou {@code null} garde la carte déjà
+     * enregistrée (clients qui ne la connaissent pas, comme l'application
+     * mobile) ; {@code ""} l'efface.
      */
     @PutMapping
     public ResponseEntity<Object> updatePreferences(
@@ -82,7 +85,8 @@ public class UserPreferencesController {
         try {
             UserPreferences updated = userPreferencesService.updatePreferences(
                     userId, request.defaultCity(), request.defaultLatitude(), request.defaultLongitude(),
-                    request.defaultRadiusKm(), request.defaultCategoryCodes());
+                    request.defaultRadiusKm(), request.defaultCategoryCodes(),
+                    request.defaultMapLayer());
             return ResponseEntity.ok(UserPreferencesResponse.from(updated));
         } catch (IllegalArgumentException | CityNotFoundException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -99,7 +103,7 @@ public class UserPreferencesController {
 
     public record UpdatePreferencesRequest(
             String defaultCity, Double defaultLatitude, Double defaultLongitude, Integer defaultRadiusKm,
-            List<String> defaultCategoryCodes) {
+            List<String> defaultCategoryCodes, String defaultMapLayer) {
     }
 
     public record CityResponse(String city, Double latitude, Double longitude) {
@@ -116,19 +120,21 @@ public class UserPreferencesController {
             Double defaultLongitude,
             Integer defaultRadiusKm,
             List<String> defaultCategoryCodes,
+            String defaultMapLayer,
             boolean configured) {
 
         static UserPreferencesResponse from(UserPreferences preferences) {
             return new UserPreferencesResponse(
                     preferences.defaultCity(), preferences.defaultLatitude(), preferences.defaultLongitude(),
-                    preferences.defaultRadiusKm(), preferences.defaultCategoryCodes(), true);
+                    preferences.defaultRadiusKm(), preferences.defaultCategoryCodes(),
+                    preferences.defaultMapLayer(), true);
         }
 
         static UserPreferencesResponse notConfigured(Long userId) {
             UserPreferences empty = UserPreferences.empty(userId);
             return new UserPreferencesResponse(
                     empty.defaultCity(), empty.defaultLatitude(), empty.defaultLongitude(), empty.defaultRadiusKm(),
-                    empty.defaultCategoryCodes(), false);
+                    empty.defaultCategoryCodes(), empty.defaultMapLayer(), false);
         }
 
     }

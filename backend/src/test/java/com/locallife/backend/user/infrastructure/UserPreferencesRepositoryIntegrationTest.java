@@ -41,13 +41,13 @@ class UserPreferencesRepositoryIntegrationTest {
         Long userId = createUser();
 
         userPreferencesRepository.save(
-                new UserPreferences(userId, "Lyon", 45.76, 4.83, 20, List.of("CULTURE", "SPORT")));
+                new UserPreferences(userId, "Lyon", 45.76, 4.83, 20, List.of("CULTURE", "SPORT"), null));
         assertThat(userPreferencesRepository.findByUserId(userId)).contains(
-                new UserPreferences(userId, "Lyon", 45.76, 4.83, 20, List.of("CULTURE", "SPORT")));
+                new UserPreferences(userId, "Lyon", 45.76, 4.83, 20, List.of("CULTURE", "SPORT"), null));
 
-        userPreferencesRepository.save(new UserPreferences(userId, null, null, null, null, List.of("NATURE")));
+        userPreferencesRepository.save(new UserPreferences(userId, null, null, null, null, List.of("NATURE"), "places"));
         assertThat(userPreferencesRepository.findByUserId(userId)).contains(
-                new UserPreferences(userId, null, null, null, null, List.of("NATURE")));
+                new UserPreferences(userId, null, null, null, null, List.of("NATURE"), "places"));
     }
 
 }

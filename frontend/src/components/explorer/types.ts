@@ -15,6 +15,9 @@ export interface Category {
     active: boolean;
 }
 
+/** Carte de l'Explorer : activités, lieux ou food trucks, une seule affichée à la fois. */
+export type MapLayer = "activities" | "places" | "foodTrucks";
+
 /** Miroir de `UserPreferencesResponse` (`GET`/`PUT /api/v1/users/me/preferences`) : paramètres de recherche par défaut. */
 export interface UserPreferences {
     defaultCity: string | null;
@@ -22,6 +25,8 @@ export interface UserPreferences {
     defaultLongitude: number | null;
     defaultRadiusKm: number | null;
     defaultCategoryCodes: string[];
+    /** Carte ouverte à l'arrivée sur l'Explorer ; `null` = dernière carte choisie dans le navigateur. */
+    defaultMapLayer?: MapLayer | null;
     /** `false` tant que l'utilisateur n'a jamais enregistré ses préférences (accueil de première connexion). */
     configured?: boolean;
 }

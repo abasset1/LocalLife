@@ -75,21 +75,24 @@ public class UserPreferencesService {
      * officiel et les coordonnées sont enregistrés. Une ville identique à
      * celle déjà enregistrée garde ses coordonnées (aucun appel réseau). Ni
      * nom ni position : la ville par défaut est effacée.
+     * Carte par défaut ({@code defaultMapLayer}) : {@code null} garde celle
+     * déjà enregistrée, une chaîne vide l'efface.
      *
-     * @throws IllegalArgumentException si le rayon est hors de [1, 50], si une catégorie est inconnue
-     *         ou si la position est incomplète/hors plage
+     * @throws IllegalArgumentException si le rayon est hors de [1, 50], si une catégorie ou la carte est
+     *         inconnue, ou si la position est incomplète/hors plage
      * @throws CityNotFoundException si la ville n'existe pas
      * @throws com.locallife.backend.geocoding.application.GeocodingUnavailableException si le géocodage échoue
      */
     @Transactional
     public UserPreferences updatePreferences(
             Long userId, String defaultCity, Double defaultLatitude, Double defaultLongitude,
-            Integer defaultRadiusKm, List<String> defaultCategoryCodes) {
+            Integer defaultRadiusKm, List<String> defaultCategoryCodes, String defaultMapLayer) {
         if (defaultRadiusKm != null && (defaultRadiusKm < 1 || defaultRadiusKm > MAX_RADIUS_KM)) {
             throw new IllegalArgumentException(
                     "Le rayon par défaut doit être compris entre 1 et " + MAX_RADIUS_KM + " km.");
         }
         List<String> categoryCodes = validateCategoryCodes(defaultCategoryCodes);
+        String mapLayer = resolveMapLayer(userId, defaultMapLayer);
 
         String name = defaultCity == null || defaultCity.isBlank() ? null : defaultCity.trim();
         boolean hasPosition = defaultLatitude != null || defaultLongitude != null;
@@ -116,9 +119,24 @@ public class UserPreferencesService {
         }
 
         UserPreferences updated = new UserPreferences(
-                userId, city, latitude, longitude, defaultRadiusKm, categoryCodes);
+                userId, city, latitude, longitude, defaultRadiusKm, categoryCodes, mapLayer);
         userPreferencesRepository.save(updated);
         return updated;
+    }
+
+    /** Carte demandée ; {@code null} : celle déjà enregistrée, vide : aucune. */
+    private String resolveMapLayer(Long userId, String requested) {
+        if (requested == null) {
+            return getPreferences(userId).defaultMapLayer();
+        }
+        String mapLayer = requested.trim();
+        if (mapLayer.isEmpty()) {
+            return null;
+        }
+        if (!UserPreferences.MAP_LAYERS.contains(mapLayer)) {
+            throw new IllegalArgumentException("Carte par défaut inconnue : \"" + mapLayer + "\".");
+        }
+        return mapLayer;
     }
 
     /** Codes nettoyés (blancs et doublons retirés, triés), chacun devant être une catégorie active. */

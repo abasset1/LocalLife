@@ -41,7 +41,7 @@ class UserPreferencesControllerTest {
     @Test
     void getPreferences_ShouldUseUserIdFromJwt() {
         when(userPreferencesService.findPreferences(7L)).thenReturn(
-                Optional.of(new UserPreferences(7L, "Lyon", 45.76, 4.83, 20, List.of("SPORT"))));
+                Optional.of(new UserPreferences(7L, "Lyon", 45.76, 4.83, 20, List.of("SPORT"), null)));
 
         UserPreferencesResponse response = userPreferencesController.getPreferences(authentication);
 
@@ -53,11 +53,11 @@ class UserPreferencesControllerTest {
 
     @Test
     void updatePreferences_ShouldReturnOk_WithSavedPreferences() {
-        when(userPreferencesService.updatePreferences(7L, "Lyon", null, null, 20, List.of("SPORT"))).thenReturn(
-                new UserPreferences(7L, "Lyon", 45.76, 4.83, 20, List.of("SPORT")));
+        when(userPreferencesService.updatePreferences(7L, "Lyon", null, null, 20, List.of("SPORT"), null)).thenReturn(
+                new UserPreferences(7L, "Lyon", 45.76, 4.83, 20, List.of("SPORT"), null));
 
         ResponseEntity<Object> response = userPreferencesController.updatePreferences(
-                authentication, new UpdatePreferencesRequest("Lyon", null, null, 20, List.of("SPORT")), httpRequest);
+                authentication, new UpdatePreferencesRequest("Lyon", null, null, 20, List.of("SPORT"), null), httpRequest);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(45.76, ((UserPreferencesResponse) response.getBody()).defaultLatitude());
@@ -65,33 +65,33 @@ class UserPreferencesControllerTest {
 
     @Test
     void updatePreferences_ShouldReturnBadRequest_WhenInvalid() {
-        when(userPreferencesService.updatePreferences(7L, null, null, null, 99, null))
+        when(userPreferencesService.updatePreferences(7L, null, null, null, 99, null, null))
                 .thenThrow(new IllegalArgumentException("Rayon invalide."));
 
         ResponseEntity<Object> response = userPreferencesController.updatePreferences(
-                authentication, new UpdatePreferencesRequest(null, null, null, 99, null), httpRequest);
+                authentication, new UpdatePreferencesRequest(null, null, null, 99, null, null), httpRequest);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
     void updatePreferences_ShouldReturnBadRequest_WhenCityNotFound() {
-        when(userPreferencesService.updatePreferences(7L, "Zzzz", null, null, null, null))
+        when(userPreferencesService.updatePreferences(7L, "Zzzz", null, null, null, null, null))
                 .thenThrow(new CityNotFoundException("Ville introuvable."));
 
         ResponseEntity<Object> response = userPreferencesController.updatePreferences(
-                authentication, new UpdatePreferencesRequest("Zzzz", null, null, null, null), httpRequest);
+                authentication, new UpdatePreferencesRequest("Zzzz", null, null, null, null, null), httpRequest);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
     void updatePreferences_ShouldReturnServiceUnavailable_WhenGeocodingDown() {
-        when(userPreferencesService.updatePreferences(7L, "Lyon", null, null, null, null))
+        when(userPreferencesService.updatePreferences(7L, "Lyon", null, null, null, null, null))
                 .thenThrow(new GeocodingUnavailableException(new RuntimeException("down")));
 
         ResponseEntity<Object> response = userPreferencesController.updatePreferences(
-                authentication, new UpdatePreferencesRequest("Lyon", null, null, null, null), httpRequest);
+                authentication, new UpdatePreferencesRequest("Lyon", null, null, null, null, null), httpRequest);
 
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
     }

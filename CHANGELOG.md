@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### Carte à l'ouverture au choix : activités, lieux ou food trucks
+- **Profil → Paramètres de recherche** : « Carte à l'ouverture » choisit la carte affichée quand un utilisateur connecté arrive sur l'Explorer — Activités, Lieux, Food trucks, ou « Dernière utilisée » (comportement d'avant : dernière carte choisie dans le navigateur). Seules les cartes ouvertes au public sont proposées ; une carte enregistrée puis fermée laisse la carte sur les activités.
+- **Accueil de première connexion** : même choix, facultatif, quand les lieux ou les food trucks sont ouverts.
+- La carte choisie s'applique à chaque ouverture de l'Explorer connecté ; changer de carte ensuite reste possible et est toujours mémorisé dans le navigateur, sans modifier le paramètre.
+- **API** : `defaultMapLayer` (`activities` | `places` | `foodTrucks` | `null`) dans `GET`/`PUT /api/v1/users/me/preferences`. Au `PUT`, un champ absent ou `null` garde la carte enregistrée (l'application mobile, qui ne l'envoie pas, ne l'efface donc pas) ; `""` l'efface ; une autre valeur : **400**. Colonne `user_preferences.default_map_layer` (V87), incluse dans l'export RGPD.
+
 ### Lancement PACA et Occitanie : lieux, food trucks, Premium et Pro fermés, ouverts un par un depuis le serveur
 - **Au lancement**, le public voit les activités et peut créer un compte gratuit ; les **lieux**, les **food trucks** et les offres **Premium** et **Pro** sont fermés. Chacun s'ouvre par un interrupteur serveur, sans nouvelle version du site ni de l'application : `FEATURE_PLACES`, `FEATURE_FOOD_TRUCKS`, `FEATURE_PREMIUM`, `FEATURE_PRO` (fermés par défaut dans `docker-compose.beta.yml`, ouverts par défaut en développement et dans les tests). Pour ouvrir : `true` dans `.env.beta`, puis `docker compose --env-file .env.beta -f docker-compose.beta.yml up -d backend`.
 - **L'équipe LocalLife et les administrateurs voient tout**, même fermé : ils vérifient une fonction en production avant de l'ouvrir. L'administration (`/api/v1/admin/**`) n'est jamais fermée : lieux et food trucks se préparent avant l'ouverture.
