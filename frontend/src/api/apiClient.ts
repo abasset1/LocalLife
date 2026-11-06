@@ -1,32 +1,37 @@
-import { clearToken, getToken } from "../auth/authStorage";
+import { clearSessionLocal, readCsrfToken } from "../auth/authStorage";
+
+const CSRF_HEADER = "X-XSRF-TOKEN";
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
 
 /**
- * Wrapper autour de fetch pour les appels vers des endpoints protégés
- * (ex : POST /api/v1/activities) :
- * - ajoute automatiquement l'en-tête `Authorization: Bearer <token>` si un
- *   JWT est stocké ;
- * - en cas de réponse 401 (JWT manquant, invalide ou expiré), vide le
- *   storage et redirige vers /login.
+ * Wrapper autour de fetch pour les appels authentifiés (correctif sécurité du 06/11/2026).
  *
- * ⚠️ À utiliser uniquement pour les appels qui nécessitent une authentification.
- * Le JwtFilter backend renvoie 401 dès qu'un en-tête Authorization Bearer
- * invalide/expiré est présent, même sur une route publique (ex : GET
- * /api/v1/activities) : envoyer systématiquement le JWT sur les appels
- * publics casserait la lecture publique si le token est expiré. Les lectures
- * publiques doivent donc continuer à utiliser `fetch` directement.
+ * - envoie le cookie de session `HttpOnly` automatiquement (`credentials: "include"`) : plus de jeton manipulé en
+ *   JavaScript, donc rien à voler via une XSS ;
+ * - ajoute l'en-tête anti-CSRF `X-XSRF-TOKEN` (recopié du cookie `XSRF-TOKEN`) sur les écritures
+ *   (`POST/PUT/PATCH/DELETE`) — le serveur exige ce double justificatif pour toute écriture par cookie ;
+ * - en cas de 401 (session absente, expirée, ou invalidée après un changement de mot de passe), efface le cache
+ *   de session et redirige vers /login.
+ *
+ * ⚠️ Réservé aux appels qui exigent une authentification. Les lectures publiques peuvent utiliser `fetch`
+ * directement : le cookie, s'il est présent et valide, authentifie l'appel ; s'il est absent ou invalide, le
+ * backend répond en visiteur sur une route publique (il ne force plus un 401 sur une route publique quand le
+ * jeton vient du cookie — voir `JwtFilter`).
  */
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
-    const token = getToken();
     const headers = new Headers(init.headers);
-
-    if (token) {
-        headers.set("Authorization", `Bearer ${token}`);
+    const method = (init.method ?? "GET").toUpperCase();
+    if (!SAFE_METHODS.has(method)) {
+        const csrfToken = readCsrfToken();
+        if (csrfToken) {
+            headers.set(CSRF_HEADER, csrfToken);
+        }
     }
 
-    const response = await fetch(input, { ...init, headers });
+    const response = await fetch(input, { ...init, headers, credentials: "include" });
 
     if (response.status === 401) {
-        clearToken();
+        clearSessionLocal();
         if (window.location.pathname !== "/login") {
             window.location.assign("/login");
         }
@@ -36,10 +41,9 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
 }
 
 /**
- * Message d'erreur lisible pour une réponse en échec : le contexte, puis la
- * cause renvoyée par le backend (`ErrorResponse.message`) et le code HTTP —
- * plutôt qu'un message générique qui masque, par exemple, une route absente
- * d'un backend pas à jour (404 « Route introuvable »).
+ * Message d'erreur lisible pour une réponse en échec : le contexte, puis la cause renvoyée par le backend
+ * (`ErrorResponse.message`) et le code HTTP — plutôt qu'un message générique qui masque, par exemple, une route
+ * absente d'un backend pas à jour (404 « Route introuvable »).
  */
 export async function describeErrorResponse(response: Response, context: string): Promise<string> {
     const body = (await response.json().catch(() => null)) as { message?: string } | null;

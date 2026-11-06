@@ -60,14 +60,12 @@ public class JwtFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
 
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String token = extractToken(request);
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (token == null) {
             filterChain.doFilter(request, response);
             return;
         }
-
-        String token = authHeader.substring(7);
 
         Long userId;
         Date issuedAt;
@@ -107,6 +105,27 @@ public class JwtFilter extends OncePerRequestFilter {
         accountRepository.touchActivity(userId);
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Jeton de la requête : en-tête {@code Authorization: Bearer} en priorité (application mobile, clients API,
+     * tests), sinon cookie {@code LL_SESSION} (navigateur web, déposé par {@link AuthCookie}). {@code null} si
+     * aucun des deux n'est présent — la requête continue en visiteur, la consultation publique reste ouverte.
+     */
+    private String extractToken(HttpServletRequest request) {
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        if (request.getCookies() != null) {
+            for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
+                if (AuthCookie.NAME.equals(cookie.getName()) && cookie.getValue() != null
+                        && !cookie.getValue().isBlank()) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
     }
 
     private Claims parseToken(String token) {

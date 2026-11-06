@@ -6,8 +6,13 @@ import { addKeywords } from "./AlertKeywordsInput";
 
 vi.mock("../../auth/authStorage", () => ({
     getPayload: () => ({ userId: 7, email: "u@example.com", role: "USER" }),
-    getToken: () => "jeton",
-    clearToken: () => undefined,
+    isAuthenticated: () => true,
+    subscribeSession: () => () => undefined,
+    refreshSession: async () => null,
+    onAuthenticated: async () => null,
+    clearSession: async () => undefined,
+    clearSessionLocal: () => undefined,
+    readCsrfToken: () => null,
 }));
 
 const ALERT = { id: 3, categoryCodes: ["MUSIQUE"], includeFoodTrucks: false, city: "Lyon", latitude: 45.76,

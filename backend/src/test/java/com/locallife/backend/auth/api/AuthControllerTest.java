@@ -20,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +34,9 @@ class AuthControllerTest {
 
     @Mock
     private HttpServletRequest httpServletRequest;
+
+    @Mock
+    private AuthCookie authCookie;
 
     @InjectMocks
     private AuthController authController;
@@ -68,6 +72,8 @@ class AuthControllerTest {
     void login_ShouldReturnOk_WithToken() {
         when(authService.login(new LoginRequest("bob@example.com", "motDePasse123")))
                 .thenReturn(new LoginResponse("un.jwt.token"));
+        when(authCookie.forToken("un.jwt.token"))
+                .thenReturn(ResponseCookie.from(AuthCookie.NAME, "un.jwt.token").build());
 
         ResponseEntity<Object> response = authController.login(
                 new LoginRequest("bob@example.com", "motDePasse123"), httpServletRequest);
@@ -155,6 +161,8 @@ class AuthControllerTest {
     void loginWithGoogle_ShouldReturnOk_WithToken() {
         when(authService.loginOrRegisterWithGoogle("valid-id-token", false))
                 .thenReturn(new LoginResponse("un.jwt.token"));
+        when(authCookie.forToken("un.jwt.token"))
+                .thenReturn(ResponseCookie.from(AuthCookie.NAME, "un.jwt.token").build());
 
         ResponseEntity<Object> response = authController.loginWithGoogle(
                 new GoogleLoginRequest("valid-id-token"), httpServletRequest);

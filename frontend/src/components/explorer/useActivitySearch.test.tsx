@@ -62,13 +62,13 @@ function searchCalls() {
 
 describe("useActivitySearch", () => {
     it("reste au repos sans recherche et n'appelle rien", () => {
-        const { result } = renderHook(() => useActivitySearch(null, null));
+        const { result } = renderHook(() => useActivitySearch(null, false));
         expect(result.current.status).toBe("idle");
         expect(calls).toHaveLength(0);
     });
 
     it("appelle seulement la recherche globale, jamais le géocodage", async () => {
-        const { result } = renderHook(() => useActivitySearch(request("lyon"), null));
+        const { result } = renderHook(() => useActivitySearch(request("lyon"), false));
         expect(result.current.status).toBe("loading");
         await waitFor(() => expect(calls).toHaveLength(1));
         expect(calls[0].url).toContain("/api/v1/activities/search?q=lyon");
@@ -79,7 +79,7 @@ describe("useActivitySearch", () => {
     });
 
     it("ignore la réponse tardive d'une recherche remplacée", async () => {
-        const { result, rerender } = renderHook(({ req }) => useActivitySearch(req, null), {
+        const { result, rerender } = renderHook(({ req }) => useActivitySearch(req, false), {
             initialProps: { req: request("jazz") },
         });
         await waitFor(() => expect(searchCalls()).toHaveLength(1));
@@ -97,7 +97,7 @@ describe("useActivitySearch", () => {
     });
 
     it("n'affiche jamais l'ancienne page pendant le chargement de la suivante", async () => {
-        const { result, rerender } = renderHook(({ req }) => useActivitySearch(req, null), {
+        const { result, rerender } = renderHook(({ req }) => useActivitySearch(req, false), {
             initialProps: { req: request("fete") },
         });
         await waitFor(() => expect(searchCalls()).toHaveLength(1));
@@ -112,7 +112,7 @@ describe("useActivitySearch", () => {
     });
 
     it("passe en erreur avec le message du serveur, puis réessaie", async () => {
-        const { result, rerender } = renderHook(({ retry }) => useActivitySearch(request("x1"), null, retry), {
+        const { result, rerender } = renderHook(({ retry }) => useActivitySearch(request("x1"), false, retry), {
             initialProps: { retry: 0 },
         });
         await waitFor(() => expect(searchCalls()).toHaveLength(1));
@@ -130,7 +130,7 @@ describe("useActivitySearch", () => {
     });
 
     it("connecté : marque les activités aimées, sans bloquer si les favoris échouent", async () => {
-        const { result } = renderHook(() => useActivitySearch(request("marche"), "jwt"));
+        const { result } = renderHook(() => useActivitySearch(request("marche"), true));
         await waitFor(() => expect(calls).toHaveLength(2));
         const likes = calls.find((call) => call.url === "/api/v1/users/me/likes");
         expect(likes).toBeDefined();

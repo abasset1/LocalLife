@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { apiFetch } from "../../api/apiClient";
-import { saveToken } from "../../auth/authStorage";
+import { onAuthenticated } from "../../auth/authStorage";
 import PasswordInput from "../PasswordInput";
 import { Notice, ProfileCard } from "./ProfileUi";
 
@@ -34,8 +34,8 @@ export function PasswordCard({ hasPassword }: { hasPassword: boolean }) {
                 setMessage({ kind: "error", text: await errorMessage(response, "Le mot de passe n'a pas pu être changé.") });
                 return;
             }
-            const { token } = (await response.json()) as { token: string };
-            saveToken(token);
+            // Le serveur a renouvelé le cookie de session (l'ancien jeton est invalidé) ; on resynchronise le cache.
+            await onAuthenticated();
             setCurrent("");
             setNext("");
             setMessage({ kind: "success", text: "Mot de passe enregistré. Tes autres sessions ont été déconnectées." });

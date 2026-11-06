@@ -2,7 +2,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { saveToken } from "../../auth/authStorage";
 import MyDataCard from "./MyDataCard";
 
 afterEach(() => {
@@ -13,9 +12,8 @@ afterEach(() => {
 });
 
 describe("MyDataCard", () => {
-    it("télécharge l'export JSON avec le jeton de connexion", async () => {
+    it("télécharge l'export JSON avec le cookie de session", async () => {
         const user = userEvent.setup();
-        saveToken("jwt-test");
         const fetchMock = vi.fn(async () => new Response(JSON.stringify({ account: { id: 1 } }), { status: 200 }));
         vi.stubGlobal("fetch", fetchMock);
         const createObjectURL = vi.fn((_blob: Blob) => "blob:locallife-export");
@@ -33,7 +31,8 @@ describe("MyDataCard", () => {
         expect(await screen.findByText(/Fichier locallife-mes-donnees.json téléchargé/)).toBeInTheDocument();
         const [input, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
         expect(input).toBe("/api/v1/users/me/export");
-        expect(new Headers(init.headers).get("Authorization")).toBe("Bearer jwt-test");
+        // Le cookie de session HttpOnly authentifie l'appel (plus d'en-tête Authorization côté JS).
+        expect(init.credentials).toBe("include");
         expect(downloadedAs).toBe("locallife-mes-donnees.json");
         const blob = createObjectURL.mock.calls[0][0];
         expect(blob.type).toBe("application/json");

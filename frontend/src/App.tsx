@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiFetch } from "./api/apiClient";
-import { clearToken, getPayload, getToken } from "./auth/authStorage";
+import { clearSession, getPayload } from "./auth/authStorage";
 import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
 import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
@@ -330,14 +330,13 @@ function App() {
             }
             return;
         }
-        const token = getToken();
         const abortController = new AbortController();
         let hasDefaultCity = false;
 
         (async () => {
             try {
                 const response = await fetch("/api/v1/users/me/preferences", {
-                    headers: { Authorization: `Bearer ${token}` },
+                    credentials: "include",
                     signal: abortController.signal,
                 });
                 if (response.ok) {
@@ -566,7 +565,7 @@ function App() {
                   offset: searchOffset,
               }
             : null,
-        currentUser ? getToken() : null,
+        currentUser !== null,
         searchRetryKey,
     );
     /** Résultats de la page : même ensemble, dans l'ordre de pertinence, pour la liste et la carte. */
@@ -799,7 +798,7 @@ function App() {
     }
 
     function handleLogout() {
-        clearToken();
+        void clearSession();
         setCurrentUser(null);
         setNeedsOnboarding(false);
     }

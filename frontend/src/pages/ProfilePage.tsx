@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
-import { clearToken, getPayload } from "../auth/authStorage";
+import { clearSession, getPayload } from "../auth/authStorage";
 import { USERNAME_MAX_LENGTH, useUsernameAvailability } from "../auth/useUsernameAvailability";
 import UsernameStatusMessage from "../components/UsernameStatusMessage";
 import { DeleteAccountCard, PasswordCard } from "../components/profile/AccountSecurityCards";
@@ -177,7 +177,7 @@ function ProfilePage() {
     }
 
     function handleLogout() {
-        clearToken();
+        void clearSession();
         navigate("/");
     }
 
@@ -310,7 +310,7 @@ function ProfilePage() {
                                     hasPassword={profile.hasPassword}
                                     isAdmin={profile.role === "ADMIN"}
                                     onDeleted={() => {
-                                        clearToken();
+                                        void clearSession();
                                         navigate("/");
                                     }}
                                 />

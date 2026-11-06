@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveToken } from "../auth/authStorage";
+import { onAuthenticated } from "../auth/authStorage";
 import TermsConsentCheckbox from "./TermsConsentCheckbox";
 
 interface ApiErrorBody {
@@ -154,8 +154,8 @@ function GoogleSignInButton({ onError, mode = "login", consentAccepted = false }
                 return;
             }
 
-            const { token } = (await apiResponse.json()) as { token: string };
-            saveToken(token);
+            // Le serveur a posé le cookie de session HttpOnly ; on charge le profil avant de naviguer.
+            await onAuthenticated();
             navigate("/");
         } catch {
             latest.current.onError("Impossible de contacter le serveur, réessaie plus tard.");
