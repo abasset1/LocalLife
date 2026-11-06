@@ -1,11 +1,15 @@
 package com.locallife.backend.auth.application;
 
 import com.locallife.backend.user.domain.Role;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Optional;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -37,6 +41,9 @@ public class JwtService {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
 
         return Jwts.builder()
+                // Identifiant unique du jeton (jti) : permet de révoquer CETTE session précise à la déconnexion,
+                // sans toucher aux autres appareils de l'utilisateur (voir TokenRevocationRepository, JwtFilter).
+                .id(UUID.randomUUID().toString())
                 .claim("userId", userId)
                 .claim("email", email)
                 .claim("role", role.name())
@@ -45,5 +52,23 @@ public class JwtService {
                         + (role == Role.ADMIN ? ADMIN_EXPIRATION_MILLIS : jwtExpirationMillis)))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    /**
+     * Claims d'un jeton dont la signature est vérifiée, ou {@link Optional#empty()} si le jeton est absent,
+     * illisible, mal signé ou expiré. Utilisé par la déconnexion pour retrouver le {@code jti} et l'expiration du
+     * jeton à révoquer, sans jamais faire échouer la requête sur un jeton déjà invalide (il n'y a alors rien à
+     * révoquer).
+     */
+    public Optional<Claims> parseClaims(String token) {
+        if (token == null || token.isBlank()) {
+            return Optional.empty();
+        }
+        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        try {
+            return Optional.of(Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload());
+        } catch (JwtException | IllegalArgumentException exception) {
+            return Optional.empty();
+        }
     }
 }

@@ -173,9 +173,11 @@ public class SecurityConfig {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, AccountRepository accountRepository)
-            throws Exception {
-        JwtFilter jwtFilter = new JwtFilter(jwtSecret, accountRepository, (response, status, message, path) ->
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, AccountRepository accountRepository,
+            com.locallife.backend.auth.infrastructure.TokenRevocationRepository revocationRepository,
+            AuthCookie authCookie) throws Exception {
+        JwtFilter jwtFilter = new JwtFilter(jwtSecret, accountRepository, revocationRepository, authCookie,
+                (response, status, message, path) ->
                 writeError(response, HttpStatus.valueOf(status), message, path));
         // CSRF : activé uniquement pour les requêtes authentifiées par le cookie de session (navigateur web, voir
         // AuthCookie). Les clients à en-tête Authorization: Bearer (application mobile, API, tests) et les visiteurs
