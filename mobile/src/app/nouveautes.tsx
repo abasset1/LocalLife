@@ -34,7 +34,7 @@ const FEATURES = [
 const STEPS = [
   'Ouvrez la fiche d’une activité ou l’aperçu d’un lieu sur la carte.',
   'Touchez 🔔 « Suivre ».',
-  'C’est tout : LocalLife vous prévient dès qu’il y a du nouveau.',
+  'C’est tout : Neiri vous prévient dès qu’il y a du nouveau.',
 ];
 
 const PERKS = [
@@ -104,7 +104,7 @@ export default function NouveautesScreen() {
             Suivez vos activités et vos lieux préférés
           </ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.center}>
-            Avec la cloche « Suivre », LocalLife vous prévient dès qu’une activité ou un lieu qui vous intéresse change.
+            Avec la cloche « Suivre », Neiri vous prévient dès qu’une activité ou un lieu qui vous intéresse change.
           </ThemedText>
         </View>
 
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
     borderRadius: 999,
-    backgroundColor: '#F2C14E',
+    backgroundColor: '#FBA91E',
   },
   freeText: {
     color: Brand.ink,

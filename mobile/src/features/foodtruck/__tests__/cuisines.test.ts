@@ -6,8 +6,8 @@ describe('pastille et type de cuisine des food trucks', () => {
       emoji: '🔥',
       color: '#16a34a',
     });
-    expect(markerOf({ cuisineType: 'PIZZA' })).toEqual({ emoji: '🍕', color: '#e86a4a' });
-    expect(markerOf({ markerColor: 'rouge' })).toEqual({ emoji: '🚚', color: '#e86a4a' });
+    expect(markerOf({ cuisineType: 'PIZZA' })).toEqual({ emoji: '🍕', color: '#ec3b6e' });
+    expect(markerOf({ markerColor: 'rouge' })).toEqual({ emoji: '🚚', color: '#ec3b6e' });
   });
 
   it('propose seulement les types de cuisine présents', () => {

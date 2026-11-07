@@ -19,7 +19,7 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 /**
  * Food trucks, emplacements et présences (ADR-0013, ARCHI-01) : un food truck n'est pas un lieu, sa position vient de
  * ses présences ; une présence n'est montrée que le jour où elle est valable ; un emplacement peut être un lieu
- * LocalLife existant et accueillir plusieurs food trucks.
+ * Neiri existant et accueillir plusieurs food trucks.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class FoodTruckPresenceIntegrationTest {

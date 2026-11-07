@@ -1,7 +1,7 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 /**
- * Configuration Expo de l'application mobile LocalLife.
+ * Configuration Expo de l'application mobile Neiri.
  *
  * L'URL de l'API est fournie via la variable d'environnement
  * EXPO_PUBLIC_API_URL (voir .env.example). Elle est lue au build/démarrage
@@ -45,7 +45,7 @@ const googleIosUrlScheme = googleIosClientId
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: "LocalLife",
+  name: "Neiri",
   slug: "locallife-mobile",
   version: "1.0.0",
   orientation: "portrait",
@@ -61,7 +61,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // Identifiant de l'application Android (définitif une fois publiée sur le Play Store).
     package: "com.locallife.mobile",
     adaptiveIcon: {
-      backgroundColor: "#173F35",
+      backgroundColor: "#EC3B6E",
       foregroundImage: "./assets/images/android-icon-foreground.png",
       backgroundImage: "./assets/images/android-icon-background.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
@@ -82,7 +82,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // Alertes en notification push (voir src/notifications/push.ts).
       "expo-notifications",
       {
-        color: "#173F35",
+        color: "#D6295F",
       },
     ],
     [
@@ -91,7 +91,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       "expo-location",
       {
         locationWhenInUsePermission:
-          "LocalLife utilise votre position pour centrer la carte sur vous et afficher les activités proches. Elle n'est pas enregistrée.",
+          "Neiri utilise votre position pour centrer la carte sur vous et afficher les activités proches. Elle n'est pas enregistrée.",
         isAndroidBackgroundLocationEnabled: false,
         isIosBackgroundLocationEnabled: false,
       },
@@ -100,7 +100,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // Photo d'un food truck, choisie dans la galerie par son propriétaire (espace professionnel).
       "expo-image-picker",
       {
-        photosPermission: "LocalLife accède à vos photos pour ajouter celle de votre food truck.",
+        photosPermission: "Neiri accède à vos photos pour ajouter celle de votre food truck.",
         cameraPermission: false,
         microphonePermission: false,
       },
@@ -108,8 +108,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       "expo-splash-screen",
       {
-        // Vert forêt de la charte ; logo LocalLife (« L » et point corail).
-        backgroundColor: "#173F35",
+        // Fond clair de la charte Neiri ; épingle en dégradé orange → rose → violet.
+        backgroundColor: "#FBFAFF",
         image: "./assets/images/splash-icon.png",
         imageWidth: 120,
       },

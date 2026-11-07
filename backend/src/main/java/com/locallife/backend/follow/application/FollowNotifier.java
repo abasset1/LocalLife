@@ -46,7 +46,7 @@ public class FollowNotifier {
 
     static {
         KIND_LABELS.put("CANCELLED", "annulée");
-        KIND_LABELS.put("DELETED", "retirée de LocalLife");
+        KIND_LABELS.put("DELETED", "retirée de Neiri");
         KIND_LABELS.put("CLOSED", "retiré de la carte");
         KIND_LABELS.put("DATES", "dates modifiées");
         KIND_LABELS.put("LOCATION", "adresse modifiée");
@@ -128,7 +128,7 @@ public class FollowNotifier {
         }
         if (!delivered && recipient.email() != null) {
             try {
-                emailService.sendActivityAlertEmail(recipient.email(), "LocalLife : " + title, emailBody(updates));
+                emailService.sendActivityAlertEmail(recipient.email(), "Neiri : " + title, emailBody(updates));
                 delivered = true;
             } catch (RuntimeException exception) {
                 LOGGER.warn("Échec de l'e-mail des suivis de l'utilisateur {} : {}", recipient.userId(),
@@ -197,9 +197,9 @@ public class FollowNotifier {
             }
         }
         return text
-                .append("\nVoir sur LocalLife : ").append(frontendBaseUrl).append("/\n")
+                .append("\nVoir sur Neiri : ").append(frontendBaseUrl).append("/\n")
                 .append("Gérer mes suivis : ").append(frontendBaseUrl).append("/profile\n\n")
-                .append("L'équipe LocalLife")
+                .append("L'équipe Neiri")
                 .toString();
     }
 }

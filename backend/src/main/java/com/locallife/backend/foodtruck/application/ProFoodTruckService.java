@@ -49,10 +49,10 @@ import org.springframework.transaction.annotation.Transactional;
  * trucks et peut les archiver, rien de plus ; ses food trucks publiés ont été suspendus
  * ({@code ProAccessSynchronizer}).
  *
- * <p>Présences : un emplacement (lieu LocalLife publié, ou adresse saisie), un type, des jours, des horaires et une
+ * <p>Présences : un emplacement (lieu Neiri publié, ou adresse saisie), un type, des jours, des horaires et une
  * période ; créées en brouillon, publiées, suspendues, réactivées ou archivées. Deux présences non archivées d'un
  * même food truck ne peuvent pas se chevaucher : il ne peut pas être annoncé à deux endroits au même moment.
- * LocalLife ne vaut pas autorisation de stationnement : l'interface le rappelle.
+ * Neiri ne vaut pas autorisation de stationnement : l'interface le rappelle.
  *
  * <p>Un professionnel ne voit et ne modifie que ses propres food trucks (404 sinon).
  */
@@ -125,7 +125,7 @@ public class ProFoodTruckService {
     }
 
     /**
-     * Présence saisie : un lieu LocalLife publié ({@code placeId}) ou un nouvel emplacement ({@code newSpot}) ;
+     * Présence saisie : un lieu Neiri publié ({@code placeId}) ou un nouvel emplacement ({@code newSpot}) ;
      * jours (codes {@code MO..SU}, vide = tous les jours) ; horaires {@code HH:mm} ; dates {@code yyyy-MM-dd}.
      */
     public record PresenceInput(
@@ -162,7 +162,7 @@ public class ProFoodTruckService {
     public OwnedFoodTruck act(Long userId, Long id, OwnerAction action) {
         OwnedFoodTruck foodTruck = action == OwnerAction.ARCHIVE ? ownedForReading(userId, id) : owned(userId, id);
         if (action == OwnerAction.PUBLISH && foodTruck.suspendedByAdminAt() != null) {
-            throw ProActionException.conflict("Ce food truck a été suspendu par LocalLife : contacte l'équipe pour "
+            throw ProActionException.conflict("Ce food truck a été suspendu par Neiri : contacte l'équipe pour "
                     + "le rétablir.");
         }
         boolean approved = foodTruck.approvedAt() != null;
@@ -218,11 +218,11 @@ public class ProFoodTruckService {
         String name = "« " + foodTruck.name() + " »";
         if (approve) {
             notifier.notify(foodTruck.ownerId(), "Ton food truck est publié",
-                    "L'équipe LocalLife a validé " + name + " : il est visible sur la carte. Tu le gères désormais "
+                    "L'équipe Neiri a validé " + name + " : il est visible sur la carte. Tu le gères désormais "
                             + "sans validation.", null);
         } else {
             notifier.notify(foodTruck.ownerId(), "Ton food truck n'a pas été publié",
-                    "L'équipe LocalLife n'a pas validé " + name + ". Corrige-le puis renvoie-le depuis ton espace "
+                    "L'équipe Neiri n'a pas validé " + name + ". Corrige-le puis renvoie-le depuis ton espace "
                             + "professionnel.", cleanReason);
         }
         return foodTruckRepository.findById(id).orElseThrow();
@@ -368,7 +368,7 @@ public class ProFoodTruckService {
     }
 
     /**
-     * Emplacement de la présence : un lieu LocalLife publié, un nouvel emplacement saisi, ou, à la modification,
+     * Emplacement de la présence : un lieu Neiri publié, un nouvel emplacement saisi, ou, à la modification,
      * l'emplacement actuel si aucun des deux n'est fourni.
      */
     private Long spot(PresenceInput input, Long currentLocationId) {

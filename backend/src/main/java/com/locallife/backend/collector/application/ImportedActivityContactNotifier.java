@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Avis aux contacts des activités importées : l'adresse e-mail de contact d'une activité récupérée chez une source
- * externe (lien {@code EMAIL}, ex. contact d'inscription OpenAgenda) reçoit un message indiquant que LocalLife
+ * externe (lien {@code EMAIL}, ex. contact d'inscription OpenAgenda) reçoit un message indiquant que Neiri
  * référence l'événement, et qu'il faut créer un compte professionnel pour qu'il continue d'être référencé.
  *
  * <p>Un seul message par adresse et par passage, récapitulant ses activités (un organisateur peut en publier des
@@ -97,16 +97,16 @@ public class ImportedActivityContactNotifier {
 
     static String subject(List<ImportedActivityContact> activities) {
         if (activities.size() == 1) {
-            return "Votre événement « " + activities.get(0).title() + " » est référencé sur LocalLife";
+            return "Votre événement « " + activities.get(0).title() + " » est référencé sur Neiri";
         }
-        return "Vos " + activities.size() + " événements sont référencés sur LocalLife";
+        return "Vos " + activities.size() + " événements sont référencés sur Neiri";
     }
 
     String body(List<ImportedActivityContact> activities) {
         boolean single = activities.size() == 1;
         StringBuilder text = new StringBuilder()
                 .append("Bonjour,\n\n")
-                .append("LocalLife, la carte des activités et événements locaux, référence ")
+                .append("Neiri, la carte des activités et événements locaux, référence ")
                 .append(single ? "votre événement" : "vos événements")
                 .append(", repris d'un agenda public où cette adresse figure comme contact :\n\n");
         activities.stream().limit(MAX_ACTIVITIES_LISTED).forEach(activity -> {
@@ -125,7 +125,7 @@ public class ImportedActivityContactNotifier {
         return text
                 .append("\nPour que ").append(single ? "cet événement continue" : "ces événements continuent")
                 .append(" d'être référencé").append(single ? "" : "s")
-                .append(" sur LocalLife, créez un compte professionnel :\n")
+                .append(" sur Neiri, créez un compte professionnel :\n")
                 .append("1. Créez votre compte : ").append(frontendBaseUrl).append("/register\n")
                 .append("2. Depuis votre profil, passez à l'offre Pro : ").append(frontendBaseUrl)
                 .append("/profile\n\n")
@@ -134,7 +134,7 @@ public class ImportedActivityContactNotifier {
                 .append("Voir la carte : ").append(frontendBaseUrl).append("/\n\n")
                 .append("Ce message n'est envoyé qu'une fois par événement. Si vous n'êtes pas concerné, "
                         + "vous pouvez l'ignorer.\n\n")
-                .append("L'équipe LocalLife")
+                .append("L'équipe Neiri")
                 .toString();
     }
 }

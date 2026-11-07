@@ -136,7 +136,7 @@ describe("AdminAccountsSection", () => {
 
         const row = (await screen.findByText("admin@example.com")).closest("tr") as HTMLElement;
         expect(within(row).queryByRole("button", { name: "Suspendre" })).not.toBeInTheDocument();
-        expect(within(row).queryByRole("button", { name: "Rôle LocalLife" })).not.toBeInTheDocument();
+        expect(within(row).queryByRole("button", { name: "Rôle Neiri" })).not.toBeInTheDocument();
         expect(within(row).queryByRole("button", { name: "Type de compte" })).not.toBeInTheDocument();
         expect(within(row).getByRole("button", { name: "Historique" })).toBeInTheDocument();
     });
@@ -185,12 +185,12 @@ describe("AdminAccountsSection", () => {
         vi.stubGlobal("confirm", vi.fn(() => true));
         render(<AdminAccountsSection />);
 
-        await userEvent.click(await screen.findByRole("button", { name: "Rôle LocalLife" }));
+        await userEvent.click(await screen.findByRole("button", { name: "Rôle Neiri" }));
 
         expect(await screen.findByRole("alert")).toHaveTextContent("Le rôle ADMIN ne s'attribue pas");
     });
 
-    it("donne le rôle LocalLife, et change le type de compte avec une date de fin facultative", async () => {
+    it("donne le rôle Neiri, et change le type de compte avec une date de fin facultative", async () => {
         const fetchMock = stubFetch((url, init) => {
             if (url.includes("/accounts/7/role") && init?.method === "PATCH") {
                 return json(account({ role: "LOCALLIFE" }));
@@ -206,8 +206,8 @@ describe("AdminAccountsSection", () => {
         vi.stubGlobal("confirm", vi.fn(() => true));
         render(<AdminAccountsSection />);
 
-        await userEvent.click(await screen.findByRole("button", { name: "Rôle LocalLife" }));
-        expect(await screen.findByText("camille@example.com fait partie de l'équipe LocalLife.")).toBeInTheDocument();
+        await userEvent.click(await screen.findByRole("button", { name: "Rôle Neiri" }));
+        expect(await screen.findByText("camille@example.com fait partie de l'équipe Neiri.")).toBeInTheDocument();
         const roleCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/role"));
         expect(JSON.parse(String(roleCall?.[1]?.body))).toEqual({ role: "LOCALLIFE" });
 

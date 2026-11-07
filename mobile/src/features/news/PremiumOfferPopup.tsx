@@ -216,10 +216,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
     borderRadius: 999,
-    backgroundColor: '#F2C14E',
+    backgroundColor: '#FBA91E',
   },
   freeText: {
-    color: '#17201D',
+    color: '#1C2150',
     textAlign: 'center',
   },
   actions: {

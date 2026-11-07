@@ -3,7 +3,7 @@ import type { CallOptions } from './activities';
 
 /**
  * Fonctions ouvertes pour l'appelant (`GET /api/v1/features`, lancement progressif du 05/11/2026) : lieux, food
- * trucks, offres Premium et Pro. Le JWT est joint s'il y en a un : l'équipe LocalLife et les administrateurs voient
+ * trucks, offres Premium et Pro. Le JWT est joint s'il y en a un : l'équipe Neiri et les administrateurs voient
  * tout, même ce qui est encore fermé au public.
  */
 export interface LaunchFeaturesResponse {

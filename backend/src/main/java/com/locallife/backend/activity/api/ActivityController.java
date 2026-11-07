@@ -503,7 +503,7 @@ public class ActivityController {
             return true;
         }
         if (authentication instanceof JwtAuthentication jwtAuthentication) {
-            // Corbeille : visible des seuls administrateurs ; l'équipe LocalLife voit le reste pour modérer.
+            // Corbeille : visible des seuls administrateurs ; l'équipe Neiri voit le reste pour modérer.
             return jwtAuthentication.getRole() == Role.ADMIN
                     || !"DELETED".equals(activity.status())
                             && (jwtAuthentication.getRole() == Role.LOCALLIFE

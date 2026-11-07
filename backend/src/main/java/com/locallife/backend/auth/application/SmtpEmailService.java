@@ -40,7 +40,7 @@ public class SmtpEmailService implements EmailService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);
         message.setTo(to);
-        message.setSubject("Réinitialisation de votre mot de passe LocalLife");
+        message.setSubject("Réinitialisation de votre mot de passe Neiri");
         message.setText(
                 "Bonjour,\n\n"
                         + "Une demande de réinitialisation de mot de passe a été effectuée pour ce compte.\n\n"
@@ -49,7 +49,7 @@ public class SmtpEmailService implements EmailService {
                         + resetLink + "\n\n"
                         + "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email : "
                         + "votre mot de passe actuel reste valide.\n\n"
-                        + "L'équipe LocalLife");
+                        + "L'équipe Neiri");
 
         mailSender.send(message);
         log.info("Email de réinitialisation de mot de passe envoyé à {}", EmailMask.mask(to));
@@ -60,15 +60,15 @@ public class SmtpEmailService implements EmailService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);
         message.setTo(to);
-        message.setSubject("Confirmez votre adresse email LocalLife");
+        message.setSubject("Confirmez votre adresse email Neiri");
         message.setText(
                 "Bonjour,\n\n"
-                        + "Bienvenue sur LocalLife ! Pour activer votre compte, confirmez votre adresse email "
+                        + "Bienvenue sur Neiri ! Pour activer votre compte, confirmez votre adresse email "
                         + "en cliquant sur le lien suivant (valable 24 heures) :\n"
                         + verificationLink + "\n\n"
                         + "Si vous n'êtes pas à l'origine de cette inscription, vous pouvez ignorer cet email : "
                         + "aucun compte ne sera activé.\n\n"
-                        + "L'équipe LocalLife");
+                        + "L'équipe Neiri");
 
         mailSender.send(message);
         log.info("Email de confirmation d'adresse envoyé à {}", EmailMask.mask(to));
@@ -91,15 +91,15 @@ public class SmtpEmailService implements EmailService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);
         message.setTo(to);
-        message.setSubject("Confirmez votre nouvelle adresse email LocalLife");
+        message.setSubject("Confirmez votre nouvelle adresse email Neiri");
         message.setText(
                 "Bonjour,\n\n"
-                        + "Vous avez demandé à utiliser cette adresse pour votre compte LocalLife. Pour confirmer, "
+                        + "Vous avez demandé à utiliser cette adresse pour votre compte Neiri. Pour confirmer, "
                         + "cliquez sur le lien suivant (valable 24 heures) :\n"
                         + confirmationLink + "\n\n"
                         + "Tant que vous n'avez pas confirmé, votre ancienne adresse reste celle du compte. "
                         + "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.\n\n"
-                        + "L'équipe LocalLife");
+                        + "L'équipe Neiri");
 
         mailSender.send(message);
         log.info("Email de confirmation de changement d'adresse envoyé à {}", EmailMask.mask(to));
@@ -110,14 +110,14 @@ public class SmtpEmailService implements EmailService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);
         message.setTo(to);
-        message.setSubject("Changement d'adresse email demandé sur votre compte LocalLife");
+        message.setSubject("Changement d'adresse email demandé sur votre compte Neiri");
         message.setText(
                 "Bonjour,\n\n"
                         + "Un changement d'adresse email vers " + newEmailMasked + " a été demandé pour votre "
-                        + "compte LocalLife. Il ne prendra effet qu'après confirmation depuis la nouvelle adresse.\n\n"
+                        + "compte Neiri. Il ne prendra effet qu'après confirmation depuis la nouvelle adresse.\n\n"
                         + "Si vous n'êtes pas à l'origine de cette demande, changez votre mot de passe depuis "
-                        + "votre profil (ou via « mot de passe oublié ») et contactez l'équipe LocalLife.\n\n"
-                        + "L'équipe LocalLife");
+                        + "votre profil (ou via « mot de passe oublié ») et contactez l'équipe Neiri.\n\n"
+                        + "L'équipe Neiri");
 
         mailSender.send(message);
         log.info("Avis de changement d'adresse envoyé à {}", EmailMask.mask(to));

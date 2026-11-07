@@ -17,7 +17,7 @@ const WITHDRAWABLE = new Set(["DRAFT", "SUBMITTED", "INFO_REQUESTED"]);
 
 /**
  * Parcours A (ADR-0012) : demander la gestion d'un lieu existant. Le professionnel retrouve le lieu, explique son
- * lien avec lui et joint des justificatifs (texte ou liens) ; la demande est examinée par LocalLife. Rien ne change
+ * lien avec lui et joint des justificatifs (texte ou liens) ; la demande est examinée par Neiri. Rien ne change
  * pour le lieu avant l'approbation.
  */
 function ProClaimsSection({ initialTarget }: { initialTarget: ClaimTarget | null }) {
@@ -87,7 +87,7 @@ function ProClaimsSection({ initialTarget }: { initialTarget: ClaimTarget | null
         }
         setBusy(false);
         if (result.ok) {
-            setMessage(send ? "Demande envoyée : LocalLife l'examinera." : "Brouillon enregistré.");
+            setMessage(send ? "Demande envoyée : Neiri l'examinera." : "Brouillon enregistré.");
             setTarget(null);
             setEditing(null);
             setRefreshKey((key) => key + 1);
@@ -114,8 +114,8 @@ function ProClaimsSection({ initialTarget }: { initialTarget: ClaimTarget | null
         <section aria-labelledby="pro-claims-title">
             <h2 id="pro-claims-title">Demander la gestion d'un lieu existant</h2>
             <p className="activities-status">
-                Ton lieu est déjà sur LocalLife ? Retrouve-le et demande à le gérer. La fiche reste inchangée tant que
-                LocalLife n'a pas approuvé ta demande.
+                Ton lieu est déjà sur Neiri ? Retrouve-le et demande à le gérer. La fiche reste inchangée tant que
+                Neiri n'a pas approuvé ta demande.
             </p>
 
             {!formTitle && (
@@ -161,7 +161,7 @@ function ProClaimsSection({ initialTarget }: { initialTarget: ClaimTarget | null
                 <form className="contribution-form" onSubmit={(event) => void save(event, true)}>
                     <h3>Demande pour « {formTitle} »</h3>
                     {editing?.decisionReason && editing.status === "INFO_REQUESTED" && (
-                        <p className="activities-status">Demande de LocalLife : {editing.decisionReason}</p>
+                        <p className="activities-status">Demande de Neiri : {editing.decisionReason}</p>
                     )}
                     <div className="form-field">
                         <label htmlFor="claim-relationship">Ton lien avec le lieu</label>
@@ -176,7 +176,7 @@ function ProClaimsSection({ initialTarget }: { initialTarget: ClaimTarget | null
                             onChange={(event) => setEvidence(event.target.value)}
                             placeholder="Numéro SIRET, lien vers le site officiel, adresse email professionnelle…"
                             value={evidence} />
-                        <small>Visibles de toi et de l'équipe LocalLife seulement, effacés 12 mois après la décision.</small>
+                        <small>Visibles de toi et de l'équipe Neiri seulement, effacés 12 mois après la décision.</small>
                     </div>
                     <div className="modal-actions">
                         <button className="contribution-action" disabled={busy} type="button"

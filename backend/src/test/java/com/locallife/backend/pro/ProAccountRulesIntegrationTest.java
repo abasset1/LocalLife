@@ -145,7 +145,7 @@ class ProAccountRulesIntegrationTest {
                 Map.of("plan", "PRO"), 200);
         assertThat(account.get("plan").asText()).isEqualTo("PRO");
         assertThat(role(userId)).isEqualTo("USER");
-        // Sans date de fin : abonnement Pro sans échéance, offert par LocalLife.
+        // Sans date de fin : abonnement Pro sans échéance, offert par Neiri.
         assertThat(jdbcTemplate.queryForObject("SELECT provider || '/' || COALESCE(current_period_end::text, '-') "
                 + "FROM subscription WHERE user_id = ? AND status = 'ACTIVE'", String.class, userId))
                 .isEqualTo("MANUAL/-");

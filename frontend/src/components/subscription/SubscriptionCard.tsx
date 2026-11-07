@@ -11,7 +11,7 @@ const PLANS: Plan[] = ["FREE", "PREMIUM", "PRO"];
 /**
  * « Mon abonnement » (BILLING-01, ADR-0014) : offre actuelle et date de fin d'accès, passage à Premium ou Pro,
  * résiliation. Pas de paiement branché pour l'instant : Premium est activé tout de suite ; Pro est une demande examinée
- * par l'équipe LocalLife (décision du 21/10/2026), que l'on peut retirer tant qu'elle est en attente. Pendant une offre
+ * par l'équipe Neiri (décision du 21/10/2026), que l'on peut retirer tant qu'elle est en attente. Pendant une offre
  * Pro, passer à Premium est refusé (409, message du serveur affiché tel quel).
  */
 function SubscriptionCard() {
@@ -82,7 +82,7 @@ function SubscriptionCard() {
                 <div className="pp-actions">
                     <Notice kind="info">
                         Demande de passage à {PLAN_LABELS[pending.plan]} envoyée le {formatDay(pending.requestedAt)} :
-                        l'équipe LocalLife va l'examiner.
+                        l'équipe Neiri va l'examiner.
                     </Notice>
                     <button className="pp-button pp-button-secondary" disabled={busy} type="button"
                         onClick={() => void act("withdraw", undefined, "Demande retirée.")}>
@@ -97,7 +97,7 @@ function SubscriptionCard() {
                         <button className="pp-button pp-button-primary" disabled={busy} key={choice} type="button"
                             title={`${PLAN_DESCRIPTIONS[choice]} ${PLAN_LIMITS[choice].join(", ")}.`}
                             onClick={() => void act("subscribe", { plan: choice }, choice === "PRO"
-                                ? "Demande d'offre Pro envoyée : l'équipe LocalLife va l'examiner."
+                                ? "Demande d'offre Pro envoyée : l'équipe Neiri va l'examiner."
                                 : `Offre ${PLAN_LABELS[choice]} activée.`)}>
                             {choice === "PRO" ? "Demander l'offre Pro" : `Passer à ${PLAN_LABELS[choice]}`}
                         </button>

@@ -132,7 +132,7 @@ function SearchPreferencesForm() {
 
                     <MapLayerField
                         allowLastUsed
-                        hint="Carte affichée quand tu arrives sur LocalLife connecté(e)."
+                        hint="Carte affichée quand tu arrives sur Neiri connecté(e)."
                         name="preferences-map-layer"
                         onChange={(value) => {
                             setMapLayer(value);

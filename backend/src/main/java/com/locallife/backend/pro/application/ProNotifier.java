@@ -19,7 +19,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class ProNotifier {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ProNotifier.class);
-    private static final String SIGNATURE = "\n\nL'équipe LocalLife";
+    private static final String SIGNATURE = "\n\nL'équipe Neiri";
 
     private final EmailService emailService;
     private final UserRepository userRepository;

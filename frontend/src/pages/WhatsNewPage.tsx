@@ -1,3 +1,4 @@
+import { BrandLogo } from "../components/BrandLogo";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getPayload } from "../auth/authStorage";
@@ -26,7 +27,7 @@ const FEATURES = [
     {
         icon: "📲",
         title: "Au bon moment",
-        text: "Une notification sur ton téléphone si tu as l'application LocalLife, sinon un e-mail. Un seul message "
+        text: "Une notification sur ton téléphone si tu as l'application Neiri, sinon un e-mail. Un seul message "
             + "qui regroupe tout, au plus une fois par heure, et jamais la nuit.",
     },
 ];
@@ -34,7 +35,7 @@ const FEATURES = [
 const STEPS = [
     "Ouvre la fiche d'une activité, ou la fiche d'un lieu dans la liste « Lieux ».",
     "Touche 🔔 « Suivre ».",
-    "C'est tout : LocalLife te prévient dès qu'il y a du nouveau.",
+    "C'est tout : Neiri te prévient dès qu'il y a du nouveau.",
 ];
 
 /**
@@ -84,8 +85,7 @@ function WhatsNewPage() {
         <div className="news">
             <header className="news-topbar">
                 <Link className="guide-brand" to="/">
-                    <span className="explorer-menu-brand-mark">L</span>
-                    LocalLife
+                    <BrandLogo tone="light" />
                 </Link>
                 <Link className="news-back" to="/">← Retour à la carte</Link>
             </header>
@@ -96,7 +96,7 @@ function WhatsNewPage() {
                     <div aria-hidden="true" className="news-bell">🔔</div>
                     <h1>Suis tes activités et tes lieux préférés</h1>
                     <p className="news-lead">
-                        Avec la cloche <strong>« Suivre »</strong>, LocalLife te prévient dès qu'une activité ou un lieu
+                        Avec la cloche <strong>« Suivre »</strong>, Neiri te prévient dès qu'une activité ou un lieu
                         qui t'intéresse change. Plus besoin de revenir vérifier : les nouvelles viennent à toi.
                     </p>
                 </section>

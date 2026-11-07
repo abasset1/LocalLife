@@ -177,7 +177,7 @@ export default function BienvenueScreen() {
             Étape {step === 'preferences' ? 1 : 2} sur 2
           </ThemedText>
           <ThemedText type="subtitle" accessibilityRole="header" style={styles.headerTitle}>
-            {step === 'preferences' ? 'Bienvenue sur LocalLife 👋' : 'Créer une alerte ?'}
+            {step === 'preferences' ? 'Bienvenue sur Neiri 👋' : 'Créer une alerte ?'}
           </ThemedText>
         </View>
 
@@ -297,7 +297,7 @@ export default function BienvenueScreen() {
                 )}
                 <View style={styles.guide}>
                   <ThemedText type="small" themeColor="textSecondary" style={styles.guideText}>
-                    Envie d’un tour complet de LocalLife ?
+                    Envie d’un tour complet de Neiri ?
                   </ThemedText>
                   <Button
                     label="Voir le guide de l’application"
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.four,
     borderRadius: Radius.xl,
-    backgroundColor: Brand.green,
+    backgroundColor: Brand.navy,
   },
   progress: {
     flexDirection: 'row',
@@ -341,10 +341,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   progressDone: {
-    backgroundColor: Brand.coral,
+    backgroundColor: Brand.pink,
   },
   headerStep: {
-    color: '#C8D7D1',
+    color: '#C9CBE8',
     marginTop: Spacing.one,
   },
   headerTitle: {

@@ -411,7 +411,7 @@ export default function MapScreen() {
           <Circle
             center={{ latitude: radiusSearch.latitude, longitude: radiusSearch.longitude }}
             radius={radiusSearch.radiusKm * 1000}
-            strokeColor={Brand.green2}
+            strokeColor={Brand.navy2}
             strokeWidth={2}
             lineDashPattern={[8, 8]}
             fillColor="rgba(36, 84, 71, 0.07)"

@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 
-/** En-tête d'écran : sur-titre corail, grand titre et texte d'introduction facultatif. */
+/** En-tête d'écran : sur-titre rose, grand titre et texte d'introduction facultatif. */
 export function ScreenHeader({ eyebrow, title, lead }: { eyebrow?: string; title: string; lead?: string }) {
   return (
     <View style={styles.header}>

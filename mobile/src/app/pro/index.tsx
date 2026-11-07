@@ -68,7 +68,7 @@ export default function ProHomeScreen() {
             <MenuRow
               icon={{ ios: 'building.2', android: 'store', web: 'store' }}
               label="Demander la gestion d’un lieu"
-              description="Votre lieu est déjà sur LocalLife"
+              description="Votre lieu est déjà sur Neiri"
               onPress={() => router.push('/pro/revendiquer')}
             />
             <MenuRow

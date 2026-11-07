@@ -73,7 +73,7 @@ async function errorMessage(response: Response, fallback: string): Promise<strin
 }
 
 function AdminPlacesSection({ canImport = true }: {
-    /** Imports de lieux (sources) : administrateurs seulement ; l'équipe LocalLife modère la file. */
+    /** Imports de lieux (sources) : administrateurs seulement ; l'équipe Neiri modère la file. */
     canImport?: boolean;
 } = {}) {
     // --- Source des lieux ---

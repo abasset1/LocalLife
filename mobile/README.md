@@ -1,6 +1,6 @@
-# LocalLife — Mobile
+# Neiri — Mobile
 
-Client mobile (Android/iOS) de LocalLife. Ce n'est **pas** une nouvelle
+Client mobile (Android/iOS) de Neiri. Ce n'est **pas** une nouvelle
 version du produit : c'est un nouveau client du même backend Spring Boot
 déjà utilisé par le frontend web (`frontend/`).
 
@@ -107,7 +107,7 @@ mobile/
 │   │   │   ├── contribution.tsx # Contribution
 │   │   │   └── compte.tsx       # Compte
 │   │   └── activite/[id].tsx  # détail d'une activité (écran empilé)
-│   ├── api/              # client API LocalLife (LL-MOB-0003)
+│   ├── api/              # client API Neiri (LL-MOB-0003)
 │   ├── auth/             # session, JWT, stockage sécurisé (LL-MOB-0004)
 │   ├── components/       # composants UI réutilisables
 │   ├── constants/        # constantes (thème, etc.)

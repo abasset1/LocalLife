@@ -310,7 +310,7 @@ export default function CompteScreen() {
               <MenuRow
                 icon={{ ios: 'questionmark.circle', android: 'help', web: 'help' }}
                 label="Guide de l'application"
-                description="Revoir la présentation animée de LocalLife"
+                description="Revoir la présentation animée de Neiri"
                 onPress={() => router.push('/guide')}
               />
               {hasProAccess ? (
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
   },
   heroLead: {
-    color: '#C8D7D1',
+    color: '#C9CBE8',
   },
   segmented: {
     flexDirection: 'row',

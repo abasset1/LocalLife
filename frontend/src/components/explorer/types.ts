@@ -148,7 +148,7 @@ export interface FoodTruck {
     spotKind: "MARKET" | "PRIVATE" | "EVENT" | "OTHER";
     startTime: string | null;
     endTime: string | null;
-    /** Lieu LocalLife où se trouve l'emplacement, ou `null`. */
+    /** Lieu Neiri où se trouve l'emplacement, ou `null`. */
     placeId: number | null;
     /** Spécialité saisie librement et description du food truck. */
     description?: string | null;

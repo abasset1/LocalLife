@@ -43,7 +43,7 @@ interface AdminFoodTruck {
  * refuser ou demander des informations exige un motif, visible du demandeur.
  */
 function AdminProSection({ canManageAccounts = true, onPendingSubscriptionsChange }: {
-    /** Recherche d'un compte et type de compte : administrateurs seulement (l'équipe LocalLife modère). */
+    /** Recherche d'un compte et type de compte : administrateurs seulement (l'équipe Neiri modère). */
     canManageAccounts?: boolean;
     /** Nombre de demandes d'offre Pro en attente, pour la pastille de l'onglet « Professionnels ». */
     onPendingSubscriptionsChange?: (count: number) => void;
@@ -199,7 +199,7 @@ function AdminProSection({ canManageAccounts = true, onPendingSubscriptionsChang
             <h3>Food trucks</h3>
             <p className="activities-status">
                 Validés une fois avant leur première publication (file ci-dessous), puis publiés par leurs propriétaires.
-                Une suspension par LocalLife les retire de la carte ; leur propriétaire ne peut pas les republier.
+                Une suspension par Neiri les retire de la carte ; leur propriétaire ne peut pas les republier.
             </p>
             {foodTruckMessage && <p className="activities-status" role="status">{foodTruckMessage}</p>}
             {foodTrucks.length === 0 ? (
@@ -212,7 +212,7 @@ function AdminProSection({ canManageAccounts = true, onPendingSubscriptionsChang
                                 <span className="favorites-list-item-title">🚚 {item.foodTruck.name}</span>
                                 <span className="favorites-list-item-meta">
                                     {item.foodTruck.status === "PUBLISHED" ? "Publié" : "Suspendu"}
-                                    {item.foodTruck.suspendedByLocalLife ? " par LocalLife" : ""} · {item.foodTruck.category}
+                                    {item.foodTruck.suspendedByLocalLife ? " par Neiri" : ""} · {item.foodTruck.category}
                                     {item.ownerEmail ? ` · ${item.ownerEmail}` : ""}
                                 </span>
                             </div>
