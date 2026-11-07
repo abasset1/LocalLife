@@ -688,7 +688,7 @@ body {
     background-color: #f3ecfb;
 }
 
-/* Profil (charte LocalLife) : vert plutôt que bleu. */
+/* Profil (charte Neiri) : vert plutôt que bleu. */
 .pp .password-field .password-toggle {
     color: var(--ll-green);
 }

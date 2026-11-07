@@ -32,7 +32,7 @@ public class MailDiagnostics {
     private final JavaMailSender mailSender;
     private final String fromAddress;
 
-    public MailDiagnostics(JavaMailSender mailSender, @Value("${app.mail-from:no-reply@locallife.local}") String from) {
+    public MailDiagnostics(JavaMailSender mailSender, @Value("${app.mail-from:no-reply@neiri.local}") String from) {
         this.mailSender = mailSender;
         this.fromAddress = from;
     }

@@ -29,3 +29,30 @@ export function alertCriteria(
 export function categoryLabels(codes: readonly string[], categories: readonly { code: string; label: string }[]): string {
   return codes.map((code) => categories.find((category) => category.code === code)?.label ?? code).join(', ');
 }
+
+/** Puce « Dernière utilisée » du choix de carte : aucune carte imposée (`defaultMapLayer` effacé). */
+export const LAST_USED_MAP_LAYER = 'last';
+
+const MAP_LAYER_CHOICES = [
+  { value: 'activities', label: '📅 Activités' },
+  { value: 'places', label: '🏛 Lieux' },
+  { value: 'foodTrucks', label: '🚚 Food trucks' },
+] as const;
+
+/**
+ * Cartes proposées comme carte à l'ouverture : les activités, et les lieux ou food trucks s'ils sont ouverts
+ * (lancement progressif). Une carte déjà enregistrée reste proposée même refermée depuis.
+ */
+export function mapLayerOptions(
+  features: { places: boolean; foodTrucks: boolean },
+  current: string | null = null,
+  withLastUsed = false,
+): { value: string; label: string }[] {
+  const layers = MAP_LAYER_CHOICES.filter(
+    (choice) =>
+      choice.value === 'activities' ||
+      choice.value === current ||
+      (choice.value === 'places' ? features.places : features.foodTrucks),
+  ).map((choice) => ({ value: choice.value, label: choice.label }));
+  return withLastUsed ? [{ value: LAST_USED_MAP_LAYER, label: 'Dernière utilisée' }, ...layers] : layers;
+}

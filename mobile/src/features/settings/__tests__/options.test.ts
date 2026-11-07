@@ -1,4 +1,4 @@
-import { alertCriteria, categoryLabels, toggleCode } from '../options';
+import { LAST_USED_MAP_LAYER, alertCriteria, categoryLabels, mapLayerOptions, toggleCode } from '../options';
 
 describe('toggleCode', () => {
   it('ajoute puis retire un code', () => {
@@ -30,5 +30,22 @@ describe('alertCriteria', () => {
 
   it('gère une alerte sur les seuls food trucks', () => {
     expect(alertCriteria({ categoryCodes: [], includeFoodTrucks: true }, categories)).toBe('Food trucks');
+  });
+});
+
+describe('mapLayerOptions', () => {
+  const values = (options: { value: string }[]) => options.map((option) => option.value);
+
+  it('ne propose que les cartes ouvertes', () => {
+    expect(values(mapLayerOptions({ places: false, foodTrucks: false }))).toEqual(['activities']);
+    expect(values(mapLayerOptions({ places: true, foodTrucks: true }))).toEqual(['activities', 'places', 'foodTrucks']);
+  });
+
+  it('garde la carte enregistrée même refermée, et propose « Dernière utilisée »', () => {
+    expect(values(mapLayerOptions({ places: false, foodTrucks: false }, 'foodTrucks', true))).toEqual([
+      LAST_USED_MAP_LAYER,
+      'activities',
+      'foodTrucks',
+    ]);
   });
 });

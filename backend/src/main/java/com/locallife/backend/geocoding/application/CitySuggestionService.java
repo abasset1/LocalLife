@@ -52,7 +52,7 @@ public class CitySuggestionService {
     CitySuggestionService(RestClient.Builder builder) {
         this.restClient = builder
                 .baseUrl(GEO_API_BASE_URL)
-                .defaultHeader("User-Agent", "Neiri/0.1 (contact: dev@locallife.local)")
+                .defaultHeader("User-Agent", "Neiri/0.1 (contact: dev@neiri.local)")
                 .build();
     }
 

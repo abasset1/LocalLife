@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 
 import { ApiError, getPreferences, listCategories, updatePreferences } from '@/api';
-import type { Category } from '@/api';
+import type { Category, MapLayerValue } from '@/api';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { Notice } from '@/components/notice';
@@ -11,7 +11,16 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/auth';
-import { ChipGroup, CityPicker, RADIUS_OPTIONS_KM, toggleCode, useCityPicker } from '@/features/settings';
+import { useLaunchFeatures } from '@/features/launch';
+import {
+  ChipGroup,
+  CityPicker,
+  LAST_USED_MAP_LAYER,
+  RADIUS_OPTIONS_KM,
+  mapLayerOptions,
+  toggleCode,
+  useCityPicker,
+} from '@/features/settings';
 
 const DEFAULT_RADIUS = 'default';
 
@@ -20,16 +29,19 @@ function messageFor(error: unknown): string {
 }
 
 /**
- * Paramètres de recherche (partagés avec le site web) : ville, rayon et
- * catégories appliqués à l'ouverture de la carte « Découvrir ». Un champ
+ * Paramètres de recherche (partagés avec le site web) : ville, rayon,
+ * catégories et carte (activités, lieux ou food trucks) appliqués à
+ * l'ouverture de la carte « Découvrir ». Un champ
  * vide garde le comportement standard de la carte.
  */
 export default function ParametresScreen() {
   const { state } = useAuth();
   const router = useRouter();
+  const features = useLaunchFeatures();
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryCodes, setCategoryCodes] = useState<string[]>([]);
   const [radius, setRadius] = useState<string>(DEFAULT_RADIUS);
+  const [mapLayer, setMapLayer] = useState<string>(LAST_USED_MAP_LAYER);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -50,6 +62,7 @@ export default function ParametresScreen() {
         );
         setCategoryCodes(preferences.defaultCategoryCodes);
         setRadius(preferences.defaultRadiusKm === null ? DEFAULT_RADIUS : String(preferences.defaultRadiusKm));
+        setMapLayer(preferences.defaultMapLayer ?? LAST_USED_MAP_LAYER);
         setSavedCity(preferences.defaultCity);
         setLoading(false);
       })
@@ -72,9 +85,12 @@ export default function ParametresScreen() {
         defaultLongitude: cityPicker.position?.longitude ?? null,
         defaultRadiusKm: radius === DEFAULT_RADIUS ? null : Number(radius),
         defaultCategoryCodes: categoryCodes,
+        // Chaîne vide : efface la carte enregistrée (`null` la garderait).
+        defaultMapLayer: mapLayer === LAST_USED_MAP_LAYER ? '' : (mapLayer as MapLayerValue),
       });
       setSavedCity(preferences.defaultCity);
       setCategoryCodes(preferences.defaultCategoryCodes);
+      setMapLayer(preferences.defaultMapLayer ?? LAST_USED_MAP_LAYER);
       setSaved(true);
     } catch (e) {
       setSaveError(messageFor(e));
@@ -113,6 +129,17 @@ export default function ParametresScreen() {
 
               <Card style={styles.form}>
               <CityPicker label="Ville par défaut" picker={cityPicker} />
+
+              <ChipGroup
+                label="Carte à l’ouverture"
+                single
+                options={mapLayerOptions(features, mapLayer, true)}
+                selected={[mapLayer]}
+                onToggle={(value) => {
+                  setMapLayer(value);
+                  setSaved(false);
+                }}
+              />
 
               <ChipGroup
                 label="Rayon par défaut"

@@ -2,10 +2,18 @@
 
 ## 0.9.59 — non publiée
 
+### Carte à l'ouverture au choix : activités, lieux ou food trucks
+- **Profil → Paramètres de recherche** : « Carte à l'ouverture » choisit la carte affichée quand un utilisateur connecté arrive sur l'Explorer — Activités, Lieux, Food trucks, ou « Dernière utilisée » (comportement d'avant : dernière carte choisie dans le navigateur). Seules les cartes ouvertes au public sont proposées ; une carte enregistrée puis fermée laisse la carte sur les activités.
+- **Accueil de première connexion** : même choix, facultatif, quand les lieux ou les food trucks sont ouverts.
+- **Application** : même choix dans Compte → Paramètres de recherche (« Carte à l’ouverture ») et, facultatif, dans l’accueil de première connexion. La carte « Découvrir » s’ouvre sur la carte enregistrée, et la reprend quand le paramètre change ; changer de carte reste mémorisé sur l’appareil sans modifier le paramètre.
+- La carte choisie s'applique à chaque ouverture de l'Explorer connecté ; changer de carte ensuite reste possible et est toujours mémorisé dans le navigateur, sans modifier le paramètre.
+- **API** : `defaultMapLayer` (`activities` | `places` | `foodTrucks` | `null`) dans `GET`/`PUT /api/v1/users/me/preferences`. Au `PUT`, un champ absent ou `null` garde la carte enregistrée (les versions de l'application qui ne l'envoient pas ne l'effacent donc pas) ; `""` l'efface ; une autre valeur : **400**. Colonne `user_preferences.default_map_layer` (V87), incluse dans l'export RGPD.
+
 ### LocalLife devient Neiri : nouveau nom, nouveau logo, nouvelle charte
 - **Nom** : « LocalLife » devient « Neiri » partout où il se lit — site, application, e-mails, notifications, textes légaux. Signature : « Your world, closer. ».
 - **Logo** : épingle en dégradé orange → rose → violet portant le « N » et le point du « i », suivie du logotype « NEiRI » (point orange). Nouveau favicon et icônes web ; nouvelles icônes de l'application (iOS, Android adaptative et monochrome), écran de démarrage sur fond clair.
 - **Charte** : bleu nuit pour le texte, les menus et les en-têtes ; rose pour les actions ; orange, violet et lavande en accents. Les anciens bleus des écrans historiques passent au violet. Détails dans `docs/brand/README.md`.
+- **Dernières traces visibles** : le fichier « Mes données » s'appelle `neiri-mes-donnees.json` (site, application, en-tête du serveur) ; expéditeur par défaut des e-mails hors production `no-reply@neiri.local`.
 - **Inchangé volontairement** : identifiants techniques (rôle `LOCALLIFE`, packages Java, clés de stockage, identifiants `com.locallife.mobile` et schéma `locallife`) — personne n'est déconnecté et l'API ne change pas.
 
 ### Lancement PACA et Occitanie : lieux, food trucks, Premium et Pro fermés, ouverts un par un depuis le serveur
