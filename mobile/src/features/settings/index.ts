@@ -6,8 +6,10 @@ export type { CityPickerState, CityStatus } from './CityPicker';
 export {
   DEFAULT_ALERT_RADIUS_KM,
   FOOD_TRUCKS_CHIP,
+  LAST_USED_MAP_LAYER,
   RADIUS_OPTIONS_KM,
   alertCriteria,
   categoryLabels,
+  mapLayerOptions,
   toggleCode,
 } from './options';

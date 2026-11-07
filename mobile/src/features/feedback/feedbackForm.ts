@@ -6,7 +6,7 @@ export const FEEDBACK_MAX_LENGTH = 2000;
 
 /** Choix du type de message, comme le formulaire du site web. */
 export const FEEDBACK_KINDS: readonly { value: FeedbackKind; label: string; placeholder: string }[] = [
-  { value: 'SUGGESTION', label: '💡 Une idée', placeholder: 'Qu’est-ce qui rendrait LocalLife plus utile pour vous ?' },
+  { value: 'SUGGESTION', label: '💡 Une idée', placeholder: 'Qu’est-ce qui rendrait Neiri plus utile pour vous ?' },
   { value: 'BUG', label: '🐞 Un problème', placeholder: 'Que s’est-il passé ? Qu’attendiez-vous à la place ?' },
 ];
 

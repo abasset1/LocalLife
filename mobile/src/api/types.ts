@@ -1,5 +1,5 @@
 /**
- * Types des réponses/requêtes de l'API LocalLife (LL-MOB-0003).
+ * Types des réponses/requêtes de l'API Neiri (LL-MOB-0003).
  *
  * Miroirs des DTO du backend Spring Boot (`backend/.../api/*.java`). Les
  * `LocalDateTime` Java sont sérialisés en chaînes ISO-8601 sans fuseau
@@ -211,6 +211,9 @@ export interface CitySuggestion {
   longitude: number;
 }
 
+/** Carte de « Découvrir » : activités, lieux ou food trucks (mêmes valeurs que le site web et le backend). */
+export type MapLayerValue = 'activities' | 'places' | 'foodTrucks';
+
 /** `UserPreferencesResponse` (`GET`/`PUT /users/me/preferences`) — paramètres de recherche par défaut. */
 export interface UserPreferences {
   defaultCity: string | null;
@@ -218,6 +221,8 @@ export interface UserPreferences {
   defaultLongitude: number | null;
   defaultRadiusKm: number | null;
   defaultCategoryCodes: string[];
+  /** Carte ouverte à l'arrivée ; `null` (ou absent, backend ancien) = dernière carte choisie sur l'appareil. */
+  defaultMapLayer?: MapLayerValue | null;
   /** `false` tant que l'utilisateur n'a jamais enregistré ses préférences (accueil de première connexion). */
   configured?: boolean;
 }
@@ -233,6 +238,8 @@ export interface UpdatePreferencesRequest {
   defaultLongitude: number | null;
   defaultRadiusKm: number | null;
   defaultCategoryCodes: string[];
+  /** Carte à l'arrivée : absent ou `null` garde celle enregistrée, `''` l'efface. */
+  defaultMapLayer?: MapLayerValue | '' | null;
 }
 
 /** `CityResponse` (`GET /users/me/preferences/city`) — ville existante, nom officiel. */
@@ -297,7 +304,7 @@ export interface FoodTruck {
   endTime: string | null;
   validFrom: string | null;
   validUntil: string | null;
-  /** Lieu LocalLife où se trouve l'emplacement, ou `null`. */
+  /** Lieu Neiri où se trouve l'emplacement, ou `null`. */
   placeId: number | null;
   /** Type de cuisine (`FoodTruckCuisine` backend), `null` si non renseigné. */
   cuisineType?: string | null;

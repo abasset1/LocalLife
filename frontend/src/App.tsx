@@ -50,6 +50,7 @@ import type {
     FoodTruck,
     MapBounds,
     UserPosition,
+    MapLayer,
     UserPreferences,
 } from "./components/explorer/types";
 
@@ -67,9 +68,9 @@ import type {
 /**
  * Contenu affiché sur la carte et dans la liste : activités, lieux (ADR-0011, phase B) ou food trucks (ADR-0013),
  * un seul à la fois — les trois superposés rendaient la carte illisible. Le choix est mémorisé dans le navigateur
- * (confort seulement : tout fonctionne sans stockage).
+ * (confort seulement : tout fonctionne sans stockage). Un utilisateur connecté peut choisir dans ses paramètres
+ * la carte ouverte à son arrivée (`defaultMapLayer`), qui prime alors sur ce souvenir.
  */
-type MapLayer = "activities" | "places" | "foodTrucks";
 
 const MAP_LAYER_STORAGE_KEY = "locallife.mapLayer";
 
@@ -228,12 +229,16 @@ function App() {
 
     /**
      * Applique des préférences à la carte : catégories cochées, rayon de
-     * recherche et de cadrage, ville comme point de départ. Retourne `true` si
+     * recherche et de cadrage, ville comme point de départ, carte ouverte (activités, lieux ou food trucks — sans
+     * toucher au choix mémorisé dans le navigateur). Retourne `true` si
      * elles contiennent une ville aux coordonnées valides. `keepMapView` : seules les catégories
      * s'appliquent, la carte reste sur la position reçue dans l'adresse.
      */
     function applyPreferences(preferences: UserPreferences, keepMapView = false): boolean {
         setSelectedCategoryCodes(preferences.defaultCategoryCodes);
+        if (preferences.defaultMapLayer && MAP_LAYERS.some((layer) => layer.value === preferences.defaultMapLayer)) {
+            setMapLayer(preferences.defaultMapLayer);
+        }
         if (keepMapView) {
             return false;
         }
@@ -747,7 +752,7 @@ function App() {
 
     /**
      * Au chargement, sans ville enregistrée : la position n'est reprise que si le navigateur l'a déjà
-     * autorisée pour LocalLife (aucune fenêtre d'autorisation). Un échec reste silencieux : l'invitation
+     * autorisée pour Neiri (aucune fenêtre d'autorisation). Un échec reste silencieux : l'invitation
      * à choisir un lieu est déjà affichée.
      */
     function resumeGrantedGeolocation() {

@@ -57,7 +57,7 @@ import { useProAccessEnded } from '@/features/pro/useProAccess';
 import { ChipGroup } from '@/features/settings';
 
 const ACTION_SUCCESS: Partial<Record<TruckStatus, string>> = {
-  PENDING: 'Envoyé en validation : LocalLife va vérifier votre food truck avant de le publier.',
+  PENDING: 'Envoyé en validation : Neiri va vérifier votre food truck avant de le publier.',
   PUBLISHED: 'Food truck publié.',
 };
 const KIND_OPTIONS = (Object.keys(SPOT_KIND_LABELS) as SpotKind[]).map((value) => ({
@@ -83,7 +83,7 @@ const EMPTY_FORM = {
 
 /**
  * Un food truck de l'espace professionnel (PRO-01 lot C, FOODTRUCK-01), comme sur le site : profil (envoyer en
- * validation tant que LocalLife ne l'a jamais validé, puis publier ; suspendre ou retirer la demande ; archiver), puis emplacements et planning — un lieu LocalLife existant ou une adresse, un type, des
+ * validation tant que Neiri ne l'a jamais validé, puis publier ; suspendre ou retirer la demande ; archiver), puis emplacements et planning — un lieu Neiri existant ou une adresse, un type, des
  * jours, des horaires et une période. Brouillon d'abord, publication ensuite. Le backend refuse les chevauchements.
  */
 export default function MyFoodTruckScreen() {
@@ -250,17 +250,17 @@ export default function MyFoodTruckScreen() {
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   {truckStatusLabel(truck)} · {[cuisineLabel(truck.cuisineType), truck.category].filter(Boolean).join(' · ')}
-                  {truck.suspendedByLocalLife ? ' · suspendu par LocalLife' : ''}
+                  {truck.suspendedByLocalLife ? ' · suspendu par Neiri' : ''}
                 </ThemedText>
                 {truck.status === 'PENDING' && (
                   <Notice tone="info">
-                    En validation : LocalLife vérifie votre food truck avant sa première publication. Vous pouvez retirer la
+                    En validation : Neiri vérifie votre food truck avant sa première publication. Vous pouvez retirer la
                     demande tant qu’elle n’est pas examinée.
                   </Notice>
                 )}
                 {truck.status === 'REJECTED' && (
                   <Notice tone="danger">
-                    {truck.reviewReason ? `Refusé : ${truck.reviewReason}` : 'Refusé par LocalLife.'} Corrigez le profil,
+                    {truck.reviewReason ? `Refusé : ${truck.reviewReason}` : 'Refusé par Neiri.'} Corrigez le profil,
                     puis renvoyez-le en validation.
                   </Notice>
                 )}
@@ -335,7 +335,7 @@ export default function MyFoodTruckScreen() {
               Emplacements et planning
             </ThemedText>
             <Notice tone="info">
-              LocalLife n’accorde aucune autorisation de stationnement : vous restez responsable des autorisations
+              Neiri n’accorde aucune autorisation de stationnement : vous restez responsable des autorisations
               nécessaires pour chaque emplacement.
             </Notice>
             {presences.length === 0 && <ThemedText themeColor="textSecondary">Aucun emplacement pour l’instant.</ThemedText>}
@@ -371,7 +371,7 @@ export default function MyFoodTruckScreen() {
                 <ChipGroup
                   label="Où"
                   options={[
-                    { value: 'place', label: editing === 'new' ? 'Un lieu LocalLife' : 'Garder ou choisir un lieu' },
+                    { value: 'place', label: editing === 'new' ? 'Un lieu Neiri' : 'Garder ou choisir un lieu' },
                     { value: 'new', label: 'Une autre adresse' },
                   ]}
                   selected={[form.mode]}

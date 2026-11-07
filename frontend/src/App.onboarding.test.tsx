@@ -76,7 +76,7 @@ function renderApp() {
 describe("App — accueil de première connexion facultatif (spec P0-C)", () => {
     it("« Plus tard » ferme l'accueil sans déconnecter ni rien enregistrer, pour la session", async () => {
         const user = renderApp();
-        await screen.findByRole("dialog", { name: /Bienvenue sur LocalLife/ });
+        await screen.findByRole("dialog", { name: /Bienvenue sur Neiri/ });
 
         await user.click(screen.getByRole("button", { name: "Plus tard" }));
 
@@ -94,21 +94,21 @@ describe("App — accueil de première connexion facultatif (spec P0-C)", () => 
 
     it("✕ et Échap reportent aussi la configuration", async () => {
         const user = renderApp();
-        const dialog = await screen.findByRole("dialog", { name: /Bienvenue sur LocalLife/ });
+        const dialog = await screen.findByRole("dialog", { name: /Bienvenue sur Neiri/ });
         await user.click(within(dialog).getByRole("button", { name: "Fermer" }));
         expect(screen.queryByRole("dialog")).toBeNull();
 
         window.sessionStorage.clear();
         cleanup();
         const secondUser = renderApp();
-        await screen.findByRole("dialog", { name: /Bienvenue sur LocalLife/ });
+        await screen.findByRole("dialog", { name: /Bienvenue sur Neiri/ });
         await secondUser.keyboard("{Escape}");
         expect(screen.queryByRole("dialog")).toBeNull();
     });
 
     it("une erreur d'enregistrement reste affichée sans fermer l'accueil", async () => {
         const user = renderApp();
-        const dialog = await screen.findByRole("dialog", { name: /Bienvenue sur LocalLife/ });
+        const dialog = await screen.findByRole("dialog", { name: /Bienvenue sur Neiri/ });
 
         await user.type(within(dialog).getByRole("textbox", { name: /Ta ville/ }), "lyon");
         await user.click(await within(dialog).findByRole("checkbox", { name: "Culture" }));
@@ -116,6 +116,6 @@ describe("App — accueil de première connexion facultatif (spec P0-C)", () => 
 
         await waitFor(() => expect(requests.some((request) => request.method === "PUT")).toBe(true));
         expect(await within(dialog).findByText(/Service indisponible/)).toBeInTheDocument();
-        expect(screen.getByRole("dialog", { name: /Bienvenue sur LocalLife/ })).toBeInTheDocument();
+        expect(screen.getByRole("dialog", { name: /Bienvenue sur Neiri/ })).toBeInTheDocument();
     });
 });

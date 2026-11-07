@@ -28,12 +28,12 @@ describe("MyDataCard", () => {
         expect(screen.getByText(/supprimé après 30 jours/)).toBeInTheDocument();
         await user.click(screen.getByRole("button", { name: "Télécharger mes données" }));
 
-        expect(await screen.findByText(/Fichier locallife-mes-donnees.json téléchargé/)).toBeInTheDocument();
+        expect(await screen.findByText(/Fichier neiri-mes-donnees.json téléchargé/)).toBeInTheDocument();
         const [input, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
         expect(input).toBe("/api/v1/users/me/export");
         // Le cookie de session HttpOnly authentifie l'appel (plus d'en-tête Authorization côté JS).
         expect(init.credentials).toBe("include");
-        expect(downloadedAs).toBe("locallife-mes-donnees.json");
+        expect(downloadedAs).toBe("neiri-mes-donnees.json");
         const blob = createObjectURL.mock.calls[0][0];
         expect(blob.type).toBe("application/json");
         expect(blob.size).toBe('{"account":{"id":1}}'.length);

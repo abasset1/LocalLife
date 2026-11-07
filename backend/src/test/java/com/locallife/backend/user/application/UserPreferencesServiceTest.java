@@ -64,7 +64,7 @@ class UserPreferencesServiceTest {
         when(categoryRepository.findAll()).thenReturn(List.of(category("SPORT", true), category("CULTURE", true)));
 
         UserPreferences result = userPreferencesService.updatePreferences(
-                1L, "  lyon ", null, null, 20, Arrays.asList("SPORT", " CULTURE", "SPORT", "", null));
+                1L, "  lyon ", null, null, 20, Arrays.asList("SPORT", " CULTURE", "SPORT", "", null), null);
 
         assertEquals("Lyon", result.defaultCity());
         assertEquals(45.76, result.defaultLatitude());
@@ -77,9 +77,9 @@ class UserPreferencesServiceTest {
     @Test
     void updatePreferences_ShouldKeepStoredCoordinates_WhenCityUnchanged() {
         when(userPreferencesRepository.findByUserId(1L)).thenReturn(Optional.of(
-                new UserPreferences(1L, "Lyon", 45.76, 4.83, 10, List.of())));
+                new UserPreferences(1L, "Lyon", 45.76, 4.83, 10, List.of(), null)));
 
-        UserPreferences result = userPreferencesService.updatePreferences(1L, "lyon", null, null, 10, List.of());
+        UserPreferences result = userPreferencesService.updatePreferences(1L, "lyon", null, null, 10, List.of(), null);
 
         assertEquals("Lyon", result.defaultCity());
         assertEquals(45.76, result.defaultLatitude());
@@ -88,7 +88,7 @@ class UserPreferencesServiceTest {
 
     @Test
     void updatePreferences_ShouldClearCity_WhenBlank() {
-        UserPreferences result = userPreferencesService.updatePreferences(1L, "   ", null, null, null, null);
+        UserPreferences result = userPreferencesService.updatePreferences(1L, "   ", null, null, null, null, null);
 
         assertNull(result.defaultCity());
         assertNull(result.defaultLatitude());
@@ -100,9 +100,9 @@ class UserPreferencesServiceTest {
     @Test
     void updatePreferences_ShouldReject_RadiusOutOfRange() {
         assertThrows(IllegalArgumentException.class,
-                () -> userPreferencesService.updatePreferences(1L, null, null, null, 0, List.of()));
+                () -> userPreferencesService.updatePreferences(1L, null, null, null, 0, List.of(), null));
         assertThrows(IllegalArgumentException.class,
-                () -> userPreferencesService.updatePreferences(1L, null, null, null, 51, List.of()));
+                () -> userPreferencesService.updatePreferences(1L, null, null, null, 51, List.of(), null));
         verify(userPreferencesRepository, never()).save(any());
     }
 
@@ -111,9 +111,9 @@ class UserPreferencesServiceTest {
         when(categoryRepository.findAll()).thenReturn(List.of(category("SPORT", true), category("OLD", false)));
 
         assertThrows(IllegalArgumentException.class,
-                () -> userPreferencesService.updatePreferences(1L, null, null, null, null, List.of("NOPE")));
+                () -> userPreferencesService.updatePreferences(1L, null, null, null, null, List.of("NOPE"), null));
         assertThrows(IllegalArgumentException.class,
-                () -> userPreferencesService.updatePreferences(1L, null, null, null, null, List.of("OLD")));
+                () -> userPreferencesService.updatePreferences(1L, null, null, null, null, List.of("OLD"), null));
         verify(userPreferencesRepository, never()).save(any());
     }
 
@@ -123,7 +123,7 @@ class UserPreferencesServiceTest {
         when(geocodingService.findCity("Zzzz")).thenThrow(new CityNotFoundException("Ville introuvable."));
 
         assertThrows(CityNotFoundException.class,
-                () -> userPreferencesService.updatePreferences(1L, "Zzzz", null, null, null, List.of()));
+                () -> userPreferencesService.updatePreferences(1L, "Zzzz", null, null, null, List.of(), null));
         verify(userPreferencesRepository, never()).save(any());
     }
 
@@ -133,7 +133,7 @@ class UserPreferencesServiceTest {
 
         // Le nom saisi est ignoré : la position (géolocalisation) est prioritaire.
         UserPreferences result = userPreferencesService.updatePreferences(
-                1L, "Paris", 45.77, 4.85, null, List.of());
+                1L, "Paris", 45.77, 4.85, null, List.of(), null);
 
         assertEquals("Lyon", result.defaultCity());
         assertEquals(45.76, result.defaultLatitude());
@@ -147,7 +147,41 @@ class UserPreferencesServiceTest {
         when(geocodingService.resolveCity(null, 45.77, null)).thenThrow(new IllegalArgumentException("incomplète"));
 
         assertThrows(IllegalArgumentException.class,
-                () -> userPreferencesService.updatePreferences(1L, null, 45.77, null, null, List.of()));
+                () -> userPreferencesService.updatePreferences(1L, null, 45.77, null, null, List.of(), null));
+        verify(userPreferencesRepository, never()).save(any());
+    }
+
+    @Test
+    void updatePreferences_ShouldSaveChosenMapLayer() {
+        UserPreferences result = userPreferencesService.updatePreferences(
+                1L, null, null, null, null, List.of(), " places ");
+
+        assertEquals("places", result.defaultMapLayer());
+        verify(userPreferencesRepository).save(result);
+    }
+
+    @Test
+    void updatePreferences_ShouldKeepStoredMapLayer_WhenAbsent() {
+        when(userPreferencesRepository.findByUserId(1L)).thenReturn(Optional.of(
+                new UserPreferences(1L, null, null, null, null, List.of(), "foodTrucks")));
+
+        UserPreferences result = userPreferencesService.updatePreferences(1L, null, null, null, null, List.of(), null);
+
+        assertEquals("foodTrucks", result.defaultMapLayer());
+    }
+
+    @Test
+    void updatePreferences_ShouldClearMapLayer_WhenEmpty() {
+        UserPreferences result = userPreferencesService.updatePreferences(1L, null, null, null, null, List.of(), "");
+
+        assertNull(result.defaultMapLayer());
+        verify(userPreferencesRepository, never()).findByUserId(any());
+    }
+
+    @Test
+    void updatePreferences_ShouldReject_UnknownMapLayer() {
+        assertThrows(IllegalArgumentException.class,
+                () -> userPreferencesService.updatePreferences(1L, null, null, null, null, List.of(), "events"));
         verify(userPreferencesRepository, never()).save(any());
     }
 

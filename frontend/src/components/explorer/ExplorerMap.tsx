@@ -32,7 +32,7 @@ L.Icon.Default.mergeOptions({
 
 /**
  * Icône du marqueur food truck (LL-6009) : pastille personnalisée par son propriétaire (emoji, couleur), sinon
- * l'emoji de son type de cuisine sur fond corail — voir styles.css `.explorer-food-truck-marker`. Une icône par
+ * l'emoji de son type de cuisine sur fond rose — voir styles.css `.explorer-food-truck-marker`. Une icône par
  * combinaison, gardée en mémoire.
  */
 const foodTruckIcons = new Map<string, L.DivIcon>();
@@ -465,7 +465,7 @@ function ExplorerMap({
                 <Circle
                     center={[userPosition.latitude, userPosition.longitude]}
                     interactive={false}
-                    pathOptions={{ color: "#2563eb", weight: 1.5, dashArray: "6 6", fillOpacity: 0.04 }}
+                    pathOptions={{ color: "#7b2cb5", weight: 1.5, dashArray: "6 6", fillOpacity: 0.04 }}
                     radius={radiusKm * 1000}
                 />
             )}

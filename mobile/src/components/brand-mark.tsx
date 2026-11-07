@@ -1,16 +1,28 @@
-import { StyleSheet, View } from 'react-native';
+import { Image } from 'expo-image';
+import { StyleSheet, useColorScheme, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Brand, Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 
-/** Logo texte de la maquette : carré vert « L » suivi de « LocalLife ». */
+/**
+ * Logo Neiri : épingle en dégradé (« N » et point du « i ») suivie du logotype « NEiRI ». Images générées à
+ * partir des SVG de `frontend/public` (voir docs/brand/README.md). `inverted` : logotype blanc, pour un fond
+ * bleu nuit ; en mode sombre, le logotype est toujours clair.
+ */
 export function BrandMark({ inverted = false }: { inverted?: boolean }) {
+  const dark = useColorScheme() === 'dark';
+  const light = inverted || dark;
   return (
-    <View style={styles.row} accessible accessibilityLabel="LocalLife">
-      <View style={[styles.mark, { backgroundColor: inverted ? '#FFFFFF' : Brand.green }]}>
-        <ThemedText style={[styles.letter, { color: inverted ? Brand.green : '#FFFFFF' }]}>L</ThemedText>
-      </View>
-      <ThemedText style={[styles.name, inverted && { color: '#FFFFFF' }]}>LocalLife</ThemedText>
+    <View style={styles.row} accessible accessibilityRole="image" accessibilityLabel="Neiri">
+      <Image source={require('@/assets/images/neiri-mark.png')} style={styles.mark} contentFit="contain" />
+      <Image
+        source={
+          light
+            ? require('@/assets/images/neiri-wordmark-light.png')
+            : require('@/assets/images/neiri-wordmark.png')
+        }
+        style={styles.wordmark}
+        contentFit="contain"
+      />
     </View>
   );
 }
@@ -19,24 +31,15 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two + Spacing.half,
+    gap: Spacing.two,
   },
+  // Proportions des images sources : repère 240 × 288, logotype 688 × 216.
   mark: {
-    width: 34,
-    height: 34,
-    borderRadius: Radius.md - 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 30,
+    height: 36,
   },
-  letter: {
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: 900,
-  },
-  name: {
-    fontSize: 21,
-    lineHeight: 26,
-    fontWeight: 800,
-    letterSpacing: -0.6,
+  wordmark: {
+    width: 76,
+    height: 24,
   },
 });

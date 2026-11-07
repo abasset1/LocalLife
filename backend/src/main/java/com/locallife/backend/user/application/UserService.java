@@ -63,7 +63,7 @@ public class UserService {
 
     /**
      * Change le rôle d'un compte (décision du 02/11/2026) : seules les bascules {@code USER} ↔ {@code LOCALLIFE}
-     * (équipe LocalLife) sont permises. Un compte {@code ADMIN} n'est jamais modifié, et aucun compte n'est promu
+     * (équipe Neiri) sont permises. Un compte {@code ADMIN} n'est jamais modifié, et aucun compte n'est promu
      * {@code ADMIN} par cette voie (même règle que le bootstrap administrateur).
      *
      * @throws IllegalArgumentException rôle cible autre que {@code USER}/{@code LOCALLIFE}, ou compte administrateur

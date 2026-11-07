@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Fonctions disponibles pour l'appelant ({@link LaunchFeatures}) : le site et l'application les lisent au démarrage
- * pour masquer ce qui n'est pas encore ouvert. Public ; avec un JWT de l'équipe LocalLife ou d'un administrateur,
+ * pour masquer ce qui n'est pas encore ouvert. Public ; avec un JWT de l'équipe Neiri ou d'un administrateur,
  * tout est disponible.
  */
 @RestController
@@ -27,7 +27,7 @@ public class FeatureController {
     }
 
     @Operation(summary = "Fonctions disponibles", description = "Lieux, food trucks, offres Premium et Pro : "
-            + "disponibles ou pas encore ouvertes. L'équipe LocalLife et les administrateurs voient tout.")
+            + "disponibles ou pas encore ouvertes. L'équipe Neiri et les administrateurs voient tout.")
     @GetMapping("/api/v1/features")
     public FeaturesResponse features(Authentication authentication) {
         Map<Feature, Boolean> available = launchFeatures.availability(authentication);

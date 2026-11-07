@@ -106,8 +106,8 @@ public class RetentionService {
                 """, Long.class, INACTIVITY_YEARS);
         for (Long id : ids) {
             jdbcTemplate.update("UPDATE users SET inactivity_warned_at = now() WHERE id = ?", id);
-            notifier.notify(id, "Ton compte LocalLife va être supprimé",
-                    "Tu ne t'es pas connecté à LocalLife depuis " + INACTIVITY_YEARS + " ans. Sans connexion de ta "
+            notifier.notify(id, "Ton compte Neiri va être supprimé",
+                    "Tu ne t'es pas connecté à Neiri depuis " + INACTIVITY_YEARS + " ans. Sans connexion de ta "
                             + "part d'ici " + INACTIVITY_GRACE_DAYS + " jours, ton compte et tes données seront "
                             + "supprimés (tes activités publiées resteront visibles, sans ton nom). Pour garder ton "
                             + "compte, il suffit de te connecter.", null);

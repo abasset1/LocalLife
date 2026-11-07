@@ -1,4 +1,4 @@
-# Frontend LocalLife
+# Frontend Neiri
 
 Application React + TypeScript construite avec Vite. Elle affiche une carte
 Leaflet centrée sur Marseille. Les activités retournées par l'API y sont

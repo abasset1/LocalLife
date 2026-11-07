@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { apiFetch, describeErrorResponse } from "../../api/apiClient";
 import { DEFAULT_SEARCH_RADIUS_KM } from "../explorer/constants";
-import type { ApiErrorBody, Category, UserPreferences } from "../explorer/types";
+import type { ApiErrorBody, Category, MapLayer, UserPreferences } from "../explorer/types";
 import CityField, { RADIUS_OPTIONS_KM, useCityPicker } from "./CityField";
+import MapLayerField from "./MapLayerField";
 import { Chip, ChipGroup, Notice, ProfileCard } from "./ProfileUi";
 
 /**
- * Paramètres utilisateur : catégories, ville et rayon appliqués par défaut
- * à l'ouverture de l'Explorer (voir App.tsx). La ville est choisie par
+ * Paramètres utilisateur : catégories, ville, rayon et carte (activités,
+ * lieux ou food trucks) appliqués par défaut à l'ouverture de l'Explorer
+ * (voir App.tsx). La ville est choisie par
  * géolocalisation ou par saisie ; dans les deux cas le backend vérifie
  * qu'elle existe et renvoie son nom officiel. Laisser un champ vide
  * conserve le comportement standard de la carte (géolocalisation ou
@@ -19,6 +21,7 @@ function SearchPreferencesForm() {
     const cityPicker = useCityPicker(() => setSaveSuccess(false));
     const [radiusKm, setRadiusKm] = useState("");
     const [categoryCodes, setCategoryCodes] = useState<string[]>([]);
+    const [mapLayer, setMapLayer] = useState<MapLayer | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -48,6 +51,7 @@ function SearchPreferencesForm() {
                     cityPicker.setSavedCity(preferences.defaultCity);
                     setRadiusKm(preferences.defaultRadiusKm === null ? "" : String(preferences.defaultRadiusKm));
                     setCategoryCodes(preferences.defaultCategoryCodes);
+                    setMapLayer(preferences.defaultMapLayer ?? null);
                 } else {
                     setLoadError(
                         await describeErrorResponse(preferencesResponse, "Impossible de charger tes paramètres"),
@@ -91,6 +95,8 @@ function SearchPreferencesForm() {
                     defaultLongitude: cityPicker.position?.longitude ?? null,
                     defaultRadiusKm: radiusKm === "" ? null : Number(radiusKm),
                     defaultCategoryCodes: categoryCodes,
+                    // Chaîne vide : efface la carte enregistrée (`null` la garderait, voir le contrôleur).
+                    defaultMapLayer: mapLayer ?? "",
                 }),
             });
 
@@ -98,6 +104,7 @@ function SearchPreferencesForm() {
                 const preferences: UserPreferences = await response.json();
                 cityPicker.setSavedCity(preferences.defaultCity);
                 setCategoryCodes(preferences.defaultCategoryCodes);
+                setMapLayer(preferences.defaultMapLayer ?? null);
                 setSaveSuccess(true);
             } else {
                 const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
@@ -122,6 +129,17 @@ function SearchPreferencesForm() {
             {!isLoading && !loadError && (
                 <form className="pp-form" onSubmit={(event) => void handleSubmit(event)}>
                     <CityField id="preferences-city" label="Ville par défaut" picker={cityPicker} />
+
+                    <MapLayerField
+                        allowLastUsed
+                        hint="Carte affichée quand tu arrives sur Neiri connecté(e)."
+                        name="preferences-map-layer"
+                        onChange={(value) => {
+                            setMapLayer(value);
+                            setSaveSuccess(false);
+                        }}
+                        value={mapLayer}
+                    />
 
                     <ChipGroup legend="Rayon par défaut">
                         <Chip

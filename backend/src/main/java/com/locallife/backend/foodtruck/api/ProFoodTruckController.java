@@ -139,7 +139,7 @@ public class ProFoodTruckController {
 
     @Operation(summary = "Publier, suspendre ou archiver un food truck",
             description = "action : publish (première fois : envoi en validation, PENDING ; ensuite brouillon ou "
-                    + "suspendu → publié, sauf suspension par LocalLife), suspend (publié → suspendu ; en attente → "
+                    + "suspendu → publié, sauf suspension par Neiri), suspend (publié → suspendu ; en attente → "
                     + "brouillon), archive (définitif, possible même sans accès professionnel).")
     @PostMapping("/foodtrucks/{id}/{action}")
     public ResponseEntity<Object> act(@PathVariable Long id, @PathVariable String action,
@@ -159,7 +159,7 @@ public class ProFoodTruckController {
     }
 
     @Operation(summary = "Ajouter un emplacement",
-            description = "Lieu LocalLife publié (placeId) ou nouvel emplacement (newSpot) ; type MARKET, PRIVATE, "
+            description = "Lieu Neiri publié (placeId) ou nouvel emplacement (newSpot) ; type MARKET, PRIVATE, "
                     + "EVENT ou OTHER ; jours MO..SU (vide = tous) ; horaires HH:mm ; période yyyy-MM-dd. Créé en "
                     + "brouillon. 409 s'il chevauche un autre emplacement de ce food truck.")
     @PostMapping("/foodtrucks/{id}/presences")

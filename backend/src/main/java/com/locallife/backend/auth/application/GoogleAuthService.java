@@ -121,7 +121,7 @@ public class GoogleAuthService {
      * @param email adresse email vérifiée par Google.
      * @param name nom affiché côté Google, {@code null} si absent du
      *             token — utilisé uniquement comme repli pour le nom
-     *             d'utilisateur LocalLife lors d'une première connexion
+     *             d'utilisateur Neiri lors d'une première connexion
      *             (voir {@code AuthService#loginOrRegisterWithGoogle}).
      */
     public record GoogleIdentity(String sub, String email, String name) {

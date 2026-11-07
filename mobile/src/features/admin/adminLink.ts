@@ -14,7 +14,7 @@ export function adminWebUrl(apiUrl: string): string | null {
 
 /**
  * Le lien n'apparaît que pour un rôle renvoyé par le serveur qui ouvre l'administration : administrateur, ou équipe
- * LocalLife (modération seulement, le site masque le reste).
+ * Neiri (modération seulement, le site masque le reste).
  */
 export function shouldOfferAdminLink(serverRole: string | null | undefined): boolean {
   return serverRole === 'ADMIN' || serverRole === 'LOCALLIFE';

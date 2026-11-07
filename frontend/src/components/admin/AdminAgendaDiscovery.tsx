@@ -312,7 +312,7 @@ function AdminAgendaDiscovery({ onSourcesChanged }: AdminAgendaDiscoveryProps) {
         <section aria-labelledby="admin-discovery-title" className="admin-import-card">
             <h2 id="admin-discovery-title">Découvrir les agendas OpenAgenda</h2>
             <p className="admin-import-hint">
-                Parcourt l'annuaire OpenAgenda accessible avec la clé de LocalLife, par lots de{" "}
+                Parcourt l'annuaire OpenAgenda accessible avec la clé de Neiri, par lots de{" "}
                 {settings?.defaultPagesPerBatch ?? "…"} page(s) de 100 agendas, et les range dans un catalogue.
                 Aucune source n'est créée et aucune activité n'est importée à cette étape : choisis ensuite
                 les agendas à collecter dans le catalogue ci-dessous.

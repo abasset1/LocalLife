@@ -10,7 +10,7 @@ import java.time.OffsetDateTime;
  *
  * <p>{@code daysOfWeek} : codes {@code MO..SU} séparés par des virgules, {@code null} = tous les jours ;
  * {@code startTime}/{@code endTime} : {@code null} = horaires non précisés ; {@code validFrom}/{@code validUntil} :
- * bornes facultatives. {@code placeId} : lieu LocalLife publié auquel correspond l'emplacement (l'emplacement
+ * bornes facultatives. {@code placeId} : lieu Neiri publié auquel correspond l'emplacement (l'emplacement
  * lui-même, ou le lieu auquel il est relié, ADR-0011 § 7.2.9), sinon {@code null}.
  *
  * <p>{@code cuisineType}, {@code markerEmoji}, {@code markerColor} : type de cuisine et pastille du food truck

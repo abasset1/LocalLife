@@ -386,7 +386,7 @@ function Scene({ scene, reduce }: { scene: GuideScene; reduce: boolean }) {
 }
 
 /**
- * Guide de l'application (`/guide`) : présentation animée, pas à pas, des possibilités de LocalLife
+ * Guide de l'application (`/guide`) : présentation animée, pas à pas, des possibilités de Neiri
  * (même parcours que le guide du site web). Lecture automatique avec barre de progression, pause,
  * étapes précédente / suivante ; avec « Réduire les animations », les scènes sont fixes et la lecture
  * automatique est coupée. Ouvert depuis le menu (« Aide »), Compte, les Paramètres de recherche et la
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: Brand.coral,
+    backgroundColor: Brand.pink,
   },
   content: {
     gap: Spacing.four,
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Brand.green,
+    backgroundColor: Brand.navy,
   },
   heroEmoji: {
     fontSize: 48,
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
     lineHeight: 30,
   },
   map: {
-    backgroundColor: '#EEF2E6',
+    backgroundColor: '#EFEDFB',
   },
   road: {
     position: 'absolute',
@@ -710,10 +710,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   layerButtonActive: {
-    backgroundColor: Brand.green,
+    backgroundColor: Brand.navy,
   },
   layerLabel: {
-    color: Brand.green,
+    color: Brand.navy,
     fontSize: 12,
     fontWeight: '600',
   },

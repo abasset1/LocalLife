@@ -181,7 +181,7 @@ function renderDetailSections(detail: ActivityDetail) {
 
 /**
  * LL-EF-017 : fiche complète d'une activité, extraite de App.tsx et
- * restylée avec l'identité visuelle LocalLife (classes `explorer-*` dédiées
+ * restylée avec l'identité visuelle Neiri (classes `explorer-*` dédiées
  * — voir styles.css — distinctes de `.modal-*`/`.activity-detail-*`
  * partagées avec AdminPage/FavoritesPage, pour ne pas modifier leur rendu).
  * Logique inchangée : like (LS-002), annulation (LL-EF-010), export Google

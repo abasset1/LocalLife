@@ -8,6 +8,6 @@ package com.locallife.backend.auth.application;
 public class AccountSuspendedException extends RuntimeException {
 
     public AccountSuspendedException() {
-        super("Ce compte est suspendu. Contacte l'équipe LocalLife pour en savoir plus.");
+        super("Ce compte est suspendu. Contacte l'équipe Neiri pour en savoir plus.");
     }
 }

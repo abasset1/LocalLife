@@ -172,7 +172,7 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> exportData(Authentication authentication) {
         Long userId = ((JwtAuthentication) authentication).getUserId();
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"locallife-mes-donnees.json\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"neiri-mes-donnees.json\"")
                 .body(dataExportService.export(userId));
     }
 

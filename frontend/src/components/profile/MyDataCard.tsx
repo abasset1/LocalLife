@@ -4,11 +4,11 @@ import { apiFetch, describeErrorResponse } from "../../api/apiClient";
 import { LEGAL_DOCUMENTS } from "../../legal/legalDocuments";
 import { Notice, ProfileCard } from "./ProfileUi";
 
-export const EXPORT_FILE_NAME = "locallife-mes-donnees.json";
+export const EXPORT_FILE_NAME = "neiri-mes-donnees.json";
 
 /**
  * Carte « Tes données » (contrat RGPD) : export de toutes les données du compte
- * (`GET /api/v1/users/me/export`, enregistré en `locallife-mes-donnees.json`), durées de
+ * (`GET /api/v1/users/me/export`, enregistré en `neiri-mes-donnees.json`), durées de
  * conservation et liens vers les textes légaux.
  */
 function MyDataCard() {

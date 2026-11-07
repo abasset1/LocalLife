@@ -1,6 +1,6 @@
-# Backend — LocalLife
+# Backend — Neiri
 
-API REST du projet LocalLife. Spring Boot 4.1.0, Java 21, PostgreSQL/PostGIS.
+API REST du projet Neiri. Spring Boot 4.1.0, Java 21, PostgreSQL/PostGIS.
 
 ## Prérequis
 

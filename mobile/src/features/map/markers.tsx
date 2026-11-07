@@ -4,11 +4,11 @@ import { Marker } from 'react-native-maps';
 
 import { Brand } from '@/constants/theme';
 
-const ACTIVITY_COLOR = Brand.green2;
-const FOOD_TRUCK_COLOR = Brand.coral;
-const CLUSTER_COLOR = Brand.green;
+const ACTIVITY_COLOR = Brand.navy2;
+const FOOD_TRUCK_COLOR = Brand.pink;
+const CLUSTER_COLOR = Brand.navy;
 const PLACE_COLOR = '#6B5CA5';
-const HIGHLIGHT_COLOR = Brand.coral;
+const HIGHLIGHT_COLOR = Brand.pink;
 
 /** Ombre portée commune aux marqueurs, pour les détacher du fond de carte. */
 const MARKER_SHADOW = {
@@ -137,7 +137,7 @@ export function FoodTruckMarker({
 
 /**
  * Activité affichée dans l'aperçu (touchée, choisie dans la liste de la zone ou atteinte avec « ‹ › ») : point
- * agrandi en corail par-dessus les autres marqueurs, visible même quand elle est regroupée dans une pastille.
+ * agrandi en rose par-dessus les autres marqueurs, visible même quand elle est regroupée dans une pastille.
  */
 export function HighlightedActivityMarker({
   coordinate,

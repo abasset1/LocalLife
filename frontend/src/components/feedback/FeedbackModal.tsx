@@ -8,7 +8,7 @@ const MIN_LENGTH = 5;
 type Kind = "SUGGESTION" | "BUG";
 
 const KINDS: { value: Kind; label: string; placeholder: string }[] = [
-    { value: "SUGGESTION", label: "💡 Une idée", placeholder: "Qu'est-ce qui rendrait LocalLife plus utile pour toi ?" },
+    { value: "SUGGESTION", label: "💡 Une idée", placeholder: "Qu'est-ce qui rendrait Neiri plus utile pour toi ?" },
     { value: "BUG", label: "🐞 Un problème", placeholder: "Que s'est-il passé ? Qu'attendais-tu à la place ?" },
 ];
 
@@ -81,7 +81,7 @@ function FeedbackModal({ onClose }: FeedbackModalProps) {
                 {isSent ? (
                     <div className="explorer-form feedback-sent" role="status">
                         <p className="feedback-sent-title">🙏 Merci !</p>
-                        <p>Ton message a bien été envoyé à l'équipe LocalLife. On le lit avec attention.</p>
+                        <p>Ton message a bien été envoyé à l'équipe Neiri. On le lit avec attention.</p>
                         <div className="explorer-modal-actions">
                             <button onClick={onClose} type="button">Fermer</button>
                         </div>

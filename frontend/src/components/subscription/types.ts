@@ -1,4 +1,4 @@
-/** Offre LocalLife (`Plan`, backend — BILLING-01, ADR-0014). */
+/** Offre Neiri (`Plan`, backend — BILLING-01, ADR-0014). */
 export type Plan = "FREE" | "PREMIUM" | "PRO";
 
 export type SubscriptionStatus =

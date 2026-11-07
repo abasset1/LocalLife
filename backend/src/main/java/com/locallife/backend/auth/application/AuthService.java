@@ -166,7 +166,7 @@ public class AuthService {
         // isBlank() (LL-EF-011), pas seulement == null : un compte créé exclusivement via
         // Google (voir #loginOrRegisterWithGoogle) a passwordHash = "" (jamais null, la
         // colonne reste NOT NULL — voir V6__add_password_hash_and_role_to_users.sql, aucune
-        // migration nécessaire pour ce ticket) puisqu'aucun mot de passe LocalLife ne lui a
+        // migration nécessaire pour ce ticket) puisqu'aucun mot de passe Neiri ne lui a
         // jamais été demandé (exigence explicite du ticket). Sans cette garde,
         // passwordHashingService.matches(...) lèverait une IllegalArgumentException interne
         // à BCrypt ("Invalid salt version", chaîne "" n'étant pas un hash BCrypt valide) au
@@ -196,7 +196,7 @@ public class AuthService {
      *   <li>si une {@link UserIdentity} {@code GOOGLE} existe déjà pour ce
      *       compte Google précis (son {@code sub}), authentifie l'utilisateur
      *       associé ;</li>
-     *   <li>sinon, si un compte LocalLife existe déjà pour l'email Google
+     *   <li>sinon, si un compte Neiri existe déjà pour l'email Google
      *       vérifié (inscription classique préalable), associe cette
      *       nouvelle identité à ce compte plutôt que d'en créer un
      *       second — critère d'acceptation explicite du ticket (« si un
@@ -206,7 +206,7 @@ public class AuthService {
      *       simplement fourni par le frontend ;</li>
      *   <li>sinon, crée un nouveau compte {@code USER} — {@code
      *       passwordHash} vide (voir {@link #login} ci-dessus pour la
-     *       garde associée), aucun mot de passe LocalLife n'étant demandé
+     *       garde associée), aucun mot de passe Neiri n'étant demandé
      *       pour ce compte (exigence explicite du ticket) — puis
      *       l'{@link UserIdentity} correspondante.</li>
      * </ol>

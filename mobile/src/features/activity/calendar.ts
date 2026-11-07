@@ -67,5 +67,5 @@ export function shareMessage(input: {
   url: string | null;
 }): string {
   const details = [input.date, input.place].filter(Boolean).join(' · ');
-  return [input.title, details || null, input.url, 'Découvert sur LocalLife'].filter(Boolean).join('\n');
+  return [input.title, details || null, input.url, 'Découvert sur Neiri'].filter(Boolean).join('\n');
 }
