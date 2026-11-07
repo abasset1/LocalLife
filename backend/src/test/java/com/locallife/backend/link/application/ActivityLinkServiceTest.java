@@ -52,6 +52,41 @@ class ActivityLinkServiceTest {
     }
 
     @Test
+    void create_ShouldThrow_WhenTheUrlIsLongerThanTheColumn_InsteadOfFailingInTheDatabase() {
+        // Cas réel (import DATAtourisme PACA, 07/11/2026) : un lien de plus de 1 024 caractères faisait échouer
+        // l'insertion et perdre tout l'enrichissement de l'activité.
+        String longUrl = "https://example.com/salon?" + "x".repeat(ActivityLinkService.MAX_VALUE_LENGTH);
+        ActivityLink tooLong = link("WEBSITE", longUrl);
+
+        assertThatThrownBy(() -> activityLinkService.create(tooLong))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("trop long");
+
+        verify(activityLinkRepository, never()).save(any());
+    }
+
+    @Test
+    void create_ShouldAcceptAnUrlOfExactlyTheColumnSize() {
+        String prefix = "https://example.com/?";
+        String url = prefix + "x".repeat(ActivityLinkService.MAX_VALUE_LENGTH - prefix.length());
+        ActivityLink atLimit = link("WEBSITE", url);
+        when(activityLinkRepository.save(atLimit)).thenReturn(atLimit);
+
+        assertThat(activityLinkService.create(atLimit).value()).hasSize(ActivityLinkService.MAX_VALUE_LENGTH);
+    }
+
+    @Test
+    void create_ShouldShortenATooLongLabel_AndKeepTheLink() {
+        ActivityLink longLabel = new ActivityLink(null, 1L, "WEBSITE", "L".repeat(400), "https://example.com/");
+        when(activityLinkRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ActivityLink saved = activityLinkService.create(longLabel);
+
+        assertThat(saved.label()).hasSize(ActivityLinkService.MAX_LABEL_LENGTH).endsWith("…");
+        assertThat(saved.value()).isEqualTo("https://example.com/");
+    }
+
+    @Test
     void create_ShouldThrow_WhenTypeIsWebsiteAndValueIsNotAUrl() {
         ActivityLink invalid = link("WEBSITE", "pas une url");
 

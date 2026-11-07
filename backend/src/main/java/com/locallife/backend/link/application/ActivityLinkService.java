@@ -40,6 +40,12 @@ public class ActivityLinkService {
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
+    /** Taille de {@code activity_link.value} (V23) : au-delà, l'insertion échouerait en base. */
+    public static final int MAX_VALUE_LENGTH = 1024;
+
+    /** Taille de {@code activity_link.label} (V23). */
+    public static final int MAX_LABEL_LENGTH = 255;
+
     private final ActivityLinkRepository activityLinkRepository;
 
     public ActivityLinkService(ActivityLinkRepository activityLinkRepository) {
@@ -60,6 +66,13 @@ public class ActivityLinkService {
      */
     public ActivityLink create(ActivityLink activityLink) {
         validate(activityLink.type(), activityLink.value());
+        String label = activityLink.label();
+        if (label != null && label.length() > MAX_LABEL_LENGTH) {
+            // Libellé d'affichage seulement : raccourci plutôt que de perdre le lien.
+            label = label.substring(0, MAX_LABEL_LENGTH - 1).stripTrailing() + "…";
+            activityLink = new ActivityLink(
+                    activityLink.id(), activityLink.activityId(), activityLink.type(), label, activityLink.value());
+        }
         return activityLinkRepository.save(activityLink);
     }
 
@@ -91,6 +104,12 @@ public class ActivityLinkService {
     private void validate(String type, String value) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("Un lien/contact doit avoir une valeur (value).");
+        }
+        // Avant toute autre règle : une valeur trop longue échouait à l'insertion (« value too long »), ce qui
+        // annulait tout l'enrichissement de l'activité importée (lieu, dates, médias), pas seulement ce lien.
+        if (value.length() > MAX_VALUE_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Lien/contact trop long (" + value.length() + " caractères, " + MAX_VALUE_LENGTH + " au plus).");
         }
         if (TYPE_PHONE.equals(type)) {
             if (!PHONE_PATTERN.matcher(value).matches()) {
