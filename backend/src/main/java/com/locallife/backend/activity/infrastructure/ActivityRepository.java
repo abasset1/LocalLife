@@ -176,6 +176,11 @@ public interface ActivityRepository extends Repository<Activity, Long> {
      * après la fenêtre (ADR-0011, § 1.3, défaut 3). Même règle pour
      * {@link #findWithinBounds}.
      *
+     * {@code night} (carte « Night ») : seules les occurrences de nuit (début entre 20 h et 6 h, ou fin
+     * après 20 h, voir la fonction SQL {@code ll_is_night}, V88) sont retenues ; repli sur
+     * {@code activity.start_date}/{@code end_date} pour une activité sans {@code schedule}. Même
+     * règle pour {@link #findWithinBounds}.
+     *
      * Tri par distance : la distance retenue pour une activité est la plus
      * petite parmi celles de ses occurrences correspondantes (au cas où
      * plusieurs occurrences d'une même activité, dans des lieux
@@ -205,6 +210,9 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                       AND COALESCE(o.end_at, o.start_at) >= ((COALESCE(:date::date,
                             (now() AT TIME ZONE 'Europe/Paris')::date) - 2)::timestamp AT TIME ZONE 'UTC')
                       AND l.geo_location IS NOT NULL
+                      AND (:night = FALSE OR ll_is_night(
+                            o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'),
+                            o.end_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris')))
                       AND ST_DWithin(l.geo_location,
                             ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
                       AND ((:date::date IS NULL
@@ -226,6 +234,7 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                 OR (
                     NOT EXISTS (SELECT 1 FROM schedule s2 WHERE s2.activity_id = a.id)
                     AND a.location IS NOT NULL
+                    AND (:night = FALSE OR ll_is_night(a.start_date, a.end_date))
                     AND ST_DWithin(a.location,
                           ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
                     AND COALESCE(a.end_date, a.start_date)
@@ -264,7 +273,15 @@ public interface ActivityRepository extends Repository<Activity, Long> {
             @Param("status") String status,
             @Param("categoriesCsv") String categoriesCsv,
             @Param("date") LocalDate date,
-            @Param("dateTo") LocalDate dateTo);
+            @Param("dateTo") LocalDate dateTo,
+            @Param("night") boolean night);
+
+    /** {@link #findWithinRadius} sans restriction aux activités de nuit. */
+    default List<Activity> findWithinRadius(
+            double latitude, double longitude, double radiusMeters, String status, String categoriesCsv,
+            LocalDate date, LocalDate dateTo) {
+        return findWithinRadius(latitude, longitude, radiusMeters, status, categoriesCsv, date, dateTo, false);
+    }
 
     /**
      * Recherche par zone cartographique PostGIS (LL-4007), rendue
@@ -303,6 +320,9 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                       AND COALESCE(o.end_at, o.start_at) >= ((COALESCE(:date::date,
                             (now() AT TIME ZONE 'Europe/Paris')::date) - 2)::timestamp AT TIME ZONE 'UTC')
                       AND l.geo_location IS NOT NULL
+                      AND (:night = FALSE OR ll_is_night(
+                            o.start_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris'),
+                            o.end_at AT TIME ZONE COALESCE(l.timezone, 'Europe/Paris')))
                       AND ((:neLongitude - :swLongitude < 180
                             AND l.geo_location && ST_MakeEnvelope(
                                 :swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography)
@@ -327,6 +347,7 @@ public interface ActivityRepository extends Repository<Activity, Long> {
                 OR (
                     NOT EXISTS (SELECT 1 FROM schedule s2 WHERE s2.activity_id = a.id)
                     AND a.location IS NOT NULL
+                    AND (:night = FALSE OR ll_is_night(a.start_date, a.end_date))
                     AND ((:neLongitude - :swLongitude < 180
                           AND a.location && ST_MakeEnvelope(
                               :swLongitude, :swLatitude, :neLongitude, :neLatitude, 4326)::geography)
@@ -354,7 +375,16 @@ public interface ActivityRepository extends Repository<Activity, Long> {
             @Param("status") String status,
             @Param("categoriesCsv") String categoriesCsv,
             @Param("date") LocalDate date,
-            @Param("dateTo") LocalDate dateTo);
+            @Param("dateTo") LocalDate dateTo,
+            @Param("night") boolean night);
+
+    /** {@link #findWithinBounds} sans restriction aux activités de nuit. */
+    default List<Activity> findWithinBounds(
+            double swLatitude, double swLongitude, double neLatitude, double neLongitude, String status,
+            String categoriesCsv, LocalDate date, LocalDate dateTo) {
+        return findWithinBounds(
+                swLatitude, swLongitude, neLatitude, neLongitude, status, categoriesCsv, date, dateTo, false);
+    }
 
     /**
      * Recherche par source et clé de déduplication (LL-5008) : retrouve

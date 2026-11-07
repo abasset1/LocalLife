@@ -212,7 +212,7 @@ export interface CitySuggestion {
 }
 
 /** Carte de « Découvrir » : activités, lieux ou food trucks (mêmes valeurs que le site web et le backend). */
-export type MapLayerValue = 'activities' | 'places' | 'foodTrucks';
+export type MapLayerValue = 'activities' | 'places' | 'foodTrucks' | 'night';
 
 /** `UserPreferencesResponse` (`GET`/`PUT /users/me/preferences`) — paramètres de recherche par défaut. */
 export interface UserPreferences {
@@ -474,6 +474,8 @@ export interface NearbySearchParams {
   date?: string;
   /** `yyyy-MM-dd`, avec `date` uniquement. */
   dateTo?: string;
+  /** Carte « Night » : seulement les activités qui ont lieu entre 20 h et 6 h. */
+  night?: boolean;
 }
 
 /** Paramètres de `GET /activities/within-bounds` (contrat `BOUNDING_BOX_SEARCH_CONTRACT.md`). */
@@ -485,6 +487,8 @@ export interface WithinBoundsSearchParams {
   category?: string | readonly string[];
   date?: string;
   dateTo?: string;
+  /** Carte « Night » : seulement les activités qui ont lieu entre 20 h et 6 h. */
+  night?: boolean;
 }
 
 /** Paramètres de `GET /activities` (liste). */

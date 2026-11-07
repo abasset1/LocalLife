@@ -15,8 +15,11 @@ export interface Category {
     active: boolean;
 }
 
-/** Carte de l'Explorer : activités, lieux ou food trucks, une seule affichée à la fois. */
-export type MapLayer = "activities" | "places" | "foodTrucks";
+/**
+ * Carte de l'Explorer : activités, lieux, food trucks ou « Night » (activités entre 20 h et 6 h), une seule affichée
+ * à la fois.
+ */
+export type MapLayer = "activities" | "places" | "foodTrucks" | "night";
 
 /** Miroir de `UserPreferencesResponse` (`GET`/`PUT /api/v1/users/me/preferences`) : paramètres de recherche par défaut. */
 export interface UserPreferences {

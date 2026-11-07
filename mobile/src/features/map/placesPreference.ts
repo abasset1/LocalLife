@@ -3,15 +3,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MapLayerValue } from '@/api';
 
 /**
- * Contenu affiché sur la carte : activités, lieux (ADR-0011, phase B) ou food trucks (ADR-0013), un seul à
- * la fois — comme sur le site web.
+ * Contenu affiché sur la carte : activités, lieux (ADR-0011, phase B), food trucks (ADR-0013) ou « Night »
+ * (activités entre 20 h et 6 h), un seul à la fois — comme sur le site web.
  */
 export type MapLayer = MapLayerValue;
 
 /** Clé du contenu choisi, comme `locallife.mapLayer` sur le site web. */
 export const MAP_LAYER_KEY = 'locallife.mapLayer';
 
-const MAP_LAYERS: readonly string[] = ['activities', 'places', 'foodTrucks'];
+const MAP_LAYERS: readonly string[] = ['activities', 'places', 'foodTrucks', 'night'];
 
 /** Carte choisie dans les paramètres (`defaultMapLayer`), si elle est valide ; `null` sinon. */
 export function preferredMapLayer(value: unknown): MapLayer | null {

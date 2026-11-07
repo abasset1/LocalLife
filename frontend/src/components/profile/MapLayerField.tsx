@@ -6,6 +6,7 @@ const MAP_LAYER_OPTIONS: { value: MapLayer; label: string }[] = [
     { value: "activities", label: "📅 Activités" },
     { value: "places", label: "🏛 Lieux" },
     { value: "foodTrucks", label: "🚚 Food trucks" },
+    { value: "night", label: "🍸 Night" },
 ];
 
 interface MapLayerFieldProps {
@@ -20,14 +21,15 @@ interface MapLayerFieldProps {
 }
 
 /**
- * Carte ouverte à l'arrivée sur l'Explorer : activités, lieux ou food trucks. Seules les cartes ouvertes au public
+ * Carte ouverte à l'arrivée sur l'Explorer : activités, lieux, food trucks ou « Night ». Seules les cartes ouvertes au public
  * sont proposées (lancement progressif, voir `launchFeatures.tsx`) ; la carte déjà enregistrée reste affichée
  * même si elle a été refermée depuis.
  */
 export function useAvailableMapLayers(): MapLayer[] {
     const features = useLaunchFeatures();
     return MAP_LAYER_OPTIONS.map((option) => option.value).filter(
-        (layer) => layer === "activities" || (layer === "places" ? features.places : features.foodTrucks),
+        (layer) => layer === "activities" || layer === "night"
+            || (layer === "places" ? features.places : features.foodTrucks),
     );
 }
 

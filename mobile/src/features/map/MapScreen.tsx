@@ -227,25 +227,8 @@ export default function MapScreen() {
     [place, region],
   );
 
-  const { activities: loadedActivities, foodTrucks, loading, error, tooWide, retry } = useMapData(
-    region,
-    categoryCodes,
-    radiusSearch,
-    period,
-    features.foodTrucks,
-  );
-  // Filtre « Gratuit » : appliqué ici sur `priceType`, la carte recevant toutes les activités de la zone.
-  const [freeOnly, setFreeOnly] = useState(false);
-  const activities = useMemo(() => keepFreeActivities(loadedActivities, freeOnly), [loadedActivities, freeOnly]);
-  // Activité demandée par « Voir sur la carte » : son aperçu s'ouvre dès qu'elle est chargée.
-  useEffect(() => {
-    if (pendingFocusId.current === null) return;
-    const activity = loadedActivities.find((a) => a.id === pendingFocusId.current);
-    if (!activity) return;
-    pendingFocusId.current = null;
-    select({ kind: 'activity', activity });
-  }, [loadedActivities, select]);
-  // Un seul contenu à la fois : activités (par défaut), lieux (ADR-0011, phase B) ou food trucks (ADR-0013).
+  // Un seul contenu à la fois : activités (par défaut), lieux (ADR-0011, phase B), food trucks (ADR-0013) ou
+  // « Night » (activités entre 20 h et 6 h : soirées, concerts, festivals…).
   // Choix mémorisé sur l'appareil, sauf carte choisie dans les paramètres (utilisateur connecté) : celle-ci
   // s'affiche à l'arrivée et chaque fois que le paramètre change, sans effacer le choix mémorisé.
   const [mapLayer, setMapLayer] = useState<MapLayer>('activities');
@@ -269,7 +252,7 @@ export default function MapScreen() {
     appliedMapLayerPreference.current = preferredLayer;
     setMapLayer(preferredLayer);
   }, [preferredLayer]);
-  /** Bouton « Lieux » ou « Food trucks » : affiche ce contenu à la place du précédent, ou revient aux activités. */
+  /** Bouton « Lieux », « Food trucks » ou « Night » : affiche ce contenu à la place du précédent, ou revient aux activités. */
   const toggleMapLayer = useCallback(
     (layer: MapLayer) => {
       const next = mapLayer === layer ? 'activities' : layer;
@@ -284,9 +267,30 @@ export default function MapScreen() {
     (mapLayer === 'places' && !features.places) || (mapLayer === 'foodTrucks' && !features.foodTrucks)
       ? 'activities'
       : mapLayer;
-  const showActivities = shownLayer === 'activities';
+  /** Carte « Night » : seules les activités de nuit sont chargées ; elles s'affichent comme les activités. */
+  const showNight = shownLayer === 'night';
+  const showActivities = shownLayer === 'activities' || showNight;
   const showPlaces = shownLayer === 'places';
   const showFoodTrucks = shownLayer === 'foodTrucks';
+  const { activities: loadedActivities, foodTrucks, loading, error, tooWide, retry } = useMapData(
+    region,
+    categoryCodes,
+    radiusSearch,
+    period,
+    features.foodTrucks,
+    showNight,
+  );
+  // Filtre « Gratuit » : appliqué ici sur `priceType`, la carte recevant toutes les activités de la zone.
+  const [freeOnly, setFreeOnly] = useState(false);
+  const activities = useMemo(() => keepFreeActivities(loadedActivities, freeOnly), [loadedActivities, freeOnly]);
+  // Activité demandée par « Voir sur la carte » : son aperçu s'ouvre dès qu'elle est chargée.
+  useEffect(() => {
+    if (pendingFocusId.current === null) return;
+    const activity = loadedActivities.find((a) => a.id === pendingFocusId.current);
+    if (!activity) return;
+    pendingFocusId.current = null;
+    select({ kind: 'activity', activity });
+  }, [loadedActivities, select]);
   const places = usePlaces(region, showPlaces);
   const location = useUserLocation();
 
@@ -715,6 +719,16 @@ export default function MapScreen() {
                   onPress={() => toggleMapLayer('foodTrucks')}
                 />
               )}
+              <MapControl
+                icon={{ ios: 'wineglass', android: 'local_bar', web: 'local_bar' }}
+                accessibilityLabel={
+                  showNight
+                    ? 'Revenir à toutes les activités'
+                    : 'Afficher la vie nocturne (20 h – 6 h) : soirées, concerts, festivals'
+                }
+                active={showNight}
+                onPress={() => toggleMapLayer('night')}
+              />
               <MapControl
                 icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }}
                 accessibilityLabel={

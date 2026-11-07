@@ -37,10 +37,11 @@ const MAP_LAYER_CHOICES = [
   { value: 'activities', label: '📅 Activités' },
   { value: 'places', label: '🏛 Lieux' },
   { value: 'foodTrucks', label: '🚚 Food trucks' },
+  { value: 'night', label: '🍸 Night' },
 ] as const;
 
 /**
- * Cartes proposées comme carte à l'ouverture : les activités, et les lieux ou food trucks s'ils sont ouverts
+ * Cartes proposées comme carte à l'ouverture : les activités et « Night », et les lieux ou food trucks s'ils sont ouverts
  * (lancement progressif). Une carte déjà enregistrée reste proposée même refermée depuis.
  */
 export function mapLayerOptions(
@@ -51,6 +52,7 @@ export function mapLayerOptions(
   const layers = MAP_LAYER_CHOICES.filter(
     (choice) =>
       choice.value === 'activities' ||
+      choice.value === 'night' ||
       choice.value === current ||
       (choice.value === 'places' ? features.places : features.foodTrucks),
   ).map((choice) => ({ value: choice.value, label: choice.label }));

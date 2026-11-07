@@ -66,8 +66,8 @@ import type {
  * ActivityPreview, ActivityList, ActivityDetailModal, ContributionModal.
  */
 /**
- * Contenu affiché sur la carte et dans la liste : activités, lieux (ADR-0011, phase B) ou food trucks (ADR-0013),
- * un seul à la fois — les trois superposés rendaient la carte illisible. Le choix est mémorisé dans le navigateur
+ * Contenu affiché sur la carte et dans la liste : activités, lieux (ADR-0011, phase B), food trucks (ADR-0013) ou
+ * « Night » (activités entre 20 h et 6 h : soirées, concerts, festivals…), un seul à la fois — les trois superposés rendaient la carte illisible. Le choix est mémorisé dans le navigateur
  * (confort seulement : tout fonctionne sans stockage). Un utilisateur connecté peut choisir dans ses paramètres
  * la carte ouverte à son arrivée (`defaultMapLayer`), qui prime alors sur ce souvenir.
  */
@@ -78,11 +78,22 @@ const MAP_LAYERS: { value: MapLayer; label: string; title: string }[] = [
     { value: "activities", label: "📅 Activités", title: "Afficher les activités" },
     { value: "places", label: "🏛 Lieux", title: "Afficher les lieux : musées, monuments, équipements…" },
     { value: "foodTrucks", label: "🚚 Food trucks", title: "Afficher les food trucks présents aujourd'hui" },
+    {
+        value: "night",
+        label: "🍸 Night",
+        title: "Afficher la vie nocturne, de 20 h à 6 h : soirées, concerts, festivals…",
+    },
 ];
 
-/** Couche disponible au lancement (05/11/2026) : les activités toujours, lieux et food trucks une fois ouverts. */
+/**
+ * Couche disponible au lancement (05/11/2026) : les activités et la carte « Night » (des activités) toujours, lieux
+ * et food trucks une fois ouverts.
+ */
 function isLayerAvailable(layer: MapLayer, features: LaunchFeatures): boolean {
-    return layer === "activities" || (layer === "places" ? features.places : features.foodTrucks);
+    if (layer === "activities" || layer === "night") {
+        return true;
+    }
+    return layer === "places" ? features.places : features.foodTrucks;
 }
 
 function readMapLayer(): MapLayer {
@@ -317,6 +328,7 @@ function App() {
     const searchBounds = activeRadiusKm !== null && userPosition !== null ? null : mapBounds;
 
     const previousSearchDepsRef = useRef<{
+        nightOnly: boolean;
         selectedCategoriesKey: string;
         selectedDate: string;
         selectedDateTo: string;
@@ -397,6 +409,9 @@ function App() {
         return () => abortController.abort();
     }, []);
 
+    /** Carte « Night » : seules les activités qui ont lieu entre 20 h et 6 h sont chargées (`night=true`). */
+    const nightOnly = mapLayer === "night";
+
     useEffect(() => {
         // Pendant une recherche texte, la carte et la liste montrent ses résultats : la zone n'est pas
         // rechargée à chaque recadrage. Elle l'est à la sortie de la recherche.
@@ -410,6 +425,7 @@ function App() {
         // nouvelle activité proposée) déclenche l'état de chargement/la purge.
         const previousDeps = previousSearchDepsRef.current;
         const isMapOnlyReload = previousDeps !== null
+            && previousDeps.nightOnly === nightOnly
             && previousDeps.selectedCategoriesKey === selectedCategoriesKey
             && previousDeps.selectedDate === selectedDate
             && previousDeps.selectedDateTo === selectedDateTo
@@ -417,7 +433,7 @@ function App() {
             && previousDeps.userPosition === userPosition
             && previousDeps.searchRadiusKm === searchRadiusKm;
         previousSearchDepsRef.current = {
-            selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm,
+            nightOnly, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm,
         };
 
         if (!isMapOnlyReload) {
@@ -463,6 +479,9 @@ function App() {
                     params.set("dateTo", selectedDateTo);
                 }
             }
+            if (nightOnly) {
+                params.set("night", "true");
+            }
 
             try {
                 const response = await fetch(`${endpoint}?${params.toString()}`, {
@@ -503,7 +522,7 @@ function App() {
         void loadActivities();
 
         return () => abortController.abort();
-    }, [arePreferencesApplied, isTextSearch, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
+    }, [arePreferencesApplied, isTextSearch, nightOnly, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
 
     /** « Réessayer » après une erreur de chargement : mêmes filtres, même zone, sans recharger la page. */
     function retryActivities() {
@@ -623,6 +642,8 @@ function App() {
     // Une recherche texte ne renvoie que des activités : elles seules sont affichées tant qu'elle est active.
     // Couche mémorisée mais pas (ou plus) ouverte : retour aux activités.
     const activeLayer: MapLayer = isTextSearch || !isLayerAvailable(mapLayer, features) ? "activities" : mapLayer;
+    /** Activités ou « Night » : mêmes marqueurs, même liste, mêmes messages. */
+    const isActivityLayer = activeLayer === "activities" || activeLayer === "night";
     // Types de cuisine présents aujourd'hui : seuls eux sont proposés dans le filtre.
     const availableCuisines = CUISINE_TYPES.filter((cuisine) => foodTrucks.some((foodTruck) => foodTruck.cuisineType === cuisine.code));
     const shownFoodTrucks = selectedCuisine
@@ -638,14 +659,15 @@ function App() {
      * Nombre d'activités de la zone affichée, en tête de liste et sur le bouton « Voir la liste » en
      * mobile (comme sur la carte Finishers). Hors recherche texte, qui a son propre bandeau.
      */
-    const zoneActivityCount = activeLayer === "activities" && !isTextSearch && !isLoadingActivities && !searchError
+    const zoneActivityCount = isActivityLayer && !isTextSearch && !isLoadingActivities && !searchError
         ? listedActivities.length
         : 0;
-    const zoneActivityCountLabel = `${zoneActivityCount} ${zoneActivityCount > 1 ? "activités" : "activité"} dans cette zone`;
+    const nightLabel = activeLayer === "night" ? " de nuit" : "";
+    const zoneActivityCountLabel = `${zoneActivityCount} ${zoneActivityCount > 1 ? "activités" : "activité"}${nightLabel} dans cette zone`;
 
     let emptyMessage = freeOnly
-        ? "Aucune activité gratuite dans cette zone."
-        : "Aucune activité trouvée dans cette zone.";
+        ? `Aucune activité${nightLabel} gratuite dans cette zone.`
+        : `Aucune activité${nightLabel} trouvée dans cette zone.`;
     if (isTextSearch) {
         emptyMessage = textStatus?.status === "success" && textStatus.total > 0
             ? "Aucun résultat sur cette page."
@@ -1389,7 +1411,7 @@ function App() {
                             onOpenDetail={handleOpenDetail}
                             onOpenFoodTruck={setDetailFoodTruck}
                             initialView={initialMapView}
-                            layer={activeLayer}
+                            layer={activeLayer === "night" ? "activities" : activeLayer}
                             onBoundsChange={setMapBounds}
                             onPlacesChange={setPlaces}
                             onSelectActivity={handleSelectActivity}
@@ -1442,13 +1464,13 @@ function App() {
                           et l'invitation à choisir un lieu s'empilent en bas de la carte (styles.css).
                         */}
                         <div className="explorer-map-notices">
-                            {activeLayer === "activities" && !isTextSearch && isLoadingActivities && (
+                            {isActivityLayer && !isTextSearch && isLoadingActivities && (
                                 <p className="explorer-status explorer-status-floating" role="status">
                                     <span aria-hidden="true" className="explorer-search-spinner" />
-                                    Chargement des activités…
+                                    {activeLayer === "night" ? "Chargement des activités de nuit…" : "Chargement des activités…"}
                                 </p>
                             )}
-                            {activeLayer === "activities" && !isTextSearch && !isLoadingActivities && searchError && (
+                            {isActivityLayer && !isTextSearch && !isLoadingActivities && searchError && (
                                 <div
                                     className="explorer-status explorer-status-error explorer-status-floating explorer-status-card"
                                     role="alert"
@@ -1459,12 +1481,12 @@ function App() {
                                     </button>
                                 </div>
                             )}
-                            {activeLayer === "activities" && !isTextSearch && !isLoadingActivities && !searchError && activities.length === 0 && (
+                            {isActivityLayer && !isTextSearch && !isLoadingActivities && !searchError && activities.length === 0 && (
                                 <div className="explorer-status explorer-status-floating explorer-status-card" role="status">
                                     {emptyResultsHelp}
                                 </div>
                             )}
-                            {activeLayer === "activities" && !isTextSearch && !isLoadingActivities && !searchError
+                            {isActivityLayer && !isTextSearch && !isLoadingActivities && !searchError
                                 && hasOnlyPaidOrUnknown && (
                                 <div className="explorer-status explorer-status-floating explorer-status-card" role="status">
                                     {freeEmptyHelp}
