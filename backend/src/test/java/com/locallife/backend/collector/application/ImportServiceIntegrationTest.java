@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import com.locallife.backend.activity.domain.Activity;
 import com.locallife.backend.activity.infrastructure.ActivityRepository;
 import com.locallife.backend.collector.domain.CollectedActivity;
+import com.locallife.backend.collector.domain.CollectedLink;
 import com.locallife.backend.collector.domain.CollectedLocation;
 import com.locallife.backend.collector.domain.CollectedTiming;
 import com.locallife.backend.collector.domain.CollectionReport;
@@ -15,6 +16,9 @@ import com.locallife.backend.collector.infrastructure.CollectorException;
 import com.locallife.backend.collector.infrastructure.ImportTestSourceService;
 import com.locallife.backend.collector.infrastructure.SingleMockCollectorConfig;
 import com.locallife.backend.collector.infrastructure.SourceSyncStateRepository;
+import com.locallife.backend.link.application.ActivityLinkService;
+import com.locallife.backend.link.domain.ActivityLink;
+import com.locallife.backend.schedule.application.ScheduleService;
 import com.locallife.backend.source.domain.Source;
 import com.locallife.backend.source.infrastructure.SourceRepository;
 import java.time.LocalDateTime;
@@ -76,6 +80,12 @@ class ImportServiceIntegrationTest {
 
     @Autowired
     private Collector collector;
+
+    @Autowired
+    private ActivityLinkService activityLinkService;
+
+    @Autowired
+    private ScheduleService scheduleService;
 
     /**
      * {@code @MockitoBean} réinitialisait automatiquement le mock entre
@@ -168,6 +178,32 @@ class ImportServiceIntegrationTest {
         assertThat(persisted).hasSize(1);
         assertThat(persisted.get(0).title()).isEqualTo("Marché de Noël");
         assertThat(persisted.get(0).status()).isEqualTo("PUBLISHED");
+    }
+
+    @Test
+    void importAll_ShouldIgnoreATooLongLink_AndKeepTheRestOfTheEnrichment() {
+        // Cas réel (« Salon de l'Etudiant à Aix-en-Provence », import DATAtourisme PACA du 07/11/2026) : un lien de
+        // plus de 1 024 caractères faisait échouer l'insertion et perdre lieu, dates et autres liens de l'activité.
+        String sourceName = uniqueSourceName();
+        createCollectibleSource(sourceName);
+        String tooLong = "https://example.com/inscription?" + "x".repeat(ActivityLinkService.MAX_VALUE_LENGTH);
+        CollectedActivity base = validItem(sourceName, "ext-long-link", "Salon de l'Etudiant");
+        CollectedActivity withLinks = new CollectedActivity(
+                base.title(), base.description(), base.category(), base.sourceUrl(), base.externalId(), sourceName,
+                null, null, null, null, base.location(), base.timings(), null, List.of(),
+                List.of(new CollectedLink("WEBSITE", "Inscription", tooLong),
+                        new CollectedLink("WEBSITE", null, "https://example.com/salon")),
+                null, List.of(), null);
+        when(collector.collect()).thenReturn(List.of(withLinks));
+
+        ImportResult result = resultFor(importService.importAll(), sourceName);
+
+        assertThat(result.created()).isEqualTo(1);
+        Activity activity = activityRepository.findBySourceId(sourceIdFor(sourceName)).get(0);
+        assertThat(activityLinkService.findByActivityId(activity.id()))
+                .extracting(ActivityLink::value)
+                .containsExactly("https://example.com/salon");
+        assertThat(scheduleService.findByActivityId(activity.id())).isNotEmpty();
     }
 
     @Test

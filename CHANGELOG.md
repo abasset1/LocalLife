@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Correctif : un lien trop long faisait perdre tout l'enrichissement d'une activité importée
+- **Constat en production** (import DATAtourisme PACA du 07/11/2026) : « Salon de l'Etudiant à Aix-en-Provence » — `value too long for type character varying(1024)` sur `activity_link`. L'insertion échouait et l'activité perdait **tout** son enrichissement (lieu, dates, liens, médias, accessibilité, tags), pas seulement ce lien.
+- **Correctif** (`ActivityLinkService`) : un lien de plus de 1 024 caractères est refusé comme un lien invalide, que l'import ignore déjà un par un ; un libellé de plus de 255 caractères est raccourci (« … ») au lieu de perdre le lien. Une contribution avec un lien trop long reçoit un message clair au lieu d'une erreur serveur.
+- Tests : `ActivityLinkServiceTest` (limite exacte, dépassement, libellé raccourci) et `ImportServiceIntegrationTest` (activité avec un lien trop long : l'autre lien et les dates sont gardés ; le test échoue sans le correctif).
+
 ### Carte « Night » : le site passe en mode nuit, avec un nouveau logo
 - **Site** : quand la carte « 🍸 Night » est affichée, tout l'Explorer passe en thème nuit : fond violet nuit, accents néon magenta et cyan, fond de carte assombri, marqueurs et pastilles néon. Le menu, la recherche, les filtres, la liste, l'aperçu, la fiche et les messages suivent. Retour au thème clair dès qu'on revient sur une autre carte ou qu'on quitte l'Explorer.
 - **Logo** : en mode nuit, l'épingle Neiri est remplacée par le bouc néon à lunettes (`public/neiri-night.webp`), avec le logotype « NEiRI » en clair ; l'icône de l'onglet et la couleur de la barre du navigateur changent aussi.
