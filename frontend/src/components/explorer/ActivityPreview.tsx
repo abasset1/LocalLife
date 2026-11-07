@@ -1,4 +1,4 @@
-import { formatActivityLocation, formatCategoryLabels } from "./activityUtils";
+import { formatActivityLocation, formatCategoryLabels, formatPriceType } from "./activityUtils";
 import type { Activity, Category } from "./types";
 
 interface ActivityPreviewProps {
@@ -18,6 +18,7 @@ interface ActivityPreviewProps {
  */
 function ActivityPreview({ activity, categories, onClose, onOpenDetail }: ActivityPreviewProps) {
     const categoryLabels = formatCategoryLabels(activity, categories);
+    const priceLabel = formatPriceType(activity.priceType);
 
     return (
         <div className="explorer-preview" role="dialog" aria-labelledby="explorer-preview-title">
@@ -37,6 +38,11 @@ function ActivityPreview({ activity, categories, onClose, onOpenDetail }: Activi
                 <p className="explorer-preview-meta">
                     📍 {formatActivityLocation(activity)}
                     {categoryLabels ? ` · ${categoryLabels}` : ""}
+                    {priceLabel && (
+                        <span className={`explorer-price-badge explorer-price-badge-${activity.priceType?.toLowerCase()}`}>
+                            {priceLabel}
+                        </span>
+                    )}
                 </p>
                 <button className="explorer-preview-cta" onClick={() => onOpenDetail(activity)} type="button">
                     Voir l'activité →

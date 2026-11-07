@@ -1,6 +1,7 @@
 package com.locallife.backend.activity.api;
 
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.domain.PriceIndicator;
 import com.locallife.backend.place.domain.CoordinatePrecision;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -74,6 +75,9 @@ import java.util.List;
  * renvoyer {@link Activity} tel quel, hors périmètre de ces tickets
  * (aucun consommateur actuel n'a besoin de {@code sourceName} sur ces
  * deux endpoints).
+ *
+ * {@code priceType} : {@code FREE}, {@code PAID} ou {@code UNKNOWN}, déduit des tarifs en clair de l'activité
+ * ({@link PriceIndicator}), pour le badge « Gratuit »/« Payant » de la carte et de la liste.
  */
 public record ActivityResponse(
         Long id,
@@ -96,7 +100,8 @@ public record ActivityResponse(
         String mainImageUrl,
         List<String> categoryCodes,
         LocalDateTime publishedAt,
-        String coordinatePrecision) {
+        String coordinatePrecision,
+        String priceType) {
 
     public static ActivityResponse from(Activity activity, String sourceName) {
         return from(activity, sourceName, null, false, null);
@@ -160,7 +165,8 @@ public record ActivityResponse(
                 mainImageUrl,
                 categoryCodes,
                 activity.publishedAt(),
-                CoordinatePrecision.UNKNOWN.name());
+                CoordinatePrecision.UNKNOWN.name(),
+                PriceIndicator.of(activity.conditions()).name());
     }
 
     /**
@@ -172,7 +178,7 @@ public record ActivityResponse(
         return new ActivityResponse(id, title, description, category, latitude, longitude, startDate, endDate,
                 status, sourceName, url, address, city, postalCode, createdBy, createdByUsername, likedByCurrentUser,
                 mainImageUrl, categoryCodes, publishedAt,
-                (precision == null ? CoordinatePrecision.UNKNOWN : precision).name());
+                (precision == null ? CoordinatePrecision.UNKNOWN : precision).name(), priceType);
     }
 
     /**
@@ -185,6 +191,6 @@ public record ActivityResponse(
         }
         return new ActivityResponse(id, title, description, category, latitude, longitude, nextStart, endDate,
                 status, sourceName, url, address, city, postalCode, createdBy, createdByUsername, likedByCurrentUser,
-                mainImageUrl, categoryCodes, publishedAt, coordinatePrecision);
+                mainImageUrl, categoryCodes, publishedAt, coordinatePrecision, priceType);
     }
 }

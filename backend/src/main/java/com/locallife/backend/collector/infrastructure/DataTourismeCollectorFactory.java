@@ -5,6 +5,8 @@ import com.locallife.backend.source.domain.Source;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -27,14 +29,24 @@ public class DataTourismeCollectorFactory {
     private static final Duration READ_TIMEOUT = Duration.ofMinutes(10);
 
     private final JdbcTemplate jdbcTemplate;
+    private final String apiKey;
+    /** Lecture des réponses de l'API DATAtourisme (comme ailleurs dans le projet : pas de bean partagé). */
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public DataTourismeCollectorFactory(JdbcTemplate jdbcTemplate) {
+    public DataTourismeCollectorFactory(JdbcTemplate jdbcTemplate, @Value("${datatourisme.api-key:}") String apiKey) {
         this.jdbcTemplate = jdbcTemplate;
+        this.apiKey = apiKey;
     }
 
+    /**
+     * Collecteur d'événements du CSV, complété par l'API DATAtourisme quand une clé est configurée
+     * ({@code DATATOURISME_API_KEY}, voir {@link DataTourismeApiEnricher}).
+     */
     public Collector create(Source source) {
-        return new DataTourismeCollector(
+        DataTourismeCollector collector = new DataTourismeCollector(
                 restClientBuilder(), source.url(), source.name(), source.regionFilter(), eventSelection(source));
+        DataTourismeApiEnricher enricher = new DataTourismeApiEnricher(restClientBuilder(), apiKey, objectMapper);
+        return enricher.isEnabled() ? collector.withEnricher(enricher) : collector;
     }
 
     /**

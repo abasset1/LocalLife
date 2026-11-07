@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { APPROXIMATE_LOCATION_LABEL, formatCategoryLabels, groupActivitiesByCity, isApproximateLocation } from "./activityUtils";
-import { UNKNOWN_ADDRESS_LABEL } from "./activityUtils";
+import { formatPriceType, UNKNOWN_ADDRESS_LABEL } from "./activityUtils";
 import { formatDistance, hasCoordinates, UNKNOWN_PLACE_LABEL } from "./globalSearch";
 import type { Activity, Category } from "./types";
 
@@ -101,6 +101,7 @@ function ActivityList({
     function renderItem(activity: Activity) {
         const distance = ordered ? formatDistance(activity.distanceMeters) : null;
         const categoryLabels = formatCategoryLabels(activity, categories);
+        const priceLabel = formatPriceType(activity.priceType);
         return (
             <li key={activity.id}>
                 <button
@@ -124,6 +125,11 @@ function ActivityList({
                     <span className="explorer-list-item-meta">
                         {formatWhen(activity.startDate)}
                         {categoryLabels ? ` · ${categoryLabels}` : ""}
+                        {priceLabel && (
+                            <span className={`explorer-price-badge explorer-price-badge-${activity.priceType?.toLowerCase()}`}>
+                                {priceLabel}
+                            </span>
+                        )}
                     </span>
                 </button>
             </li>

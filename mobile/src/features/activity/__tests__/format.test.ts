@@ -1,4 +1,4 @@
-import { formatDateRange, formatPlace, isSafeWebUrl } from '../format';
+import { formatDateRange, formatPlace, formatPriceType, isSafeWebUrl } from '../format';
 
 describe('formatDateRange', () => {
   it('retourne null sans date exploitable', () => {
@@ -37,5 +37,14 @@ describe('isSafeWebUrl', () => {
     expect(isSafeWebUrl('tel:0612345678')).toBe(false);
     expect(isSafeWebUrl('exemple.fr')).toBe(false);
     expect(isSafeWebUrl(null)).toBe(false);
+  });
+});
+
+describe('formatPriceType', () => {
+  it('libelle gratuit et payant, rien quand le tarif est inconnu ou absent', () => {
+    expect(formatPriceType('FREE')).toBe('Gratuit');
+    expect(formatPriceType('PAID')).toBe('Payant');
+    expect(formatPriceType('UNKNOWN')).toBeNull();
+    expect(formatPriceType(undefined)).toBeNull();
   });
 });

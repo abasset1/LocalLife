@@ -13,6 +13,12 @@
  */
 export type CoordinatePrecision = 'EXACT' | 'APPROXIMATE' | 'UNKNOWN';
 
+/**
+ * Gratuit / payant, déduit par le backend des tarifs en clair (`PriceIndicator`). Facultatif : absent d'un
+ * backend antérieur, traité comme `UNKNOWN` (rien n'est affiché).
+ */
+export type PriceType = 'FREE' | 'PAID' | 'UNKNOWN';
+
 /** `ActivitySummaryResponse` — liste (`GET /activities`) et fiche résumée. */
 export interface ActivitySummary {
   id: number;
@@ -29,6 +35,7 @@ export interface ActivitySummary {
   coordinatePrecision?: CoordinatePrecision;
   /** Lieu géré par l'auteur qui propose l'activité (« Proposé par… ») ; `null` sinon. */
   hostPlace?: HostPlace | null;
+  priceType?: PriceType;
 }
 
 /** Lieu qui propose une activité : publié et géré par l'auteur de la contribution. */
@@ -60,6 +67,7 @@ export interface Activity {
   /** Premier passage au statut publié ; `null` si publiée avant le suivi de cette date. */
   publishedAt: string | null;
   coordinatePrecision?: CoordinatePrecision;
+  priceType?: PriceType;
 }
 
 export interface ScheduleSummary {
@@ -155,6 +163,7 @@ export interface ActivityDetail {
   coordinatePrecision?: CoordinatePrecision;
   /** Lieu géré par l'auteur qui propose l'activité (« Proposé par… ») ; `null` sinon. */
   hostPlace?: HostPlace | null;
+  priceType?: PriceType;
 }
 
 /** `PlaceResponse` — lieu permanent publié (ADR-0011, phase B), couche « Lieux » de la carte. */

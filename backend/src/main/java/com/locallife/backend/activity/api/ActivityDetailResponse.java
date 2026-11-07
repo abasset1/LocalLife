@@ -2,6 +2,7 @@ package com.locallife.backend.activity.api;
 
 import com.locallife.backend.accessibility.domain.Accessibility;
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.domain.PriceIndicator;
 import com.locallife.backend.activity.infrastructure.ActivityHostPlaceRepository.HostPlace;
 import com.locallife.backend.link.domain.ActivityLink;
 import com.locallife.backend.media.domain.Media;
@@ -43,6 +44,9 @@ import java.util.List;
  * {@code createdBy} : identifiant du contributeur ({@code null} pour une activité importée), déjà public
  * sur {@code ActivityResponse} — permet à l'app mobile de proposer « Modifier »/« Supprimer » à son
  * auteur sur la fiche (les droits restent vérifiés par le backend).
+ *
+ * {@code priceType} : {@code FREE}, {@code PAID} ou {@code UNKNOWN}, déduit de {@code conditions} (tarifs en
+ * clair) par {@link PriceIndicator}.
  */
 public record ActivityDetailResponse(
         Long id,
@@ -74,7 +78,8 @@ public record ActivityDetailResponse(
         LocalDateTime publishedAt,
         Long createdBy,
         String coordinatePrecision,
-        HostPlace hostPlace) {
+        HostPlace hostPlace,
+        String priceType) {
 
     public static ActivityDetailResponse from(
             Activity activity,
@@ -132,7 +137,8 @@ public record ActivityDetailResponse(
                 activity.publishedAt(),
                 activity.createdBy(),
                 CoordinatePrecision.UNKNOWN.name(),
-                null);
+                null,
+                PriceIndicator.of(activity.conditions()).name());
     }
 
     /** Précision géographique de la position affichée (ADR-0011, phase A) ; {@code from} vaut {@code UNKNOWN}. */
@@ -140,7 +146,8 @@ public record ActivityDetailResponse(
         return new ActivityDetailResponse(id, title, description, longDescription, category, latitude, longitude,
                 startDate, endDate, status, url, address, city, postalCode, conditions, ageMin, ageMax, schedules,
                 occurrences, locations, media, links, accessibility, tags, additionalInfo, categoryCodes, publishedAt,
-                createdBy, (precision == null ? CoordinatePrecision.UNKNOWN : precision).name(), hostPlace);
+                createdBy, (precision == null ? CoordinatePrecision.UNKNOWN : precision).name(), hostPlace,
+                priceType);
     }
 
     /** Lieu qui propose l'activité (décision du 22/10/2026), {@code null} sinon. */
@@ -148,7 +155,7 @@ public record ActivityDetailResponse(
         return new ActivityDetailResponse(id, title, description, longDescription, category, latitude, longitude,
                 startDate, endDate, status, url, address, city, postalCode, conditions, ageMin, ageMax, schedules,
                 occurrences, locations, media, links, accessibility, tags, additionalInfo, categoryCodes, publishedAt,
-                createdBy, coordinatePrecision, place);
+                createdBy, coordinatePrecision, place, priceType);
     }
 
     /** Programmation d'une activité — voir {@link Schedule}. */

@@ -1,5 +1,5 @@
 import { hasCoordinates, UNKNOWN_PLACE_LABEL } from "./globalSearch";
-import type { Activity, Category, MapBounds } from "./types";
+import type { Activity, Category, MapBounds, PriceType } from "./types";
 
 /**
  * Formate une date en YYYY-MM-DD à partir de ses composants locaux
@@ -28,6 +28,17 @@ export const UNKNOWN_ADDRESS_LABEL = "Adresse non renseignée";
  */
 /** Mention affichée pour une position `APPROXIMATE` (ADR-0011, phase A). */
 export const APPROXIMATE_LOCATION_LABEL = "Emplacement approximatif";
+
+/** Libellé du badge gratuit / payant ; `null` quand on ne sait pas (rien n'est affiché). */
+export function formatPriceType(priceType: PriceType | null | undefined): string | null {
+    if (priceType === "FREE") {
+        return "Gratuit";
+    }
+    if (priceType === "PAID") {
+        return "Payant";
+    }
+    return null;
+}
 
 export function isApproximateLocation(activity: Pick<Activity, "coordinatePrecision">): boolean {
     return activity.coordinatePrecision === "APPROXIMATE";

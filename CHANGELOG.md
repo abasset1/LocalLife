@@ -2,6 +2,14 @@
 
 ## 0.9.59 — non publiée
 
+### Événements DATAtourisme complétés par l'API : programme détaillé, tarifs, images, contacts ; badge Gratuit / Payant
+- **Constat** : le cinéma l'Eden à Noves apparaissait en fiches vides (« Programme Cinéma, semaine du 09 au 15 Novembre »). Le CSV de data.gouv.fr ne porte que la description courte ; la programmation séance par séance, le tarif (« Plein tarif : 5€ / Tarif adhérent : 3€. »), l'affiche et le téléphone sont dans l'**API DATAtourisme**, pour les mêmes fiches.
+- **Import** : après le CSV, `DataTourismeApiEnricher` lit l'API (`api.datatourisme.fr`) sur les départements de la source et complète chaque événement trouvé (jointure par URI DATAtourisme, l'identité des activités ne change pas) : description détaillée suivie des horaires en clair, tarifs, images si le CSV n'en a pas, site et téléphone. Clé : `DATATOURISME_API_KEY` (gratuite, facultative). Sans clé, sans filtre de départements ou si l'API échoue, l'import garde le seul CSV, comme avant. La plateforme Diffuseur, qui ferme en octobre 2027, n'est pas utilisée.
+- **Mesure (fichier PACA, six départements, 07/11/2026)** : 2 353 événements, 2 321 complétés ; 2 118 avec description détaillée, 2 087 avec tarifs, 2 113 avec image.
+- **Gratuit / Payant** : `priceType` (`FREE`, `PAID`, `UNKNOWN`) dans les réponses de la liste, de la carte et de la fiche, déduit des tarifs en clair (`PriceIndicator`) : montant en euros, « payant », « gratuit », « entrée libre », « accès libre »… Une gratuité partielle (« Gratuit pour les moins de 12 ans ») reste inconnue. Vaut aussi pour OpenAgenda et les contributions. PACA : 701 gratuits, 1 351 payants, 301 inconnus (surtout sans tarif). Pas de migration.
+- **Site** : badge « Gratuit » ou « Payant » dans la liste et l'aperçu ; la fiche affiche enfin une section « Tarifs » (badge et texte des tarifs), qui manquait.
+- **Application** : « Gratuit » ou « Payant » sur la carte d'une activité de la liste et dans « Tarifs et conditions » de la fiche. Aucune dépendance native ajoutée.
+- **À faire en production** : renseigner `DATATOURISME_API_KEY` dans `.env.beta`, puis `docker compose --env-file .env.beta -f docker-compose.beta.yml up -d backend`. Les activités déjà importées sont complétées au prochain import.
 ### Carte à l'ouverture au choix : activités, lieux ou food trucks
 - **Profil → Paramètres de recherche** : « Carte à l'ouverture » choisit la carte affichée quand un utilisateur connecté arrive sur l'Explorer — Activités, Lieux, Food trucks, ou « Dernière utilisée » (comportement d'avant : dernière carte choisie dans le navigateur). Seules les cartes ouvertes au public sont proposées ; une carte enregistrée puis fermée laisse la carte sur les activités.
 - **Accueil de première connexion** : même choix, facultatif, quand les lieux ou les food trucks sont ouverts.
