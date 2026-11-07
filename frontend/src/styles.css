@@ -2648,6 +2648,38 @@ body {
     white-space: pre-wrap;
 }
 
+/* Tarifs en clair (texte de la source, retours à la ligne conservés). */
+.explorer-detail-conditions {
+    margin: 0.3rem 0 0;
+    white-space: pre-wrap;
+}
+
+/* Badge gratuit / payant (liste, aperçu, fiche). */
+.explorer-price-badge {
+    display: inline-block;
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.4;
+    vertical-align: baseline;
+}
+
+.explorer-price-badge-free {
+    background-color: var(--ll-green);
+    color: var(--ll-paper);
+}
+
+.explorer-price-badge-paid {
+    background-color: var(--ll-sand);
+    color: var(--ll-green);
+}
+
+.explorer-detail-prices .explorer-price-badge {
+    margin-left: 0;
+}
+
 .explorer-detail-schedules {
     margin: 0.2rem 0 0;
     padding-left: 1.2rem;

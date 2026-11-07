@@ -292,6 +292,11 @@ sur `backend/.env.example` :
   données OpenAgenda plutôt que des activités créées manuellement.
   Voir `docs/02_Architecture/COLLECTOR_OPERATIONS.md` pour le détail
   de ces variables.
+* `DATATOURISME_API_KEY` — facultatif. Clé de l'API DATAtourisme
+  (gratuite, sur https://www.datatourisme.fr/utiliser-les-donnees) : les
+  événements DATAtourisme reçoivent leur description détaillée, leurs
+  tarifs, leurs images et leurs contacts. Vide : CSV data.gouv.fr seul.
+  Voir `docs/02_Architecture/DATAGOUV_SOURCES.md`.
 * `GOOGLE_CLIENT_ID` — facultatif, pour « Continuer avec Google ».
   Même valeur dans `frontend/.env` sous le nom `VITE_GOOGLE_CLIENT_ID`
   (voir `frontend/.env.example`), avec `http://localhost:5173` dans les

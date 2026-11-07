@@ -26,6 +26,9 @@ export interface UserPreferences {
     configured?: boolean;
 }
 
+/** Indicateur gratuit / payant déduit des tarifs en clair de l'activité (`PriceIndicator`, backend). */
+export type PriceType = "FREE" | "PAID" | "UNKNOWN";
+
 export interface Activity {
     id: number;
     title: string;
@@ -55,6 +58,8 @@ export interface Activity {
     coordinatePrecision?: CoordinatePrecision | null;
     /** Lieu géré par l'auteur qui propose l'activité (« Proposé par … ») ; `null` dès qu'il ne le gère plus. */
     hostPlace?: HostPlace | null;
+    /** Gratuit / payant (badge de la liste et de l'aperçu) ; absent des anciennes réponses : traité comme inconnu. */
+    priceType?: PriceType | null;
 }
 
 /** Lieu hôte d'une activité (`hostPlace` des réponses activité, backend). */
@@ -124,6 +129,8 @@ export interface ActivityDetail {
     accessibility: AccessibilitySummary | null;
     tags: string[];
     additionalInfo: string | null;
+    /** Gratuit / payant, déduit de `conditions`. */
+    priceType?: PriceType | null;
     /** Lieu géré par l'auteur qui propose l'activité, sinon `null`. */
     hostPlace?: HostPlace | null;
 }

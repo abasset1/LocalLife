@@ -163,3 +163,29 @@ describe("ActivityList — lien avec la carte", () => {
         expect(onHoverActivity).toHaveBeenLastCalledWith(first);
     });
 });
+
+describe("ActivityList — badge gratuit / payant", () => {
+    it("affiche « Gratuit » ou « Payant », rien quand le tarif est inconnu", () => {
+        render(
+            <ActivityList
+                activities={[
+                    activity(1, { priceType: "FREE" }),
+                    activity(2, { priceType: "PAID" }),
+                    activity(3, { priceType: "UNKNOWN" }),
+                    activity(4),
+                ]}
+                categories={CATEGORIES}
+                error={null}
+                isLoading={false}
+                label="Résultats de la recherche"
+                onSelectActivity={() => undefined}
+                ordered
+            />,
+        );
+        const items = within(screen.getByRole("list", { name: "Résultats de la recherche" })).getAllByRole("listitem");
+        expect(within(items[0]).getByText("Gratuit")).toHaveClass("explorer-price-badge-free");
+        expect(within(items[1]).getByText("Payant")).toHaveClass("explorer-price-badge-paid");
+        expect(items[2]).not.toHaveTextContent(/Gratuit|Payant/);
+        expect(items[3]).not.toHaveTextContent(/Gratuit|Payant/);
+    });
+});

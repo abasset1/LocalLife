@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { buildDirectionsUrl } from "../../utils/directions";
 import { buildGoogleCalendarUrl } from "../../utils/googleCalendar";
 import { formatDateOfDay, formatRecurrenceRule, formatTimeRange } from "../../utils/recurrence";
-import { formatActivityLocation, formatCategoryLabels } from "./activityUtils";
+import { formatActivityLocation, formatCategoryLabels, formatPriceType } from "./activityUtils";
 import { hasCoordinates } from "./globalSearch";
 import FollowBell from "../follow/FollowBell";
 import { useLaunchFeatures } from "../../features/launchFeatures";
@@ -44,11 +44,12 @@ interface ActivityDetailModalProps {
 
 /**
  * LL-11015, critère "absence de données correctement gérée" : chaque
- * section (galerie, description longue, horaires, lieux, liens,
+ * section (galerie, description longue, tarifs, horaires, lieux, liens,
  * accessibilité, tags, informations complémentaires) ne s'affiche que si
  * elle a effectivement un contenu.
  */
 function renderDetailSections(detail: ActivityDetail) {
+    const priceLabel = formatPriceType(detail.priceType);
     const locationsById = new Map(detail.locations.map((location) => [location.id, location]));
 
     return (
@@ -62,6 +63,17 @@ function renderDetailSections(detail: ActivityDetail) {
             )}
             {detail.longDescription && (
                 <p className="explorer-detail-row explorer-detail-long-description">{detail.longDescription}</p>
+            )}
+            {(detail.conditions || priceLabel) && (
+                <div className="explorer-detail-row explorer-detail-prices">
+                    <strong>Tarifs :</strong>{" "}
+                    {priceLabel && (
+                        <span className={`explorer-price-badge explorer-price-badge-${detail.priceType?.toLowerCase()}`}>
+                            {priceLabel}
+                        </span>
+                    )}
+                    {detail.conditions && <p className="explorer-detail-conditions">{detail.conditions}</p>}
+                </div>
             )}
             {detail.schedules.length > 0 && (
                 <div className="explorer-detail-row">

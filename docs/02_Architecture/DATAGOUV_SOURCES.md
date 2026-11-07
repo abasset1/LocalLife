@@ -74,10 +74,14 @@ sources (slug OpenAgenda ≠ URI DATAtourisme) et la même heure de début
 § 1.3 (doublons entre sources, événements longs masqués par la fenêtre
 de 7 jours).
 
-Alternative plus riche si le CSV simplifié s'avère insuffisant : les
-flux personnalisés de l'API DATAtourisme (diffuseur.datatourisme.fr),
-qui demandent un compte et une clé — hors data.gouv, non retenu à ce
-stade.
+Le CSV simplifié ne porte que la description courte : ni description
+détaillée (programme d'un cinéma séance par séance, par exemple), ni
+tarifs, ni images, ni téléphone. Ces champs sont dans l'**API
+DATAtourisme** (`api.datatourisme.fr`, clé gratuite), branchée en
+complément du CSV depuis le 07/11/2026 : voir « Compléments de l'API
+DATAtourisme » au § 4. La plateforme Diffuseur (flux personnalisés,
+`diffuseur.datatourisme.fr`) ne crée plus de compte ni de flux depuis le
+01/10/2026 et ferme en octobre 2027 : l'API la remplace.
 
 ### 1.2 Événements nationaux ponctuels (annuels)
 
@@ -176,6 +180,47 @@ Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
 * Tests : `DataTourismeCollectorTest`, sur un extrait réel du fichier
   (`src/test/resources/datatourisme/datatourisme-extrait.csv`) et des
   fichiers invalides construits dans le test.
+
+### Compléments de l'API DATAtourisme (07/11/2026)
+
+Demande d'Alex : le cinéma l'Eden à Noves apparaissait en deux fiches
+vides (« Programme Cinéma, semaine du … »), alors que la programmation,
+le tarif et l'affiche sont publiés par l'office de tourisme (et repris
+par provence-alpes-cotedazur.com). Ils sont dans DATAtourisme, mais pas
+dans le CSV.
+
+* `DataTourismeApiEnricher` (`collector/infrastructure`) : après la
+  lecture du CSV, lit `GET /v1/entertainmentAndEvent` filtré sur les
+  départements de la source (`isPartOfDepartment.insee[in]=…`, Corse :
+  `2A,2B`), 100 fiches par page, en suivant `meta.next`. Jointure par
+  URI : le champ `uri` de l'API est l'URI du CSV, déjà `externalId` ;
+  l'identité des activités ne change pas.
+* Complète : description détaillée (+ horaires en clair, « Horaires :
+  … ») dans `longDescription` ; tarifs en clair (texte de la source,
+  sinon « De 10 à 35 € », « Gratuit. » tirés des montants) dans
+  `conditions` ; images si le CSV n'en a pas ; site et téléphone ajoutés
+  aux liens ; description courte de l'API si le CSV n'en a pas.
+* **Au mieux** : sans clé (`DATATOURISME_API_KEY`), sans filtre de
+  départements (fichier national : le quota de 1 000 requêtes par heure
+  serait dépassé), ou si l'API échoue (3 essais sur 429/5xx, aucun sur
+  401/403), l'import garde le seul CSV et journalise un avertissement.
+* Indicateur **gratuit / payant** : `PriceIndicator` (`activity/domain`)
+  le déduit de `conditions` à la lecture (`priceType` = `FREE`, `PAID`,
+  `UNKNOWN` dans les réponses liste, carte et fiche). Il vaut aussi pour
+  les tarifs OpenAgenda et ceux des contributeurs. Pas de colonne : il
+  suit toute modification des tarifs.
+* Mesure du 07/11/2026, fichier PACA, six départements : 2 353
+  événements retenus, 2 321 trouvés dans l'API ; 2 118 avec description
+  détaillée, 2 087 avec tarifs, 2 113 avec image ; indicateur : 701
+  gratuits, 1 351 payants, 301 inconnus (266 sans tarif, 23 « Tarifs non
+  communiqués »).
+* Quotas documentés de l'API (19/10/2026) : 1 000 requêtes/heure,
+  ~10/seconde, 20 à 30 en parallèle ; pages de 100 au plus. Une pause de
+  200 ms sépare les pages. Les adresses e-mail des contacts ne sont plus
+  fournies par l'API depuis le 24/06/2026.
+* Tests : `DataTourismeApiEnricherTest` (fiches réelles de l'API :
+  l'Eden de Noves, un marché en accès libre, une visite à 5 €),
+  `PriceIndicatorTest`.
 
 ### Sélection d'événements (`source.event_selection`, V77)
 
