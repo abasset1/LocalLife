@@ -126,6 +126,53 @@ d'Avignon/Marseille — le module `foodtruck` reste alimenté
 manuellement (cohérent avec `FOOD_TRUCK_CONTRACT.md` : « aucun import
 externe prévu »).
 
+### 3.1 Autres pistes explorées (07/11/2026)
+
+* **Arrêtés municipaux d'Avignon** : la Ville publie ses actes sur
+  `www.avignon.fr` (rubrique « Publication des actes administratifs »,
+  arrêtés « en cours hors voirie » et arrêtés de voirie). Les 3 401
+  documents de 2025-2026 listés sur la page ont été téléchargés et leur
+  texte extrait : **aucune autorisation de stationnement de food truck**.
+  On n'y trouve que le règlement des marchés (arrêté de septembre 2026,
+  qui mentionne le commerce ambulant et les « camions magasin » sans lister
+  de camions), les mesures du Festival (vente ambulante), des AOT sans
+  rapport (aire de stationnement de la Région, cafétéria du Stade
+  Nautique) et des conventions de buvettes. 133 documents sont des scans
+  sans texte (titres : voirie, délégations, délibérations), non lus. Les
+  autorisations individuelles sont notifiées, pas publiées ; la Ville
+  passe par des avis de publicité ponctuels (soirées guinguettes,
+  vendredis de Montfavet).
+* **Communes voisines via Pappers Politique** (`politique.pappers.fr`) :
+  403 (protection anti-robots) depuis l'environnement cloud.
+* **OpenStreetMap (Overpass)** : connexion coupée par `overpass-api.de`
+  depuis l'environnement cloud.
+* **Arrêtés de Châteaurenard, Noves, Rognonas** : Châteaurenard publie
+  ses arrêtés municipaux (`chateaurenard.com`, 540 PDF en 2025-2026,
+  presque tous scannés mais aux noms explicites) : aucune autorisation de
+  food truck, seulement des « camions cuisine » ponctuels (Semaine bleue).
+  Noves ne publie en ligne que ses délibérations. Rognonas publie ses
+  actes sur un autre domaine (`rognonas.org`), non exploré.
+
+### 3.2 Source retenue : DATAtourisme, catégorie `StreetFood`
+
+Les offices de tourisme (via Apidae) déclarent des food trucks dans
+DATAtourisme comme `FoodEstablishment` de catégorie
+`https://www.datatourisme.fr/ontology/core#StreetFood`, avec nom,
+description, emplacement habituel (adresse et coordonnées) et parfois
+site web. Licence Ouverte. Fichier PACA (`datatourisme-reg-pac.csv`) du
+07/11/2026 : 103 lignes `StreetFood`, dont 18 à moins de 30 km d'Avignon,
+toutes dans les Bouches-du-Rhône (Châteaurenard, Noves, Graveson,
+Eyragues, Verquières, Saint-Andiol, Saint-Rémy, Plan-d'Orgon,
+Maussane…). Aucune dans le Vaucluse : les food trucks d'Avignon même n'y
+sont pas déclarés.
+
+Extrait : `docs/data/foodtrucks_datatourisme_avignon.csv` (une ligne par
+food truck, `cuisine_type` proposé selon `FoodTruckCuisine`, jours connus
+quand la description les donne). Limites : pas d'horaires ni de
+tournée dans le CSV (au mieux un jour dans la description), fiches
+parfois anciennes (`maj_source` de 2023 pour certaines), deux fiches sans
+mention explicite de camion (`food_truck_explicite = à confirmer`).
+
 ## 4. Collecteur DATAtourisme (implémenté)
 
 Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
