@@ -1,11 +1,11 @@
 -- Rôles et types de compte séparés (décision du 02/11/2026).
 --
 -- * Type de compte = offre : Gratuit (aucun abonnement en cours), Premium ou Pro (table subscription).
--- * Rôle : USER (utilisateur), LOCALLIFE (équipe Neiri : modération), ADMIN (administrateur).
+-- * Rôle : USER (utilisateur), LOCALLIFE (équipe LocalLife : modération), ADMIN (administrateur).
 --
 -- L'ancien rôle PRO disparaît :
 -- 1) un rôle PRO attribué par un administrateur (pro_role_source ADMIN, ou inconnu) sans offre Pro en cours devient
---    un compte Pro sans échéance, offert par Neiri (provider MANUAL) : le compte garde son espace professionnel.
+--    un compte Pro sans échéance, offert par LocalLife (provider MANUAL) : le compte garde son espace professionnel.
 --    Un éventuel abonnement Premium en cours est remplacé ;
 -- 2) un rôle PRO qui découlait d'une offre Pro (pro_role_source SUBSCRIPTION) n'a rien à créer : l'abonnement existe ;
 -- 3) tous ces comptes repassent au rôle USER, et l'origine du rôle PRO (pro_role_source, V71) est supprimée.
