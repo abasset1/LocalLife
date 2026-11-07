@@ -48,8 +48,25 @@ export function BrandWordmark({ tone = "dark" }: { tone?: "dark" | "light" }) {
     );
 }
 
-/** Repère + logotype. Le nom reste lisible par les lecteurs d'écran (texte masqué visuellement). */
-export function BrandLogo({ tone = "dark" }: { tone?: "dark" | "light" }) {
+/** Repère du thème « Night » : le bouc néon à lunettes (`public/neiri-night.webp`). */
+export function NightMark() {
+    return <img alt="" aria-hidden="true" className="neiri-night-mark" src="/neiri-night.webp" />;
+}
+
+/**
+ * Repère + logotype. Le nom reste lisible par les lecteurs d'écran (texte masqué visuellement). `night` remplace le
+ * repère par le bouc néon de la carte Night, avec le logotype en clair.
+ */
+export function BrandLogo({ tone = "dark", night = false }: { tone?: "dark" | "light"; night?: boolean }) {
+    if (night) {
+        return (
+            <span className="neiri-logo neiri-logo--light neiri-logo--night">
+                <NightMark />
+                <BrandWordmark tone="light" />
+                <span className="neiri-visually-hidden">Neiri Night</span>
+            </span>
+        );
+    }
     return (
         <span className={`neiri-logo neiri-logo--${tone}`}>
             <BrandMark />

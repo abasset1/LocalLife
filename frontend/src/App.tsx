@@ -40,6 +40,7 @@ import FeedbackModal from "./components/feedback/FeedbackModal";
 import PremiumOfferPopup from "./components/news/PremiumOfferPopup";
 import { useAccountAccess } from "./components/pro/useProAccess";
 import { useLaunchFeatures, type LaunchFeatures } from "./features/launchFeatures";
+import { useNightTheme } from "./theme/nightTheme";
 import type {
     Activity,
     ActivityDetail,
@@ -644,6 +645,14 @@ function App() {
     const activeLayer: MapLayer = isTextSearch || !isLayerAvailable(mapLayer, features) ? "activities" : mapLayer;
     /** Activités ou « Night » : mêmes marqueurs, même liste, mêmes messages. */
     const isActivityLayer = activeLayer === "activities" || activeLayer === "night";
+    // Carte « Night » : tout le site passe en thème nuit (couleurs néon, logo du bouc), le temps qu'elle est affichée.
+    useNightTheme(activeLayer === "night");
+    // Téléphone : la rangée des cartes défile ; la carte choisie reste visible (Night, en dernier, sinon coupée).
+    const layerSwitchRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const active = layerSwitchRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
+        active?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    }, [activeLayer]);
     // Types de cuisine présents aujourd'hui : seuls eux sont proposés dans le filtre.
     const availableCuisines = CUISINE_TYPES.filter((cuisine) => foodTrucks.some((foodTruck) => foodTruck.cuisineType === cuisine.code));
     const shownFoodTrucks = selectedCuisine
@@ -1332,6 +1341,7 @@ function App() {
                 onClose={() => setIsMenuOpen(false)}
                 onLogout={handleLogout}
                 onOpenContributionForm={handleOpenContributionForm}
+                night={activeLayer === "night"}
                 onOpenFeedback={() => (currentUser ? setIsFeedbackOpen(true) : navigate("/login"))}
             />
 
@@ -1421,7 +1431,7 @@ function App() {
                         />
                         {/* Une seule couche ouverte (lancement) : pas de bascule à afficher. */}
                         {availableLayers.length > 1 && (
-                            <div aria-label="Afficher sur la carte" className="explorer-layer-switch" role="group">
+                            <div aria-label="Afficher sur la carte" className="explorer-layer-switch" ref={layerSwitchRef} role="group">
                                 {availableLayers.map((layer) => (
                                     <button
                                         aria-pressed={activeLayer === layer.value}
