@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.remove();
   }, [endSession]);
 
-  /** Ouvre la session avec le JWT LocalLife reçu (connexion classique ou Google). */
+  /** Ouvre la session avec le JWT Neiri reçu (connexion classique ou Google). */
   const openSession = useCallback(
     async (token: string) => {
       const payload = decodeJwtPayload(token);

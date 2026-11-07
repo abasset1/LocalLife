@@ -90,7 +90,7 @@ public class AdminActivityService {
             actionLog.record(adminId, "ACTIVITY_REJECT", TARGET, id, activity.title(),
                     Map.of("status", existing.get().status()), Map.of("status", activity.status()), cleanReason);
             notifyAuthor(activity, "Ta proposition « " + activity.title() + " » n'a pas été publiée",
-                    "L'équipe LocalLife n'a pas publié ta proposition « " + activity.title()
+                    "L'équipe Neiri n'a pas publié ta proposition « " + activity.title()
                             + " ». Tu peux la corriger depuis « Mes contributions » : elle repartira en validation.",
                     cleanReason);
         });
@@ -108,7 +108,7 @@ public class AdminActivityService {
             actionLog.record(adminId, "ACTIVITY_CANCEL", TARGET, id, activity.title(),
                     Map.of("status", existing.get().status()), Map.of("status", activity.status()), cleanReason);
             notifyAuthor(activity, "Ton activité « " + activity.title() + " » a été annulée",
-                    "L'équipe LocalLife a annulé ton activité « " + activity.title() + " ».", cleanReason);
+                    "L'équipe Neiri a annulé ton activité « " + activity.title() + " ».", cleanReason);
         });
         return cancelled;
     }
@@ -134,7 +134,7 @@ public class AdminActivityService {
                 Map.of("status", activity.status()), Map.of("status", "DELETED"), cleanReason);
         if (!Objects.equals(activity.createdBy(), adminId)) {
             notifyAuthor(activity, "Ton activité « " + activity.title() + " » a été supprimée",
-                    "L'équipe LocalLife a retiré ton activité « " + activity.title() + " ».", cleanReason);
+                    "L'équipe Neiri a retiré ton activité « " + activity.title() + " ».", cleanReason);
         }
         return true;
     }
@@ -168,7 +168,7 @@ public class AdminActivityService {
             Activity activity = activityRepository.findById(id).orElse(null);
             if (activity != null && activity.createdBy() != null && !activity.createdBy().equals(adminId)) {
                 notifyAuthor(activity, "Ton activité « " + activity.title() + " » a été supprimée",
-                        "L'équipe LocalLife a retiré ton activité « " + activity.title() + " ».", cleanReason);
+                        "L'équipe Neiri a retiré ton activité « " + activity.title() + " ».", cleanReason);
             }
         }
         return new BulkResult(batch, trashed.size());

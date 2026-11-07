@@ -116,7 +116,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class SecurityConfig {
 
     /**
-     * Rôles qui modèrent (décision du 02/11/2026) : administrateur et équipe LocalLife. Les actions sensibles
+     * Rôles qui modèrent (décision du 02/11/2026) : administrateur et équipe Neiri. Les actions sensibles
      * (comptes, rôles, types de compte, suppression et corbeille, imports, sources, catégories, e-mails, journal)
      * restent à l'administrateur, par le filet {@code /api/v1/admin/**}.
      */
@@ -219,7 +219,7 @@ public class SecurityConfig {
                         // LL-EF-006 : profil de l'utilisateur connecté.
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/users/me").authenticated()
-                        // Modération (administrateur et équipe LocalLife, décision du 02/11/2026).
+                        // Modération (administrateur et équipe Neiri, décision du 02/11/2026).
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/activities").hasAnyRole(MODERATORS)
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/publish")
                         .hasAnyRole(MODERATORS)

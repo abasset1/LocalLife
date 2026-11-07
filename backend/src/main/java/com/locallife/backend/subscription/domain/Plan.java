@@ -1,7 +1,7 @@
 package com.locallife.backend.subscription.domain;
 
 /**
- * Offre LocalLife (BILLING-01, ADR-0014). {@link #FREE} n'est pas un abonnement : c'est l'absence d'abonnement en
+ * Offre Neiri (BILLING-01, ADR-0014). {@link #FREE} n'est pas un abonnement : c'est l'absence d'abonnement en
  * cours. La consultation de la carte et de la liste est gratuite pour toutes les offres.
  */
 public enum Plan {

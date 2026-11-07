@@ -14,7 +14,7 @@ import { useNotificationRouting } from '@/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
-/** Thèmes de navigation aux couleurs de LocalLife (fond papier, vert forêt, corail). */
+/** Thèmes de navigation aux couleurs de Neiri (fond clair, bleu nuit, rose). */
 function navigationTheme(dark: boolean) {
   const base = dark ? DarkTheme : DefaultTheme;
   const colors = Colors[dark ? 'dark' : 'light'];

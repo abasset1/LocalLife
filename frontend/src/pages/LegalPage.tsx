@@ -58,7 +58,7 @@ function LegalPage({ document }: { document: LegalDocumentKey }) {
                     ))}
                 </p>
                 <p className="auth-switch">
-                    <Link to="/">← Retour à LocalLife</Link>
+                    <Link to="/">← Retour à Neiri</Link>
                 </p>
             </article>
         </main>

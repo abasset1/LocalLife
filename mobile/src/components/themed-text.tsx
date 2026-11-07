@@ -20,7 +20,7 @@ export type ThemedTextProps = TextProps & {
 
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
-  // Sur-titre en corail et lien en vert par défaut, comme sur la maquette.
+  // Sur-titre en rose et lien en bleu nuit par défaut (charte Neiri).
   const defaultColor = type === 'eyebrow' ? 'accent' : type === 'linkPrimary' ? 'primary' : 'text';
 
   return (

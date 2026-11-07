@@ -74,7 +74,7 @@ class AccountSelfServiceIntegrationTest {
         return cleaner.trackUser("self-" + UUID.randomUUID().toString().substring(0, 10) + "@example.com");
     }
 
-    /** Compte vérifié ; {@code password} null : compte créé avec Google, sans mot de passe LocalLife. */
+    /** Compte vérifié ; {@code password} null : compte créé avec Google, sans mot de passe Neiri. */
     private Long account(String email, String password, Role role) {
         jdbcTemplate.update("INSERT INTO users (username, email, password_hash, role, created_at, email_verified) "
                 + "VALUES (?, ?, ?, ?, now(), TRUE)", "self-" + UUID.randomUUID().toString().substring(0, 12), email,

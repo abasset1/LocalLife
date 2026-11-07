@@ -73,7 +73,7 @@ function unavailableReason(): string | null {
 async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await notifications().setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-    name: 'Alertes LocalLife',
+    name: 'Alertes Neiri',
     importance: notifications().AndroidImportance.DEFAULT,
   });
 }

@@ -747,7 +747,7 @@ function App() {
 
     /**
      * Au chargement, sans ville enregistrée : la position n'est reprise que si le navigateur l'a déjà
-     * autorisée pour LocalLife (aucune fenêtre d'autorisation). Un échec reste silencieux : l'invitation
+     * autorisée pour Neiri (aucune fenêtre d'autorisation). Un échec reste silencieux : l'invitation
      * à choisir un lieu est déjà affichée.
      */
     function resumeGrantedGeolocation() {

@@ -134,7 +134,7 @@ public class AccountAdministrationService {
     // --- Rôle ---
 
     /**
-     * Bascule {@code USER} ↔ {@code LOCALLIFE} (équipe LocalLife, modération) ; le rôle {@code ADMIN} ne s'attribue
+     * Bascule {@code USER} ↔ {@code LOCALLIFE} (équipe Neiri, modération) ; le rôle {@code ADMIN} ne s'attribue
      * pas depuis l'application, et un administrateur n'est jamais modifié. Le type de compte (Gratuit, Premium, Pro)
      * se change à part ({@code SubscriptionService#changePlanByAdmin}). Sans effet (et sans erreur) si le compte a déjà
      * ce rôle.

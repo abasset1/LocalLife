@@ -46,9 +46,9 @@ export interface GuideStep {
 export const GUIDE_STEPS: readonly GuideStep[] = [
   {
     id: 'bienvenue',
-    title: 'Bienvenue sur LocalLife',
+    title: 'Bienvenue sur Neiri',
     text:
-      'LocalLife rassemble sur une seule carte les sorties près de chez vous : concerts, expositions, marchés, ' +
+      'Neiri rassemble sur une seule carte les sorties près de chez vous : concerts, expositions, marchés, ' +
       'sport, activités en famille, lieux à visiter et food trucks.',
     tips: ['Découvrir est gratuit, sans compte', 'Un compte débloque favoris, alertes et contributions'],
     scene: { kind: 'hero', emoji: '📍', orbit: ['🎭', '🎵', '🏃', '🍽️', '🎨', '🚚'] },
@@ -145,7 +145,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     title: 'Soyez prévenu des nouveautés',
     text:
       'Créez une alerte sur vos catégories préférées (et les food trucks) autour d’une ville : chaque matin, ' +
-      'LocalLife vous prévient par notification sur ce téléphone, par e-mail, ou les deux.',
+      'Neiri vous prévient par notification sur ce téléphone, par e-mail, ou les deux.',
     tips: ['Proposée dès votre première connexion', 'Gérez vos alertes dans « Mes alertes »'],
     scene: {
       kind: 'rows',
@@ -206,7 +206,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     id: 'fin',
     title: 'À vous de jouer !',
     text:
-      'Vous connaissez l’essentiel de LocalLife. Retrouvez ce guide à tout moment dans le menu (rubrique ' +
+      'Vous connaissez l’essentiel de Neiri. Retrouvez ce guide à tout moment dans le menu (rubrique ' +
       '« Aide »), dans Compte ou dans les Paramètres de recherche.',
     tips: [],
     scene: { kind: 'hero', emoji: '🚀', orbit: ['🎉', '✨', '🎊', '⭐', '🎈', '💫'] },

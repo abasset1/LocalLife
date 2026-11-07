@@ -12,7 +12,7 @@ const EMPTY = {
 type Step = "form" | "check" | "preview";
 
 /**
- * Parcours B (ADR-0012) : créer un lieu absent de LocalLife. Recherche préalable des lieux proches (même endroit ou
+ * Parcours B (ADR-0012) : créer un lieu absent de Neiri. Recherche préalable des lieux proches (même endroit ou
  * même nom dans la commune) avant tout enregistrement, aperçu, puis brouillon ; l'envoi à la modération se fait
  * depuis « Mes lieux ». Un lieu existant n'est jamais modifié ni réutilisé.
  */
@@ -83,7 +83,7 @@ function ProNewPlaceSection({ onClaim, onCreated }: {
             {step === "form" && (
                 <form className="contribution-form" onSubmit={(event) => void runCheck(event)}>
                     <p className="activities-status">
-                        Commence par décrire le lieu : LocalLife vérifie d'abord qu'il n'existe pas déjà.
+                        Commence par décrire le lieu : Neiri vérifie d'abord qu'il n'existe pas déjà.
                     </p>
                     <div className="form-field">
                         <label htmlFor="place-name">Nom</label>
@@ -161,7 +161,7 @@ function ProNewPlaceSection({ onClaim, onCreated }: {
                                                 <input checked={reportedSimilarTo === candidate.place.id} type="checkbox"
                                                     onChange={(event) => setReportedSimilarTo(
                                                         event.target.checked ? candidate.place.id : null)} />
-                                                {" "}Différent du mien mais similaire : le signaler à LocalLife
+                                                {" "}Différent du mien mais similaire : le signaler à Neiri
                                             </label>
                                         </div>
                                         <button className="contribution-action" type="button" onClick={() => onClaim({

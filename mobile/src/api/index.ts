@@ -1,5 +1,5 @@
 /**
- * Point d'entrée du client API LocalLife (LL-MOB-0003).
+ * Point d'entrée du client API Neiri (LL-MOB-0003).
  * Les écrans importent uniquement depuis `@/api`.
  */
 export { configureApiClient } from './http';

@@ -169,7 +169,7 @@ function OnboardingModal({ categories, onPreferencesSaved, onFinish, onPostpone,
                     <div>
                         <p className="onboarding-step">Étape {step === "preferences" ? 1 : 2} sur 2</p>
                         <h2 id={titleId}>
-                            {step === "preferences" ? "Bienvenue sur LocalLife 👋" : "Créer une alerte ?"}
+                            {step === "preferences" ? "Bienvenue sur Neiri 👋" : "Créer une alerte ?"}
                         </h2>
                     </div>
                     <button
@@ -281,7 +281,7 @@ function OnboardingModal({ categories, onPreferencesSaved, onFinish, onPostpone,
                         )}
 
                         <p className="pp-hint onboarding-guide">
-                            Envie d'un tour complet de LocalLife ?{" "}
+                            Envie d'un tour complet de Neiri ?{" "}
                             <Link onClick={onFinish} to="/guide">
                                 Voir le guide de l'application
                             </Link>

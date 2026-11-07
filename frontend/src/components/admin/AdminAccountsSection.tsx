@@ -60,7 +60,7 @@ interface AuditPage {
 
 const PAGE_SIZE = 20;
 
-const ROLE_LABELS: Record<Role, string> = { USER: "Utilisateur", LOCALLIFE: "LocalLife", ADMIN: "Administrateur" };
+const ROLE_LABELS: Record<Role, string> = { USER: "Utilisateur", LOCALLIFE: "Neiri", ADMIN: "Administrateur" };
 const STATUS_LABELS: Record<AccountStatus, string> = { ACTIVE: "Actif", SUSPENDED: "Suspendu" };
 const ACTION_LABELS: Record<string, string> = {
     ROLE_CHANGE: "Changement de rôle",
@@ -84,13 +84,13 @@ function formatUtc(value: string): string {
 
 /**
  * Console générale des comptes (sprint « Rôles et comptes », WEB-01) : recherche, filtres, pagination, et les seules
- * actions que l'API autorise — donner ou retirer le rôle LocalLife, changer le type de compte, suspendre (motif
+ * actions que l'API autorise — donner ou retirer le rôle Neiri, changer le type de compte, suspendre (motif
  * obligatoire) ou réactiver un compte non administrateur, le déconnecter partout ou supprimer son compte. Suspendre et
  * supprimer exigent le mot de passe de l'administrateur (`X-Confirm-Password`, 428 sinon). L'API reste seule juge : un
  * refus est affiché tel qu'elle l'explique.
  *
  * Rôle et type de compte sont distincts (décision du 02/11/2026) : le rôle dit ce que le compte peut faire
- * (Utilisateur, LocalLife pour l'équipe de modération, Administrateur) ; le type de compte est son offre (Gratuit,
+ * (Utilisateur, Neiri pour l'équipe de modération, Administrateur) ; le type de compte est son offre (Gratuit,
  * Premium ou Pro, abonnement), avec une demande d'offre en attente signalée.
  */
 function AdminAccountsSection() {
@@ -172,16 +172,16 @@ function AdminAccountsSection() {
 
     async function changeRole(account: Account, target: "USER" | "LOCALLIFE") {
         const question = target === "LOCALLIFE"
-            ? `Donner le rôle LocalLife à ${account.email} ? Il aura accès à la modération (activités, lieux, demandes `
+            ? `Donner le rôle Neiri à ${account.email} ? Il aura accès à la modération (activités, lieux, demandes `
                 + "Pro, food trucks), sans les actions sensibles."
-            : `Retirer le rôle LocalLife de ${account.email} ? Il redevient utilisateur.`;
+            : `Retirer le rôle Neiri de ${account.email} ? Il redevient utilisateur.`;
         if (!window.confirm(question)) {
             return;
         }
         setBusy(true);
         const result = await proRequest<Account>(`/api/v1/admin/accounts/${account.id}/role`, "PATCH", { role: target });
         await afterAction(result, target === "LOCALLIFE"
-            ? `${account.email} fait partie de l'équipe LocalLife.`
+            ? `${account.email} fait partie de l'équipe Neiri.`
             : `${account.email} est de nouveau utilisateur.`);
     }
 
@@ -285,7 +285,7 @@ function AdminAccountsSection() {
                     <select onChange={(event) => setRole(event.target.value)} value={role}>
                         <option value="">Tous</option>
                         <option value="USER">Utilisateur</option>
-                        <option value="LOCALLIFE">LocalLife</option>
+                        <option value="LOCALLIFE">Neiri</option>
                         <option value="ADMIN">Administrateur</option>
                     </select>
                 </label>
@@ -384,7 +384,7 @@ function AdminAccountsSection() {
                                                             account.role === "LOCALLIFE" ? "USER" : "LOCALLIFE")}
                                                         type="button"
                                                     >
-                                                        {account.role === "LOCALLIFE" ? "Retirer LocalLife" : "Rôle LocalLife"}
+                                                        {account.role === "LOCALLIFE" ? "Retirer Neiri" : "Rôle Neiri"}
                                                     </button>
                                                     {account.status === "ACTIVE" ? (
                                                         <button
@@ -468,7 +468,7 @@ function AdminAccountsSection() {
                     <h3>Type de compte de {editingPlan.account.email}</h3>
                     <p className="admin-import-hint">
                         Actuellement : {PLAN_LABELS[editingPlan.account.plan ?? "FREE"]}. Premium ou Pro est activé tout de
-                        suite, offert par LocalLife (une demande en attente pour cette offre est validée) ; Gratuit met fin à
+                        suite, offert par Neiri (une demande en attente pour cette offre est validée) ; Gratuit met fin à
                         l'abonnement en cours. L'utilisateur est prévenu.
                     </p>
                     <label>

@@ -1,5 +1,5 @@
 /**
- * Types des réponses/requêtes de l'API LocalLife (LL-MOB-0003).
+ * Types des réponses/requêtes de l'API Neiri (LL-MOB-0003).
  *
  * Miroirs des DTO du backend Spring Boot (`backend/.../api/*.java`). Les
  * `LocalDateTime` Java sont sérialisés en chaînes ISO-8601 sans fuseau
@@ -288,7 +288,7 @@ export interface FoodTruck {
   endTime: string | null;
   validFrom: string | null;
   validUntil: string | null;
-  /** Lieu LocalLife où se trouve l'emplacement, ou `null`. */
+  /** Lieu Neiri où se trouve l'emplacement, ou `null`. */
   placeId: number | null;
   /** Type de cuisine (`FoodTruckCuisine` backend), `null` si non renseigné. */
   cuisineType?: string | null;

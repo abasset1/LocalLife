@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 /**
  * Briques visuelles de la page profil, alignées sur l'identité de l'écran
- * Explorer (vert profond, corail, fonds sable/papier, puces arrondies) — voir
+ * Explorer (bleu nuit, rose, fonds lavande/clairs, puces arrondies) — voir
  * les variables `--ll-*` et la section « Page profil » de styles.css.
  */
 

@@ -1,3 +1,4 @@
+import { BrandLogo } from "../BrandLogo";
 import { Link } from "react-router-dom";
 import { LEGAL_DOCUMENTS } from "../../legal/legalDocuments";
 import { canModerate } from "../../auth/roles";
@@ -44,12 +45,14 @@ function ExplorerMenu({
                 role="presentation"
             />
             <nav
-                aria-label="Menu LocalLife"
+                aria-label="Menu Neiri"
                 className={isOpen ? "explorer-menu explorer-menu--open" : "explorer-menu"}
             >
                 <div className="explorer-menu-brand">
-                    <span className="explorer-menu-brand-mark">L</span>
-                    LocalLife
+                    <BrandLogo tone="light" />
+                    <span className="explorer-menu-tagline">
+                        Your world, <span className="neiri-tagline-accent">closer.</span>
+                    </span>
                 </div>
 
                 <div className="explorer-menu-section">

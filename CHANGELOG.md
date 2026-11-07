@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### LocalLife devient Neiri : nouveau nom, nouveau logo, nouvelle charte
+- **Nom** : « LocalLife » devient « Neiri » partout où il se lit — site, application, e-mails, notifications, textes légaux. Signature : « Your world, closer. ».
+- **Logo** : épingle en dégradé orange → rose → violet portant le « N » et le point du « i », suivie du logotype « NEiRI » (point orange). Nouveau favicon et icônes web ; nouvelles icônes de l'application (iOS, Android adaptative et monochrome), écran de démarrage sur fond clair.
+- **Charte** : bleu nuit pour le texte, les menus et les en-têtes ; rose pour les actions ; orange, violet et lavande en accents. Les anciens bleus des écrans historiques passent au violet. Détails dans `docs/brand/README.md`.
+- **Inchangé volontairement** : identifiants techniques (rôle `LOCALLIFE`, packages Java, clés de stockage, identifiants `com.locallife.mobile` et schéma `locallife`) — personne n'est déconnecté et l'API ne change pas.
+
 ### Lancement PACA et Occitanie : lieux, food trucks, Premium et Pro fermés, ouverts un par un depuis le serveur
 - **Au lancement**, le public voit les activités et peut créer un compte gratuit ; les **lieux**, les **food trucks** et les offres **Premium** et **Pro** sont fermés. Chacun s'ouvre par un interrupteur serveur, sans nouvelle version du site ni de l'application : `FEATURE_PLACES`, `FEATURE_FOOD_TRUCKS`, `FEATURE_PREMIUM`, `FEATURE_PRO` (fermés par défaut dans `docker-compose.beta.yml`, ouverts par défaut en développement et dans les tests). Pour ouvrir : `true` dans `.env.beta`, puis `docker compose --env-file .env.beta -f docker-compose.beta.yml up -d backend`.
 - **L'équipe LocalLife et les administrateurs voient tout**, même fermé : ils vérifient une fonction en production avant de l'ouvrir. L'administration (`/api/v1/admin/**`) n'est jamais fermée : lieux et food trucks se préparent avant l'ouverture.

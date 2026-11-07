@@ -6,7 +6,7 @@
  * mécanisme public de Google, sans authentification ni clé API), ouverte
  * dans un nouvel onglet. L'utilisateur reste entièrement libre de modifier
  * chaque champ avant d'enregistrer : c'est Google Agenda lui-même qui
- * affiche le formulaire d'édition, LocalLife ne fait que le pré-remplir.
+ * affiche le formulaire d'édition, Neiri ne fait que le pré-remplir.
  */
 
 export interface GoogleCalendarEventInput {

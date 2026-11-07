@@ -123,7 +123,7 @@ export function DeleteAccountCard({ hasPassword, isAdmin, onDeleted }: {
             <p className="pp-hint">
                 Définitif. Tes activités déjà publiées restent visibles, sans ton nom ; tes contributions non publiées,
                 favoris, alertes et préférences sont supprimés, et ton abonnement prend fin. Ton adresse e-mail est
-                aussi effacée des journaux de LocalLife.
+                aussi effacée des journaux de Neiri.
             </p>
             {!open ? (
                 <button className="pp-button pp-button-danger" onClick={() => setOpen(true)} type="button">

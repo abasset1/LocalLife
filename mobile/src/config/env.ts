@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 
 /**
- * URL de base de l'API LocalLife, définie via app.config.ts (extra.apiUrl)
+ * URL de base de l'API Neiri, définie via app.config.ts (extra.apiUrl)
  * à partir de la variable d'environnement EXPO_PUBLIC_API_URL.
  *
  * Ce module ne fait que centraliser la lecture de la config ; la

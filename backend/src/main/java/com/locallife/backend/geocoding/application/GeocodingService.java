@@ -36,7 +36,7 @@ public class GeocodingService {
     GeocodingService(RestClient.Builder builder) {
         this.restClient = builder
                 .baseUrl(NOMINATIM_BASE_URL)
-                .defaultHeader("User-Agent", "LocalLife/0.1 (contact: dev@locallife.local)")
+                .defaultHeader("User-Agent", "Neiri/0.1 (contact: dev@locallife.local)")
                 .build();
     }
 

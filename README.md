@@ -1,4 +1,4 @@
-# LocalLife
+# Neiri
 
 Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
 
@@ -87,7 +87,7 @@ Décisions et modèle : [`docs/ADR-0012-espace-professionnel-revendication.md`](
   demandée par l'utilisateur et validée par l'équipe, ou choisie par un
   administrateur (`PUT /api/v1/admin/accounts/{id}/plan` avec `{"plan":"PRO"}`,
   date de fin facultative `endsOn`). Relu en base à chaque appel.
-* **Rôles** : `USER` (utilisateur), `LOCALLIFE` (équipe LocalLife : modération),
+* **Rôles** : `USER` (utilisateur), `LOCALLIFE` (équipe Neiri : modération),
   `ADMIN` (administrateur) — `PATCH /api/v1/admin/accounts/{id}/role` avec
   `{"role":"LOCALLIFE"}` ou `{"role":"USER"}`. Détail :
   [`docs/02_Architecture/ROLES_ET_PERMISSIONS.md`](docs/02_Architecture/ROLES_ET_PERMISSIONS.md).
@@ -118,7 +118,7 @@ Décisions et modèle : [`docs/ADR-0012-espace-professionnel-revendication.md`](
 ## Avis aux organisateurs des activités importées
 
 * `ImportedActivityContactNotifier` écrit à l'adresse de contact (lien `EMAIL`)
-  d'une activité importée : LocalLife référence l'événement, un compte
+  d'une activité importée : Neiri référence l'événement, un compte
   professionnel est nécessaire pour qu'il continue de l'être (liens
   `/register` puis `/profile` pour l'offre Pro).
 * Un message par adresse et par passage (récapitulatif), jamais deux fois pour

@@ -71,7 +71,7 @@ public class FoodTruckService {
         return presenceRepository.findActiveOn(day, null);
     }
 
-    /** Food trucks présents le jour donné à un lieu LocalLife (lui-même ou un emplacement qui lui est relié). */
+    /** Food trucks présents le jour donné à un lieu Neiri (lui-même ou un emplacement qui lui est relié). */
     public List<FoodTruckPresence> findActiveAtPlace(Long placeId, LocalDate day) {
         return presenceRepository.findActiveOn(day, placeId);
     }

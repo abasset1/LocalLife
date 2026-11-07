@@ -121,7 +121,7 @@ public class ActivityAlertNotifier {
         if (alert.notifyEmail() && recipient.email() != null) {
             try {
                 emailService.sendActivityAlertEmail(
-                        recipient.email(), "LocalLife : " + title, body(recipient, activities, foodTrucks, labels));
+                        recipient.email(), "Neiri : " + title, body(recipient, activities, foodTrucks, labels));
                 delivered = true;
             } catch (RuntimeException exception) {
                 LOGGER.warn("Échec de l'e-mail de l'alerte {} : {}", alert.id(), exception.getClass().getSimpleName());
@@ -263,7 +263,7 @@ public class ActivityAlertNotifier {
                 .append("Gérer mes alertes : ").append(frontendBaseUrl).append("/profile\n")
                 .append("Ne plus recevoir cette alerte : ").append(frontendBaseUrl)
                 .append("/alerts/unsubscribe?token=").append(recipient.unsubscribeToken()).append("\n\n")
-                .append("L'équipe LocalLife")
+                .append("L'équipe Neiri")
                 .toString();
     }
 

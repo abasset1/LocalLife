@@ -74,9 +74,9 @@ public class MailDiagnostics {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromAddress);
             message.setTo(to);
-            message.setSubject("LocalLife : e-mail de test");
-            message.setText("Bonjour,\n\nCet e-mail de test confirme que LocalLife peut envoyer des messages.\n\n"
-                    + "L'équipe LocalLife");
+            message.setSubject("Neiri : e-mail de test");
+            message.setText("Bonjour,\n\nCet e-mail de test confirme que Neiri peut envoyer des messages.\n\n"
+                    + "L'équipe Neiri");
             mailSender.send(message);
             LOGGER.info("E-mail de test envoyé à {}", EmailMask.mask(to));
             return new MailTestResult(true, "envoi", "E-mail de test envoyé à " + to

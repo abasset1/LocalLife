@@ -25,7 +25,7 @@ import { useProAccessEnded } from '@/features/pro/useProAccess';
 /**
  * Mes food trucks (PRO-01 lot C), comme sur le site : profil distinct des lieux, créé en brouillon ; ses emplacements
  * et son planning se gèrent sur la fiche de chaque food truck, qui l'envoie en validation (première publication,
- * examinée par LocalLife) puis le publie. Sans accès pro, la liste reste visible pour archiver.
+ * examinée par Neiri) puis le publie. Sans accès pro, la liste reste visible pour archiver.
  */
 export default function MyFoodTrucksScreen() {
   const router = useRouter();
@@ -130,7 +130,7 @@ export default function MyFoodTrucksScreen() {
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   {truckStatusLabel(truck)} · {[cuisineLabel(truck.cuisineType), truck.category].filter(Boolean).join(' · ')}
-                  {truck.suspendedByLocalLife ? ' · suspendu par LocalLife' : ''}
+                  {truck.suspendedByLocalLife ? ' · suspendu par Neiri' : ''}
                 </ThemedText>
                 {truck.status === 'REJECTED' && truck.reviewReason ? (
                   <ThemedText type="small">Motif du refus : {truck.reviewReason}</ThemedText>

@@ -81,7 +81,7 @@ public class FoodTruckController {
     }
 
     @Operation(summary = "Food trucks présents à un lieu",
-            description = "Présences actives aujourd'hui sur ce lieu LocalLife ou sur un emplacement qui lui "
+            description = "Présences actives aujourd'hui sur ce lieu Neiri ou sur un emplacement qui lui "
                     + "est relié.")
     @GetMapping("/places/{placeId}/foodtrucks")
     public List<FoodTruckMapResponse> getFoodTrucksAtPlace(@PathVariable Long placeId) {

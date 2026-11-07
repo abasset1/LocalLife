@@ -30,7 +30,7 @@ export function LegalLinks() {
             key={page}
             icon={icon}
             label={LEGAL_PAGES[page].label}
-            description="Sur le site LocalLife"
+            description="Sur le site Neiri"
             onPress={() => void open(page)}
             last={index === ROWS.length - 1}
           />
