@@ -3,7 +3,7 @@
 ## 0.9.59 — non publiée
 
 ### LocalLife devient Neiri : nouveau nom, nouveau logo, nouvelle charte
-- **Nom** : « LocalLife » devient « Neiri » partout où il se lit — site, application, e-mails, notifications, textes légaux. Signature : « Your world, closer. ».
+- **Nom** : « LocalLife » devient « Neiri » partout où il se lit — site, application, e-mails, notifications, textes légaux.
 - **Logo** : épingle en dégradé orange → rose → violet portant le « N » et le point du « i », suivie du logotype « NEiRI » (point orange). Nouveau favicon et icônes web ; nouvelles icônes de l'application (iOS, Android adaptative et monochrome), écran de démarrage sur fond clair.
 - **Charte** : bleu nuit pour le texte, les menus et les en-têtes ; rose pour les actions ; orange, violet et lavande en accents. Les anciens bleus des écrans historiques passent au violet. Détails dans `docs/brand/README.md`.
 - **Inchangé volontairement** : identifiants techniques (rôle `LOCALLIFE`, packages Java, clés de stockage, identifiants `com.locallife.mobile` et schéma `locallife`) — personne n'est déconnecté et l'API ne change pas.

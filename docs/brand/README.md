@@ -1,6 +1,6 @@
 # Identité Neiri
 
-LocalLife devient **Neiri** — signature : **« Your world, closer. »** (« closer. » en orange).
+LocalLife devient **Neiri**.
 Planche de référence : [`neiri-planche-identite.png`](neiri-planche-identite.png).
 
 ## Logo

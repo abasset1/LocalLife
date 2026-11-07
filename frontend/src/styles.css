@@ -1174,16 +1174,6 @@ body {
     height: 36px;
 }
 
-.explorer-menu-tagline {
-    color: #ffffff;
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-
-.neiri-tagline-accent {
-    color: var(--ll-orange);
-}
-
 /* --- Logo Neiri (components/BrandLogo.tsx) : épingle en dégradé + logotype « NEiRI ». --- */
 
 .neiri-logo {
