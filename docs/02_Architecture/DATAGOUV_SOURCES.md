@@ -237,20 +237,27 @@ par provence-alpes-cotedazur.com). Ils sont dans DATAtourisme, mais pas
 dans le CSV.
 
 * `DataTourismeApiEnricher` (`collector/infrastructure`) : après la
-  lecture du CSV, lit `GET /v1/entertainmentAndEvent` filtré sur les
-  départements de la source (`isPartOfDepartment.insee[in]=…`, Corse :
-  `2A,2B`), 100 fiches par page, en suivant `meta.next`. Jointure par
-  URI : le champ `uri` de l'API est l'URI du CSV, déjà `externalId` ;
-  l'identité des activités ne change pas.
+  lecture du CSV, demande à l'API **les seules fiches des événements
+  retenus**, par leur URI : `GET /v1/catalog?filters=uri[in]=…`, par lots
+  de 50 (adresse d'environ 4 Ko). Le nombre de requêtes suit le nombre
+  d'événements importés, quel que soit le fichier (régional, ou national
+  filtré par une sélection) et que la source ait ou non un filtre de
+  départements. Jointure par URI : le champ `uri` de l'API est l'URI du
+  CSV, déjà `externalId` ; l'identité des activités ne change pas.
+  (Première version, 07/11/2026 : lecture par départements, sautée quand
+  la source n'en avait pas — le cas des trois sources de production, dont
+  le `region_filter` est vide. Remplacée le jour même.)
 * Complète : description détaillée (+ horaires en clair, « Horaires :
   … ») dans `longDescription` ; tarifs en clair (texte de la source,
   sinon « De 10 à 35 € », « Gratuit. » tirés des montants) dans
   `conditions` ; images si le CSV n'en a pas ; site et téléphone ajoutés
   aux liens ; description courte de l'API si le CSV n'en a pas.
-* **Au mieux** : sans clé (`DATATOURISME_API_KEY`), sans filtre de
-  départements (fichier national : le quota de 1 000 requêtes par heure
-  serait dépassé), ou si l'API échoue (3 essais sur 429/5xx, aucun sur
-  401/403), l'import garde le seul CSV et journalise un avertissement.
+* **Au mieux** : sans clé (`DATATOURISME_API_KEY`, journalisé « API
+  DATAtourisme non configurée »), au-delà de 400 requêtes pour une source
+  (20 000 événements, garde-fou du quota de 1 000 requêtes par heure), ou
+  si l'API échoue (3 essais sur 429/5xx, aucun sur 401/403), l'import
+  garde le seul CSV et journalise un avertissement. Une pause de 200 ms
+  sépare deux requêtes.
 * Indicateur **gratuit / payant** : `PriceIndicator` (`activity/domain`)
   le déduit de `conditions` à la lecture (`priceType` = `FREE`, `PAID`,
   `UNKNOWN` dans les réponses liste, carte et fiche). Il vaut aussi pour

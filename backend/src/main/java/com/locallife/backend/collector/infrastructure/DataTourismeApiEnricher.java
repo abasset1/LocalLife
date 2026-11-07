@@ -10,11 +10,9 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,10 +30,12 @@ import org.springframework.web.util.UriComponentsBuilder;
  * <p>Jointure par URI : le champ {@code uri} de l'API est l'URI DATAtourisme du CSV ({@code URI_ID_du_POI}),
  * déjà {@code externalId} des activités. Rien ne change donc dans l'identité des activités importées.
  *
- * <p>Lecture : {@code GET /v1/entertainmentAndEvent} filtré sur les départements de la source, 100 fiches par
- * page, en suivant le lien {@code meta.next} (seul parcours complet garanti au-delà de 10 000 résultats). Quotas
- * documentés (19/10/2026) : 1 000 requêtes par heure, ~10 par seconde ; une PACA entière tient en 34 pages.
- * Sans filtre de départements (fichier national), l'enrichissement est sauté : il dépasserait le quota horaire.
+ * <p>Lecture : seulement les fiches des événements retenus du CSV, par leur URI ({@code GET /v1/catalog} avec
+ * {@code filters=uri[in]=…}), par lots de {@value #BATCH_SIZE}. Le nombre de requêtes suit donc le nombre
+ * d'événements importés, quel que soit le fichier (régional, national filtré par une sélection) et que la source
+ * ait ou non un filtre de départements : PACA (≈ 2 350 événements) tient en ≈ 47 requêtes. Quotas documentés
+ * (19/10/2026) : 1 000 requêtes par heure, ~10 par seconde ; au-delà de {@value #MAX_REQUESTS} requêtes pour une
+ * source, l'enrichissement est sauté (journalisé) plutôt que d'entamer le quota des autres sources.
  *
  * <p><b>Au mieux</b> : une panne, un refus ou une réponse illisible de l'API n'interrompt pas l'import. Les
  * événements restent ceux du CSV, sans complément, et un avertissement est journalisé.
@@ -55,12 +55,17 @@ public class DataTourismeApiEnricher {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DataTourismeApiEnricher.class);
 
-    static final String DEFAULT_BASE_URL = "https://api.datatourisme.fr/v1/entertainmentAndEvent";
+    static final String DEFAULT_BASE_URL = "https://api.datatourisme.fr/v1/catalog";
+    /** Préfixe des URI DATAtourisme ({@code externalId} des événements du CSV). */
+    static final String URI_PREFIX = "https://data.datatourisme.fr/";
     static final String FIELDS =
             "uri,hasDescription,offers,hasRepresentation,hasContact,isLocatedAt.textOpeningHoursSpecification";
+    /** URI par requête : ≈ 4 Ko d'adresse, sous les limites usuelles des serveurs et proxys. */
+    static final int BATCH_SIZE = 50;
+    /** Une page couvre tout un lot (pages de 100 au plus). */
     static final int PAGE_SIZE = 100;
-    /** Garde-fou : au-delà, le quota horaire (1 000 requêtes) serait menacé. */
-    static final int MAX_PAGES = 400;
+    /** Garde-fou par source : au-delà, le quota horaire (1 000 requêtes) serait menacé. */
+    static final int MAX_REQUESTS = 400;
     static final int MAX_ATTEMPTS = 3;
     static final int MAX_IMAGES = 5;
     /** Limite de {@code long_description} imposée par la normalisation des activités. */
@@ -102,17 +107,24 @@ public class DataTourismeApiEnricher {
      * Complète {@code activities} (événements du CSV) ; renvoie la liste d'origine si l'enrichissement est
      * désactivé, sauté ou en échec.
      */
-    public List<CollectedActivity> enrich(List<CollectedActivity> activities, List<String> departments) {
+    public List<CollectedActivity> enrich(List<CollectedActivity> activities) {
         if (!isEnabled() || activities.isEmpty()) {
             return activities;
         }
-        if (departments.isEmpty()) {
-            LOGGER.warn("API DATAtourisme : source sans filtre de départements, enrichissement sauté (quota).");
+        List<String> uris = activities.stream()
+                .map(CollectedActivity::externalId)
+                .filter(uri -> uri != null && uri.startsWith(URI_PREFIX))
+                .distinct()
+                .toList();
+        int requests = (uris.size() + BATCH_SIZE - 1) / BATCH_SIZE;
+        if (requests > MAX_REQUESTS) {
+            LOGGER.warn("API DATAtourisme : {} événements ({} requêtes), au-delà du garde-fou de {} requêtes : "
+                    + "enrichissement sauté (quota).", uris.size(), requests, MAX_REQUESTS);
             return activities;
         }
         Map<String, Details> details;
         try {
-            details = fetch(departments);
+            details = fetch(uris);
         } catch (RuntimeException exception) {
             LOGGER.warn("API DATAtourisme indisponible, import limité au CSV : {}", exception.getMessage());
             return activities;
@@ -128,39 +140,32 @@ public class DataTourismeApiEnricher {
                 enriched++;
             }
         }
-        LOGGER.info("API DATAtourisme : {} fiches lues, {} événements sur {} complétés",
-                details.size(), enriched, activities.size());
+        LOGGER.info("API DATAtourisme : {} fiches lues en {} requêtes, {} événements sur {} complétés",
+                details.size(), requests, enriched, activities.size());
         return result;
     }
 
-    /** Fiches de l'API pour ces départements, par URI. */
-    Map<String, Details> fetch(List<String> departments) {
-        String url = UriComponentsBuilder.fromUriString(baseUrl)
-                .queryParam("filters", "isLocatedAt.address.hasAddressCity.isPartOfDepartment.insee[in]="
-                        + String.join(",", departmentCodes(departments)))
-                .queryParam("fields", FIELDS)
-                .queryParam("lang", "fr")
-                .queryParam("page_size", PAGE_SIZE)
-                .encode()
-                .build()
-                .toUriString();
+    /** Fiches de l'API pour ces URI, par URI, en lots de {@value #BATCH_SIZE}. */
+    Map<String, Details> fetch(List<String> uris) {
         Map<String, Details> details = new HashMap<>();
-        int pages = 0;
-        while (url != null) {
-            if (++pages > MAX_PAGES) {
-                throw new CollectorException("API DATAtourisme : plus de " + MAX_PAGES + " pages.", null);
+        for (int start = 0; start < uris.size(); start += BATCH_SIZE) {
+            if (start > 0) {
+                sleeper.accept(pause);
             }
-            JsonNode page = getPage(url);
-            for (JsonNode object : page.path("objects")) {
+            List<String> batch = uris.subList(start, Math.min(start + BATCH_SIZE, uris.size()));
+            String url = UriComponentsBuilder.fromUriString(baseUrl)
+                    .queryParam("filters", "uri[in]=" + String.join(",", batch))
+                    .queryParam("fields", FIELDS)
+                    .queryParam("lang", "fr")
+                    .queryParam("page_size", PAGE_SIZE)
+                    .encode()
+                    .build()
+                    .toUriString();
+            for (JsonNode object : getPage(url).path("objects")) {
                 String uri = object.path("uri").asText("");
                 if (!uri.isBlank()) {
                     details.put(uri, details(object));
                 }
-            }
-            String next = page.path("meta").path("next").asText("");
-            url = next.isBlank() ? null : next.replaceFirst("^http://", "https://");
-            if (url != null) {
-                sleeper.accept(pause);
             }
         }
         return details;
@@ -188,20 +193,6 @@ public class DataTourismeApiEnricher {
             sleeper.accept(Duration.ofSeconds(1L << attempt));
         }
         throw last;
-    }
-
-    /** Codes INSEE des départements : la Corse (codes postaux en 20) est 2A et 2B. */
-    static List<String> departmentCodes(List<String> departments) {
-        Set<String> codes = new LinkedHashSet<>();
-        for (String department : departments) {
-            if (department.equals("20")) {
-                codes.add("2A");
-                codes.add("2B");
-            } else {
-                codes.add(department.toUpperCase(Locale.ROOT));
-            }
-        }
-        return List.copyOf(codes);
     }
 
     static Details details(JsonNode object) {

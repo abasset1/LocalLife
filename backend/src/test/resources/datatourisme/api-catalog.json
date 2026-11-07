@@ -97,14 +97,49 @@
    },
    "uri": "https://data.datatourisme.fr/58/6c27bcaa-8334-3291-945f-d5a5355b04b7",
    "uuid": "0029e893-d6f5-3c2e-ba68-a755181ad10c"
+  },
+  {
+   "offers": [
+    {
+     "priceSpecification": [
+      {
+       "priceCurrency": "EUR",
+       "minPrice": [
+        5
+       ],
+       "maxPrice": [
+        5
+       ],
+       "appliesOnPeriod": [
+        {
+         "endDate": "2026-12-31",
+         "startDate": "2026-01-01"
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "hasDescription": [
+    {
+     "shortDescription": {
+      "@fr": "La visite de Fayence, c'est une dose de patrimoine et de grand air ! Venez vibrer au rythme de Fayence, le village perché qui ne manque pas de caractère. Ici, on remonte le temps et surtout, on en prend plein les yeux !"
+     }
+    }
+   ],
+   "label": {
+    "@fr": "Visite commentée de Fayence"
+   },
+   "uri": "https://data.datatourisme.fr/13/34276d7d-c42b-3a47-ae71-2eac2af8250d",
+   "uuid": "06a1c5ba-2afa-3a46-b6d8-a04d930276d7"
   }
  ],
  "meta": {
   "total": 3,
   "page": 1,
-  "page_size": 2,
-  "total_pages": 2,
-  "next": "http://api.datatourisme.fr/v1/entertainmentAndEvent?page_size=2&crs=PAGE2",
+  "page_size": 100,
+  "total_pages": 1,
+  "next": null,
   "previous": null
  }
 }

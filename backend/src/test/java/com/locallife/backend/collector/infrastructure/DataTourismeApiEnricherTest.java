@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -33,13 +34,14 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 /**
- * Tests sur des fiches réelles de l'API DATAtourisme (lues le 07/11/2026, {@code datatourisme/api-page-*.json}) :
+ * Tests sur des fiches réelles de l'API DATAtourisme (lues le 07/11/2026, {@code datatourisme/api-catalog.json}) :
  * « Programme Cinéma de L'Eden » à Noves (programme séance par séance, tarif en clair, affiche, site, téléphone,
  * horaires en clair), un marché en accès libre à Cassis, et une visite de Fayence qui n'a que des montants.
  */
 class DataTourismeApiEnricherTest {
 
-    private static final String BASE_URL = "https://api.datatourisme.fr/v1/entertainmentAndEvent";
+    private static final String BASE_URL = "https://api.datatourisme.fr/v1/catalog";
+    private static final String EMPTY_PAGE = "{\"objects\":[],\"meta\":{\"total\":0}}";
     private static final String KEY = "cle-de-test";
     private static final String EDEN = "https://data.datatourisme.fr/58/db7a083f-4199-3a42-9a27-612139cecc06";
     private static final String CASSIS = "https://data.datatourisme.fr/58/6c27bcaa-8334-3291-945f-d5a5355b04b7";
@@ -47,11 +49,13 @@ class DataTourismeApiEnricherTest {
     private static final String UNKNOWN = "https://data.datatourisme.fr/13/absent-de-l-api";
 
     private MockRestServiceServer mockServer;
+    private int pauses;
 
     private DataTourismeApiEnricher newEnricher(String key) {
         RestClient.Builder builder = RestClient.builder();
         mockServer = MockRestServiceServer.bindTo(builder).build();
-        return new DataTourismeApiEnricher(builder, key, BASE_URL, new ObjectMapper(), Duration.ZERO, pause -> { });
+        pauses = 0;
+        return new DataTourismeApiEnricher(builder, key, BASE_URL, new ObjectMapper(), Duration.ZERO, pause -> pauses++);
     }
 
     private static String fixture(String name) throws IOException {
@@ -72,26 +76,25 @@ class DataTourismeApiEnricherTest {
                 null, List.of(), links, null, List.of("projection"), null);
     }
 
-    private void expectBothPages() throws IOException {
-        mockServer.expect(requestTo(startsWith(BASE_URL + "?filters=")))
-                .andExpect(requestTo(containsString("isPartOfDepartment.insee%5Bin%5D%3D13,84")))
+    /** Une requête par lot : les URI demandées dans le filtre, la clé dans l'en-tête. */
+    private void expectCatalogFor(String... uris) throws IOException {
+        var expectation = mockServer.expect(requestTo(startsWith(BASE_URL + "?filters=uri%5Bin%5D%3D")))
                 .andExpect(requestTo(containsString("page_size=100")))
-                .andExpect(header("X-API-Key", KEY))
-                .andRespond(withSuccess(fixture("api-page-1.json"), MediaType.APPLICATION_JSON));
-        // Le lien « next » de l'API est en http : il est suivi en https.
-        mockServer.expect(requestTo(BASE_URL + "?page_size=2&crs=PAGE2"))
-                .andExpect(header("X-API-Key", KEY))
-                .andRespond(withSuccess(fixture("api-page-2.json"), MediaType.APPLICATION_JSON));
+                .andExpect(header("X-API-Key", KEY));
+        for (String uri : uris) {
+            expectation = expectation.andExpect(requestTo(containsString(uri)));
+        }
+        expectation.andRespond(withSuccess(fixture("api-catalog.json"), MediaType.APPLICATION_JSON));
     }
 
     @Test
     void enrich_ShouldAddProgrammePriceImageAndContacts_ToTheCinemaProgramme() throws IOException {
         DataTourismeApiEnricher enricher = newEnricher(KEY);
-        expectBothPages();
+        expectCatalogFor(EDEN);
         CollectedActivity eden = csvEvent(EDEN, "Programme Cinéma de L'Eden",
                 "Programme Cinéma, semaine du 09 au 15 Novembre", "https://noves.fr/cinema-leden/");
 
-        CollectedActivity enriched = enricher.enrich(List.of(eden), List.of("13", "84")).get(0);
+        CollectedActivity enriched = enricher.enrich(List.of(eden)).get(0);
 
         mockServer.verify();
         assertEquals("Programme Cinéma, semaine du 09 au 15 Novembre", enriched.description());
@@ -120,12 +123,12 @@ class DataTourismeApiEnricherTest {
     @Test
     void enrich_ShouldTakePricesFromTheText_OrFromTheAmounts_AndLeaveUnknownEventsUntouched() throws IOException {
         DataTourismeApiEnricher enricher = newEnricher(KEY);
-        expectBothPages();
+        expectCatalogFor(CASSIS, FAYENCE, UNKNOWN);
         CollectedActivity cassis = csvEvent(CASSIS, "Marché italien - Portofino è Cassis", null, null);
         CollectedActivity fayence = csvEvent(FAYENCE, "Visite commentée de Fayence", "Visite", null);
         CollectedActivity unknown = csvEvent(UNKNOWN, "Absent de l'API", "Description", null);
 
-        List<CollectedActivity> enriched = enricher.enrich(List.of(cassis, fayence, unknown), List.of("13", "84"));
+        List<CollectedActivity> enriched = enricher.enrich(List.of(cassis, fayence, unknown));
 
         assertEquals("Accès libre.", enriched.get(0).conditions());
         // Pas de description courte dans le CSV : celle de l'API la remplace.
@@ -144,7 +147,7 @@ class DataTourismeApiEnricherTest {
                 .andRespond(withServerError());
         List<CollectedActivity> events = List.of(csvEvent(EDEN, "Programme", "Court", null));
 
-        assertSame(events, enricher.enrich(events, List.of("13")));
+        assertSame(events, enricher.enrich(events));
         mockServer.verify();
     }
 
@@ -154,28 +157,53 @@ class DataTourismeApiEnricherTest {
         mockServer.expect(times(1), requestTo(startsWith(BASE_URL))).andRespond(withStatus(HttpStatus.UNAUTHORIZED));
         List<CollectedActivity> events = List.of(csvEvent(EDEN, "Programme", "Court", null));
 
-        assertSame(events, enricher.enrich(events, List.of("13")));
+        assertSame(events, enricher.enrich(events));
         mockServer.verify();
     }
 
     @Test
-    void enrich_ShouldCallNothing_WithoutKeyOrWithoutDepartments() {
+    void enrich_ShouldCallNothing_WithoutKey_OrWithoutDataTourismeEvents() {
         List<CollectedActivity> events = List.of(csvEvent(EDEN, "Programme", "Court", null));
 
         DataTourismeApiEnricher withoutKey = newEnricher(" ");
         assertFalse(withoutKey.isEnabled());
-        assertSame(events, withoutKey.enrich(events, List.of("13")));
+        assertSame(events, withoutKey.enrich(events));
         mockServer.verify();
 
-        DataTourismeApiEnricher nationalFile = newEnricher(KEY);
-        assertSame(events, nationalFile.enrich(events, List.of()));
+        DataTourismeApiEnricher otherIds = newEnricher(KEY);
+        List<CollectedActivity> notDataTourisme = List.of(csvEvent("openagenda-123", "Autre", "Court", null));
+        assertEquals(notDataTourisme, otherIds.enrich(notDataTourisme));
         mockServer.verify();
     }
 
     @Test
-    void departmentCodes_ShouldSplitCorsica() {
-        assertEquals(List.of("13", "2A", "2B", "971"), DataTourismeApiEnricher.departmentCodes(
-                List.of("13", "20", "971")));
+    void enrich_ShouldAskTheApiByBatchesOfFifty_WhateverTheDepartmentFilter() {
+        DataTourismeApiEnricher enricher = newEnricher(KEY);
+        mockServer.expect(times(3), requestTo(startsWith(BASE_URL + "?filters=uri%5Bin%5D%3D")))
+                .andRespond(withSuccess(EMPTY_PAGE, MediaType.APPLICATION_JSON));
+        List<CollectedActivity> events = new ArrayList<>();
+        for (int i = 0; i < 120; i++) {
+            events.add(csvEvent(DataTourismeApiEnricher.URI_PREFIX + "13/evenement-" + i, "Événement " + i, "C", null));
+        }
+
+        assertEquals(events, enricher.enrich(events));
+
+        mockServer.verify();
+        // Une pause entre deux requêtes (quota ~10 requêtes par seconde).
+        assertEquals(2, pauses);
+    }
+
+    @Test
+    void enrich_ShouldSkip_BeyondTheRequestGuard() {
+        DataTourismeApiEnricher enricher = newEnricher(KEY);
+        List<CollectedActivity> events = new ArrayList<>();
+        int tooMany = DataTourismeApiEnricher.BATCH_SIZE * DataTourismeApiEnricher.MAX_REQUESTS + 1;
+        for (int i = 0; i < tooMany; i++) {
+            events.add(csvEvent(DataTourismeApiEnricher.URI_PREFIX + "13/e-" + i, "E", "C", null));
+        }
+
+        assertSame(events, enricher.enrich(events));
+        mockServer.verify();
     }
 
     @Test

@@ -6,6 +6,8 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -24,6 +26,8 @@ import org.springframework.web.client.RestClient;
  */
 @Component
 public class DataTourismeCollectorFactory {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DataTourismeCollectorFactory.class);
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration READ_TIMEOUT = Duration.ofMinutes(10);
@@ -46,7 +50,12 @@ public class DataTourismeCollectorFactory {
         DataTourismeCollector collector = new DataTourismeCollector(
                 restClientBuilder(), source.url(), source.name(), source.regionFilter(), eventSelection(source));
         DataTourismeApiEnricher enricher = new DataTourismeApiEnricher(restClientBuilder(), apiKey, objectMapper);
-        return enricher.isEnabled() ? collector.withEnricher(enricher) : collector;
+        if (!enricher.isEnabled()) {
+            LOGGER.info("API DATAtourisme non configurée (DATATOURISME_API_KEY vide) : '{}' importée depuis le CSV "
+                    + "seul, sans description détaillée ni tarifs.", source.name());
+            return collector;
+        }
+        return collector.withEnricher(enricher);
     }
 
     /**
