@@ -42,6 +42,7 @@ export function searchNearby(
       category: params.category,
       date: params.date,
       dateTo: params.dateTo,
+      night: params.night ? true : undefined,
     },
     signal: options.signal,
   });
@@ -69,6 +70,7 @@ export function searchWithinBounds(
       category: params.category,
       date: params.date,
       dateTo: params.dateTo,
+      night: params.night ? true : undefined,
     },
     signal: options.signal,
   });

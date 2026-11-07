@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Nouvelle carte « Night » 🍸 : la vie nocturne, de 20 h à 6 h
+- **Site** : onglet « 🍸 Night » à côté de « Activités », « Lieux » et « Food trucks ». Il affiche, sur la carte et dans la liste de la zone, les activités qui ont lieu entre 20 h et 6 h : soirées, concerts, festivals, spectacles… Mêmes marqueurs, filtres (catégories, dates, Gratuit) et fiches que les activités ; compteur « N activités de nuit dans cette zone ». Toujours disponible (ce sont des activités), choix mémorisé dans le navigateur.
+- **Application** : bouton rond « verre à cocktail » sur la carte « Découvrir », à côté de « Lieux » et « Food trucks » ; un second appui revient à toutes les activités. Aucune dépendance native ajoutée.
+- **Carte à l'ouverture** : « 🍸 Night » proposée dans les paramètres de recherche (site et application).
+- **Règle « de nuit »** (fonction SQL `ll_is_night`, V88), en heure locale du lieu, occurrence par occurrence : début entre 20 h et 6 h, ou fin après 20 h le même jour, ou passage de minuit, pour une occurrence de moins de 24 h. Les imports sans horaire (journée entière, 00:00 → 23:59) et les expositions de plusieurs semaines ne sont pas retenus. Une activité sans programmation (contribution) est jugée sur ses dates de début et de fin.
+- **API** : paramètre facultatif `night=true` sur `GET /api/v1/activities/nearby` et `GET /api/v1/activities/within-bounds` (`false` ou absent : comportement inchangé ; autre valeur : **400**). `defaultMapLayer` accepte `night` (contrainte de `user_preferences.default_map_layer` élargie par V88).
+
 ### Correctif : import impossible depuis l'administration (« Accès refusé : rôle insuffisant »)
 - **Cause** : depuis la session par cookie (protection CSRF), une écriture faite avec le cookie de session doit joindre le jeton anti-CSRF (`X-XSRF-TOKEN`, recopié du cookie `XSRF-TOKEN`). Quand ce cookie manquait dans le navigateur, le serveur refusait l'écriture avec le même message qu'un vrai manque de droits : « Accès refusé : rôle insuffisant », trompeur pour un administrateur. Reproduit : `POST /api/v1/admin/import` d'un administrateur, sans le jeton → 403 « rôle insuffisant » ; avec le jeton → 200.
 - **Serveur** : un refus CSRF a désormais son propre message (« Jeton de sécurité manquant ou expiré : recharge la page et réessaie. ») et l'en-tête `X-CSRF-Rejected: true`. « Rôle insuffisant » ne désigne plus qu'un vrai manque de droits.

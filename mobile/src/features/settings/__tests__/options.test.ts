@@ -36,9 +36,14 @@ describe('alertCriteria', () => {
 describe('mapLayerOptions', () => {
   const values = (options: { value: string }[]) => options.map((option) => option.value);
 
-  it('ne propose que les cartes ouvertes', () => {
-    expect(values(mapLayerOptions({ places: false, foodTrucks: false }))).toEqual(['activities']);
-    expect(values(mapLayerOptions({ places: true, foodTrucks: true }))).toEqual(['activities', 'places', 'foodTrucks']);
+  it('ne propose que les cartes ouvertes (activités et Night toujours)', () => {
+    expect(values(mapLayerOptions({ places: false, foodTrucks: false }))).toEqual(['activities', 'night']);
+    expect(values(mapLayerOptions({ places: true, foodTrucks: true }))).toEqual([
+      'activities',
+      'places',
+      'foodTrucks',
+      'night',
+    ]);
   });
 
   it('garde la carte enregistrée même refermée, et propose « Dernière utilisée »', () => {
@@ -46,6 +51,7 @@ describe('mapLayerOptions', () => {
       LAST_USED_MAP_LAYER,
       'activities',
       'foodTrucks',
+      'night',
     ]);
   });
 });

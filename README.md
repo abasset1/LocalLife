@@ -18,6 +18,15 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
   `POST /api/v1/activities` (statut `PENDING` par défaut — modération
   décrite dans la section Sprint 6 ci-dessous).
 
+## Carte « Night » (vie nocturne)
+
+* Onglet **🍸 Night** de l'Explorer (site) et bouton « verre à cocktail » de la carte (application) : activités qui
+  ont lieu entre 20 h et 6 h — soirées, concerts, festivals… — avec les mêmes filtres et fiches que les activités.
+* API : `night=true` sur `GET /api/v1/activities/nearby` et `GET /api/v1/activities/within-bounds`. Règle (fonction
+  SQL `ll_is_night`, `V88__night_map_layer.sql`, heure locale du lieu) : début entre 20 h et 6 h, ou fin après 20 h,
+  ou passage de minuit, pour une occurrence de moins de 24 h ; les occurrences sans horaire (00:00 → 23:59) sont
+  exclues.
+
 ## Guide de l'application
 
 * Page `/guide` (menu → « Aide » → « Guide de l'application ») : didacticiel

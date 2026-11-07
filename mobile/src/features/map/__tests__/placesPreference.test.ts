@@ -29,6 +29,8 @@ describe('contenu de la carte', () => {
     await expect(loadMapLayer()).resolves.toBe('places');
     await saveMapLayer('foodTrucks');
     await expect(loadMapLayer()).resolves.toBe('foodTrucks');
+    await saveMapLayer('night');
+    await expect(loadMapLayer()).resolves.toBe('night');
   });
 
   it('ignore une valeur inconnue', async () => {
@@ -48,6 +50,7 @@ describe('carte choisie dans les paramètres', () => {
   it('accepte les trois cartes et ignore le reste', () => {
     expect(preferredMapLayer('places')).toBe('places');
     expect(preferredMapLayer('foodTrucks')).toBe('foodTrucks');
+    expect(preferredMapLayer('night')).toBe('night');
     expect(preferredMapLayer(null)).toBeNull();
     expect(preferredMapLayer(undefined)).toBeNull();
     expect(preferredMapLayer('events')).toBeNull();
