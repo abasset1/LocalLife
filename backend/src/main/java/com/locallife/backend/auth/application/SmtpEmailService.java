@@ -30,7 +30,7 @@ public class SmtpEmailService implements EmailService {
 
     public SmtpEmailService(
             JavaMailSender mailSender,
-            @Value("${app.mail-from:no-reply@locallife.local}") String fromAddress) {
+            @Value("${app.mail-from:no-reply@neiri.local}") String fromAddress) {
         this.mailSender = mailSender;
         this.fromAddress = fromAddress;
     }

@@ -73,7 +73,7 @@ export function exportMyData(options: CallOptions = {}): Promise<unknown> {
 }
 
 /** Nom du fichier proposé par le serveur (`Content-Disposition`). */
-export const EXPORT_FILE_NAME = 'locallife-mes-donnees.json';
+export const EXPORT_FILE_NAME = 'neiri-mes-donnees.json';
 
 /** `POST /api/v1/users/me/deletion` : définitif ; mot de passe, ou `SUPPRIMER` pour un compte sans mot de passe. */
 export function deleteAccount(secret: { password: string } | { confirmation: string }, options: CallOptions = {}) {
