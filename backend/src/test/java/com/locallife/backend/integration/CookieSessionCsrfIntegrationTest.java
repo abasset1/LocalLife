@@ -102,7 +102,34 @@ class CookieSessionCsrfIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("{}")
                 .exchange()
-                .expectStatus().isForbidden();
+                .expectStatus().isForbidden()
+                // Un jeton CSRF absent n'est pas un rôle insuffisant : message distinct, signalé au site.
+                .expectHeader().valueEquals("X-CSRF-Rejected", "true")
+                .expectBody().jsonPath("$.message")
+                .isEqualTo("Jeton de sécurité manquant ou expiré : recharge la page et réessaie.");
+    }
+
+    @Test
+    void cookieWrite_ByAnAdmin_WithoutCsrfToken_ShouldNotSayTheRoleIsInsufficient() {
+        client().post().uri("/api/v1/admin/import")
+                .cookie(AuthCookie.NAME, token(Role.ADMIN))
+                .exchange()
+                .expectStatus().isForbidden()
+                .expectHeader().valueEquals("X-CSRF-Rejected", "true")
+                .expectBody().jsonPath("$.message")
+                .isEqualTo("Jeton de sécurité manquant ou expiré : recharge la page et réessaie.");
+    }
+
+    @Test
+    void cookieWrite_ByAUser_OnAnAdminRoute_WithCsrfToken_ShouldStillSayTheRoleIsInsufficient() {
+        client().post().uri("/api/v1/admin/import")
+                .cookie(AuthCookie.NAME, token(Role.USER))
+                .cookie("XSRF-TOKEN", "jeton")
+                .header("X-XSRF-TOKEN", "jeton")
+                .exchange()
+                .expectStatus().isForbidden()
+                .expectHeader().doesNotExist("X-CSRF-Rejected")
+                .expectBody().jsonPath("$.message").isEqualTo("Accès refusé : rôle insuffisant");
     }
 
     @Test

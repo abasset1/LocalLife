@@ -61,3 +61,65 @@ describe("apiFetch", () => {
         }
     });
 });
+
+describe("apiFetch — jeton anti-CSRF absent ou refusé", () => {
+    it("cookie XSRF-TOKEN absent : le redemande avant l'écriture, puis l'envoie", async () => {
+        const fetchMock = vi.fn(async (input: string, _init?: RequestInit) => {
+            if (input === "/api/v1/users/me") {
+                document.cookie = "XSRF-TOKEN=jeton-frais";
+            }
+            return new Response("{}", { status: 200 });
+        });
+        vi.stubGlobal("fetch", fetchMock);
+
+        await apiFetch("/api/v1/admin/import", { method: "POST" });
+
+        expect(fetchMock.mock.calls.map((call) => call[0])).toEqual(["/api/v1/users/me", "/api/v1/admin/import"]);
+        const init = fetchMock.mock.calls[1][1] as RequestInit;
+        expect(new Headers(init.headers).get("X-XSRF-TOKEN")).toBe("jeton-frais");
+    });
+
+    it("jeton refusé (403 X-CSRF-Rejected) : en obtient un nouveau et rejoue l'écriture une fois", async () => {
+        document.cookie = "XSRF-TOKEN=jeton-perime";
+        let imports = 0;
+        const fetchMock = vi.fn(async (input: string, _init?: RequestInit) => {
+            if (input === "/api/v1/users/me") {
+                document.cookie = "XSRF-TOKEN=jeton-frais";
+                return new Response("{}", { status: 200 });
+            }
+            imports += 1;
+            return imports === 1
+                ? new Response("{}", { status: 403, headers: { "X-CSRF-Rejected": "true" } })
+                : new Response("[]", { status: 200 });
+        });
+        vi.stubGlobal("fetch", fetchMock);
+
+        const response = await apiFetch("/api/v1/admin/import", { method: "POST" });
+
+        expect(response.status).toBe(200);
+        expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+            "/api/v1/admin/import", "/api/v1/users/me", "/api/v1/admin/import",
+        ]);
+        expect(new Headers((fetchMock.mock.calls[2][1] as RequestInit).headers).get("X-XSRF-TOKEN")).toBe("jeton-frais");
+    });
+
+    it("vrai refus de rôle (403 sans X-CSRF-Rejected) : pas de nouvel essai", async () => {
+        document.cookie = "XSRF-TOKEN=jeton-csrf";
+        const fetchMock = vi.fn(async () => new Response("{}", { status: 403 }));
+        vi.stubGlobal("fetch", fetchMock);
+
+        const response = await apiFetch("/api/v1/admin/import", { method: "POST" });
+
+        expect(response.status).toBe(403);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("lecture : jamais de jeton redemandé ni de nouvel essai", async () => {
+        const fetchMock = vi.fn(async () => new Response("{}", { status: 403, headers: { "X-CSRF-Rejected": "true" } }));
+        vi.stubGlobal("fetch", fetchMock);
+
+        await apiFetch("/api/v1/admin/import/sync-states");
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+});

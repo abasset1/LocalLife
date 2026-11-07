@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Correctif : import impossible depuis l'administration (« Accès refusé : rôle insuffisant »)
+- **Cause** : depuis la session par cookie (protection CSRF), une écriture faite avec le cookie de session doit joindre le jeton anti-CSRF (`X-XSRF-TOKEN`, recopié du cookie `XSRF-TOKEN`). Quand ce cookie manquait dans le navigateur, le serveur refusait l'écriture avec le même message qu'un vrai manque de droits : « Accès refusé : rôle insuffisant », trompeur pour un administrateur. Reproduit : `POST /api/v1/admin/import` d'un administrateur, sans le jeton → 403 « rôle insuffisant » ; avec le jeton → 200.
+- **Serveur** : un refus CSRF a désormais son propre message (« Jeton de sécurité manquant ou expiré : recharge la page et réessaie. ») et l'en-tête `X-CSRF-Rejected: true`. « Rôle insuffisant » ne désigne plus qu'un vrai manque de droits.
+- **Site** (`apiFetch`) : si le cookie `XSRF-TOKEN` manque avant une écriture, il est redemandé (`GET /users/me`) ; si le serveur refuse quand même le jeton, un nouveau est obtenu et l'écriture rejouée une seule fois. Vaut pour toutes les écritures du site (import, modération, profil…). Vérifié dans Chromium : cookie anti-CSRF effacé, session gardée → l'import part avec le jeton et répond 200.
+- L'application mobile n'est pas concernée (en-tête `Authorization`, sans CSRF).
+- **Test fiabilisé** : `CategoryBackfillServiceIntegrationTest` comptait toutes les activités à venir de la base ; de vrais marchés de Noël (importés en novembre par un autre test ou présents dans la base locale) le faisaient échouer (« expected: 2 but was: 4 »). Il archive désormais les activités existantes dans sa propre transaction, annulée à la fin.
+
 ### Carte : filtre « Gratuit »
 - **Site** : bouton « Gratuit » dans les filtres de la carte. Il ne garde, sur la carte et dans la liste de la zone, que les activités dont les tarifs disent qu'elles sont gratuites (`priceType` = `FREE`, voir « badge Gratuit / Payant » ci-dessous). Les activités sans tarif connu sont masquées. Filtre appliqué dans le navigateur, sans nouvelle requête : la carte reçoit déjà toutes les activités de la zone. Zone sans activité gratuite : « Aucune activité gratuite dans cette zone. » et « Voir toutes les activités ». Inactif pendant une recherche par mot-clé (résultats paginés par le serveur).
 - **Application** : même filtre, bouton rond « Gratuit » de la carte (marqueurs, pastilles et liste de la zone). Aucune dépendance native ajoutée.
