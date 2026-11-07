@@ -291,7 +291,7 @@ public class DataTourismeCollector implements Collector {
             if (activities == null) {
                 return List.of();
             }
-            return enricher == null ? activities : enricher.enrich(activities, departments);
+            return enricher == null ? activities : enricher.enrich(activities);
         } catch (RestClientException exception) {
             throw new CollectorException("Échec de la collecte depuis DATAtourisme (data.gouv.fr).", exception);
         }

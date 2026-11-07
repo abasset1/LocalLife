@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Correctif : l'API DATAtourisme n'était pas appelée pour les sources sans filtre de départements
+- **Constat en production** : clé configurée, mais aucune ligne « API DATAtourisme » dans les logs après un import. Les trois sources DATAtourisme (PACA, Languedoc, vide-greniers France) ont un `region_filter` vide, et la première version sautait l'enrichissement dans ce cas (lecture de l'API par départements, par crainte du quota).
+- **Correctif** : l'API n'est plus lue par départements mais **pour les seuls événements retenus du CSV, par leur URI**, en lots de 50 (`GET /v1/catalog?filters=uri[in]=…`). Plus besoin de filtre de départements ; le nombre de requêtes suit le nombre d'événements importés (PACA : 2 321 événements complétés en 48 requêtes, environ 25 s, mesuré avec le vrai CSV et la vraie API). Garde-fou : au-delà de 400 requêtes pour une source, enrichissement sauté et journalisé.
+- **Diagnostic** : clé absente → message « API DATAtourisme non configurée (DATATOURISME_API_KEY vide) » dans les logs, au lieu d'aucun message.
+
 ### Correctif : import impossible depuis l'administration (« Accès refusé : rôle insuffisant »)
 - **Cause** : depuis la session par cookie (protection CSRF), une écriture faite avec le cookie de session doit joindre le jeton anti-CSRF (`X-XSRF-TOKEN`, recopié du cookie `XSRF-TOKEN`). Quand ce cookie manquait dans le navigateur, le serveur refusait l'écriture avec le même message qu'un vrai manque de droits : « Accès refusé : rôle insuffisant », trompeur pour un administrateur. Reproduit : `POST /api/v1/admin/import` d'un administrateur, sans le jeton → 403 « rôle insuffisant » ; avec le jeton → 200.
 - **Serveur** : un refus CSRF a désormais son propre message (« Jeton de sécurité manquant ou expiré : recharge la page et réessaie. ») et l'en-tête `X-CSRF-Rejected: true`. « Rôle insuffisant » ne désigne plus qu'un vrai manque de droits.
