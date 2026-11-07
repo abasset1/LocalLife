@@ -115,7 +115,9 @@ describe("PremiumOfferPopup", () => {
         await user.click(screen.getByRole("button", { name: "Passer à Premium" }));
 
         expect(await screen.findByRole("dialog", { name: "Bienvenue dans Premium !" })).toBeInTheDocument();
-        const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        // L'écriture (apiFetch peut d'abord redemander le jeton anti-CSRF par une lecture).
+        const [url, init] = (fetchMock.mock.calls as unknown as [string, RequestInit][])
+            .find(([, options]) => options?.method === "POST")!;
         expect(url).toBe("/api/v1/users/me/subscription/subscribe");
         expect(init.method).toBe("POST");
         expect(JSON.parse(String(init.body))).toEqual({ plan: "PREMIUM" });
