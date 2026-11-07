@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### Carte « Night » : le site passe en mode nuit, avec un nouveau logo
+- **Site** : quand la carte « 🍸 Night » est affichée, tout l'Explorer passe en thème nuit : fond violet nuit, accents néon magenta et cyan, fond de carte assombri, marqueurs et pastilles néon. Le menu, la recherche, les filtres, la liste, l'aperçu, la fiche et les messages suivent. Retour au thème clair dès qu'on revient sur une autre carte ou qu'on quitte l'Explorer.
+- **Logo** : en mode nuit, l'épingle Neiri est remplacée par le bouc néon à lunettes (`public/neiri-night.webp`), avec le logotype « NEiRI » en clair ; l'icône de l'onglet et la couleur de la barre du navigateur changent aussi.
+- **Téléphone** : les quatre cartes (Activités, Lieux, Food trucks, Night) tiennent sur une seule rangée qui défile, au lieu de deux rangées qui passaient sous « Voir la liste ».
+- Porté par `data-ll-theme="night"` sur `<html>` (`src/theme/nightTheme.ts`, section « Thème Night » de `styles.css`). L'application mobile n'est pas concernée.
+
 ### Nouvelle carte « Night » 🍸 : la vie nocturne, de 20 h à 6 h
 - **Site** : onglet « 🍸 Night » à côté de « Activités », « Lieux » et « Food trucks ». Il affiche, sur la carte et dans la liste de la zone, les activités qui ont lieu entre 20 h et 6 h : soirées, concerts, festivals, spectacles… Mêmes marqueurs, filtres (catégories, dates, Gratuit) et fiches que les activités ; compteur « N activités de nuit dans cette zone ». Toujours disponible (ce sont des activités), choix mémorisé dans le navigateur.
 - **Application** : bouton rond « verre à cocktail » sur la carte « Découvrir », à côté de « Lieux » et « Food trucks » ; un second appui revient à toutes les activités. Aucune dépendance native ajoutée.

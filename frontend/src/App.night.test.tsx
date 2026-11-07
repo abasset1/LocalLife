@@ -102,6 +102,29 @@ describe("App — carte Night", () => {
         expect(mapUrls.at(-1)).not.toContain("night=");
     });
 
+    it("passe tout le site en thème nuit, avec le logo néon, le temps que la carte Night est affichée", async () => {
+        const user = userEvent.setup();
+        const { unmount } = render(<MemoryRouter><App /></MemoryRouter>);
+        await screen.findByText(/marqueur Marché/);
+        expect(document.documentElement.dataset.llTheme).toBeUndefined();
+        expect(document.querySelector(".neiri-night-mark")).toBeNull();
+
+        await user.click(screen.getByRole("button", { name: /Night/ }));
+        expect(document.documentElement.dataset.llTheme).toBe("night");
+        expect(document.querySelector(".neiri-night-mark")).toHaveAttribute("src", "/neiri-night.webp");
+        expect(document.querySelector(".neiri-mark")).toBeNull();
+
+        await user.click(screen.getByRole("button", { name: /Activités/ }));
+        expect(document.documentElement.dataset.llTheme).toBeUndefined();
+        expect(document.querySelector(".neiri-night-mark")).toBeNull();
+
+        // Quitter l'Explorer sur la carte Night rend aussi le thème clair aux autres pages.
+        await user.click(screen.getByRole("button", { name: /Night/ }));
+        expect(document.documentElement.dataset.llTheme).toBe("night");
+        unmount();
+        expect(document.documentElement.dataset.llTheme).toBeUndefined();
+    });
+
     it("reprend la carte Night choisie à la visite précédente", async () => {
         window.localStorage.setItem("locallife.mapLayer", "night");
         render(<MemoryRouter><App /></MemoryRouter>);

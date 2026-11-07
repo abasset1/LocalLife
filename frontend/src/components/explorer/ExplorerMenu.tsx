@@ -15,6 +15,8 @@ interface ExplorerMenuProps {
     onLogout: () => void;
     /** « Une idée, un problème ? » : formulaire de suggestion ou de signalement d'anomalie. */
     onOpenFeedback?: () => void;
+    /** Carte « Night » affichée : logo néon (bouc à lunettes) à la place du repère habituel. */
+    night?: boolean;
 }
 
 /**
@@ -30,7 +32,7 @@ interface ExplorerMenuProps {
  * et ne sont donc pas ajoutés ici (hors périmètre de ce ticket).
  */
 function ExplorerMenu({
-    isOpen, onClose, currentUser, hasProAccess = false, onOpenContributionForm, onLogout, onOpenFeedback,
+    isOpen, onClose, currentUser, hasProAccess = false, onOpenContributionForm, onLogout, onOpenFeedback, night = false,
 }: ExplorerMenuProps) {
     // Lancement (05/11/2026) : proposer une activité demande une offre Premium ou Pro, la page « Nouveautés »
     // présente Premium ; tant que ces offres sont fermées, ces entrées sont masquées.
@@ -49,7 +51,7 @@ function ExplorerMenu({
                 className={isOpen ? "explorer-menu explorer-menu--open" : "explorer-menu"}
             >
                 <div className="explorer-menu-brand">
-                    <BrandLogo tone="light" />
+                    <BrandLogo night={night} tone="light" />
                     <span className="explorer-menu-tagline">
                         Your world, <span className="neiri-tagline-accent">closer.</span>
                     </span>

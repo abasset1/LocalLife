@@ -3889,6 +3889,32 @@ body {
     padding: 0.4rem 0.9rem;
 }
 
+/* Téléphone : les quatre cartes (Activités, Lieux, Food trucks, Night) tiennent sur une seule rangée, qui défile
+   si besoin — sur deux rangées, elles passaient sous « Voir la liste » et les messages du bas de la carte. */
+@media (max-width: 959px) {
+    .explorer-layer-switch {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        pointer-events: auto;
+        padding-bottom: 2px;
+    }
+
+    .explorer-layer-switch::-webkit-scrollbar {
+        display: none;
+    }
+
+    .explorer-layer-switch {
+        gap: 0.3rem;
+    }
+
+    .explorer-places-toggle {
+        flex-shrink: 0;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+    }
+}
+
 .explorer-places-toggle:disabled {
     cursor: not-allowed;
     opacity: 0.55;
@@ -6100,4 +6126,213 @@ body {
 
 .food-truck-social-links a {
     font-weight: 600;
+}
+
+/* ===================================================================
+ * Thème « Night » (carte Night, src/theme/nightTheme.ts) : porté par
+ * `data-ll-theme="night"` sur <html>. Violet nuit, accents néon magenta
+ * et cyan (couleurs du logo du bouc), carte assombrie.
+ * =================================================================== */
+
+:root[data-ll-theme="night"] {
+    color-scheme: dark;
+    --ll-green: #120726;
+    --ll-green2: #2a1150;
+    --ll-accent: #ff3fd1;
+    --ll-accent-dark: #e02ab6;
+    --ll-orange: #2de2ff;
+    --ll-purple: #a855f7;
+    --ll-lavender: #2de2ff;
+    --ll-gradient: linear-gradient(135deg, #ff3fd1 0%, #a855f7 50%, #2de2ff 100%);
+    --ll-sand: #1d1038;
+    --ll-paper: #0e061d;
+    --ll-ink: #f3ecff;
+    --ll-muted: #ab9fd0;
+    --ll-line: #34245a;
+    --ll-night-surface: #180c30;
+    --ll-night-glow: 0 0 12px rgba(255, 63, 209, 0.55);
+}
+
+:root[data-ll-theme="night"] body {
+    background-color: var(--ll-paper);
+}
+
+/* Logo : le bouc néon remplace l'épingle, logotype en clair avec un halo. */
+.neiri-night-mark {
+    height: 100%;
+    width: auto;
+    flex-shrink: 0;
+}
+
+.explorer-menu-brand .neiri-logo--night {
+    height: 64px;
+    gap: 0.35em;
+}
+
+.neiri-logo--night .neiri-wordmark {
+    height: 38%;
+    filter: drop-shadow(0 0 6px rgba(45, 226, 255, 0.7));
+}
+
+:root[data-ll-theme="night"] .explorer-menu {
+    background-color: var(--ll-green);
+    border-right: 1px solid var(--ll-line);
+    box-shadow: inset -1px 0 0 rgba(255, 63, 209, 0.15);
+}
+
+:root[data-ll-theme="night"] .explorer-menu-link-active {
+    background-color: rgba(255, 63, 209, 0.16);
+    box-shadow: inset 3px 0 0 var(--ll-accent);
+}
+
+/* Surfaces blanches de l'Explorer : cartes violet nuit. */
+:root[data-ll-theme="night"] .explorer-menu-toggle,
+:root[data-ll-theme="night"] .explorer-search,
+:root[data-ll-theme="night"] .explorer-search-suggestions,
+:root[data-ll-theme="night"] .explorer-chip,
+:root[data-ll-theme="night"] .explorer-dates-panel,
+:root[data-ll-theme="night"] .explorer-categories-panel,
+:root[data-ll-theme="night"] .explorer-status-floating,
+:root[data-ll-theme="night"] .explorer-location-prompt,
+:root[data-ll-theme="night"] .explorer-preview,
+:root[data-ll-theme="night"] .explorer-preview-close,
+:root[data-ll-theme="night"] .explorer-list-item,
+:root[data-ll-theme="night"] .explorer-places-toggle,
+:root[data-ll-theme="night"] .explorer-search-pagination button,
+:root[data-ll-theme="night"] .modal-dialog,
+:root[data-ll-theme="night"] .leaflet-popup-content-wrapper,
+:root[data-ll-theme="night"] .leaflet-popup-tip {
+    background-color: var(--ll-night-surface);
+    border-color: var(--ll-line);
+    color: var(--ll-ink);
+}
+
+:root[data-ll-theme="night"] .explorer-search input,
+:root[data-ll-theme="night"] .explorer-search input::placeholder {
+    color: var(--ll-ink);
+    background: transparent;
+}
+
+:root[data-ll-theme="night"] .explorer-search input::placeholder {
+    color: var(--ll-muted);
+}
+
+:root[data-ll-theme="night"] .explorer-list-item:hover,
+:root[data-ll-theme="night"] .explorer-chip:hover {
+    border-color: var(--ll-accent);
+}
+
+:root[data-ll-theme="night"] .explorer-places-toggle-active {
+    background-color: var(--ll-accent);
+    border-color: var(--ll-accent);
+    color: #120726;
+    box-shadow: var(--ll-night-glow);
+}
+
+:root[data-ll-theme="night"] .explorer-show-list-button,
+:root[data-ll-theme="night"] .explorer-show-map-button {
+    background-color: var(--ll-accent);
+    color: #120726;
+    box-shadow: var(--ll-night-glow);
+}
+
+:root[data-ll-theme="night"] .explorer-main[data-mobile-view="map"] .explorer-controls {
+    background-color: rgba(14, 6, 29, 0.9);
+}
+
+:root[data-ll-theme="night"] .leaflet-container {
+    background-color: #0b0518;
+}
+
+/* Fond de carte : tuiles inversées et teintées violet, marqueurs et popups gardent leurs couleurs. */
+:root[data-ll-theme="night"] .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(200deg) brightness(0.85) saturate(0.7) contrast(0.95);
+}
+
+:root[data-ll-theme="night"] .leaflet-marker-icon:not(.marker-cluster) {
+    filter: hue-rotate(95deg) saturate(1.6) drop-shadow(0 0 6px rgba(255, 63, 209, 0.75));
+}
+
+:root[data-ll-theme="night"] .leaflet-control-attribution {
+    background-color: rgba(14, 6, 29, 0.8);
+    color: var(--ll-muted);
+}
+
+:root[data-ll-theme="night"] .leaflet-control-attribution a {
+    color: var(--ll-orange);
+}
+
+:root[data-ll-theme="night"] .leaflet-bar a {
+    background-color: var(--ll-night-surface);
+    border-color: var(--ll-line);
+    color: var(--ll-ink);
+}
+
+/* Textes qui utilisent le bleu nuit du thème clair : en clair (néon) la nuit. */
+:root[data-ll-theme="night"] .explorer-list-count,
+:root[data-ll-theme="night"] .explorer-list-city,
+:root[data-ll-theme="night"] .explorer-search-banner.is-pending,
+:root[data-ll-theme="night"] .explorer-form-message-success,
+:root[data-ll-theme="night"] .explorer-detail-tag,
+:root[data-ll-theme="night"] .explorer-detail-action-button {
+    color: var(--ll-ink);
+}
+
+:root[data-ll-theme="night"] .explorer-chip-location {
+    color: var(--ll-orange);
+    border-color: var(--ll-orange);
+}
+
+:root[data-ll-theme="night"] .explorer-chip-active,
+:root[data-ll-theme="night"] .explorer-search-submit {
+    background-color: var(--ll-accent);
+    border-color: var(--ll-accent);
+    color: #120726;
+}
+
+:root[data-ll-theme="night"] .explorer-search-submit:disabled {
+    background-color: var(--ll-sand);
+    color: var(--ll-muted);
+}
+
+:root[data-ll-theme="night"] .explorer-price-badge-free {
+    background-color: var(--ll-orange);
+    color: #120726;
+}
+
+:root[data-ll-theme="night"] .explorer-price-badge-paid {
+    background-color: var(--ll-sand);
+    color: var(--ll-ink);
+}
+
+/* Pastilles de regroupement (leaflet.markercluster) : néon magenta au lieu du vert/jaune/orange. */
+:root[data-ll-theme="night"] .marker-cluster-small,
+:root[data-ll-theme="night"] .marker-cluster-medium,
+:root[data-ll-theme="night"] .marker-cluster-large {
+    background-color: rgba(255, 63, 209, 0.35);
+    box-shadow: 0 0 14px rgba(255, 63, 209, 0.6);
+}
+
+:root[data-ll-theme="night"] .marker-cluster-small div,
+:root[data-ll-theme="night"] .marker-cluster-medium div,
+:root[data-ll-theme="night"] .marker-cluster-large div {
+    background-color: #ff3fd1;
+    color: #120726;
+    font-weight: 700;
+}
+
+/* Boutons d'action de la fiche (Google Agenda, Y aller). */
+:root[data-ll-theme="night"] .explorer-detail-action-button {
+    background-color: var(--ll-night-surface);
+    border-color: var(--ll-orange);
+    color: var(--ll-orange);
+}
+
+:root[data-ll-theme="night"] .explorer-detail-action-button:hover {
+    background-color: var(--ll-sand);
+}
+
+:root[data-ll-theme="night"] .explorer-detail-action-button-accent {
+    border-color: var(--ll-accent);
+    color: var(--ll-accent);
 }
