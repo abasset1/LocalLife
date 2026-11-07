@@ -148,6 +148,11 @@ function App() {
     const [categories, setCategories] = useState<Category[]>([]);
     /** Codes des catégories cochées ; vide = pas de filtre. */
     const [selectedCategoryCodes, setSelectedCategoryCodes] = useState<string[]>([]);
+    /**
+     * Filtre « Gratuit » : appliqué dans le navigateur sur `priceType`, la carte recevant toutes les activités de la
+     * zone (pas de nouvelle requête). Sans effet sur la recherche par mot-clé, paginée par le serveur.
+     */
+    const [freeOnly, setFreeOnly] = useState(false);
     /** Clé stable du filtre catégorie (codes triés) : évite de relancer la recherche sur un simple nouveau tableau. */
     const selectedCategoriesKey = useMemo(() => [...selectedCategoryCodes].sort().join(","), [selectedCategoryCodes]);
     const [selectedDate, setSelectedDate] = useState(NO_DATE_FILTER);
@@ -542,9 +547,13 @@ function App() {
      * affichée. Recalculée à chaque déplacement ou zoom (`mapBounds`) et à chaque nouvelle recherche
      * (rayon, filtres). Sans zone connue (carte pas encore affichée), la liste montre tout.
      */
+    const shownActivities = useMemo(
+        () => (freeOnly ? activities.filter((activity) => activity.priceType === "FREE") : activities),
+        [activities, freeOnly],
+    );
     const listedActivities = useMemo(
-        () => (mapBounds ? activities.filter((activity) => isInBounds(activity, mapBounds)) : activities),
-        [activities, mapBounds],
+        () => (mapBounds ? shownActivities.filter((activity) => isInBounds(activity, mapBounds)) : shownActivities),
+        [shownActivities, mapBounds],
     );
 
     /**
@@ -609,7 +618,7 @@ function App() {
         ? `${textSearch.query}|${searchFiltersKey}|${searchOffset}|${searchRetryKey}`
         : null;
 
-    const mapActivities = isTextSearch ? searchActivities : activities;
+    const mapActivities = isTextSearch ? searchActivities : shownActivities;
     const panelActivities = isTextSearch ? searchActivities : listedActivities;
     // Une recherche texte ne renvoie que des activités : elles seules sont affichées tant qu'elle est active.
     // Couche mémorisée mais pas (ou plus) ouverte : retour aux activités.
@@ -634,12 +643,25 @@ function App() {
         : 0;
     const zoneActivityCountLabel = `${zoneActivityCount} ${zoneActivityCount > 1 ? "activités" : "activité"} dans cette zone`;
 
-    let emptyMessage = "Aucune activité trouvée dans cette zone.";
+    let emptyMessage = freeOnly
+        ? "Aucune activité gratuite dans cette zone."
+        : "Aucune activité trouvée dans cette zone.";
     if (isTextSearch) {
         emptyMessage = textStatus?.status === "success" && textStatus.total > 0
             ? "Aucun résultat sur cette page."
             : `Aucun résultat pour « ${textSearch.query} ».`;
     }
+
+    /** Des activités dans la zone, mais aucune gratuite : le filtre « Gratuit » se retire d'un clic. */
+    const hasOnlyPaidOrUnknown = freeOnly && !isTextSearch && activities.length > 0 && shownActivities.length === 0;
+    const freeEmptyHelp = (
+        <>
+            <p>Aucune activité gratuite dans cette zone.</p>
+            <button className="explorer-chip" onClick={() => setFreeOnly(false)} type="button">
+                Voir toutes les activités
+            </button>
+        </>
+    );
 
     /** Aucune activité hors recherche texte : actions utiles selon les critères actifs (spec P0-D). */
     const emptyResultsHelp = (
@@ -1346,6 +1368,9 @@ function App() {
                         isLocating={geolocationStatus === "locating"}
                         onUseMyLocation={requestGeolocation}
                         onViewModeChange={setViewMode}
+                        freeOnly={freeOnly}
+                        freeOnlyDisabled={isTextSearch}
+                        onFreeOnlyChange={setFreeOnly}
                         selectedCategoryCodes={selectedCategoryCodes}
                         selectedDate={selectedDate}
                         selectedDateTo={selectedDateTo}
@@ -1439,6 +1464,12 @@ function App() {
                                     {emptyResultsHelp}
                                 </div>
                             )}
+                            {activeLayer === "activities" && !isTextSearch && !isLoadingActivities && !searchError
+                                && hasOnlyPaidOrUnknown && (
+                                <div className="explorer-status explorer-status-floating explorer-status-card" role="status">
+                                    {freeEmptyHelp}
+                                </div>
+                            )}
                             {/* Après lecture des préférences : une ville enregistrée évite l'invitation. */}
                             {arePreferencesApplied && !isTextSearch && !previewActivity && (
                                 <LocationPrompt
@@ -1486,7 +1517,7 @@ function App() {
                         <ActivityList
                             activities={panelActivities}
                             categories={categories}
-                            emptyActions={isTextSearch ? undefined : emptyResultsHelp}
+                            emptyActions={isTextSearch ? undefined : freeOnly && activities.length > 0 ? freeEmptyHelp : emptyResultsHelp}
                             emptyMessage={emptyMessage}
                             error={isTextSearch ? (textStatus?.status === "error" ? textStatus.message : null) : searchError}
                             // Recherche texte : « Réessayer » est dans le bandeau sous la barre.

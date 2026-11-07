@@ -371,7 +371,7 @@ export const GUIDE_STEPS: GuideStep[] = [
         id: "filtres",
         title: "Affine avec les filtres",
         text: "Garde seulement ce qui t'intéresse : catégories, période (ce week-end, cette semaine…), date de "
-            + "début, rayon de recherche. « Autour de moi » utilise ta position.",
+            + "début, rayon de recherche, activités gratuites. « Autour de moi » utilise ta position.",
         tips: ["Sur téléphone, bascule entre la vue Carte et la vue Liste", "Tes filtres se combinent"],
         scene: FiltersScene,
     },

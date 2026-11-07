@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Carte : filtre « Gratuit »
+- **Site** : bouton « Gratuit » dans les filtres de la carte. Il ne garde, sur la carte et dans la liste de la zone, que les activités dont les tarifs disent qu'elles sont gratuites (`priceType` = `FREE`, voir « badge Gratuit / Payant » ci-dessous). Les activités sans tarif connu sont masquées. Filtre appliqué dans le navigateur, sans nouvelle requête : la carte reçoit déjà toutes les activités de la zone. Zone sans activité gratuite : « Aucune activité gratuite dans cette zone. » et « Voir toutes les activités ». Inactif pendant une recherche par mot-clé (résultats paginés par le serveur).
+- **Application** : même filtre, bouton rond « Gratuit » de la carte (marqueurs, pastilles et liste de la zone). Aucune dépendance native ajoutée.
+- Le guide (site et application) le mentionne dans l'étape « filtres ».
+
 ### Événements DATAtourisme complétés par l'API : programme détaillé, tarifs, images, contacts ; badge Gratuit / Payant
 - **Constat** : le cinéma l'Eden à Noves apparaissait en fiches vides (« Programme Cinéma, semaine du 09 au 15 Novembre »). Le CSV de data.gouv.fr ne porte que la description courte ; la programmation séance par séance, le tarif (« Plein tarif : 5€ / Tarif adhérent : 3€. »), l'affiche et le téléphone sont dans l'**API DATAtourisme**, pour les mêmes fiches.
 - **Import** : après le CSV, `DataTourismeApiEnricher` lit l'API (`api.datatourisme.fr`) sur les départements de la source et complète chaque événement trouvé (jointure par URI DATAtourisme, l'identité des activités ne change pas) : description détaillée suivie des horaires en clair, tarifs, images si le CSV n'en a pas, site et téléphone. Clé : `DATATOURISME_API_KEY` (gratuite, facultative). Sans clé, sans filtre de départements ou si l'API échoue, l'import garde le seul CSV, comme avant. La plateforme Diffuseur, qui ferme en octobre 2027, n'est pas utilisée.

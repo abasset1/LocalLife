@@ -43,6 +43,7 @@ import { ActivityMarker, ClusterMarker, FoodTruckMarker, HighlightedActivityMark
 import { CuisineFilterBar } from '@/features/foodtruck/CuisineFilterBar';
 import { markerOf } from '@/features/foodtruck/cuisines';
 import { PlaceListPanel } from './PlaceListPanel';
+import { keepFreeActivities } from './priceFilter';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData, type RadiusSearch } from './useMapData';
 import { type MapLayer, loadMapLayer, preferredMapLayer, saveMapLayer } from './placesPreference';
@@ -226,21 +227,24 @@ export default function MapScreen() {
     [place, region],
   );
 
-  const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(
+  const { activities: loadedActivities, foodTrucks, loading, error, tooWide, retry } = useMapData(
     region,
     categoryCodes,
     radiusSearch,
     period,
     features.foodTrucks,
   );
+  // Filtre « Gratuit » : appliqué ici sur `priceType`, la carte recevant toutes les activités de la zone.
+  const [freeOnly, setFreeOnly] = useState(false);
+  const activities = useMemo(() => keepFreeActivities(loadedActivities, freeOnly), [loadedActivities, freeOnly]);
   // Activité demandée par « Voir sur la carte » : son aperçu s'ouvre dès qu'elle est chargée.
   useEffect(() => {
     if (pendingFocusId.current === null) return;
-    const activity = activities.find((a) => a.id === pendingFocusId.current);
+    const activity = loadedActivities.find((a) => a.id === pendingFocusId.current);
     if (!activity) return;
     pendingFocusId.current = null;
     select({ kind: 'activity', activity });
-  }, [activities, select]);
+  }, [loadedActivities, select]);
   // Un seul contenu à la fois : activités (par défaut), lieux (ADR-0011, phase B) ou food trucks (ADR-0013).
   // Choix mémorisé sur l'appareil, sauf carte choisie dans les paramètres (utilisateur connecté) : celle-ci
   // s'affiche à l'arrivée et chaque fois que le paramètre change, sans effacer le choix mémorisé.
@@ -593,9 +597,11 @@ export default function MapScreen() {
               accessibilityLiveRegion="polite"
               style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
               <ThemedText type="smallBold">
-                {period === 'all'
-                  ? 'Aucune activité dans cette zone.'
-                  : `Aucune activité ici pour « ${periodLabel} ».`}
+                {freeOnly
+                  ? 'Aucune activité gratuite dans cette zone.'
+                  : period === 'all'
+                    ? 'Aucune activité dans cette zone.'
+                    : `Aucune activité ici pour « ${periodLabel} ».`}
               </ThemedText>
             </View>
           )}
@@ -721,6 +727,19 @@ export default function MapScreen() {
                   setPeriodPanelOpen(!open);
                 }}
               />
+              {showActivities && (
+                <MapControl
+                  icon={{ ios: 'eurosign.circle', android: 'money_off', web: 'money_off' }}
+                  accessibilityLabel={
+                    freeOnly ? 'Activités gratuites seulement, tout afficher' : 'Afficher seulement les activités gratuites'
+                  }
+                  active={freeOnly}
+                  onPress={() => {
+                    closePanels();
+                    setFreeOnly(!freeOnly);
+                  }}
+                />
+              )}
               <MapControl
                 icon={{ ios: 'scope', android: 'radar', web: 'radar' }}
                 accessibilityLabel={

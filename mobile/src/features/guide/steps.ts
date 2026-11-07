@@ -92,7 +92,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     title: 'Affinez avec les filtres',
     text:
       'Les boutons au-dessus de la carte filtrent les activités : catégories, période (aujourd’hui, ce ' +
-      'week-end…) et rayon autour du centre de la carte.',
+      'week-end…), activités gratuites et rayon autour du centre de la carte.',
     tips: ['Vos filtres se combinent', 'La période choisie vaut aussi pour la Liste'],
     scene: {
       kind: 'chips',
