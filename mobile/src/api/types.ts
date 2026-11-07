@@ -202,6 +202,9 @@ export interface CitySuggestion {
   longitude: number;
 }
 
+/** Carte de « Découvrir » : activités, lieux ou food trucks (mêmes valeurs que le site web et le backend). */
+export type MapLayerValue = 'activities' | 'places' | 'foodTrucks';
+
 /** `UserPreferencesResponse` (`GET`/`PUT /users/me/preferences`) — paramètres de recherche par défaut. */
 export interface UserPreferences {
   defaultCity: string | null;
@@ -209,6 +212,8 @@ export interface UserPreferences {
   defaultLongitude: number | null;
   defaultRadiusKm: number | null;
   defaultCategoryCodes: string[];
+  /** Carte ouverte à l'arrivée ; `null` (ou absent, backend ancien) = dernière carte choisie sur l'appareil. */
+  defaultMapLayer?: MapLayerValue | null;
   /** `false` tant que l'utilisateur n'a jamais enregistré ses préférences (accueil de première connexion). */
   configured?: boolean;
 }
@@ -224,6 +229,8 @@ export interface UpdatePreferencesRequest {
   defaultLongitude: number | null;
   defaultRadiusKm: number | null;
   defaultCategoryCodes: string[];
+  /** Carte à l'arrivée : absent ou `null` garde celle enregistrée, `''` l'efface. */
+  defaultMapLayer?: MapLayerValue | '' | null;
 }
 
 /** `CityResponse` (`GET /users/me/preferences/city`) — ville existante, nom officiel. */

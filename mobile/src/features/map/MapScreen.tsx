@@ -45,7 +45,7 @@ import { markerOf } from '@/features/foodtruck/cuisines';
 import { PlaceListPanel } from './PlaceListPanel';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData, type RadiusSearch } from './useMapData';
-import { type MapLayer, loadMapLayer, saveMapLayer } from './placesPreference';
+import { type MapLayer, loadMapLayer, preferredMapLayer, saveMapLayer } from './placesPreference';
 import { usePlaces } from './usePlaces';
 import { useLaunchFeatures } from '@/features/launch';
 import { useSearchPreferences } from './useSearchPreferences';
@@ -242,17 +242,29 @@ export default function MapScreen() {
     select({ kind: 'activity', activity });
   }, [activities, select]);
   // Un seul contenu à la fois : activités (par défaut), lieux (ADR-0011, phase B) ou food trucks (ADR-0013).
-  // Choix mémorisé sur l'appareil.
+  // Choix mémorisé sur l'appareil, sauf carte choisie dans les paramètres (utilisateur connecté) : celle-ci
+  // s'affiche à l'arrivée et chaque fois que le paramètre change, sans effacer le choix mémorisé.
   const [mapLayer, setMapLayer] = useState<MapLayer>('activities');
+  const appliedMapLayerPreference = useRef<MapLayer | null>(null);
   useEffect(() => {
     let active = true;
     loadMapLayer().then((layer) => {
-      if (active) setMapLayer(layer);
+      if (active && appliedMapLayerPreference.current === null) setMapLayer(layer);
     });
     return () => {
       active = false;
     };
   }, []);
+  const preferredLayer = preferredMapLayer(preferences?.defaultMapLayer);
+  useEffect(() => {
+    if (preferredLayer === null) {
+      appliedMapLayerPreference.current = null;
+      return;
+    }
+    if (preferredLayer === appliedMapLayerPreference.current) return;
+    appliedMapLayerPreference.current = preferredLayer;
+    setMapLayer(preferredLayer);
+  }, [preferredLayer]);
   /** Bouton « Lieux » ou « Food trucks » : affiche ce contenu à la place du précédent, ou revient aux activités. */
   const toggleMapLayer = useCallback(
     (layer: MapLayer) => {

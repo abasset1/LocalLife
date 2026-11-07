@@ -5,6 +5,7 @@
 ### Carte à l'ouverture au choix : activités, lieux ou food trucks
 - **Profil → Paramètres de recherche** : « Carte à l'ouverture » choisit la carte affichée quand un utilisateur connecté arrive sur l'Explorer — Activités, Lieux, Food trucks, ou « Dernière utilisée » (comportement d'avant : dernière carte choisie dans le navigateur). Seules les cartes ouvertes au public sont proposées ; une carte enregistrée puis fermée laisse la carte sur les activités.
 - **Accueil de première connexion** : même choix, facultatif, quand les lieux ou les food trucks sont ouverts.
+- **Application** : même choix dans Compte → Paramètres de recherche (« Carte à l’ouverture ») et, facultatif, dans l’accueil de première connexion. La carte « Découvrir » s’ouvre sur la carte enregistrée, et la reprend quand le paramètre change ; changer de carte reste mémorisé sur l’appareil sans modifier le paramètre.
 - La carte choisie s'applique à chaque ouverture de l'Explorer connecté ; changer de carte ensuite reste possible et est toujours mémorisé dans le navigateur, sans modifier le paramètre.
 - **API** : `defaultMapLayer` (`activities` | `places` | `foodTrucks` | `null`) dans `GET`/`PUT /api/v1/users/me/preferences`. Au `PUT`, un champ absent ou `null` garde la carte enregistrée (l'application mobile, qui ne l'envoie pas, ne l'efface donc pas) ; `""` l'efface ; une autre valeur : **400**. Colonne `user_preferences.default_map_layer` (V87), incluse dans l'export RGPD.
 
