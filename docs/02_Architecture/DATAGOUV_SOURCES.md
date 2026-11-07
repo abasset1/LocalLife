@@ -126,6 +126,27 @@ d'Avignon/Marseille — le module `foodtruck` reste alimenté
 manuellement (cohérent avec `FOOD_TRUCK_CONTRACT.md` : « aucun import
 externe prévu »).
 
+### 3.1 Autres pistes explorées (07/11/2026)
+
+* **Arrêtés municipaux d'Avignon** : la Ville publie ses actes sur
+  `www.avignon.fr` (rubrique « Publication des actes administratifs »,
+  arrêtés « en cours hors voirie » et arrêtés de voirie). Les 3 401
+  documents de 2025-2026 listés sur la page ont été téléchargés et leur
+  texte extrait : **aucune autorisation de stationnement de food truck**.
+  On n'y trouve que le règlement des marchés (arrêté de septembre 2026,
+  qui mentionne le commerce ambulant et les « camions magasin » sans lister
+  de camions), les mesures du Festival (vente ambulante), des AOT sans
+  rapport (aire de stationnement de la Région, cafétéria du Stade
+  Nautique) et des conventions de buvettes. 133 documents sont des scans
+  sans texte (titres : voirie, délégations, délibérations), non lus. Les
+  autorisations individuelles sont notifiées, pas publiées ; la Ville
+  passe par des avis de publicité ponctuels (soirées guinguettes,
+  vendredis de Montfavet).
+* **Communes voisines via Pappers Politique** (`politique.pappers.fr`) :
+  403 (protection anti-robots) depuis l'environnement cloud.
+* **OpenStreetMap (Overpass)** : connexion coupée par `overpass-api.de`
+  depuis l'environnement cloud.
+
 ## 4. Collecteur DATAtourisme (implémenté)
 
 Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
