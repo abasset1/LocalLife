@@ -61,8 +61,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       'activités proches ; touchez un marqueur ou un groupe pour afficher son aperçu, puis sa fiche.',
     tips: [
       'Dans un groupe, « ‹ › » passe d’une activité à l’autre',
-      'Le bouton liste montre les activités de la zone',
-      '« Ma position » recentre la carte sur vous',
+      '« Liste » en bas montre les activités de la zone',
+      '« Autour de moi » recentre la carte sur vous',
     ],
     scene: {
       kind: 'map',
@@ -91,8 +91,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     id: 'filtres',
     title: 'Affinez avec les filtres',
     text:
-      'Les boutons au-dessus de la carte filtrent les activités : catégories, période (aujourd’hui, ce ' +
-      'week-end…), activités gratuites et rayon autour du centre de la carte.',
+      'Sous les onglets, les filtres affichent leur valeur : période (« Toutes dates », « Ce week-end »…), ' +
+      'catégories, rayon et « Gratuit ». Touchez-en un pour le modifier.',
     tips: ['Vos filtres se combinent', 'La période choisie vaut aussi pour la Liste'],
     scene: {
       kind: 'chips',
@@ -108,8 +108,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     available: (features) => features.places || features.foodTrucks,
     title: 'Activités, lieux et food trucks',
     text:
-      'Les boutons « Lieux » et « Food trucks » remplacent les activités sur la carte par les lieux à visiter ' +
-      '(musées, monuments, équipements…) ou par les food trucks. Touchez-les à nouveau pour revenir aux activités.',
+      'Les onglets sous la recherche choisissent ce que montre la carte : « Activités », « Lieux » à visiter ' +
+      '(musées, monuments, équipements…), « Food trucks » ou « Night ».',
     tips: ['L’aperçu d’un lieu liste ses activités à venir'],
     scene: {
       kind: 'map',

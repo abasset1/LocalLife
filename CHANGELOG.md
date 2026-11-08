@@ -2,6 +2,16 @@
 
 ## 0.9.59 — non publiée
 
+### Correctif (application) : la carte ne reste plus violette après la carte Night
+- En passant de « 🍸 Night » à Activités, Lieux ou Food trucks, l'application revenait en mode normal mais le fond de carte restait violet nuit sur Android : `react-native-maps` ignore un style de carte retiré et garde le dernier. La carte reçoit maintenant un style vide explicite hors Night. Sur iPhone, elle reprend le mode clair ou sombre du téléphone.
+
+### Application : carte plus lisible, des boutons écrits au lieu d'une rangée d'icônes
+- **Fini la rangée de 11 icônes** en bas de la carte (liste, catégories, lieux, food trucks, Night, période, gratuit, rayon, liste des lieux, position), dont deux icônes de liste presque identiques.
+- **Onglets nommés** sous la recherche, comme sur le site : « 📅 Activités », « 🏛 Lieux », « 🚚 Food trucks », « 🍸 Night » (lieux et food trucks quand ils sont ouverts). L'onglet affiché est rempli.
+- **Filtres qui affichent leur valeur** : « 🗓 Toutes dates » / « 🗓 Ce week-end », « 🏷 Catégories » / « 🏷 2 catégories », « 📍 Rayon » / « 📍 20 km », « Gratuit ». Un appui ouvre le même panneau qu'avant. La rangée défile si elle dépasse l'écran.
+- **En bas, deux boutons écrits** : « Liste (37) » (ou « Liste des lieux (5) ») et « ◎ Autour de moi ».
+- Le message « Filtré sur n catégories » disparaît : le filtre l'indique déjà. Le guide de l'application est mis à jour.
+
 ### Application : thème « Night » comme sur le site, logo du bouc compris
 - **Carte Night** (bouton 🍸 de la carte) : tant qu'elle est choisie, toute l'application passe en mode nuit, comme le site — fond violet nuit (`#0E061D`), cartes et panneaux `#180C30`, bandeaux `#120726`, boutons et choix actifs en magenta néon (`#FF3FD1`) avec texte violet nuit. Retour au thème habituel (clair ou sombre) dès qu'on choisit une autre carte.
 - **Logo** : le bouc néon à lunettes du site remplace l'épingle, avec « NEiRI » en clair (menu ☰, compte, accueil).
