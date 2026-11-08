@@ -40,7 +40,7 @@ import {
 } from './geo';
 import { MapChip, MapChipRow } from './MapChip';
 import { categoriesChipLabel, layerTabs, listButtonLabel, periodChipLabel, radiusChipLabel } from './mapControls';
-import { NIGHT_MAP_STYLE } from './nightMapStyle';
+import { mapStyleFor } from './nightMapStyle';
 import { ActivityMarker, ClusterMarker, FoodTruckMarker, HighlightedActivityMarker, PlaceMarker } from './markers';
 import { CuisineFilterBar } from '@/features/foodtruck/CuisineFilterBar';
 import { markerOf } from '@/features/foodtruck/cuisines';
@@ -419,8 +419,9 @@ export default function MapScreen() {
         rotateEnabled={false}
         pitchEnabled={false}
         mapType={USE_OSM_TILES ? 'none' : 'standard'}
-        // Thème « Night » : fond de carte violet nuit (Android, Google Maps) ou sombre (iOS, Apple Plans).
-        customMapStyle={showNight && !USE_OSM_TILES ? NIGHT_MAP_STYLE : undefined}
+        // Fond de carte violet nuit (Android, Google Maps) ou sombre (iOS, Apple Plans) pour la carte Night
+        // seulement : un style vide explicite le retire dès qu'on passe sur un autre onglet.
+        customMapStyle={USE_OSM_TILES ? undefined : mapStyleFor(showNight)}
         userInterfaceStyle={showNight ? 'dark' : undefined}>
         {USE_OSM_TILES && <UrlTile urlTemplate={OSM_TILE_URL} maximumZ={19} zIndex={-1} />}
         {radiusSearch && (

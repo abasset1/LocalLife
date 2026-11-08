@@ -2,6 +2,9 @@
 
 ## 0.9.59 — non publiée
 
+### Correctif (application) : la carte ne reste plus violette après la carte Night
+- En passant de « 🍸 Night » à Activités, Lieux ou Food trucks, l'application revenait en mode normal mais le fond de carte restait violet nuit sur Android : `react-native-maps` ignore un style de carte retiré et garde le dernier. La carte reçoit maintenant un style vide explicite hors Night. Sur iPhone, elle reprend le mode clair ou sombre du téléphone.
+
 ### Application : carte plus lisible, des boutons écrits au lieu d'une rangée d'icônes
 - **Fini la rangée de 11 icônes** en bas de la carte (liste, catégories, lieux, food trucks, Night, période, gratuit, rayon, liste des lieux, position), dont deux icônes de liste presque identiques.
 - **Onglets nommés** sous la recherche, comme sur le site : « 📅 Activités », « 🏛 Lieux », « 🚚 Food trucks », « 🍸 Night » (lieux et food trucks quand ils sont ouverts). L'onglet affiché est rempli.

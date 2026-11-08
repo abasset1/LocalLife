@@ -24,3 +24,12 @@ export const NIGHT_MAP_STYLE: MapStyleElement[] = [
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#120a3a' }] },
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#6f67d8' }] },
 ];
+
+/**
+ * Style à donner à la carte : le violet nuit pour la carte Night, sinon un style vide **explicite**. Sur Android,
+ * `react-native-maps` ignore un style absent (`undefined`) et garde le dernier appliqué : sans ce `[]`, la carte
+ * restait violette après être passé de Night à Activités, Lieux ou Food trucks.
+ */
+export function mapStyleFor(night: boolean): MapStyleElement[] {
+  return night ? NIGHT_MAP_STYLE : [];
+}
