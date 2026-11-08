@@ -1,13 +1,19 @@
+import { Image } from 'expo-image';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, type ViewStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing } from '@/constants/theme';
+import { NightNeon, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+export type ChipIcon = SymbolViewProps['name'];
+
 /**
- * Bouton de la carte avec son libellé écrit (« 📅 Activités », « 🗓 Ce week-end », « Liste (37) »), comme sur le site :
- * chaque commande dit ce qu'elle fait, au lieu d'une rangée d'icônes à deviner. `active` le remplit (onglet affiché,
- * filtre en cours, panneau ouvert).
+ * Bouton de la carte avec son libellé écrit (« Tous », « Ce week-end », « Voir la liste (37) ») et, au besoin, un
+ * pictogramme système. `active` le remplit (univers affiché, filtre en cours, panneau ouvert).
+ *
+ * `night` : raccourci de l'univers Night (issue #226). Il garde son logo officiel (le bouc néon) et son fond nuit
+ * dans tous les thèmes, pour rester reconnaissable ; choisi, il s'allume en magenta néon.
  */
 export function MapChip({
   label,
@@ -15,6 +21,9 @@ export function MapChip({
   active = false,
   loading = false,
   role = 'button',
+  icon,
+  night = false,
+  small = false,
   onPress,
   style,
 }: {
@@ -22,12 +31,23 @@ export function MapChip({
   accessibilityLabel?: string;
   active?: boolean;
   loading?: boolean;
-  /** `tab` pour les onglets de contenu (annoncés comme onglets). */
+  /** `tab` pour les raccourcis d'univers (annoncés comme onglets). */
   role?: 'button' | 'tab';
+  icon?: ChipIcon;
+  night?: boolean;
+  /** Filtres : bouton plus bas, sous les raccourcis. */
+  small?: boolean;
   onPress: () => void;
   style?: ViewStyle;
 }) {
   const theme = useTheme();
+  const colors = night
+    ? active
+      ? { background: NightNeon.magenta, border: NightNeon.magenta, text: NightNeon.ink }
+      : { background: NightNeon.ink, border: NightNeon.magenta, text: '#F3ECFF' }
+    : active
+      ? { background: theme.primary, border: theme.primary, text: theme.onPrimary }
+      : { background: theme.backgroundElement, border: theme.border, text: theme.text };
   return (
     <Pressable
       accessibilityRole={role}
@@ -38,15 +58,26 @@ export function MapChip({
       hitSlop={4}
       style={({ pressed }) => [
         styles.chip,
-        active
-          ? { backgroundColor: theme.primary, borderColor: theme.primary }
-          : { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+        small && styles.small,
+        night && styles.night,
+        { backgroundColor: colors.background, borderColor: colors.border },
         styles.shadow,
+        night && active && styles.nightGlow,
         pressed && styles.pressed,
         style,
       ]}>
-      {loading ? <ActivityIndicator size="small" color={active ? theme.onPrimary : theme.primary} /> : null}
-      <ThemedText type="smallBold" numberOfLines={1} style={{ color: active ? theme.onPrimary : theme.text }}>
+      {loading ? <ActivityIndicator size="small" color={colors.text} /> : null}
+      {night ? (
+        <Image
+          source={require('@/assets/images/neiri-night.webp')}
+          style={styles.nightLogo}
+          contentFit="contain"
+          accessibilityIgnoresInvertColors
+        />
+      ) : icon && !loading ? (
+        <SymbolView name={icon} tintColor={colors.text} size={small ? 14 : 16} />
+      ) : null}
+      <ThemedText type="smallBold" numberOfLines={1} style={{ color: colors.text }}>
         {label}
       </ThemedText>
     </Pressable>
@@ -95,6 +126,25 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+  },
+  small: {
+    minHeight: 34,
+    paddingHorizontal: Spacing.three - Spacing.one,
+  },
+  // Le bouc touche presque le bord gauche, comme le logo Night du site.
+  night: {
+    paddingLeft: Spacing.one,
+    borderWidth: 1,
+  },
+  nightLogo: {
+    width: 30,
+    height: 30,
+  },
+  nightGlow: {
+    shadowColor: NightNeon.magenta,
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
   },
   pressed: {
     opacity: 0.85,

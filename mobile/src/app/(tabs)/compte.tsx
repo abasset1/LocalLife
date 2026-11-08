@@ -241,7 +241,7 @@ export default function CompteScreen() {
     const initial = state.user.email.trim().charAt(0).toUpperCase() || '?';
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
           <ScrollView contentContainerStyle={styles.content}>
             <MenuButton />
             <ScreenHeader eyebrow="Mon espace" title="Compte" />
@@ -367,7 +367,7 @@ export default function CompteScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
             <MenuButton />

@@ -34,7 +34,8 @@ export function categoryLabels(codes: readonly string[], categories: readonly { 
 export const LAST_USED_MAP_LAYER = 'last';
 
 const MAP_LAYER_CHOICES = [
-  { value: 'activities', label: '📅 Activités' },
+  // « Tous » : activités, lieux et food trucks ensemble (issue #226) ; la valeur enregistrée reste `activities`.
+  { value: 'activities', label: 'Tous' },
   { value: 'places', label: '🏛 Lieux' },
   { value: 'foodTrucks', label: '🚚 Food trucks' },
   { value: 'night', label: '🍸 Night' },

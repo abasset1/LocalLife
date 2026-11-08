@@ -1,11 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Circle, UrlTile } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Supercluster from 'supercluster';
 
 import type { Activity } from '@/api';
+import { BrandMark } from '@/components/brand-mark';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { isExpoGoAndroid } from '@/config/expoGo';
@@ -15,6 +17,7 @@ import { CategoryPanel } from '@/features/explorer/CategoryPanel';
 import { CitySearch } from '@/features/explorer/CitySearch';
 import {
   applyPreferences,
+  clearCategories,
   setPlace,
   setRadius,
   useExplorer,
@@ -25,7 +28,6 @@ import { usePeriod } from '@/features/list/periodStore';
 import { MenuButton } from '@/features/navigation/AppMenu';
 import { FollowNewsBanner, FollowNewsPopup, PremiumOfferPopup } from '@/features/news';
 import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
-import { setNightMode } from '@/hooks/use-night-mode';
 import { useTheme } from '@/hooks/use-theme';
 
 import { activitiesAtSamePlace, clusterTapAction, sortByStartDate } from './activityGroups';
@@ -38,22 +40,46 @@ import {
   regionToFit,
   zoomForRegion,
 } from './geo';
-import { MapChip, MapChipRow } from './MapChip';
-import { categoriesChipLabel, layerTabs, listButtonLabel, periodChipLabel, radiusChipLabel } from './mapControls';
+import { MapChip, MapChipRow, type ChipIcon } from './MapChip';
+import { applyMapLayerPreference, chooseMapLayer, shownLayer as layerShown, useMapLayer } from './layerStore';
+import {
+  categoriesChipLabel,
+  hasActiveFilters,
+  layerContents,
+  layerTabs,
+  listButtonLabel,
+  periodChipLabel,
+  radiusChipLabel,
+} from './mapControls';
 import { mapStyleFor } from './nightMapStyle';
 import { ActivityMarker, ClusterMarker, FoodTruckMarker, HighlightedActivityMarker, PlaceMarker } from './markers';
 import { CuisineFilterBar } from '@/features/foodtruck/CuisineFilterBar';
 import { markerOf } from '@/features/foodtruck/cuisines';
-import { PlaceListPanel } from './PlaceListPanel';
 import { keepFreeActivities } from './priceFilter';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData, type RadiusSearch } from './useMapData';
-import { type MapLayer, loadMapLayer, preferredMapLayer, saveMapLayer } from './placesPreference';
+import { type MapLayer, preferredMapLayer } from './placesPreference';
 import { usePlaces } from './usePlaces';
 import { useLaunchFeatures } from '@/features/launch';
 import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
-import { ZoneActivityList } from './ZoneActivityList';
+
+/** Pictogrammes des raccourcis d'univers (Night garde son logo, voir `MapChip`). */
+const LAYER_ICONS: Record<Exclude<MapLayer, 'night'>, ChipIcon> = {
+  activities: { ios: 'square.grid.2x2', android: 'grid_view', web: 'grid_view' },
+  places: { ios: 'mappin.and.ellipse', android: 'location_on', web: 'location_on' },
+  foodTrucks: { ios: 'box.truck', android: 'local_shipping', web: 'local_shipping' },
+};
+
+const ICONS = {
+  period: { ios: 'calendar', android: 'calendar_today', web: 'calendar_today' },
+  categories: { ios: 'tag', android: 'sell', web: 'sell' },
+  radius: { ios: 'scope', android: 'radar', web: 'radar' },
+  list: { ios: 'list.bullet', android: 'view_list', web: 'view_list' },
+  locate: { ios: 'location', android: 'my_location', web: 'my_location' },
+  display: { ios: 'square.2.layers.3d', android: 'layers', web: 'layers' },
+  account: { ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' },
+} satisfies Record<string, ChipIcon>;
 
 /**
  * Vue de départ tant qu'aucun lieu n'est choisi : vue d'ensemble de la zone couverte par les sources
@@ -137,16 +163,15 @@ export default function MapScreen() {
   const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
   const [periodPanelOpen, setPeriodPanelOpen] = useState(false);
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
-  const [placeListOpen, setPlaceListOpen] = useState(false);
-  /** Liste des activités de la zone affichée, liée à la carte (comme la page Explorer du site web). */
-  const [zoneListOpen, setZoneListOpen] = useState(false);
+  /** Choix de l'affichage (bouton flottant) : plan ou satellite, ou la liste. */
+  const [displayPanelOpen, setDisplayPanelOpen] = useState(false);
+  const [satellite, setSatellite] = useState(false);
   /** Un seul panneau ouvert à la fois. */
   const closePanels = useCallback(() => {
     setRadiusPanelOpen(false);
     setPeriodPanelOpen(false);
     setCategoryPanelOpen(false);
-    setPlaceListOpen(false);
-    setZoneListOpen(false);
+    setDisplayPanelOpen(false);
   }, []);
   const [period, setPeriod] = usePeriod();
   const periodLabel = PERIOD_OPTIONS.find((option) => option.value === period)?.label ?? 'Tout';
@@ -169,8 +194,8 @@ export default function MapScreen() {
     pendingFocusId.current = focus.focusId ? Number(focus.focusId) : null;
     focusedOnActivity.current = true;
     closePanels();
-    // L'activité demandée doit apparaître, même hors de la période choisie.
-    setPeriod('all');
+    // L'activité demandée doit apparaître, même hors de la période choisie (un lieu, lui, n'a pas de date).
+    if (focus.focusId) setPeriod('all');
     moveTo(regionForZoom(latitude, longitude, FOCUS_ZOOM, regionRef.current));
     // Paramètres consommés : revenir sur l'onglet ne recentre pas une seconde fois.
     router.setParams({ focusId: undefined, focusLat: undefined, focusLon: undefined });
@@ -229,55 +254,35 @@ export default function MapScreen() {
     [place, region],
   );
 
-  // Un seul contenu à la fois : activités (par défaut), lieux (ADR-0011, phase B), food trucks (ADR-0013) ou
-  // « Night » (activités entre 20 h et 6 h : soirées, concerts, festivals…).
-  // Choix mémorisé sur l'appareil, sauf carte choisie dans les paramètres (utilisateur connecté) : celle-ci
-  // s'affiche à l'arrivée et chaque fois que le paramètre change, sans effacer le choix mémorisé.
-  const [mapLayer, setMapLayer] = useState<MapLayer>('activities');
-  const appliedMapLayerPreference = useRef<MapLayer | null>(null);
-  useEffect(() => {
-    let active = true;
-    loadMapLayer().then((layer) => {
-      if (active && appliedMapLayerPreference.current === null) setMapLayer(layer);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+  // Univers (issue #226) : « Tous » (activités, lieux et food trucks ensemble), « Lieux », « Food trucks » ou « Night »
+  // (activités entre 20 h et 6 h, thème nuit). Partagé avec la liste (`layerStore`) ; choix mémorisé sur l'appareil,
+  // sauf carte choisie dans les paramètres (utilisateur connecté), affichée à l'arrivée et à chacun de ses changements.
+  const mapLayer = useMapLayer();
   const preferredLayer = preferredMapLayer(preferences?.defaultMapLayer);
   useEffect(() => {
-    if (preferredLayer === null) {
-      appliedMapLayerPreference.current = null;
-      return;
-    }
-    if (preferredLayer === appliedMapLayerPreference.current) return;
-    appliedMapLayerPreference.current = preferredLayer;
-    setMapLayer(preferredLayer);
+    applyMapLayerPreference(preferredLayer);
   }, [preferredLayer]);
-  /** Onglet « Activités », « Lieux », « Food trucks » ou « Night » : affiche ce contenu à la place du précédent. */
+  /** Raccourci choisi : les marqueurs changent sur place, sans changer d'écran. */
   const selectMapLayer = useCallback(
     (layer: MapLayer) => {
       closePanels();
-      setSelection(null);
-      setMapLayer(layer);
-      saveMapLayer(layer);
+      chooseMapLayer(layer);
     },
     [closePanels],
   );
-  // Contenu mémorisé mais pas (ou plus) ouvert : retour aux activités, sans effacer le choix enregistré.
-  const shownLayer: MapLayer =
-    (mapLayer === 'places' && !features.places) || (mapLayer === 'foodTrucks' && !features.foodTrucks)
-      ? 'activities'
-      : mapLayer;
-  /** Carte « Night » : seules les activités de nuit sont chargées ; elles s'affichent comme les activités. */
-  const showNight = shownLayer === 'night';
-  // Carte Night : toute l'application passe en thème nuit (violet, néon, logo du bouc), comme sur le site.
-  useEffect(() => {
-    setNightMode(showNight);
-  }, [showNight]);
-  const showActivities = shownLayer === 'activities' || showNight;
-  const showPlaces = shownLayer === 'places';
-  const showFoodTrucks = shownLayer === 'foodTrucks';
+  // Univers mémorisé mais pas (ou plus) ouvert au lancement : retour à « Tous », sans effacer le choix enregistré.
+  const shownLayer: MapLayer = layerShown(mapLayer, features);
+  // Univers changé (ici ou depuis la liste) : l'aperçu d'un élément qui n'est plus affiché se ferme.
+  const [selectionLayer, setSelectionLayer] = useState<MapLayer>(shownLayer);
+  if (selectionLayer !== shownLayer) {
+    setSelectionLayer(shownLayer);
+    setSelection(null);
+  }
+  const contents = layerContents(shownLayer, features);
+  const showNight = contents.night;
+  const showActivities = contents.activities;
+  const showPlaces = contents.places;
+  const showFoodTrucks = contents.foodTrucks;
   const { activities: loadedActivities, foodTrucks, loading, error, tooWide, retry } = useMapData(
     region,
     categoryCodes,
@@ -367,14 +372,12 @@ export default function MapScreen() {
     [index, region, closePanels, select],
   );
 
-  /** Activités de la zone affichée, par date, pour la liste liée à la carte. */
-  const zoneActivities = useMemo(
-    () =>
-      bounds && showActivities
-        ? sortByStartDate(activities.filter((a) => pointInBounds(bounds, a.latitude, a.longitude)))
-        : [],
+  /** Activités de la zone affichée : avec les lieux et food trucks visibles, le nombre du bouton « Voir la liste ». */
+  const zoneActivityCount = useMemo(
+    () => (bounds && showActivities ? activities.filter((a) => pointInBounds(bounds, a.latitude, a.longitude)).length : 0),
     [activities, bounds, showActivities],
   );
+  const resultCount = zoneActivityCount + visiblePlaces.length + visibleFoodTrucks.length;
   const highlighted = selection?.kind === 'activity' && showActivities ? selection.activity : null;
 
   // « Ma position » : la position devient le lieu de recherche (carte et liste) ; la carte s'y cadre
@@ -390,7 +393,34 @@ export default function MapScreen() {
       ? location.status
       : null;
 
-  const isEmpty = showActivities && !loading && !error && !tooWide && clusters.length === 0;
+  // Rien à montrer dans la zone : message, avec de quoi changer les filtres s'il y en a.
+  const isEmpty =
+    showActivities &&
+    !loading &&
+    !error &&
+    !tooWide &&
+    clusters.length === 0 &&
+    visiblePlaces.length === 0 &&
+    visibleFoodTrucks.length === 0;
+  const filtersActive = hasActiveFilters({
+    period,
+    categoryCount: categoryCodes.length,
+    radiusKm: activeRadiusKm,
+    freeOnly,
+  });
+  const resetFilters = useCallback(() => {
+    closePanels();
+    setPeriod('all');
+    clearCategories();
+    setRadius(null);
+    setFreeOnly(false);
+  }, [closePanels, setPeriod]);
+  /** Liste dans le même univers, avec la même ville et les mêmes filtres (état partagé, rien à transmettre). */
+  const openList = useCallback(() => {
+    closePanels();
+    router.navigate('/liste');
+  }, [closePanels, router]);
+  const satelliteShown = satellite && !showNight && !USE_OSM_TILES;
 
   return (
     <View style={styles.container}>
@@ -418,10 +448,10 @@ export default function MapScreen() {
         moveOnMarkerPress={false}
         rotateEnabled={false}
         pitchEnabled={false}
-        mapType={USE_OSM_TILES ? 'none' : 'standard'}
+        mapType={USE_OSM_TILES ? 'none' : satelliteShown ? 'hybrid' : 'standard'}
         // Fond de carte violet nuit (Android, Google Maps) ou sombre (iOS, Apple Plans) pour la carte Night
         // seulement : un style vide explicite le retire dès qu'on passe sur un autre onglet.
-        customMapStyle={USE_OSM_TILES ? undefined : mapStyleFor(showNight)}
+        customMapStyle={USE_OSM_TILES || satelliteShown ? undefined : mapStyleFor(showNight)}
         userInterfaceStyle={showNight ? 'dark' : undefined}>
         {USE_OSM_TILES && <UrlTile urlTemplate={OSM_TILE_URL} maximumZ={19} zIndex={-1} />}
         {radiusSearch && (
@@ -515,32 +545,54 @@ export default function MapScreen() {
         </View>
       )}
 
-      {/* Plus de barre d'onglets (menu rétractable) : le bas (barre de gestes) est aussi réservé. */}
-      <SafeAreaView style={styles.overlay} edges={['top', 'bottom', 'left', 'right']} pointerEvents="box-none">
+      {/* La barre d'onglets du bas réserve déjà la barre de gestes : seuls le haut et les côtés sont protégés ici. */}
+      <SafeAreaView style={styles.overlay} edges={['top', 'left', 'right']} pointerEvents="box-none">
         <View style={styles.top} pointerEvents="box-none">
-          <View style={styles.searchRow} pointerEvents="box-none">
+          {/* En-tête : menu, logo (le bouc néon en Night), compte. */}
+          <View style={styles.headerRow} pointerEvents="box-none">
             <MenuButton floating />
-            <View style={styles.search}>
-              <CitySearch floating />
+            <View style={styles.brand} pointerEvents="none">
+              <View style={[styles.brandPill, { backgroundColor: theme.backgroundElement }]}>
+                <BrandMark />
+              </View>
             </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Mon compte"
+              hitSlop={4}
+              onPress={() => router.navigate('/compte')}
+              style={({ pressed }) => [
+                styles.roundButton,
+                { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+                pressed && styles.pressed,
+              ]}>
+              <SymbolView name={ICONS.account} tintColor={theme.primary} size={24} />
+            </Pressable>
           </View>
-          {/* Ce que montre la carte : un onglet par contenu, nommé comme sur le site. */}
-          <MapChipRow tabs accessibilityLabel="Contenu de la carte">
+          <View style={styles.search}>
+            <CitySearch floating />
+          </View>
+          {/* Raccourcis d'univers : Tous, Lieux, Food trucks, Night. */}
+          <MapChipRow tabs accessibilityLabel="Univers de la carte">
             {layerTabs(features).map((tab) => (
               <MapChip
                 key={tab.value}
                 role="tab"
                 label={tab.label}
                 accessibilityLabel={tab.description}
+                icon={tab.value === 'night' ? undefined : LAYER_ICONS[tab.value]}
+                night={tab.value === 'night'}
                 active={shownLayer === tab.value}
                 onPress={() => selectMapLayer(tab.value)}
               />
             ))}
           </MapChipRow>
-          {/* Filtres des activités : chacun affiche sa valeur et ouvre son panneau en bas de l'écran. */}
+          {/* Filtres des activités (Tous, Night) : chacun affiche sa valeur et ouvre son panneau en bas de l'écran. */}
           {showActivities && (
             <MapChipRow accessibilityLabel="Filtres des activités">
               <MapChip
+                small
+                icon={ICONS.period}
                 label={periodChipLabel(period)}
                 accessibilityLabel={`Période : ${periodLabel}, modifier`}
                 active={period !== 'all' || periodPanelOpen}
@@ -551,6 +603,8 @@ export default function MapScreen() {
                 }}
               />
               <MapChip
+                small
+                icon={ICONS.categories}
                 label={categoriesChipLabel(categoryCodes.length)}
                 accessibilityLabel={
                   categoryCodes.length === 0
@@ -565,6 +619,8 @@ export default function MapScreen() {
                 }}
               />
               <MapChip
+                small
+                icon={ICONS.radius}
                 label={radiusChipLabel(activeRadiusKm)}
                 accessibilityLabel={
                   activeRadiusKm === null ? 'Choisir un rayon' : `Rayon de ${activeRadiusKm} km, modifier`
@@ -577,6 +633,7 @@ export default function MapScreen() {
                 }}
               />
               <MapChip
+                small
                 label="Gratuit"
                 accessibilityLabel={
                   freeOnly ? 'Activités gratuites seulement, tout afficher' : 'Afficher seulement les activités gratuites'
@@ -587,9 +644,12 @@ export default function MapScreen() {
                   setFreeOnly(!freeOnly);
                 }}
               />
+              {filtersActive && (
+                <MapChip small label="Réinitialiser" accessibilityLabel="Retirer tous les filtres" onPress={resetFilters} />
+              )}
             </MapChipRow>
           )}
-          {showFoodTrucks && (
+          {shownLayer === 'foodTrucks' && (
             <CuisineFilterBar
               floating
               foodTrucks={foodTrucks}
@@ -611,7 +671,7 @@ export default function MapScreen() {
             <View
               accessibilityLiveRegion="polite"
               style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="small">Vue d’ensemble : cherchez une ville ou touchez « Ma position ».</ThemedText>
+              <ThemedText type="small">Vue d’ensemble : cherchez une ville ou touchez ◎ pour votre position.</ThemedText>
             </View>
           )}
           {loading && (
@@ -658,7 +718,7 @@ export default function MapScreen() {
           {isEmpty && (
             <View
               accessibilityLiveRegion="polite"
-              style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
+              style={[styles.banner, { backgroundColor: theme.backgroundElement }]}>
               <ThemedText type="smallBold">
                 {freeOnly
                   ? 'Aucune activité gratuite dans cette zone.'
@@ -666,41 +726,104 @@ export default function MapScreen() {
                     ? 'Aucune activité dans cette zone.'
                     : `Aucune activité ici pour « ${periodLabel} ».`}
               </ThemedText>
+              {filtersActive && (
+                <View style={styles.actions}>
+                  <Button
+                    label="Modifier les filtres"
+                    onPress={() => {
+                      closePanels();
+                      if (period !== 'all') setPeriodPanelOpen(true);
+                      else if (categoryCodes.length > 0) setCategoryPanelOpen(true);
+                      else if (activeRadiusKm !== null) setRadiusPanelOpen(true);
+                      else setFreeOnly(false);
+                    }}
+                  />
+                  <Button label="Réinitialiser" variant="secondary" onPress={resetFilters} />
+                </View>
+              )}
             </View>
           )}
         </View>
 
         <View style={styles.bottom} pointerEvents="box-none">
-          {!selection && zoneListOpen && showActivities && (
-            <ZoneActivityList
-              activities={zoneActivities}
-              onClose={() => setZoneListOpen(false)}
-              onSelect={(activity) => {
-                setZoneListOpen(false);
-                select({ kind: 'activity', activity });
-              }}
-              onOpenFullList={() => {
+          {/* Contrôles flottants, au-dessus de l'aperçu : se recentrer, changer l'affichage. */}
+          <View style={styles.fabs} pointerEvents="box-none">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Me recentrer sur ma position"
+              accessibilityState={{ busy: location.status === 'locating' }}
+              disabled={location.status === 'locating'}
+              hitSlop={4}
+              onPress={centerOnUser}
+              style={({ pressed }) => [
+                styles.roundButton,
+                { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+                Shadows.floating,
+                pressed && styles.pressed,
+              ]}>
+              {location.status === 'locating' ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <SymbolView name={ICONS.locate} tintColor={theme.primary} size={22} />
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Changer l’affichage"
+              accessibilityState={{ expanded: displayPanelOpen }}
+              hitSlop={4}
+              onPress={() => {
+                const open = displayPanelOpen;
                 closePanels();
-                router.navigate('/liste');
+                setDisplayPanelOpen(!open);
               }}
-            />
-          )}
-          {!selection && placeListOpen && showPlaces && visiblePlaces.length > 0 && (
-            <PlaceListPanel
-              places={visiblePlaces}
-              onSelect={(place) => {
-                setPlaceListOpen(false);
-                setSelection({ kind: 'place', place });
-              }}
-            />
+              style={({ pressed }) => [
+                styles.roundButton,
+                displayPanelOpen
+                  ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                  : { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+                Shadows.floating,
+                pressed && styles.pressed,
+              ]}>
+              <SymbolView name={ICONS.display} tintColor={displayPanelOpen ? theme.onPrimary : theme.primary} size={22} />
+            </Pressable>
+          </View>
+          {displayPanelOpen && (
+            <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
+              <ThemedText type="smallBold">Affichage</ThemedText>
+              <View style={styles.actions}>
+                <MapChip
+                  small
+                  label="Plan"
+                  active={!satelliteShown}
+                  onPress={() => {
+                    setSatellite(false);
+                    setDisplayPanelOpen(false);
+                  }}
+                />
+                {/* Satellite : pas avec les tuiles de développement, ni en Night (le fond nuit fait partie du thème). */}
+                {!USE_OSM_TILES && !showNight && (
+                  <MapChip
+                    small
+                    label="Satellite"
+                    active={satelliteShown}
+                    onPress={() => {
+                      setSatellite(true);
+                      setDisplayPanelOpen(false);
+                    }}
+                  />
+                )}
+                <MapChip small icon={ICONS.list} label="Liste" onPress={openList} />
+              </View>
+            </View>
           )}
           {!selection && categoryPanelOpen && (
-            <View style={[styles.radiusPanel, { backgroundColor: theme.backgroundElement }]}>
+            <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
               <CategoryPanel />
             </View>
           )}
           {!selection && radiusPanelOpen && (
-            <View style={[styles.radiusPanel, { backgroundColor: theme.backgroundElement }]}>
+            <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
               <ChipGroup
                 label="Afficher les activités dans un rayon de"
                 single
@@ -714,7 +837,7 @@ export default function MapScreen() {
             </View>
           )}
           {!selection && periodPanelOpen && (
-            <View style={[styles.radiusPanel, { backgroundColor: theme.backgroundElement }]}>
+            <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
               <ChipGroup
                 label="Afficher les activités"
                 single
@@ -727,47 +850,22 @@ export default function MapScreen() {
               />
             </View>
           )}
-          {!selection && (
-            // Deux boutons nommés : la liste de ce que montre la carte, et la recherche autour de soi.
-            <View style={styles.bottomActions} pointerEvents="box-none">
-              {showActivities && (
-                <MapChip
-                  label={listButtonLabel(shownLayer, zoneActivities.length)}
-                  accessibilityLabel={
-                    zoneListOpen ? 'Fermer la liste' : `Voir la liste des activités de cette zone (${zoneActivities.length})`
-                  }
-                  active={zoneListOpen}
-                  onPress={() => {
-                    const open = zoneListOpen;
-                    closePanels();
-                    setZoneListOpen(!open);
-                  }}
-                />
-              )}
-              {showPlaces && visiblePlaces.length > 0 && (
-                <MapChip
-                  label={listButtonLabel('places', visiblePlaces.length)}
-                  accessibilityLabel={placeListOpen ? 'Fermer la liste' : `Liste des lieux (${visiblePlaces.length})`}
-                  active={placeListOpen}
-                  onPress={() => {
-                    const open = placeListOpen;
-                    closePanels();
-                    setPlaceListOpen(!open);
-                  }}
-                />
-              )}
-              <View style={styles.spacer} />
-              <MapChip
-                label="◎ Autour de moi"
-                accessibilityLabel="Rechercher autour de ma position"
-                loading={location.status === 'locating'}
-                onPress={centerOnUser}
-              />
-            </View>
-          )}
           {selection && (
-            <PreviewCard selection={selection} onClose={() => setSelection(null)} onChange={setSelection} />
+            <PreviewCard
+              selection={selection}
+              origin={place?.source === 'position' ? place : null}
+              onClose={() => setSelection(null)}
+              onChange={setSelection}
+            />
           )}
+          {/* La liste complète, dans le même univers, avec la même recherche et les mêmes filtres. */}
+          <MapChip
+            icon={ICONS.list}
+            label={listButtonLabel(resultCount)}
+            accessibilityLabel={`Voir la liste des résultats (${resultCount})`}
+            onPress={openList}
+            style={styles.listButton}
+          />
         </View>
       </SafeAreaView>
     </View>
@@ -798,29 +896,52 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     margin: Spacing.three,
   },
-  searchRow: {
+  headerRow: {
     alignSelf: 'stretch',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.two,
-  },
-  search: {
-    flex: 1,
-  },
-  bottom: {
-    justifyContent: 'flex-end',
-    margin: Spacing.three,
-  },
-  bottomActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
   },
-  spacer: {
+  brand: {
     flex: 1,
+    alignItems: 'flex-start',
   },
-  radiusPanel: {
-    marginBottom: Spacing.three,
+  // Pastille derrière le logo : il reste lisible sur n'importe quel fond de carte.
+  brandPill: {
+    paddingHorizontal: Spacing.three - Spacing.one,
+    paddingVertical: Spacing.one,
+    borderRadius: Radius.pill,
+    ...Shadows.card,
+  },
+  roundButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  pressed: {
+    opacity: 0.85,
+  },
+  search: {
+    alignSelf: 'stretch',
+  },
+  bottom: {
+    justifyContent: 'flex-end',
+    gap: Spacing.two,
+    margin: Spacing.three,
+    marginBottom: Spacing.two,
+  },
+  fabs: {
+    alignSelf: 'flex-end',
+    gap: Spacing.two,
+  },
+  listButton: {
+    alignSelf: 'center',
+  },
+  panel: {
+    gap: Spacing.two,
     padding: Spacing.three,
     borderRadius: Radius.xl,
     ...Shadows.floating,

@@ -61,8 +61,9 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       'activités proches ; touchez un marqueur ou un groupe pour afficher son aperçu, puis sa fiche.',
     tips: [
       'Dans un groupe, « ‹ › » passe d’une activité à l’autre',
-      '« Liste » en bas montre les activités de la zone',
-      '« Autour de moi » recentre la carte sur vous',
+      'Tirez l’aperçu vers le haut pour plus de détails, vers le bas pour le fermer',
+      '« Voir la liste » montre les mêmes résultats, triés',
+      'Le bouton ◎ à droite recentre la carte sur vous',
     ],
     scene: {
       kind: 'map',
@@ -76,7 +77,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     text:
       'Tapez le nom d’une ville ou un code postal en haut de la carte : elle se recentre dessus. La vue Liste ' +
       'présente les mêmes activités, triées.',
-    tips: ['Le menu ☰ donne accès à la Liste et à toutes les rubriques'],
+    tips: ['La barre du bas passe de la Carte à la Liste ; le menu ☰ donne accès à toutes les rubriques'],
     scene: {
       kind: 'search',
       query: 'Aix-en-Provence',
@@ -91,8 +92,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     id: 'filtres',
     title: 'Affinez avec les filtres',
     text:
-      'Sous les onglets, les filtres affichent leur valeur : période (« Toutes dates », « Ce week-end »…), ' +
-      'catégories, rayon et « Gratuit ». Touchez-en un pour le modifier.',
+      'Sous les raccourcis, les filtres affichent leur valeur : période (« Toutes dates », « Ce week-end »…), ' +
+      'catégories, rayon et « Gratuit ». Touchez-en un pour le modifier, « Réinitialiser » pour tout retirer.',
     tips: ['Vos filtres se combinent', 'La période choisie vaut aussi pour la Liste'],
     scene: {
       kind: 'chips',
@@ -106,15 +107,15 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   {
     id: 'couches',
     available: (features) => features.places || features.foodTrucks,
-    title: 'Activités, lieux et food trucks',
+    title: 'Tous, Lieux, Food trucks et Night',
     text:
-      'Les onglets sous la recherche choisissent ce que montre la carte : « Activités », « Lieux » à visiter ' +
-      '(musées, monuments, équipements…), « Food trucks » ou « Night ».',
+      'Les raccourcis sous la recherche choisissent ce que montre la carte : « Tous » (activités, lieux et ' +
+      'food trucks ensemble), « Lieux » à visiter (musées, monuments, équipements…), « Food trucks » ou « Night ».',
     tips: ['L’aperçu d’un lieu liste ses activités à venir'],
     scene: {
       kind: 'map',
       layers: [
-        { label: '📅 Activités', pins: ['📅', '📅', '📅'] },
+        { label: 'Tous', pins: ['📅', '🏛', '🚚'] },
         { label: '🏛 Lieux', pins: ['🏛', '🏰', '🏟'] },
         { label: '🚚 Food trucks', pins: ['🚚', '🚚'] },
       ],

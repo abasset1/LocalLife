@@ -2,6 +2,16 @@
 
 ## 0.9.59 — non publiée
 
+### Application : nouvel écran Carte (issue #226)
+- **Raccourcis Tous, Lieux, Food trucks, Night** sous la recherche, avec pictogrammes. « Tous » montre activités, lieux et food trucks ensemble. Night garde son logo du bouc et son thème nuit, et reste reconnaissable même en mode clair.
+- **En-tête** : menu ☰, logo Neiri, bouton compte ; recherche de ville en pleine largeur.
+- **Boutons flottants** : se recentrer sur sa position, et Affichage (Plan, Satellite, Liste).
+- **Aperçu à trois positions** : réduit (vignette, date, lieu et distance, favori, Itinéraire, Ajouter à mon agenda), développé en tirant la poignée (description, Partager, fiche complète), fermé en la tirant vers le bas.
+- **« Voir la liste (n) »** ouvre la Liste dans le même univers, avec la même ville et les mêmes filtres. La Liste propose les mêmes univers (lieux et Night compris) et les partage avec la carte.
+- **Barre d'onglets du bas** rétablie : Carte, Liste, Contribuer, Compte. Le menu ☰ reste en haut.
+- « Réinitialiser » retire tous les filtres ; un résultat vide propose de modifier les filtres.
+- Couleurs Neiri inchangées. Aucune dépendance native ajoutée. Compte rendu : `docs/front-rev-03-compte-rendu.md`.
+
 ### Correctif (application) : la carte ne reste plus violette après la carte Night
 - En passant de « 🍸 Night » à Activités, Lieux ou Food trucks, l'application revenait en mode normal mais le fond de carte restait violet nuit sur Android : `react-native-maps` ignore un style de carte retiré et garde le dernier. La carte reçoit maintenant un style vide explicite hors Night. Sur iPhone, elle reprend le mode clair ou sombre du téléphone.
 
