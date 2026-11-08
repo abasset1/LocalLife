@@ -44,6 +44,12 @@ export const Colors = {
     accent: Brand.pink,
     accentSoft: '#FDE6EE',
     sand: Brand.lavenderSoft,
+    /** Bandeaux bleu nuit comme sur le site (barre du haut des écrans, menu ☰), texte blanc. */
+    chrome: Brand.navy,
+    onChrome: '#FFFFFF',
+    onChromeMuted: '#A9C1B8',
+    chromeSelected: 'rgba(255, 255, 255, 0.14)',
+    chromePressed: 'rgba(255, 255, 255, 0.1)',
   },
   dark: {
     text: '#F1F0FA',
@@ -64,6 +70,12 @@ export const Colors = {
     accent: '#F25A86',
     accentSoft: '#40192A',
     sand: '#1D2048',
+    /** Bandeaux du mode nuit du site (`--ll-green` en thème sombre). */
+    chrome: '#120726',
+    onChrome: '#F3ECFF',
+    onChromeMuted: '#AB9FD0',
+    chromeSelected: 'rgba(255, 255, 255, 0.14)',
+    chromePressed: 'rgba(255, 255, 255, 0.1)',
   },
 } as const;
 

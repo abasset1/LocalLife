@@ -1,4 +1,4 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
@@ -33,6 +33,16 @@ function navigationTheme(dark: boolean) {
 }
 
 /**
+ * Couleur des icônes de la barre d'état : claires sous le bandeau bleu nuit des écrans empilés ; sur la carte,
+ * les onglets et l'accueil (sans bandeau), selon le thème.
+ */
+function statusBarStyle(dark: boolean, firstSegment: string | undefined): 'light' | 'dark' {
+  if (dark) return 'light';
+  const withoutHeader = !firstSegment || firstSegment === '(tabs)' || firstSegment === 'bienvenue';
+  return withoutHeader ? 'dark' : 'light';
+}
+
+/**
  * Layout racine (LL-MOB-0002) : le groupe `(tabs)` porte les écrans
  * principaux (Carte / Liste / Contribuer / Compte, atteints par le menu
  * rétractable depuis FRONT-REV-02), et le détail d'une activité
@@ -44,11 +54,13 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const dark = colorScheme === 'dark';
   const colors = Colors[dark ? 'dark' : 'light'];
+  const segments = useSegments();
   // Toucher une notification d'alerte ouvre la fiche de l'activité (ou la carte).
   useNotificationRouting();
   return (
     <ThemeProvider value={navigationTheme(dark)}>
-      <StatusBar style={dark ? 'light' : 'dark'} />
+      {/* Icônes claires sous le bandeau bleu nuit des écrans empilés ; selon le thème sur la carte et l'accueil. */}
+      <StatusBar style={statusBarStyle(dark, segments[0])} />
       <AnimatedSplashOverlay />
       <AuthProvider>
         {/* Fonctions ouvertes au lancement (lieux, food trucks, Premium, Pro), relues sur le serveur. */}
@@ -57,9 +69,10 @@ export default function RootLayout() {
           <FollowsProvider>
           <Stack
             screenOptions={{
-              headerStyle: { backgroundColor: colors.background },
-              headerTintColor: colors.primary,
-              headerTitleStyle: { color: colors.text, fontWeight: '700' },
+              // Bandeau bleu nuit et texte blanc, comme les bandeaux du site.
+              headerStyle: { backgroundColor: colors.chrome },
+              headerTintColor: colors.onChrome,
+              headerTitleStyle: { color: colors.onChrome, fontWeight: '700' },
               headerShadowVisible: false,
               headerBackButtonDisplayMode: 'minimal',
               contentStyle: { backgroundColor: colors.background },
