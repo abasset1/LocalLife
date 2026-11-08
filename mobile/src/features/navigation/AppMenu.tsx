@@ -1,6 +1,7 @@
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -85,16 +86,18 @@ export function MenuButton({ floating = false }: { /** Posé sur la carte : past
         <View style={styles.overlay}>
           <SafeAreaView
             edges={['top', 'bottom', 'left']}
-            style={[styles.panel, { backgroundColor: theme.background }]}
+            style={[styles.panel, { backgroundColor: theme.chrome }]}
             accessibilityViewIsModal>
+            {/* Panneau bleu nuit, comme le menu du site : icônes de la barre d'état claires tant qu'il est ouvert. */}
+            <StatusBar style="light" />
             <View style={styles.header}>
-              <BrandMark />
+              <BrandMark inverted />
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Fermer le menu"
                 onPress={() => setOpen(false)}
                 style={styles.close}>
-                <ThemedText type="heading" themeColor="textSecondary">
+                <ThemedText type="heading" style={{ color: theme.onChrome }}>
                   ✕
                 </ThemedText>
               </Pressable>
@@ -102,7 +105,9 @@ export function MenuButton({ floating = false }: { /** Posé sur la carte : past
             <ScrollView contentContainerStyle={styles.sections}>
               {visibleSections({ authenticated, proAccess, ownsFoodTrucks, features }).map((section) => (
                 <View key={section.title} style={styles.section}>
-                  <ThemedText type="eyebrow">{section.title}</ThemedText>
+                  <ThemedText type="eyebrow" style={{ color: theme.onChromeMuted }}>
+                    {section.title}
+                  </ThemedText>
                   {section.entries.map((entry) => {
                     const current = isCurrentEntry(entry, pathname);
                     return (
@@ -114,11 +119,11 @@ export function MenuButton({ floating = false }: { /** Posé sur la carte : past
                         onPress={() => go(entry)}
                         style={({ pressed }) => [
                           styles.entry,
-                          current && { backgroundColor: theme.primarySoft },
-                          pressed && { backgroundColor: theme.backgroundSelected },
+                          current && { backgroundColor: theme.chromeSelected },
+                          pressed && { backgroundColor: theme.chromePressed },
                         ]}>
-                        <SymbolView name={ICONS[entry.icon]} tintColor={theme.primary} size={22} />
-                        <ThemedText type="smallBold" style={current ? { color: theme.primary } : undefined}>
+                        <SymbolView name={ICONS[entry.icon]} tintColor={theme.onChrome} size={22} />
+                        <ThemedText type="smallBold" style={{ color: theme.onChrome }}>
                           {entry.label}
                         </ThemedText>
                       </Pressable>

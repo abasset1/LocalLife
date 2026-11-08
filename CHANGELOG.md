@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Application : bandeaux bleu nuit comme sur le site
+- **Barre du haut des écrans** (Paramètres de recherche, Mes alertes, Mon abonnement, fiche d'une activité…) : fond bleu nuit (`#1C2150`), titre et flèche retour en blanc, comme les bandeaux du site. En mode sombre, la couleur de nuit du site (`#120726`).
+- **Menu ☰** : panneau bleu nuit, logo et rubriques en blanc, titres de section et rubrique active comme dans le menu du site.
+- Les icônes de la barre d'état passent en clair sous ces bandeaux ; sur la carte et l'accueil, elles suivent le thème.
+
 ### Correctif : un lien trop long faisait perdre tout l'enrichissement d'une activité importée
 - **Constat en production** (import DATAtourisme PACA du 07/11/2026) : « Salon de l'Etudiant à Aix-en-Provence » — `value too long for type character varying(1024)` sur `activity_link`. L'insertion échouait et l'activité perdait **tout** son enrichissement (lieu, dates, liens, médias, accessibilité, tags), pas seulement ce lien.
 - **Correctif** (`ActivityLinkService`) : un lien de plus de 1 024 caractères est refusé comme un lien invalide, que l'import ignore déjà un par un ; un libellé de plus de 255 caractères est raccourci (« … ») au lieu de perdre le lien. Une contribution avec un lien trop long reçoit un message clair au lieu d'une erreur serveur.
