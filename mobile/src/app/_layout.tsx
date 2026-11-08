@@ -1,11 +1,11 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'react-native';
 
 import { AuthProvider } from '@/auth';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { Colors } from '@/constants/theme';
+import { useThemeName, type ThemeName } from '@/hooks/use-theme';
 import { FavoritesProvider } from '@/features/favorites';
 import { FollowsProvider } from '@/features/follow';
 import { LaunchFeaturesProvider } from '@/features/launch';
@@ -14,10 +14,10 @@ import { useNotificationRouting } from '@/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
-/** Thèmes de navigation aux couleurs de Neiri (fond clair, bleu nuit, rose). */
-function navigationTheme(dark: boolean) {
-  const base = dark ? DarkTheme : DefaultTheme;
-  const colors = Colors[dark ? 'dark' : 'light'];
+/** Thèmes de navigation aux couleurs de Neiri (fond clair, bleu nuit, rose ; violet et néon pour « Night »). */
+function navigationTheme(themeName: ThemeName) {
+  const base = themeName === 'light' ? DefaultTheme : DarkTheme;
+  const colors = Colors[themeName];
   return {
     ...base,
     colors: {
@@ -51,14 +51,15 @@ function statusBarStyle(dark: boolean, firstSegment: string | undefined): 'light
  * manuel requis).
  */
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const dark = colorScheme === 'dark';
-  const colors = Colors[dark ? 'dark' : 'light'];
+  // Clair ou sombre selon le système, « Night » tant que la carte Night est choisie (comme le site).
+  const themeName = useThemeName();
+  const dark = themeName !== 'light';
+  const colors = Colors[themeName];
   const segments = useSegments();
   // Toucher une notification d'alerte ouvre la fiche de l'activité (ou la carte).
   useNotificationRouting();
   return (
-    <ThemeProvider value={navigationTheme(dark)}>
+    <ThemeProvider value={navigationTheme(themeName)}>
       {/* Icônes claires sous le bandeau bleu nuit des écrans empilés ; selon le thème sur la carte et l'accueil. */}
       <StatusBar style={statusBarStyle(dark, segments[0])} />
       <AnimatedSplashOverlay />
