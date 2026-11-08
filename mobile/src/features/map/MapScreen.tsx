@@ -26,6 +26,7 @@ import { usePeriod } from '@/features/list/periodStore';
 import { MenuButton } from '@/features/navigation/AppMenu';
 import { FollowNewsBanner, FollowNewsPopup, PremiumOfferPopup } from '@/features/news';
 import { ChipGroup, RADIUS_OPTIONS_KM } from '@/features/settings';
+import { setNightMode } from '@/hooks/use-night-mode';
 import { useTheme } from '@/hooks/use-theme';
 
 import { activitiesAtSamePlace, clusterTapAction, sortByStartDate } from './activityGroups';
@@ -39,6 +40,7 @@ import {
   zoomForRegion,
 } from './geo';
 import { MapControl } from './MapControl';
+import { NIGHT_MAP_STYLE } from './nightMapStyle';
 import { ActivityMarker, ClusterMarker, FoodTruckMarker, HighlightedActivityMarker, PlaceMarker } from './markers';
 import { CuisineFilterBar } from '@/features/foodtruck/CuisineFilterBar';
 import { markerOf } from '@/features/foodtruck/cuisines';
@@ -269,6 +271,10 @@ export default function MapScreen() {
       : mapLayer;
   /** Carte « Night » : seules les activités de nuit sont chargées ; elles s'affichent comme les activités. */
   const showNight = shownLayer === 'night';
+  // Carte Night : toute l'application passe en thème nuit (violet, néon, logo du bouc), comme sur le site.
+  useEffect(() => {
+    setNightMode(showNight);
+  }, [showNight]);
   const showActivities = shownLayer === 'activities' || showNight;
   const showPlaces = shownLayer === 'places';
   const showFoodTrucks = shownLayer === 'foodTrucks';
@@ -412,7 +418,10 @@ export default function MapScreen() {
         moveOnMarkerPress={false}
         rotateEnabled={false}
         pitchEnabled={false}
-        mapType={USE_OSM_TILES ? 'none' : 'standard'}>
+        mapType={USE_OSM_TILES ? 'none' : 'standard'}
+        // Thème « Night » : fond de carte violet nuit (Android, Google Maps) ou sombre (iOS, Apple Plans).
+        customMapStyle={showNight && !USE_OSM_TILES ? NIGHT_MAP_STYLE : undefined}
+        userInterfaceStyle={showNight ? 'dark' : undefined}>
         {USE_OSM_TILES && <UrlTile urlTemplate={OSM_TILE_URL} maximumZ={19} zIndex={-1} />}
         {radiusSearch && (
           // Rayon favori, matérialisé comme sur le site web.
@@ -434,9 +443,11 @@ export default function MapScreen() {
             const count = feature.properties.point_count;
             return (
               <ClusterMarker
-                key={`c-${clusterId}-${count}`}
+                // `night` dans la clé : sur Android, un marqueur n'est redessiné qu'à sa création.
+                key={`c-${clusterId}-${count}-${showNight}`}
                 coordinate={coordinate}
                 count={count}
+                night={showNight}
                 onPress={() => {
                   markerPressedAt.current = Date.now();
                   openCluster(clusterId);
@@ -448,9 +459,10 @@ export default function MapScreen() {
           const { activity } = feature.properties as { activity: Activity };
           return (
             <ActivityMarker
-              key={`a-${activity.id}`}
+              key={`a-${activity.id}-${showNight}`}
               coordinate={coordinate}
               title={activity.title}
+              night={showNight}
               approximate={isApproximateLocation(activity)}
               onPress={() => {
                 closePanels();
@@ -462,9 +474,10 @@ export default function MapScreen() {
         })}
         {highlighted && (
           <HighlightedActivityMarker
-            key={`h-${highlighted.id}`}
+            key={`h-${highlighted.id}-${showNight}`}
             coordinate={{ latitude: highlighted.latitude, longitude: highlighted.longitude }}
             title={highlighted.title}
+            night={showNight}
             onPress={() => {
               markerPressedAt.current = Date.now();
             }}

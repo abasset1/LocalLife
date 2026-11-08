@@ -77,9 +77,46 @@ export const Colors = {
     chromeSelected: 'rgba(255, 255, 255, 0.14)',
     chromePressed: 'rgba(255, 255, 255, 0.1)',
   },
+  /**
+   * Thème « Night » (carte Night, comme le site : `styles.css`, section « Thème Night ») : violet nuit, accents néon
+   * magenta et cyan (couleurs du logo du bouc). Remplace le thème clair ou sombre tant que la carte Night est choisie.
+   */
+  night: {
+    text: '#F3ECFF',
+    background: '#0E061D',
+    backgroundElement: '#180C30',
+    backgroundSelected: '#2A1150',
+    textSecondary: '#AB9FD0',
+    border: '#34245A',
+    danger: '#FF8A80',
+    dangerSoft: '#3A1F1C',
+    success: '#6FD0A3',
+    successSoft: '#173226',
+    warning: '#F4B56C',
+    warningSoft: '#3A2A14',
+    primary: '#FF3FD1',
+    primarySoft: '#2A1150',
+    onPrimary: '#120726',
+    accent: '#FF3FD1',
+    accentSoft: '#3A1238',
+    sand: '#1D1038',
+    chrome: '#120726',
+    onChrome: '#F3ECFF',
+    onChromeMuted: '#AB9FD0',
+    chromeSelected: 'rgba(255, 63, 209, 0.16)',
+    chromePressed: 'rgba(255, 255, 255, 0.1)',
+  },
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark & keyof typeof Colors.night;
+
+/** Néons du thème « Night » : marqueurs, pastilles et halos de la carte. */
+export const NightNeon = {
+  magenta: '#FF3FD1',
+  cyan: '#2DE2FF',
+  violet: '#A855F7',
+  ink: '#120726',
+} as const;
 export type Theme = { [K in ThemeColor]: string };
 
 export const Fonts = Platform.select({

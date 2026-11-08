@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### Application : thème « Night » comme sur le site, logo du bouc compris
+- **Carte Night** (bouton 🍸 de la carte) : tant qu'elle est choisie, toute l'application passe en mode nuit, comme le site — fond violet nuit (`#0E061D`), cartes et panneaux `#180C30`, bandeaux `#120726`, boutons et choix actifs en magenta néon (`#FF3FD1`) avec texte violet nuit. Retour au thème habituel (clair ou sombre) dès qu'on choisit une autre carte.
+- **Logo** : le bouc néon à lunettes du site remplace l'épingle, avec « NEiRI » en clair (menu ☰, compte, accueil).
+- **Carte** : fond de carte violet nuit sur Android (style Google Maps), sombre sur iOS ; marqueurs et pastilles en magenta néon avec halo, activité affichée en cyan.
+- Aucune dépendance native ajoutée (le logo est une image de l'application : reconstruire l'APK).
+
 ### Application : bandeaux bleu nuit comme sur le site
 - **Barre du haut des écrans** (Paramètres de recherche, Mes alertes, Mon abonnement, fiche d'une activité…) : fond bleu nuit (`#1C2150`), titre et flèche retour en blanc, comme les bandeaux du site. En mode sombre, la couleur de nuit du site (`#120726`).
 - **Menu ☰** : panneau bleu nuit, logo et rubriques en blanc, titres de section et rubrique active comme dans le menu du site.
