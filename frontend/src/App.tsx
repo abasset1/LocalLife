@@ -1401,6 +1401,13 @@ function App() {
                         freeOnlyDisabled={isTextSearch}
                         onFreeOnlyChange={setFreeOnly}
                         selectedCategoryCodes={selectedCategoryCodes}
+                        cuisineFilter={activeLayer === "foodTrucks" ? {
+                            // Le type choisi reste proposé même s'il n'y a plus de food truck.
+                            options: CUISINE_TYPES.filter((cuisine) => cuisine.code === selectedCuisine
+                                || availableCuisines.includes(cuisine)),
+                            selected: selectedCuisine,
+                            onChange: setSelectedCuisine,
+                        } : undefined}
                         selectedDate={selectedDate}
                         selectedDateTo={selectedDateTo}
                         viewMode={viewMode}
@@ -1446,23 +1453,6 @@ function App() {
                                         {layer.label}
                                     </button>
                                 ))}
-                                {activeLayer === "foodTrucks" && (
-                                    <select
-                                        aria-label="Type de cuisine"
-                                        className="explorer-cuisine-filter"
-                                        onChange={(event) => setSelectedCuisine(event.target.value)}
-                                        value={selectedCuisine}
-                                    >
-                                        <option value="">🍽️ Toutes les cuisines</option>
-                                        {/* Le type choisi reste proposé même s'il n'y a plus de food truck. */}
-                                        {CUISINE_TYPES.filter((cuisine) => cuisine.code === selectedCuisine
-                                            || availableCuisines.includes(cuisine)).map((cuisine) => (
-                                            <option key={cuisine.code} value={cuisine.code}>
-                                                {cuisine.emoji} {cuisine.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                )}
                             </div>
                         )}
                         {/*

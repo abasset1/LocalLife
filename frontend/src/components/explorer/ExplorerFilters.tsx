@@ -30,6 +30,17 @@ interface ExplorerFiltersProps {
     onFreeOnlyChange?: (freeOnly: boolean) => void;
     /** Recherche texte en cours : ses résultats sont paginés par le serveur, le filtre ne s'y applique pas. */
     freeOnlyDisabled?: boolean;
+    /**
+     * Filtre « type de cuisine » de la couche food trucks, affiché avec les autres filtres
+     * quand cette couche est active ; absent sinon.
+     */
+    cuisineFilter?: {
+        /** Types proposés (ceux présents aujourd'hui, plus le type choisi). */
+        options: { code: string; label: string; emoji: string }[];
+        /** Code choisi, `""` = toutes les cuisines. */
+        selected: string;
+        onChange: (code: string) => void;
+    };
 }
 
 /**
@@ -70,8 +81,11 @@ function ExplorerFilters({
     freeOnly = false,
     onFreeOnlyChange,
     freeOnlyDisabled = false,
+    cuisineFilter,
 }: ExplorerFiltersProps) {
-    const [openPanel, setOpenPanel] = useState<"categories" | "dates" | "radius" | null>(null);
+    const [openPanel, setOpenPanel] = useState<"categories" | "cuisine" | "dates" | "radius" | null>(null);
+    const isCuisinePanelOpen = openPanel === "cuisine";
+    const selectedCuisineOption = cuisineFilter?.options.find((option) => option.code === cuisineFilter.selected);
     const isRadiusPanelOpen = openPanel === "radius";
     const isCategoriesPanelOpen = openPanel === "categories";
     const isDatesPanelOpen = openPanel === "dates";
@@ -98,6 +112,53 @@ function ExplorerFilters({
     return (
         <div className="explorer-filters">
             <div className="explorer-category-row">
+                {cuisineFilter && (
+                    <div className="explorer-categories">
+                        <button
+                            aria-expanded={isCuisinePanelOpen}
+                            className={cuisineFilter.selected ? "explorer-chip explorer-chip-active" : "explorer-chip"}
+                            onClick={() => setOpenPanel(isCuisinePanelOpen ? null : "cuisine")}
+                            type="button"
+                        >
+                            {selectedCuisineOption
+                                ? `${selectedCuisineOption.emoji} ${selectedCuisineOption.label}`
+                                : "🍽️ Cuisine"}
+                        </button>
+                        {isCuisinePanelOpen && (
+                            <div aria-label="Type de cuisine" className="explorer-categories-panel" role="group">
+                                {cuisineFilter.options.length === 0 && (
+                                    <p className="explorer-categories-empty">Aucun food truck aujourd'hui.</p>
+                                )}
+                                {cuisineFilter.options.map((option) => (
+                                    <label className="explorer-category-option" key={option.code}>
+                                        <input
+                                            checked={cuisineFilter.selected === option.code}
+                                            name="explorer-cuisine"
+                                            onChange={() => {
+                                                cuisineFilter.onChange(option.code);
+                                                setOpenPanel(null);
+                                            }}
+                                            type="radio"
+                                        />
+                                        {option.emoji} {option.label}
+                                    </label>
+                                ))}
+                                {cuisineFilter.selected && (
+                                    <button
+                                        className="explorer-dates-clear"
+                                        onClick={() => {
+                                            cuisineFilter.onChange("");
+                                            setOpenPanel(null);
+                                        }}
+                                        type="button"
+                                    >
+                                        Toutes les cuisines
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
                 <div className="explorer-categories">
                     <button
                         aria-expanded={isCategoriesPanelOpen}
