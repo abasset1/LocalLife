@@ -10,7 +10,7 @@ export type PlaceListState =
   | { status: 'error'; message: string };
 
 /**
- * Lieux publiés autour du lieu de recherche, pour la liste (univers « Lieux » et « Tous ») : la zone carrée du
+ * Lieux publiés autour du lieu de recherche, pour la liste (contenu « Lieux ») : la zone carrée du
  * rayon est demandée au serveur (`GET /places/within-bounds`), l'écran garde ensuite ceux qui sont dans le cercle.
  */
 export function usePlaceList(

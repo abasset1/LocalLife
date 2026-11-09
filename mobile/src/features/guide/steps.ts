@@ -92,7 +92,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     id: 'filtres',
     title: 'Affinez avec les filtres',
     text:
-      'Sous les raccourcis, les filtres affichent leur valeur : période (« Toutes dates », « Ce week-end »…), ' +
+      'Sous la recherche, les filtres affichent leur valeur : période (« Toutes dates », « Ce week-end »…), ' +
       'catégories, rayon et « Gratuit ». Touchez-en un pour le modifier, « Réinitialiser » pour tout retirer.',
     tips: ['Vos filtres se combinent', 'La période choisie vaut aussi pour la Liste'],
     scene: {
@@ -107,15 +107,15 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   {
     id: 'couches',
     available: (features) => features.places || features.foodTrucks,
-    title: 'Tous, Lieux, Food trucks et Night',
+    title: 'Activités, food trucks, Night et lieux',
     text:
-      'Les raccourcis sous la recherche choisissent ce que montre la carte : « Tous » (activités, lieux et ' +
-      'food trucks ensemble), « Lieux » à visiter (musées, monuments, équipements…), « Food trucks » ou « Night ».',
+      'Le bouton Affichage, à droite de la carte, choisit ce qu’elle montre : « Activités », « Food trucks », ' +
+      '« Night » ou « Lieux » à visiter (musées, monuments, équipements…).',
     tips: ['L’aperçu d’un lieu liste ses activités à venir'],
     scene: {
       kind: 'map',
       layers: [
-        { label: 'Tous', pins: ['📅', '🏛', '🚚'] },
+        { label: 'Activités', pins: ['📅', '📅', '📅'] },
         { label: '🏛 Lieux', pins: ['🏛', '🏰', '🏟'] },
         { label: '🚚 Food trucks', pins: ['🚚', '🚚'] },
       ],

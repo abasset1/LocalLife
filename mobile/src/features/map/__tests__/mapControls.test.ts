@@ -12,20 +12,20 @@ const ALL = { places: true, foodTrucks: true };
 const NONE = { places: false, foodTrucks: false };
 
 describe('commandes de la carte', () => {
-  it('propose Tous, Lieux, Food trucks et Night, Lieux et Food trucks seulement s’ils sont ouverts', () => {
-    expect(layerTabs(ALL).map((tab) => tab.label)).toEqual(['Tous', 'Lieux', 'Food trucks', 'Night']);
+  it('propose Activités, Food trucks, Night et Lieux, Food trucks et Lieux seulement s’ils sont ouverts', () => {
+    expect(layerTabs(ALL).map((tab) => tab.label)).toEqual(['Activités', 'Food trucks', 'Night', 'Lieux']);
     expect(layerTabs(NONE).map((tab) => tab.value)).toEqual(['activities', 'night']);
   });
 
-  it('« Tous » mélange activités, lieux et food trucks ouverts ; Night ne montre que ses activités', () => {
-    expect(layerContents('activities', ALL)).toEqual({ activities: true, places: true, foodTrucks: true, night: false });
-    expect(layerContents('activities', NONE)).toEqual({
+  it('montre un seul contenu à la fois ; Night montre les activités de nuit', () => {
+    expect(layerContents('activities', ALL)).toEqual({
       activities: true,
       places: false,
       foodTrucks: false,
       night: false,
     });
     expect(layerContents('places', ALL)).toEqual({ activities: false, places: true, foodTrucks: false, night: false });
+    expect(layerContents('places', NONE)).toEqual({ activities: false, places: false, foodTrucks: false, night: false });
     expect(layerContents('foodTrucks', ALL)).toEqual({
       activities: false,
       places: false,

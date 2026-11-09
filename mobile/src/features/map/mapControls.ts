@@ -3,8 +3,8 @@ import type { Period } from '@/features/list/filters';
 import type { MapLayer } from './placesPreference';
 
 /**
- * Libellés des commandes de la carte (issue #226) : raccourcis d'univers, filtres qui affichent leur valeur, bouton
- * de liste. Chaque commande est écrite en clair, avec un pictogramme système à côté (voir `MapChip`).
+ * Libellés des commandes de la carte (issue #226) : contenus du bouton « Affichage », filtres qui affichent leur
+ * valeur, bouton de liste. Chaque commande est écrite en clair, avec un pictogramme système à côté (voir `MapChip`).
  */
 
 export interface LayerTab {
@@ -15,32 +15,31 @@ export interface LayerTab {
 }
 
 const LAYER_TABS: readonly LayerTab[] = [
-  { value: 'activities', label: 'Tous', description: 'Tout afficher : activités, lieux et food trucks' },
-  { value: 'places', label: 'Lieux', description: 'Afficher les lieux : musées, monuments, équipements…' },
+  { value: 'activities', label: 'Activités', description: 'Afficher les activités' },
   { value: 'foodTrucks', label: 'Food trucks', description: 'Afficher les food trucks présents aujourd’hui' },
   { value: 'night', label: 'Night', description: 'Entrer dans Neiri Night : soirées, concerts, festivals, de 20 h à 6 h' },
+  { value: 'places', label: 'Lieux', description: 'Afficher les lieux : musées, monuments, équipements…' },
 ];
 
-/** Raccourcis proposés : Tous et Night toujours, Lieux et Food trucks quand ils sont ouverts au lancement. */
+/**
+ * Contenus proposés dans le bouton « Affichage » de la carte et dans la liste : Activités et Night toujours, Food trucks
+ * et Lieux quand ils sont ouverts au lancement.
+ */
 export function layerTabs(features: { places: boolean; foodTrucks: boolean }): LayerTab[] {
   return LAYER_TABS.filter(
     (tab) => (tab.value !== 'places' || features.places) && (tab.value !== 'foodTrucks' || features.foodTrucks),
   );
 }
 
-/**
- * Contenus montrés par un univers. « Tous » mélange activités, lieux et food trucks (ceux qui sont ouverts) ;
- * Night ne montre que les activités de nuit, avec son propre thème.
- */
+/** Contenus montrés par un univers : un seul à la fois ; Night montre les activités de nuit, avec son propre thème. */
 export function layerContents(
   layer: MapLayer,
   features: { places: boolean; foodTrucks: boolean },
 ): { activities: boolean; places: boolean; foodTrucks: boolean; night: boolean } {
-  const all = layer === 'activities';
   return {
-    activities: all || layer === 'night',
-    places: (all || layer === 'places') && features.places,
-    foodTrucks: (all || layer === 'foodTrucks') && features.foodTrucks,
+    activities: layer === 'activities' || layer === 'night',
+    places: layer === 'places' && features.places,
+    foodTrucks: layer === 'foodTrucks' && features.foodTrucks,
     night: layer === 'night',
   };
 }

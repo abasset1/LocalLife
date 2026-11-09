@@ -45,8 +45,8 @@ const DEFAULT_RADIUS_KM = 20;
  * (`explorerStore`, FRONT-REV-02) ; la période aussi (`periodStore`). Sans lieu choisi, la liste invite
  * à en choisir un : aucune ville n'est supposée. Filtre texte local en plus. Un appui ouvre la fiche.
  *
- * Univers (issue #226) : les mêmes que la carte, partagés avec elle (`layerStore`). « Tous » mêle activités, lieux
- * et food trucks par distance ; « Lieux » liste les lieux du rayon ; « Food trucks » les présences du jour (période
+ * Contenus (issue #226) : les mêmes que la carte, partagés avec elle (`layerStore`). « Activités » liste les activités
+ * par distance ; « Lieux » les lieux du rayon ; « Food trucks » les présences du jour (période
  * et catégories ne s'y appliquent pas) ; « Night » les activités de 20 h à 6 h, dans le thème nuit.
  */
 export default function ActivityListScreen() {
@@ -106,7 +106,7 @@ export default function ActivityListScreen() {
     contents.places ? places.map(({ place: item, km }) => ({ kind: 'place', place: item, km })) : [],
     contents.foodTrucks ? foodTrucks.map(({ foodTruck, distanceKm: km }) => ({ kind: 'foodTruck', foodTruck, km })) : [],
   );
-  // État affiché (chargement, erreur, vide) : celui du contenu principal de l'univers ; dans « Tous », les activités.
+  // État affiché (chargement, erreur, vide) : celui du contenu choisi.
   const primary = contents.activities ? state : showFoodTrucks ? foodTruckList.state : placeList.state;
   const listStatus = place === null ? 'idle' : primary.status;
   const listError = primary.status === 'error' ? primary.message : '';

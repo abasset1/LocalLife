@@ -75,5 +75,15 @@ Guide de l'application et réglage « Carte à l'ouverture » (« Tous » au lie
 
 - **Vérification sur appareil** : la carte native (`react-native-maps`) n'existe pas sur le web. L'écran Carte, l'aperçu glissant, le satellite et les marqueurs mélangés doivent être vérifiés sur un build Android et iOS (petit écran type iPhone SE, grand écran, clair, sombre et Night). Pas de nouvelle dépendance native : un build de développement existant suffit.
 - **Recherche par nom d'activité ou de lieu** : ticket séparé (décision 3).
-- **Carte « Tous » chargée** : les lieux ne sont demandés qu'en dessous de 2° d'étendue, comme avant ; en vue Provence, seules les activités et food trucks s'affichent.
+- **Lieux en vue large** : les lieux ne sont demandés qu'en dessous de 2° d'étendue, comme avant.
 - **Bouton « Carte » de la liste** : conservé en haut de la liste, il fait doublon avec l'onglet Carte et pourra être retiré.
+- **Compte** : sans bouton en haut de la carte depuis l'ajustement du 9 novembre, il reste accessible par l'onglet Compte et le menu ☰.
+
+## Ajustement du 9 novembre 2026
+
+Demandé après la fusion de la PR #228 :
+
+- **Haut de l'écran** : seulement le menu ☰ et la recherche, alignés sur une ligne. Le logo, le bouton compte et la rangée de raccourcis sont retirés. Les filtres des activités restent sous la recherche.
+- **Bouton « Affichage »** : il porte le choix du contenu, dans l'ordre Activités, Food trucks, Night, Lieux (Night garde son logo et son fond nuit). Plan / Satellite et Liste en sont retirés, ce qui annule la décision 4A. « Voir la liste (n) » reste en bas de l'écran.
+- **« Activités »** remplace « Tous » et ne montre que les activités : un seul contenu à la fois. Cela revient sur la décision 1A. La Liste propose les mêmes contenus, dans le même ordre.
+

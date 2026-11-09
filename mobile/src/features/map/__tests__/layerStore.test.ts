@@ -30,7 +30,7 @@ beforeEach(async () => {
 });
 
 describe('univers partagé par la carte et la liste', () => {
-  it('commence sur « Tous » et reprend le choix mémorisé sur l’appareil', async () => {
+  it('commence sur les activités et reprend le choix mémorisé sur l’appareil', async () => {
     expect(getMapLayer()).toBe('activities');
     await AsyncStorage.setItem(MAP_LAYER_KEY, 'night');
     await initMapLayer();
@@ -56,7 +56,7 @@ describe('univers partagé par la carte et la liste', () => {
     expect(getMapLayer()).toBe('foodTrucks');
   });
 
-  it('revient à « Tous » pour un univers pas encore ouvert', () => {
+  it('revient aux activités pour un contenu pas encore ouvert', () => {
     expect(shownLayer('places', { places: false, foodTrucks: true })).toBe('activities');
     expect(shownLayer('foodTrucks', { places: true, foodTrucks: false })).toBe('activities');
     expect(shownLayer('night', { places: false, foodTrucks: false })).toBe('night');

@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Application : écran Carte épuré
+- **En haut**, seulement le menu ☰ et la recherche de ville, alignés. Le logo, le bouton compte et la rangée de raccourcis disparaissent. Les filtres (période, catégories, rayon, gratuit) restent sous la recherche.
+- **Bouton Affichage** (à droite de la carte) : il choisit le contenu affiché, dans l'ordre Activités, Food trucks, Night, Lieux. Night garde son logo du bouc. Plan / Satellite et le raccourci Liste sont retirés de ce panneau (« Voir la liste » reste en bas).
+- **« Activités »** remplace « Tous » et ne montre plus que les activités : un seul contenu à la fois, comme avant l'issue #226. La Liste suit le même ordre.
+
 ### Application : nouvel écran Carte (issue #226)
 - **Raccourcis Tous, Lieux, Food trucks, Night** sous la recherche, avec pictogrammes. « Tous » montre activités, lieux et food trucks ensemble. Night garde son logo du bouc et son thème nuit, et reste reconnaissable même en mode clair.
 - **En-tête** : menu ☰, logo Neiri, bouton compte ; recherche de ville en pleine largeur.
