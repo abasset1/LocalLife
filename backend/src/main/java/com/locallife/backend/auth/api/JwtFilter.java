@@ -92,7 +92,7 @@ public class JwtFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Session fermée côté serveur à la déconnexion (jti révoqué, V88) : ce jeton précis ne vaut plus rien, même
+        // Session fermée côté serveur à la déconnexion (jti révoqué, V90) : ce jeton précis ne vaut plus rien, même
         // s'il n'est pas encore expiré et que les autres sessions de l'utilisateur restent ouvertes.
         if (jti != null && revocationRepository.isRevoked(jti)) {
             rejectOrContinueAnonymous(request, response, filterChain, source,
