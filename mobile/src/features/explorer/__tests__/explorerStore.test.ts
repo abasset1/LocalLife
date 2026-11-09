@@ -5,6 +5,7 @@ import {
   clearCategories,
   getExplorerState,
   resetExplorer,
+  setFreeOnly,
   setPlace,
   setRadius,
   subscribe,
@@ -28,7 +29,7 @@ beforeEach(() => {
 
 describe('explorerStore', () => {
   it('démarre sans lieu, sans catégorie et sans rayon : aucune ville supposée', () => {
-    expect(getExplorerState()).toEqual({ place: null, categoryCodes: [], radiusKm: null });
+    expect(getExplorerState()).toEqual({ place: null, categoryCodes: [], radiusKm: null, freeOnly: false });
   });
 
   it('coche puis décoche une ou plusieurs catégories, et les retire toutes', () => {
@@ -39,6 +40,17 @@ describe('explorerStore', () => {
     expect(getExplorerState().categoryCodes).toEqual(['MARCHE']);
     clearCategories();
     expect(getExplorerState().categoryCodes).toEqual([]);
+  });
+
+  it('partage le filtre « Gratuit » entre la carte et la Liste, comme sur le site', () => {
+    expect(getExplorerState().freeOnly).toBe(false);
+    setFreeOnly(true);
+    expect(getExplorerState().freeOnly).toBe(true);
+    // Les paramètres de recherche ne touchent pas ce choix.
+    applyPreferences(PREFERENCES);
+    expect(getExplorerState().freeOnly).toBe(true);
+    resetExplorer();
+    expect(getExplorerState().freeOnly).toBe(false);
   });
 
   it('prévient les vues abonnées (carte et liste) de chaque changement', () => {
@@ -57,6 +69,7 @@ describe('explorerStore', () => {
       place: { label: 'Avignon', latitude: 43.95, longitude: 4.81, source: 'preferences' },
       categoryCodes: ['CONCERT'],
       radiusKm: 10,
+      freeOnly: false,
     });
 
     // L'utilisateur retire le filtre : relire les mêmes paramètres (retour sur l'écran) ne l'écrase pas.
@@ -85,7 +98,7 @@ describe('explorerStore', () => {
   it('à la déconnexion, retire les critères venus des paramètres mais pas une ville choisie', () => {
     applyPreferences(PREFERENCES);
     applyPreferences(null);
-    expect(getExplorerState()).toEqual({ place: null, categoryCodes: [], radiusKm: null });
+    expect(getExplorerState()).toEqual({ place: null, categoryCodes: [], radiusKm: null, freeOnly: false });
 
     setPlace(LYON);
     applyPreferences(PREFERENCES);

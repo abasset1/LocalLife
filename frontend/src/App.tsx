@@ -6,7 +6,7 @@ import { clearSession, getPayload } from "./auth/authStorage";
 import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
 import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
-import { isInBounds, toLocalDateString } from "./components/explorer/activityUtils";
+import { activitiesInZone, toLocalDateString, weekendRange, zoneCountLabel } from "./components/explorer/activityUtils";
 import { DEFAULT_SEARCH_RADIUS_KM, NO_DATE_FILTER } from "./components/explorer/constants";
 import EmptyResultsHelp from "./components/explorer/EmptyResultsHelp";
 import ContributionModal, {
@@ -327,6 +327,8 @@ function App() {
      * visible reste la source de vérité dès le premier geste (LL-4012).
      */
     const searchBounds = activeRadiusKm !== null && userPosition !== null ? null : mapBounds;
+    /** Rayon de la recherche en cours (`null` sans rayon) : la liste compte alors tout le rayon. */
+    const radiusSearchKm = activeRadiusKm !== null && userPosition !== null ? activeRadiusKm : null;
 
     const previousSearchDepsRef = useRef<{
         nightOnly: boolean;
@@ -562,18 +564,17 @@ function App() {
     }, [features.foodTrucks]);
 
     /**
-     * Activités de la liste hors recherche texte : seulement celles visibles sur la carte. Avec un rayon,
-     * la recherche charge tout le rayon : un zoom sur une partie du rayon réduit donc la liste à la zone
-     * affichée. Recalculée à chaque déplacement ou zoom (`mapBounds`) et à chaque nouvelle recherche
-     * (rayon, filtres). Sans zone connue (carte pas encore affichée), la liste montre tout.
+     * Activités de la liste hors recherche texte, même règle que l'application : avec un rayon, tout le rayon
+     * (le nombre ne dépend ni du zoom ni de la taille de l'écran) ; sans rayon, celles visibles sur la carte,
+     * recalculées à chaque déplacement ou zoom. Sans zone connue (carte pas encore affichée), toutes.
      */
     const shownActivities = useMemo(
         () => (freeOnly ? activities.filter((activity) => activity.priceType === "FREE") : activities),
         [activities, freeOnly],
     );
     const listedActivities = useMemo(
-        () => (mapBounds ? shownActivities.filter((activity) => isInBounds(activity, mapBounds)) : shownActivities),
-        [shownActivities, mapBounds],
+        () => activitiesInZone(shownActivities, mapBounds, radiusSearchKm),
+        [shownActivities, mapBounds, radiusSearchKm],
     );
 
     /**
@@ -672,7 +673,7 @@ function App() {
         ? listedActivities.length
         : 0;
     const nightLabel = activeLayer === "night" ? " de nuit" : "";
-    const zoneActivityCountLabel = `${zoneActivityCount} ${zoneActivityCount > 1 ? "activités" : "activité"}${nightLabel} dans cette zone`;
+    const zoneActivityCountLabel = zoneCountLabel(zoneActivityCount, radiusSearchKm, activeLayer === "night");
 
     let emptyMessage = freeOnly
         ? `Aucune activité${nightLabel} gratuite dans cette zone.`
@@ -1293,13 +1294,9 @@ function App() {
 
         switch (period) {
             case "this-weekend": {
-                const daysToSaturday = 6 - today.getDay();
-                const saturday = new Date(today);
-                saturday.setDate(today.getDate() + daysToSaturday);
-                const sunday = new Date(saturday);
-                sunday.setDate(saturday.getDate() + 1);
-                setSelectedDate(toLocalDateString(saturday));
-                setSelectedDateTo(toLocalDateString(sunday));
+                const weekend = weekendRange(today);
+                setSelectedDate(weekend.date);
+                setSelectedDateTo(weekend.dateTo ?? NO_DATE_FILTER);
                 break;
             }
             case "this-week": {
