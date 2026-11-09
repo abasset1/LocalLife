@@ -1,7 +1,9 @@
 # Identité Neiri
 
-LocalLife devient **Neiri** — signature : **« Your world, closer. »** (« closer. » en orange).
-Planche de référence : [`neiri-planche-identite.png`](neiri-planche-identite.png).
+LocalLife devient **Neiri**. Pas de signature : le nom et le logo s'affichent seuls, sur le site comme dans
+l'application.
+Planche de référence : [`neiri-planche-identite.png`](neiri-planche-identite.png) (planche d'origine : la signature
+qui y figure n'est plus utilisée).
 
 ## Logo
 
@@ -20,7 +22,7 @@ Les PNG sont générés depuis les SVG (rendu Chromium) : modifier d'abord les S
 
 | Rôle | Couleur |
 | --- | --- |
-| Orange (début du dégradé, accent de la signature) | `#FBA91E` |
+| Orange (début du dégradé, point du « i ») | `#FBA91E` |
 | Rose (milieu du dégradé) | `#EC3B6E` |
 | Rose des boutons (texte blanc, contraste AA) | `#D6295F` |
 | Violet (fin du dégradé) | `#7B2CB5` |

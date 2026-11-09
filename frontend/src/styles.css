@@ -1174,16 +1174,6 @@ body {
     height: 36px;
 }
 
-.explorer-menu-tagline {
-    color: #ffffff;
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-
-.neiri-tagline-accent {
-    color: var(--ll-orange);
-}
-
 /* --- Logo Neiri (components/BrandLogo.tsx) : épingle en dégradé + logotype « NEiRI ». --- */
 
 .neiri-logo {
@@ -6172,6 +6162,30 @@ body {
 .neiri-logo--night .neiri-wordmark {
     height: 38%;
     filter: drop-shadow(0 0 6px rgba(45, 226, 255, 0.7));
+}
+
+/* « NEiRI » et, dessous, « The OutGoat » (nom du bouc) en magenta néon. */
+.neiri-night-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2rem;
+    height: 100%;
+}
+
+.neiri-logo--night .neiri-night-text .neiri-wordmark {
+    height: 24px;
+    align-self: flex-start;
+}
+
+.neiri-night-caption {
+    color: #ff3fd1;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    white-space: nowrap;
+    text-shadow: 0 0 8px rgba(255, 63, 209, 0.75);
 }
 
 :root[data-ll-theme="night"] .explorer-menu {

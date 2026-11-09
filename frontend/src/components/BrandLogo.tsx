@@ -53,17 +53,23 @@ export function NightMark() {
     return <img alt="" aria-hidden="true" className="neiri-night-mark" src="/neiri-night.webp" />;
 }
 
+/** Nom du bouc néon, affiché sous « NEiRI » en thème « Night ». */
+export const NIGHT_MASCOT_NAME = "The OutGoat";
+
 /**
  * Repère + logotype. Le nom reste lisible par les lecteurs d'écran (texte masqué visuellement). `night` remplace le
- * repère par le bouc néon de la carte Night, avec le logotype en clair.
+ * repère par le bouc néon de la carte Night, avec le logotype en clair et « The OutGoat » en dessous.
  */
 export function BrandLogo({ tone = "dark", night = false }: { tone?: "dark" | "light"; night?: boolean }) {
     if (night) {
         return (
             <span className="neiri-logo neiri-logo--light neiri-logo--night">
                 <NightMark />
-                <BrandWordmark tone="light" />
-                <span className="neiri-visually-hidden">Neiri Night</span>
+                <span className="neiri-night-text">
+                    <BrandWordmark tone="light" />
+                    <span aria-hidden="true" className="neiri-night-caption">{NIGHT_MASCOT_NAME}</span>
+                </span>
+                <span className="neiri-visually-hidden">Neiri Night, {NIGHT_MASCOT_NAME}</span>
             </span>
         );
     }

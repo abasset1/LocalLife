@@ -1,6 +1,6 @@
 /**
  * Charte visuelle Neiri (docs/brand/README.md) : dégradé orange → rose → violet, bleu nuit, lavande.
- * Signature : « Your world, closer. ». Les couleurs existent en mode clair et sombre ; les écrans les lisent
+ * Les couleurs existent en mode clair et sombre ; les écrans les lisent
  * via `useTheme()` plutôt que de coder des valeurs en dur.
  */
 
