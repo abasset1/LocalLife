@@ -50,6 +50,8 @@ public class AuthController {
     private final UsernamePolicy usernamePolicy;
     private final AccountSelfService accountSelfService;
     private final AuthCookie authCookie;
+    private final com.locallife.backend.auth.application.JwtService jwtService;
+    private final com.locallife.backend.auth.infrastructure.TokenRevocationRepository revocationRepository;
 
     public AuthController(
             AuthService authService,
@@ -57,13 +59,17 @@ public class AuthController {
             EmailVerificationService emailVerificationService,
             UsernamePolicy usernamePolicy,
             AccountSelfService accountSelfService,
-            AuthCookie authCookie) {
+            AuthCookie authCookie,
+            com.locallife.backend.auth.application.JwtService jwtService,
+            com.locallife.backend.auth.infrastructure.TokenRevocationRepository revocationRepository) {
         this.authService = authService;
         this.passwordResetService = passwordResetService;
         this.emailVerificationService = emailVerificationService;
         this.usernamePolicy = usernamePolicy;
         this.accountSelfService = accountSelfService;
         this.authCookie = authCookie;
+        this.jwtService = jwtService;
+        this.revocationRepository = revocationRepository;
     }
 
     /**
@@ -121,7 +127,9 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<Object> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         try {
-            LoginResponse response = authService.login(request);
+            // getRemoteAddr() reflète l'IP cliente réelle via X-Forwarded-For derrière le proxy inverse
+            // (server.forward-headers-strategy), utilisée pour la limitation par IP (LoginThrottle).
+            LoginResponse response = authService.login(request, httpRequest.getRemoteAddr());
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, authCookie.forToken(response.token()).toString())
                     .body(response);
@@ -192,10 +200,35 @@ public class AuthController {
      * oubliant leur jeton, sans cet endpoint.
      */
     @PostMapping("/logout")
-    public ResponseEntity<Object> logout() {
+    public ResponseEntity<Object> logout(HttpServletRequest httpRequest) {
+        // Révoque CETTE session côté serveur (jti), pour qu'un jeton capté ailleurs ne survive pas à la
+        // déconnexion jusqu'à son expiration. Les autres sessions de l'utilisateur ne sont pas touchées. Sur un
+        // jeton absent ou déjà invalide, il n'y a rien à révoquer : on efface quand même le cookie.
+        jwtService.parseClaims(sessionToken(httpRequest)).ifPresent(claims -> {
+            if (claims.getExpiration() != null) {
+                revocationRepository.revoke(claims.getId(), claims.getExpiration().toInstant());
+            }
+        });
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, authCookie.expired().toString())
                 .body(new MessageResponse("Déconnecté."));
+    }
+
+    /** Jeton de la requête : cookie de session ({@link AuthCookie#NAME}) ou en-tête {@code Authorization: Bearer}. */
+    private static String sessionToken(HttpServletRequest request) {
+        if (request.getCookies() != null) {
+            for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
+                if (AuthCookie.NAME.equals(cookie.getName()) && cookie.getValue() != null
+                        && !cookie.getValue().isBlank()) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        return null;
     }
 
     /**
