@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Application : filtres de la carte en pictogrammes
+- Les filtres sous la recherche ne montrent plus que leur pictogramme : période (calendrier), catégories (étiquette), rayon (cible), « Gratuit » (cadeau). Un filtre posé reste rempli ; les lecteurs d'écran annoncent toujours sa valeur.
+- Le bouton « Réinitialiser » de cette rangée est retiré. Quand aucun résultat ne correspond, le message propose toujours « Modifier les filtres » et « Réinitialiser ».
+
 ### Application : écran Carte épuré
 - **En haut**, seulement le menu ☰ et la recherche de ville, alignés. Le logo, le bouton compte et la rangée de raccourcis disparaissent. Les filtres (période, catégories, rayon, gratuit) restent sous la recherche.
 - **Bouton Affichage** (à droite de la carte) : il choisit le contenu affiché, dans l'ordre Activités, Food trucks, Night, Lieux. Night garde son logo du bouc. Plan / Satellite et le raccourci Liste sont retirés de ce panneau (« Voir la liste » reste en bas).

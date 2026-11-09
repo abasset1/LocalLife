@@ -92,8 +92,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     id: 'filtres',
     title: 'Affinez avec les filtres',
     text:
-      'Sous la recherche, les filtres affichent leur valeur : période (« Toutes dates », « Ce week-end »…), ' +
-      'catégories, rayon et « Gratuit ». Touchez-en un pour le modifier, « Réinitialiser » pour tout retirer.',
+      'Sous la recherche, quatre pictogrammes : période (calendrier), catégories (étiquette), rayon (cible) et ' +
+      '« Gratuit » (cadeau). Touchez-en un pour le modifier ; il se remplit tant que le filtre est posé.',
     tips: ['Vos filtres se combinent', 'La période choisie vaut aussi pour la Liste'],
     scene: {
       kind: 'chips',

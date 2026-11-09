@@ -24,6 +24,7 @@ export function MapChip({
   icon,
   night = false,
   small = false,
+  iconOnly = false,
   onPress,
   style,
 }: {
@@ -37,6 +38,8 @@ export function MapChip({
   night?: boolean;
   /** Filtres : bouton plus bas, sous les raccourcis. */
   small?: boolean;
+  /** Pictogramme seul, sans texte (filtres de la carte) : `label` reste lu par les lecteurs d'écran. */
+  iconOnly?: boolean;
   onPress: () => void;
   style?: ViewStyle;
 }) {
@@ -59,6 +62,7 @@ export function MapChip({
       style={({ pressed }) => [
         styles.chip,
         small && styles.small,
+        iconOnly && styles.iconOnly,
         night && styles.night,
         { backgroundColor: colors.background, borderColor: colors.border },
         styles.shadow,
@@ -75,11 +79,13 @@ export function MapChip({
           accessibilityIgnoresInvertColors
         />
       ) : icon && !loading ? (
-        <SymbolView name={icon} tintColor={colors.text} size={small ? 14 : 16} />
+        <SymbolView name={icon} tintColor={colors.text} size={iconOnly ? 20 : small ? 14 : 16} />
       ) : null}
-      <ThemedText type="smallBold" numberOfLines={1} style={{ color: colors.text }}>
-        {label}
-      </ThemedText>
+      {iconOnly ? null : (
+        <ThemedText type="smallBold" numberOfLines={1} style={{ color: colors.text }}>
+          {label}
+        </ThemedText>
+      )}
     </Pressable>
   );
 }
@@ -126,6 +132,13 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+  },
+  // Rond de 44 points : cible tactile suffisante sans texte.
+  iconOnly: {
+    width: 44,
+    minHeight: 44,
+    paddingHorizontal: 0,
+    justifyContent: 'center',
   },
   small: {
     minHeight: 34,

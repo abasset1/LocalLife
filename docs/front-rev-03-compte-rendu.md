@@ -87,3 +87,8 @@ Demandé après la fusion de la PR #228 :
 - **Bouton « Affichage »** : il porte le choix du contenu, dans l'ordre Activités, Food trucks, Night, Lieux (Night garde son logo et son fond nuit). Plan / Satellite et Liste en sont retirés, ce qui annule la décision 4A. « Voir la liste (n) » reste en bas de l'écran.
 - **« Activités »** remplace « Tous » et ne montre que les activités : un seul contenu à la fois. Cela revient sur la décision 1A. La Liste propose les mêmes contenus, dans le même ordre.
 
+## Ajustement des filtres (9 novembre 2026)
+
+- Les filtres sous la recherche (période, catégories, rayon, gratuit) passent en pictogrammes seuls, sans texte, ronds de 44 points. Un filtre posé reste rempli, et sa valeur est lue par les lecteurs d'écran.
+- Le bouton « Réinitialiser » de la rangée de filtres est retiré. Celui du message « aucun résultat » est conservé.
+

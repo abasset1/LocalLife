@@ -74,6 +74,7 @@ const ICONS = {
   period: { ios: 'calendar', android: 'calendar_today', web: 'calendar_today' },
   categories: { ios: 'tag', android: 'sell', web: 'sell' },
   radius: { ios: 'scope', android: 'radar', web: 'radar' },
+  free: { ios: 'gift', android: 'redeem', web: 'redeem' },
   list: { ios: 'list.bullet', android: 'view_list', web: 'view_list' },
   locate: { ios: 'location', android: 'my_location', web: 'my_location' },
   display: { ios: 'square.2.layers.3d', android: 'layers', web: 'layers' },
@@ -551,11 +552,12 @@ export default function MapScreen() {
               <CitySearch floating />
             </View>
           </View>
-          {/* Filtres des activités (Activités, Night) : chacun affiche sa valeur et ouvre son panneau en bas de l'écran. */}
+          {/* Filtres des activités (Activités, Night) : pictogrammes seuls, remplis quand le filtre est posé ; chacun ouvre
+              son panneau en bas de l'écran et annonce sa valeur aux lecteurs d'écran. */}
           {showActivities && (
             <MapChipRow accessibilityLabel="Filtres des activités">
               <MapChip
-                small
+                iconOnly
                 icon={ICONS.period}
                 label={periodChipLabel(period)}
                 accessibilityLabel={`Période : ${periodLabel}, modifier`}
@@ -567,7 +569,7 @@ export default function MapScreen() {
                 }}
               />
               <MapChip
-                small
+                iconOnly
                 icon={ICONS.categories}
                 label={categoriesChipLabel(categoryCodes.length)}
                 accessibilityLabel={
@@ -583,7 +585,7 @@ export default function MapScreen() {
                 }}
               />
               <MapChip
-                small
+                iconOnly
                 icon={ICONS.radius}
                 label={radiusChipLabel(activeRadiusKm)}
                 accessibilityLabel={
@@ -597,7 +599,8 @@ export default function MapScreen() {
                 }}
               />
               <MapChip
-                small
+                iconOnly
+                icon={ICONS.free}
                 label="Gratuit"
                 accessibilityLabel={
                   freeOnly ? 'Activités gratuites seulement, tout afficher' : 'Afficher seulement les activités gratuites'
@@ -608,9 +611,6 @@ export default function MapScreen() {
                   setFreeOnly(!freeOnly);
                 }}
               />
-              {filtersActive && (
-                <MapChip small label="Réinitialiser" accessibilityLabel="Retirer tous les filtres" onPress={resetFilters} />
-              )}
             </MapChipRow>
           )}
           {shownLayer === 'foodTrucks' && (
