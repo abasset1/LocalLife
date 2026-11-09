@@ -141,6 +141,24 @@
                 </executions>
             </plugin>
 
+            <!-- Tests : borne les connexions à la base. La suite charge de nombreux contextes Spring, chacun avec
+                 son pool Hikari ; sans limite, le total dépasse max_connections de PostgreSQL (« too many clients »)
+                 et tous les tests d'intégration échouent au chargement du contexte. Pool réduit + cache de contextes
+                 de test borné : le total de connexions reste très en-dessous de la limite. Scope tests uniquement :
+                 la configuration de l'application (locale/production) n'est pas touchée. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <spring.datasource.hikari.maximum-pool-size>4</spring.datasource.hikari.maximum-pool-size>
+                        <spring.datasource.hikari.minimum-idle>0</spring.datasource.hikari.minimum-idle>
+                        <spring.datasource.hikari.idle-timeout>10000</spring.datasource.hikari.idle-timeout>
+                        <spring.test.context.cache.maxSize>10</spring.test.context.cache.maxSize>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+
             <!-- Formatage automatique : `mvn spotless:apply` corrige, `mvn verify` échoue si non conforme -->
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>

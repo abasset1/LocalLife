@@ -6,7 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * Liste des jetons révoqués par leur {@code jti} (identifiant unique de session), {@code revoked_token} (V88).
+ * Liste des jetons révoqués par leur {@code jti} (identifiant unique de session), {@code revoked_token} (V90).
  * Sert à fermer UNE session côté serveur à la déconnexion, sans attendre l'expiration du jeton ni toucher aux
  * autres sessions de l'utilisateur (contrairement à {@code users.tokens_valid_after}, qui les ferme toutes).
  *

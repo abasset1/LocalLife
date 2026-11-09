@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
  *       en-dessous du volume d'une attaque automatisée. Ajustable selon l'exposition.</li>
  * </ul>
  * Vaut pour tous les comptes, administrateurs compris. Ni l'adresse e-mail ni l'IP ne sont stockées en clair
- * ({@code login_failure}, V73/V87) : seulement leur empreinte HMAC-SHA256 avec la clé du serveur, qu'on ne peut
+ * ({@code login_failure}, V73/V89) : seulement leur empreinte HMAC-SHA256 avec la clé du serveur, qu'on ne peut
  * pas inverser sans cette clé (RGPD). Les échecs d'une adresse sont effacés à sa connexion réussie ; ceux d'une IP
  * ne le sont pas (une connexion réussie sur un compte ne doit pas remettre à zéro le compteur d'une attaque qui
  * balaie d'autres comptes). Les lignes de plus d'un jour sont purgées au fil de l'eau.
