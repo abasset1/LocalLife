@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FoodTruck } from "../explorer/types";
+import FollowBell from "../follow/FollowBell";
+import { useLaunchFeatures } from "../../features/launchFeatures";
 import { buildDirectionsUrl } from "../../utils/directions";
 import { cuisineLabel, markerOf } from "./cuisines";
 import { SPOT_KIND_LABELS, contactUrl, describeDays, formatHours, socialUrl, spotAddressLine } from "./foodTruckFormat";
@@ -53,6 +55,7 @@ function formatPeriod(presence: PresenceDetail): string | null {
 function FoodTruckDetailModal({ foodTruck, onClose }: { foodTruck: FoodTruck; onClose: () => void }) {
     const [detail, setDetail] = useState<FoodTruckDetail | null>(null);
     const [failed, setFailed] = useState(false);
+    const { premium: premiumOpen } = useLaunchFeatures();
 
     useEffect(() => {
         const controller = new AbortController();
@@ -116,6 +119,7 @@ function FoodTruckDetailModal({ foodTruck, onClose }: { foodTruck: FoodTruck; on
                     </button>
                 </div>
                 <div className="explorer-detail-body">
+                    {premiumOpen && <FollowBell id={foodTruck.id} title={foodTruck.name} type="foodtruck" />}
                     {photoUrl && (
                         <div className="explorer-detail-gallery">
                             <img alt={`Photo de ${foodTruck.name}`} src={photoUrl} />

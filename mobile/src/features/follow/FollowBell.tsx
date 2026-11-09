@@ -11,9 +11,15 @@ import { useLaunchFeatures } from '@/features/launch';
 
 import { useFollows } from './FollowsProvider';
 
+const WHAT: Record<FollowTargetType, string> = {
+  activity: 'cette activité',
+  place: 'ce lieu',
+  foodtruck: 'ce food truck',
+};
+
 /**
- * Cloche « Suivre » : être prévenu des mises à jour d'une activité (dates, lieu, annulation…) ou d'un lieu (nouvelles
- * activités, adresse…). Réservée aux offres Premium et Pro : un compte gratuit se voit proposer les offres ; un
+ * Cloche « Suivre » : être prévenu des mises à jour d'une activité (dates, lieu, annulation…), d'un lieu (nouvelles
+ * activités, adresse…) ou d'un food truck (planning, profil, et le jour où il est quelque part). Réservée aux offres Premium et Pro : un compte gratuit se voit proposer les offres ; un
  * visiteur, la connexion.
  */
 interface FollowBellProps {
@@ -36,7 +42,7 @@ function OpenFollowBell({ type, id, title, city = null }: FollowBellProps) {
   const { isFollowing, setFollowing } = useFollows();
   const [busy, setBusy] = useState(false);
   const following = isFollowing(type, id);
-  const what = type === 'activity' ? 'cette activité' : 'ce lieu';
+  const what = WHAT[type];
 
   async function press() {
     if (state.status !== 'authenticated') {
@@ -63,7 +69,13 @@ function OpenFollowBell({ type, id, title, city = null }: FollowBellProps) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={following ? `Ne plus suivre ${what}` : `Suivre ${what}`}
-      accessibilityHint={following ? undefined : 'Être prévenu de ses mises à jour (Premium et Pro)'}
+      accessibilityHint={
+        following
+          ? undefined
+          : type === 'foodtruck'
+            ? 'Être prévenu de ses changements et le jour où il est quelque part (Premium et Pro)'
+            : 'Être prévenu de ses mises à jour (Premium et Pro)'
+      }
       accessibilityState={{ selected: following, busy }}
       disabled={busy}
       hitSlop={6}

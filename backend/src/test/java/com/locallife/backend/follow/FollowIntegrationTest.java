@@ -38,8 +38,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
- * Cloche « Suivre » (V79) contre la base réelle : réservée à Premium et Pro, triggers qui enregistrent les changements
- * des activités et lieux suivis, nouvelles activités d'un lieu suivi, envoi du récapitulatif.
+ * Cloche « Suivre » (V79, V91) contre la base réelle : réservée à Premium et Pro, triggers qui enregistrent les
+ * changements des activités, lieux et food trucks suivis, nouvelles activités d'un lieu suivi, présence du jour d'un
+ * food truck suivi, envoi du récapitulatif.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class FollowIntegrationTest {
@@ -70,6 +71,7 @@ class FollowIntegrationTest {
     private final List<Long> userIds = new ArrayList<>();
     private final List<Long> activityIds = new ArrayList<>();
     private final List<Long> locationIds = new ArrayList<>();
+    private final List<Long> foodTruckIds = new ArrayList<>();
 
     @AfterEach
     void cleanUp() {
@@ -80,6 +82,7 @@ class FollowIntegrationTest {
             jdbcTemplate.update("DELETE FROM schedule WHERE activity_id = ?", id);
             jdbcTemplate.update("DELETE FROM activity WHERE id = ?", id);
         });
+        foodTruckIds.forEach(id -> jdbcTemplate.update("DELETE FROM food_truck WHERE id = ?", id));
         locationIds.forEach(id -> jdbcTemplate.update("DELETE FROM location WHERE id = ?", id));
         userIds.forEach(id -> {
             jdbcTemplate.update("DELETE FROM subscription WHERE user_id = ?", id);
@@ -193,6 +196,63 @@ class FollowIntegrationTest {
         assertThat(followRepository.findPendingUpdates(free, 10)).isEmpty();
     }
 
+    @Test
+    void aFoodTruck_CanBeFollowedByPremium_AndAppearsInTheList() throws Exception {
+        long userId = user();
+        String token = token(userId);
+        long foodTruck = publishedFoodTruck();
+
+        call(HttpMethod.POST, "/api/v1/foodtrucks/" + foodTruck + "/follow", token, 403);
+        grantPremium(userId);
+        call(HttpMethod.POST, "/api/v1/foodtrucks/" + foodTruck + "/follow", token, 200);
+        call(HttpMethod.POST, "/api/v1/foodtrucks/999999999/follow", token, 404);
+
+        JsonNode follows = call(HttpMethod.GET, "/api/v1/users/me/follows", token, 200);
+        assertThat(follows).hasSize(1);
+        assertThat(follows.get(0).get("type").asText()).isEqualTo("foodtruck");
+        assertThat(follows.get(0).get("id").asLong()).isEqualTo(foodTruck);
+
+        call(HttpMethod.DELETE, "/api/v1/foodtrucks/" + foodTruck + "/follow", token, 200);
+        assertThat(call(HttpMethod.GET, "/api/v1/users/me/follows", token, 200)).isEmpty();
+    }
+
+    @Test
+    void aFollowedFoodTruck_ShouldReportProfileAndPlanningChanges() {
+        long userId = user();
+        long foodTruck = publishedFoodTruck();
+        followRepository.insert(userId, FollowTargetType.FOOD_TRUCK, foodTruck);
+
+        jdbcTemplate.update("UPDATE food_truck SET instagram_url = 'https://instagram.com/x' WHERE id = ?", foodTruck);
+        presence(foodTruck, "SA", "11:30", "14:00", null);
+
+        List<FollowUpdate> updates = followRepository.findPendingUpdates(userId, 10);
+        assertThat(updates).hasSize(1);
+        assertThat(updates.get(0).type()).isEqualTo(FollowTargetType.FOOD_TRUCK);
+        assertThat(updates.get(0).kinds()).containsExactly("CONTACT", "PLANNING");
+    }
+
+    @Test
+    void aFollowedFoodTruck_ShouldBeAnnouncedOnceOnTheDayItIsSomewhere() {
+        long userId = user();
+        long foodTruck = publishedFoodTruck();
+        followRepository.insert(userId, FollowTargetType.FOOD_TRUCK, foodTruck);
+        String today = java.time.LocalDate.now(java.time.ZoneId.of("Europe/Paris")).getDayOfWeek().name()
+                .substring(0, 2);
+        presence(foodTruck, today, "11:30", "14:00", "Place du marché");
+        // Présence permanente : pas une nouvelle du jour.
+        presence(foodTruck, null, null, null, "Dépôt");
+        // Suivi d'aujourd'hui : rien n'est annoncé avant demain ; on simule un suivi plus ancien.
+        jdbcTemplate.update("UPDATE follow SET presence_notified_on = NULL, last_change_id = "
+                + "(SELECT COALESCE(max(id), 0) FROM follow_change) WHERE user_id = ?", userId);
+
+        List<FollowUpdate> updates = followRepository.findPendingUpdates(userId, 10);
+        assertThat(updates).hasSize(1);
+        assertThat(updates.get(0).presentToday()).containsExactly("Place du marché, 11:30–14:00");
+
+        followRepository.markPresenceNotified(updates.get(0).followId());
+        assertThat(followRepository.findPendingUpdates(userId, 10)).isEmpty();
+    }
+
     // ---------------------------------------------------------------- outils
 
     private List<String> kinds(long activityId) {
@@ -233,6 +293,22 @@ class FollowIntegrationTest {
                 """, Long.class, "Musée " + UUID.randomUUID());
         locationIds.add(id);
         return id;
+    }
+
+    private long publishedFoodTruck() {
+        Long id = jdbcTemplate.queryForObject("INSERT INTO food_truck (name, category, status) "
+                + "VALUES (?, 'Burgers', 'PUBLISHED') RETURNING id", Long.class, "Camion " + UUID.randomUUID());
+        foodTruckIds.add(id);
+        return id;
+    }
+
+    private void presence(long foodTruckId, String days, String start, String end, String spotName) {
+        Long spot = jdbcTemplate.queryForObject("INSERT INTO location (name, city, latitude, longitude, country_code, "
+                + "timezone) VALUES (?, 'Lyon', 45.76, 4.83, 'FR', 'Europe/Paris') RETURNING id", Long.class, spotName);
+        locationIds.add(spot);
+        jdbcTemplate.update("INSERT INTO food_truck_presence (food_truck_id, location_id, spot_kind, days_of_week, "
+                + "start_time, end_time, status) VALUES (?, ?, 'MARKET', ?, ?::time, ?::time, 'PUBLISHED')",
+                foodTruckId, spot, days, start, end);
     }
 
     private void grantPremium(long userId) {

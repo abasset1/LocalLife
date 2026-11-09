@@ -87,7 +87,7 @@ export default function RootLayout() {
             <Stack.Screen name="parametres" options={{ title: 'Paramètres de recherche' }} />
             <Stack.Screen name="alertes" options={{ title: 'Mes alertes' }} />
             <Stack.Screen name="favoris" options={{ title: 'Mes favoris' }} />
-            <Stack.Screen name="suivis" options={{ title: 'Activités et lieux suivis' }} />
+            <Stack.Screen name="suivis" options={{ title: 'Mes suivis' }} />
             <Stack.Screen name="mot-de-passe-oublie" options={{ title: 'Mot de passe oublié' }} />
             <Stack.Screen name="contributions/index" options={{ title: 'Mes contributions' }} />
             <Stack.Screen name="contributions/[id]" options={{ title: "Modifier l'activité" }} />

@@ -23,7 +23,7 @@ export function withFollow(
 
 /** État affiché à côté d'un suivi : « annulée », « retiré de la carte »… ; `null` s'il est toujours visible. */
 export function followStatusLabel(item: FollowedItem): string | null {
-  if (item.type === 'place') return item.status && item.status !== 'PUBLISHED' ? 'retiré de la carte' : null;
+  if (item.type !== 'activity') return item.status && item.status !== 'PUBLISHED' ? 'retiré de la carte' : null;
   switch (item.status) {
     case 'CANCELLED':
       return 'annulée';
@@ -36,5 +36,12 @@ export function followStatusLabel(item: FollowedItem): string | null {
   }
 }
 
+/** Icône et nature d'un suivi, pour la liste « Mes suivis ». */
+export const FOLLOW_TYPE_LABELS: Record<FollowTargetType, { icon: string; label: string }> = {
+  activity: { icon: '📅', label: 'Activité' },
+  place: { icon: '🏛', label: 'Lieu' },
+  foodtruck: { icon: '🚚', label: 'Food truck' },
+};
+
 /** Message affiché quand le suivi est refusé à un compte gratuit (403), si le serveur n'en donne pas. */
-export const FOLLOW_PLAN_MESSAGE = 'Suivre une activité ou un lieu est réservé aux offres Premium et Pro.';
+export const FOLLOW_PLAN_MESSAGE = 'Le suivi est réservé aux offres Premium et Pro.';

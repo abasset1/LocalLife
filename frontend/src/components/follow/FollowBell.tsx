@@ -11,9 +11,15 @@ interface FollowBellProps {
     city?: string | null;
 }
 
+const WHAT: Record<FollowTargetType, string> = {
+    activity: "cette activité",
+    place: "ce lieu",
+    foodtruck: "ce food truck",
+};
+
 /**
- * Cloche « Suivre » : être prévenu des mises à jour d'une activité (dates, lieu, annulation…) ou d'un lieu (nouvelles
- * activités, adresse, horaires…). Réservée aux offres Premium et Pro : pour un compte gratuit, le refus du serveur est
+ * Cloche « Suivre » : être prévenu des mises à jour d'une activité (dates, lieu, annulation…), d'un lieu (nouvelles
+ * activités, adresse, horaires…) ou d'un food truck (planning, profil, et le jour où il est quelque part). Réservée aux offres Premium et Pro : pour un compte gratuit, le refus du serveur est
  * affiché avec un lien vers les offres. Sans connexion, la cloche n'est pas affichée.
  */
 function FollowBell({ type, id, title, city }: FollowBellProps) {
@@ -26,7 +32,7 @@ function FollowBell({ type, id, title, city }: FollowBellProps) {
     }
 
     const following = follows !== null && isFollowing(type, id);
-    const what = type === "activity" ? "cette activité" : "ce lieu";
+    const what = WHAT[type];
 
     async function toggle() {
         setIsBusy(true);
@@ -46,9 +52,13 @@ function FollowBell({ type, id, title, city }: FollowBellProps) {
                 className={following ? "follow-bell-button follow-bell-button-active" : "follow-bell-button"}
                 disabled={isBusy || follows === null}
                 onClick={() => void toggle()}
-                title={following
-                    ? `Tu seras prévenu des mises à jour de ${what}`
-                    : `Être prévenu des mises à jour de ${what} (Premium et Pro)`}
+                title={type === "foodtruck"
+                    ? (following
+                        ? "Tu seras prévenu de ses changements et le jour où il est quelque part"
+                        : "Être prévenu de ses changements et le jour où il est quelque part (Premium et Pro)")
+                    : (following
+                        ? `Tu seras prévenu des mises à jour de ${what}`
+                        : `Être prévenu des mises à jour de ${what} (Premium et Pro)`)}
                 type="button"
             >
                 <span aria-hidden="true">🔔</span>

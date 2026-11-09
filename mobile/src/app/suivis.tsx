@@ -10,12 +10,12 @@ import { Notice } from '@/components/notice';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { followStatusLabel, useFollows } from '@/features/follow';
+import { FOLLOW_TYPE_LABELS, followStatusLabel, useFollows } from '@/features/follow';
 import { useCurrentAccount } from '@/features/pro/useProAccess';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
- * « Activités et lieux suivis » (rubrique Compte) : ce que l'utilisateur suit avec la cloche, rechargé à chaque
+ * « Mes suivis » (rubrique Compte) : ce que l'utilisateur suit avec la cloche, rechargé à chaque
  * ouverture. Toucher une activité ouvre sa fiche ; « Ne plus suivre » arrête les notifications. Réservé aux offres
  * Premium et Pro : un compte revenu au gratuit garde sa liste mais n'est plus prévenu.
  */
@@ -55,11 +55,12 @@ export default function SuivisScreen() {
   const header = (
     <View style={styles.header}>
       <ThemedText themeColor="textSecondary">
-        Vous êtes prévenu de leurs mises à jour : dates, lieu, annulation, nouvelles activités d’un lieu.
+        Vous êtes prévenu de leurs mises à jour : dates, lieu, annulation, nouvelles activités d’un lieu, et le jour où
+        un food truck suivi est quelque part.
       </ThemedText>
       {canFollow === false && (
         <Notice tone="warning">
-          Suivre une activité ou un lieu est réservé aux offres Premium et Pro. Vos suivis restent listés, mais vous
+          Suivre une activité, un lieu ou un food truck est réservé aux offres Premium et Pro. Vos suivis restent listés, mais vous
           n’êtes plus prévenu.
         </Notice>
       )}
@@ -85,27 +86,36 @@ export default function SuivisScreen() {
             <ActivityIndicator accessibilityLabel="Chargement des suivis" style={styles.loader} />
           ) : status === 'success' ? (
             <ThemedText themeColor="textSecondary" style={styles.centerText}>
-              Rien pour l’instant : touchez 🔔 « Suivre » sur la fiche d’une activité ou l’aperçu d’un lieu.
+              Rien pour l’instant : touchez 🔔 « Suivre » sur la fiche d’une activité ou d’un food truck, ou l’aperçu
+              d’un lieu.
             </ThemedText>
           ) : null
         }
         renderItem={({ item }) => {
           const label = followStatusLabel(item);
           const key = `${item.type}-${item.id}`;
-          const openable = item.type === 'activity' && item.status !== 'DELETED';
+          const openable =
+            (item.type === 'activity' && item.status !== 'DELETED') ||
+            (item.type === 'foodtruck' && item.status === 'PUBLISHED');
+          const kind = FOLLOW_TYPE_LABELS[item.type];
           return (
             <Card style={styles.row}>
               <Pressable
                 accessibilityRole={openable ? 'button' : undefined}
                 accessibilityLabel={item.title ?? 'Sans titre'}
                 disabled={!openable}
-                onPress={() => router.push({ pathname: '/activite/[id]', params: { id: String(item.id) } })}
+                onPress={() =>
+                  router.push({
+                    pathname: item.type === 'foodtruck' ? '/foodtruck/[id]' : '/activite/[id]',
+                    params: { id: String(item.id) },
+                  })
+                }
                 style={styles.rowText}>
                 <ThemedText type="smallBold" numberOfLines={2}>
-                  {item.type === 'activity' ? '📅' : '🏛'} {item.title ?? 'Sans titre'}
+                  {kind.icon} {item.title ?? 'Sans titre'}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {item.type === 'activity' ? 'Activité' : 'Lieu'}
+                  {kind.label}
                   {item.city ? ` · ${item.city}` : ''}
                   {label ? ` · ${label}` : ''}
                 </ThemedText>

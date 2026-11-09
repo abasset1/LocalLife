@@ -21,8 +21,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
- * Envoi planifié des mises à jour des activités et lieux suivis : pour chaque utilisateur, un seul message
- * récapitulant ce qui a changé depuis l'envoi précédent (rien si rien n'a changé).
+ * Envoi planifié des mises à jour des activités, lieux et food trucks suivis : pour chaque utilisateur, un seul message
+ * récapitulant ce qui a changé depuis l'envoi précédent (rien si rien n'a changé). Pour un food truck suivi, le jour où
+ * il est quelque part, ses emplacements du jour sont annoncés une fois (au premier passage où il est présent).
  *
  * <p>Canal : notification push si l'utilisateur a enregistré un appareil (application mobile), sinon e-mail vers son
  * adresse vérifiée — un seul message par mise à jour, pas les deux. Les suivis sont marqués notifiés dès qu'un canal a
@@ -52,6 +53,7 @@ public class FollowNotifier {
         KIND_LABELS.put("LOCATION", "adresse modifiée");
         KIND_LABELS.put("DETAILS", "informations mises à jour");
         KIND_LABELS.put("CONTACT", "coordonnées mises à jour");
+        KIND_LABELS.put("PLANNING", "planning mis à jour");
     }
 
     private final FollowRepository followRepository;
@@ -137,16 +139,28 @@ public class FollowNotifier {
         }
 
         if (delivered) {
-            updates.forEach(update -> followRepository.markNotified(update.followId(), update.maxChangeId(), runStart));
+            updates.forEach(update -> {
+                followRepository.markNotified(update.followId(), update.maxChangeId(), runStart);
+                if (!update.presentToday().isEmpty()) {
+                    followRepository.markPresenceNotified(update.followId());
+                }
+            });
         }
         return delivered;
     }
 
-    /** « Du nouveau : Concert au port » pour un seul suivi, sinon « Du nouveau sur 3 activités et lieux suivis ». */
+    /**
+     * « Du nouveau : Concert au port » pour un seul suivi, « Chez Marco est là aujourd'hui » pour un food truck dont
+     * seule la présence du jour est à annoncer, sinon « Du nouveau sur 3 de tes suivis ».
+     */
     static String title(List<FollowUpdate> updates) {
-        return updates.size() == 1
-                ? "Du nouveau : " + updates.get(0).title()
-                : "Du nouveau sur " + updates.size() + " activités et lieux suivis";
+        if (updates.size() > 1) {
+            return "Du nouveau sur " + updates.size() + " de tes suivis";
+        }
+        FollowUpdate update = updates.get(0);
+        return update.kinds().isEmpty() && update.newActivities().isEmpty() && !update.presentToday().isEmpty()
+                ? update.title() + " est là aujourd'hui"
+                : "Du nouveau : " + update.title();
     }
 
     /** « annulée », « dates modifiées, adresse modifiée », « 2 nouvelles activités »… */
@@ -163,6 +177,9 @@ public class FollowNotifier {
         } else if (count > 1) {
             parts.add(count + " nouvelles activités");
         }
+        if (!update.presentToday().isEmpty()) {
+            parts.add("aujourd'hui : " + String.join(" · ", update.presentToday()));
+        }
         return String.join(", ", parts);
     }
 
@@ -176,13 +193,20 @@ public class FollowNotifier {
         return updates.size() > 3 ? names + " · …" : names;
     }
 
-    /** Écran à ouvrir au toucher : la fiche de l'activité s'il n'y en a qu'une, sinon la liste des suivis. */
+    /**
+     * Écran à ouvrir au toucher : la fiche de l'activité ou du food truck s'il n'y en a qu'un (encore visible), sinon
+     * la liste des suivis.
+     */
     static Map<String, Object> pushData(List<FollowUpdate> updates) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("type", "follow-update");
-        if (updates.size() == 1 && updates.get(0).type() == FollowTargetType.ACTIVITY
-                && !updates.get(0).kinds().contains("DELETED")) {
-            data.put("activityId", updates.get(0).targetId());
+        if (updates.size() == 1) {
+            FollowUpdate update = updates.get(0);
+            if (update.type() == FollowTargetType.ACTIVITY && !update.kinds().contains("DELETED")) {
+                data.put("activityId", update.targetId());
+            } else if (update.type() == FollowTargetType.FOOD_TRUCK && !update.kinds().contains("CLOSED")) {
+                data.put("foodTruckId", update.targetId());
+            }
         }
         return data;
     }
@@ -190,7 +214,11 @@ public class FollowNotifier {
     String emailBody(List<FollowUpdate> updates) {
         StringBuilder text = new StringBuilder("Bonjour,\n\nDu nouveau sur ce que tu suis :\n\n");
         for (FollowUpdate update : updates) {
-            text.append("- ").append(update.type() == FollowTargetType.PLACE ? "Lieu « " : "« ")
+            text.append("- ").append(switch (update.type()) {
+                case PLACE -> "Lieu « ";
+                case FOOD_TRUCK -> "Food truck « ";
+                case ACTIVITY -> "« ";
+            })
                     .append(update.title()).append(" » : ").append(describe(update)).append('\n');
             if (update.newActivities().size() > 1) {
                 update.newActivities().forEach(activity -> text.append("    · ").append(activity).append('\n'));

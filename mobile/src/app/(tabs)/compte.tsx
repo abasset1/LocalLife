@@ -270,7 +270,7 @@ export default function CompteScreen() {
               {features.premium && (
                 <MenuRow
                   icon={{ ios: 'bell.badge', android: 'notifications_active', web: 'notifications_active' }}
-                  label="Activités et lieux suivis"
+                  label="Mes suivis"
                   description="Être prévenu de leurs mises à jour (Premium et Pro)"
                   onPress={() => router.push('/suivis')}
                 />

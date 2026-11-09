@@ -363,7 +363,7 @@ const PRIVACY: LegalSection[] = [
                 "Connexion avec Google : identifiant de votre compte Google et adresse e-mail transmis par Google, si "
                     + "vous choisissez ce mode de connexion. Base légale : exécution du contrat.",
                 "Préférences, favoris, suivis et alertes : ville par défaut et ses coordonnées, catégories préférées, "
-                    + "favoris, activités et lieux suivis, alertes (ville, rayon, catégories, mots-clés, canaux) et "
+                    + "favoris, activités, lieux et food trucks suivis, alertes (ville, rayon, catégories, mots-clés, canaux) et "
                     + "historique des alertes envoyées, jetons de notification de vos appareils. Finalité : "
                     + "personnaliser le Service et vous prévenir. Base légale : exécution du contrat.",
                 "Contributions : activités que vous proposez, avec votre nom d'utilisateur, affiché publiquement une "

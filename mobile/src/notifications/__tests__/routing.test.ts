@@ -19,6 +19,10 @@ describe('routeForNotification', () => {
     expect(routeForNotification({ type: 'follow-update' })).toBe('/suivis');
   });
 
+  it('ouvre la fiche du food truck suivi (présent aujourd’hui ou mis à jour)', () => {
+    expect(routeForNotification({ type: 'follow-update', foodTruckId: 8 })).toBe('/foodtruck/8');
+  });
+
   it('ignore les autres notifications et les données invalides', () => {
     expect(routeForNotification({ type: 'autre', activityId: 7 })).toBeNull();
     expect(routeForNotification(null)).toBeNull();
