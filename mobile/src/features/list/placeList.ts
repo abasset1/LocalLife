@@ -3,7 +3,7 @@ import type { Activity, FoodTruck, Place } from '@/api';
 import { distanceKm, normalize } from './filters';
 
 /**
- * Lieux et mélange « Tous » de la liste (issue #226), sans dépendance à React Native pour rester testables.
+ * Lieux et tri par distance de la liste (issue #226), sans dépendance à React Native pour rester testables.
  */
 
 export interface NearPlace {
@@ -35,7 +35,7 @@ export type ListItem =
   | { kind: 'foodTruck'; foodTruck: FoodTruck; km: number }
   | { kind: 'place'; place: Place; km: number };
 
-/** « Tous » : activités, lieux et food trucks mêlés, du plus proche au plus loin (ordre stable à distance égale). */
+/** Éléments de la liste, du plus proche au plus loin (ordre stable à distance égale), quels que soient leurs types. */
 export function mergeByDistance(...groups: readonly ListItem[][]): ListItem[] {
   return groups.flat().sort((a, b) => a.km - b.km);
 }
@@ -47,7 +47,7 @@ export function listItemKey(item: ListItem): string {
   return `p-${item.place.id}`;
 }
 
-/** Phrase sous les filtres : « 12 résultats à moins de 20 km », « 1 lieu… », « 3 présences aujourd’hui… ». */
+/** Phrase sous les filtres : « 12 activités à moins de 20 km », « 1 lieu… », « 3 présences aujourd’hui… ». */
 export function listSummary(
   layer: 'activities' | 'places' | 'foodTrucks' | 'night',
   count: number,
@@ -61,5 +61,5 @@ export function listSummary(
   if (count === 0) return 'Aucun résultat';
   if (layer === 'places') return `${count} lieu${count > 1 ? 'x' : ''} ${within}`;
   if (layer === 'night') return `${count} sortie${plural} de nuit ${within}`;
-  return `${count} résultat${plural} ${within}`;
+  return `${count} activité${plural} ${within}`;
 }

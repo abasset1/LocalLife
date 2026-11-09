@@ -3,11 +3,10 @@ import { useSyncExternalStore } from 'react';
 import { type MapLayer, loadMapLayer, saveMapLayer } from './placesPreference';
 
 /**
- * Univers choisi (« Tous », « Lieux », « Food trucks », « Night », issue #226), partagé par la carte et l'onglet
+ * Contenu choisi (« Activités », « Food trucks », « Night », « Lieux », issue #226), partagé par la carte et l'onglet
  * « Liste » : passer de l'une à l'autre garde l'univers, comme la ville et les filtres (`explorerStore`).
  *
- * Valeur enregistrée : « Tous » garde la valeur historique `activities` (sur l'appareil, `locallife.mapLayer`, et
- * dans les paramètres, `defaultMapLayer`), pour que les choix déjà mémorisés et l'API restent valables.
+ * Valeurs enregistrées sur l'appareil (`locallife.mapLayer`) et dans les paramètres (`defaultMapLayer`), comme avant.
  */
 
 let layer: MapLayer = 'activities';
@@ -60,7 +59,7 @@ export function chooseMapLayer(next: MapLayer): void {
 }
 
 /**
- * Univers réellement affiché : un univers mémorisé mais pas (ou plus) ouvert au lancement revient à « Tous », sans
+ * Contenu réellement affiché : un contenu mémorisé mais pas (ou plus) ouvert au lancement revient aux activités, sans
  * effacer le choix enregistré.
  */
 export function shownLayer(chosen: MapLayer, features: { places: boolean; foodTrucks: boolean }): MapLayer {

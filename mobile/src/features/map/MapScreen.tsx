@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Supercluster from 'supercluster';
 
 import type { Activity } from '@/api';
-import { BrandMark } from '@/components/brand-mark';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { isExpoGoAndroid } from '@/config/expoGo';
@@ -64,9 +63,9 @@ import { useLaunchFeatures } from '@/features/launch';
 import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
 
-/** Pictogrammes des raccourcis d'univers (Night garde son logo, voir `MapChip`). */
+/** Pictogrammes des contenus du bouton « Affichage » (Night garde son logo, voir `MapChip`). */
 const LAYER_ICONS: Record<Exclude<MapLayer, 'night'>, ChipIcon> = {
-  activities: { ios: 'square.grid.2x2', android: 'grid_view', web: 'grid_view' },
+  activities: { ios: 'calendar', android: 'event', web: 'event' },
   places: { ios: 'mappin.and.ellipse', android: 'location_on', web: 'location_on' },
   foodTrucks: { ios: 'box.truck', android: 'local_shipping', web: 'local_shipping' },
 };
@@ -78,7 +77,6 @@ const ICONS = {
   list: { ios: 'list.bullet', android: 'view_list', web: 'view_list' },
   locate: { ios: 'location', android: 'my_location', web: 'my_location' },
   display: { ios: 'square.2.layers.3d', android: 'layers', web: 'layers' },
-  account: { ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' },
 } satisfies Record<string, ChipIcon>;
 
 /**
@@ -163,9 +161,8 @@ export default function MapScreen() {
   const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
   const [periodPanelOpen, setPeriodPanelOpen] = useState(false);
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
-  /** Choix de l'affichage (bouton flottant) : plan ou satellite, ou la liste. */
+  /** Bouton flottant « Affichage » : choix du contenu de la carte (activités, food trucks, Night, lieux). */
   const [displayPanelOpen, setDisplayPanelOpen] = useState(false);
-  const [satellite, setSatellite] = useState(false);
   /** Un seul panneau ouvert à la fois. */
   const closePanels = useCallback(() => {
     setRadiusPanelOpen(false);
@@ -254,15 +251,15 @@ export default function MapScreen() {
     [place, region],
   );
 
-  // Univers (issue #226) : « Tous » (activités, lieux et food trucks ensemble), « Lieux », « Food trucks » ou « Night »
-  // (activités entre 20 h et 6 h, thème nuit). Partagé avec la liste (`layerStore`) ; choix mémorisé sur l'appareil,
+  // Contenu (issue #226), choisi par le bouton « Affichage » : « Activités », « Food trucks », « Night » (activités entre
+  // 20 h et 6 h, thème nuit) ou « Lieux ». Partagé avec la liste (`layerStore`) ; choix mémorisé sur l'appareil,
   // sauf carte choisie dans les paramètres (utilisateur connecté), affichée à l'arrivée et à chacun de ses changements.
   const mapLayer = useMapLayer();
   const preferredLayer = preferredMapLayer(preferences?.defaultMapLayer);
   useEffect(() => {
     applyMapLayerPreference(preferredLayer);
   }, [preferredLayer]);
-  /** Raccourci choisi : les marqueurs changent sur place, sans changer d'écran. */
+  /** Contenu choisi : les marqueurs changent sur place, sans changer d'écran, et le panneau se referme. */
   const selectMapLayer = useCallback(
     (layer: MapLayer) => {
       closePanels();
@@ -270,7 +267,7 @@ export default function MapScreen() {
     },
     [closePanels],
   );
-  // Univers mémorisé mais pas (ou plus) ouvert au lancement : retour à « Tous », sans effacer le choix enregistré.
+  // Contenu mémorisé mais pas (ou plus) ouvert au lancement : retour aux activités, sans effacer le choix enregistré.
   const shownLayer: MapLayer = layerShown(mapLayer, features);
   // Univers changé (ici ou depuis la liste) : l'aperçu d'un élément qui n'est plus affiché se ferme.
   const [selectionLayer, setSelectionLayer] = useState<MapLayer>(shownLayer);
@@ -420,7 +417,6 @@ export default function MapScreen() {
     closePanels();
     router.navigate('/liste');
   }, [closePanels, router]);
-  const satelliteShown = satellite && !showNight && !USE_OSM_TILES;
 
   return (
     <View style={styles.container}>
@@ -448,10 +444,10 @@ export default function MapScreen() {
         moveOnMarkerPress={false}
         rotateEnabled={false}
         pitchEnabled={false}
-        mapType={USE_OSM_TILES ? 'none' : satelliteShown ? 'hybrid' : 'standard'}
+        mapType={USE_OSM_TILES ? 'none' : 'standard'}
         // Fond de carte violet nuit (Android, Google Maps) ou sombre (iOS, Apple Plans) pour la carte Night
         // seulement : un style vide explicite le retire dès qu'on passe sur un autre onglet.
-        customMapStyle={USE_OSM_TILES || satelliteShown ? undefined : mapStyleFor(showNight)}
+        customMapStyle={USE_OSM_TILES ? undefined : mapStyleFor(showNight)}
         userInterfaceStyle={showNight ? 'dark' : undefined}>
         {USE_OSM_TILES && <UrlTile urlTemplate={OSM_TILE_URL} maximumZ={19} zIndex={-1} />}
         {radiusSearch && (
@@ -548,46 +544,14 @@ export default function MapScreen() {
       {/* La barre d'onglets du bas réserve déjà la barre de gestes : seuls le haut et les côtés sont protégés ici. */}
       <SafeAreaView style={styles.overlay} edges={['top', 'left', 'right']} pointerEvents="box-none">
         <View style={styles.top} pointerEvents="box-none">
-          {/* En-tête : menu, logo (le bouc néon en Night), compte. */}
+          {/* En haut : seulement le menu ☰ et la recherche, alignés. */}
           <View style={styles.headerRow} pointerEvents="box-none">
             <MenuButton floating />
-            <View style={styles.brand} pointerEvents="none">
-              <View style={[styles.brandPill, { backgroundColor: theme.backgroundElement }]}>
-                <BrandMark />
-              </View>
+            <View style={styles.search}>
+              <CitySearch floating />
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Mon compte"
-              hitSlop={4}
-              onPress={() => router.navigate('/compte')}
-              style={({ pressed }) => [
-                styles.roundButton,
-                { backgroundColor: theme.backgroundElement, borderColor: theme.border },
-                pressed && styles.pressed,
-              ]}>
-              <SymbolView name={ICONS.account} tintColor={theme.primary} size={24} />
-            </Pressable>
           </View>
-          <View style={styles.search}>
-            <CitySearch floating />
-          </View>
-          {/* Raccourcis d'univers : Tous, Lieux, Food trucks, Night. */}
-          <MapChipRow tabs accessibilityLabel="Univers de la carte">
-            {layerTabs(features).map((tab) => (
-              <MapChip
-                key={tab.value}
-                role="tab"
-                label={tab.label}
-                accessibilityLabel={tab.description}
-                icon={tab.value === 'night' ? undefined : LAYER_ICONS[tab.value]}
-                night={tab.value === 'night'}
-                active={shownLayer === tab.value}
-                onPress={() => selectMapLayer(tab.value)}
-              />
-            ))}
-          </MapChipRow>
-          {/* Filtres des activités (Tous, Night) : chacun affiche sa valeur et ouvre son panneau en bas de l'écran. */}
+          {/* Filtres des activités (Activités, Night) : chacun affiche sa valeur et ouvre son panneau en bas de l'écran. */}
           {showActivities && (
             <MapChipRow accessibilityLabel="Filtres des activités">
               <MapChip
@@ -790,30 +754,21 @@ export default function MapScreen() {
           </View>
           {displayPanelOpen && (
             <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="smallBold">Affichage</ThemedText>
-              <View style={styles.actions}>
-                <MapChip
-                  small
-                  label="Plan"
-                  active={!satelliteShown}
-                  onPress={() => {
-                    setSatellite(false);
-                    setDisplayPanelOpen(false);
-                  }}
-                />
-                {/* Satellite : pas avec les tuiles de développement, ni en Night (le fond nuit fait partie du thème). */}
-                {!USE_OSM_TILES && !showNight && (
+              <ThemedText type="smallBold">Afficher sur la carte</ThemedText>
+              {/* Un contenu à la fois : un appui change les marqueurs sur place et referme le panneau. */}
+              <View style={styles.actions} accessibilityRole="tablist" accessibilityLabel="Contenu de la carte">
+                {layerTabs(features).map((tab) => (
                   <MapChip
-                    small
-                    label="Satellite"
-                    active={satelliteShown}
-                    onPress={() => {
-                      setSatellite(true);
-                      setDisplayPanelOpen(false);
-                    }}
+                    key={tab.value}
+                    role="tab"
+                    label={tab.label}
+                    accessibilityLabel={tab.description}
+                    icon={tab.value === 'night' ? undefined : LAYER_ICONS[tab.value]}
+                    night={tab.value === 'night'}
+                    active={shownLayer === tab.value}
+                    onPress={() => selectMapLayer(tab.value)}
                   />
-                )}
-                <MapChip small icon={ICONS.list} label="Liste" onPress={openList} />
+                ))}
               </View>
             </View>
           )}
@@ -902,17 +857,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
   },
-  brand: {
-    flex: 1,
-    alignItems: 'flex-start',
-  },
-  // Pastille derrière le logo : il reste lisible sur n'importe quel fond de carte.
-  brandPill: {
-    paddingHorizontal: Spacing.three - Spacing.one,
-    paddingVertical: Spacing.one,
-    borderRadius: Radius.pill,
-    ...Shadows.card,
-  },
   roundButton: {
     width: 48,
     height: 48,
@@ -925,7 +869,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   search: {
-    alignSelf: 'stretch',
+    flex: 1,
   },
   bottom: {
     justifyContent: 'flex-end',

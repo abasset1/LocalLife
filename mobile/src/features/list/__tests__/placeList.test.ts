@@ -42,7 +42,7 @@ describe('liste : lieux et mélange « Tous »', () => {
   });
 
   it('résume la liste selon l’univers', () => {
-    expect(listSummary('activities', 12, 20)).toBe('12 résultats à moins de 20 km');
+    expect(listSummary('activities', 12, 20)).toBe('12 activités à moins de 20 km');
     expect(listSummary('places', 1, 10)).toBe('1 lieu à moins de 10 km');
     expect(listSummary('places', 3, 10)).toBe('3 lieux à moins de 10 km');
     expect(listSummary('night', 2, 20)).toBe('2 sorties de nuit à moins de 20 km');

@@ -10,7 +10,7 @@ import { useTheme } from '@/hooks/use-theme';
 const PLACE_COLOR = '#6B5CA5';
 
 /**
- * Carte d'un lieu permanent dans la liste (univers « Lieux » et « Tous », issue #226) : type, nom, commune, distance.
+ * Carte d'un lieu permanent dans la liste (contenu « Lieux », issue #226) : type, nom, commune, distance.
  * Un lieu n'a pas de fiche dédiée : un appui cadre la carte dessus.
  */
 export function PlaceCard({ place, distance, onPress }: { place: Place; distance: string; onPress: () => void }) {
