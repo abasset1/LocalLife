@@ -34,17 +34,18 @@ class GeographicEndpointsNonRegressionIntegrationTest {
 
     /**
      * Élément de {@code /nearby} et {@code /within-bounds} ({@code ActivityResponse}). {@code coordinatePrecision} :
-     * ajout non cassant de l'ADR-0011, phase A.
+     * ajout non cassant de l'ADR-0011, phase A. {@code priceType} : gratuit / payant, ajout non cassant (07/11/2026).
      */
     private static final Set<String> MAP_ITEM_FIELDS = Set.of(
             "id", "title", "description", "category", "categoryCodes", "latitude", "longitude", "startDate",
             "endDate", "status", "url", "address", "city", "postalCode", "sourceName", "createdBy",
-            "createdByUsername", "likedByCurrentUser", "mainImageUrl", "publishedAt", "coordinatePrecision");
+            "createdByUsername", "likedByCurrentUser", "mainImageUrl", "publishedAt", "coordinatePrecision",
+            "priceType");
 
-    /** Élément de {@code GET /api/v1/activities} (résumé) ; {@code coordinatePrecision} : ADR-0011, phase A. */
+    /** Élément de {@code GET /api/v1/activities} (résumé) ; {@code coordinatePrecision} : ADR-0011, phase A ; {@code priceType}. */
     private static final Set<String> LIST_ITEM_FIELDS = Set.of(
             "id", "title", "category", "date", "latitude", "longitude", "address", "city", "createdBy",
-            "mainImageUrl", "coordinatePrecision", "hostPlace");
+            "mainImageUrl", "coordinatePrecision", "hostPlace", "priceType");
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 

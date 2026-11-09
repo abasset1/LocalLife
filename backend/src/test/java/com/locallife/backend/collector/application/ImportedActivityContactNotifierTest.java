@@ -57,9 +57,9 @@ class ImportedActivityContactNotifierTest {
 
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendImportedActivityNoticeEmail(eq("orga@example.com"),
-                eq("Votre événement « Concert de jazz » est référencé sur LocalLife"), body.capture());
+                eq("Votre événement « Concert de jazz » est référencé sur Neiri"), body.capture());
         assertTrue(body.getValue().contains("- Concert de jazz — Marseille, le 14/11/2026"));
-        assertTrue(body.getValue().contains("Pour que cet événement continue d'être référencé sur LocalLife, "
+        assertTrue(body.getValue().contains("Pour que cet événement continue d'être référencé sur Neiri, "
                 + "créez un compte professionnel"));
         assertTrue(body.getValue().contains("https://locallife.test/register"));
         assertTrue(body.getValue().contains("https://locallife.test/profile"));
@@ -75,7 +75,7 @@ class ImportedActivityContactNotifierTest {
 
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendImportedActivityNoticeEmail(eq("orga@example.com"),
-                eq("Vos 2 événements sont référencés sur LocalLife"), body.capture());
+                eq("Vos 2 événements sont référencés sur Neiri"), body.capture());
         assertTrue(body.getValue().contains("- Concert"));
         assertTrue(body.getValue().contains("- Atelier"));
         assertFalse(body.getValue().contains("Marché"));

@@ -308,11 +308,14 @@ public class ActivityController {
                     + "n'a de sens qu'accompagnée de 'date'. Quand les deux sont fournis, une activité est "
                     + "retenue dès que sa période [startDate, endDate] chevauche [date, dateTo].")
             @RequestParam(required = false) String dateTo,
+            @Parameter(description = "Carte « Night » : 'true' ne retient que les activités qui ont lieu entre "
+                    + "20 h et 6 h (début entre 20 h et 6 h, ou fin après 20 h ; heure locale du lieu).")
+            @RequestParam(required = false) String night,
             Authentication authentication,
             HttpServletRequest httpRequest) {
         try {
             List<Activity> activities = activityService.findNearby(
-                    latitude, longitude, radius, category, date, dateTo);
+                    latitude, longitude, radius, category, date, dateTo, night);
             return ResponseEntity.ok(withSourceNames(activities, authentication, referenceDate(date)));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -367,11 +370,14 @@ public class ActivityController {
                     + "n'a de sens qu'accompagnée de 'date'. Quand les deux sont fournis, une activité est "
                     + "retenue dès que sa période [startDate, endDate] chevauche [date, dateTo].")
             @RequestParam(required = false) String dateTo,
+            @Parameter(description = "Carte « Night » : 'true' ne retient que les activités qui ont lieu entre "
+                    + "20 h et 6 h (début entre 20 h et 6 h, ou fin après 20 h ; heure locale du lieu).")
+            @RequestParam(required = false) String night,
             Authentication authentication,
             HttpServletRequest httpRequest) {
         try {
             List<Activity> activities = activityService.findWithinBounds(
-                    swLatitude, swLongitude, neLatitude, neLongitude, category, date, dateTo);
+                    swLatitude, swLongitude, neLatitude, neLongitude, category, date, dateTo, night);
             return ResponseEntity.ok(withSourceNames(activities, authentication, referenceDate(date)));
         } catch (IllegalArgumentException exception) {
             return errorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), httpRequest);
@@ -503,7 +509,7 @@ public class ActivityController {
             return true;
         }
         if (authentication instanceof JwtAuthentication jwtAuthentication) {
-            // Corbeille : visible des seuls administrateurs ; l'équipe LocalLife voit le reste pour modérer.
+            // Corbeille : visible des seuls administrateurs ; l'équipe Neiri voit le reste pour modérer.
             return jwtAuthentication.getRole() == Role.ADMIN
                     || !"DELETED".equals(activity.status())
                             && (jwtAuthentication.getRole() == Role.LOCALLIFE

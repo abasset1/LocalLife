@@ -1,16 +1,46 @@
-import { StyleSheet, View } from 'react-native';
+import { Image } from 'expo-image';
+import { StyleSheet, Text, useColorScheme, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Brand, Radius, Spacing } from '@/constants/theme';
+import { NightNeon, Spacing } from '@/constants/theme';
+import { useNightMode } from '@/hooks/use-night-mode';
 
-/** Logo texte de la maquette : carré vert « L » suivi de « LocalLife ». */
+/**
+ * Logo Neiri : épingle en dégradé (« N » et point du « i ») suivie du logotype « NEiRI ». Images générées à
+ * partir des SVG de `frontend/public` (voir docs/brand/README.md). `inverted` : logotype blanc, pour un fond
+ * bleu nuit ; en mode sombre, le logotype est toujours clair. Thème « Night » (carte Night) : le bouc néon à
+ * lunettes remplace l'épingle, logotype clair et son nom, « The OutGoat », dessous, comme sur le site
+ * (`frontend/public/neiri-night.webp`).
+ */
+/** Nom du bouc néon, affiché sous « NEiRI » en thème « Night » (comme sur le site). */
+export const NIGHT_MASCOT_NAME = 'The OutGoat';
+
 export function BrandMark({ inverted = false }: { inverted?: boolean }) {
+  const dark = useColorScheme() === 'dark';
+  const night = useNightMode();
+  const light = inverted || dark || night;
   return (
-    <View style={styles.row} accessible accessibilityLabel="LocalLife">
-      <View style={[styles.mark, { backgroundColor: inverted ? '#FFFFFF' : Brand.green }]}>
-        <ThemedText style={[styles.letter, { color: inverted ? Brand.green : '#FFFFFF' }]}>L</ThemedText>
+    <View
+      style={styles.row}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={night ? `Neiri Night, ${NIGHT_MASCOT_NAME}` : 'Neiri'}>
+      {night ? (
+        <Image source={require('@/assets/images/neiri-night.webp')} style={styles.nightMark} contentFit="contain" />
+      ) : (
+        <Image source={require('@/assets/images/neiri-mark.png')} style={styles.mark} contentFit="contain" />
+      )}
+      <View style={styles.text}>
+        <Image
+          source={
+            light
+              ? require('@/assets/images/neiri-wordmark-light.png')
+              : require('@/assets/images/neiri-wordmark.png')
+          }
+          style={styles.wordmark}
+          contentFit="contain"
+        />
+        {night ? <Text style={styles.nightCaption}>{NIGHT_MASCOT_NAME}</Text> : null}
       </View>
-      <ThemedText style={[styles.name, inverted && { color: '#FFFFFF' }]}>LocalLife</ThemedText>
     </View>
   );
 }
@@ -19,24 +49,33 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two + Spacing.half,
+    gap: Spacing.two,
   },
+  // Proportions des images sources : repère 240 × 288, logotype 688 × 216.
   mark: {
-    width: 34,
-    height: 34,
-    borderRadius: Radius.md - 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 30,
+    height: 36,
   },
-  letter: {
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: 900,
+  // Bouc néon (image carrée), un peu plus grand que l'épingle, comme le logo Night du menu du site.
+  nightMark: {
+    width: 48,
+    height: 48,
   },
-  name: {
-    fontSize: 21,
-    lineHeight: 26,
-    fontWeight: 800,
-    letterSpacing: -0.6,
+  text: {
+    gap: 2,
+  },
+  // « The OutGoat » en magenta néon avec un halo, comme sur le site.
+  nightCaption: {
+    color: NightNeon.magenta,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.7,
+    textShadowColor: 'rgba(255, 63, 209, 0.75)',
+    textShadowRadius: 8,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  wordmark: {
+    width: 76,
+    height: 24,
   },
 });

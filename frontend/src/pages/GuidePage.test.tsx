@@ -21,7 +21,7 @@ describe("GuidePage — didacticiel animé", () => {
         const user = userEvent.setup();
         renderGuide();
 
-        expect(screen.getByRole("heading", { level: 1, name: "Bienvenue sur LocalLife" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1, name: "Bienvenue sur Neiri" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "← Précédent" })).toBeDisabled();
 
         await user.click(screen.getByRole("button", { name: "Suivant →" }));
@@ -40,7 +40,7 @@ describe("GuidePage — didacticiel animé", () => {
         expect(screen.getByRole("link", { name: "Explorer la carte" })).toHaveAttribute("href", "/");
 
         await user.click(screen.getByRole("button", { name: "Revoir le guide" }));
-        expect(screen.getByRole("heading", { level: 1, name: "Bienvenue sur LocalLife" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1, name: "Bienvenue sur Neiri" })).toBeInTheDocument();
     });
 
     it("avance tout seul en lecture automatique, et s'arrête en pause", () => {

@@ -46,9 +46,9 @@ export interface GuideStep {
 export const GUIDE_STEPS: readonly GuideStep[] = [
   {
     id: 'bienvenue',
-    title: 'Bienvenue sur LocalLife',
+    title: 'Bienvenue sur Neiri',
     text:
-      'LocalLife rassemble sur une seule carte les sorties près de chez vous : concerts, expositions, marchés, ' +
+      'Neiri rassemble sur une seule carte les sorties près de chez vous : concerts, expositions, marchés, ' +
       'sport, activités en famille, lieux à visiter et food trucks.',
     tips: ['Découvrir est gratuit, sans compte', 'Un compte débloque favoris, alertes et contributions'],
     scene: { kind: 'hero', emoji: '📍', orbit: ['🎭', '🎵', '🏃', '🍽️', '🎨', '🚚'] },
@@ -61,8 +61,9 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
       'activités proches ; touchez un marqueur ou un groupe pour afficher son aperçu, puis sa fiche.',
     tips: [
       'Dans un groupe, « ‹ › » passe d’une activité à l’autre',
-      'Le bouton liste montre les activités de la zone',
-      '« Ma position » recentre la carte sur vous',
+      'Tirez l’aperçu vers le haut pour plus de détails, vers le bas pour le fermer',
+      '« Voir la liste » montre les mêmes résultats, triés',
+      'Le bouton ◎ à droite recentre la carte sur vous',
     ],
     scene: {
       kind: 'map',
@@ -76,7 +77,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     text:
       'Tapez le nom d’une ville ou un code postal en haut de la carte : elle se recentre dessus. La vue Liste ' +
       'présente les mêmes activités, triées.',
-    tips: ['Le menu ☰ donne accès à la Liste et à toutes les rubriques'],
+    tips: ['La barre du bas passe de la Carte à la Liste ; le menu ☰ donne accès à toutes les rubriques'],
     scene: {
       kind: 'search',
       query: 'Aix-en-Provence',
@@ -91,8 +92,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     id: 'filtres',
     title: 'Affinez avec les filtres',
     text:
-      'Les boutons au-dessus de la carte filtrent les activités : catégories, période (aujourd’hui, ce ' +
-      'week-end…) et rayon autour du centre de la carte.',
+      'Sous la recherche, quatre pictogrammes : période (calendrier), catégories (étiquette), rayon (cible) et ' +
+      '« Gratuit » (cadeau). Touchez-en un pour le modifier ; il se remplit tant que le filtre est posé.',
     tips: ['Vos filtres se combinent', 'La période choisie vaut aussi pour la Liste'],
     scene: {
       kind: 'chips',
@@ -106,15 +107,15 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   {
     id: 'couches',
     available: (features) => features.places || features.foodTrucks,
-    title: 'Activités, lieux et food trucks',
+    title: 'Activités, food trucks, Night et lieux',
     text:
-      'Les boutons « Lieux » et « Food trucks » remplacent les activités sur la carte par les lieux à visiter ' +
-      '(musées, monuments, équipements…) ou par les food trucks. Touchez-les à nouveau pour revenir aux activités.',
+      'Le bouton Affichage, à droite de la carte, choisit ce qu’elle montre : « Activités », « Food trucks », ' +
+      '« Night » ou « Lieux » à visiter (musées, monuments, équipements…).',
     tips: ['L’aperçu d’un lieu liste ses activités à venir'],
     scene: {
       kind: 'map',
       layers: [
-        { label: '📅 Activités', pins: ['📅', '📅', '📅'] },
+        { label: 'Activités', pins: ['📅', '📅', '📅'] },
         { label: '🏛 Lieux', pins: ['🏛', '🏰', '🏟'] },
         { label: '🚚 Food trucks', pins: ['🚚', '🚚'] },
       ],
@@ -145,7 +146,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     title: 'Soyez prévenu des nouveautés',
     text:
       'Créez une alerte sur vos catégories préférées (et les food trucks) autour d’une ville : chaque matin, ' +
-      'LocalLife vous prévient par notification sur ce téléphone, par e-mail, ou les deux.',
+      'Neiri vous prévient par notification sur ce téléphone, par e-mail, ou les deux.',
     tips: ['Proposée dès votre première connexion', 'Gérez vos alertes dans « Mes alertes »'],
     scene: {
       kind: 'rows',
@@ -206,7 +207,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     id: 'fin',
     title: 'À vous de jouer !',
     text:
-      'Vous connaissez l’essentiel de LocalLife. Retrouvez ce guide à tout moment dans le menu (rubrique ' +
+      'Vous connaissez l’essentiel de Neiri. Retrouvez ce guide à tout moment dans le menu (rubrique ' +
       '« Aide »), dans Compte ou dans les Paramètres de recherche.',
     tips: [],
     scene: { kind: 'hero', emoji: '🚀', orbit: ['🎉', '✨', '🎊', '⭐', '🎈', '💫'] },

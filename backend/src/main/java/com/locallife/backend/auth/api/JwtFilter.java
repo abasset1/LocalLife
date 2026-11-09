@@ -109,6 +109,9 @@ public class JwtFilter extends OncePerRequestFilter {
         if (access.get().status() != AccountStatus.ACTIVE) {
             rejectOrContinueAnonymous(request, response, filterChain, source, HttpServletResponse.SC_UNAUTHORIZED,
                     "Ce compte est suspendu. Contacte l'équipe LocalLife pour en savoir plus.");
+            errorWriter.write(response, HttpServletResponse.SC_UNAUTHORIZED,
+                    "Ce compte est suspendu. Contacte l'équipe Neiri pour en savoir plus.",
+                    request.getRequestURI());
             return;
         }
         // Mot de passe changé ou réinitialisé depuis l'émission du jeton : les autres sessions sont fermées.

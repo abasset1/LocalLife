@@ -1,3 +1,4 @@
+import { BrandLogo } from "../BrandLogo";
 import { Link } from "react-router-dom";
 import { LEGAL_DOCUMENTS } from "../../legal/legalDocuments";
 import { canModerate } from "../../auth/roles";
@@ -14,6 +15,8 @@ interface ExplorerMenuProps {
     onLogout: () => void;
     /** « Une idée, un problème ? » : formulaire de suggestion ou de signalement d'anomalie. */
     onOpenFeedback?: () => void;
+    /** Carte « Night » affichée : logo néon (bouc à lunettes) à la place du repère habituel. */
+    night?: boolean;
 }
 
 /**
@@ -29,7 +32,7 @@ interface ExplorerMenuProps {
  * et ne sont donc pas ajoutés ici (hors périmètre de ce ticket).
  */
 function ExplorerMenu({
-    isOpen, onClose, currentUser, hasProAccess = false, onOpenContributionForm, onLogout, onOpenFeedback,
+    isOpen, onClose, currentUser, hasProAccess = false, onOpenContributionForm, onLogout, onOpenFeedback, night = false,
 }: ExplorerMenuProps) {
     // Lancement (05/11/2026) : proposer une activité demande une offre Premium ou Pro, la page « Nouveautés »
     // présente Premium ; tant que ces offres sont fermées, ces entrées sont masquées.
@@ -44,12 +47,11 @@ function ExplorerMenu({
                 role="presentation"
             />
             <nav
-                aria-label="Menu LocalLife"
+                aria-label="Menu Neiri"
                 className={isOpen ? "explorer-menu explorer-menu--open" : "explorer-menu"}
             >
                 <div className="explorer-menu-brand">
-                    <span className="explorer-menu-brand-mark">L</span>
-                    LocalLife
+                    <BrandLogo night={night} tone="light" />
                 </div>
 
                 <div className="explorer-menu-section">

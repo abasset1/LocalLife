@@ -32,7 +32,7 @@ export function CitySearch({ floating = false }: { /** Posé sur la carte : fond
     Keyboard.dismiss();
   }
 
-  const placeholder = place ? `📍 ${place.label}` : 'Ville ou code postal';
+  const placeholder = place ? `📍 ${place.label}` : 'Rechercher une ville ou un code postal';
 
   return (
     <View style={styles.wrapper}>

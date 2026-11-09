@@ -17,7 +17,7 @@ import org.springframework.data.annotation.Id;
  * n'est jamais parsé ni exposé tel quel par une API (critère
  * d'acceptation « aucun accès direct au JSON brut depuis le frontend »
  * — ce ticket ne crée d'ailleurs aucun endpoint, voir
- * {@code ExternalActivityService}) ; le domaine LocalLife reste
+ * {@code ExternalActivityService}) ; le domaine Neiri reste
  * indépendant d'OpenAgenda (même principe que LL-11006/LL-11009).
  *
  * Champs repris tels quels de la section « Modèle cible » du ticket

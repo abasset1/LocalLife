@@ -1,5 +1,5 @@
 /**
- * Types des réponses/requêtes de l'API LocalLife (LL-MOB-0003).
+ * Types des réponses/requêtes de l'API Neiri (LL-MOB-0003).
  *
  * Miroirs des DTO du backend Spring Boot (`backend/.../api/*.java`). Les
  * `LocalDateTime` Java sont sérialisés en chaînes ISO-8601 sans fuseau
@@ -12,6 +12,12 @@
  * backend antérieur, traité comme `UNKNOWN`.
  */
 export type CoordinatePrecision = 'EXACT' | 'APPROXIMATE' | 'UNKNOWN';
+
+/**
+ * Gratuit / payant, déduit par le backend des tarifs en clair (`PriceIndicator`). Facultatif : absent d'un
+ * backend antérieur, traité comme `UNKNOWN` (rien n'est affiché).
+ */
+export type PriceType = 'FREE' | 'PAID' | 'UNKNOWN';
 
 /** `ActivitySummaryResponse` — liste (`GET /activities`) et fiche résumée. */
 export interface ActivitySummary {
@@ -29,6 +35,7 @@ export interface ActivitySummary {
   coordinatePrecision?: CoordinatePrecision;
   /** Lieu géré par l'auteur qui propose l'activité (« Proposé par… ») ; `null` sinon. */
   hostPlace?: HostPlace | null;
+  priceType?: PriceType;
 }
 
 /** Lieu qui propose une activité : publié et géré par l'auteur de la contribution. */
@@ -60,6 +67,7 @@ export interface Activity {
   /** Premier passage au statut publié ; `null` si publiée avant le suivi de cette date. */
   publishedAt: string | null;
   coordinatePrecision?: CoordinatePrecision;
+  priceType?: PriceType;
 }
 
 export interface ScheduleSummary {
@@ -155,6 +163,7 @@ export interface ActivityDetail {
   coordinatePrecision?: CoordinatePrecision;
   /** Lieu géré par l'auteur qui propose l'activité (« Proposé par… ») ; `null` sinon. */
   hostPlace?: HostPlace | null;
+  priceType?: PriceType;
 }
 
 /** `PlaceResponse` — lieu permanent publié (ADR-0011, phase B), couche « Lieux » de la carte. */
@@ -202,6 +211,9 @@ export interface CitySuggestion {
   longitude: number;
 }
 
+/** Carte de « Découvrir » : activités, lieux ou food trucks (mêmes valeurs que le site web et le backend). */
+export type MapLayerValue = 'activities' | 'places' | 'foodTrucks' | 'night';
+
 /** `UserPreferencesResponse` (`GET`/`PUT /users/me/preferences`) — paramètres de recherche par défaut. */
 export interface UserPreferences {
   defaultCity: string | null;
@@ -209,6 +221,8 @@ export interface UserPreferences {
   defaultLongitude: number | null;
   defaultRadiusKm: number | null;
   defaultCategoryCodes: string[];
+  /** Carte ouverte à l'arrivée ; `null` (ou absent, backend ancien) = dernière carte choisie sur l'appareil. */
+  defaultMapLayer?: MapLayerValue | null;
   /** `false` tant que l'utilisateur n'a jamais enregistré ses préférences (accueil de première connexion). */
   configured?: boolean;
 }
@@ -224,6 +238,8 @@ export interface UpdatePreferencesRequest {
   defaultLongitude: number | null;
   defaultRadiusKm: number | null;
   defaultCategoryCodes: string[];
+  /** Carte à l'arrivée : absent ou `null` garde celle enregistrée, `''` l'efface. */
+  defaultMapLayer?: MapLayerValue | '' | null;
 }
 
 /** `CityResponse` (`GET /users/me/preferences/city`) — ville existante, nom officiel. */
@@ -288,7 +304,7 @@ export interface FoodTruck {
   endTime: string | null;
   validFrom: string | null;
   validUntil: string | null;
-  /** Lieu LocalLife où se trouve l'emplacement, ou `null`. */
+  /** Lieu Neiri où se trouve l'emplacement, ou `null`. */
   placeId: number | null;
   /** Type de cuisine (`FoodTruckCuisine` backend), `null` si non renseigné. */
   cuisineType?: string | null;
@@ -458,6 +474,8 @@ export interface NearbySearchParams {
   date?: string;
   /** `yyyy-MM-dd`, avec `date` uniquement. */
   dateTo?: string;
+  /** Carte « Night » : seulement les activités qui ont lieu entre 20 h et 6 h. */
+  night?: boolean;
 }
 
 /** Paramètres de `GET /activities/within-bounds` (contrat `BOUNDING_BOX_SEARCH_CONTRACT.md`). */
@@ -469,6 +487,8 @@ export interface WithinBoundsSearchParams {
   category?: string | readonly string[];
   date?: string;
   dateTo?: string;
+  /** Carte « Night » : seulement les activités qui ont lieu entre 20 h et 6 h. */
+  night?: boolean;
 }
 
 /** Paramètres de `GET /activities` (liste). */

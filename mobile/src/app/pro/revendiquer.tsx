@@ -20,7 +20,7 @@ type Target = { kind: 'place'; id: number; name: string } | { kind: 'claim'; cla
 /**
  * Demander la gestion d'un lieu existant (ADR-0012, parcours A), comme sur le site : retrouver le lieu, expliquer
  * son lien avec lui, joindre des justificatifs (texte ou liens), envoyer. La fiche du lieu ne change pas avant
- * l'approbation de LocalLife. Paramètres facultatifs `placeId`/`placeName` : lieu déjà choisi (depuis « Créer un
+ * l'approbation de Neiri. Paramètres facultatifs `placeId`/`placeName` : lieu déjà choisi (depuis « Créer un
  * lieu »).
  */
 export default function ClaimScreen() {
@@ -84,7 +84,7 @@ export default function ClaimScreen() {
       const text = { relationship, evidence };
       const saved = target.kind === 'claim' ? await updateClaim(target.claim.id, text) : await createClaim(target.id, text);
       if (send) await claimAction(saved.id, 'submit');
-      setInfo(send ? 'Demande envoyée : LocalLife va l’examiner.' : 'Brouillon enregistré.');
+      setInfo(send ? 'Demande envoyée : Neiri va l’examiner.' : 'Brouillon enregistré.');
       setTarget(null);
       setResults(null);
     } catch (e) {
@@ -113,8 +113,8 @@ export default function ClaimScreen() {
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
             <ThemedText themeColor="textSecondary">
-              Votre lieu est déjà sur LocalLife ? Retrouvez-le et demandez à le gérer. La fiche reste inchangée tant que
-              LocalLife n’a pas approuvé votre demande.
+              Votre lieu est déjà sur Neiri ? Retrouvez-le et demandez à le gérer. La fiche reste inchangée tant que
+              Neiri n’a pas approuvé votre demande.
             </ThemedText>
 
             {target ? (
@@ -123,7 +123,7 @@ export default function ClaimScreen() {
                   Demande pour « {target.kind === 'claim' ? target.claim.placeName : target.name} »
                 </ThemedText>
                 {target.kind === 'claim' && target.claim.status === 'INFO_REQUESTED' && target.claim.decisionReason ? (
-                  <Notice tone="warning">Demande de LocalLife : {target.claim.decisionReason}</Notice>
+                  <Notice tone="warning">Demande de Neiri : {target.claim.decisionReason}</Notice>
                 ) : null}
                 <TextField
                   label="Votre lien avec le lieu"
@@ -142,7 +142,7 @@ export default function ClaimScreen() {
                   maxLength={4000}
                 />
                 <ThemedText type="small" themeColor="textSecondary">
-                  Visibles de vous et de l’équipe LocalLife seulement, effacés 12 mois après la décision.
+                  Visibles de vous et de l’équipe Neiri seulement, effacés 12 mois après la décision.
                 </ThemedText>
                 <Button
                   label="Envoyer la demande"

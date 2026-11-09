@@ -18,7 +18,7 @@ import {
   linkAction,
   upcomingOccurrences,
 } from './details';
-import { formatPlace } from './format';
+import { formatPlace, formatPriceType } from './format';
 
 /** Dates affichées avant « Voir toutes les dates ». */
 const OCCURRENCES_SHOWN = 4;
@@ -89,14 +89,16 @@ export function PracticalSection({ detail }: { detail: ActivityDetail }) {
           .map((l) => [l.name, formatPlace(l.address, l.postalCode, l.city)].filter(Boolean).join(' — '))
           .filter(Boolean)
       : [];
+  const price = formatPriceType(detail.priceType);
+  const prices = [price, detail.conditions].filter(Boolean).join('\n');
   const hasContent =
-    detail.conditions || age || accessibility.length > 0 || otherPlaces.length > 0 || detail.tags.length > 0 || detail.additionalInfo;
+    prices || age || accessibility.length > 0 || otherPlaces.length > 0 || detail.tags.length > 0 || detail.additionalInfo;
   if (!hasContent) return null;
 
   return (
     <Card style={styles.section}>
       <ThemedText type="heading">Infos pratiques</ThemedText>
-      {detail.conditions ? <Block title="Tarifs et conditions" text={detail.conditions} /> : null}
+      {prices ? <Block title="Tarifs et conditions" text={prices} /> : null}
       {age ? <Block title="Âge" text={age} /> : null}
       {otherPlaces.length > 0 ? (
         <View style={styles.block}>

@@ -70,7 +70,7 @@ function FollowNewsPopup({ userId, canFollow, blocked }: FollowNewsPopupProps) {
                     <li>
                         <strong>🔔 Suis tes activités et tes lieux préférés</strong>
                         <span>
-                            LocalLife te prévient quand leurs dates changent, qu'une activité est annulée ou qu'un lieu
+                            Neiri te prévient quand leurs dates changent, qu'une activité est annulée ou qu'un lieu
                             en programme une nouvelle.
                         </span>
                     </li>

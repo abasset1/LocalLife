@@ -1,3 +1,4 @@
+import { BrandLogo } from "../components/BrandLogo";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -31,7 +32,7 @@ interface UserProfile {
     createdAt: string;
     /** Nouvelle adresse en attente de confirmation (lien envoyé à cette adresse), sinon `null`. */
     pendingEmail: string | null;
-    /** Faux pour un compte créé avec Google, sans mot de passe LocalLife. */
+    /** Faux pour un compte créé avec Google, sans mot de passe Neiri. */
     hasPassword: boolean;
     /** Droit de proposer ou modifier une activité (offre Premium ou Pro). */
     canContribute: boolean;
@@ -184,11 +185,8 @@ function ProfilePage() {
     return (
         <div className="pp">
             <header className="pp-topbar">
-                <Link aria-label="LocalLife — retour à la carte" className="pp-brand" to="/">
-                    <span aria-hidden="true" className="pp-brand-mark">
-                        L
-                    </span>
-                    LocalLife
+                <Link aria-label="Neiri — retour à la carte" className="pp-brand" to="/">
+                    <BrandLogo />
                 </Link>
                 <Link className="pp-button pp-button-secondary" to="/">
                     ← Retour à la carte
@@ -327,7 +325,7 @@ function ProfilePage() {
                                 )}
                                 <ProfileCard
                                     icon="🎓"
-                                    subtitle="Revois en quelques étapes animées tout ce que permet LocalLife."
+                                    subtitle="Revois en quelques étapes animées tout ce que permet Neiri."
                                     title="Guide de l'application"
                                     titleId="profile-guide-title"
                                 >

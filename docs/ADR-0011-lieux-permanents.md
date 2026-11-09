@@ -1071,6 +1071,15 @@ Créer un compte diffuseur DATAtourisme au nom du projet, avec un flux
 d'utilisation relues, clé dans les paramètres de l'environnement, mesure
 des jours de marché **avant** toute décision d'import.
 
+> **Mise à jour du 07/11/2026** : la plateforme Diffuseur ne crée plus de
+> compte ni de flux depuis le 01/10/2026 et ferme en octobre 2027. Elle est
+> remplacée par l'**API DATAtourisme** (`api.datatourisme.fr`, clé
+> `DATATOURISME_API_KEY`), déjà branchée pour compléter les événements
+> (`DataTourismeApiEnricher`, voir `docs/02_Architecture/DATAGOUV_SOURCES.md`).
+> La mesure des jours de marché se fera avec cette même clé (filtre
+> `type[eq]=Market`, champ `takesPlaceAt.appliesOnDay`), sans compte
+> Diffuseur.
+
 #### 7.3.7 Conséquence pour la conception (non implémentée)
 
 La table du projet (`location_opening_hours`) reste adaptée ; ses lignes

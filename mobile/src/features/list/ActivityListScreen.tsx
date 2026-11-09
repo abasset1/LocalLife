@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { Activity, FoodTruck } from '@/api';
+import type { Activity, FoodTruck, Place } from '@/api';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { Notice } from '@/components/notice';
@@ -12,7 +12,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { CategoryPanel, categoriesButtonLabel } from '@/features/explorer/CategoryPanel';
 import { CitySearch } from '@/features/explorer/CitySearch';
-import { applyPreferences, clearCategories, setPlace, setRadius, useExplorer } from '@/features/explorer/explorerStore';
+import { applyPreferences, clearCategories, setFreeOnly, setPlace, setRadius, useExplorer } from '@/features/explorer/explorerStore';
+import { keepFreeActivities } from '@/features/map/priceFilter';
 import { useSearchPreferences } from '@/features/map/useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from '@/features/map/useUserLocation';
 import { MenuButton } from '@/features/navigation/AppMenu';
@@ -23,26 +24,21 @@ import { ActivityCard } from './ActivityCard';
 import { FilterChips } from './FilterChips';
 import { PERIOD_OPTIONS, distanceKm, formatDistance, matchesQuery } from './filters';
 import { CuisineFilterBar } from '@/features/foodtruck/CuisineFilterBar';
+import { chooseMapLayer, shownLayer, useMapLayer } from '@/features/map/layerStore';
+import { layerContents, layerTabs } from '@/features/map/mapControls';
 
 import { FoodTruckCard } from './FoodTruckCard';
 import { foodTrucksNear } from './foodTruckList';
 import { usePeriod } from './periodStore';
 import { useActivityList } from './useActivityList';
 import { useFoodTruckList } from './useFoodTruckList';
+import { PlaceCard } from './PlaceCard';
+import { listItemKey, listSummary, mergeByDistance, placesNear, type ListItem } from './placeList';
+import { usePlaceList } from './usePlaceList';
 import { useLaunchFeatures } from '@/features/launch';
 
 /** Rayon de la liste tant qu'aucun rayon n'est choisi (la carte cherche alors dans la zone visible). */
 const DEFAULT_RADIUS_KM = 20;
-
-type ListTab = 'activities' | 'foodTrucks';
-
-/** Contenu de la liste : les food trucks (ADR-0013) ont leur onglet, distinct des activités. */
-const TAB_OPTIONS: readonly { value: ListTab; label: string }[] = [
-  { value: 'activities', label: 'Activités' },
-  { value: 'foodTrucks', label: '🚚 Food trucks' },
-];
-
-type ListItem = { kind: 'activity'; activity: Activity } | { kind: 'foodTruck'; foodTruck: FoodTruck; km: number };
 
 /**
  * Vue « Liste » : les activités publiées autour du lieu de recherche (ville choisie, « Autour de moi »
@@ -50,9 +46,9 @@ type ListItem = { kind: 'activity'; activity: Activity } | { kind: 'foodTruck'; 
  * (`explorerStore`, FRONT-REV-02) ; la période aussi (`periodStore`). Sans lieu choisi, la liste invite
  * à en choisir un : aucune ville n'est supposée. Filtre texte local en plus. Un appui ouvre la fiche.
  *
- * Onglet « Food trucks » (ADR-0013) : les food trucks présents aujourd'hui dans le même rayon, une carte par
- * présence, triés par distance. Période et catégories ne s'y appliquent pas (catégories d'activités ; une
- * présence est celle du jour).
+ * Contenus (issue #226) : les mêmes que la carte, partagés avec elle (`layerStore`). « Activités » liste les activités
+ * par distance ; « Lieux » les lieux du rayon ; « Food trucks » les présences du jour (période
+ * et catégories ne s'y appliquent pas) ; « Night » les activités de 20 h à 6 h, dans le thème nuit.
  */
 export default function ActivityListScreen() {
   const theme = useTheme();
@@ -63,52 +59,71 @@ export default function ActivityListScreen() {
   }, [preferences]);
   const location = useUserLocation();
 
-  const { place, categoryCodes, radiusKm: chosenRadiusKm } = useExplorer();
+  const { place, categoryCodes, radiusKm: chosenRadiusKm, freeOnly } = useExplorer();
   const [period, setPeriod] = usePeriod();
   const [query, setQuery] = useState('');
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
-  const [chosenTab, setTab] = useState<ListTab>('activities');
-  // Food trucks fermés (lancement progressif, 05/11/2026) : pas d'onglet, la liste montre les activités.
-  const { foodTrucks: foodTrucksOpen } = useLaunchFeatures();
-  const tab: ListTab = foodTrucksOpen ? chosenTab : 'activities';
-  // Filtre « type de cuisine » de l'onglet food trucks (`null` = toutes).
+  // Univers partagé avec la carte : en changer ici le change aussi là-bas, et inversement.
+  const features = useLaunchFeatures();
+  const layer = shownLayer(useMapLayer(), features);
+  const contents = layerContents(layer, features);
+  const showFoodTrucks = layer === 'foodTrucks';
+  // Filtre « type de cuisine » de l'univers food trucks (`null` = toutes).
   const [cuisine, setCuisine] = useState<string | null>(null);
-  const showFoodTrucks = tab === 'foodTrucks';
 
   const radiusKm = chosenRadiusKm ?? DEFAULT_RADIUS_KM;
 
   const { state, refreshing, refresh } = useActivityList(
-    place
-      ? { latitude: place.latitude, longitude: place.longitude, radiusKm, period, categoryCodes }
+    place && contents.activities
+      ? { latitude: place.latitude, longitude: place.longitude, radiusKm, period, categoryCodes, night: contents.night }
       : null,
   );
 
+  // « Gratuit » choisi sur la carte (état partagé) : appliqué ici aussi, comme sur le site.
   const activities = useMemo(
-    () => (state.status === 'success' ? state.activities.filter((a) => matchesQuery(a, query)) : []),
-    [state, query],
+    () =>
+      state.status === 'success'
+        ? keepFreeActivities(state.activities, freeOnly).filter((a) => matchesQuery(a, query))
+        : [],
+    [state, query, freeOnly],
   );
 
-  const foodTruckList = useFoodTruckList(showFoodTrucks && place !== null);
+  const foodTruckList = useFoodTruckList(contents.foodTrucks && place !== null);
   const foodTrucks = useMemo(
     () =>
       place && foodTruckList.state.status === 'success'
-        ? foodTrucksNear(foodTruckList.state.foodTrucks, place, radiusKm, query, cuisine)
+        ? foodTrucksNear(foodTruckList.state.foodTrucks, place, radiusKm, query, showFoodTrucks ? cuisine : null)
         : [],
-    [foodTruckList.state, place, radiusKm, query, cuisine],
+    [foodTruckList.state, place, radiusKm, query, cuisine, showFoodTrucks],
   );
 
-  const items: ListItem[] = showFoodTrucks
-    ? foodTrucks.map(({ foodTruck, distanceKm: km }) => ({ kind: 'foodTruck', foodTruck, km }))
-    : activities.map((activity) => ({ kind: 'activity', activity }));
-  // L'état affiché (chargement, erreur, vide) est celui de l'onglet ouvert.
-  const listStatus = place === null ? 'idle' : showFoodTrucks ? foodTruckList.state.status : state.status;
-  const listError =
-    showFoodTrucks && foodTruckList.state.status === 'error'
-      ? foodTruckList.state.message
-      : state.status === 'error'
-        ? state.message
-        : '';
-  const refreshList = showFoodTrucks ? foodTruckList.refresh : refresh;
+  const placeList = usePlaceList(place, radiusKm, contents.places);
+  const places = useMemo(
+    () =>
+      place && placeList.state.status === 'success' ? placesNear(placeList.state.places, place, radiusKm, query) : [],
+    [placeList.state, place, radiusKm, query],
+  );
+
+  const items: ListItem[] = mergeByDistance(
+    contents.activities
+      ? activities.map((activity) => ({ kind: 'activity', activity, km: place ? distanceKm(place, activity) : 0 }))
+      : [],
+    contents.places ? places.map(({ place: item, km }) => ({ kind: 'place', place: item, km })) : [],
+    contents.foodTrucks ? foodTrucks.map(({ foodTruck, distanceKm: km }) => ({ kind: 'foodTruck', foodTruck, km })) : [],
+  );
+  // État affiché (chargement, erreur, vide) : celui du contenu choisi.
+  const primary = contents.activities ? state : showFoodTrucks ? foodTruckList.state : placeList.state;
+  const listStatus = place === null ? 'idle' : primary.status;
+  const listError = primary.status === 'error' ? primary.message : '';
+  const listRefreshing =
+    (contents.activities && refreshing) ||
+    (contents.foodTrucks && foodTruckList.refreshing) ||
+    (contents.places && placeList.refreshing);
+  function refreshList() {
+    if (contents.activities) refresh();
+    if (contents.foodTrucks) foodTruckList.refresh();
+    if (contents.places) placeList.refresh();
+  }
 
   async function aroundMe() {
     const position = await location.locate();
@@ -119,6 +134,11 @@ export default function ActivityListScreen() {
 
   function openFoodTruck(foodTruck: FoodTruck) {
     router.push({ pathname: '/foodtruck/[id]', params: { id: String(foodTruck.id) } });
+  }
+
+  // Lieu : pas de fiche dédiée, la carte se cadre dessus (son aperçu s'ouvre d'un appui sur le marqueur).
+  function showPlace(item: Place) {
+    router.navigate({ pathname: '/', params: { focusLat: String(item.latitude), focusLon: String(item.longitude) } });
   }
 
   function open(activity: Activity) {
@@ -155,16 +175,25 @@ export default function ActivityListScreen() {
         <CitySearch />
       </View>
 
-      {foodTrucksOpen && (
-        <FilterChips label="Contenu de la liste" options={TAB_OPTIONS} value={tab} onChange={setTab} />
-      )}
+      <FilterChips
+        label="Univers"
+        options={layerTabs(features).map((tab) => ({ value: tab.value, label: tab.label }))}
+        value={layer}
+        onChange={chooseMapLayer}
+      />
 
       <View style={styles.padded}>
         <View style={[styles.search, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
           <ThemedText importantForAccessibility="no">⌕</ThemedText>
           <TextInput
-            accessibilityLabel={showFoodTrucks ? 'Filtrer les food trucks de la liste' : 'Filtrer les activités de la liste'}
-            placeholder={showFoodTrucks ? 'Filtrer : tacos, crêpes…' : 'Filtrer : concert, marché…'}
+            accessibilityLabel="Filtrer la liste"
+            placeholder={
+              showFoodTrucks
+                ? 'Filtrer : tacos, crêpes…'
+                : layer === 'places'
+                  ? 'Filtrer : musée, théâtre…'
+                  : 'Filtrer : concert, marché…'
+            }
             placeholderTextColor={theme.textSecondary}
             selectionColor={theme.primary}
             value={query}
@@ -190,7 +219,7 @@ export default function ActivityListScreen() {
           <CuisineFilterBar foodTrucks={foodTruckList.state.foodTrucks} selected={cuisine} onChange={setCuisine} />
         </View>
       )}
-      {!showFoodTrucks && (
+      {contents.activities && (
         <FilterChips label="Période" options={PERIOD_OPTIONS} value={period} onChange={setPeriod} />
       )}
       <FilterChips
@@ -202,13 +231,23 @@ export default function ActivityListScreen() {
 
       <View style={[styles.padded, styles.tools]}>
         <View style={styles.toolsRow}>
-          {!showFoodTrucks && (
+          {contents.activities && (
             <View style={styles.tool}>
               <Button
                 label={categoriesButtonLabel(categoryCodes.length)}
                 variant={categoryCodes.length > 0 ? 'primary' : 'secondary'}
                 icon={{ ios: 'square.grid.2x2', android: 'category', web: 'category' }}
                 onPress={() => setCategoryPanelOpen((open) => !open)}
+              />
+            </View>
+          )}
+          {contents.activities && (
+            <View style={styles.tool}>
+              <Button
+                label="Gratuit"
+                variant={freeOnly ? 'primary' : 'secondary'}
+                icon={{ ios: 'eurosign.circle', android: 'money_off', web: 'money_off' }}
+                onPress={() => setFreeOnly(!freeOnly)}
               />
             </View>
           )}
@@ -222,7 +261,7 @@ export default function ActivityListScreen() {
             />
           </View>
         </View>
-        {categoryPanelOpen && !showFoodTrucks && (
+        {categoryPanelOpen && contents.activities && (
           <Card style={styles.panel}>
             <CategoryPanel />
           </Card>
@@ -235,22 +274,13 @@ export default function ActivityListScreen() {
         </View>
       )}
 
-      {showFoodTrucks && listStatus === 'success' && (
+      {listStatus === 'success' && (
         <ThemedText type="small" themeColor="textSecondary" style={styles.padded} accessibilityLiveRegion="polite">
-          {foodTrucks.length === 0
-            ? 'Aucun food truck présent aujourd’hui'
-            : `${foodTrucks.length} présence${foodTrucks.length > 1 ? 's' : ''} aujourd’hui à moins de ${radiusKm} km`}
-        </ThemedText>
-      )}
-
-      {!showFoodTrucks && state.status === 'success' && (
-        <ThemedText type="small" themeColor="textSecondary" style={styles.padded} accessibilityLiveRegion="polite">
-          {activities.length === 0
-            ? 'Aucun résultat'
-            : `${activities.length} activité${activities.length > 1 ? 's' : ''} à moins de ${radiusKm} km`}
-          {categoryCodes.length > 0
+          {listSummary(layer, items.length, radiusKm)}
+          {contents.activities && categoryCodes.length > 0
             ? ` · ${categoryCodes.length} catégorie${categoryCodes.length > 1 ? 's' : ''}`
             : ''}
+          {contents.activities && freeOnly ? ' · gratuites' : ''}
         </ThemedText>
       )}
     </View>
@@ -258,10 +288,11 @@ export default function ActivityListScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      {/* La barre d'onglets du bas réserve déjà la barre de gestes. */}
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <FlatList
           data={items}
-          keyExtractor={(item) => (item.kind === 'activity' ? `a-${item.activity.id}` : `t-${item.foodTruck.presenceId}`)}
+          keyExtractor={listItemKey}
           ListHeaderComponent={header}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -269,7 +300,7 @@ export default function ActivityListScreen() {
           ItemSeparatorComponent={Separator}
           refreshControl={
             <RefreshControl
-              refreshing={showFoodTrucks ? foodTruckList.refreshing : refreshing}
+              refreshing={listRefreshing}
               onRefresh={refreshList}
               tintColor={theme.primary}
               colors={[theme.primary]}
@@ -280,9 +311,11 @@ export default function ActivityListScreen() {
               {item.kind === 'activity' ? (
                 <ActivityCard
                   activity={item.activity}
-                  distance={place ? formatDistance(distanceKm(place, item.activity)) : undefined}
+                  distance={place ? formatDistance(item.km) : undefined}
                   onPress={() => open(item.activity)}
                 />
+              ) : item.kind === 'place' ? (
+                <PlaceCard place={item.place} distance={formatDistance(item.km)} onPress={() => showPlace(item.place)} />
               ) : (
                 <FoodTruckCard
                   foodTruck={item.foodTruck}
@@ -312,7 +345,13 @@ export default function ActivityListScreen() {
                   <ActivityIndicator
                     size="large"
                     color={theme.primary}
-                    accessibilityLabel={showFoodTrucks ? 'Chargement des food trucks' : 'Chargement des activités'}
+                    accessibilityLabel={
+                      showFoodTrucks
+                        ? 'Chargement des food trucks'
+                        : layer === 'places'
+                          ? 'Chargement des lieux'
+                          : 'Chargement des activités'
+                    }
                   />
                 </View>
               )}
@@ -337,7 +376,20 @@ export default function ActivityListScreen() {
                   </ThemedText>
                 </Card>
               )}
-              {listStatus === 'success' && !showFoodTrucks && (
+              {listStatus === 'success' && layer === 'places' && (
+                <Card style={styles.empty}>
+                  <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
+                    🏛
+                  </ThemedText>
+                  <ThemedText type="heading" style={styles.centerText}>
+                    Aucun lieu ici
+                  </ThemedText>
+                  <ThemedText themeColor="textSecondary" style={styles.centerText}>
+                    {query ? 'Aucun lieu ne correspond à votre filtre.' : 'Élargissez le rayon pour voir plus de lieux.'}
+                  </ThemedText>
+                </Card>
+              )}
+              {listStatus === 'success' && contents.activities && (
                 <Card style={styles.empty}>
                   <ThemedText style={styles.emptyIcon} importantForAccessibility="no">
                     🧭

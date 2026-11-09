@@ -21,7 +21,7 @@ const TYPE_OPTIONS = Object.entries(PLACE_TYPE_LABELS)
   .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
 
 /**
- * Créer un lieu absent de LocalLife (ADR-0012, parcours B), comme sur le site : LocalLife cherche d'abord les lieux
+ * Créer un lieu absent de Neiri (ADR-0012, parcours B), comme sur le site : Neiri cherche d'abord les lieux
  * proches ou de même nom dans la commune ; si l'un est le vôtre, demandez plutôt à le gérer. Le lieu est enregistré en
  * brouillon, à envoyer à la modération depuis l'espace professionnel.
  */

@@ -23,7 +23,8 @@ function messageFor(error: unknown): string {
  *   (`radiusSearch`), sinon `GET /activities/within-bounds` sur la zone visible,
  *   filtrées par `categoryCodes` (catégories par défaut des paramètres de
  *   recherche ; vide = toutes) et par `period` (période partagée avec l'onglet
- *   « Liste »). Le backend ne renvoie que les activités `PUBLISHED`.
+ *   « Liste »). Le backend ne renvoie que les activités `PUBLISHED`. Carte
+ *   « Night » (`night`) : seulement celles qui ont lieu entre 20 h et 6 h.
  * - Food trucks : `GET /foodtrucks` (pas de bounding box dans ce contrat),
  *   chargé une seule fois.
  *
@@ -51,6 +52,8 @@ export function useMapData(
   period: Period = 'all',
   /** Food trucks ouverts (lancement progressif) : fermés, ils ne sont pas demandés au serveur. */
   foodTrucksEnabled = true,
+  /** Carte « Night » : seules les activités qui ont lieu entre 20 h et 6 h sont demandées (`night=true`). */
+  night = false,
 ) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [foodTrucks, setFoodTrucks] = useState<FoodTruck[]>([]);
@@ -63,7 +66,7 @@ export function useMapData(
   /** Clé stable du filtre : un nouveau tableau aux mêmes codes ne relance rien. */
   const categoryKey = [...categoryCodes].sort().join(',');
   /** Filtres de la dernière zone chargée : catégories et période (la date du jour fait partie de la clé). */
-  const filterKey = `${categoryKey}|${period}|${JSON.stringify(periodRange(period))}`;
+  const filterKey = `${categoryKey}|${period}|${JSON.stringify(periodRange(period))}|${night ? 'night' : 'all'}`;
   const loadedFilterKey = useRef(filterKey);
   const radiusKey = radiusSearch
     ? `${radiusSearch.latitude},${radiusSearch.longitude},${radiusSearch.radiusKm}`
@@ -103,6 +106,7 @@ export function useMapData(
         radiusKm,
         category: categoryKey === '' ? undefined : categoryKey,
         ...periodRange(period),
+        night,
       },
       { signal: controller.signal },
     )
@@ -116,7 +120,7 @@ export function useMapData(
         setError(messageFor(e));
       });
     return () => controller.abort();
-  }, [radiusKey, categoryKey, period, retryCount]);
+  }, [radiusKey, categoryKey, period, night, retryCount]);
 
   // Activités de la zone visible (sans rayon favori).
   useEffect(() => {
@@ -146,7 +150,7 @@ export function useMapData(
 
     const timer = setTimeout(() => {
       searchWithinBounds(
-        { ...bounds, category: categoryKey === '' ? undefined : categoryKey, ...periodRange(period) },
+        { ...bounds, category: categoryKey === '' ? undefined : categoryKey, ...periodRange(period), night },
         { signal: controller.signal },
       )
         .then((result) => {
@@ -167,7 +171,7 @@ export function useMapData(
       clearTimeout(timer);
       controller.abort();
     };
-  }, [region, categoryKey, filterKey, period, radiusKey, retryCount]);
+  }, [region, categoryKey, filterKey, period, night, radiusKey, retryCount]);
 
   const retry = useCallback(() => {
     setError(null);

@@ -5,7 +5,7 @@ import { isAuthenticated, subscribeSession } from "../auth/authStorage";
 /**
  * Fonctions ouvertes progressivement après le lancement (05/11/2026, PACA et Occitanie) : lieux, food trucks, offres
  * Premium et Pro. Le serveur décide (`GET /api/v1/features`, interrupteurs `FEATURE_*`) : ouvrir une fonction ne
- * demande pas de nouvelle version du site. L'équipe LocalLife et les administrateurs voient tout.
+ * demande pas de nouvelle version du site. L'équipe Neiri et les administrateurs voient tout.
  */
 export interface LaunchFeatures {
     places: boolean;

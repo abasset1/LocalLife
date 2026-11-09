@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -6 344 108" role="img" aria-label="Neiri">
+  <g fill="none" stroke="#1C2150" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 90V10L70 90V10"/>
+    <path d="M158 10H110V90H158M110 50H150"/>
+    <path d="M195 44V90"/>
+    <path d="M238 90V10H268a20 20 0 0 1 0 40H238M262 50L292 90"/>
+    <path d="M330 10V90"/>
+  </g>
+  <circle cx="195" cy="12" r="12.5" fill="#FBA91E"/>
+</svg>

@@ -1,0 +1,83 @@
+import type { Period } from '@/features/list/filters';
+
+import type { MapLayer } from './placesPreference';
+
+/**
+ * Libellés des commandes de la carte (issue #226) : contenus du bouton « Affichage », filtres qui affichent leur
+ * valeur, bouton de liste. Chaque commande est écrite en clair, avec un pictogramme système à côté (voir `MapChip`).
+ */
+
+export interface LayerTab {
+  value: MapLayer;
+  label: string;
+  /** Libellé accessible : ce que l'onglet affiche. */
+  description: string;
+}
+
+const LAYER_TABS: readonly LayerTab[] = [
+  { value: 'activities', label: 'Activités', description: 'Afficher les activités' },
+  { value: 'foodTrucks', label: 'Food trucks', description: 'Afficher les food trucks présents aujourd’hui' },
+  { value: 'night', label: 'Night', description: 'Entrer dans Neiri Night : soirées, concerts, festivals, de 20 h à 6 h' },
+  { value: 'places', label: 'Lieux', description: 'Afficher les lieux : musées, monuments, équipements…' },
+];
+
+/**
+ * Contenus proposés dans le bouton « Affichage » de la carte et dans la liste : Activités et Night toujours, Food trucks
+ * et Lieux quand ils sont ouverts au lancement.
+ */
+export function layerTabs(features: { places: boolean; foodTrucks: boolean }): LayerTab[] {
+  return LAYER_TABS.filter(
+    (tab) => (tab.value !== 'places' || features.places) && (tab.value !== 'foodTrucks' || features.foodTrucks),
+  );
+}
+
+/** Contenus montrés par un univers : un seul à la fois ; Night montre les activités de nuit, avec son propre thème. */
+export function layerContents(
+  layer: MapLayer,
+  features: { places: boolean; foodTrucks: boolean },
+): { activities: boolean; places: boolean; foodTrucks: boolean; night: boolean } {
+  return {
+    activities: layer === 'activities' || layer === 'night',
+    places: layer === 'places' && features.places,
+    foodTrucks: layer === 'foodTrucks' && features.foodTrucks,
+    night: layer === 'night',
+  };
+}
+
+const PERIOD_LABELS: Record<Period, string> = {
+  all: 'Toutes dates',
+  today: 'Aujourd’hui',
+  weekend: 'Ce week-end',
+  week: '7 jours',
+};
+
+/** « Toutes dates », « Ce week-end »… */
+export function periodChipLabel(period: Period): string {
+  return PERIOD_LABELS[period];
+}
+
+/** « Catégories », « 1 catégorie », « 3 catégories ». */
+export function categoriesChipLabel(count: number): string {
+  if (count === 0) return 'Catégories';
+  return `${count} catégorie${count > 1 ? 's' : ''}`;
+}
+
+/** « Rayon », « 20 km ». */
+export function radiusChipLabel(radiusKm: number | null): string {
+  return radiusKm === null ? 'Rayon' : `${radiusKm} km`;
+}
+
+/** Bouton du bas qui ouvre la liste dans le même univers : « Voir la liste (37) ». */
+export function listButtonLabel(count: number): string {
+  return `Voir la liste (${count})`;
+}
+
+/** Filtres des activités posés : la carte propose alors « Réinitialiser ». */
+export function hasActiveFilters(filters: {
+  period: Period;
+  categoryCount: number;
+  radiusKm: number | null;
+  freeOnly: boolean;
+}): boolean {
+  return filters.period !== 'all' || filters.categoryCount > 0 || filters.radiusKm !== null || filters.freeOnly;
+}

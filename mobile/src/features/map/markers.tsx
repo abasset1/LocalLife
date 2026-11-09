@@ -2,13 +2,22 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
-import { Brand } from '@/constants/theme';
+import { Brand, NightNeon } from '@/constants/theme';
 
-const ACTIVITY_COLOR = Brand.green2;
-const FOOD_TRUCK_COLOR = Brand.coral;
-const CLUSTER_COLOR = Brand.green;
+const ACTIVITY_COLOR = Brand.navy2;
+const FOOD_TRUCK_COLOR = Brand.pink;
+const CLUSTER_COLOR = Brand.navy;
 const PLACE_COLOR = '#6B5CA5';
-const HIGHLIGHT_COLOR = Brand.coral;
+const HIGHLIGHT_COLOR = Brand.pink;
+
+/** Halo néon des marqueurs du thème « Night », comme sur le site (`drop-shadow` magenta). */
+const NIGHT_GLOW = {
+  shadowColor: NightNeon.magenta,
+  shadowOpacity: 0.9,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 0 },
+  elevation: 6,
+} as const;
 
 /** Ombre portée commune aux marqueurs, pour les détacher du fond de carte. */
 const MARKER_SHADOW = {
@@ -40,11 +49,14 @@ export function ActivityMarker({
   coordinate,
   title,
   approximate = false,
+  night = false,
   onPress,
 }: {
   coordinate: Coordinate;
   title: string;
   approximate?: boolean;
+  /** Thème « Night » : point magenta néon. */
+  night?: boolean;
   onPress: () => void;
 }) {
   const tracks = useTracksViewChanges();
@@ -60,7 +72,12 @@ export function ActivityMarker({
       accessibilityLabel={`Activité : ${title}${approximate ? ' (emplacement approximatif)' : ''}`}>
       <View style={styles.markerPadding}>
         <View
-          style={[styles.activity, { backgroundColor: ACTIVITY_COLOR }, approximate && styles.approximate]}>
+          style={[
+            styles.activity,
+            { backgroundColor: night ? NightNeon.magenta : ACTIVITY_COLOR },
+            night && NIGHT_GLOW,
+            approximate && styles.approximate,
+          ]}>
           <View style={styles.activityDot} />
         </View>
       </View>
@@ -137,15 +154,18 @@ export function FoodTruckMarker({
 
 /**
  * Activité affichée dans l'aperçu (touchée, choisie dans la liste de la zone ou atteinte avec « ‹ › ») : point
- * agrandi en corail par-dessus les autres marqueurs, visible même quand elle est regroupée dans une pastille.
+ * agrandi en rose par-dessus les autres marqueurs, visible même quand elle est regroupée dans une pastille.
  */
 export function HighlightedActivityMarker({
   coordinate,
   title,
+  night = false,
   onPress,
 }: {
   coordinate: Coordinate;
   title: string;
+  /** Thème « Night » : point cyan néon. */
+  night?: boolean;
   /** Appui sur le point : l'aperçu reste ouvert (la carte ne doit pas recevoir ce toucher). */
   onPress: () => void;
 }) {
@@ -161,7 +181,8 @@ export function HighlightedActivityMarker({
       tracksViewChanges={tracks}
       accessibilityLabel={`Activité affichée : ${title}`}>
       <View style={styles.markerPadding}>
-        <View style={[styles.highlighted, { backgroundColor: HIGHLIGHT_COLOR }]}>
+        <View
+          style={[styles.highlighted, { backgroundColor: night ? NightNeon.cyan : HIGHLIGHT_COLOR }, night && NIGHT_GLOW]}>
           <View style={styles.highlightedDot} />
         </View>
       </View>
@@ -172,10 +193,13 @@ export function HighlightedActivityMarker({
 export function ClusterMarker({
   coordinate,
   count,
+  night = false,
   onPress,
 }: {
   coordinate: Coordinate;
   count: number;
+  /** Thème « Night » : pastille magenta néon, nombre en violet nuit. */
+  night?: boolean;
   onPress: () => void;
 }) {
   const tracks = useTracksViewChanges();
@@ -195,8 +219,9 @@ export function ClusterMarker({
           style={[
             styles.cluster,
             { width: size, height: size, borderRadius: size / 2, backgroundColor: CLUSTER_COLOR },
+            night && [styles.clusterNight, NIGHT_GLOW],
           ]}>
-          <Text style={styles.clusterText}>{count}</Text>
+          <Text style={[styles.clusterText, night && { color: NightNeon.ink }]}>{count}</Text>
         </View>
       </View>
     </Marker>
@@ -278,6 +303,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...MARKER_SHADOW,
+  },
+  clusterNight: {
+    backgroundColor: NightNeon.magenta,
+    borderColor: 'rgba(255, 63, 209, 0.35)',
   },
   clusterText: {
     color: '#ffffff',

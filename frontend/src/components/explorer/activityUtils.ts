@@ -1,5 +1,5 @@
 import { hasCoordinates, UNKNOWN_PLACE_LABEL } from "./globalSearch";
-import type { Activity, Category, MapBounds } from "./types";
+import type { Activity, Category, MapBounds, PriceType } from "./types";
 
 /**
  * Formate une date en YYYY-MM-DD à partir de ses composants locaux
@@ -28,6 +28,17 @@ export const UNKNOWN_ADDRESS_LABEL = "Adresse non renseignée";
  */
 /** Mention affichée pour une position `APPROXIMATE` (ADR-0011, phase A). */
 export const APPROXIMATE_LOCATION_LABEL = "Emplacement approximatif";
+
+/** Libellé du badge gratuit / payant ; `null` quand on ne sait pas (rien n'est affiché). */
+export function formatPriceType(priceType: PriceType | null | undefined): string | null {
+    if (priceType === "FREE") {
+        return "Gratuit";
+    }
+    if (priceType === "PAID") {
+        return "Payant";
+    }
+    return null;
+}
 
 export function isApproximateLocation(activity: Pick<Activity, "coordinatePrecision">): boolean {
     return activity.coordinatePrecision === "APPROXIMATE";
@@ -112,4 +123,42 @@ export function isInBounds(activity: Activity, bounds: MapBounds): boolean {
         && activity.longitude >= bounds.swLongitude
         && activity.longitude <= bounds.neLongitude
     );
+}
+
+/**
+ * Activités comptées et listées, règle commune au site et à l'application : avec un rayon choisi, tout le rayon (le
+ * même nombre quel que soit le zoom ou la taille de l'écran) ; sans rayon, celles visibles sur la carte. Sans zone
+ * connue (carte pas encore affichée), toutes.
+ */
+export function activitiesInZone(
+    activities: Activity[],
+    bounds: MapBounds | null,
+    radiusKm: number | null,
+): Activity[] {
+    if (radiusKm !== null || !bounds) {
+        return activities;
+    }
+    return activities.filter((activity) => isInBounds(activity, bounds));
+}
+
+/** « 37 activités dans un rayon de 20 km », « 1 activité de nuit dans cette zone »… */
+export function zoneCountLabel(count: number, radiusKm: number | null, night = false): string {
+    const noun = `${count > 1 ? "activités" : "activité"}${night ? " de nuit" : ""}`;
+    return radiusKm !== null ? `${count} ${noun} dans un rayon de ${radiusKm} km` : `${count} ${noun} dans cette zone`;
+}
+
+/**
+ * « Ce week-end », même règle que l'application : le week-end en cours (le dimanche : seulement ce jour-là), sinon
+ * le prochain samedi et dimanche. `dateTo` absent : un seul jour.
+ */
+export function weekendRange(today: Date): { date: string; dateTo?: string } {
+    const weekday = today.getDay(); // 0 = dimanche, 6 = samedi
+    if (weekday === 0) {
+        return { date: toLocalDateString(today) };
+    }
+    const saturday = new Date(today);
+    saturday.setDate(today.getDate() + (6 - weekday));
+    const sunday = new Date(saturday);
+    sunday.setDate(saturday.getDate() + 1);
+    return { date: toLocalDateString(saturday), dateTo: toLocalDateString(sunday) };
 }

@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  * dont les interfaces ont besoin pour proposer les bonnes actions. Aucun secret.
  *
  * @param pendingEmail  nouvelle adresse en attente de confirmation, {@code null} sinon
- * @param hasPassword   faux pour un compte créé avec Google sans mot de passe LocalLife
+ * @param hasPassword   faux pour un compte créé avec Google sans mot de passe Neiri
  * @param canContribute droit de proposer ou modifier une activité (offre Premium ou Pro, rôle PRO ou ADMIN)
  * @param hasProAccess  accès à l'espace professionnel ({@code ProAccessPolicy}) : le seul indicateur que les
  *                      interfaces consultent pour l'afficher

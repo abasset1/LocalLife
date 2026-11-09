@@ -25,7 +25,9 @@ describe("FeedbackModal", () => {
         await user.click(screen.getByRole("button", { name: "Envoyer" }));
 
         expect(await screen.findByText("🙏 Merci !")).toBeInTheDocument();
-        const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        // L'écriture (apiFetch peut d'abord redemander le jeton anti-CSRF par une lecture).
+        const [url, init] = (fetchMock.mock.calls as unknown as [string, RequestInit][])
+            .find(([, options]) => options?.method === "POST")!;
         expect(url).toBe("/api/v1/feedback");
         expect(JSON.parse(String(init.body))).toEqual({
             kind: "BUG",

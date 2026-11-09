@@ -23,9 +23,11 @@ export interface ExplorerState {
   categoryCodes: readonly string[];
   /** Rayon (km) ; `null` = sans rayon (la carte cherche dans la zone visible). */
   radiusKm: number | null;
+  /** Filtre « Gratuit » : partagé par la carte et la Liste, comme sur le site (même nombre de résultats). */
+  freeOnly: boolean;
 }
 
-const INITIAL: ExplorerState = { place: null, categoryCodes: [], radiusKm: null };
+const INITIAL: ExplorerState = { place: null, categoryCodes: [], radiusKm: null, freeOnly: false };
 
 let state: ExplorerState = INITIAL;
 /** Paramètres de recherche déjà appliqués (JSON), pour ne les appliquer qu'à leur changement. */
@@ -61,6 +63,10 @@ export function clearCategories(): void {
 
 export function setRadius(radiusKm: number | null): void {
   update({ radiusKm });
+}
+
+export function setFreeOnly(freeOnly: boolean): void {
+  update({ freeOnly });
 }
 
 function hasValidCity(preferences: UserPreferences): boolean {

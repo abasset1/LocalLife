@@ -95,7 +95,7 @@ class FollowNotifierTest {
 
         assertThat(notifier.sendAll()).isEqualTo(1);
 
-        verify(emailService).sendActivityAlertEmail(eq("a@b.c"), eq("LocalLife : Du nouveau : Musée des Beaux-Arts"),
+        verify(emailService).sendActivityAlertEmail(eq("a@b.c"), eq("Neiri : Du nouveau : Musée des Beaux-Arts"),
                 org.mockito.ArgumentMatchers.contains("Lieu « Musée des Beaux-Arts » : 2 nouvelles activités"));
     }
 

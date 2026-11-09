@@ -25,6 +25,11 @@ interface ExplorerFiltersProps {
     onRadiusChange: (radiusKm: number | null) => void;
     viewMode: "map" | "list";
     onViewModeChange: (mode: "map" | "list") => void;
+    /** Seules les activités gratuites (`priceType` = `FREE`) sont affichées sur la carte et dans la liste. */
+    freeOnly?: boolean;
+    onFreeOnlyChange?: (freeOnly: boolean) => void;
+    /** Recherche texte en cours : ses résultats sont paginés par le serveur, le filtre ne s'y applique pas. */
+    freeOnlyDisabled?: boolean;
 }
 
 /**
@@ -37,6 +42,10 @@ interface ExplorerFiltersProps {
  * (`.explorer-dates-panel`), pour ne pas surcharger le bandeau, sans rien
  * retirer de la fonctionnalité existante (LL-4005/LL-11003, critère de
  * régression CA-12). Un seul des deux panneaux est ouvert à la fois.
+ *
+ * « Gratuit » : bascule qui ne garde que les activités dont les tarifs disent qu'elles sont gratuites
+ * (`priceType`, déduit côté serveur). Filtre appliqué dans le navigateur : la carte reçoit toutes les
+ * activités de la zone. Inactif pendant une recherche par mot-clé (résultats paginés par le serveur).
  *
  * Le bouton Carte/Liste (LL-EF-008) est conservé pour la même raison, mais
  * masqué en desktop (voir styles.css) : la liste y est désormais un panneau
@@ -58,6 +67,9 @@ function ExplorerFilters({
     onRadiusChange,
     viewMode,
     onViewModeChange,
+    freeOnly = false,
+    onFreeOnlyChange,
+    freeOnlyDisabled = false,
 }: ExplorerFiltersProps) {
     const [openPanel, setOpenPanel] = useState<"categories" | "dates" | "radius" | null>(null);
     const isRadiusPanelOpen = openPanel === "radius";
@@ -224,6 +236,21 @@ function ExplorerFilters({
                         </div>
                     )}
                 </div>
+
+                {onFreeOnlyChange && (
+                    <button
+                        aria-pressed={freeOnly && !freeOnlyDisabled}
+                        className={freeOnly && !freeOnlyDisabled ? "explorer-chip explorer-chip-active" : "explorer-chip"}
+                        disabled={freeOnlyDisabled}
+                        onClick={() => onFreeOnlyChange(!freeOnly)}
+                        title={freeOnlyDisabled
+                            ? "Le filtre Gratuit s'applique à la carte, pas à la recherche par mot-clé"
+                            : "Afficher seulement les activités gratuites"}
+                        type="button"
+                    >
+                        Gratuit
+                    </button>
+                )}
 
                 {/* LL-EF-008 : conservé pour la vue plein écran mobile, masqué en desktop (styles.css). */}
                 <div className="explorer-view-toggle" role="group" aria-label="Choix de l'affichage">

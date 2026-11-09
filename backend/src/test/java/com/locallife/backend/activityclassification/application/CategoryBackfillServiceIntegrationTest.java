@@ -50,6 +50,10 @@ class CategoryBackfillServiceIntegrationTest {
 
     @Test
     void addsTheNewCategoryToMatchingUpcomingActivities_WithoutRemovingTheirCategories() {
+        // Le rattrapage porte sur toute la base : de vraies activités à venir (un import réel laissé par un autre
+        // test ou par la base locale, comme les marchés de Noël de novembre) fausseraient les compteurs. Archivées
+        // ici, dans la transaction du test, annulée à la fin.
+        jdbcTemplate.update("UPDATE activity SET status = 'ARCHIVED' WHERE status <> 'ARCHIVED'");
         LocalDateTime nextMonth = LocalDateTime.now().plusMonths(1);
         Long byTitle = insertActivity("Grand Marché de Noël de Lyon", "MARKETS", nextMonth);
         Long unrelated = insertActivity("Concert du soir", "CULTURE", nextMonth);

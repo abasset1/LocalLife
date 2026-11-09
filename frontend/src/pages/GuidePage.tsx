@@ -1,3 +1,4 @@
+import { BrandLogo, BrandMark } from "../components/BrandLogo";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -76,7 +77,9 @@ function Pin({ x, y, delay, emoji = "📍", className = "" }: {
 function WelcomeScene() {
     return (
         <div className="guide-scene guide-scene-welcome">
-            <div className="guide-logo">L</div>
+            <div className="guide-logo">
+                <BrandMark className="guide-logo-mark" />
+            </div>
             <div className="guide-orbit">
                 {["🎭", "🎵", "🏃", "🍽️", "🎨", "🚚"].map((emoji, index) => (
                     <span className="guide-orbit-item" key={emoji} style={{ animationDelay: `${0.2 + index * 0.15}s`, ["--i" as string]: index }}>
@@ -230,7 +233,7 @@ function AlertsScene() {
             <div className="guide-sun" aria-hidden="true">☀️</div>
             <div className="guide-envelope" aria-hidden="true">✉️</div>
             <div className="guide-mail">
-                <small>Chaque matin · LocalLife</small>
+                <small>Chaque matin · Neiri</small>
                 <strong>3 nouvelles activités près de Marseille</strong>
                 {["🎵 Jazz sur le Vieux-Port", "🧒 Atelier famille au musée", "🚚 Food truck place Castellane"].map(
                     (line, index) => (
@@ -342,8 +345,8 @@ interface GuideStep {
 export const GUIDE_STEPS: GuideStep[] = [
     {
         id: "bienvenue",
-        title: "Bienvenue sur LocalLife",
-        text: "LocalLife rassemble sur une seule carte les sorties près de chez toi : concerts, expositions, "
+        title: "Bienvenue sur Neiri",
+        text: "Neiri rassemble sur une seule carte les sorties près de chez toi : concerts, expositions, "
             + "marchés, sport, activités en famille, lieux à visiter et food trucks.",
         tips: ["Découvrir est gratuit, sans compte", "Un compte débloque favoris, alertes et contributions"],
         scene: WelcomeScene,
@@ -368,7 +371,7 @@ export const GUIDE_STEPS: GuideStep[] = [
         id: "filtres",
         title: "Affine avec les filtres",
         text: "Garde seulement ce qui t'intéresse : catégories, période (ce week-end, cette semaine…), date de "
-            + "début, rayon de recherche. « Autour de moi » utilise ta position.",
+            + "début, rayon de recherche, activités gratuites. « Autour de moi » utilise ta position.",
         tips: ["Sur téléphone, bascule entre la vue Carte et la vue Liste", "Tes filtres se combinent"],
         scene: FiltersScene,
     },
@@ -396,7 +399,7 @@ export const GUIDE_STEPS: GuideStep[] = [
         id: "alertes",
         title: "Reçois des alertes par e-mail",
         text: "Crée une alerte sur tes catégories préférées (et les food trucks) autour d'une ville : chaque "
-            + "matin, LocalLife t'envoie les nouveautés. Un lien dans l'e-mail suffit pour se désabonner.",
+            + "matin, Neiri t'envoie les nouveautés. Un lien dans l'e-mail suffit pour se désabonner.",
         tips: ["Proposée dès ta première connexion", "Gère tes alertes depuis « Mon profil »"],
         scene: AlertsScene,
     },
@@ -430,7 +433,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     {
         id: "fin",
         title: "À toi de jouer !",
-        text: "Tu connais l'essentiel de LocalLife. Retrouve ce guide à tout moment depuis le menu (rubrique "
+        text: "Tu connais l'essentiel de Neiri. Retrouve ce guide à tout moment depuis le menu (rubrique "
             + "« Aide ») ou depuis « Mon profil ».",
         tips: [],
         scene: FinishScene,
@@ -490,8 +493,7 @@ function GuidePage() {
         <div className="guide-page">
             <header className="guide-topbar">
                 <Link className="guide-brand" to="/">
-                    <span className="explorer-menu-brand-mark">L</span>
-                    LocalLife
+                    <BrandLogo tone="light" />
                 </Link>
                 <span className="guide-topbar-title">Guide de l'application</span>
                 <Link className="guide-skip" to="/">Passer le guide</Link>

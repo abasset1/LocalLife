@@ -25,6 +25,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
@@ -116,7 +117,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class SecurityConfig {
 
     /**
-     * Rôles qui modèrent (décision du 02/11/2026) : administrateur et équipe LocalLife. Les actions sensibles
+     * Rôles qui modèrent (décision du 02/11/2026) : administrateur et équipe Neiri. Les actions sensibles
      * (comptes, rôles, types de compte, suppression et corbeille, imports, sources, catégories, e-mails, journal)
      * restent à l'administrateur, par le filet {@code /api/v1/admin/**}.
      */
@@ -221,7 +222,7 @@ public class SecurityConfig {
                         // LL-EF-006 : profil de l'utilisateur connecté.
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/users/me").authenticated()
-                        // Modération (administrateur et équipe LocalLife, décision du 02/11/2026).
+                        // Modération (administrateur et équipe Neiri, décision du 02/11/2026).
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/activities").hasAnyRole(MODERATORS)
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/activities/*/publish")
                         .hasAnyRole(MODERATORS)
@@ -290,11 +291,23 @@ public class SecurityConfig {
                 request.getRequestURI());
     }
 
+    /** En-tête d'un refus CSRF : le site redemande un jeton et rejoue l'écriture une fois (voir {@code apiFetch}). */
+    public static final String CSRF_REJECTED_HEADER = "X-CSRF-Rejected";
+
     /**
-     * Déclenché quand un JWT valide est fourni mais que le rôle est insuffisant.
+     * Déclenché quand un JWT valide est fourni mais que le rôle est insuffisant — ou quand une écriture authentifiée
+     * par le cookie de session arrive sans jeton CSRF valide ({@link CsrfException}, même gestionnaire dans Spring
+     * Security). Les deux cas ont leur propre message : un jeton CSRF absent ou périmé ne doit pas se lire « rôle
+     * insuffisant » (un administrateur ne pouvait plus lancer d'import, 07/11/2026).
      */
     private void handleAccessDenied(
             HttpServletRequest request, HttpServletResponse response, Exception exception) throws IOException {
+        if (exception instanceof CsrfException) {
+            response.setHeader(CSRF_REJECTED_HEADER, "true");
+            writeError(response, HttpStatus.FORBIDDEN,
+                    "Jeton de sécurité manquant ou expiré : recharge la page et réessaie.", request.getRequestURI());
+            return;
+        }
         writeError(response, HttpStatus.FORBIDDEN, "Accès refusé : rôle insuffisant",
                 request.getRequestURI());
     }

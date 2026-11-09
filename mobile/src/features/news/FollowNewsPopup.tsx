@@ -93,7 +93,7 @@ export function FollowNewsPopup() {
           <View style={[styles.feature, { borderColor: theme.border }]}>
             <ThemedText type="smallBold">🔔 Suivez vos activités et vos lieux préférés</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              LocalLife vous prévient quand leurs dates changent, qu’une activité est annulée ou qu’un lieu en
+              Neiri vous prévient quand leurs dates changent, qu’une activité est annulée ou qu’un lieu en
               programme une nouvelle.
             </ThemedText>
           </View>
@@ -161,10 +161,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
     borderRadius: 999,
-    backgroundColor: '#F2C14E',
+    backgroundColor: '#FBA91E',
   },
   freeText: {
-    color: '#17201D',
+    color: '#1C2150',
     textAlign: 'center',
   },
   actions: {

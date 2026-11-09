@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch, describeErrorResponse } from "../../api/apiClient";
-import type { Category, UserPreferences } from "../explorer/types";
+import type { Category, MapLayer, UserPreferences } from "../explorer/types";
 import CityField, { RADIUS_OPTIONS_KM, useCityPicker } from "../profile/CityField";
+import MapLayerField, { useAvailableMapLayers } from "../profile/MapLayerField";
 import { Chip, ChipGroup, Notice } from "../profile/ProfileUi";
 
 const DEFAULT_RADIUS_KM = 10;
@@ -26,7 +27,8 @@ interface OnboardingModalProps {
 /**
  * Accueil de première connexion (l'utilisateur n'a encore jamais enregistré
  * de préférences, `configured: false`) :
- * 1. choix de la ville, du rayon et d'au moins une catégorie — facultatif
+ * 1. choix de la ville, du rayon, d'au moins une catégorie et, si les lieux ou
+ *    les food trucks sont ouverts, de la carte affichée à l'arrivée — facultatif
  *    (spec P0-C) : « Plus tard », ✕ ou Échap ferment l'accueil sans rien
  *    enregistrer, la découverte reste immédiate ;
  * 2. proposition facultative de créer une alerte e-mail préremplie avec ces
@@ -41,6 +43,9 @@ function OnboardingModal({ categories, onPreferencesSaved, onFinish, onPostpone,
     const cityPicker = useCityPicker();
     const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
     const [categoryCodes, setCategoryCodes] = useState<string[]>([]);
+    /** Carte à l'arrivée : facultative, `null` = dernière carte choisie dans le navigateur. */
+    const [mapLayer, setMapLayer] = useState<MapLayer | null>(null);
+    const hasSeveralMapLayers = useAvailableMapLayers().length > 1;
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -101,6 +106,7 @@ function OnboardingModal({ categories, onPreferencesSaved, onFinish, onPostpone,
                     defaultLongitude: cityPicker.position?.longitude ?? null,
                     defaultRadiusKm: radiusKm,
                     defaultCategoryCodes: categoryCodes,
+                    defaultMapLayer: mapLayer,
                 }),
             });
             if (!response.ok) {
@@ -169,7 +175,7 @@ function OnboardingModal({ categories, onPreferencesSaved, onFinish, onPostpone,
                     <div>
                         <p className="onboarding-step">Étape {step === "preferences" ? 1 : 2} sur 2</p>
                         <h2 id={titleId}>
-                            {step === "preferences" ? "Bienvenue sur LocalLife 👋" : "Créer une alerte ?"}
+                            {step === "preferences" ? "Bienvenue sur Neiri 👋" : "Créer une alerte ?"}
                         </h2>
                     </div>
                     <button
@@ -218,6 +224,16 @@ function OnboardingModal({ categories, onPreferencesSaved, onFinish, onPostpone,
                                 </Chip>
                             ))}
                         </ChipGroup>
+
+                        {hasSeveralMapLayers && (
+                            <MapLayerField
+                                hint="Facultatif : tu pourras toujours changer de carte, et ce choix depuis ton profil."
+                                legend="Carte à afficher quand tu te connectes"
+                                name="onboarding-map-layer"
+                                onChange={setMapLayer}
+                                value={mapLayer}
+                            />
+                        )}
 
                         {saveError && <Notice kind="error">{saveError}</Notice>}
 
@@ -281,7 +297,7 @@ function OnboardingModal({ categories, onPreferencesSaved, onFinish, onPostpone,
                         )}
 
                         <p className="pp-hint onboarding-guide">
-                            Envie d'un tour complet de LocalLife ?{" "}
+                            Envie d'un tour complet de Neiri ?{" "}
                             <Link onClick={onFinish} to="/guide">
                                 Voir le guide de l'application
                             </Link>

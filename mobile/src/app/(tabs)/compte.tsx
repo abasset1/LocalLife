@@ -241,7 +241,7 @@ export default function CompteScreen() {
     const initial = state.user.email.trim().charAt(0).toUpperCase() || '?';
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
           <ScrollView contentContainerStyle={styles.content}>
             <MenuButton />
             <ScreenHeader eyebrow="Mon espace" title="Compte" />
@@ -310,7 +310,7 @@ export default function CompteScreen() {
               <MenuRow
                 icon={{ ios: 'questionmark.circle', android: 'help', web: 'help' }}
                 label="Guide de l'application"
-                description="Revoir la présentation animée de LocalLife"
+                description="Revoir la présentation animée de Neiri"
                 onPress={() => router.push('/guide')}
               />
               {hasProAccess ? (
@@ -367,7 +367,7 @@ export default function CompteScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
             <MenuButton />
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
   },
   heroLead: {
-    color: '#C8D7D1',
+    color: '#C9CBE8',
   },
   segmented: {
     flexDirection: 'row',

@@ -131,7 +131,7 @@ const ADMIN_SECTIONS = [
 type AdminSection = (typeof ADMIN_SECTIONS)[number]["value"];
 
 /**
- * Sections ouvertes à l'équipe LocalLife (rôle `LOCALLIFE`, décision du 02/11/2026) : la modération. Le reste
+ * Sections ouvertes à l'équipe Neiri (rôle `LOCALLIFE`, décision du 02/11/2026) : la modération. Le reste
  * (agendas, comptes, catégories, imports, e-mails, suppression, corbeille, journal) est réservé aux administrateurs,
  * ce que le serveur vérifie de son côté.
  */
@@ -175,7 +175,7 @@ function matchesSourceSearch(source: Source, query: string): boolean {
 
 function AdminPage() {
     const navigate = useNavigate();
-    /** Administrateur (tout) ou équipe LocalLife (modération seulement). */
+    /** Administrateur (tout) ou équipe Neiri (modération seulement). */
     const isAdmin = getPayload()?.role === "ADMIN";
     const visibleSections = ADMIN_SECTIONS.filter((section) => isAdmin || MODERATION_SECTIONS.has(section.value));
     const [searchParams] = useSearchParams();

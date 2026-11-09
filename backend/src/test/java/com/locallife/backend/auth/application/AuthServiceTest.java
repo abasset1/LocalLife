@@ -398,7 +398,7 @@ class AuthServiceTest {
 
     @Test
     void loginOrRegisterWithGoogle_ShouldCreateNewUser_WhenNoIdentityAndNoMatchingEmail() {
-        // Given : première connexion Google, aucun compte LocalLife préexistant pour cet email.
+        // Given : première connexion Google, aucun compte Neiri préexistant pour cet email.
         when(googleAuthService.verify("id-token"))
                 .thenReturn(new GoogleAuthService.GoogleIdentity("google-sub-123", "nouveau@gmail.com", "Nouveau Venu"));
         when(userIdentityRepository.findByProviderAndProviderUserId(AuthProvider.GOOGLE, "google-sub-123"))
@@ -420,7 +420,7 @@ class AuthServiceTest {
                 user.username().equals("Nouveau-Venu")
                         && user.email().equals("nouveau@gmail.com")
                         // Jamais null (colonne NOT NULL) ni un vrai hash BCrypt : aucun mot de
-                        // passe LocalLife n'est demandé pour ce compte (exigence du ticket).
+                        // passe Neiri n'est demandé pour ce compte (exigence du ticket).
                         && user.passwordHash().isEmpty()
                         && user.emailVerified()
                         && user.role() == Role.USER));

@@ -170,7 +170,7 @@ public class AuthController {
      * saisie.
      *
      * @param request la requête contenant l'ID token Google
-     * @return une réponse contenant le token JWT LocalLife si l'authentification réussit
+     * @return une réponse contenant le token JWT Neiri si l'authentification réussit
      */
     @PostMapping("/google")
     public ResponseEntity<Object> loginWithGoogle(

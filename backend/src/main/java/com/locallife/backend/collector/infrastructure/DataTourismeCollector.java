@@ -229,6 +229,8 @@ public class DataTourismeCollector implements Collector {
     /** Sélection d'événements de la source ({@code null} : tous), voir {@link DataTourismeEventSelection}. */
     private final DataTourismeEventSelection selection;
     private final Clock clock;
+    /** Compléments de l'API DATAtourisme ({@code null} : CSV seul), voir {@link DataTourismeApiEnricher}. */
+    private DataTourismeApiEnricher enricher;
 
     DataTourismeCollector(RestClient.Builder builder, String resourceUrl, String sourceName, String regionFilter) {
         this(builder, resourceUrl, sourceName, regionFilter, null, Clock.systemUTC());
@@ -256,6 +258,12 @@ public class DataTourismeCollector implements Collector {
         this.clock = clock;
     }
 
+    /** Active les compléments de l'API DATAtourisme (description détaillée, tarifs, images, contacts). */
+    DataTourismeCollector withEnricher(DataTourismeApiEnricher apiEnricher) {
+        this.enricher = apiEnricher;
+        return this;
+    }
+
     @Override
     public String getSourceName() {
         return sourceName;
@@ -280,7 +288,10 @@ public class DataTourismeCollector implements Collector {
                             return parse(reader);
                         }
                     });
-            return activities == null ? List.of() : activities;
+            if (activities == null) {
+                return List.of();
+            }
+            return enricher == null ? activities : enricher.enrich(activities);
         } catch (RestClientException exception) {
             throw new CollectorException("Échec de la collecte depuis DATAtourisme (data.gouv.fr).", exception);
         }

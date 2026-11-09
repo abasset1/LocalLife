@@ -95,7 +95,7 @@ const ARCHIVABLE: TruckStatus[] = ["DRAFT", "PENDING", "PUBLISHED", "SUSPENDED",
 
 /**
  * Publication possible : un food truck jamais validé part en validation (brouillon ou refusé) ; une fois validé, un
- * brouillon ou un food truck suspendu par son propriétaire se publie directement. Un food truck masqué par LocalLife ou
+ * brouillon ou un food truck suspendu par son propriétaire se publie directement. Un food truck masqué par Neiri ou
  * par la fin de l'accès professionnel ne se republie pas d'ici.
  */
 function canPublish(truck: OwnedFoodTruck): boolean {
@@ -127,7 +127,7 @@ function describePeriod(presence: ManagedPresence): string | null {
 
 /**
  * Food trucks du professionnel (PRO-01 lot C, FOODTRUCK-01) : profil distinct des lieux, publié par son propriétaire,
- * puis emplacements et planning de présence (lieu LocalLife existant ou nouvelle adresse, jours, horaires, période).
+ * puis emplacements et planning de présence (lieu Neiri existant ou nouvelle adresse, jours, horaires, période).
  * Brouillon d'abord, validation par un modérateur avant la première publication, publication directe ensuite ; un
  * food truck en validation peut être retiré (retour en brouillon) ; un emplacement peut être désactivé, réactivé ou archivé. Le backend vérifie
  * la propriété, les chevauchements et les dates.
@@ -457,7 +457,7 @@ function ProFoodTrucksSection({ readOnly = false }: {
                                 <span className="favorites-list-item-title">{`${markerOf(truck).emoji} ${truck.name}`}</span>
                                 <span className="favorites-list-item-meta">
                                     {TRUCK_STATUS_LABELS[truck.status]} · {[cuisineLabel(truck.cuisineType), truck.category].filter(Boolean).join(" · ")}
-                                    {truck.suspendedByLocalLife ? " · suspendu par LocalLife" : ""}
+                                    {truck.suspendedByLocalLife ? " · suspendu par Neiri" : ""}
                                 </span>
                                 {truck.status === "PENDING" && (
                                     <span className="favorites-list-item-meta">
@@ -516,7 +516,7 @@ function ProFoodTrucksSection({ readOnly = false }: {
                 <section aria-labelledby="pro-presences-title">
                     <h3 id="pro-presences-title">Emplacements et planning de « {selected.name} »</h3>
                     <p className="activities-status">
-                        LocalLife n'accorde aucune autorisation de stationnement : tu restes responsable des autorisations
+                        Neiri n'accorde aucune autorisation de stationnement : tu restes responsable des autorisations
                         nécessaires pour chaque emplacement.
                     </p>
                     {presences.length === 0 ? (
@@ -583,7 +583,7 @@ function ProFoodTrucksSection({ readOnly = false }: {
                                 <label>
                                     <input checked={presenceForm.spotMode === "place"} name="spot-mode" type="radio"
                                         onChange={() => setForm("spotMode", "place")} />
-                                    {" "}{editingPresence === "new" ? "Un lieu LocalLife existant" : "Garder ou choisir un lieu existant"}
+                                    {" "}{editingPresence === "new" ? "Un lieu Neiri existant" : "Garder ou choisir un lieu existant"}
                                 </label>
                                 <label>
                                     <input checked={presenceForm.spotMode === "new"} name="spot-mode" type="radio"

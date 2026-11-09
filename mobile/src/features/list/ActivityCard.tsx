@@ -4,13 +4,13 @@ import type { Activity } from '@/api';
 import { RemoteImage } from '@/components/remote-image';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Shadows, Spacing } from '@/constants/theme';
-import { formatDateRange } from '@/features/activity/format';
+import { formatDateRange, formatPriceType } from '@/features/activity/format';
 import { withApproximateMention } from '@/features/activity/location';
 import { LikeButton } from '@/features/favorites';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
- * Carte d'une activité (onglet « Liste », « Mes favoris ») : photo éventuelle, catégorie, date, titre,
+ * Carte d'une activité (onglet « Liste », « Mes favoris ») : photo éventuelle, catégorie, date, gratuit ou payant, titre,
  * commune, distance et cœur « J'aime ».
  */
 export function ActivityCard({
@@ -27,6 +27,8 @@ export function ActivityCard({
   const date = formatDateRange(activity.startDate, activity.endDate);
   const place = withApproximateMention(activity.city, activity);
   const meta = [place, distance].filter(Boolean).join(' · ');
+  const price = formatPriceType(activity.priceType);
+  const eyebrow = [date, price].filter(Boolean).join(' · ');
 
   return (
     // Le cœur est un frère de la zone cliquable, pas un enfant : sinon les lecteurs d'écran, qui lisent la
@@ -34,7 +36,7 @@ export function ActivityCard({
     <View style={styles.wrapper}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={[activity.title, activity.category, date, meta].filter(Boolean).join(', ')}
+        accessibilityLabel={[activity.title, activity.category, date, price, meta].filter(Boolean).join(', ')}
         accessibilityHint="Ouvre la fiche de l'activité"
         onPress={onPress}
         style={({ pressed }) => [
@@ -49,9 +51,9 @@ export function ActivityCard({
           </ThemedText>
         </View>
         <View style={styles.body}>
-          {date ? (
+          {eyebrow ? (
             <ThemedText type="eyebrow" numberOfLines={1}>
-              {date}
+              {eyebrow}
             </ThemedText>
           ) : null}
           <ThemedText type="heading" numberOfLines={2}>

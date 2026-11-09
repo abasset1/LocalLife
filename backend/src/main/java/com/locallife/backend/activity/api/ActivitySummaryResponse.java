@@ -1,6 +1,7 @@
 package com.locallife.backend.activity.api;
 
 import com.locallife.backend.activity.domain.Activity;
+import com.locallife.backend.activity.domain.PriceIndicator;
 import com.locallife.backend.activity.infrastructure.ActivityHostPlaceRepository.HostPlace;
 import com.locallife.backend.place.domain.CoordinatePrecision;
 import java.time.LocalDateTime;
@@ -40,6 +41,9 @@ import java.time.LocalDateTime;
  * si aucun média n'est attaché — jamais d'image par défaut/générique
  * injectée ici, à la charge du frontend le cas échéant.
  *
+ * {@code priceType} : {@code FREE}, {@code PAID} ou {@code UNKNOWN}, déduit des tarifs en clair de
+ * l'activité ({@link PriceIndicator}) — les tarifs eux-mêmes restent réservés à la fiche détaillée.
+ *
  * {@code createdBy} : identifiant du contributeur ({@code null} pour une activité importée), voir
  * {@link ActivityDetailResponse}.
  */
@@ -55,7 +59,8 @@ public record ActivitySummaryResponse(
         String mainImageUrl,
         Long createdBy,
         String coordinatePrecision,
-        HostPlace hostPlace) {
+        HostPlace hostPlace,
+        String priceType) {
 
     public static ActivitySummaryResponse from(Activity activity, String mainImageUrl) {
         return new ActivitySummaryResponse(
@@ -70,14 +75,15 @@ public record ActivitySummaryResponse(
                 mainImageUrl,
                 activity.createdBy(),
                 CoordinatePrecision.UNKNOWN.name(),
-                null);
+                null,
+                PriceIndicator.of(activity.conditions()).name());
     }
 
     /** Précision géographique de la position (ADR-0011, phase A) ; {@code from} vaut {@code UNKNOWN}. */
     public ActivitySummaryResponse withCoordinatePrecision(CoordinatePrecision precision) {
         return new ActivitySummaryResponse(id, title, category, date, city, address, latitude, longitude,
                 mainImageUrl, createdBy, (precision == null ? CoordinatePrecision.UNKNOWN : precision).name(),
-                hostPlace);
+                hostPlace, priceType);
     }
 
     /**
@@ -89,12 +95,12 @@ public record ActivitySummaryResponse(
             return this;
         }
         return new ActivitySummaryResponse(id, title, category, nextStart, city, address, latitude, longitude,
-                mainImageUrl, createdBy, coordinatePrecision, hostPlace);
+                mainImageUrl, createdBy, coordinatePrecision, hostPlace, priceType);
     }
 
     /** Lieu qui propose l'activité (décision du 22/10/2026), {@code null} sinon. */
     public ActivitySummaryResponse withHostPlace(HostPlace place) {
         return new ActivitySummaryResponse(id, title, category, date, city, address, latitude, longitude,
-                mainImageUrl, createdBy, coordinatePrecision, place);
+                mainImageUrl, createdBy, coordinatePrecision, place, priceType);
     }
 }

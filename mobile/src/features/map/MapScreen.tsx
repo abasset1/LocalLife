@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Circle, UrlTile } from 'react-native-maps';
@@ -17,6 +18,7 @@ import {
   applyPreferences,
   clearCategories,
   setPlace,
+  setFreeOnly,
   setRadius,
   useExplorer,
   type ExplorerPlace,
@@ -38,19 +40,46 @@ import {
   regionToFit,
   zoomForRegion,
 } from './geo';
-import { MapControl } from './MapControl';
+import { MapChip, MapChipRow, type ChipIcon } from './MapChip';
+import { applyMapLayerPreference, chooseMapLayer, shownLayer as layerShown, useMapLayer } from './layerStore';
+import {
+  categoriesChipLabel,
+  hasActiveFilters,
+  layerContents,
+  layerTabs,
+  listButtonLabel,
+  periodChipLabel,
+  radiusChipLabel,
+} from './mapControls';
+import { mapStyleFor } from './nightMapStyle';
 import { ActivityMarker, ClusterMarker, FoodTruckMarker, HighlightedActivityMarker, PlaceMarker } from './markers';
 import { CuisineFilterBar } from '@/features/foodtruck/CuisineFilterBar';
 import { markerOf } from '@/features/foodtruck/cuisines';
-import { PlaceListPanel } from './PlaceListPanel';
+import { keepFreeActivities } from './priceFilter';
 import { PreviewCard, type Selection } from './PreviewCard';
 import { useMapData, type RadiusSearch } from './useMapData';
-import { type MapLayer, loadMapLayer, saveMapLayer } from './placesPreference';
+import { type MapLayer, preferredMapLayer } from './placesPreference';
 import { usePlaces } from './usePlaces';
 import { useLaunchFeatures } from '@/features/launch';
 import { useSearchPreferences } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
-import { ZoneActivityList } from './ZoneActivityList';
+
+/** Pictogrammes des contenus du bouton « Affichage » (Night garde son logo, voir `MapChip`). */
+const LAYER_ICONS: Record<Exclude<MapLayer, 'night'>, ChipIcon> = {
+  activities: { ios: 'calendar', android: 'event', web: 'event' },
+  places: { ios: 'mappin.and.ellipse', android: 'location_on', web: 'location_on' },
+  foodTrucks: { ios: 'box.truck', android: 'local_shipping', web: 'local_shipping' },
+};
+
+const ICONS = {
+  period: { ios: 'calendar', android: 'calendar_today', web: 'calendar_today' },
+  categories: { ios: 'tag', android: 'sell', web: 'sell' },
+  radius: { ios: 'scope', android: 'radar', web: 'radar' },
+  free: { ios: 'gift', android: 'redeem', web: 'redeem' },
+  list: { ios: 'list.bullet', android: 'view_list', web: 'view_list' },
+  locate: { ios: 'location', android: 'my_location', web: 'my_location' },
+  display: { ios: 'square.2.layers.3d', android: 'layers', web: 'layers' },
+} satisfies Record<string, ChipIcon>;
 
 /**
  * Vue de départ tant qu'aucun lieu n'est choisi : vue d'ensemble de la zone couverte par les sources
@@ -123,7 +152,7 @@ export default function MapScreen() {
   useEffect(() => {
     applyPreferences(preferences);
   }, [preferences]);
-  const { place, categoryCodes, radiusKm: activeRadiusKm } = useExplorer();
+  const { place, categoryCodes, radiusKm: activeRadiusKm, freeOnly } = useExplorer();
 
   // Centre courant, lu sans relancer le cadrage à chaque déplacement de la carte.
   const regionRef = useRef(region);
@@ -134,16 +163,14 @@ export default function MapScreen() {
   const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
   const [periodPanelOpen, setPeriodPanelOpen] = useState(false);
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
-  const [placeListOpen, setPlaceListOpen] = useState(false);
-  /** Liste des activités de la zone affichée, liée à la carte (comme la page Explorer du site web). */
-  const [zoneListOpen, setZoneListOpen] = useState(false);
+  /** Bouton flottant « Affichage » : choix du contenu de la carte (activités, food trucks, Night, lieux). */
+  const [displayPanelOpen, setDisplayPanelOpen] = useState(false);
   /** Un seul panneau ouvert à la fois. */
   const closePanels = useCallback(() => {
     setRadiusPanelOpen(false);
     setPeriodPanelOpen(false);
     setCategoryPanelOpen(false);
-    setPlaceListOpen(false);
-    setZoneListOpen(false);
+    setDisplayPanelOpen(false);
   }, []);
   const [period, setPeriod] = usePeriod();
   const periodLabel = PERIOD_OPTIONS.find((option) => option.value === period)?.label ?? 'Tout';
@@ -166,8 +193,8 @@ export default function MapScreen() {
     pendingFocusId.current = focus.focusId ? Number(focus.focusId) : null;
     focusedOnActivity.current = true;
     closePanels();
-    // L'activité demandée doit apparaître, même hors de la période choisie.
-    setPeriod('all');
+    // L'activité demandée doit apparaître, même hors de la période choisie (un lieu, lui, n'a pas de date).
+    if (focus.focusId) setPeriod('all');
     moveTo(regionForZoom(latitude, longitude, FOCUS_ZOOM, regionRef.current));
     // Paramètres consommés : revenir sur l'onglet ne recentre pas une seconde fois.
     router.setParams({ focusId: undefined, focusLat: undefined, focusLon: undefined });
@@ -226,51 +253,53 @@ export default function MapScreen() {
     [place, region],
   );
 
-  const { activities, foodTrucks, loading, error, tooWide, retry } = useMapData(
+  // Contenu (issue #226), choisi par le bouton « Affichage » : « Activités », « Food trucks », « Night » (activités entre
+  // 20 h et 6 h, thème nuit) ou « Lieux ». Partagé avec la liste (`layerStore`) ; choix mémorisé sur l'appareil,
+  // sauf carte choisie dans les paramètres (utilisateur connecté), affichée à l'arrivée et à chacun de ses changements.
+  const mapLayer = useMapLayer();
+  const preferredLayer = preferredMapLayer(preferences?.defaultMapLayer);
+  useEffect(() => {
+    applyMapLayerPreference(preferredLayer);
+  }, [preferredLayer]);
+  /** Contenu choisi : les marqueurs changent sur place, sans changer d'écran, et le panneau se referme. */
+  const selectMapLayer = useCallback(
+    (layer: MapLayer) => {
+      closePanels();
+      chooseMapLayer(layer);
+    },
+    [closePanels],
+  );
+  // Contenu mémorisé mais pas (ou plus) ouvert au lancement : retour aux activités, sans effacer le choix enregistré.
+  const shownLayer: MapLayer = layerShown(mapLayer, features);
+  // Univers changé (ici ou depuis la liste) : l'aperçu d'un élément qui n'est plus affiché se ferme.
+  const [selectionLayer, setSelectionLayer] = useState<MapLayer>(shownLayer);
+  if (selectionLayer !== shownLayer) {
+    setSelectionLayer(shownLayer);
+    setSelection(null);
+  }
+  const contents = layerContents(shownLayer, features);
+  const showNight = contents.night;
+  const showActivities = contents.activities;
+  const showPlaces = contents.places;
+  const showFoodTrucks = contents.foodTrucks;
+  const { activities: loadedActivities, foodTrucks, loading, error, tooWide, retry } = useMapData(
     region,
     categoryCodes,
     radiusSearch,
     period,
     features.foodTrucks,
+    showNight,
   );
+  // Filtre « Gratuit » : appliqué ici sur `priceType`, la carte recevant toutes les activités de la zone.
+  const activities = useMemo(() => keepFreeActivities(loadedActivities, freeOnly), [loadedActivities, freeOnly]);
   // Activité demandée par « Voir sur la carte » : son aperçu s'ouvre dès qu'elle est chargée.
   useEffect(() => {
     if (pendingFocusId.current === null) return;
-    const activity = activities.find((a) => a.id === pendingFocusId.current);
+    const activity = loadedActivities.find((a) => a.id === pendingFocusId.current);
     if (!activity) return;
     pendingFocusId.current = null;
     select({ kind: 'activity', activity });
-  }, [activities, select]);
-  // Un seul contenu à la fois : activités (par défaut), lieux (ADR-0011, phase B) ou food trucks (ADR-0013).
-  // Choix mémorisé sur l'appareil.
-  const [mapLayer, setMapLayer] = useState<MapLayer>('activities');
-  useEffect(() => {
-    let active = true;
-    loadMapLayer().then((layer) => {
-      if (active) setMapLayer(layer);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-  /** Bouton « Lieux » ou « Food trucks » : affiche ce contenu à la place du précédent, ou revient aux activités. */
-  const toggleMapLayer = useCallback(
-    (layer: MapLayer) => {
-      const next = mapLayer === layer ? 'activities' : layer;
-      closePanels();
-      setMapLayer(next);
-      saveMapLayer(next);
-    },
-    [mapLayer, closePanels],
-  );
-  // Contenu mémorisé mais pas (ou plus) ouvert : retour aux activités, sans effacer le choix enregistré.
-  const shownLayer: MapLayer =
-    (mapLayer === 'places' && !features.places) || (mapLayer === 'foodTrucks' && !features.foodTrucks)
-      ? 'activities'
-      : mapLayer;
-  const showActivities = shownLayer === 'activities';
-  const showPlaces = shownLayer === 'places';
-  const showFoodTrucks = shownLayer === 'foodTrucks';
+  }, [loadedActivities, select]);
   const places = usePlaces(region, showPlaces);
   const location = useUserLocation();
 
@@ -341,14 +370,21 @@ export default function MapScreen() {
     [index, region, closePanels, select],
   );
 
-  /** Activités de la zone affichée, par date, pour la liste liée à la carte. */
-  const zoneActivities = useMemo(
+  /** Activités de la zone affichée : avec les lieux et food trucks visibles, le nombre du bouton « Voir la liste ». */
+  // Même règle que le site et la Liste : avec un rayon, tout le rayon (le nombre ne dépend pas du zoom) ;
+  // sans rayon, les activités visibles sur la carte.
+  const zoneActivityCount = useMemo(
     () =>
-      bounds && showActivities
-        ? sortByStartDate(activities.filter((a) => pointInBounds(bounds, a.latitude, a.longitude)))
-        : [],
-    [activities, bounds, showActivities],
+      !showActivities
+        ? 0
+        : radiusSearch
+          ? activities.length
+          : bounds
+            ? activities.filter((a) => pointInBounds(bounds, a.latitude, a.longitude)).length
+            : 0,
+    [activities, bounds, showActivities, radiusSearch],
   );
+  const resultCount = zoneActivityCount + visiblePlaces.length + visibleFoodTrucks.length;
   const highlighted = selection?.kind === 'activity' && showActivities ? selection.activity : null;
 
   // « Ma position » : la position devient le lieu de recherche (carte et liste) ; la carte s'y cadre
@@ -364,7 +400,33 @@ export default function MapScreen() {
       ? location.status
       : null;
 
-  const isEmpty = showActivities && !loading && !error && !tooWide && clusters.length === 0;
+  // Rien à montrer dans la zone : message, avec de quoi changer les filtres s'il y en a.
+  const isEmpty =
+    showActivities &&
+    !loading &&
+    !error &&
+    !tooWide &&
+    clusters.length === 0 &&
+    visiblePlaces.length === 0 &&
+    visibleFoodTrucks.length === 0;
+  const filtersActive = hasActiveFilters({
+    period,
+    categoryCount: categoryCodes.length,
+    radiusKm: activeRadiusKm,
+    freeOnly,
+  });
+  const resetFilters = useCallback(() => {
+    closePanels();
+    setPeriod('all');
+    clearCategories();
+    setRadius(null);
+    setFreeOnly(false);
+  }, [closePanels, setPeriod]);
+  /** Liste dans le même univers, avec la même ville et les mêmes filtres (état partagé, rien à transmettre). */
+  const openList = useCallback(() => {
+    closePanels();
+    router.navigate('/liste');
+  }, [closePanels, router]);
 
   return (
     <View style={styles.container}>
@@ -392,14 +454,18 @@ export default function MapScreen() {
         moveOnMarkerPress={false}
         rotateEnabled={false}
         pitchEnabled={false}
-        mapType={USE_OSM_TILES ? 'none' : 'standard'}>
+        mapType={USE_OSM_TILES ? 'none' : 'standard'}
+        // Fond de carte violet nuit (Android, Google Maps) ou sombre (iOS, Apple Plans) pour la carte Night
+        // seulement : un style vide explicite le retire dès qu'on passe sur un autre onglet.
+        customMapStyle={USE_OSM_TILES ? undefined : mapStyleFor(showNight)}
+        userInterfaceStyle={showNight ? 'dark' : undefined}>
         {USE_OSM_TILES && <UrlTile urlTemplate={OSM_TILE_URL} maximumZ={19} zIndex={-1} />}
         {radiusSearch && (
           // Rayon favori, matérialisé comme sur le site web.
           <Circle
             center={{ latitude: radiusSearch.latitude, longitude: radiusSearch.longitude }}
             radius={radiusSearch.radiusKm * 1000}
-            strokeColor={Brand.green2}
+            strokeColor={Brand.navy2}
             strokeWidth={2}
             lineDashPattern={[8, 8]}
             fillColor="rgba(36, 84, 71, 0.07)"
@@ -414,9 +480,11 @@ export default function MapScreen() {
             const count = feature.properties.point_count;
             return (
               <ClusterMarker
-                key={`c-${clusterId}-${count}`}
+                // `night` dans la clé : sur Android, un marqueur n'est redessiné qu'à sa création.
+                key={`c-${clusterId}-${count}-${showNight}`}
                 coordinate={coordinate}
                 count={count}
+                night={showNight}
                 onPress={() => {
                   markerPressedAt.current = Date.now();
                   openCluster(clusterId);
@@ -428,9 +496,10 @@ export default function MapScreen() {
           const { activity } = feature.properties as { activity: Activity };
           return (
             <ActivityMarker
-              key={`a-${activity.id}`}
+              key={`a-${activity.id}-${showNight}`}
               coordinate={coordinate}
               title={activity.title}
+              night={showNight}
               approximate={isApproximateLocation(activity)}
               onPress={() => {
                 closePanels();
@@ -442,9 +511,10 @@ export default function MapScreen() {
         })}
         {highlighted && (
           <HighlightedActivityMarker
-            key={`h-${highlighted.id}`}
+            key={`h-${highlighted.id}-${showNight}`}
             coordinate={{ latitude: highlighted.latitude, longitude: highlighted.longitude }}
             title={highlighted.title}
+            night={showNight}
             onPress={() => {
               markerPressedAt.current = Date.now();
             }}
@@ -481,16 +551,78 @@ export default function MapScreen() {
         </View>
       )}
 
-      {/* Plus de barre d'onglets (menu rétractable) : le bas (barre de gestes) est aussi réservé. */}
-      <SafeAreaView style={styles.overlay} edges={['top', 'bottom', 'left', 'right']} pointerEvents="box-none">
+      {/* La barre d'onglets du bas réserve déjà la barre de gestes : seuls le haut et les côtés sont protégés ici. */}
+      <SafeAreaView style={styles.overlay} edges={['top', 'left', 'right']} pointerEvents="box-none">
         <View style={styles.top} pointerEvents="box-none">
-          <View style={styles.searchRow} pointerEvents="box-none">
+          {/* En haut : seulement le menu ☰ et la recherche, alignés. */}
+          <View style={styles.headerRow} pointerEvents="box-none">
             <MenuButton floating />
             <View style={styles.search}>
               <CitySearch floating />
             </View>
           </View>
-          {showFoodTrucks && (
+          {/* Filtres des activités (Activités, Night) : pictogrammes seuls, remplis quand le filtre est posé ; chacun ouvre
+              son panneau en bas de l'écran et annonce sa valeur aux lecteurs d'écran. */}
+          {showActivities && (
+            <MapChipRow accessibilityLabel="Filtres des activités">
+              <MapChip
+                iconOnly
+                icon={ICONS.period}
+                label={periodChipLabel(period)}
+                accessibilityLabel={`Période : ${periodLabel}, modifier`}
+                active={period !== 'all' || periodPanelOpen}
+                onPress={() => {
+                  const open = periodPanelOpen;
+                  closePanels();
+                  setPeriodPanelOpen(!open);
+                }}
+              />
+              <MapChip
+                iconOnly
+                icon={ICONS.categories}
+                label={categoriesChipLabel(categoryCodes.length)}
+                accessibilityLabel={
+                  categoryCodes.length === 0
+                    ? 'Choisir des catégories'
+                    : `${categoryCodes.length} catégorie${categoryCodes.length > 1 ? 's' : ''} choisie${categoryCodes.length > 1 ? 's' : ''}, modifier`
+                }
+                active={categoryCodes.length > 0 || categoryPanelOpen}
+                onPress={() => {
+                  const open = categoryPanelOpen;
+                  closePanels();
+                  setCategoryPanelOpen(!open);
+                }}
+              />
+              <MapChip
+                iconOnly
+                icon={ICONS.radius}
+                label={radiusChipLabel(activeRadiusKm)}
+                accessibilityLabel={
+                  activeRadiusKm === null ? 'Choisir un rayon' : `Rayon de ${activeRadiusKm} km, modifier`
+                }
+                active={activeRadiusKm !== null || radiusPanelOpen}
+                onPress={() => {
+                  const open = radiusPanelOpen;
+                  closePanels();
+                  setRadiusPanelOpen(!open);
+                }}
+              />
+              <MapChip
+                iconOnly
+                icon={ICONS.free}
+                label="Gratuit"
+                accessibilityLabel={
+                  freeOnly ? 'Activités gratuites seulement, tout afficher' : 'Afficher seulement les activités gratuites'
+                }
+                active={freeOnly}
+                onPress={() => {
+                  closePanels();
+                  setFreeOnly(!freeOnly);
+                }}
+              />
+            </MapChipRow>
+          )}
+          {shownLayer === 'foodTrucks' && (
             <CuisineFilterBar
               floating
               foodTrucks={foodTrucks}
@@ -512,7 +644,7 @@ export default function MapScreen() {
             <View
               accessibilityLiveRegion="polite"
               style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="small">Vue d’ensemble : cherchez une ville ou touchez « Ma position ».</ThemedText>
+              <ThemedText type="small">Vue d’ensemble : cherchez une ville ou touchez ◎ pour votre position.</ThemedText>
             </View>
           )}
           {loading && (
@@ -549,26 +681,6 @@ export default function MapScreen() {
               </View>
             </View>
           )}
-          {categoryCodes.length > 0 && (
-            <View style={[styles.chip, styles.filterChip, { backgroundColor: theme.backgroundElement }]}>
-              <View style={[styles.filterDot, { backgroundColor: theme.accent }]} />
-              <ThemedText type="smallBold">
-                {categoryCodes.length === 1
-                  ? 'Filtré sur 1 catégorie'
-                  : `Filtré sur ${categoryCodes.length} catégories`}
-              </ThemedText>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Tout afficher"
-                hitSlop={8}
-                onPress={clearCategories}
-                style={[styles.chipAction, { backgroundColor: theme.primarySoft }]}>
-                <ThemedText type="smallBold" themeColor="primary">
-                  Tout afficher
-                </ThemedText>
-              </Pressable>
-            </View>
-          )}
           {showActivities && tooWide && !loading && !error && (
             <View
               accessibilityLiveRegion="polite"
@@ -579,47 +691,103 @@ export default function MapScreen() {
           {isEmpty && (
             <View
               accessibilityLiveRegion="polite"
-              style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
+              style={[styles.banner, { backgroundColor: theme.backgroundElement }]}>
               <ThemedText type="smallBold">
-                {period === 'all'
-                  ? 'Aucune activité dans cette zone.'
-                  : `Aucune activité ici pour « ${periodLabel} ».`}
+                {freeOnly
+                  ? 'Aucune activité gratuite dans cette zone.'
+                  : period === 'all'
+                    ? 'Aucune activité dans cette zone.'
+                    : `Aucune activité ici pour « ${periodLabel} ».`}
               </ThemedText>
+              {filtersActive && (
+                <View style={styles.actions}>
+                  <Button
+                    label="Modifier les filtres"
+                    onPress={() => {
+                      closePanels();
+                      if (period !== 'all') setPeriodPanelOpen(true);
+                      else if (categoryCodes.length > 0) setCategoryPanelOpen(true);
+                      else if (activeRadiusKm !== null) setRadiusPanelOpen(true);
+                      else setFreeOnly(false);
+                    }}
+                  />
+                  <Button label="Réinitialiser" variant="secondary" onPress={resetFilters} />
+                </View>
+              )}
             </View>
           )}
         </View>
 
         <View style={styles.bottom} pointerEvents="box-none">
-          {!selection && zoneListOpen && showActivities && (
-            <ZoneActivityList
-              activities={zoneActivities}
-              onClose={() => setZoneListOpen(false)}
-              onSelect={(activity) => {
-                setZoneListOpen(false);
-                select({ kind: 'activity', activity });
-              }}
-              onOpenFullList={() => {
+          {/* Contrôles flottants, au-dessus de l'aperçu : se recentrer, changer l'affichage. */}
+          <View style={styles.fabs} pointerEvents="box-none">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Me recentrer sur ma position"
+              accessibilityState={{ busy: location.status === 'locating' }}
+              disabled={location.status === 'locating'}
+              hitSlop={4}
+              onPress={centerOnUser}
+              style={({ pressed }) => [
+                styles.roundButton,
+                { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+                Shadows.floating,
+                pressed && styles.pressed,
+              ]}>
+              {location.status === 'locating' ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <SymbolView name={ICONS.locate} tintColor={theme.primary} size={22} />
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Changer l’affichage"
+              accessibilityState={{ expanded: displayPanelOpen }}
+              hitSlop={4}
+              onPress={() => {
+                const open = displayPanelOpen;
                 closePanels();
-                router.navigate('/liste');
+                setDisplayPanelOpen(!open);
               }}
-            />
-          )}
-          {!selection && placeListOpen && showPlaces && visiblePlaces.length > 0 && (
-            <PlaceListPanel
-              places={visiblePlaces}
-              onSelect={(place) => {
-                setPlaceListOpen(false);
-                setSelection({ kind: 'place', place });
-              }}
-            />
+              style={({ pressed }) => [
+                styles.roundButton,
+                displayPanelOpen
+                  ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                  : { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+                Shadows.floating,
+                pressed && styles.pressed,
+              ]}>
+              <SymbolView name={ICONS.display} tintColor={displayPanelOpen ? theme.onPrimary : theme.primary} size={22} />
+            </Pressable>
+          </View>
+          {displayPanelOpen && (
+            <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
+              <ThemedText type="smallBold">Afficher sur la carte</ThemedText>
+              {/* Un contenu à la fois : un appui change les marqueurs sur place et referme le panneau. */}
+              <View style={styles.actions} accessibilityRole="tablist" accessibilityLabel="Contenu de la carte">
+                {layerTabs(features).map((tab) => (
+                  <MapChip
+                    key={tab.value}
+                    role="tab"
+                    label={tab.label}
+                    accessibilityLabel={tab.description}
+                    icon={tab.value === 'night' ? undefined : LAYER_ICONS[tab.value]}
+                    night={tab.value === 'night'}
+                    active={shownLayer === tab.value}
+                    onPress={() => selectMapLayer(tab.value)}
+                  />
+                ))}
+              </View>
+            </View>
           )}
           {!selection && categoryPanelOpen && (
-            <View style={[styles.radiusPanel, { backgroundColor: theme.backgroundElement }]}>
+            <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
               <CategoryPanel />
             </View>
           )}
           {!selection && radiusPanelOpen && (
-            <View style={[styles.radiusPanel, { backgroundColor: theme.backgroundElement }]}>
+            <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
               <ChipGroup
                 label="Afficher les activités dans un rayon de"
                 single
@@ -633,7 +801,7 @@ export default function MapScreen() {
             </View>
           )}
           {!selection && periodPanelOpen && (
-            <View style={[styles.radiusPanel, { backgroundColor: theme.backgroundElement }]}>
+            <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
               <ChipGroup
                 label="Afficher les activités"
                 single
@@ -646,106 +814,22 @@ export default function MapScreen() {
               />
             </View>
           )}
-          {!selection && (
-            // Une seule rangée d'icônes (FRONT-REV-02) : l'état choisi se lit à la couleur, le détail est
-            // annoncé par le libellé accessible.
-            <View style={styles.bottomActions} pointerEvents="box-none">
-              {showActivities && (
-                <MapControl
-                  icon={{ ios: 'list.bullet.rectangle', android: 'view_list', web: 'view_list' }}
-                  accessibilityLabel={
-                    zoneListOpen ? 'Fermer la liste' : `Voir la liste des activités de cette zone (${zoneActivities.length})`
-                  }
-                  badge={zoneActivities.length}
-                  active={zoneListOpen}
-                  onPress={() => {
-                    const open = zoneListOpen;
-                    closePanels();
-                    setZoneListOpen(!open);
-                  }}
-                />
-              )}
-              <MapControl
-                icon={{ ios: 'square.grid.2x2', android: 'category', web: 'category' }}
-                accessibilityLabel={
-                  categoryCodes.length === 0
-                    ? 'Choisir des catégories'
-                    : `${categoryCodes.length} catégorie${categoryCodes.length > 1 ? 's' : ''} choisie${categoryCodes.length > 1 ? 's' : ''}, modifier`
-                }
-                active={categoryCodes.length > 0 || categoryPanelOpen}
-                onPress={() => {
-                  const open = categoryPanelOpen;
-                  closePanels();
-                  setCategoryPanelOpen(!open);
-                }}
-              />
-              {features.places && (
-                <MapControl
-                  icon={{ ios: 'building.columns', android: 'account_balance', web: 'account_balance' }}
-                  accessibilityLabel={showPlaces ? 'Revenir aux activités' : 'Afficher les lieux à la place des activités'}
-                  active={showPlaces}
-                  onPress={() => toggleMapLayer('places')}
-                />
-              )}
-              {features.foodTrucks && (
-                <MapControl
-                  icon={{ ios: 'truck.box', android: 'local_shipping', web: 'local_shipping' }}
-                  accessibilityLabel={
-                    showFoodTrucks ? 'Revenir aux activités' : 'Afficher les food trucks à la place des activités'
-                  }
-                  active={showFoodTrucks}
-                  onPress={() => toggleMapLayer('foodTrucks')}
-                />
-              )}
-              <MapControl
-                icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }}
-                accessibilityLabel={
-                  period === 'all' ? 'Choisir une période' : `Période : ${periodLabel}, modifier`
-                }
-                active={period !== 'all' || periodPanelOpen}
-                onPress={() => {
-                  const open = periodPanelOpen;
-                  closePanels();
-                  setPeriodPanelOpen(!open);
-                }}
-              />
-              <MapControl
-                icon={{ ios: 'scope', android: 'radar', web: 'radar' }}
-                accessibilityLabel={
-                  activeRadiusKm === null ? 'Choisir un rayon' : `Rayon de ${activeRadiusKm} km, modifier`
-                }
-                active={activeRadiusKm !== null || radiusPanelOpen}
-                onPress={() => {
-                  const open = radiusPanelOpen;
-                  closePanels();
-                  setRadiusPanelOpen(!open);
-                }}
-              />
-              {showPlaces && visiblePlaces.length > 0 && (
-                <MapControl
-                  icon={{ ios: 'list.bullet', android: 'list', web: 'list' }}
-                  accessibilityLabel={
-                    placeListOpen ? 'Fermer la liste' : `Liste des lieux (${visiblePlaces.length})`
-                  }
-                  active={placeListOpen}
-                  onPress={() => {
-                    const open = placeListOpen;
-                    closePanels();
-                    setPlaceListOpen(!open);
-                  }}
-                />
-              )}
-              <MapControl
-              icon={{ ios: 'location.fill', android: 'my_location', web: 'my_location' }}
-              accessibilityLabel="Ma position"
-              loading={location.status === 'locating'}
-              onPress={centerOnUser}
-              />
-            </View>
-          )}
           {selection && (
-            <PreviewCard selection={selection} onClose={() => setSelection(null)} onChange={setSelection} />
+            <PreviewCard
+              selection={selection}
+              origin={place?.source === 'position' ? place : null}
+              onClose={() => setSelection(null)}
+              onChange={setSelection}
+            />
           )}
+          {/* La liste complète, dans le même univers, avec la même recherche et les mêmes filtres. */}
+          <MapChip
+            icon={ICONS.list}
+            label={listButtonLabel(resultCount)}
+            accessibilityLabel={`Voir la liste des résultats (${resultCount})`}
+            onPress={openList}
+            style={styles.listButton}
+          />
         </View>
       </SafeAreaView>
     </View>
@@ -776,26 +860,41 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     margin: Spacing.three,
   },
-  searchRow: {
+  headerRow: {
     alignSelf: 'stretch',
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: Spacing.two,
+  },
+  roundButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  pressed: {
+    opacity: 0.85,
   },
   search: {
     flex: 1,
   },
   bottom: {
     justifyContent: 'flex-end',
+    gap: Spacing.two,
     margin: Spacing.three,
+    marginBottom: Spacing.two,
   },
-  bottomActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  fabs: {
+    alignSelf: 'flex-end',
+    gap: Spacing.two,
   },
-  radiusPanel: {
-    marginBottom: Spacing.three,
+  listButton: {
+    alignSelf: 'center',
+  },
+  panel: {
+    gap: Spacing.two,
     padding: Spacing.three,
     borderRadius: Radius.xl,
     ...Shadows.floating,
@@ -814,20 +913,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderRadius: Radius.pill,
     ...Shadows.floating,
-  },
-  filterChip: {
-    paddingRight: Spacing.one + Spacing.half,
-  },
-  filterDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  chipAction: {
-    minHeight: 32,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.three,
-    borderRadius: Radius.pill,
   },
   banner: {
     alignSelf: 'stretch',

@@ -55,18 +55,18 @@ body {
     padding: 0.45rem 0.9rem;
     border: none;
     border-radius: 4px;
-    background-color: #2563eb;
+    background-color: #7b2cb5;
     color: #ffffff;
     font-size: 0.9rem;
     cursor: pointer;
 }
 
 .header-add-activity-button:hover {
-    background-color: #1d4ed8;
+    background-color: #5f1f8f;
 }
 
 .header-login-link {
-    color: #2563eb;
+    color: #7b2cb5;
     font-size: 0.9rem;
     text-decoration: none;
 }
@@ -158,8 +158,8 @@ body {
 
 /* État actif clairement identifiable (critère d'acceptation LL-EF-008). */
 .view-mode-button-active {
-    background-color: #2563eb;
-    border-color: #2563eb;
+    background-color: #7b2cb5;
+    border-color: #7b2cb5;
     color: #ffffff;
 }
 
@@ -317,7 +317,7 @@ body {
     padding: 0.5rem 1rem;
     border: none;
     border-radius: 4px;
-    background-color: #2563eb;
+    background-color: #7b2cb5;
     color: #ffffff;
     cursor: pointer;
 }
@@ -436,8 +436,8 @@ body {
 }
 
 .activity-list-item:hover {
-    border-color: #93c5fd;
-    background-color: #eff6ff;
+    border-color: #c4a6e6;
+    background-color: #f3ecfb;
 }
 
 .activity-list-item-title {
@@ -518,8 +518,8 @@ body {
 .activity-detail-tag {
     padding: 0.15rem 0.6rem;
     border-radius: 999px;
-    background-color: #eff6ff;
-    color: #1d4ed8;
+    background-color: #f3ecfb;
+    color: #5f1f8f;
     font-size: 0.8rem;
 }
 
@@ -579,17 +579,17 @@ body {
     align-self: flex-start;
     display: inline-block;
     padding: 0.5rem 1rem;
-    border: 1px solid #2563eb;
+    border: 1px solid #7b2cb5;
     border-radius: 0.4rem;
     background: #fff;
-    color: #2563eb;
+    color: #7b2cb5;
     font-size: 0.9rem;
     text-decoration: none;
     cursor: pointer;
 }
 
 .add-to-google-calendar-button:hover {
-    background: #eff6ff;
+    background: #f3ecfb;
 }
 
 /* LL-EF-015 : lien "Y aller" (itinéraire), dans le détail d'une activité. */
@@ -645,13 +645,13 @@ body {
     padding: 0.5rem 0.8rem;
     border: none;
     border-radius: 4px;
-    background-color: #2563eb;
+    background-color: #7b2cb5;
     color: #ffffff;
     cursor: pointer;
 }
 
 .auth-form button:disabled {
-    background-color: #93c5fd;
+    background-color: #c4a6e6;
     cursor: not-allowed;
 }
 
@@ -677,7 +677,7 @@ body {
     border: none;
     border-radius: 6px;
     background-color: transparent;
-    color: #2563eb;
+    color: #7b2cb5;
     font: inherit;
     font-size: 0.8rem;
     font-weight: 600;
@@ -685,10 +685,10 @@ body {
 }
 
 .password-field .password-toggle:hover {
-    background-color: #eff6ff;
+    background-color: #f3ecfb;
 }
 
-/* Profil (charte LocalLife) : vert plutôt que bleu. */
+/* Profil (charte Neiri) : vert plutôt que bleu. */
 .pp .password-field .password-toggle {
     color: var(--ll-green);
 }
@@ -730,7 +730,7 @@ body {
 .header-profile-link,
 .header-favorites-link {
     font-size: 0.9rem;
-    color: #2563eb;
+    color: #7b2cb5;
     text-decoration: none;
 }
 
@@ -743,7 +743,7 @@ body {
 /*
  * LL-EF-004 : interface d'administration (modération des activités).
  * Reprend les tokens de couleur déjà utilisés ailleurs dans l'app
- * (#2563eb primaire, #16a34a succès, #dc2626 erreur, #64748b texte
+ * (#7b2cb5 primaire, #16a34a succès, #dc2626 erreur, #64748b texte
  * discret, #e2e8f0/#cbd5e1 bordures) plutôt que d'en introduire de
  * nouveaux.
  */
@@ -770,7 +770,7 @@ body {
 }
 
 .admin-header a {
-    color: #2563eb;
+    color: #7b2cb5;
     text-decoration: none;
     font-size: 0.9rem;
 }
@@ -803,8 +803,8 @@ body {
 
 .admin-tab-active,
 .admin-tab-active:hover {
-    background-color: #2563eb;
-    border-color: #2563eb;
+    background-color: #7b2cb5;
+    border-color: #7b2cb5;
     color: #ffffff;
 }
 
@@ -1040,10 +1040,10 @@ body {
 
 .contribution-action {
     padding: 0.35rem 0.8rem;
-    border: 1px solid #173f35;
+    border: 1px solid var(--ll-green);
     border-radius: 999px;
     background-color: #ffffff;
-    color: #173f35;
+    color: var(--ll-green);
     font-size: 0.85rem;
     text-decoration: none;
     cursor: pointer;
@@ -1095,19 +1095,26 @@ body {
  * hors périmètre de ce ticket (type "Evolution UX / Frontend" limité à
  * l'écran Explorer).
  *
- * Palette reprise de la page d'accueil LocalLife (LocalLife_home_mockup.html,
- * section 10 du ticket).
+ * Palette de l'identité Neiri (docs/brand/README.md) : dégradé orange → rose →
+ * violet, bleu nuit et lavande.
  * =================================================================== */
 
 :root {
-    --ll-green: #173f35;
-    --ll-green2: #245447;
-    --ll-coral: #e86a4a;
-    --ll-sand: #f3ebdd;
-    --ll-paper: #fcfbf7;
-    --ll-ink: #17201d;
-    --ll-muted: #68736e;
-    --ll-line: #e7e3d9;
+    /* Bleu nuit : texte, menus et en-têtes (nom de variable historique). */
+    --ll-green: #1c2150;
+    --ll-green2: #2d3378;
+    /* Rose Neiri : actions principales et accents. */
+    --ll-accent: #d6295f;
+    --ll-accent-dark: #b81f50;
+    --ll-orange: #fba91e;
+    --ll-purple: #7b2cb5;
+    --ll-lavender: #8c84d8;
+    --ll-gradient: linear-gradient(135deg, #fba91e 0%, #ec3b6e 50%, #7b2cb5 100%);
+    --ll-sand: #efedfb;
+    --ll-paper: #fbfaff;
+    --ll-ink: #1c2150;
+    --ll-muted: #646887;
+    --ll-line: #e6e4f2;
 }
 
 .explorer-shell {
@@ -1124,7 +1131,7 @@ body {
 .explorer-menu-backdrop {
     position: fixed;
     inset: 0;
-    background-color: rgba(23, 32, 29, 0.45);
+    background-color: rgba(28, 33, 80, 0.45);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease;
@@ -1159,21 +1166,42 @@ body {
 
 .explorer-menu-brand {
     display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    font-weight: 800;
-    font-size: 1.2rem;
-    letter-spacing: -0.03em;
+    flex-direction: column;
+    gap: 0.35rem;
 }
 
-.explorer-menu-brand-mark {
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    background-color: var(--ll-coral);
-    display: grid;
-    place-items: center;
-    font-weight: 900;
+.explorer-menu-brand .neiri-logo {
+    height: 36px;
+}
+
+/* --- Logo Neiri (components/BrandLogo.tsx) : épingle en dégradé + logotype « NEiRI ». --- */
+
+.neiri-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    height: 30px;
+}
+
+.neiri-logo .neiri-mark {
+    height: 100%;
+    width: auto;
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 4px rgba(123, 44, 181, 0.25));
+}
+
+.neiri-logo .neiri-wordmark {
+    height: 62%;
+    width: auto;
+}
+
+.neiri-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
 }
 
 .explorer-menu-section {
@@ -1221,7 +1249,7 @@ body {
 .explorer-menu-user {
     padding: 0.2rem 0.6rem;
     font-size: 0.85rem;
-    color: #cfe0d9;
+    color: #c9cbe8;
 }
 
 .explorer-menu-toggle {
@@ -1338,7 +1366,7 @@ body {
     background-color: #ffffff;
     border: 1px solid var(--ll-line, #e7e3d9);
     border-radius: 14px;
-    box-shadow: 0 12px 28px rgba(23, 32, 29, 0.16);
+    box-shadow: 0 12px 28px rgba(28, 33, 80, 0.16);
     max-height: 22rem;
     /* Clavier virtuel ouvert : la liste tient dans la hauteur visible et défile. */
     max-height: min(22rem, calc(100dvh - 5rem));
@@ -1395,7 +1423,7 @@ body {
 
 .explorer-search:focus-within,
 .explorer-search.is-active {
-    border-color: var(--ll-green, #1f4d3d);
+    border-color: var(--ll-green);
     box-shadow: 0 0 0 3px rgba(31, 77, 61, 0.12);
 }
 
@@ -1418,7 +1446,7 @@ body {
     border: none;
     border-radius: 999px;
     padding: 0.35rem 0.9rem;
-    background-color: var(--ll-green, #1f4d3d);
+    background-color: var(--ll-green);
     color: #ffffff;
     font: inherit;
     font-size: 0.85rem;
@@ -1452,7 +1480,7 @@ body {
     bottom: 0;
     height: 3px;
     width: 40%;
-    background-color: var(--ll-coral, #e8664a);
+    background-color: var(--ll-accent);
     animation: explorer-progress 1s ease-in-out infinite;
 }
 
@@ -1488,7 +1516,7 @@ body {
 .explorer-search-banner.is-pending {
     justify-content: flex-start;
     background-color: var(--ll-sand, #f3ebdd);
-    color: var(--ll-green, #1f4d3d);
+    color: var(--ll-green);
 }
 
 .explorer-search-banner.is-empty {
@@ -1562,7 +1590,7 @@ body {
 }
 
 .explorer-search-banner button:focus-visible {
-    outline: 2px solid var(--ll-green, #1f4d3d);
+    outline: 2px solid var(--ll-green);
     outline-offset: 2px;
 }
 
@@ -1680,7 +1708,7 @@ body {
     background-color: #ffffff;
     border: 1px solid var(--ll-line);
     border-radius: 12px;
-    box-shadow: 0 12px 28px rgba(23, 63, 53, 0.14);
+    box-shadow: 0 12px 28px rgba(28, 33, 80, 0.14);
 }
 
 .explorer-dates-panel label,
@@ -1702,7 +1730,7 @@ body {
     align-self: flex-start;
     border: none;
     background: none;
-    color: var(--ll-coral);
+    color: var(--ll-accent);
     font-size: 0.8rem;
     cursor: pointer;
     padding: 0.2rem 0;
@@ -1902,7 +1930,7 @@ body {
 .explorer-cluster-popup-date {
     font-size: 0.78rem;
     font-weight: 700;
-    color: var(--ll-coral);
+    color: var(--ll-accent);
 }
 
 .explorer-cluster-popup-title {
@@ -1948,7 +1976,7 @@ body {
     height: 1.7rem;
     border: none;
     border-radius: 50%;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     color: #ffffff;
     font-size: 1.1rem;
     line-height: 1;
@@ -1961,9 +1989,9 @@ body {
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     border: 3px solid #ffffff;
-    box-shadow: 0 0 0 6px rgba(232, 106, 74, 0.3), 0 2px 6px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 0 0 6px rgba(214, 41, 95, 0.3), 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 .leaflet-tooltip.explorer-highlight-tooltip {
@@ -1992,7 +2020,7 @@ body {
         top: 0;
         left: 0;
         right: 0;
-        background-color: rgba(252, 251, 247, 0.94);
+        background-color: rgba(251, 250, 255, 0.94);
         backdrop-filter: blur(6px);
         border-bottom: none;
     }
@@ -2031,7 +2059,7 @@ body {
         color: #ffffff;
         font: inherit;
         font-weight: 700;
-        box-shadow: 0 8px 20px rgba(23, 63, 53, 0.3);
+        box-shadow: 0 8px 20px rgba(28, 33, 80, 0.3);
         cursor: pointer;
     }
 
@@ -2070,7 +2098,7 @@ body {
     background-color: #ffffff;
     border: 1px solid var(--ll-line);
     border-radius: 999px;
-    box-shadow: 0 8px 20px rgba(23, 63, 53, 0.12);
+    box-shadow: 0 8px 20px rgba(28, 33, 80, 0.12);
     white-space: nowrap;
 }
 
@@ -2093,11 +2121,11 @@ body {
     background-color: #ffffff;
     border: 1px solid var(--ll-line);
     border-radius: 16px;
-    box-shadow: 0 8px 20px rgba(23, 63, 53, 0.14);
+    box-shadow: 0 8px 20px rgba(28, 33, 80, 0.14);
 }
 
 .explorer-location-prompt.is-warning {
-    border-color: var(--ll-coral);
+    border-color: var(--ll-accent);
 }
 
 .explorer-location-prompt-text {
@@ -2240,7 +2268,7 @@ body {
     width: 34px;
     height: 34px;
     flex-shrink: 0;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     border: 2px solid #ffffff;
     border-radius: 50%;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
@@ -2308,7 +2336,7 @@ body {
     /* Même raison que .explorer-status-floating ci-dessus. */
     z-index: 1100;
     background-color: #ffffff;
-    box-shadow: 0 16px 40px rgba(23, 63, 53, 0.2);
+    box-shadow: 0 16px 40px rgba(28, 33, 80, 0.2);
     overflow: hidden;
     top: 1rem;
     left: 1rem;
@@ -2350,7 +2378,7 @@ body {
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--ll-coral);
+    color: var(--ll-accent);
 }
 
 .explorer-preview-body h3 {
@@ -2470,7 +2498,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(23, 32, 29, 0.55);
+    background-color: rgba(28, 33, 80, 0.55);
     padding: 1rem;
     z-index: 1000;
 }
@@ -2483,7 +2511,7 @@ body {
     overflow-y: auto;
     background-color: var(--ll-paper);
     border-radius: 18px;
-    box-shadow: 0 20px 55px rgba(23, 63, 53, 0.25);
+    box-shadow: 0 20px 55px rgba(28, 33, 80, 0.25);
 }
 
 .explorer-modal-header {
@@ -2532,7 +2560,7 @@ body {
     background: none;
     font-size: 1.3rem;
     line-height: 1;
-    color: var(--ll-coral);
+    color: var(--ll-accent);
     cursor: pointer;
     padding: 0.1rem 0.25rem;
 }
@@ -2602,7 +2630,7 @@ body {
     padding: 0.55rem 1.1rem;
     border: none;
     border-radius: 999px;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     color: #ffffff;
     font-weight: 700;
     cursor: pointer;
@@ -2646,6 +2674,38 @@ body {
 
 .explorer-detail-long-description {
     white-space: pre-wrap;
+}
+
+/* Tarifs en clair (texte de la source, retours à la ligne conservés). */
+.explorer-detail-conditions {
+    margin: 0.3rem 0 0;
+    white-space: pre-wrap;
+}
+
+/* Badge gratuit / payant (liste, aperçu, fiche). */
+.explorer-price-badge {
+    display: inline-block;
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.4;
+    vertical-align: baseline;
+}
+
+.explorer-price-badge-free {
+    background-color: var(--ll-green);
+    color: var(--ll-paper);
+}
+
+.explorer-price-badge-paid {
+    background-color: var(--ll-sand);
+    color: var(--ll-green);
+}
+
+.explorer-detail-prices .explorer-price-badge {
+    margin-left: 0;
 }
 
 .explorer-detail-schedules {
@@ -2713,8 +2773,8 @@ body {
 }
 
 .explorer-detail-action-button-accent {
-    border-color: var(--ll-coral);
-    color: var(--ll-coral);
+    border-color: var(--ll-accent);
+    color: var(--ll-accent);
 }
 
 .explorer-form-notice {
@@ -2764,7 +2824,7 @@ body {
     justify-content: space-between;
     gap: 1rem;
     padding: 0.85rem clamp(1rem, 4vw, 2.5rem);
-    background-color: rgba(252, 251, 247, 0.92);
+    background-color: rgba(251, 250, 255, 0.92);
     backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--ll-line);
 }
@@ -2778,17 +2838,6 @@ body {
     font-weight: 800;
     letter-spacing: -0.03em;
     text-decoration: none;
-}
-
-.pp-brand-mark {
-    width: 30px;
-    height: 30px;
-    border-radius: 9px;
-    background-color: var(--ll-coral);
-    color: #ffffff;
-    display: grid;
-    place-items: center;
-    font-weight: 900;
 }
 
 .pp-main {
@@ -2810,7 +2859,7 @@ body {
     border-radius: 20px;
     background: linear-gradient(135deg, var(--ll-green) 0%, var(--ll-green2) 100%);
     color: #ffffff;
-    box-shadow: 0 12px 30px rgba(23, 63, 53, 0.18);
+    box-shadow: 0 12px 30px rgba(28, 33, 80, 0.18);
 }
 
 .pp-avatar {
@@ -2820,7 +2869,7 @@ body {
     border-radius: 50%;
     display: grid;
     place-items: center;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     border: 3px solid rgba(255, 255, 255, 0.85);
     font-size: 1.6rem;
     font-weight: 800;
@@ -2841,7 +2890,7 @@ body {
 
 .pp-hero-email {
     margin: 0.15rem 0 0.75rem;
-    color: #cfe0d9;
+    color: #c9cbe8;
     overflow-wrap: anywhere;
 }
 
@@ -2887,7 +2936,7 @@ body {
     border-radius: 18px;
     background-color: #ffffff;
     border: 1px solid var(--ll-line);
-    box-shadow: 0 1px 2px rgba(23, 32, 29, 0.04);
+    box-shadow: 0 1px 2px rgba(28, 33, 80, 0.04);
 }
 
 .pp-card-header {
@@ -2969,7 +3018,7 @@ body {
 .pp-input:focus {
     outline: none;
     border-color: var(--ll-green2);
-    box-shadow: 0 0 0 3px rgba(36, 84, 71, 0.15);
+    box-shadow: 0 0 0 3px rgba(45, 51, 120, 0.15);
     background-color: #ffffff;
 }
 
@@ -3067,7 +3116,7 @@ body {
 }
 
 .pp-chip-input:focus-visible + .pp-chip-label {
-    outline: 3px solid rgba(232, 106, 74, 0.55);
+    outline: 3px solid rgba(214, 41, 95, 0.55);
     outline-offset: 2px;
 }
 
@@ -3092,7 +3141,7 @@ body {
 }
 
 .pp-button:focus-visible {
-    outline: 3px solid rgba(232, 106, 74, 0.55);
+    outline: 3px solid rgba(214, 41, 95, 0.55);
     outline-offset: 2px;
 }
 
@@ -3285,7 +3334,7 @@ body {
 
 .onboarding-step {
     margin: 0 0 0.2rem;
-    color: #cfe0d9;
+    color: #c9cbe8;
     font-size: 0.75rem;
     font-weight: 750;
     text-transform: uppercase;
@@ -3315,7 +3364,7 @@ body {
     margin: 0;
     padding: 0.6rem 0.8rem;
     border-radius: 12px;
-    background-color: rgba(232, 106, 74, 0.09);
+    background-color: rgba(214, 41, 95, 0.09);
 }
 
 .onboarding-guide a {
@@ -3436,7 +3485,7 @@ body {
     padding: 0.5rem 1rem;
     border: none;
     border-radius: 6px;
-    background-color: #2563eb;
+    background-color: #7b2cb5;
     color: #ffffff;
     font: inherit;
     font-size: 0.9rem;
@@ -3800,7 +3849,7 @@ body {
     width: 28px;
     height: 28px;
     background-color: #ffffff;
-    border: 2px solid var(--ll-coral);
+    border: 2px solid var(--ll-accent);
     border-radius: 6px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
     font-size: 1rem;
@@ -3830,14 +3879,40 @@ body {
     padding: 0.4rem 0.9rem;
 }
 
+/* Téléphone : les quatre cartes (Activités, Lieux, Food trucks, Night) tiennent sur une seule rangée, qui défile
+   si besoin — sur deux rangées, elles passaient sous « Voir la liste » et les messages du bas de la carte. */
+@media (max-width: 959px) {
+    .explorer-layer-switch {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        pointer-events: auto;
+        padding-bottom: 2px;
+    }
+
+    .explorer-layer-switch::-webkit-scrollbar {
+        display: none;
+    }
+
+    .explorer-layer-switch {
+        gap: 0.3rem;
+    }
+
+    .explorer-places-toggle {
+        flex-shrink: 0;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+    }
+}
+
 .explorer-places-toggle:disabled {
     cursor: not-allowed;
     opacity: 0.55;
 }
 
 .explorer-places-toggle-active {
-    background: var(--ll-coral);
-    border-color: var(--ll-coral);
+    background: var(--ll-accent);
+    border-color: var(--ll-accent);
     color: #ffffff;
 }
 
@@ -4017,7 +4092,7 @@ body {
 }
 
 .pp-plan-limits-current {
-    color: #173f35;
+    color: var(--ll-green);
     font-weight: 600;
 }
 
@@ -4094,7 +4169,7 @@ body {
 
 .google-continue-mark {
     font-weight: 800;
-    color: #2563eb;
+    color: #7b2cb5;
 }
 
 .auth-note {
@@ -4149,7 +4224,7 @@ body {
 }
 
 .explorer-menu-legal a {
-    color: #cfe0d9;
+    color: #c9cbe8;
     text-decoration: none;
 }
 
@@ -4229,7 +4304,7 @@ body {
     display: block;
     height: 100%;
     width: 0;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
 }
 
 .guide-progress-done {
@@ -4264,7 +4339,7 @@ body {
     border-radius: 24px;
     background-color: #ffffff;
     border: 1px solid var(--ll-line);
-    box-shadow: 0 24px 60px rgba(23, 63, 53, 0.14);
+    box-shadow: 0 24px 60px rgba(28, 33, 80, 0.14);
     overflow: hidden;
 }
 
@@ -4278,7 +4353,7 @@ body {
 
 .guide-counter {
     margin: 0;
-    color: var(--ll-coral);
+    color: var(--ll-accent);
     font-weight: 700;
     font-size: 0.85rem;
     text-transform: uppercase;
@@ -4304,7 +4379,7 @@ body {
 .guide-tips li {
     padding: 0.55rem 0.8rem;
     border-radius: 12px;
-    background-color: rgba(232, 106, 74, 0.09);
+    background-color: rgba(214, 41, 95, 0.09);
     color: var(--ll-ink);
     font-size: 0.92rem;
     animation: guide-slide-up 0.5s ease both;
@@ -4392,7 +4467,7 @@ body {
 
 .guide-dot-active {
     width: 26px;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
 }
 
 /* --- Scènes ---------------------------------------------------------------------------------- */
@@ -4419,7 +4494,8 @@ body {
     border-radius: 28px;
     display: grid;
     place-items: center;
-    background-color: var(--ll-green);
+    background-color: #ffffff;
+    box-shadow: 0 12px 30px rgba(123, 44, 181, 0.22);
     color: #ffffff;
     font-size: 3rem;
     font-weight: 800;
@@ -4427,8 +4503,13 @@ body {
     z-index: 1;
 }
 
+.guide-logo-mark {
+    width: 54px;
+    height: auto;
+}
+
 .guide-logo-big {
-    background-color: var(--ll-coral);
+    background: var(--ll-gradient);
     font-size: 3.2rem;
 }
 
@@ -4504,7 +4585,7 @@ body {
     background-color: var(--ll-green);
     color: #ffffff;
     font-weight: 700;
-    box-shadow: 0 0 0 6px rgba(23, 63, 53, 0.2);
+    box-shadow: 0 0 0 6px rgba(28, 33, 80, 0.2);
     transform: translate(-50%, -50%);
     animation: guide-pop 0.6s 1.1s cubic-bezier(0.34, 1.56, 0.64, 1) both, guide-pulse 2s 1.7s infinite;
 }
@@ -4538,7 +4619,7 @@ body {
     background-color: #ffffff;
     border: 1px solid var(--ll-line);
     border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(23, 32, 29, 0.08);
+    box-shadow: 0 8px 24px rgba(28, 33, 80, 0.08);
 }
 
 .guide-preview-card {
@@ -4615,7 +4696,7 @@ body {
     height: 1.1em;
     margin-left: 1px;
     vertical-align: text-bottom;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     animation: guide-blink 1s steps(1) infinite;
 }
 
@@ -4679,7 +4760,7 @@ body {
 .guide-radius-fill {
     display: block;
     height: 100%;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     animation: guide-radius 1.2s 3.2s ease both;
 }
 
@@ -4743,7 +4824,7 @@ body {
     font-size: 0.78rem;
     font-weight: 600;
     white-space: nowrap;
-    box-shadow: 0 4px 10px rgba(23, 32, 29, 0.12);
+    box-shadow: 0 4px 10px rgba(28, 33, 80, 0.12);
 }
 
 .guide-layer-button-1 { animation: guide-layer-btn-1 9s both; }
@@ -4817,7 +4898,7 @@ body {
     inset: 0;
 }
 
-.guide-heart-empty { color: var(--ll-coral); animation: guide-hide 0.1s 1.8s both; }
+.guide-heart-empty { color: var(--ll-accent); animation: guide-hide 0.1s 1.8s both; }
 .guide-heart-full { animation: guide-heart 0.6s 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 
 @keyframes guide-heart {
@@ -4922,7 +5003,7 @@ body {
     margin-top: 0.4rem;
     padding: 0.45rem 1rem;
     border-radius: 999px;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     color: #ffffff;
     font-weight: 700;
     animation: guide-press 0.4s 4.4s ease both;
@@ -5020,8 +5101,8 @@ body {
 }
 
 .guide-plan-highlight {
-    border-color: var(--ll-coral);
-    box-shadow: 0 12px 30px rgba(232, 106, 74, 0.25);
+    border-color: var(--ll-accent);
+    box-shadow: 0 12px 30px rgba(214, 41, 95, 0.25);
 }
 
 .guide-confetti {
@@ -5036,12 +5117,12 @@ body {
     width: 10px;
     height: 16px;
     border-radius: 3px;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     animation: guide-confetti 2.8s ease-in infinite;
 }
 
 .guide-confetti span:nth-child(3n) { background-color: var(--ll-green); }
-.guide-confetti span:nth-child(3n + 1) { background-color: #f2c14e; }
+.guide-confetti span:nth-child(3n + 1) { background-color: #fba91e; }
 
 @keyframes guide-confetti {
     from { transform: translateY(0) rotate(0); opacity: 1; }
@@ -5088,8 +5169,8 @@ body {
 }
 
 @keyframes guide-pulse {
-    0%, 100% { box-shadow: 0 0 0 6px rgba(23, 63, 53, 0.2); }
-    50% { box-shadow: 0 0 0 12px rgba(23, 63, 53, 0.05); }
+    0%, 100% { box-shadow: 0 0 0 6px rgba(28, 33, 80, 0.2); }
+    50% { box-shadow: 0 0 0 12px rgba(28, 33, 80, 0.05); }
 }
 
 @keyframes guide-float {
@@ -5269,7 +5350,7 @@ body {
     margin-left: 0.4rem;
     padding: 0.1rem 0.45rem;
     border-radius: 999px;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     color: #ffffff;
     font-size: 0.7rem;
     font-weight: 700;
@@ -5282,7 +5363,7 @@ body {
 
 .news {
     min-height: 100%;
-    background: radial-gradient(circle at 80% 0%, #fde9e1 0%, var(--ll-paper) 40%, var(--ll-sand) 100%);
+    background: radial-gradient(circle at 80% 0%, #fde3ec 0%, var(--ll-paper) 40%, var(--ll-sand) 100%);
     color: var(--ll-ink);
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -5321,7 +5402,7 @@ body {
     margin: 0 0 0.75rem;
     padding: 0.25rem 0.8rem;
     border-radius: 999px;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     color: #ffffff;
     font-size: 0.8rem;
     font-weight: 800;
@@ -5378,7 +5459,7 @@ body {
     border: 1px solid var(--ll-line);
     border-radius: 18px;
     background-color: #ffffff;
-    box-shadow: 0 10px 30px rgba(23, 63, 53, 0.08);
+    box-shadow: 0 10px 30px rgba(28, 33, 80, 0.08);
 }
 
 .news-card-icon {
@@ -5446,7 +5527,7 @@ body {
     border-radius: 24px;
     background-color: var(--ll-green);
     color: #ffffff;
-    box-shadow: 0 24px 60px rgba(23, 63, 53, 0.25);
+    box-shadow: 0 24px 60px rgba(28, 33, 80, 0.25);
 }
 
 .news-premium h2 {
@@ -5466,7 +5547,7 @@ body {
     margin: 0 0 0.75rem;
     padding: 0.3rem 0.8rem;
     border-radius: 999px;
-    background-color: #f2c14e;
+    background-color: #fba91e;
     color: var(--ll-ink);
     font-weight: 800;
 }
@@ -5498,11 +5579,11 @@ body {
 }
 
 .news-premium .pp-button-primary {
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
 }
 
 .news-premium .pp-button-primary:hover:not(:disabled) {
-    background-color: #d65a3b;
+    background-color: var(--ll-accent-dark);
 }
 
 .news-cta {
@@ -5549,9 +5630,9 @@ body {
     gap: 0.6rem;
     margin: 0 1rem 0.6rem;
     padding: 0.5rem 0.6rem 0.5rem 0.8rem;
-    border: 1px solid rgba(232, 106, 74, 0.35);
+    border: 1px solid rgba(214, 41, 95, 0.35);
     border-radius: 14px;
-    background-color: #fdeee8;
+    background-color: #fdeaf1;
     animation: guide-slide-up 0.4s ease both;
 }
 
@@ -5578,7 +5659,7 @@ body {
     flex: none;
     padding: 0.35rem 0.8rem;
     border-radius: 999px;
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
     color: #ffffff;
     font-size: 0.82rem;
     font-weight: 700;
@@ -5586,7 +5667,7 @@ body {
 }
 
 .news-banner-link:hover {
-    background-color: #d65a3b;
+    background-color: var(--ll-accent-dark);
 }
 
 .news-banner-close {
@@ -5602,7 +5683,7 @@ body {
 }
 
 .news-banner-close:hover {
-    background-color: rgba(23, 32, 29, 0.06);
+    background-color: rgba(28, 33, 80, 0.06);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5626,8 +5707,8 @@ body {
     overflow-y: auto;
     padding: 2rem 1.75rem 1.5rem;
     border-radius: 22px;
-    background: radial-gradient(circle at 50% 0%, #fde9e1 0%, var(--ll-paper) 55%);
-    box-shadow: 0 24px 60px rgba(23, 63, 53, 0.3);
+    background: radial-gradient(circle at 50% 0%, #fde3ec 0%, var(--ll-paper) 55%);
+    box-shadow: 0 24px 60px rgba(28, 33, 80, 0.3);
     text-align: center;
     color: var(--ll-ink);
     animation: news-popup-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -5665,7 +5746,7 @@ body {
 }
 
 .news-popup-close:hover {
-    background-color: rgba(23, 32, 29, 0.06);
+    background-color: rgba(28, 33, 80, 0.06);
 }
 
 .news-popup-actions {
@@ -5681,11 +5762,11 @@ body {
 }
 
 .news-popup .pp-button-primary {
-    background-color: var(--ll-coral);
+    background-color: var(--ll-accent);
 }
 
 .news-popup .pp-button-primary:hover {
-    background-color: #d65a3b;
+    background-color: var(--ll-accent-dark);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5810,12 +5891,12 @@ body {
 }
 
 .admin-feedback-kind-suggestion {
-    background-color: #e6f1ed;
+    background-color: #ece9fb;
     color: var(--ll-green);
 }
 
 .admin-feedback-kind-bug {
-    background-color: #fde9e1;
+    background-color: #fde3ec;
     color: #b3261e;
 }
 
@@ -5841,7 +5922,7 @@ body {
     margin-left: 0.35rem;
     padding: 0.05rem 0.45rem;
     border-radius: 999px;
-    background-color: #f2c14e;
+    background-color: #fba91e;
     color: var(--ll-ink);
     font-size: 0.7rem;
     font-weight: 800;
@@ -5905,11 +5986,11 @@ body {
     margin: 0;
     padding: 0.6rem 0.8rem;
     border-radius: 12px;
-    background-color: #fdeee8;
+    background-color: #fdeaf1;
 }
 
 .pp-tag-keyword {
-    background-color: #fdeee8;
+    background-color: #fdeaf1;
     color: #a3402a;
 }
 
@@ -6021,8 +6102,8 @@ body {
 }
 
 .admin-plan-badge-pro {
-    background-color: #dbeafe;
-    color: #1e40af;
+    background-color: #ead9f7;
+    color: #5f1f8f;
 }
 
 /* Food trucks : liens Instagram / Facebook (popup, fiche, modération). */
@@ -6035,4 +6116,237 @@ body {
 
 .food-truck-social-links a {
     font-weight: 600;
+}
+
+/* ===================================================================
+ * Thème « Night » (carte Night, src/theme/nightTheme.ts) : porté par
+ * `data-ll-theme="night"` sur <html>. Violet nuit, accents néon magenta
+ * et cyan (couleurs du logo du bouc), carte assombrie.
+ * =================================================================== */
+
+:root[data-ll-theme="night"] {
+    color-scheme: dark;
+    --ll-green: #120726;
+    --ll-green2: #2a1150;
+    --ll-accent: #ff3fd1;
+    --ll-accent-dark: #e02ab6;
+    --ll-orange: #2de2ff;
+    --ll-purple: #a855f7;
+    --ll-lavender: #2de2ff;
+    --ll-gradient: linear-gradient(135deg, #ff3fd1 0%, #a855f7 50%, #2de2ff 100%);
+    --ll-sand: #1d1038;
+    --ll-paper: #0e061d;
+    --ll-ink: #f3ecff;
+    --ll-muted: #ab9fd0;
+    --ll-line: #34245a;
+    --ll-night-surface: #180c30;
+    --ll-night-glow: 0 0 12px rgba(255, 63, 209, 0.55);
+}
+
+:root[data-ll-theme="night"] body {
+    background-color: var(--ll-paper);
+}
+
+/* Logo : le bouc néon remplace l'épingle, logotype en clair avec un halo. */
+.neiri-night-mark {
+    height: 100%;
+    width: auto;
+    flex-shrink: 0;
+}
+
+.explorer-menu-brand .neiri-logo--night {
+    height: 64px;
+    gap: 0.35em;
+}
+
+.neiri-logo--night .neiri-wordmark {
+    height: 38%;
+    filter: drop-shadow(0 0 6px rgba(45, 226, 255, 0.7));
+}
+
+/* « NEiRI » et, dessous, « The OutGoat » (nom du bouc) en magenta néon. */
+.neiri-night-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2rem;
+    height: 100%;
+}
+
+.neiri-logo--night .neiri-night-text .neiri-wordmark {
+    height: 24px;
+    align-self: flex-start;
+}
+
+.neiri-night-caption {
+    color: #ff3fd1;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    white-space: nowrap;
+    text-shadow: 0 0 8px rgba(255, 63, 209, 0.75);
+}
+
+:root[data-ll-theme="night"] .explorer-menu {
+    background-color: var(--ll-green);
+    border-right: 1px solid var(--ll-line);
+    box-shadow: inset -1px 0 0 rgba(255, 63, 209, 0.15);
+}
+
+:root[data-ll-theme="night"] .explorer-menu-link-active {
+    background-color: rgba(255, 63, 209, 0.16);
+    box-shadow: inset 3px 0 0 var(--ll-accent);
+}
+
+/* Surfaces blanches de l'Explorer : cartes violet nuit. */
+:root[data-ll-theme="night"] .explorer-menu-toggle,
+:root[data-ll-theme="night"] .explorer-search,
+:root[data-ll-theme="night"] .explorer-search-suggestions,
+:root[data-ll-theme="night"] .explorer-chip,
+:root[data-ll-theme="night"] .explorer-dates-panel,
+:root[data-ll-theme="night"] .explorer-categories-panel,
+:root[data-ll-theme="night"] .explorer-status-floating,
+:root[data-ll-theme="night"] .explorer-location-prompt,
+:root[data-ll-theme="night"] .explorer-preview,
+:root[data-ll-theme="night"] .explorer-preview-close,
+:root[data-ll-theme="night"] .explorer-list-item,
+:root[data-ll-theme="night"] .explorer-places-toggle,
+:root[data-ll-theme="night"] .explorer-search-pagination button,
+:root[data-ll-theme="night"] .modal-dialog,
+:root[data-ll-theme="night"] .leaflet-popup-content-wrapper,
+:root[data-ll-theme="night"] .leaflet-popup-tip {
+    background-color: var(--ll-night-surface);
+    border-color: var(--ll-line);
+    color: var(--ll-ink);
+}
+
+:root[data-ll-theme="night"] .explorer-search input,
+:root[data-ll-theme="night"] .explorer-search input::placeholder {
+    color: var(--ll-ink);
+    background: transparent;
+}
+
+:root[data-ll-theme="night"] .explorer-search input::placeholder {
+    color: var(--ll-muted);
+}
+
+:root[data-ll-theme="night"] .explorer-list-item:hover,
+:root[data-ll-theme="night"] .explorer-chip:hover {
+    border-color: var(--ll-accent);
+}
+
+:root[data-ll-theme="night"] .explorer-places-toggle-active {
+    background-color: var(--ll-accent);
+    border-color: var(--ll-accent);
+    color: #120726;
+    box-shadow: var(--ll-night-glow);
+}
+
+:root[data-ll-theme="night"] .explorer-show-list-button,
+:root[data-ll-theme="night"] .explorer-show-map-button {
+    background-color: var(--ll-accent);
+    color: #120726;
+    box-shadow: var(--ll-night-glow);
+}
+
+:root[data-ll-theme="night"] .explorer-main[data-mobile-view="map"] .explorer-controls {
+    background-color: rgba(14, 6, 29, 0.9);
+}
+
+:root[data-ll-theme="night"] .leaflet-container {
+    background-color: #0b0518;
+}
+
+/* Fond de carte : tuiles inversées et teintées violet, marqueurs et popups gardent leurs couleurs. */
+:root[data-ll-theme="night"] .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(200deg) brightness(0.85) saturate(0.7) contrast(0.95);
+}
+
+:root[data-ll-theme="night"] .leaflet-marker-icon:not(.marker-cluster) {
+    filter: hue-rotate(95deg) saturate(1.6) drop-shadow(0 0 6px rgba(255, 63, 209, 0.75));
+}
+
+:root[data-ll-theme="night"] .leaflet-control-attribution {
+    background-color: rgba(14, 6, 29, 0.8);
+    color: var(--ll-muted);
+}
+
+:root[data-ll-theme="night"] .leaflet-control-attribution a {
+    color: var(--ll-orange);
+}
+
+:root[data-ll-theme="night"] .leaflet-bar a {
+    background-color: var(--ll-night-surface);
+    border-color: var(--ll-line);
+    color: var(--ll-ink);
+}
+
+/* Textes qui utilisent le bleu nuit du thème clair : en clair (néon) la nuit. */
+:root[data-ll-theme="night"] .explorer-list-count,
+:root[data-ll-theme="night"] .explorer-list-city,
+:root[data-ll-theme="night"] .explorer-search-banner.is-pending,
+:root[data-ll-theme="night"] .explorer-form-message-success,
+:root[data-ll-theme="night"] .explorer-detail-tag,
+:root[data-ll-theme="night"] .explorer-detail-action-button {
+    color: var(--ll-ink);
+}
+
+:root[data-ll-theme="night"] .explorer-chip-location {
+    color: var(--ll-orange);
+    border-color: var(--ll-orange);
+}
+
+:root[data-ll-theme="night"] .explorer-chip-active,
+:root[data-ll-theme="night"] .explorer-search-submit {
+    background-color: var(--ll-accent);
+    border-color: var(--ll-accent);
+    color: #120726;
+}
+
+:root[data-ll-theme="night"] .explorer-search-submit:disabled {
+    background-color: var(--ll-sand);
+    color: var(--ll-muted);
+}
+
+:root[data-ll-theme="night"] .explorer-price-badge-free {
+    background-color: var(--ll-orange);
+    color: #120726;
+}
+
+:root[data-ll-theme="night"] .explorer-price-badge-paid {
+    background-color: var(--ll-sand);
+    color: var(--ll-ink);
+}
+
+/* Pastilles de regroupement (leaflet.markercluster) : néon magenta au lieu du vert/jaune/orange. */
+:root[data-ll-theme="night"] .marker-cluster-small,
+:root[data-ll-theme="night"] .marker-cluster-medium,
+:root[data-ll-theme="night"] .marker-cluster-large {
+    background-color: rgba(255, 63, 209, 0.35);
+    box-shadow: 0 0 14px rgba(255, 63, 209, 0.6);
+}
+
+:root[data-ll-theme="night"] .marker-cluster-small div,
+:root[data-ll-theme="night"] .marker-cluster-medium div,
+:root[data-ll-theme="night"] .marker-cluster-large div {
+    background-color: #ff3fd1;
+    color: #120726;
+    font-weight: 700;
+}
+
+/* Boutons d'action de la fiche (Google Agenda, Y aller). */
+:root[data-ll-theme="night"] .explorer-detail-action-button {
+    background-color: var(--ll-night-surface);
+    border-color: var(--ll-orange);
+    color: var(--ll-orange);
+}
+
+:root[data-ll-theme="night"] .explorer-detail-action-button:hover {
+    background-color: var(--ll-sand);
+}
+
+:root[data-ll-theme="night"] .explorer-detail-action-button-accent {
+    border-color: var(--ll-accent);
+    color: var(--ll-accent);
 }

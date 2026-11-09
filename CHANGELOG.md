@@ -2,6 +2,115 @@
 
 ## 0.9.59 — non publiée
 
+### Même nombre de résultats sur le site et l'application (mêmes filtres, même rayon)
+- **Avec un rayon choisi, on compte tout le rayon**, sur le site comme dans l'application, quel que soit le zoom ou la taille de l'écran. Avant, le site (et le bouton « Voir la liste » de la carte de l'application) ne comptait que la partie du rayon visible sur la carte, alors que la Liste de l'application comptait tout le cercle. Le site indique maintenant « 37 activités dans un rayon de 20 km ». Sans rayon, on compte toujours la zone visible de la carte.
+- **« Gratuit » vaut aussi pour la Liste de l'application** : le filtre est partagé entre la carte et la Liste (bouton « Gratuit » ajouté à la Liste), comme sur le site. Avant, la Liste l'ignorait.
+- **« Ce week-end » le dimanche** : le site prenait le week-end suivant, l'application le jour même. Les deux prennent maintenant le jour même.
+
+### « The OutGoat » sous Neiri en mode Night
+- **Site et application** : quand la carte « 🍸 Night » est affichée, le logo (bouc néon + « NEiRI ») porte en dessous le nom du bouc, « The OutGoat », en magenta néon avec un halo. Menu du site, menu ☰, compte et accueil de l'application. Rien ne change hors du mode Night.
+
+### Plus de signature « Your world, closer. »
+- **Site** : retirée du menu latéral (sous le logo), du titre de l'onglet (« Neiri »), de la description et du titre de partage (`index.html`). Styles associés supprimés.
+- **Application** : elle n'était affichée nulle part ; retirée du commentaire de la charte (`constants/theme.ts`).
+- **Charte** (`docs/brand/README.md`) : plus de signature. La planche d'identité (image) la montre encore, comme document d'origine.
+
+### Application : filtres de la carte en pictogrammes
+- Les filtres sous la recherche ne montrent plus que leur pictogramme : période (calendrier), catégories (étiquette), rayon (cible), « Gratuit » (cadeau). Un filtre posé reste rempli ; les lecteurs d'écran annoncent toujours sa valeur.
+- Le bouton « Réinitialiser » de cette rangée est retiré. Quand aucun résultat ne correspond, le message propose toujours « Modifier les filtres » et « Réinitialiser ».
+
+### Application : écran Carte épuré
+- **En haut**, seulement le menu ☰ et la recherche de ville, alignés. Le logo, le bouton compte et la rangée de raccourcis disparaissent. Les filtres (période, catégories, rayon, gratuit) restent sous la recherche.
+- **Bouton Affichage** (à droite de la carte) : il choisit le contenu affiché, dans l'ordre Activités, Food trucks, Night, Lieux. Night garde son logo du bouc. Plan / Satellite et le raccourci Liste sont retirés de ce panneau (« Voir la liste » reste en bas).
+- **« Activités »** remplace « Tous » et ne montre plus que les activités : un seul contenu à la fois, comme avant l'issue #226. La Liste suit le même ordre.
+
+### Application : nouvel écran Carte (issue #226)
+- **Raccourcis Tous, Lieux, Food trucks, Night** sous la recherche, avec pictogrammes. « Tous » montre activités, lieux et food trucks ensemble. Night garde son logo du bouc et son thème nuit, et reste reconnaissable même en mode clair.
+- **En-tête** : menu ☰, logo Neiri, bouton compte ; recherche de ville en pleine largeur.
+- **Boutons flottants** : se recentrer sur sa position, et Affichage (Plan, Satellite, Liste).
+- **Aperçu à trois positions** : réduit (vignette, date, lieu et distance, favori, Itinéraire, Ajouter à mon agenda), développé en tirant la poignée (description, Partager, fiche complète), fermé en la tirant vers le bas.
+- **« Voir la liste (n) »** ouvre la Liste dans le même univers, avec la même ville et les mêmes filtres. La Liste propose les mêmes univers (lieux et Night compris) et les partage avec la carte.
+- **Barre d'onglets du bas** rétablie : Carte, Liste, Contribuer, Compte. Le menu ☰ reste en haut.
+- « Réinitialiser » retire tous les filtres ; un résultat vide propose de modifier les filtres.
+- Couleurs Neiri inchangées. Aucune dépendance native ajoutée. Compte rendu : `docs/front-rev-03-compte-rendu.md`.
+
+### Correctif (application) : la carte ne reste plus violette après la carte Night
+- En passant de « 🍸 Night » à Activités, Lieux ou Food trucks, l'application revenait en mode normal mais le fond de carte restait violet nuit sur Android : `react-native-maps` ignore un style de carte retiré et garde le dernier. La carte reçoit maintenant un style vide explicite hors Night. Sur iPhone, elle reprend le mode clair ou sombre du téléphone.
+
+### Application : carte plus lisible, des boutons écrits au lieu d'une rangée d'icônes
+- **Fini la rangée de 11 icônes** en bas de la carte (liste, catégories, lieux, food trucks, Night, période, gratuit, rayon, liste des lieux, position), dont deux icônes de liste presque identiques.
+- **Onglets nommés** sous la recherche, comme sur le site : « 📅 Activités », « 🏛 Lieux », « 🚚 Food trucks », « 🍸 Night » (lieux et food trucks quand ils sont ouverts). L'onglet affiché est rempli.
+- **Filtres qui affichent leur valeur** : « 🗓 Toutes dates » / « 🗓 Ce week-end », « 🏷 Catégories » / « 🏷 2 catégories », « 📍 Rayon » / « 📍 20 km », « Gratuit ». Un appui ouvre le même panneau qu'avant. La rangée défile si elle dépasse l'écran.
+- **En bas, deux boutons écrits** : « Liste (37) » (ou « Liste des lieux (5) ») et « ◎ Autour de moi ».
+- Le message « Filtré sur n catégories » disparaît : le filtre l'indique déjà. Le guide de l'application est mis à jour.
+
+### Application : thème « Night » comme sur le site, logo du bouc compris
+- **Carte Night** (bouton 🍸 de la carte) : tant qu'elle est choisie, toute l'application passe en mode nuit, comme le site — fond violet nuit (`#0E061D`), cartes et panneaux `#180C30`, bandeaux `#120726`, boutons et choix actifs en magenta néon (`#FF3FD1`) avec texte violet nuit. Retour au thème habituel (clair ou sombre) dès qu'on choisit une autre carte.
+- **Logo** : le bouc néon à lunettes du site remplace l'épingle, avec « NEiRI » en clair (menu ☰, compte, accueil).
+- **Carte** : fond de carte violet nuit sur Android (style Google Maps), sombre sur iOS ; marqueurs et pastilles en magenta néon avec halo, activité affichée en cyan.
+- Aucune dépendance native ajoutée (le logo est une image de l'application : reconstruire l'APK).
+
+### Application : bandeaux bleu nuit comme sur le site
+- **Barre du haut des écrans** (Paramètres de recherche, Mes alertes, Mon abonnement, fiche d'une activité…) : fond bleu nuit (`#1C2150`), titre et flèche retour en blanc, comme les bandeaux du site. En mode sombre, la couleur de nuit du site (`#120726`).
+- **Menu ☰** : panneau bleu nuit, logo et rubriques en blanc, titres de section et rubrique active comme dans le menu du site.
+- Les icônes de la barre d'état passent en clair sous ces bandeaux ; sur la carte et l'accueil, elles suivent le thème.
+
+### Correctif : un lien trop long faisait perdre tout l'enrichissement d'une activité importée
+- **Constat en production** (import DATAtourisme PACA du 07/11/2026) : « Salon de l'Etudiant à Aix-en-Provence » — `value too long for type character varying(1024)` sur `activity_link`. L'insertion échouait et l'activité perdait **tout** son enrichissement (lieu, dates, liens, médias, accessibilité, tags), pas seulement ce lien.
+- **Correctif** (`ActivityLinkService`) : un lien de plus de 1 024 caractères est refusé comme un lien invalide, que l'import ignore déjà un par un ; un libellé de plus de 255 caractères est raccourci (« … ») au lieu de perdre le lien. Une contribution avec un lien trop long reçoit un message clair au lieu d'une erreur serveur.
+- Tests : `ActivityLinkServiceTest` (limite exacte, dépassement, libellé raccourci) et `ImportServiceIntegrationTest` (activité avec un lien trop long : l'autre lien et les dates sont gardés ; le test échoue sans le correctif).
+
+### Carte « Night » : le site passe en mode nuit, avec un nouveau logo
+- **Site** : quand la carte « 🍸 Night » est affichée, tout l'Explorer passe en thème nuit : fond violet nuit, accents néon magenta et cyan, fond de carte assombri, marqueurs et pastilles néon. Le menu, la recherche, les filtres, la liste, l'aperçu, la fiche et les messages suivent. Retour au thème clair dès qu'on revient sur une autre carte ou qu'on quitte l'Explorer.
+- **Logo** : en mode nuit, l'épingle Neiri est remplacée par le bouc néon à lunettes (`public/neiri-night.webp`), avec le logotype « NEiRI » en clair ; l'icône de l'onglet et la couleur de la barre du navigateur changent aussi.
+- **Téléphone** : les quatre cartes (Activités, Lieux, Food trucks, Night) tiennent sur une seule rangée qui défile, au lieu de deux rangées qui passaient sous « Voir la liste ».
+- Porté par `data-ll-theme="night"` sur `<html>` (`src/theme/nightTheme.ts`, section « Thème Night » de `styles.css`). L'application mobile n'est pas concernée.
+
+### Nouvelle carte « Night » 🍸 : la vie nocturne, de 20 h à 6 h
+- **Site** : onglet « 🍸 Night » à côté de « Activités », « Lieux » et « Food trucks ». Il affiche, sur la carte et dans la liste de la zone, les activités qui ont lieu entre 20 h et 6 h : soirées, concerts, festivals, spectacles… Mêmes marqueurs, filtres (catégories, dates, Gratuit) et fiches que les activités ; compteur « N activités de nuit dans cette zone ». Toujours disponible (ce sont des activités), choix mémorisé dans le navigateur.
+- **Application** : bouton rond « verre à cocktail » sur la carte « Découvrir », à côté de « Lieux » et « Food trucks » ; un second appui revient à toutes les activités. Aucune dépendance native ajoutée.
+- **Carte à l'ouverture** : « 🍸 Night » proposée dans les paramètres de recherche (site et application).
+- **Règle « de nuit »** (fonction SQL `ll_is_night`, V88), en heure locale du lieu, occurrence par occurrence : début entre 20 h et 6 h, ou fin après 20 h le même jour, ou passage de minuit, pour une occurrence de moins de 24 h. Les imports sans horaire (journée entière, 00:00 → 23:59) et les expositions de plusieurs semaines ne sont pas retenus. Une activité sans programmation (contribution) est jugée sur ses dates de début et de fin.
+- **API** : paramètre facultatif `night=true` sur `GET /api/v1/activities/nearby` et `GET /api/v1/activities/within-bounds` (`false` ou absent : comportement inchangé ; autre valeur : **400**). `defaultMapLayer` accepte `night` (contrainte de `user_preferences.default_map_layer` élargie par V88).
+### Correctif : l'API DATAtourisme n'était pas appelée pour les sources sans filtre de départements
+- **Constat en production** : clé configurée, mais aucune ligne « API DATAtourisme » dans les logs après un import. Les trois sources DATAtourisme (PACA, Languedoc, vide-greniers France) ont un `region_filter` vide, et la première version sautait l'enrichissement dans ce cas (lecture de l'API par départements, par crainte du quota).
+- **Correctif** : l'API n'est plus lue par départements mais **pour les seuls événements retenus du CSV, par leur URI**, en lots de 50 (`GET /v1/catalog?filters=uri[in]=…`). Plus besoin de filtre de départements ; le nombre de requêtes suit le nombre d'événements importés (PACA : 2 321 événements complétés en 48 requêtes, environ 25 s, mesuré avec le vrai CSV et la vraie API). Garde-fou : au-delà de 400 requêtes pour une source, enrichissement sauté et journalisé.
+- **Diagnostic** : clé absente → message « API DATAtourisme non configurée (DATATOURISME_API_KEY vide) » dans les logs, au lieu d'aucun message.
+
+### Correctif : import impossible depuis l'administration (« Accès refusé : rôle insuffisant »)
+- **Cause** : depuis la session par cookie (protection CSRF), une écriture faite avec le cookie de session doit joindre le jeton anti-CSRF (`X-XSRF-TOKEN`, recopié du cookie `XSRF-TOKEN`). Quand ce cookie manquait dans le navigateur, le serveur refusait l'écriture avec le même message qu'un vrai manque de droits : « Accès refusé : rôle insuffisant », trompeur pour un administrateur. Reproduit : `POST /api/v1/admin/import` d'un administrateur, sans le jeton → 403 « rôle insuffisant » ; avec le jeton → 200.
+- **Serveur** : un refus CSRF a désormais son propre message (« Jeton de sécurité manquant ou expiré : recharge la page et réessaie. ») et l'en-tête `X-CSRF-Rejected: true`. « Rôle insuffisant » ne désigne plus qu'un vrai manque de droits.
+- **Site** (`apiFetch`) : si le cookie `XSRF-TOKEN` manque avant une écriture, il est redemandé (`GET /users/me`) ; si le serveur refuse quand même le jeton, un nouveau est obtenu et l'écriture rejouée une seule fois. Vaut pour toutes les écritures du site (import, modération, profil…). Vérifié dans Chromium : cookie anti-CSRF effacé, session gardée → l'import part avec le jeton et répond 200.
+- L'application mobile n'est pas concernée (en-tête `Authorization`, sans CSRF).
+- **Test fiabilisé** : `CategoryBackfillServiceIntegrationTest` comptait toutes les activités à venir de la base ; de vrais marchés de Noël (importés en novembre par un autre test ou présents dans la base locale) le faisaient échouer (« expected: 2 but was: 4 »). Il archive désormais les activités existantes dans sa propre transaction, annulée à la fin.
+
+### Carte : filtre « Gratuit »
+- **Site** : bouton « Gratuit » dans les filtres de la carte. Il ne garde, sur la carte et dans la liste de la zone, que les activités dont les tarifs disent qu'elles sont gratuites (`priceType` = `FREE`, voir « badge Gratuit / Payant » ci-dessous). Les activités sans tarif connu sont masquées. Filtre appliqué dans le navigateur, sans nouvelle requête : la carte reçoit déjà toutes les activités de la zone. Zone sans activité gratuite : « Aucune activité gratuite dans cette zone. » et « Voir toutes les activités ». Inactif pendant une recherche par mot-clé (résultats paginés par le serveur).
+- **Application** : même filtre, bouton rond « Gratuit » de la carte (marqueurs, pastilles et liste de la zone). Aucune dépendance native ajoutée.
+- Le guide (site et application) le mentionne dans l'étape « filtres ».
+
+### Événements DATAtourisme complétés par l'API : programme détaillé, tarifs, images, contacts ; badge Gratuit / Payant
+- **Constat** : le cinéma l'Eden à Noves apparaissait en fiches vides (« Programme Cinéma, semaine du 09 au 15 Novembre »). Le CSV de data.gouv.fr ne porte que la description courte ; la programmation séance par séance, le tarif (« Plein tarif : 5€ / Tarif adhérent : 3€. »), l'affiche et le téléphone sont dans l'**API DATAtourisme**, pour les mêmes fiches.
+- **Import** : après le CSV, `DataTourismeApiEnricher` lit l'API (`api.datatourisme.fr`) sur les départements de la source et complète chaque événement trouvé (jointure par URI DATAtourisme, l'identité des activités ne change pas) : description détaillée suivie des horaires en clair, tarifs, images si le CSV n'en a pas, site et téléphone. Clé : `DATATOURISME_API_KEY` (gratuite, facultative). Sans clé, sans filtre de départements ou si l'API échoue, l'import garde le seul CSV, comme avant. La plateforme Diffuseur, qui ferme en octobre 2027, n'est pas utilisée.
+- **Mesure (fichier PACA, six départements, 07/11/2026)** : 2 353 événements, 2 321 complétés ; 2 118 avec description détaillée, 2 087 avec tarifs, 2 113 avec image.
+- **Gratuit / Payant** : `priceType` (`FREE`, `PAID`, `UNKNOWN`) dans les réponses de la liste, de la carte et de la fiche, déduit des tarifs en clair (`PriceIndicator`) : montant en euros, « payant », « gratuit », « entrée libre », « accès libre »… Une gratuité partielle (« Gratuit pour les moins de 12 ans ») reste inconnue. Vaut aussi pour OpenAgenda et les contributions. PACA : 701 gratuits, 1 351 payants, 301 inconnus (surtout sans tarif). Pas de migration.
+- **Site** : badge « Gratuit » ou « Payant » dans la liste et l'aperçu ; la fiche affiche enfin une section « Tarifs » (badge et texte des tarifs), qui manquait.
+- **Application** : « Gratuit » ou « Payant » sur la carte d'une activité de la liste et dans « Tarifs et conditions » de la fiche. Aucune dépendance native ajoutée.
+- **À faire en production** : renseigner `DATATOURISME_API_KEY` dans `.env.beta`, puis `docker compose --env-file .env.beta -f docker-compose.beta.yml up -d backend`. Les activités déjà importées sont complétées au prochain import.
+### Carte à l'ouverture au choix : activités, lieux ou food trucks
+- **Profil → Paramètres de recherche** : « Carte à l'ouverture » choisit la carte affichée quand un utilisateur connecté arrive sur l'Explorer — Activités, Lieux, Food trucks, ou « Dernière utilisée » (comportement d'avant : dernière carte choisie dans le navigateur). Seules les cartes ouvertes au public sont proposées ; une carte enregistrée puis fermée laisse la carte sur les activités.
+- **Accueil de première connexion** : même choix, facultatif, quand les lieux ou les food trucks sont ouverts.
+- **Application** : même choix dans Compte → Paramètres de recherche (« Carte à l’ouverture ») et, facultatif, dans l’accueil de première connexion. La carte « Découvrir » s’ouvre sur la carte enregistrée, et la reprend quand le paramètre change ; changer de carte reste mémorisé sur l’appareil sans modifier le paramètre.
+- La carte choisie s'applique à chaque ouverture de l'Explorer connecté ; changer de carte ensuite reste possible et est toujours mémorisé dans le navigateur, sans modifier le paramètre.
+- **API** : `defaultMapLayer` (`activities` | `places` | `foodTrucks` | `null`) dans `GET`/`PUT /api/v1/users/me/preferences`. Au `PUT`, un champ absent ou `null` garde la carte enregistrée (les versions de l'application qui ne l'envoient pas ne l'effacent donc pas) ; `""` l'efface ; une autre valeur : **400**. Colonne `user_preferences.default_map_layer` (V87), incluse dans l'export RGPD.
+
+### LocalLife devient Neiri : nouveau nom, nouveau logo, nouvelle charte
+- **Nom** : « LocalLife » devient « Neiri » partout où il se lit — site, application, e-mails, notifications, textes légaux. Signature : « Your world, closer. ».
+- **Logo** : épingle en dégradé orange → rose → violet portant le « N » et le point du « i », suivie du logotype « NEiRI » (point orange). Nouveau favicon et icônes web ; nouvelles icônes de l'application (iOS, Android adaptative et monochrome), écran de démarrage sur fond clair.
+- **Charte** : bleu nuit pour le texte, les menus et les en-têtes ; rose pour les actions ; orange, violet et lavande en accents. Les anciens bleus des écrans historiques passent au violet. Détails dans `docs/brand/README.md`.
+- **Dernières traces visibles** : le fichier « Mes données » s'appelle `neiri-mes-donnees.json` (site, application, en-tête du serveur) ; expéditeur par défaut des e-mails hors production `no-reply@neiri.local`.
+- **Inchangé volontairement** : identifiants techniques (rôle `LOCALLIFE`, packages Java, clés de stockage, identifiants `com.locallife.mobile` et schéma `locallife`) — personne n'est déconnecté et l'API ne change pas.
+
 ### Lancement PACA et Occitanie : lieux, food trucks, Premium et Pro fermés, ouverts un par un depuis le serveur
 - **Au lancement**, le public voit les activités et peut créer un compte gratuit ; les **lieux**, les **food trucks** et les offres **Premium** et **Pro** sont fermés. Chacun s'ouvre par un interrupteur serveur, sans nouvelle version du site ni de l'application : `FEATURE_PLACES`, `FEATURE_FOOD_TRUCKS`, `FEATURE_PREMIUM`, `FEATURE_PRO` (fermés par défaut dans `docker-compose.beta.yml`, ouverts par défaut en développement et dans les tests). Pour ouvrir : `true` dans `.env.beta`, puis `docker compose --env-file .env.beta -f docker-compose.beta.yml up -d backend`.
 - **L'équipe LocalLife et les administrateurs voient tout**, même fermé : ils vérifient une fonction en production avant de l'ouvrir. L'administration (`/api/v1/admin/**`) n'est jamais fermée : lieux et food trucks se préparent avant l'ouverture.

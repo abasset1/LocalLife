@@ -15,6 +15,12 @@ export interface Category {
     active: boolean;
 }
 
+/**
+ * Carte de l'Explorer : activités, lieux, food trucks ou « Night » (activités entre 20 h et 6 h), une seule affichée
+ * à la fois.
+ */
+export type MapLayer = "activities" | "places" | "foodTrucks" | "night";
+
 /** Miroir de `UserPreferencesResponse` (`GET`/`PUT /api/v1/users/me/preferences`) : paramètres de recherche par défaut. */
 export interface UserPreferences {
     defaultCity: string | null;
@@ -22,9 +28,14 @@ export interface UserPreferences {
     defaultLongitude: number | null;
     defaultRadiusKm: number | null;
     defaultCategoryCodes: string[];
+    /** Carte ouverte à l'arrivée sur l'Explorer ; `null` = dernière carte choisie dans le navigateur. */
+    defaultMapLayer?: MapLayer | null;
     /** `false` tant que l'utilisateur n'a jamais enregistré ses préférences (accueil de première connexion). */
     configured?: boolean;
 }
+
+/** Indicateur gratuit / payant déduit des tarifs en clair de l'activité (`PriceIndicator`, backend). */
+export type PriceType = "FREE" | "PAID" | "UNKNOWN";
 
 export interface Activity {
     id: number;
@@ -55,6 +66,8 @@ export interface Activity {
     coordinatePrecision?: CoordinatePrecision | null;
     /** Lieu géré par l'auteur qui propose l'activité (« Proposé par … ») ; `null` dès qu'il ne le gère plus. */
     hostPlace?: HostPlace | null;
+    /** Gratuit / payant (badge de la liste et de l'aperçu) ; absent des anciennes réponses : traité comme inconnu. */
+    priceType?: PriceType | null;
 }
 
 /** Lieu hôte d'une activité (`hostPlace` des réponses activité, backend). */
@@ -124,6 +137,8 @@ export interface ActivityDetail {
     accessibility: AccessibilitySummary | null;
     tags: string[];
     additionalInfo: string | null;
+    /** Gratuit / payant, déduit de `conditions`. */
+    priceType?: PriceType | null;
     /** Lieu géré par l'auteur qui propose l'activité, sinon `null`. */
     hostPlace?: HostPlace | null;
 }
@@ -143,7 +158,7 @@ export interface FoodTruck {
     spotKind: "MARKET" | "PRIVATE" | "EVENT" | "OTHER";
     startTime: string | null;
     endTime: string | null;
-    /** Lieu LocalLife où se trouve l'emplacement, ou `null`. */
+    /** Lieu Neiri où se trouve l'emplacement, ou `null`. */
     placeId: number | null;
     /** Spécialité saisie librement et description du food truck. */
     description?: string | null;

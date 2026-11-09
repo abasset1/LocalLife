@@ -88,7 +88,7 @@ class ActivityAlertNotifierTest {
 
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendActivityAlertEmail(
-                eq("alice@example.com"), eq("LocalLife : 1 nouvelle activité près de Lyon"), body.capture());
+                eq("alice@example.com"), eq("Neiri : 1 nouvelle activité près de Lyon"), body.capture());
         assertTrue(body.getValue().contains("« Sport » à moins de 10 km de Lyon"));
         assertTrue(body.getValue().contains("- Match de foot — Villeurbanne, le 18/10/2026"));
         assertTrue(body.getValue().contains("https://locallife.test/alerts/unsubscribe?token=tok-alice"));
@@ -264,7 +264,7 @@ class ActivityAlertNotifierTest {
 
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendActivityAlertEmail(
-                eq("d@example.com"), eq("LocalLife : 2 nouveautés près de Lyon"), body.capture());
+                eq("d@example.com"), eq("Neiri : 2 nouveautés près de Lyon"), body.capture());
         assertTrue(body.getValue().contains("« Sport, Food trucks »"));
         assertTrue(body.getValue().contains("Activités :\n- Match — Lyon"));
         assertTrue(body.getValue().contains("Food trucks :\n- Le Camion Bleu (Burgers)"));

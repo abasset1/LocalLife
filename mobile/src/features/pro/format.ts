@@ -91,7 +91,7 @@ export function truckStatusLabel(truck: Pick<OwnedFoodTruck, 'status' | 'suspend
 /**
  * Actions possibles du propriétaire sur un food truck. Jamais validé, « publier » l'envoie en validation (brouillon
  * ou refusé → en validation) ; « suspendre » une demande en validation la retire (retour en brouillon). Une
- * suspension par LocalLife bloque la publication ; un food truck masqué faute d'accès pro revient tout seul.
+ * suspension par Neiri bloque la publication ; un food truck masqué faute d'accès pro revient tout seul.
  */
 export function truckActions(truck: TruckState): OwnerAction[] {
   const { status, suspendedByLocalLife, approved, suspendedForAccess } = truck;

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { MAP_LAYER_KEY, loadMapLayer, saveMapLayer } from '../placesPreference';
+import { MAP_LAYER_KEY, loadMapLayer, preferredMapLayer, saveMapLayer } from '../placesPreference';
 
 jest.mock('@react-native-async-storage/async-storage', () => {
   const store = new Map<string, string>();
@@ -29,6 +29,8 @@ describe('contenu de la carte', () => {
     await expect(loadMapLayer()).resolves.toBe('places');
     await saveMapLayer('foodTrucks');
     await expect(loadMapLayer()).resolves.toBe('foodTrucks');
+    await saveMapLayer('night');
+    await expect(loadMapLayer()).resolves.toBe('night');
   });
 
   it('ignore une valeur inconnue', async () => {
@@ -41,5 +43,16 @@ describe('contenu de la carte', () => {
     jest.spyOn(AsyncStorage, 'setItem').mockRejectedValueOnce(new Error('indisponible'));
     await expect(loadMapLayer()).resolves.toBe('activities');
     await expect(saveMapLayer('places')).resolves.toBeUndefined();
+  });
+});
+
+describe('carte choisie dans les paramètres', () => {
+  it('accepte les trois cartes et ignore le reste', () => {
+    expect(preferredMapLayer('places')).toBe('places');
+    expect(preferredMapLayer('foodTrucks')).toBe('foodTrucks');
+    expect(preferredMapLayer('night')).toBe('night');
+    expect(preferredMapLayer(null)).toBeNull();
+    expect(preferredMapLayer(undefined)).toBeNull();
+    expect(preferredMapLayer('events')).toBeNull();
   });
 });

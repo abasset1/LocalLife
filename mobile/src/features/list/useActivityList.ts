@@ -22,6 +22,8 @@ export interface ListSearch {
   period: Period;
   /** Codes de catégories ; vide = toutes. */
   categoryCodes: readonly string[];
+  /** Univers Night : seulement les activités entre 20 h et 6 h (`night=true`), comme la carte Night. */
+  night?: boolean;
 }
 
 /**
@@ -40,6 +42,7 @@ export function useActivityList(search: ListSearch | null) {
   const radiusKm = search?.radiusKm ?? 0;
   const period = search?.period ?? 'all';
   const categoryKey = search ? [...search.categoryCodes].sort().join(',') : '';
+  const night = search?.night === true;
 
   useEffect(() => {
     if (latitude === null || longitude === null) return;
@@ -52,6 +55,7 @@ export function useActivityList(search: ListSearch | null) {
         radiusKm: Math.min(radiusKm, 50),
         category: categoryKey === '' ? undefined : categoryKey,
         ...periodRange(period),
+        night,
       },
       { signal: controller.signal },
     )
@@ -67,7 +71,7 @@ export function useActivityList(search: ListSearch | null) {
         if (!controller.signal.aborted) setRefreshing(false);
       });
     return () => controller.abort();
-  }, [latitude, longitude, radiusKm, period, categoryKey, attempt]);
+  }, [latitude, longitude, radiusKm, period, categoryKey, night, attempt]);
 
   const refresh = useCallback(() => {
     setRefreshing(true);

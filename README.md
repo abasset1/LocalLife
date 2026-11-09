@@ -1,4 +1,4 @@
-# LocalLife
+# Neiri
 
 Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
 
@@ -17,6 +17,15 @@ Plateforme locale d'activités, avec une API Spring Boot et une carte web React.
   carte (titre, description, catégorie, localisation), envoyée à
   `POST /api/v1/activities` (statut `PENDING` par défaut — modération
   décrite dans la section Sprint 6 ci-dessous).
+
+## Carte « Night » (vie nocturne)
+
+* Onglet **🍸 Night** de l'Explorer (site) et bouton « verre à cocktail » de la carte (application) : activités qui
+  ont lieu entre 20 h et 6 h — soirées, concerts, festivals… — avec les mêmes filtres et fiches que les activités.
+* API : `night=true` sur `GET /api/v1/activities/nearby` et `GET /api/v1/activities/within-bounds`. Règle (fonction
+  SQL `ll_is_night`, `V88__night_map_layer.sql`, heure locale du lieu) : début entre 20 h et 6 h, ou fin après 20 h,
+  ou passage de minuit, pour une occurrence de moins de 24 h ; les occurrences sans horaire (00:00 → 23:59) sont
+  exclues.
 
 ## Guide de l'application
 
@@ -87,7 +96,7 @@ Décisions et modèle : [`docs/ADR-0012-espace-professionnel-revendication.md`](
   demandée par l'utilisateur et validée par l'équipe, ou choisie par un
   administrateur (`PUT /api/v1/admin/accounts/{id}/plan` avec `{"plan":"PRO"}`,
   date de fin facultative `endsOn`). Relu en base à chaque appel.
-* **Rôles** : `USER` (utilisateur), `LOCALLIFE` (équipe LocalLife : modération),
+* **Rôles** : `USER` (utilisateur), `LOCALLIFE` (équipe Neiri : modération),
   `ADMIN` (administrateur) — `PATCH /api/v1/admin/accounts/{id}/role` avec
   `{"role":"LOCALLIFE"}` ou `{"role":"USER"}`. Détail :
   [`docs/02_Architecture/ROLES_ET_PERMISSIONS.md`](docs/02_Architecture/ROLES_ET_PERMISSIONS.md).
@@ -118,7 +127,7 @@ Décisions et modèle : [`docs/ADR-0012-espace-professionnel-revendication.md`](
 ## Avis aux organisateurs des activités importées
 
 * `ImportedActivityContactNotifier` écrit à l'adresse de contact (lien `EMAIL`)
-  d'une activité importée : LocalLife référence l'événement, un compte
+  d'une activité importée : Neiri référence l'événement, un compte
   professionnel est nécessaire pour qu'il continue de l'être (liens
   `/register` puis `/profile` pour l'offre Pro).
 * Un message par adresse et par passage (récapitulatif), jamais deux fois pour
@@ -292,6 +301,11 @@ sur `backend/.env.example` :
   données OpenAgenda plutôt que des activités créées manuellement.
   Voir `docs/02_Architecture/COLLECTOR_OPERATIONS.md` pour le détail
   de ces variables.
+* `DATATOURISME_API_KEY` — facultatif. Clé de l'API DATAtourisme
+  (gratuite, sur https://www.datatourisme.fr/utiliser-les-donnees) : les
+  événements DATAtourisme reçoivent leur description détaillée, leurs
+  tarifs, leurs images et leurs contacts. Vide : CSV data.gouv.fr seul.
+  Voir `docs/02_Architecture/DATAGOUV_SOURCES.md`.
 * `GOOGLE_CLIENT_ID` — facultatif, pour « Continuer avec Google ».
   Même valeur dans `frontend/.env` sous le nom `VITE_GOOGLE_CLIENT_ID`
   (voir `frontend/.env.example`), avec `http://localhost:5173` dans les

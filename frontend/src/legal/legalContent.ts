@@ -47,7 +47,7 @@ const LEGAL_NOTICE: LegalSection[] = [
     {
         title: "1. Éditeur du service",
         blocks: [
-            "Le site " + E.siteUrl + " et l'application mobile LocalLife (ensemble, « LocalLife » ou « le Service ») "
+            "Le site " + E.siteUrl + " et l'application mobile Neiri (ensemble, « Neiri » ou « le Service ») "
                 + "sont édités par :",
             [
                 "Éditeur : " + E.name,
@@ -73,9 +73,9 @@ const LEGAL_NOTICE: LegalSection[] = [
     {
         title: "3. Nature du service",
         blocks: [
-            "LocalLife est une carte des activités et événements locaux. Une grande partie des informations publiées "
+            "Neiri est une carte des activités et événements locaux. Une grande partie des informations publiées "
                 + "provient de sources publiques ou ouvertes (agendas OpenAgenda, DATAtourisme, jeux de données publiés "
-                + "sur data.gouv.fr) ; d'autres sont proposées par les utilisateurs et les professionnels. LocalLife "
+                + "sur data.gouv.fr) ; d'autres sont proposées par les utilisateurs et les professionnels. Neiri "
                 + "n'organise pas les événements qu'il référence et n'en est pas le vendeur.",
             "Pour les contenus mis en ligne par les utilisateurs, l'éditeur agit en qualité d'hébergeur au sens de "
                 + "l'article 6 de la loi n° 2004-575 du 21 juin 2004 pour la confiance dans l'économie numérique (LCEN) "
@@ -90,7 +90,7 @@ const LEGAL_NOTICE: LegalSection[] = [
             [
                 "Données publiées sur data.gouv.fr et données DATAtourisme : Licence Ouverte / Open Licence (Etalab), "
                     + "versions 1.0 ou 2.0 selon le jeu de données. Ces données ont pu être filtrées, classées par "
-                    + "catégorie, dédoublonnées et reformatées par LocalLife ; leurs producteurs ne sauraient être "
+                    + "catégorie, dédoublonnées et reformatées par Neiri ; leurs producteurs ne sauraient être "
                     + "tenus pour responsables de ces traitements.",
                 "Événements OpenAgenda : conditions d'utilisation d'OpenAgenda et licence choisie par chaque agenda "
                     + "source ; le nom de l'agenda d'origine est mentionné sur la fiche.",
@@ -105,7 +105,7 @@ const LEGAL_NOTICE: LegalSection[] = [
     {
         title: "5. Propriété intellectuelle",
         blocks: [
-            "La marque et le nom LocalLife, la structure du Service, ses textes, sa charte graphique, ses logiciels et "
+            "La marque et le nom Neiri, la structure du Service, ses textes, sa charte graphique, ses logiciels et "
                 + "sa base de données sont protégés par le Code de la propriété intellectuelle. Sauf mention contraire, "
                 + "ils sont la propriété de l'éditeur.",
             "Toute reproduction, représentation ou extraction substantielle, par quelque procédé que ce soit, sans "
@@ -142,7 +142,7 @@ const TERMS: LegalSection[] = [
         title: "1. Objet",
         blocks: [
             "Les présentes conditions d'utilisation (les « Conditions ») régissent l'accès au site " + E.siteUrl
-                + " et à l'application mobile LocalLife (le « Service »), édités par " + E.name + " (l'« Éditeur »), "
+                + " et à l'application mobile Neiri (le « Service »), édités par " + E.name + " (l'« Éditeur »), "
                 + "ainsi que leur utilisation par toute personne qui les consulte (le « Visiteur ») ou qui y crée un "
                 + "compte (l'« Utilisateur »).",
             "Le Service permet de découvrir sur une carte les activités, événements, lieux et food trucks proches "
@@ -207,7 +207,7 @@ const TERMS: LegalSection[] = [
         title: "6. Contributions des utilisateurs",
         blocks: [
             "Selon son offre, l'Utilisateur peut proposer des activités (textes, horaires, lieu, liens, images). "
-                + "Chaque proposition est vérifiée par l'équipe LocalLife avant publication, qui peut la refuser, la "
+                + "Chaque proposition est vérifiée par l'équipe Neiri avant publication, qui peut la refuser, la "
                 + "corriger dans sa forme ou la retirer ensuite, sans avoir à se justifier au-delà de l'information "
                 + "prévue à l'article 9.",
             "L'Utilisateur garantit qu'il a le droit de publier sa contribution, qu'elle est exacte et qu'elle ne "
@@ -243,7 +243,7 @@ const TERMS: LegalSection[] = [
         blocks: [
             "Un compte professionnel permet de demander la gestion de la fiche d'un lieu, de proposer des "
                 + "modifications et de publier les emplacements et horaires d'un food truck. La demande de gestion "
-                + "d'un lieu est accompagnée des justificatifs demandés et examinée par l'équipe LocalLife, qui peut "
+                + "d'un lieu est accompagnée des justificatifs demandés et examinée par l'équipe Neiri, qui peut "
                 + "l'accepter ou la refuser ; les justificatifs sont effacés 12 mois après la décision.",
             "Le professionnel déclare agir pour son propre compte ou avec l'autorisation de l'établissement qu'il "
                 + "représente, et s'engage à tenir à jour les informations qu'il publie. Les informations publiées "
@@ -332,10 +332,10 @@ const PRIVACY: LegalSection[] = [
     {
         title: "1. Responsable du traitement",
         blocks: [
-            "Le responsable du traitement des données personnelles collectées sur LocalLife est " + E.name + ", "
+            "Le responsable du traitement des données personnelles collectées sur Neiri est " + E.name + ", "
                 + E.address + " (l'« Éditeur »). Pour toute question ou demande relative à vos données : "
                 + E.privacyEmail + ".",
-            "Cette politique s'applique au site et à l'application mobile LocalLife. Elle est établie conformément au "
+            "Cette politique s'applique au site et à l'application mobile Neiri. Elle est établie conformément au "
                 + "règlement (UE) 2016/679 (« RGPD ») et à la loi n° 78-17 du 6 janvier 1978 relative à "
                 + "l'informatique, aux fichiers et aux libertés.",
         ],
@@ -345,7 +345,7 @@ const PRIVACY: LegalSection[] = [
         blocks: [
             [
                 "Aucun outil de mesure d'audience, aucun traceur publicitaire, aucune revente de données.",
-                "Aucun journal des adresses IP n'est conservé par LocalLife.",
+                "Aucun journal des adresses IP n'est conservé par Neiri.",
                 "La position de votre appareil, si vous l'autorisez, sert uniquement à afficher et rechercher les "
                     + "activités autour de vous ; elle n'est jamais enregistrée. Seule la ville par défaut que vous "
                     + "choisissez dans vos préférences est conservée.",
@@ -394,7 +394,7 @@ const PRIVACY: LegalSection[] = [
                 + "Elles sont affichées sur la fiche de l'activité pour permettre au public de contacter "
                 + "l'organisateur, et supprimées avec l'activité.",
             "L'adresse e-mail de contact peut être utilisée pour informer l'organisateur, au plus une fois par "
-                + "événement et au plus tous les 30 jours, que son événement est référencé sur LocalLife. La date de "
+                + "événement et au plus tous les 30 jours, que son événement est référencé sur Neiri. La date de "
                 + "cet envoi est conservée pour éviter les doublons. Base légale : intérêt légitime de l'Éditeur à "
                 + "informer les organisateurs de la réutilisation de leurs informations.",
             "Un organisateur peut à tout moment s'opposer à ce traitement, demander la correction ou le retrait de "
@@ -427,7 +427,7 @@ const PRIVACY: LegalSection[] = [
     {
         title: "6. Destinataires",
         blocks: [
-            "Vos données sont accessibles aux seules personnes habilitées de l'équipe LocalLife, dans la limite de "
+            "Vos données sont accessibles aux seules personnes habilitées de l'équipe Neiri, dans la limite de "
                 + "leurs fonctions (modération, assistance, administration). Votre nom d'utilisateur, vos "
                 + "contributions publiées et les informations publiques de vos établissements sont visibles de tous.",
             "Elles sont également traitées, pour le compte de l'Éditeur, par les sous-traitants suivants :",
@@ -461,7 +461,7 @@ const PRIVACY: LegalSection[] = [
     {
         title: "8. Cookies et stockage sur votre appareil",
         blocks: [
-            "LocalLife n'utilise ni cookie publicitaire ni outil de mesure d'audience. Le site et l'application "
+            "Neiri n'utilise ni cookie publicitaire ni outil de mesure d'audience. Le site et l'application "
                 + "enregistrent seulement sur votre appareil les informations nécessaires à leur fonctionnement : "
                 + "votre session de connexion, le fond de carte choisi et vos choix d'affichage (par exemple le fait "
                 + "d'avoir fermé un message). Ce stockage, strictement nécessaire au service que vous demandez, est "

@@ -6,7 +6,7 @@ import { clearSession, getPayload } from "./auth/authStorage";
 import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
 import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
-import { isInBounds, toLocalDateString } from "./components/explorer/activityUtils";
+import { activitiesInZone, toLocalDateString, weekendRange, zoneCountLabel } from "./components/explorer/activityUtils";
 import { DEFAULT_SEARCH_RADIUS_KM, NO_DATE_FILTER } from "./components/explorer/constants";
 import EmptyResultsHelp from "./components/explorer/EmptyResultsHelp";
 import ContributionModal, {
@@ -40,6 +40,7 @@ import FeedbackModal from "./components/feedback/FeedbackModal";
 import PremiumOfferPopup from "./components/news/PremiumOfferPopup";
 import { useAccountAccess } from "./components/pro/useProAccess";
 import { useLaunchFeatures, type LaunchFeatures } from "./features/launchFeatures";
+import { useNightTheme } from "./theme/nightTheme";
 import type {
     Activity,
     ActivityDetail,
@@ -50,6 +51,7 @@ import type {
     FoodTruck,
     MapBounds,
     UserPosition,
+    MapLayer,
     UserPreferences,
 } from "./components/explorer/types";
 
@@ -65,11 +67,11 @@ import type {
  * ActivityPreview, ActivityList, ActivityDetailModal, ContributionModal.
  */
 /**
- * Contenu affiché sur la carte et dans la liste : activités, lieux (ADR-0011, phase B) ou food trucks (ADR-0013),
- * un seul à la fois — les trois superposés rendaient la carte illisible. Le choix est mémorisé dans le navigateur
- * (confort seulement : tout fonctionne sans stockage).
+ * Contenu affiché sur la carte et dans la liste : activités, lieux (ADR-0011, phase B), food trucks (ADR-0013) ou
+ * « Night » (activités entre 20 h et 6 h : soirées, concerts, festivals…), un seul à la fois — les trois superposés rendaient la carte illisible. Le choix est mémorisé dans le navigateur
+ * (confort seulement : tout fonctionne sans stockage). Un utilisateur connecté peut choisir dans ses paramètres
+ * la carte ouverte à son arrivée (`defaultMapLayer`), qui prime alors sur ce souvenir.
  */
-type MapLayer = "activities" | "places" | "foodTrucks";
 
 const MAP_LAYER_STORAGE_KEY = "locallife.mapLayer";
 
@@ -77,11 +79,22 @@ const MAP_LAYERS: { value: MapLayer; label: string; title: string }[] = [
     { value: "activities", label: "📅 Activités", title: "Afficher les activités" },
     { value: "places", label: "🏛 Lieux", title: "Afficher les lieux : musées, monuments, équipements…" },
     { value: "foodTrucks", label: "🚚 Food trucks", title: "Afficher les food trucks présents aujourd'hui" },
+    {
+        value: "night",
+        label: "🍸 Night",
+        title: "Afficher la vie nocturne, de 20 h à 6 h : soirées, concerts, festivals…",
+    },
 ];
 
-/** Couche disponible au lancement (05/11/2026) : les activités toujours, lieux et food trucks une fois ouverts. */
+/**
+ * Couche disponible au lancement (05/11/2026) : les activités et la carte « Night » (des activités) toujours, lieux
+ * et food trucks une fois ouverts.
+ */
 function isLayerAvailable(layer: MapLayer, features: LaunchFeatures): boolean {
-    return layer === "activities" || (layer === "places" ? features.places : features.foodTrucks);
+    if (layer === "activities" || layer === "night") {
+        return true;
+    }
+    return layer === "places" ? features.places : features.foodTrucks;
 }
 
 function readMapLayer(): MapLayer {
@@ -147,6 +160,11 @@ function App() {
     const [categories, setCategories] = useState<Category[]>([]);
     /** Codes des catégories cochées ; vide = pas de filtre. */
     const [selectedCategoryCodes, setSelectedCategoryCodes] = useState<string[]>([]);
+    /**
+     * Filtre « Gratuit » : appliqué dans le navigateur sur `priceType`, la carte recevant toutes les activités de la
+     * zone (pas de nouvelle requête). Sans effet sur la recherche par mot-clé, paginée par le serveur.
+     */
+    const [freeOnly, setFreeOnly] = useState(false);
     /** Clé stable du filtre catégorie (codes triés) : évite de relancer la recherche sur un simple nouveau tableau. */
     const selectedCategoriesKey = useMemo(() => [...selectedCategoryCodes].sort().join(","), [selectedCategoryCodes]);
     const [selectedDate, setSelectedDate] = useState(NO_DATE_FILTER);
@@ -228,12 +246,16 @@ function App() {
 
     /**
      * Applique des préférences à la carte : catégories cochées, rayon de
-     * recherche et de cadrage, ville comme point de départ. Retourne `true` si
+     * recherche et de cadrage, ville comme point de départ, carte ouverte (activités, lieux ou food trucks — sans
+     * toucher au choix mémorisé dans le navigateur). Retourne `true` si
      * elles contiennent une ville aux coordonnées valides. `keepMapView` : seules les catégories
      * s'appliquent, la carte reste sur la position reçue dans l'adresse.
      */
     function applyPreferences(preferences: UserPreferences, keepMapView = false): boolean {
         setSelectedCategoryCodes(preferences.defaultCategoryCodes);
+        if (preferences.defaultMapLayer && MAP_LAYERS.some((layer) => layer.value === preferences.defaultMapLayer)) {
+            setMapLayer(preferences.defaultMapLayer);
+        }
         if (keepMapView) {
             return false;
         }
@@ -305,8 +327,11 @@ function App() {
      * visible reste la source de vérité dès le premier geste (LL-4012).
      */
     const searchBounds = activeRadiusKm !== null && userPosition !== null ? null : mapBounds;
+    /** Rayon de la recherche en cours (`null` sans rayon) : la liste compte alors tout le rayon. */
+    const radiusSearchKm = activeRadiusKm !== null && userPosition !== null ? activeRadiusKm : null;
 
     const previousSearchDepsRef = useRef<{
+        nightOnly: boolean;
         selectedCategoriesKey: string;
         selectedDate: string;
         selectedDateTo: string;
@@ -387,6 +412,9 @@ function App() {
         return () => abortController.abort();
     }, []);
 
+    /** Carte « Night » : seules les activités qui ont lieu entre 20 h et 6 h sont chargées (`night=true`). */
+    const nightOnly = mapLayer === "night";
+
     useEffect(() => {
         // Pendant une recherche texte, la carte et la liste montrent ses résultats : la zone n'est pas
         // rechargée à chaque recadrage. Elle l'est à la sortie de la recherche.
@@ -400,6 +428,7 @@ function App() {
         // nouvelle activité proposée) déclenche l'état de chargement/la purge.
         const previousDeps = previousSearchDepsRef.current;
         const isMapOnlyReload = previousDeps !== null
+            && previousDeps.nightOnly === nightOnly
             && previousDeps.selectedCategoriesKey === selectedCategoriesKey
             && previousDeps.selectedDate === selectedDate
             && previousDeps.selectedDateTo === selectedDateTo
@@ -407,7 +436,7 @@ function App() {
             && previousDeps.userPosition === userPosition
             && previousDeps.searchRadiusKm === searchRadiusKm;
         previousSearchDepsRef.current = {
-            selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm,
+            nightOnly, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm,
         };
 
         if (!isMapOnlyReload) {
@@ -453,6 +482,9 @@ function App() {
                     params.set("dateTo", selectedDateTo);
                 }
             }
+            if (nightOnly) {
+                params.set("night", "true");
+            }
 
             try {
                 const response = await fetch(`${endpoint}?${params.toString()}`, {
@@ -493,7 +525,7 @@ function App() {
         void loadActivities();
 
         return () => abortController.abort();
-    }, [arePreferencesApplied, isTextSearch, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
+    }, [arePreferencesApplied, isTextSearch, nightOnly, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
 
     /** « Réessayer » après une erreur de chargement : mêmes filtres, même zone, sans recharger la page. */
     function retryActivities() {
@@ -532,14 +564,17 @@ function App() {
     }, [features.foodTrucks]);
 
     /**
-     * Activités de la liste hors recherche texte : seulement celles visibles sur la carte. Avec un rayon,
-     * la recherche charge tout le rayon : un zoom sur une partie du rayon réduit donc la liste à la zone
-     * affichée. Recalculée à chaque déplacement ou zoom (`mapBounds`) et à chaque nouvelle recherche
-     * (rayon, filtres). Sans zone connue (carte pas encore affichée), la liste montre tout.
+     * Activités de la liste hors recherche texte, même règle que l'application : avec un rayon, tout le rayon
+     * (le nombre ne dépend ni du zoom ni de la taille de l'écran) ; sans rayon, celles visibles sur la carte,
+     * recalculées à chaque déplacement ou zoom. Sans zone connue (carte pas encore affichée), toutes.
      */
+    const shownActivities = useMemo(
+        () => (freeOnly ? activities.filter((activity) => activity.priceType === "FREE") : activities),
+        [activities, freeOnly],
+    );
     const listedActivities = useMemo(
-        () => (mapBounds ? activities.filter((activity) => isInBounds(activity, mapBounds)) : activities),
-        [activities, mapBounds],
+        () => activitiesInZone(shownActivities, mapBounds, radiusSearchKm),
+        [shownActivities, mapBounds, radiusSearchKm],
     );
 
     /**
@@ -604,11 +639,21 @@ function App() {
         ? `${textSearch.query}|${searchFiltersKey}|${searchOffset}|${searchRetryKey}`
         : null;
 
-    const mapActivities = isTextSearch ? searchActivities : activities;
+    const mapActivities = isTextSearch ? searchActivities : shownActivities;
     const panelActivities = isTextSearch ? searchActivities : listedActivities;
     // Une recherche texte ne renvoie que des activités : elles seules sont affichées tant qu'elle est active.
     // Couche mémorisée mais pas (ou plus) ouverte : retour aux activités.
     const activeLayer: MapLayer = isTextSearch || !isLayerAvailable(mapLayer, features) ? "activities" : mapLayer;
+    /** Activités ou « Night » : mêmes marqueurs, même liste, mêmes messages. */
+    const isActivityLayer = activeLayer === "activities" || activeLayer === "night";
+    // Carte « Night » : tout le site passe en thème nuit (couleurs néon, logo du bouc), le temps qu'elle est affichée.
+    useNightTheme(activeLayer === "night");
+    // Téléphone : la rangée des cartes défile ; la carte choisie reste visible (Night, en dernier, sinon coupée).
+    const layerSwitchRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const active = layerSwitchRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
+        active?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    }, [activeLayer]);
     // Types de cuisine présents aujourd'hui : seuls eux sont proposés dans le filtre.
     const availableCuisines = CUISINE_TYPES.filter((cuisine) => foodTrucks.some((foodTruck) => foodTruck.cuisineType === cuisine.code));
     const shownFoodTrucks = selectedCuisine
@@ -624,17 +669,31 @@ function App() {
      * Nombre d'activités de la zone affichée, en tête de liste et sur le bouton « Voir la liste » en
      * mobile (comme sur la carte Finishers). Hors recherche texte, qui a son propre bandeau.
      */
-    const zoneActivityCount = activeLayer === "activities" && !isTextSearch && !isLoadingActivities && !searchError
+    const zoneActivityCount = isActivityLayer && !isTextSearch && !isLoadingActivities && !searchError
         ? listedActivities.length
         : 0;
-    const zoneActivityCountLabel = `${zoneActivityCount} ${zoneActivityCount > 1 ? "activités" : "activité"} dans cette zone`;
+    const nightLabel = activeLayer === "night" ? " de nuit" : "";
+    const zoneActivityCountLabel = zoneCountLabel(zoneActivityCount, radiusSearchKm, activeLayer === "night");
 
-    let emptyMessage = "Aucune activité trouvée dans cette zone.";
+    let emptyMessage = freeOnly
+        ? `Aucune activité${nightLabel} gratuite dans cette zone.`
+        : `Aucune activité${nightLabel} trouvée dans cette zone.`;
     if (isTextSearch) {
         emptyMessage = textStatus?.status === "success" && textStatus.total > 0
             ? "Aucun résultat sur cette page."
             : `Aucun résultat pour « ${textSearch.query} ».`;
     }
+
+    /** Des activités dans la zone, mais aucune gratuite : le filtre « Gratuit » se retire d'un clic. */
+    const hasOnlyPaidOrUnknown = freeOnly && !isTextSearch && activities.length > 0 && shownActivities.length === 0;
+    const freeEmptyHelp = (
+        <>
+            <p>Aucune activité gratuite dans cette zone.</p>
+            <button className="explorer-chip" onClick={() => setFreeOnly(false)} type="button">
+                Voir toutes les activités
+            </button>
+        </>
+    );
 
     /** Aucune activité hors recherche texte : actions utiles selon les critères actifs (spec P0-D). */
     const emptyResultsHelp = (
@@ -747,7 +806,7 @@ function App() {
 
     /**
      * Au chargement, sans ville enregistrée : la position n'est reprise que si le navigateur l'a déjà
-     * autorisée pour LocalLife (aucune fenêtre d'autorisation). Un échec reste silencieux : l'invitation
+     * autorisée pour Neiri (aucune fenêtre d'autorisation). Un échec reste silencieux : l'invitation
      * à choisir un lieu est déjà affichée.
      */
     function resumeGrantedGeolocation() {
@@ -1235,13 +1294,9 @@ function App() {
 
         switch (period) {
             case "this-weekend": {
-                const daysToSaturday = 6 - today.getDay();
-                const saturday = new Date(today);
-                saturday.setDate(today.getDate() + daysToSaturday);
-                const sunday = new Date(saturday);
-                sunday.setDate(saturday.getDate() + 1);
-                setSelectedDate(toLocalDateString(saturday));
-                setSelectedDateTo(toLocalDateString(sunday));
+                const weekend = weekendRange(today);
+                setSelectedDate(weekend.date);
+                setSelectedDateTo(weekend.dateTo ?? NO_DATE_FILTER);
                 break;
             }
             case "this-week": {
@@ -1283,6 +1338,7 @@ function App() {
                 onClose={() => setIsMenuOpen(false)}
                 onLogout={handleLogout}
                 onOpenContributionForm={handleOpenContributionForm}
+                night={activeLayer === "night"}
                 onOpenFeedback={() => (currentUser ? setIsFeedbackOpen(true) : navigate("/login"))}
             />
 
@@ -1341,6 +1397,9 @@ function App() {
                         isLocating={geolocationStatus === "locating"}
                         onUseMyLocation={requestGeolocation}
                         onViewModeChange={setViewMode}
+                        freeOnly={freeOnly}
+                        freeOnlyDisabled={isTextSearch}
+                        onFreeOnlyChange={setFreeOnly}
                         selectedCategoryCodes={selectedCategoryCodes}
                         selectedDate={selectedDate}
                         selectedDateTo={selectedDateTo}
@@ -1359,7 +1418,7 @@ function App() {
                             onOpenDetail={handleOpenDetail}
                             onOpenFoodTruck={setDetailFoodTruck}
                             initialView={initialMapView}
-                            layer={activeLayer}
+                            layer={activeLayer === "night" ? "activities" : activeLayer}
                             onBoundsChange={setMapBounds}
                             onPlacesChange={setPlaces}
                             onSelectActivity={handleSelectActivity}
@@ -1369,7 +1428,7 @@ function App() {
                         />
                         {/* Une seule couche ouverte (lancement) : pas de bascule à afficher. */}
                         {availableLayers.length > 1 && (
-                            <div aria-label="Afficher sur la carte" className="explorer-layer-switch" role="group">
+                            <div aria-label="Afficher sur la carte" className="explorer-layer-switch" ref={layerSwitchRef} role="group">
                                 {availableLayers.map((layer) => (
                                     <button
                                         aria-pressed={activeLayer === layer.value}
@@ -1412,13 +1471,13 @@ function App() {
                           et l'invitation à choisir un lieu s'empilent en bas de la carte (styles.css).
                         */}
                         <div className="explorer-map-notices">
-                            {activeLayer === "activities" && !isTextSearch && isLoadingActivities && (
+                            {isActivityLayer && !isTextSearch && isLoadingActivities && (
                                 <p className="explorer-status explorer-status-floating" role="status">
                                     <span aria-hidden="true" className="explorer-search-spinner" />
-                                    Chargement des activités…
+                                    {activeLayer === "night" ? "Chargement des activités de nuit…" : "Chargement des activités…"}
                                 </p>
                             )}
-                            {activeLayer === "activities" && !isTextSearch && !isLoadingActivities && searchError && (
+                            {isActivityLayer && !isTextSearch && !isLoadingActivities && searchError && (
                                 <div
                                     className="explorer-status explorer-status-error explorer-status-floating explorer-status-card"
                                     role="alert"
@@ -1429,9 +1488,15 @@ function App() {
                                     </button>
                                 </div>
                             )}
-                            {activeLayer === "activities" && !isTextSearch && !isLoadingActivities && !searchError && activities.length === 0 && (
+                            {isActivityLayer && !isTextSearch && !isLoadingActivities && !searchError && activities.length === 0 && (
                                 <div className="explorer-status explorer-status-floating explorer-status-card" role="status">
                                     {emptyResultsHelp}
+                                </div>
+                            )}
+                            {isActivityLayer && !isTextSearch && !isLoadingActivities && !searchError
+                                && hasOnlyPaidOrUnknown && (
+                                <div className="explorer-status explorer-status-floating explorer-status-card" role="status">
+                                    {freeEmptyHelp}
                                 </div>
                             )}
                             {/* Après lecture des préférences : une ville enregistrée évite l'invitation. */}
@@ -1481,7 +1546,7 @@ function App() {
                         <ActivityList
                             activities={panelActivities}
                             categories={categories}
-                            emptyActions={isTextSearch ? undefined : emptyResultsHelp}
+                            emptyActions={isTextSearch ? undefined : freeOnly && activities.length > 0 ? freeEmptyHelp : emptyResultsHelp}
                             emptyMessage={emptyMessage}
                             error={isTextSearch ? (textStatus?.status === "error" ? textStatus.message : null) : searchError}
                             // Recherche texte : « Réessayer » est dans le bandeau sous la barre.

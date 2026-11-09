@@ -52,7 +52,7 @@ export interface ManagedPlace {
 
 export type PlaceChangeStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
 
-/** Proposition de modification d'un lieu géré, examinée par LocalLife (`PlaceChangeResponse`). */
+/** Proposition de modification d'un lieu géré, examinée par Neiri (`PlaceChangeResponse`). */
 export interface PlaceChange {
   id: number;
   placeId: number;
@@ -125,7 +125,7 @@ export interface OwnedFoodTruck {
   contact: string | null;
   status: TruckStatus;
   suspendedByLocalLife: boolean;
-  /** Validé une fois par LocalLife : ensuite, « Publier » le publie directement (sinon il part en validation). */
+  /** Validé une fois par Neiri : ensuite, « Publier » le publie directement (sinon il part en validation). */
   approved: boolean;
   /** Motif d'un refus (`REJECTED`), `null` sinon. */
   reviewReason: string | null;
@@ -171,7 +171,7 @@ export interface ManagedPresence {
   placeId: number | null;
 }
 
-/** Présence saisie : un lieu LocalLife publié (`placeId`) ou une adresse (`newSpot`) ; aucun des deux = inchangé. */
+/** Présence saisie : un lieu Neiri publié (`placeId`) ou une adresse (`newSpot`) ; aucun des deux = inchangé. */
 export interface PresenceInput {
   placeId?: number;
   newSpot?: {

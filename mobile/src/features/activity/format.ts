@@ -3,6 +3,15 @@
  * React Native pour rester testable.
  */
 
+import type { PriceType } from '@/api/types';
+
+/** Libellé gratuit / payant ; `null` quand on ne sait pas (rien n'est affiché). */
+export function formatPriceType(priceType: PriceType | null | undefined): string | null {
+  if (priceType === 'FREE') return 'Gratuit';
+  if (priceType === 'PAID') return 'Payant';
+  return null;
+}
+
 function parse(iso: string | null | undefined): Date | null {
   if (!iso) return null;
   const date = new Date(iso);

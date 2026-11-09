@@ -4,7 +4,7 @@ import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, Sty
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, createAlert, listCategories, updatePreferences } from '@/api';
-import type { Category, UserPreferences } from '@/api';
+import type { Category, MapLayerValue, UserPreferences } from '@/api';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -12,6 +12,7 @@ import { BrandMark } from '@/components/brand-mark';
 import { Notice } from '@/components/notice';
 import { Brand, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/auth';
+import { useLaunchFeatures } from '@/features/launch';
 import { markOnboardingShown } from '@/features/news';
 import { alertError, preferencesError } from '@/features/onboarding';
 import {
@@ -21,6 +22,7 @@ import {
   DEFAULT_ALERT_RADIUS_KM,
   FOOD_TRUCKS_CHIP,
   RADIUS_OPTIONS_KM,
+  mapLayerOptions,
   toggleCode,
   useCityPicker,
 } from '@/features/settings';
@@ -53,6 +55,9 @@ export default function BienvenueScreen() {
   const cityPicker = useCityPicker(clearSaveError);
   const [radius, setRadius] = useState(String(DEFAULT_ALERT_RADIUS_KM));
   const [categoryCodes, setCategoryCodes] = useState<string[]>([]);
+  /** Carte à l'arrivée, facultative : `null` = dernière carte choisie sur l'appareil. */
+  const [mapLayer, setMapLayer] = useState<MapLayerValue | null>(null);
+  const mapLayerChoices = mapLayerOptions(useLaunchFeatures());
   const [saving, setSaving] = useState(false);
 
   // Étape 2
@@ -110,6 +115,7 @@ export default function BienvenueScreen() {
         defaultLongitude: cityPicker.position?.longitude ?? null,
         defaultRadiusKm: Number(radius),
         defaultCategoryCodes: categoryCodes,
+        defaultMapLayer: mapLayer,
       });
       setSaved(preferences);
       setAlertCodes(preferences.defaultCategoryCodes);
@@ -171,7 +177,7 @@ export default function BienvenueScreen() {
             Étape {step === 'preferences' ? 1 : 2} sur 2
           </ThemedText>
           <ThemedText type="subtitle" accessibilityRole="header" style={styles.headerTitle}>
-            {step === 'preferences' ? 'Bienvenue sur LocalLife 👋' : 'Créer une alerte ?'}
+            {step === 'preferences' ? 'Bienvenue sur Neiri 👋' : 'Créer une alerte ?'}
           </ThemedText>
         </View>
 
@@ -203,6 +209,19 @@ export default function BienvenueScreen() {
                     setSaveError(null);
                   }}
                 />
+                {mapLayerChoices.length > 1 && (
+                  <ChipGroup
+                    label="Carte à afficher quand vous vous connectez (facultatif)"
+                    single
+                    options={mapLayerChoices}
+                    selected={mapLayer ? [mapLayer] : []}
+                    onToggle={(value) => {
+                      // Nouvel appui sur la carte choisie : plus de carte imposée.
+                      setMapLayer((current) => (current === value ? null : (value as MapLayerValue)));
+                      setSaveError(null);
+                    }}
+                  />
+                )}
                 {saveError && (
                   <Notice tone="danger">{saveError}</Notice>
                 )}
@@ -278,7 +297,7 @@ export default function BienvenueScreen() {
                 )}
                 <View style={styles.guide}>
                   <ThemedText type="small" themeColor="textSecondary" style={styles.guideText}>
-                    Envie d’un tour complet de LocalLife ?
+                    Envie d’un tour complet de Neiri ?
                   </ThemedText>
                   <Button
                     label="Voir le guide de l’application"
@@ -308,7 +327,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.four,
     borderRadius: Radius.xl,
-    backgroundColor: Brand.green,
+    backgroundColor: Brand.navy,
   },
   progress: {
     flexDirection: 'row',
@@ -322,10 +341,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   progressDone: {
-    backgroundColor: Brand.coral,
+    backgroundColor: Brand.pink,
   },
   headerStep: {
-    color: '#C8D7D1',
+    color: '#C9CBE8',
     marginTop: Spacing.one,
   },
   headerTitle: {

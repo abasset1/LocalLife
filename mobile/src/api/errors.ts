@@ -1,5 +1,5 @@
 /**
- * Erreurs du client API LocalLife (LL-MOB-0003).
+ * Erreurs du client API Neiri (LL-MOB-0003).
  *
  * Toutes héritent de `ApiError` ; l'interface utilisateur peut donc soit
  * les traiter globalement (`instanceof ApiError`), soit distinguer :

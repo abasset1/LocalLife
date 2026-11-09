@@ -296,6 +296,20 @@ public class ActivityService {
     public List<Activity> findNearby(
             String latitudeRaw, String longitudeRaw, String radiusRaw, String category, String dateRaw,
             String dateToRaw) {
+        return findNearby(latitudeRaw, longitudeRaw, radiusRaw, category, dateRaw, dateToRaw, null);
+    }
+
+    /**
+     * {@link #findNearby(String, String, String, String, String, String)} avec le filtre {@code night}
+     * (carte « Night ») : {@code "true"} ne retient que les activités ayant lieu entre 20 h et 6 h, voir
+     * {@link ActivityRepository#findWithinRadius}.
+     *
+     * @throws IllegalArgumentException si {@code night} n'est ni {@code true} ni {@code false}, ou pour
+     *         les mêmes raisons que la méthode sans {@code night}.
+     */
+    public List<Activity> findNearby(
+            String latitudeRaw, String longitudeRaw, String radiusRaw, String category, String dateRaw,
+            String dateToRaw, String nightRaw) {
         double latitude = parseRequiredDouble("latitude", latitudeRaw);
         double longitude = parseRequiredDouble("longitude", longitudeRaw);
         double radiusKm = parseRequiredDouble("radius", radiusRaw);
@@ -311,8 +325,14 @@ public class ActivityService {
         LocalDate dateTo = parseOptionalDate("dateTo", dateToRaw);
         validateDateRange(date, dateTo);
 
+        boolean night = parseNight(nightRaw);
+
         double radiusMeters = radiusKm * 1000;
         String categoriesCsv = normalizeCategories(category);
+        if (night) {
+            return activityRepository.findWithinRadius(
+                    latitude, longitude, radiusMeters, PUBLIC_STATUS, categoriesCsv, date, dateTo, true);
+        }
         return activityRepository.findWithinRadius(
                 latitude, longitude, radiusMeters, PUBLIC_STATUS, categoriesCsv, date, dateTo);
     }
@@ -355,6 +375,17 @@ public class ActivityService {
     public List<Activity> findWithinBounds(
             String swLatitudeRaw, String swLongitudeRaw, String neLatitudeRaw, String neLongitudeRaw,
             String category, String dateRaw, String dateToRaw) {
+        return findWithinBounds(
+                swLatitudeRaw, swLongitudeRaw, neLatitudeRaw, neLongitudeRaw, category, dateRaw, dateToRaw, null);
+    }
+
+    /**
+     * {@link #findWithinBounds(String, String, String, String, String, String, String)} avec le filtre
+     * {@code night} (carte « Night »), même sémantique que sur {@link #findNearby}.
+     */
+    public List<Activity> findWithinBounds(
+            String swLatitudeRaw, String swLongitudeRaw, String neLatitudeRaw, String neLongitudeRaw,
+            String category, String dateRaw, String dateToRaw, String nightRaw) {
         double swLatitude = parseRequiredDouble("swLatitude", swLatitudeRaw);
         double swLongitude = parseRequiredDouble("swLongitude", swLongitudeRaw);
         double neLatitude = parseRequiredDouble("neLatitude", neLatitudeRaw);
@@ -378,9 +409,31 @@ public class ActivityService {
         LocalDate dateTo = parseOptionalDate("dateTo", dateToRaw);
         validateDateRange(date, dateTo);
 
+        boolean night = parseNight(nightRaw);
+
         String categoriesCsv = normalizeCategories(category);
+        if (night) {
+            return activityRepository.findWithinBounds(
+                    swLatitude, swLongitude, neLatitude, neLongitude, PUBLIC_STATUS, categoriesCsv, date, dateTo,
+                    true);
+        }
         return activityRepository.findWithinBounds(
                 swLatitude, swLongitude, neLatitude, neLongitude, PUBLIC_STATUS, categoriesCsv, date, dateTo);
+    }
+
+    /** Paramètre {@code night} : absent ou vide = {@code false} ; sinon {@code true} ou {@code false}. */
+    private static boolean parseNight(String nightRaw) {
+        if (nightRaw == null || nightRaw.isBlank()) {
+            return false;
+        }
+        String value = nightRaw.trim();
+        if (value.equalsIgnoreCase("true")) {
+            return true;
+        }
+        if (value.equalsIgnoreCase("false")) {
+            return false;
+        }
+        throw new IllegalArgumentException("Le paramètre 'night' doit valoir 'true' ou 'false'.");
     }
 
     /**

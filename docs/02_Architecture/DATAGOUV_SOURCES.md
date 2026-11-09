@@ -74,10 +74,14 @@ sources (slug OpenAgenda ≠ URI DATAtourisme) et la même heure de début
 § 1.3 (doublons entre sources, événements longs masqués par la fenêtre
 de 7 jours).
 
-Alternative plus riche si le CSV simplifié s'avère insuffisant : les
-flux personnalisés de l'API DATAtourisme (diffuseur.datatourisme.fr),
-qui demandent un compte et une clé — hors data.gouv, non retenu à ce
-stade.
+Le CSV simplifié ne porte que la description courte : ni description
+détaillée (programme d'un cinéma séance par séance, par exemple), ni
+tarifs, ni images, ni téléphone. Ces champs sont dans l'**API
+DATAtourisme** (`api.datatourisme.fr`, clé gratuite), branchée en
+complément du CSV depuis le 07/11/2026 : voir « Compléments de l'API
+DATAtourisme » au § 4. La plateforme Diffuseur (flux personnalisés,
+`diffuseur.datatourisme.fr`) ne crée plus de compte ni de flux depuis le
+01/10/2026 et ferme en octobre 2027 : l'API la remplace.
 
 ### 1.2 Événements nationaux ponctuels (annuels)
 
@@ -125,6 +129,53 @@ Conclusion : pas de source data.gouv exploitable pour les food trucks
 d'Avignon/Marseille — le module `foodtruck` reste alimenté
 manuellement (cohérent avec `FOOD_TRUCK_CONTRACT.md` : « aucun import
 externe prévu »).
+
+### 3.1 Autres pistes explorées (07/11/2026)
+
+* **Arrêtés municipaux d'Avignon** : la Ville publie ses actes sur
+  `www.avignon.fr` (rubrique « Publication des actes administratifs »,
+  arrêtés « en cours hors voirie » et arrêtés de voirie). Les 3 401
+  documents de 2025-2026 listés sur la page ont été téléchargés et leur
+  texte extrait : **aucune autorisation de stationnement de food truck**.
+  On n'y trouve que le règlement des marchés (arrêté de septembre 2026,
+  qui mentionne le commerce ambulant et les « camions magasin » sans lister
+  de camions), les mesures du Festival (vente ambulante), des AOT sans
+  rapport (aire de stationnement de la Région, cafétéria du Stade
+  Nautique) et des conventions de buvettes. 133 documents sont des scans
+  sans texte (titres : voirie, délégations, délibérations), non lus. Les
+  autorisations individuelles sont notifiées, pas publiées ; la Ville
+  passe par des avis de publicité ponctuels (soirées guinguettes,
+  vendredis de Montfavet).
+* **Communes voisines via Pappers Politique** (`politique.pappers.fr`) :
+  403 (protection anti-robots) depuis l'environnement cloud.
+* **OpenStreetMap (Overpass)** : connexion coupée par `overpass-api.de`
+  depuis l'environnement cloud.
+* **Arrêtés de Châteaurenard, Noves, Rognonas** : Châteaurenard publie
+  ses arrêtés municipaux (`chateaurenard.com`, 540 PDF en 2025-2026,
+  presque tous scannés mais aux noms explicites) : aucune autorisation de
+  food truck, seulement des « camions cuisine » ponctuels (Semaine bleue).
+  Noves ne publie en ligne que ses délibérations. Rognonas publie ses
+  actes sur un autre domaine (`rognonas.org`), non exploré.
+
+### 3.2 Source retenue : DATAtourisme, catégorie `StreetFood`
+
+Les offices de tourisme (via Apidae) déclarent des food trucks dans
+DATAtourisme comme `FoodEstablishment` de catégorie
+`https://www.datatourisme.fr/ontology/core#StreetFood`, avec nom,
+description, emplacement habituel (adresse et coordonnées) et parfois
+site web. Licence Ouverte. Fichier PACA (`datatourisme-reg-pac.csv`) du
+07/11/2026 : 103 lignes `StreetFood`, dont 18 à moins de 30 km d'Avignon,
+toutes dans les Bouches-du-Rhône (Châteaurenard, Noves, Graveson,
+Eyragues, Verquières, Saint-Andiol, Saint-Rémy, Plan-d'Orgon,
+Maussane…). Aucune dans le Vaucluse : les food trucks d'Avignon même n'y
+sont pas déclarés.
+
+Extrait : `docs/data/foodtrucks_datatourisme_avignon.csv` (une ligne par
+food truck, `cuisine_type` proposé selon `FoodTruckCuisine`, jours connus
+quand la description les donne). Limites : pas d'horaires ni de
+tournée dans le CSV (au mieux un jour dans la description), fiches
+parfois anciennes (`maj_source` de 2023 pour certaines), deux fiches sans
+mention explicite de camion (`food_truck_explicite = à confirmer`).
 
 ## 4. Collecteur DATAtourisme (implémenté)
 
@@ -176,6 +227,54 @@ Même architecture que `OpenAgendaCollector` / `OpenAgendaCollectorFactory` :
 * Tests : `DataTourismeCollectorTest`, sur un extrait réel du fichier
   (`src/test/resources/datatourisme/datatourisme-extrait.csv`) et des
   fichiers invalides construits dans le test.
+
+### Compléments de l'API DATAtourisme (07/11/2026)
+
+Demande d'Alex : le cinéma l'Eden à Noves apparaissait en deux fiches
+vides (« Programme Cinéma, semaine du … »), alors que la programmation,
+le tarif et l'affiche sont publiés par l'office de tourisme (et repris
+par provence-alpes-cotedazur.com). Ils sont dans DATAtourisme, mais pas
+dans le CSV.
+
+* `DataTourismeApiEnricher` (`collector/infrastructure`) : après la
+  lecture du CSV, demande à l'API **les seules fiches des événements
+  retenus**, par leur URI : `GET /v1/catalog?filters=uri[in]=…`, par lots
+  de 50 (adresse d'environ 4 Ko). Le nombre de requêtes suit le nombre
+  d'événements importés, quel que soit le fichier (régional, ou national
+  filtré par une sélection) et que la source ait ou non un filtre de
+  départements. Jointure par URI : le champ `uri` de l'API est l'URI du
+  CSV, déjà `externalId` ; l'identité des activités ne change pas.
+  (Première version, 07/11/2026 : lecture par départements, sautée quand
+  la source n'en avait pas — le cas des trois sources de production, dont
+  le `region_filter` est vide. Remplacée le jour même.)
+* Complète : description détaillée (+ horaires en clair, « Horaires :
+  … ») dans `longDescription` ; tarifs en clair (texte de la source,
+  sinon « De 10 à 35 € », « Gratuit. » tirés des montants) dans
+  `conditions` ; images si le CSV n'en a pas ; site et téléphone ajoutés
+  aux liens ; description courte de l'API si le CSV n'en a pas.
+* **Au mieux** : sans clé (`DATATOURISME_API_KEY`, journalisé « API
+  DATAtourisme non configurée »), au-delà de 400 requêtes pour une source
+  (20 000 événements, garde-fou du quota de 1 000 requêtes par heure), ou
+  si l'API échoue (3 essais sur 429/5xx, aucun sur 401/403), l'import
+  garde le seul CSV et journalise un avertissement. Une pause de 200 ms
+  sépare deux requêtes.
+* Indicateur **gratuit / payant** : `PriceIndicator` (`activity/domain`)
+  le déduit de `conditions` à la lecture (`priceType` = `FREE`, `PAID`,
+  `UNKNOWN` dans les réponses liste, carte et fiche). Il vaut aussi pour
+  les tarifs OpenAgenda et ceux des contributeurs. Pas de colonne : il
+  suit toute modification des tarifs.
+* Mesure du 07/11/2026, fichier PACA, six départements : 2 353
+  événements retenus, 2 321 trouvés dans l'API ; 2 118 avec description
+  détaillée, 2 087 avec tarifs, 2 113 avec image ; indicateur : 701
+  gratuits, 1 351 payants, 301 inconnus (266 sans tarif, 23 « Tarifs non
+  communiqués »).
+* Quotas documentés de l'API (19/10/2026) : 1 000 requêtes/heure,
+  ~10/seconde, 20 à 30 en parallèle ; pages de 100 au plus. Une pause de
+  200 ms sépare les pages. Les adresses e-mail des contacts ne sont plus
+  fournies par l'API depuis le 24/06/2026.
+* Tests : `DataTourismeApiEnricherTest` (fiches réelles de l'API :
+  l'Eden de Noves, un marché en accès libre, une visite à 5 €),
+  `PriceIndicatorTest`.
 
 ### Sélection d'événements (`source.event_selection`, V77)
 

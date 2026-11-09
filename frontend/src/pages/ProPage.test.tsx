@@ -93,7 +93,7 @@ describe("ProPage", () => {
         await user.type(screen.getByLabelText("Ton lien avec le lieu"), "Je suis le directeur");
         await user.click(screen.getByRole("button", { name: "Envoyer la demande" }));
 
-        expect(await screen.findByText("Demande envoyée : LocalLife l'examinera.")).toBeInTheDocument();
+        expect(await screen.findByText("Demande envoyée : Neiri l'examinera.")).toBeInTheDocument();
         expect(calls.find((call) => call.url === "/api/v1/pro/places/42/claims")?.body)
             .toEqual({ relationship: "Je suis le directeur", evidence: "" });
     });

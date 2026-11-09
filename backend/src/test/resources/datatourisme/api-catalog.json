@@ -1,0 +1,145 @@
+{
+ "objects": [
+  {
+   "offers": [
+    {
+     "textPriceSpecification": {
+      "@fr": "Plein tarif : 5€ / Tarif adhérent : 3€."
+     }
+    }
+   ],
+   "isLocatedAt": [
+    {
+     "textOpeningHoursSpecification": {
+      "@fr": "Du 09/11 au 15/11/2026 le lundi, mardi, mercredi et les week-ends."
+     }
+    }
+   ],
+   "hasDescription": [
+    {
+     "description": {
+      "@fr": "Lundi 09 Novembre 14h00: Carmen, l'oiseau rebelle\r\nMardi 10 Novembre 20h30:  Le Corset\r\nMercredi 11 Novembre 18h00: Notre Salut \r\nSamedi 14 Novembre 18h00: Mochy \r\nSamedi 14 Novembre 20h30 : Digger\r\nDimanche 15 Novembre 18h00: La maison de nos rêves"
+     },
+     "shortDescription": {
+      "@fr": "Programme Cinéma, semaine du 09 au 15 Novembre"
+     }
+    }
+   ],
+   "label": {
+    "@fr": "Programme Cinéma de L'Eden"
+   },
+   "uri": "https://data.datatourisme.fr/58/db7a083f-4199-3a42-9a27-612139cecc06",
+   "uuid": "1464322b-5083-379d-9998-c3541f775003",
+   "hasRepresentation": [
+    {
+     "hasAnnotation": [
+      {
+       "credits": [
+        "Le Cinoche"
+       ],
+       "title": {
+        "@fr": "Programme Cinéma de L'Eden_Noves"
+       }
+      }
+     ],
+     "hasRelatedResource": [
+      {
+       "hasMimeType": [
+        {
+         "label": {
+          "@fr": "image/jpeg"
+         }
+        }
+       ],
+       "fileSize": [
+        326451
+       ],
+       "width": 2000,
+       "locator": [
+        "https://static.apidae-tourisme.com/filestore/objets-touristiques/images/215/176/43495639.jpg"
+       ],
+       "height": 1414
+      }
+     ]
+    }
+   ],
+   "hasContact": [
+    {
+     "telephone": [
+      "+33 4 90 24 43 00"
+     ],
+     "homepage": [
+      "https://noves.fr/cinema-leden/"
+     ]
+    }
+   ]
+  },
+  {
+   "offers": [
+    {
+     "textPriceSpecification": {
+      "@fr": "Accès libre."
+     }
+    }
+   ],
+   "hasDescription": [
+    {
+     "description": {
+      "@fr": "PROGRAMME (sous réserve de modifications) :\r\n\r\nVendredi 6 novembre : Inauguration et nocturne\r\n9h - Ouverture du village italien\r\n18h30 - Inauguration du village italien\r\n20h - Soirée exceptionnelle avec Luca \"CIPO\", sosie officiel vocal et physique du grand ZUCCHERO\r\n\r\nSamedi 7 novembre : Défilé Ve"
+     },
+     "shortDescription": {
+      "@fr": "Du 6 au 11 novembre 2026, retrouvez la 17ᵉ édition du marché Portofino e’ Cassis sur la Place Baragnon.\r\n\r\nLe rendez-vous incontournable de l’art de vivre à l’italienne !"
+     }
+    }
+   ],
+   "label": {
+    "@fr": "Marché italien - Portofino è Cassis"
+   },
+   "uri": "https://data.datatourisme.fr/58/6c27bcaa-8334-3291-945f-d5a5355b04b7",
+   "uuid": "0029e893-d6f5-3c2e-ba68-a755181ad10c"
+  },
+  {
+   "offers": [
+    {
+     "priceSpecification": [
+      {
+       "priceCurrency": "EUR",
+       "minPrice": [
+        5
+       ],
+       "maxPrice": [
+        5
+       ],
+       "appliesOnPeriod": [
+        {
+         "endDate": "2026-12-31",
+         "startDate": "2026-01-01"
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "hasDescription": [
+    {
+     "shortDescription": {
+      "@fr": "La visite de Fayence, c'est une dose de patrimoine et de grand air ! Venez vibrer au rythme de Fayence, le village perché qui ne manque pas de caractère. Ici, on remonte le temps et surtout, on en prend plein les yeux !"
+     }
+    }
+   ],
+   "label": {
+    "@fr": "Visite commentée de Fayence"
+   },
+   "uri": "https://data.datatourisme.fr/13/34276d7d-c42b-3a47-ae71-2eac2af8250d",
+   "uuid": "06a1c5ba-2afa-3a46-b6d8-a04d930276d7"
+  }
+ ],
+ "meta": {
+  "total": 3,
+  "page": 1,
+  "page_size": 100,
+  "total_pages": 1,
+  "next": null,
+  "previous": null
+ }
+}

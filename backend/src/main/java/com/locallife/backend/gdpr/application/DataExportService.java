@@ -33,7 +33,8 @@ public class DataExportService {
         document.put("linkedAccounts", list(
                 "SELECT provider, created_at FROM user_identities WHERE user_id = ?", userId));
         document.put("preferences", one("""
-                SELECT default_city, default_latitude, default_longitude, default_radius_km, updated_at
+                SELECT default_city, default_latitude, default_longitude, default_radius_km, default_map_layer,
+                       updated_at
                 FROM user_preferences WHERE user_id = ?""", userId));
         document.put("preferredCategories", jdbcTemplate.queryForList(
                 "SELECT category_code FROM user_preference_category WHERE user_id = ? ORDER BY category_code",

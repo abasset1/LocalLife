@@ -57,7 +57,7 @@ public class FoodTruckPresenceRepository {
         this.jdbc = jdbc;
     }
 
-    /** Présences actives le jour donné ; limitées à un lieu LocalLife si {@code placeId} est fourni. */
+    /** Présences actives le jour donné ; limitées à un lieu Neiri si {@code placeId} est fourni. */
     public List<FoodTruckPresence> findActiveOn(LocalDate day, Long placeId) {
         String placeFilter = placeId == null ? "" : "AND (l.id = :placeId OR l.place_id = :placeId) ";
         return jdbc.query(SELECT + "WHERE " + ACTIVE_ON + placeFilter
@@ -146,7 +146,7 @@ public class FoodTruckPresenceRepository {
                 new MapSqlParameterSource("id", foodTruckId), OffsetDateTime.class).stream().findFirst();
     }
 
-    /** Lieu LocalLife publié, utilisable comme emplacement existant. */
+    /** Lieu Neiri publié, utilisable comme emplacement existant. */
     public boolean isPublishedPlace(Long locationId) {
         return Boolean.TRUE.equals(jdbc.queryForObject(
                 "SELECT EXISTS (SELECT 1 FROM location WHERE id = :id AND place_status = 'PUBLISHED')",

@@ -2,6 +2,10 @@ import { clearSessionLocal, readCsrfToken } from "../auth/authStorage";
 
 const CSRF_HEADER = "X-XSRF-TOKEN";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
+/** En-tête posé par le serveur sur un refus CSRF (`SecurityConfig.CSRF_REJECTED_HEADER`). */
+const CSRF_REJECTED_HEADER = "X-CSRF-Rejected";
+/** Lecture authentifiée légère, qui pose le cookie `XSRF-TOKEN` s'il manque. */
+const CSRF_PRIME_URL = "/api/v1/users/me";
 
 /**
  * Wrapper autour de fetch pour les appels authentifiés (correctif sécurité du 06/11/2026).
@@ -9,7 +13,9 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
  * - envoie le cookie de session `HttpOnly` automatiquement (`credentials: "include"`) : plus de jeton manipulé en
  *   JavaScript, donc rien à voler via une XSS ;
  * - ajoute l'en-tête anti-CSRF `X-XSRF-TOKEN` (recopié du cookie `XSRF-TOKEN`) sur les écritures
- *   (`POST/PUT/PATCH/DELETE`) — le serveur exige ce double justificatif pour toute écriture par cookie ;
+ *   (`POST/PUT/PATCH/DELETE`) — le serveur exige ce double justificatif pour toute écriture par cookie. Cookie
+ *   absent : il est d'abord redemandé (`GET /users/me`) ; jeton refusé (403 avec `X-CSRF-Rejected`) : un nouveau
+ *   jeton est obtenu et l'écriture rejouée une fois (sinon un administrateur lisait « rôle insuffisant », 07/11/2026) ;
  * - en cas de 401 (session absente, expirée, ou invalidée après un changement de mot de passe), efface le cache
  *   de session et redirige vers /login.
  *
@@ -19,16 +25,20 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
  * jeton vient du cookie — voir `JwtFilter`).
  */
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
-    const headers = new Headers(init.headers);
     const method = (init.method ?? "GET").toUpperCase();
-    if (!SAFE_METHODS.has(method)) {
-        const csrfToken = readCsrfToken();
-        if (csrfToken) {
-            headers.set(CSRF_HEADER, csrfToken);
-        }
+    const isWrite = !SAFE_METHODS.has(method);
+    if (isWrite && !readCsrfToken()) {
+        // Cookie anti-CSRF absent (jamais reçu, ou effacé alors que la session est restée) : sans lui, le serveur
+        // refuse toute écriture par cookie. Une lecture authentifiée le fait poser.
+        await primeCsrfToken();
     }
 
-    const response = await fetch(input, { ...init, headers, credentials: "include" });
+    let response = await send(input, init, isWrite);
+    if (isWrite && response.status === 403 && response.headers.get(CSRF_REJECTED_HEADER) === "true") {
+        // Jeton refusé (absent ou périmé) : on en obtient un nouveau et on rejoue l'écriture une seule fois.
+        await primeCsrfToken();
+        response = await send(input, init, isWrite);
+    }
 
     if (response.status === 401) {
         clearSessionLocal();
@@ -38,6 +48,26 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
     }
 
     return response;
+}
+
+async function send(input: string, init: RequestInit, isWrite: boolean): Promise<Response> {
+    const headers = new Headers(init.headers);
+    if (isWrite) {
+        const csrfToken = readCsrfToken();
+        if (csrfToken) {
+            headers.set(CSRF_HEADER, csrfToken);
+        }
+    }
+    return fetch(input, { ...init, headers, credentials: "include" });
+}
+
+/** Fait poser le cookie `XSRF-TOKEN` par le serveur (toute réponse authentifiée le pose s'il manque). */
+async function primeCsrfToken(): Promise<void> {
+    try {
+        await fetch(CSRF_PRIME_URL, { credentials: "include" });
+    } catch {
+        // Réseau indisponible : l'écriture qui suit échouera d'elle-même, avec son propre message.
+    }
 }
 
 /**
