@@ -2,6 +2,9 @@
 
 ## 0.9.59 — non publiée
 
+### « The OutGoat » sous Neiri en mode Night
+- **Site et application** : quand la carte « 🍸 Night » est affichée, le logo (bouc néon + « NEiRI ») porte en dessous le nom du bouc, « The OutGoat », en magenta néon avec un halo. Menu du site, menu ☰, compte et accueil de l'application. Rien ne change hors du mode Night.
+
 ### Plus de signature « Your world, closer. »
 - **Site** : retirée du menu latéral (sous le logo), du titre de l'onglet (« Neiri »), de la description et du titre de partage (`index.html`). Styles associés supprimés.
 - **Application** : elle n'était affichée nulle part ; retirée du commentaire de la charte (`constants/theme.ts`).
