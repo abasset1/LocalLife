@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Plus de signature « Your world, closer. »
+- **Site** : retirée du menu latéral (sous le logo), du titre de l'onglet (« Neiri »), de la description et du titre de partage (`index.html`). Styles associés supprimés.
+- **Application** : elle n'était affichée nulle part ; retirée du commentaire de la charte (`constants/theme.ts`).
+- **Charte** (`docs/brand/README.md`) : plus de signature. La planche d'identité (image) la montre encore, comme document d'origine.
+
 ### Application : filtres de la carte en pictogrammes
 - Les filtres sous la recherche ne montrent plus que leur pictogramme : période (calendrier), catégories (étiquette), rayon (cible), « Gratuit » (cadeau). Un filtre posé reste rempli ; les lecteurs d'écran annoncent toujours sa valeur.
 - Le bouton « Réinitialiser » de cette rangée est retiré. Quand aucun résultat ne correspond, le message propose toujours « Modifier les filtres » et « Réinitialiser ».

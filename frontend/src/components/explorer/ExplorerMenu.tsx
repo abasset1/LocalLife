@@ -52,9 +52,6 @@ function ExplorerMenu({
             >
                 <div className="explorer-menu-brand">
                     <BrandLogo night={night} tone="light" />
-                    <span className="explorer-menu-tagline">
-                        Your world, <span className="neiri-tagline-accent">closer.</span>
-                    </span>
                 </div>
 
                 <div className="explorer-menu-section">
