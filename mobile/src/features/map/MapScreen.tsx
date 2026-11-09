@@ -18,6 +18,7 @@ import {
   applyPreferences,
   clearCategories,
   setPlace,
+  setFreeOnly,
   setRadius,
   useExplorer,
   type ExplorerPlace,
@@ -151,7 +152,7 @@ export default function MapScreen() {
   useEffect(() => {
     applyPreferences(preferences);
   }, [preferences]);
-  const { place, categoryCodes, radiusKm: activeRadiusKm } = useExplorer();
+  const { place, categoryCodes, radiusKm: activeRadiusKm, freeOnly } = useExplorer();
 
   // Centre courant, lu sans relancer le cadrage à chaque déplacement de la carte.
   const regionRef = useRef(region);
@@ -290,7 +291,6 @@ export default function MapScreen() {
     showNight,
   );
   // Filtre « Gratuit » : appliqué ici sur `priceType`, la carte recevant toutes les activités de la zone.
-  const [freeOnly, setFreeOnly] = useState(false);
   const activities = useMemo(() => keepFreeActivities(loadedActivities, freeOnly), [loadedActivities, freeOnly]);
   // Activité demandée par « Voir sur la carte » : son aperçu s'ouvre dès qu'elle est chargée.
   useEffect(() => {
@@ -371,9 +371,18 @@ export default function MapScreen() {
   );
 
   /** Activités de la zone affichée : avec les lieux et food trucks visibles, le nombre du bouton « Voir la liste ». */
+  // Même règle que le site et la Liste : avec un rayon, tout le rayon (le nombre ne dépend pas du zoom) ;
+  // sans rayon, les activités visibles sur la carte.
   const zoneActivityCount = useMemo(
-    () => (bounds && showActivities ? activities.filter((a) => pointInBounds(bounds, a.latitude, a.longitude)).length : 0),
-    [activities, bounds, showActivities],
+    () =>
+      !showActivities
+        ? 0
+        : radiusSearch
+          ? activities.length
+          : bounds
+            ? activities.filter((a) => pointInBounds(bounds, a.latitude, a.longitude)).length
+            : 0,
+    [activities, bounds, showActivities, radiusSearch],
   );
   const resultCount = zoneActivityCount + visiblePlaces.length + visibleFoodTrucks.length;
   const highlighted = selection?.kind === 'activity' && showActivities ? selection.activity : null;

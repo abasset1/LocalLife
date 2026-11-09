@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Même nombre de résultats sur le site et l'application (mêmes filtres, même rayon)
+- **Avec un rayon choisi, on compte tout le rayon**, sur le site comme dans l'application, quel que soit le zoom ou la taille de l'écran. Avant, le site (et le bouton « Voir la liste » de la carte de l'application) ne comptait que la partie du rayon visible sur la carte, alors que la Liste de l'application comptait tout le cercle. Le site indique maintenant « 37 activités dans un rayon de 20 km ». Sans rayon, on compte toujours la zone visible de la carte.
+- **« Gratuit » vaut aussi pour la Liste de l'application** : le filtre est partagé entre la carte et la Liste (bouton « Gratuit » ajouté à la Liste), comme sur le site. Avant, la Liste l'ignorait.
+- **« Ce week-end » le dimanche** : le site prenait le week-end suivant, l'application le jour même. Les deux prennent maintenant le jour même.
+
 ### « The OutGoat » sous Neiri en mode Night
 - **Site et application** : quand la carte « 🍸 Night » est affichée, le logo (bouc néon + « NEiRI ») porte en dessous le nom du bouc, « The OutGoat », en magenta néon avec un halo. Menu du site, menu ☰, compte et accueil de l'application. Rien ne change hors du mode Night.
 

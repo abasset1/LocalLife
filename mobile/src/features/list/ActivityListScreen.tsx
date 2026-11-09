@@ -12,7 +12,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { CategoryPanel, categoriesButtonLabel } from '@/features/explorer/CategoryPanel';
 import { CitySearch } from '@/features/explorer/CitySearch';
-import { applyPreferences, clearCategories, setPlace, setRadius, useExplorer } from '@/features/explorer/explorerStore';
+import { applyPreferences, clearCategories, setFreeOnly, setPlace, setRadius, useExplorer } from '@/features/explorer/explorerStore';
+import { keepFreeActivities } from '@/features/map/priceFilter';
 import { useSearchPreferences } from '@/features/map/useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from '@/features/map/useUserLocation';
 import { MenuButton } from '@/features/navigation/AppMenu';
@@ -58,7 +59,7 @@ export default function ActivityListScreen() {
   }, [preferences]);
   const location = useUserLocation();
 
-  const { place, categoryCodes, radiusKm: chosenRadiusKm } = useExplorer();
+  const { place, categoryCodes, radiusKm: chosenRadiusKm, freeOnly } = useExplorer();
   const [period, setPeriod] = usePeriod();
   const [query, setQuery] = useState('');
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
@@ -78,9 +79,13 @@ export default function ActivityListScreen() {
       : null,
   );
 
+  // « Gratuit » choisi sur la carte (état partagé) : appliqué ici aussi, comme sur le site.
   const activities = useMemo(
-    () => (state.status === 'success' ? state.activities.filter((a) => matchesQuery(a, query)) : []),
-    [state, query],
+    () =>
+      state.status === 'success'
+        ? keepFreeActivities(state.activities, freeOnly).filter((a) => matchesQuery(a, query))
+        : [],
+    [state, query, freeOnly],
   );
 
   const foodTruckList = useFoodTruckList(contents.foodTrucks && place !== null);
@@ -236,6 +241,16 @@ export default function ActivityListScreen() {
               />
             </View>
           )}
+          {contents.activities && (
+            <View style={styles.tool}>
+              <Button
+                label="Gratuit"
+                variant={freeOnly ? 'primary' : 'secondary'}
+                icon={{ ios: 'eurosign.circle', android: 'money_off', web: 'money_off' }}
+                onPress={() => setFreeOnly(!freeOnly)}
+              />
+            </View>
+          )}
           <View style={styles.tool}>
             <Button
               label="Autour de moi"
@@ -265,6 +280,7 @@ export default function ActivityListScreen() {
           {contents.activities && categoryCodes.length > 0
             ? ` · ${categoryCodes.length} catégorie${categoryCodes.length > 1 ? 's' : ''}`
             : ''}
+          {contents.activities && freeOnly ? ' · gratuites' : ''}
         </ThemedText>
       )}
     </View>
