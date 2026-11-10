@@ -148,7 +148,8 @@ function Summary({
   openLabel,
 }: {
   photo: string | null;
-  eyebrow: string;
+  /** Pastille au-dessus du titre ; absente si `null` (activité importée sans libellé de catégorie). */
+  eyebrow: string | null;
   title: string;
   when: string | null;
   where: string | null;
@@ -167,14 +168,16 @@ function Summary({
         <RemoteImage
           url={photo}
           style={[styles.thumb, { backgroundColor: theme.sand }]}
-          fallback={<ThemedText style={styles.thumbFallback}>{eyebrow.slice(0, 2)}</ThemedText>}
+          fallback={<ThemedText style={styles.thumbFallback}>{(eyebrow || title).slice(0, 2)}</ThemedText>}
         />
         <View style={styles.summaryText}>
-          <View style={[styles.pill, { backgroundColor: theme.sand }]}>
-            <ThemedText type="small" numberOfLines={1} style={[styles.pillText, { color: theme.primary }]}>
-              {eyebrow}
-            </ThemedText>
-          </View>
+          {eyebrow ? (
+            <View style={[styles.pill, { backgroundColor: theme.sand }]}>
+              <ThemedText type="small" numberOfLines={1} style={[styles.pillText, { color: theme.primary }]}>
+                {eyebrow}
+              </ThemedText>
+            </View>
+          ) : null}
           <ThemedText type="heading" numberOfLines={2}>
             {title}
           </ThemedText>

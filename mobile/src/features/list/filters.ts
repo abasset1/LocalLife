@@ -77,7 +77,7 @@ export function normalize(text: string): string {
 
 /** Garde les activités dont le titre, la catégorie, la commune ou la description contiennent chaque mot saisi. */
 export function matchesQuery(
-  activity: { title: string; category: string; city: string | null; description: string | null },
+  activity: { title: string; category: string | null; city: string | null; description: string | null },
   query: string,
 ): boolean {
   const words = normalize(query).split(/\s+/).filter(Boolean);

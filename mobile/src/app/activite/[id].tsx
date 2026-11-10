@@ -25,6 +25,9 @@ import { ContributorActions, STATUS_LABELS } from '@/features/contribution';
 import { LikeButton } from '@/features/favorites';
 import { FollowBell } from '@/features/follow';
 
+/** Fiche qui ne peut pas s'afficher (donnée inattendue) : message et « Réessayer », la carte reste utilisable. */
+export { ScreenError as ErrorBoundary } from '@/components/screen-error';
+
 /**
  * Détail d'une activité (LL-MOB-0008), atteint depuis l'aperçu d'un marqueur
  * de la carte. Les informations affichées viennent de `GET /activities/{id}` ;
@@ -136,11 +139,13 @@ export default function ActiviteDetailScreen() {
                 <View style={styles.like}>
                   <LikeButton activityId={activity.id} title={activity.title} floating />
                 </View>
-                <View style={[styles.badge, { backgroundColor: theme.backgroundElement }]}>
-                  <ThemedText type="eyebrow" themeColor="primary">
-                    {activity.category}
-                  </ThemedText>
-                </View>
+                {activity.category ? (
+                  <View style={[styles.badge, { backgroundColor: theme.backgroundElement }]}>
+                    <ThemedText type="eyebrow" themeColor="primary">
+                      {activity.category}
+                    </ThemedText>
+                  </View>
+                ) : null}
                 {date ? (
                   <ThemedText type="eyebrow" style={styles.heroDate}>
                     {date}
