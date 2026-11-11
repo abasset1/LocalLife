@@ -19,7 +19,9 @@ import java.io.SequenceInputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -155,9 +157,11 @@ class DataTourismeCollectorTest {
     void collect_ShouldKeepLongPeriods() throws IOException {
         List<CollectedActivity> result = collect("");
 
-        assertEquals(List.of(new CollectedTiming(
-                LocalDateTime.of(2026, 1, 1, 0, 0), LocalDateTime.of(2026, 12, 31, 23, 59))),
-                byTitle(result, "Grand marché").timings());
+        // « Grand marché provençal du jeudi matin », publié toute l'année 2026 : les 53 jeudis.
+        List<CollectedTiming> market = byTitle(result, "Grand marché").timings();
+        assertEquals(53, market.size());
+        assertTrue(market.stream().allMatch(timing -> timing.begin().getDayOfWeek() == DayOfWeek.THURSDAY
+                && timing.begin().toLocalDate().equals(timing.end().toLocalDate())));
         CollectedActivity exhibition = byTitle(result, "Exposition \"Luc MAUREL");
         assertEquals(List.of(new CollectedTiming(
                 LocalDateTime.of(2026, 9, 4, 0, 0), LocalDateTime.of(2026, 10, 31, 23, 59))), exhibition.timings());
@@ -177,6 +181,54 @@ class DataTourismeCollectorTest {
                 LocalDateTime.of(2026, 11, 27, 0, 0), LocalDateTime.of(2027, 1, 2, 23, 59))),
                 result.get(0).timings());
         assertEquals(2, result.get(1).timings().size());
+    }
+
+    /** Jours annoncés par le titre : une occurrence par jour, sur une période de plus de 7 jours seulement. */
+    @Test
+    void collect_ShouldSplitLongPeriod_IntoDaysNamedInTitle() {
+        String market = EVENT_ROW.replace("Concert,", "Marché du mardi et du samedi,")
+                .replace("2026-11-01<->2026-11-01", "2026-11-01<->2026-11-30");
+        String shortPeriod = EVENT_ROW.replace("Concert,", "Marché de Noël du samedi,")
+                .replace("2026-11-01<->2026-11-01", "2026-11-27<->2026-11-29").replace("13/concert", "13/court");
+
+        List<CollectedActivity> result = collectBody(HEADER + market + shortPeriod, null);
+
+        List<LocalDate> days = result.get(0).timings().stream().map(timing -> timing.begin().toLocalDate()).toList();
+        assertEquals(List.of(LocalDate.of(2026, 11, 3), LocalDate.of(2026, 11, 7), LocalDate.of(2026, 11, 10),
+                LocalDate.of(2026, 11, 14), LocalDate.of(2026, 11, 17), LocalDate.of(2026, 11, 21),
+                LocalDate.of(2026, 11, 24), LocalDate.of(2026, 11, 28)), days);
+        assertEquals(LocalDateTime.of(2026, 11, 3, 23, 59), result.get(0).timings().get(0).end());
+        assertEquals(List.of(new CollectedTiming(
+                LocalDateTime.of(2026, 11, 27, 0, 0), LocalDateTime.of(2026, 11, 29, 23, 59))),
+                result.get(1).timings());
+    }
+
+    /** Description lue pour un marché, pas pour une exposition (« fermé le lundi »). */
+    @Test
+    void collect_ShouldReadDaysInDescription_OnlyForMarketsAndSales() {
+        String market = EVENT_ROW.replace("core#Concert", "core#Market").replace("Concert,", "Marché de Cavaillon,")
+                .replace("Un concert", "Tous les lundis matin le marché investit le centre-ville.")
+                .replace("2026-11-01<->2026-11-01", "2026-11-01<->2026-11-30");
+        String exhibition = EVENT_ROW.replace("core#Concert", "core#Exhibition").replace("Concert,", "Exposition,")
+                .replace("Un concert", "Ouvert tous les jours et le mardi en nocturne.")
+                .replace("2026-11-01<->2026-11-01", "2026-11-01<->2026-11-30").replace("13/concert", "13/expo");
+
+        List<CollectedActivity> result = collectBody(HEADER + market + exhibition, null);
+
+        assertEquals(5, result.get(0).timings().size());
+        assertTrue(result.get(0).timings().stream()
+                .allMatch(timing -> timing.begin().getDayOfWeek() == DayOfWeek.MONDAY));
+        assertEquals(1, result.get(1).timings().size());
+    }
+
+    /** Une fois découpé, un événement dont le dernier jour annoncé est passé est écarté. */
+    @Test
+    void collect_ShouldRejectSplitEvent_WhenAllAnnouncedDaysArePast() {
+        // Période du 1er au 13/10/2026 (aujourd'hui un mardi) : le dernier dimanche est le 11.
+        String sunday = EVENT_ROW.replace("Concert,", "Marché du dimanche,")
+                .replace("2026-11-01<->2026-11-01", "2026-10-01<->2026-10-13");
+
+        assertTrue(collectBody(HEADER + sunday, null).isEmpty());
     }
 
     /** Seul critère de date : un événement dont toutes les périodes sont terminées avant aujourd'hui est écarté. */
