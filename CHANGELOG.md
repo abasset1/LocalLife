@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### Site : plus de case « Revient chaque semaine » dans le formulaire d'ajout d'activité
+- Une nouvelle proposition est ponctuelle (dates de début et de fin). Une contribution déjà hebdomadaire garde ses jours et horaires en modification.
+
+### Site : la ville est demandée avant d'afficher les activités (visiteur sans compte)
+- **Fenêtre centrée « Où veux-tu sortir ? »** : un visiteur sans compte ni session saisit sa ville (communes proposées dès 2 lettres) puis « Valider ». La fenêtre ne se ferme pas sans ville ; elle disparaît une fois la ville choisie. « Autour de moi » reste proposé, et « Se connecter » pour un compte.
+- **Aucune activité chargée avant** : la recherche part de la ville choisie. Un lien de carte partagé (`?lat=…&lng=…&zoom=…`) ou une position déjà autorisée suffit et évite la fenêtre.
+- **Valeurs par défaut** : rayon de 20 km (au lieu de la zone visible) et activités du mois en cours. Un rayon enregistré dans les préférences prime toujours ; les filtres restent modifiables.
 ### DATAtourisme : marchés affichés seulement leurs jours
 - Un événement publié sur plus de 7 jours dont le **titre** annonce les jours (« Marché du jeudi », « Samedi : marché hebdomadaire », « Marché dominical ») devient une occurrence par jour annoncé, au lieu d'être affiché tous les jours de la période.
 - Pour un **marché ou une vente** (marché, brocante, vide-greniers) dont le titre ne dit rien, la description est lue (« tous les lundis matin », « le mardi matin sur la place »). Pas pour les autres types : « fermé le lundi » d'une exposition ne doit pas devenir un jour d'ouverture. « sauf le … », « fermé le … » et « mardi gras » sont ignorés.

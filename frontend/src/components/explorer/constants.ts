@@ -8,8 +8,8 @@ import type { LatLngExpression } from "leaflet";
 export const DEFAULT_MAP_CENTER: LatLngExpression = [43.65, 5.2];
 export const DEFAULT_MAP_ZOOM = 8;
 
-/** Rayon de recherche (LL-4001, km, max 50) tant que la carte n'a pas été déplacée/zoomée. */
-export const DEFAULT_SEARCH_RADIUS_KM = 50;
+/** Rayon de recherche par défaut (LL-4001, km, max 50) : actif dès l'ouverture, sauf rayon enregistré. */
+export const DEFAULT_SEARCH_RADIUS_KM = 20;
 
 /** Valeur du filtre date représentant « pas de filtre explicite ». */
 export const NO_DATE_FILTER = "";

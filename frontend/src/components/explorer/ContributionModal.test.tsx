@@ -24,6 +24,19 @@ function renderModal(props: Partial<ComponentProps<typeof ContributionModal>> = 
 }
 
 describe("ContributionModal", () => {
+    it("ne propose plus de rendre une nouvelle activité hebdomadaire", () => {
+        renderModal();
+        expect(screen.queryByLabelText(/Revient chaque semaine/)).not.toBeInTheDocument();
+        expect(screen.queryByText("Jours de passage (au moins un)")).not.toBeInTheDocument();
+        expect(screen.getByLabelText("Date de début")).toBeInTheDocument();
+    });
+
+    it("garde les jours et horaires d'une contribution déjà récurrente en modification", () => {
+        renderModal({ mode: "edit", recurrence: { enabled: true, days: ["MONDAY"], startTime: "11:30", endTime: "" } });
+        expect(screen.getByText("Jours de passage (au moins un)")).toBeInTheDocument();
+        expect(screen.getByLabelText("Heure d'arrivée")).toHaveValue("11:30");
+    });
+
     it("n'affiche « Proposé par un de mes lieux » qu'avec des lieux publiés gérés", () => {
         renderModal({ onHostPlaceIdChange: vi.fn() });
         expect(screen.queryByLabelText(/Proposé par un de mes lieux/)).not.toBeInTheDocument();

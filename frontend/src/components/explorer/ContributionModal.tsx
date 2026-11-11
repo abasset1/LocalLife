@@ -219,21 +219,10 @@ function ContributionModal({
                             value={address}
                         />
                     </div>
-                    <label className="explorer-category-option explorer-recurrence-toggle">
-                        <input
-                            checked={recurrence.enabled}
-                            onChange={(event) => {
-                                onRecurrenceChange({ ...recurrence, enabled: event.target.checked });
-                                // La date de fin d'une activité ponctuelle (souvent le même jour) bornerait la
-                                // récurrence à une seule journée : elle est vidée en passant en récurrent.
-                                if (event.target.checked) {
-                                    onEndDateChange("");
-                                }
-                            }}
-                            type="checkbox"
-                        />
-                        Revient chaque semaine (food truck, marché…)
-                    </label>
+                    {/*
+                      Plus de case « Revient chaque semaine » : une nouvelle proposition est ponctuelle. Les jours et
+                      horaires restent affichés pour modifier une contribution déjà récurrente.
+                    */}
                     {recurrence.enabled && (
                         <>
                             <fieldset className="explorer-form-field explorer-form-categories">
