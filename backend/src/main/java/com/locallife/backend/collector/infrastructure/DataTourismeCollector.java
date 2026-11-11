@@ -12,6 +12,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -85,6 +86,10 @@ import org.springframework.web.client.RestClientException;
  *       Noël de cinq semaines, marché publié toute l'année…) ; seul un événement dont toutes les périodes
  *       sont terminées avant aujourd'hui est écarté. Une période dont la fin précède le début est à cheval
  *       sur deux années, publiée sans changer d'année : sa fin est reportée à l'année suivante ;</li>
+ *   <li><b>jours de la semaine</b> : une période de plus de {@value #MAX_CONTINUOUS_DAYS} jours dont le
+ *       titre (ou, pour un marché ou une vente, la description) annonce les jours (« Marché du jeudi »,
+ *       « tous les samedis matin ») devient une occurrence par jour annoncé, voir {@link MarketDays} ;
+ *       sans jour annoncé, elle reste continue ;</li>
  *   <li><b>adresse générique</b> (« Divers lieux », « Centre ville »,
  *       « Dans le village »…) : reprise comme {@code name} du lieu, sans
  *       {@code address}. Les coordonnées de la source sont conservées
@@ -121,6 +126,9 @@ public class DataTourismeCollector implements Collector {
     static final List<String> REQUIRED_COLUMNS = List.of(
             "Nom_du_POI", "Categories_de_POI", "Latitude", "Longitude", "Adresse_postale",
             "Code_postal_et_commune", "Periodes_regroupees", "Contacts_du_POI", "Description", "URI_ID_du_POI");
+
+    /** Au-delà, une période dont les jours de la semaine sont annoncés est découpée (voir {@link #timings}). */
+    static final int MAX_CONTINUOUS_DAYS = 7;
 
     /** Part maximale de lignes dont le nombre de champs diffère de l'en-tête. */
     private static final double MAX_MALFORMED_RATIO = 0.01;
@@ -378,7 +386,9 @@ public class DataTourismeCollector implements Collector {
         if (occurrences.isEmpty()) {
             return reject(rejected, "sans période lisible");
         }
-        if (occurrences.stream().allMatch(period -> period.end().isBefore(today))) {
+        List<CollectedTiming> timings = timings(
+                occurrences, MarketDays.find(row.get("Nom_du_POI"), row.get("Description"), types));
+        if (timings.stream().allMatch(timing -> timing.end().toLocalDate().isBefore(today))) {
             return reject(rejected, "passé");
         }
         String city = postalCodeAndCity.length > 1 ? emptyToNull(postalCodeAndCity[1]) : null;
@@ -416,7 +426,7 @@ public class DataTourismeCollector implements Collector {
                 null,
                 null,
                 location,
-                occurrences.stream().map(Period::toTiming).toList(),
+                timings,
                 null,
                 List.of(),
                 links,
@@ -596,6 +606,26 @@ public class DataTourismeCollector implements Collector {
             return latitude >= minLatitude && latitude <= maxLatitude
                     && longitude >= minLongitude && longitude <= maxLongitude;
         }
+    }
+
+    /**
+     * Horaires d'un événement : une période de plus de {@value #MAX_CONTINUOUS_DAYS} jours devient un jour par
+     * jour de la semaine annoncé ({@link MarketDays}) ; sans jour annoncé, ou plus courte, elle reste continue.
+     */
+    private static List<CollectedTiming> timings(List<Period> periods, Set<DayOfWeek> days) {
+        List<CollectedTiming> timings = new ArrayList<>();
+        for (Period period : periods) {
+            if (days.isEmpty() || period.end().isBefore(period.begin().plusDays(MAX_CONTINUOUS_DAYS))) {
+                timings.add(period.toTiming());
+                continue;
+            }
+            for (LocalDate day = period.begin(); !day.isAfter(period.end()); day = day.plusDays(1)) {
+                if (days.contains(day.getDayOfWeek())) {
+                    timings.add(new Period(day, day).toTiming());
+                }
+            }
+        }
+        return timings;
     }
 
     /** Période de la source, bornes incluses. */
