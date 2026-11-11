@@ -18,8 +18,8 @@ import org.springframework.stereotype.Service;
  *       {@value #PAID_MAX_ALERTS} alertes, contributions
  *       illimitées.</li>
  * </ul>
- * Suivre une activité ou un lieu (cloche « Suivre », être prévenu de ses mises à jour) et personnaliser ses alertes
- * par mots-clés : Premium, Pro et administrateur.
+ * Suivre une activité, un lieu ou un food truck (cloche « Suivre », être prévenu de ses mises à jour) et personnaliser
+ * ses alertes par mots-clés : Premium, Pro et administrateur.
  * Une limite bloque seulement l'ajout : un compte déjà au-delà (offre terminée, limite apparue après coup) garde tout.
  * Exceptions, réservées aux offres payantes et coupées à la fin de l'offre : les notifications de suivi et l'envoi des
  * alertes à mots-clés.
@@ -86,16 +86,16 @@ public class PlanLimits {
         }
     }
 
-    /** Suivre une activité ou un lieu : réservé aux offres Premium et Pro. */
+    /** Suivre une activité, un lieu ou un food truck : réservé aux offres Premium et Pro. */
     public boolean canFollow(Long userId) {
         return tier(userId) != Tier.FREE;
     }
 
-    /** Avant de suivre une activité ou un lieu. */
+    /** Avant de suivre une activité, un lieu ou un food truck. */
     public void checkCanFollow(Long userId) {
         if (!canFollow(userId)) {
-            throw new PlanLimitException("Suivre une activité ou un lieu pour être prévenu de ses mises à jour est "
-                    + "réservé aux offres Premium et Pro.");
+            throw new PlanLimitException("Suivre une activité, un lieu ou un food truck pour être prévenu de ses mises "
+                    + "à jour est réservé aux offres Premium et Pro.");
         }
     }
 

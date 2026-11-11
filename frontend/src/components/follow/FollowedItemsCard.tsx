@@ -9,15 +9,21 @@ const STATUS_LABELS: Record<string, string> = {
     DELETED: "retirée",
 };
 
+const TYPE_LABELS: Record<FollowedItem["type"], { icon: string; label: string }> = {
+    activity: { icon: "📅", label: "Activité" },
+    place: { icon: "🏛", label: "Lieu" },
+    foodtruck: { icon: "🚚", label: "Food truck" },
+};
+
 function statusLabel(item: FollowedItem): string | null {
-    if (item.type === "place") {
+    if (item.type !== "activity") {
         return item.status && item.status !== "PUBLISHED" ? "retiré de la carte" : null;
     }
     return item.status ? STATUS_LABELS[item.status] ?? null : null;
 }
 
 /**
- * « Activités et lieux suivis » (Mon profil) : ce que l'utilisateur suit avec la cloche, et « Ne plus suivre ». Le
+ * « Mes suivis » (Mon profil) : activités, lieux et food trucks ce que l'utilisateur suit avec la cloche, et « Ne plus suivre ». Le
  * suivi est réservé aux offres Premium et Pro ; un compte revenu au gratuit garde sa liste mais n'est plus prévenu.
  */
 function FollowedItemsCard({ canFollow }: { canFollow: boolean }) {
@@ -39,20 +45,20 @@ function FollowedItemsCard({ canFollow }: { canFollow: boolean }) {
     return (
         <ProfileCard
             icon="🔔"
-            subtitle="Tu es prévenu de leurs mises à jour : dates, lieu, annulation, nouvelles activités d'un lieu."
-            title="Activités et lieux suivis"
+            subtitle="Tu es prévenu de leurs mises à jour : dates, lieu, annulation, nouvelles activités d'un lieu, et le jour où un food truck suivi est quelque part."
+            title="Mes suivis"
             titleId="profile-follows-title"
         >
             {!canFollow && (
                 <Notice kind="info">
-                    Suivre une activité ou un lieu est réservé aux offres Premium et Pro.
+                    Suivre une activité, un lieu ou un food truck est réservé aux offres Premium et Pro.
                     {follows && follows.length > 0 && " Tes suivis restent listés, mais tu n'es plus prévenu."}
                 </Notice>
             )}
             {follows === null && <p className="pp-hint">Chargement…</p>}
             {follows !== null && follows.length === 0 && canFollow && (
                 <p className="pp-hint">
-                    Rien pour l'instant : touche 🔔 « Suivre » sur la fiche d'une activité ou d'un lieu.
+                    Rien pour l'instant : touche 🔔 « Suivre » sur la fiche d'une activité, d'un lieu ou d'un food truck.
                 </p>
             )}
             {follows !== null && follows.length > 0 && (
@@ -62,11 +68,11 @@ function FollowedItemsCard({ canFollow }: { canFollow: boolean }) {
                         const status = statusLabel(item);
                         return (
                             <li className="follow-list-item" key={key}>
-                                <span aria-hidden="true">{item.type === "activity" ? "📅" : "🏛"}</span>
+                                <span aria-hidden="true">{TYPE_LABELS[item.type].icon}</span>
                                 <span className="follow-list-text">
                                     <strong>{item.title ?? "Sans titre"}</strong>
                                     <small>
-                                        {item.type === "activity" ? "Activité" : "Lieu"}
+                                        {TYPE_LABELS[item.type].label}
                                         {item.city ? ` · ${item.city}` : ""}
                                         {status ? ` · ${status}` : ""}
                                     </small>

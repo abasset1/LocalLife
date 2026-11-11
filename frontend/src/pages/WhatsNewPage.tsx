@@ -120,7 +120,7 @@ function WhatsNewPage() {
                         {STEPS.map((step) => <li key={step}>{step}</li>)}
                     </ol>
                     <p className="news-hint">
-                        Tu retrouves tout ce que tu suis dans « Mon profil » → « Activités et lieux suivis », et tu
+                        Tu retrouves tout ce que tu suis dans « Mon profil » → « Mes suivis », et tu
                         arrêtes un suivi en un clic.
                     </p>
                 </section>

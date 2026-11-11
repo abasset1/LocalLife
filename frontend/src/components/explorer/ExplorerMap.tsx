@@ -6,6 +6,7 @@ import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { Circle, MapContainer, Marker, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
+import { BASEMAP_ATTRIBUTION, BASEMAP_MAX_ZOOM, BASEMAP_URL } from "./basemap";
 import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, MAP_BOUNDS_DEBOUNCE_MS } from "./constants";
 import { APPROXIMATE_LOCATION_LABEL, isApproximateLocation } from "./activityUtils";
 import { hasCoordinates } from "./globalSearch";
@@ -457,8 +458,9 @@ function ExplorerMap({
             zoomSnap={0.25}
         >
             <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution={BASEMAP_ATTRIBUTION}
+                maxZoom={BASEMAP_MAX_ZOOM}
+                url={BASEMAP_URL}
             />
             <MapBoundsWatcher onBoundsChange={onBoundsChange} />
             <MapUrlViewSync />

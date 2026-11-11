@@ -59,6 +59,22 @@ function renderBell() {
 }
 
 describe("FollowBell — suivre une activité ou un lieu", () => {
+    it("suit un food truck, listé comme tel dans le profil", async () => {
+        const user = userEvent.setup();
+        render(
+            <MemoryRouter>
+                <FollowBell id={8} title="Chez Marco" type="foodtruck" />
+                <FollowedItemsCard canFollow />
+            </MemoryRouter>,
+        );
+
+        await user.click(await screen.findByRole("button", { name: "Suivre ce food truck" }));
+        expect(requests).toContainEqual({ url: "/api/v1/foodtrucks/8/follow", method: "POST" });
+        expect(screen.getByRole("button", { name: "Ne plus suivre ce food truck" })).toHaveAttribute("aria-pressed", "true");
+        expect(screen.getByText("Chez Marco")).toBeInTheDocument();
+        expect(screen.getByText("Food truck")).toBeInTheDocument();
+    });
+
     it("suit puis ne suit plus, et la liste du profil suit le mouvement", async () => {
         const user = userEvent.setup();
         renderBell();

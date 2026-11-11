@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { AuthProvider } from '@/auth';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { ScreenError } from '@/components/screen-error';
 import { Colors } from '@/constants/theme';
 import { useThemeName, type ThemeName } from '@/hooks/use-theme';
 import { FavoritesProvider } from '@/features/favorites';
@@ -13,6 +14,9 @@ import { OnboardingGate } from '@/features/onboarding';
 import { useNotificationRouting } from '@/notifications';
 
 SplashScreen.preventAutoHideAsync();
+
+/** Une erreur d'affichage montre un message avec « Réessayer » au lieu de fermer l'application. */
+export const ErrorBoundary = ScreenError;
 
 /** Thèmes de navigation aux couleurs de Neiri (fond clair, bleu nuit, rose ; violet et néon pour « Night »). */
 function navigationTheme(themeName: ThemeName) {
@@ -87,7 +91,7 @@ export default function RootLayout() {
             <Stack.Screen name="parametres" options={{ title: 'Paramètres de recherche' }} />
             <Stack.Screen name="alertes" options={{ title: 'Mes alertes' }} />
             <Stack.Screen name="favoris" options={{ title: 'Mes favoris' }} />
-            <Stack.Screen name="suivis" options={{ title: 'Activités et lieux suivis' }} />
+            <Stack.Screen name="suivis" options={{ title: 'Mes suivis' }} />
             <Stack.Screen name="mot-de-passe-oublie" options={{ title: 'Mot de passe oublié' }} />
             <Stack.Screen name="contributions/index" options={{ title: 'Mes contributions' }} />
             <Stack.Screen name="contributions/[id]" options={{ title: "Modifier l'activité" }} />

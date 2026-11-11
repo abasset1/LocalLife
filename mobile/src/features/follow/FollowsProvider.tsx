@@ -40,8 +40,8 @@ function messageFor(error: unknown): string {
 }
 
 /**
- * Activités et lieux suivis par l'utilisateur connecté (`GET /users/me/follows`), partagés par la fiche d'une
- * activité, l'aperçu d'un lieu et l'écran « Activités et lieux suivis ». Vidés à la déconnexion.
+ * Activités, lieux et food trucks suivis par l'utilisateur connecté (`GET /users/me/follows`), partagés par la fiche
+ * d'une activité ou d'un food truck, l'aperçu d'un lieu et l'écran « Mes suivis ». Vidés à la déconnexion.
  */
 export function FollowsProvider({ children }: { children: ReactNode }) {
   const { state } = useAuth();

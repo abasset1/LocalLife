@@ -68,7 +68,7 @@ class FollowNotifierTest {
         assertThat(FollowNotifier.pushData(single)).isEqualTo(Map.of("type", "follow-update", "activityId", 42L));
 
         List<FollowUpdate> several = List.of(activity("Concert", List.of("DATES")), place("Musée", List.of("Expo")));
-        assertThat(FollowNotifier.title(several)).isEqualTo("Du nouveau sur 2 activités et lieux suivis");
+        assertThat(FollowNotifier.title(several)).isEqualTo("Du nouveau sur 2 de tes suivis");
         assertThat(FollowNotifier.pushData(several)).isEqualTo(Map.of("type", "follow-update"));
     }
 
@@ -107,5 +107,37 @@ class FollowNotifierTest {
 
         verify(followRepository).markAllNotified(eq(7L), any());
         verify(followRepository, never()).findPendingUpdates(anyLong(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    private static FollowUpdate foodTruck(List<String> kinds, List<String> presentToday) {
+        return new FollowUpdate(3L, FollowTargetType.FOOD_TRUCK, 8L, "Chez Marco", kinds, List.of(), 0,
+                new ArrayList<>(presentToday));
+    }
+
+    @Test
+    void aFoodTruckPresentToday_ShouldSayWhereToFindIt_AndOpenItsPage() {
+        List<FollowUpdate> single = List.of(foodTruck(List.of(), List.of("Place du marché, 11:30–14:00")));
+        assertThat(FollowNotifier.title(single)).isEqualTo("Chez Marco est là aujourd'hui");
+        assertThat(FollowNotifier.pushBody(single)).isEqualTo("Aujourd'hui : Place du marché, 11:30–14:00");
+        assertThat(FollowNotifier.pushData(single)).isEqualTo(Map.of("type", "follow-update", "foodTruckId", 8L));
+
+        FollowUpdate changed = foodTruck(List.of("PLANNING"), List.of("Gare", "Port"));
+        assertThat(FollowNotifier.title(List.of(changed))).isEqualTo("Du nouveau : Chez Marco");
+        assertThat(FollowNotifier.describe(changed)).isEqualTo("planning mis à jour, aujourd'hui : Gare · Port");
+        assertThat(FollowNotifier.pushData(List.of(foodTruck(List.of("CLOSED"), List.of()))))
+                .isEqualTo(Map.of("type", "follow-update"));
+    }
+
+    @Test
+    void send_ShouldRememberThatTodaysPresenceWasAnnounced() {
+        when(followRepository.findPendingUpdates(7L, FollowNotifier.MAX_NEW_ACTIVITIES_PER_PLACE))
+                .thenReturn(List.of(foodTruck(List.of(), List.of("Gare"))));
+        when(pushTokenRepository.findTokensByUserId(7L)).thenReturn(List.of());
+
+        assertThat(notifier.sendAll()).isEqualTo(1);
+
+        verify(emailService).sendActivityAlertEmail(eq("a@b.c"), eq("Neiri : Chez Marco est là aujourd'hui"),
+                org.mockito.ArgumentMatchers.contains("Food truck « Chez Marco » : aujourd'hui : Gare"));
+        verify(followRepository).markPresenceNotified(3L);
     }
 }

@@ -2,6 +2,24 @@
 
 ## 0.9.59 — non publiée
 
+### Site : fond de carte Plan IGN au lieu d'OpenStreetMap
+- **Pourquoi** : la carte du site chargeait ses tuiles sur les serveurs d'OpenStreetMap (`tile.openstreetmap.org`). Ils sont financés par des dons pour les contributeurs d'OpenStreetMap, et leur politique d'usage exclut un service public à fort trafic : risque de carte bloquée à la mise en public.
+- **Maintenant** : Plan IGN de la Géoplateforme (service public de l'IGN). Gratuit, sans clé, Licence Ouverte, zooms jusqu'à 19, couverture France. Mention « © IGN – Plan IGN » sur la carte.
+- **Thème Night** : nouveau filtre pour garder un fond violet nuit uni avec les couleurs du Plan IGN.
+- **Textes légaux** : mentions légales et politique de confidentialité mises à jour (fond de carte IGN sur le site, Google Maps ou Apple Plans dans l'application). L'application n'est pas concernée : ses builds utilisent déjà la carte native.
+
+### Application : plus de plantage sur une activité sans catégorie
+- **Cause** : certaines activités importées (DATAtourisme, OpenAgenda…) n'ont pas de libellé de catégorie (`category` nul, seuls les codes de catégorie sont renseignés). L'aperçu de la carte en prenait les deux premières lettres et l'application se fermait au toucher du marqueur (ex. « Repas festif choucroute » à Aureille ; 96 activités sur 839 autour d'Arles et Marseille sur la beta). Le site n'était pas touché.
+- **Correction** : la pastille de catégorie est simplement masquée quand le libellé manque (aperçu de la carte, fiche).
+- **Filet de sécurité** : une erreur d'affichage montre désormais « Oups, un problème d'affichage » avec « Réessayer » au lieu de fermer l'application.
+
+### Suivre un food truck (Premium et Pro)
+- **Cloche 🔔 « Suivre »** sur la fiche d'un food truck, sur le site et dans l'application, comme pour une activité ou un lieu. Réservée aux offres Premium et Pro.
+- **Prévenu le jour où il est quelque part** : le matin (premier envoi à 8 h 20, puis toutes les heures jusqu'à 21 h) où un food truck suivi a un emplacement, une notification (ou un e-mail sans l'application) dit où le trouver : « Chez Marco est là aujourd'hui · Place du marché, 11:30–14:00 ». Une fois par jour au plus. Un emplacement permanent (tous les jours, sans dates) n'est pas annoncé chaque matin.
+- **Mises à jour** : planning modifié (emplacement ajouté, changé ou retiré), profil (nom, description, cuisine), contact ou réseaux, food truck retiré de la carte. Regroupées avec les autres suivis dans un seul message. Toucher la notification ouvre la fiche du food truck.
+- **« Mes suivis »** remplace « Activités et lieux suivis » (profil du site, compte et menu de l'application) et liste aussi les food trucks 🚚.
+- **Backend** : `POST`/`DELETE /api/v1/foodtrucks/{id}/follow`, type `foodtruck` dans `GET /api/v1/users/me/follows`, migration V91 (colonne `follow.food_truck_id`, triggers sur `food_truck` et `food_truck_presence`), export RGPD.
+
 ### Même nombre de résultats sur le site et l'application (mêmes filtres, même rayon)
 - **Avec un rayon choisi, on compte tout le rayon**, sur le site comme dans l'application, quel que soit le zoom ou la taille de l'écran. Avant, le site (et le bouton « Voir la liste » de la carte de l'application) ne comptait que la partie du rayon visible sur la carte, alors que la Liste de l'application comptait tout le cercle. Le site indique maintenant « 37 activités dans un rayon de 20 km ». Sans rayon, on compte toujours la zone visible de la carte.
 - **« Gratuit » vaut aussi pour la Liste de l'application** : le filtre est partagé entre la carte et la Liste (bouton « Gratuit » ajouté à la Liste), comme sur le site. Avant, la Liste l'ignorait.

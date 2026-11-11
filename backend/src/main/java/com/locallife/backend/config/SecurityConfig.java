@@ -209,6 +209,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/activities/*/follow").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/places/*/follow").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/places/*/follow").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/foodtrucks/*/follow").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/foodtrucks/*/follow").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me/follows").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me/preferences").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me/alerts").authenticated()

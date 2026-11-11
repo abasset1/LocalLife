@@ -1,15 +1,15 @@
 import { request } from './http';
 import type { CallOptions } from './activities';
 
-export type FollowTargetType = 'activity' | 'place';
+export type FollowTargetType = 'activity' | 'place' | 'foodtruck';
 
-/** Activité ou lieu suivi (`GET /users/me/follows`), du plus récent au plus ancien. */
+/** Activité, lieu ou food truck suivi (`GET /users/me/follows`), du plus récent au plus ancien. */
 export interface FollowedItem {
   type: FollowTargetType;
   id: number;
   title: string | null;
   city: string | null;
-  /** Statut de l'activité (`PUBLISHED`, `CANCELLED`…) ou du lieu (`PUBLISHED`, `ARCHIVED`…). */
+  /** Statut de l'activité (`PUBLISHED`, `CANCELLED`…), du lieu ou du food truck (`PUBLISHED`, `ARCHIVED`…). */
   status: string | null;
   followedAt: string;
 }
@@ -20,17 +20,18 @@ export interface FollowStatus {
 }
 
 function followPath(type: FollowTargetType, id: number): string {
-  return `/api/v1/${type === 'activity' ? 'activities' : 'places'}/${id}/follow`;
+  const collection = { activity: 'activities', place: 'places', foodtruck: 'foodtrucks' }[type];
+  return `/api/v1/${collection}/${id}/follow`;
 }
 
-/** `GET /users/me/follows` — activités et lieux suivis par l'utilisateur connecté (JWT requis). */
+/** `GET /users/me/follows` — activités, lieux et food trucks suivis par l'utilisateur connecté (JWT requis). */
 export function listFollows(options: CallOptions = {}): Promise<FollowedItem[]> {
   return request<FollowedItem[]>('/api/v1/users/me/follows', { authenticated: true, signal: options.signal });
 }
 
 /**
- * `POST /activities/{id}/follow` ou `/places/{id}/follow` — être prévenu des mises à jour (idempotent). 403 pour un
- * compte gratuit (réservé à Premium et Pro), 404 si la cible n'est pas visible.
+ * `POST /activities/{id}/follow`, `/places/{id}/follow` ou `/foodtrucks/{id}/follow` — être prévenu des mises à jour
+ * (idempotent). 403 pour un compte gratuit (réservé à Premium et Pro), 404 si la cible n'est pas visible.
  */
 export function follow(type: FollowTargetType, id: number, options: CallOptions = {}): Promise<FollowStatus> {
   return request<FollowStatus>(followPath(type, id), { method: 'POST', authenticated: true, signal: options.signal });

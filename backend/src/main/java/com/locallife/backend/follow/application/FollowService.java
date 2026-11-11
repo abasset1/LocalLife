@@ -8,9 +8,10 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
- * Suivre une activité ou un lieu (cloche « Suivre ») pour être prévenu de ses mises à jour : réservé aux offres
- * Premium et Pro ({@link PlanLimits#checkCanFollow}). Seules une activité visible du public (publiée ou annulée) et un
- * lieu permanent publié se suivent. Ne plus suivre reste toujours possible, quelle que soit l'offre.
+ * Suivre une activité, un lieu ou un food truck (cloche « Suivre ») pour être prévenu de ses mises à jour : réservé aux
+ * offres Premium et Pro ({@link PlanLimits#checkCanFollow}). Seuls une activité visible du public (publiée ou annulée),
+ * un lieu permanent publié et un food truck publié se suivent. Ne plus suivre reste toujours possible, quelle que soit
+ * l'offre.
  */
 @Service
 public class FollowService {
@@ -30,9 +31,11 @@ public class FollowService {
      * @throws com.locallife.backend.subscription.application.PlanLimitException compte gratuit
      */
     public boolean follow(Long userId, FollowTargetType type, Long targetId) {
-        boolean followable = type == FollowTargetType.ACTIVITY
-                ? followRepository.isFollowableActivity(targetId)
-                : followRepository.isFollowablePlace(targetId);
+        boolean followable = switch (type) {
+            case ACTIVITY -> followRepository.isFollowableActivity(targetId);
+            case PLACE -> followRepository.isFollowablePlace(targetId);
+            case FOOD_TRUCK -> followRepository.isFollowableFoodTruck(targetId);
+        };
         if (!followable) {
             return false;
         }
