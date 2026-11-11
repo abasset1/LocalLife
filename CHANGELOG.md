@@ -2,6 +2,9 @@
 
 ## 0.9.59 — non publiée
 
+### Site : plus de case « Revient chaque semaine » dans le formulaire d'ajout d'activité
+- Une nouvelle proposition est ponctuelle (dates de début et de fin). Une contribution déjà hebdomadaire garde ses jours et horaires en modification.
+
 ### Site : la ville est demandée avant d'afficher les activités (visiteur sans compte)
 - **Fenêtre centrée « Où veux-tu sortir ? »** : un visiteur sans compte ni session saisit sa ville (communes proposées dès 2 lettres) puis « Valider ». La fenêtre ne se ferme pas sans ville ; elle disparaît une fois la ville choisie. « Autour de moi » reste proposé, et « Se connecter » pour un compte.
 - **Aucune activité chargée avant** : la recherche part de la ville choisie. Un lien de carte partagé (`?lat=…&lng=…&zoom=…`) ou une position déjà autorisée suffit et évite la fenêtre.
