@@ -343,104 +343,181 @@ function ProFoodTrucksSection({ readOnly = false }: {
             {message && <p className="activities-status" role="status">{message}</p>}
 
             {editing ? (
-                <form className="contribution-form" onSubmit={(event) => void saveProfile(event)}>
-                    <h3>{editing === "new" ? "Créer un food truck" : `Modifier « ${editing.name} »`}</h3>
-                    <div className="form-field">
-                        <label htmlFor="truck-name">Nom commercial</label>
-                        <input id="truck-name" maxLength={255} required type="text" value={profile.name}
-                            onChange={(event) => setProfile({ ...profile, name: event.target.value })} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="truck-cuisine-type">Type de cuisine</label>
-                        <select id="truck-cuisine-type" required value={profile.cuisineType}
-                            onChange={(event) => setProfile({ ...profile, cuisineType: event.target.value })}>
-                            <option disabled value="">Choisir…</option>
-                            {CUISINE_TYPES.map((cuisine) => (
-                                <option key={cuisine.code} value={cuisine.code}>{cuisine.emoji} {cuisine.label}</option>
-                            ))}
-                        </select>
-                        <small>Les visiteurs filtrent la carte et la liste des food trucks sur ce type.</small>
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="truck-category">Spécialité</label>
-                        <input id="truck-category" maxLength={255} placeholder="Tacos maison, crêpes bretonnes…" required
-                            type="text" value={profile.category}
-                            onChange={(event) => setProfile({ ...profile, category: event.target.value })} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="truck-description">Description</label>
-                        <textarea id="truck-description" maxLength={2000} rows={5} value={profile.description}
-                            placeholder="Ton histoire, ta carte, tes produits, tes formules…"
-                            onChange={(event) => setProfile({ ...profile, description: event.target.value })} />
-                        <small>{profile.description.length} / 2000</small>
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="truck-photo">Photo</label>
-                        {currentPhoto && <img alt="Photo du food truck" className="food-truck-photo-preview" src={currentPhoto} />}
-                        <input accept="image/jpeg,image/png,image/webp" id="truck-photo" type="file"
-                            onChange={(event) => void choosePhoto(event.target.files?.[0])} />
-                        {currentPhoto && (
-                            <button className="contribution-action" onClick={() => setPhotoChange({ kind: "remove" })} type="button">
-                                Retirer la photo
+                <div className="pro-form-layout">
+                    <form className="pro-form" onSubmit={(event) => void saveProfile(event)}>
+                        <header className="pro-form-header">
+                            <span aria-hidden="true" className="pro-form-header-icon">🚚</span>
+                            <div>
+                                <h3>{editing === "new" ? "Créer un food truck" : `Modifier « ${editing.name} »`}</h3>
+                                <p>Ta fiche apparaît sur la carte et dans la liste des food trucks.</p>
+                            </div>
+                        </header>
+
+                        <section className="pro-form-section">
+                            <h4 className="pro-form-section-title">Identité</h4>
+                            <div className="pro-form-grid">
+                                <div className="form-field pro-field-wide">
+                                    <label htmlFor="truck-name">Nom commercial</label>
+                                    <input id="truck-name" maxLength={255} placeholder="Le Camion Gourmand" required type="text"
+                                        value={profile.name}
+                                        onChange={(event) => setProfile({ ...profile, name: event.target.value })} />
+                                </div>
+                                <div className="form-field">
+                                    <label htmlFor="truck-cuisine-type">Type de cuisine</label>
+                                    <select id="truck-cuisine-type" required value={profile.cuisineType}
+                                        onChange={(event) => setProfile({ ...profile, cuisineType: event.target.value })}>
+                                        <option disabled value="">Choisir…</option>
+                                        {CUISINE_TYPES.map((cuisine) => (
+                                            <option key={cuisine.code} value={cuisine.code}>{cuisine.emoji} {cuisine.label}</option>
+                                        ))}
+                                    </select>
+                                    <small className="pro-hint">Les visiteurs filtrent la carte sur ce type.</small>
+                                </div>
+                                <div className="form-field">
+                                    <label htmlFor="truck-category">Spécialité</label>
+                                    <input id="truck-category" maxLength={255} placeholder="Tacos maison, crêpes bretonnes…" required
+                                        type="text" value={profile.category}
+                                        onChange={(event) => setProfile({ ...profile, category: event.target.value })} />
+                                </div>
+                                <div className="form-field pro-field-wide">
+                                    <label htmlFor="truck-description">Description</label>
+                                    <textarea id="truck-description" maxLength={2000} rows={5} value={profile.description}
+                                        placeholder="Ton histoire, ta carte, tes produits, tes formules…"
+                                        onChange={(event) => setProfile({ ...profile, description: event.target.value })} />
+                                    <small className="pro-hint pro-counter">{profile.description.length} / 2000</small>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="pro-form-section">
+                            <h4 className="pro-form-section-title">Apparence</h4>
+                            <div className="form-field">
+                                <span className="pro-field-label">Photo</span>
+                                <div className="pro-photo">
+                                    <div className="pro-photo-frame">
+                                        {currentPhoto
+                                            ? <img alt="Photo du food truck" src={currentPhoto} />
+                                            : <span aria-hidden="true">📷</span>}
+                                    </div>
+                                    <div className="pro-photo-actions">
+                                        <input accept="image/jpeg,image/png,image/webp" className="pro-visually-hidden" id="truck-photo"
+                                            type="file" onChange={(event) => void choosePhoto(event.target.files?.[0])} />
+                                        <label className="pro-button pro-button-ghost" htmlFor="truck-photo">
+                                            {currentPhoto ? "Changer la photo" : "Choisir une photo"}
+                                        </label>
+                                        {currentPhoto && (
+                                            <button className="pro-button pro-button-text-danger" type="button"
+                                                onClick={() => setPhotoChange({ kind: "remove" })}>
+                                                Retirer la photo
+                                            </button>
+                                        )}
+                                        <small className="pro-hint">JPEG, PNG ou WebP. Format paysage conseillé.</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <fieldset className="pro-marker-panel">
+                                <legend className="pro-field-label">Pastille sur la carte</legend>
+                                <p className="food-truck-marker-current">
+                                    <span aria-hidden="true" className="food-truck-marker-preview" style={{ backgroundColor: marker.color }}>
+                                        {marker.emoji}
+                                    </span>
+                                    <span>
+                                        Aperçu
+                                        {!profile.markerEmoji && <small className="pro-hint"> · emoji du type de cuisine par défaut</small>}
+                                    </span>
+                                </p>
+                                <span className="pro-hint">Emoji</span>
+                                <div aria-label="Emoji de la pastille" className="food-truck-marker-picker" role="group">
+                                    <button aria-label="Emoji par défaut" aria-pressed={profile.markerEmoji === ""} type="button"
+                                        onClick={() => setProfile({ ...profile, markerEmoji: "" })}>
+                                        ∅
+                                    </button>
+                                    {MARKER_EMOJIS.map((emoji) => (
+                                        <button aria-label={`Emoji ${emoji}`} aria-pressed={profile.markerEmoji === emoji} key={emoji}
+                                            onClick={() => setProfile({ ...profile, markerEmoji: emoji })} type="button">
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                                <span className="pro-hint">Couleur</span>
+                                <div aria-label="Couleur de la pastille" className="food-truck-marker-picker" role="group">
+                                    {MARKER_COLORS.map((color) => (
+                                        <button aria-label={`Couleur ${color}`} key={color} style={{ backgroundColor: color }} type="button"
+                                            aria-pressed={(profile.markerColor || DEFAULT_MARKER_COLOR) === color}
+                                            onClick={() => setProfile({ ...profile, markerColor: color === DEFAULT_MARKER_COLOR ? "" : color })} />
+                                    ))}
+                                    <input aria-label="Autre couleur" type="color" value={profile.markerColor || DEFAULT_MARKER_COLOR}
+                                        onChange={(event) => setProfile({ ...profile, markerColor: event.target.value })} />
+                                </div>
+                            </fieldset>
+                        </section>
+
+                        <section className="pro-form-section">
+                            <h4 className="pro-form-section-title">Contact et réseaux</h4>
+                            <div className="pro-form-grid">
+                                <div className="form-field pro-field-wide">
+                                    <label htmlFor="truck-contact">Contact ou lien utile</label>
+                                    <input id="truck-contact" maxLength={512} placeholder="Téléphone, site, réseau social…"
+                                        type="text" value={profile.contact}
+                                        onChange={(event) => setProfile({ ...profile, contact: event.target.value })} />
+                                </div>
+                                <div className="form-field">
+                                    <label htmlFor="truck-instagram">Instagram</label>
+                                    <input id="truck-instagram" maxLength={300} placeholder="@moncamion"
+                                        type="text" value={profile.instagram}
+                                        onChange={(event) => setProfile({ ...profile, instagram: event.target.value })} />
+                                </div>
+                                <div className="form-field">
+                                    <label htmlFor="truck-facebook">Facebook</label>
+                                    <input id="truck-facebook" maxLength={300} placeholder="https://www.facebook.com/moncamion"
+                                        type="text" value={profile.facebook}
+                                        onChange={(event) => setProfile({ ...profile, facebook: event.target.value })} />
+                                </div>
+                            </div>
+                            <small className="pro-hint">
+                                Facultatifs : les liens s'affichent sur la fiche et la popup du food truck.
+                            </small>
+                        </section>
+
+                        <div className="pro-form-actions">
+                            <button className="pro-button pro-button-ghost" onClick={() => setEditing(null)} type="button">
+                                Annuler
                             </button>
-                        )}
-                    </div>
-                    <fieldset className="form-field">
-                        <legend>Pastille sur la carte</legend>
-                        <p className="food-truck-marker-current">
-                            <span aria-hidden="true" className="food-truck-marker-preview" style={{ backgroundColor: marker.color }}>
-                                {marker.emoji}
-                            </span>{" "}
-                            Aperçu{profile.markerEmoji ? "" : " (emoji du type de cuisine par défaut)"}
-                        </p>
-                        <div aria-label="Emoji de la pastille" className="food-truck-marker-picker" role="group">
-                            <button aria-label="Emoji par défaut" aria-pressed={profile.markerEmoji === ""} type="button"
-                                onClick={() => setProfile({ ...profile, markerEmoji: "" })}>
-                                ∅
+                            <button className="pro-button pro-button-primary" disabled={busy} type="submit">
+                                {busy ? "Enregistrement…" : "Enregistrer"}
                             </button>
-                            {MARKER_EMOJIS.map((emoji) => (
-                                <button aria-label={`Emoji ${emoji}`} aria-pressed={profile.markerEmoji === emoji} key={emoji}
-                                    onClick={() => setProfile({ ...profile, markerEmoji: emoji })} type="button">
-                                    {emoji}
-                                </button>
-                            ))}
                         </div>
-                        <div aria-label="Couleur de la pastille" className="food-truck-marker-picker" role="group">
-                            {MARKER_COLORS.map((color) => (
-                                <button aria-label={`Couleur ${color}`} key={color} style={{ backgroundColor: color }} type="button"
-                                    aria-pressed={(profile.markerColor || DEFAULT_MARKER_COLOR) === color}
-                                    onClick={() => setProfile({ ...profile, markerColor: color === DEFAULT_MARKER_COLOR ? "" : color })} />
-                            ))}
-                            <input aria-label="Autre couleur" type="color" value={profile.markerColor || DEFAULT_MARKER_COLOR}
-                                onChange={(event) => setProfile({ ...profile, markerColor: event.target.value })} />
+                    </form>
+
+                    <aside aria-label="Aperçu de la fiche" className="pro-preview">
+                        <p className="pro-preview-label">Aperçu de ta fiche</p>
+                        <div className="pro-preview-card">
+                            <div className="pro-preview-cover" style={currentPhoto ? undefined : { backgroundColor: marker.color }}>
+                                {currentPhoto ? <img alt="" src={currentPhoto} /> : <span aria-hidden="true">{marker.emoji}</span>}
+                                <span aria-hidden="true" className="food-truck-marker-preview pro-preview-marker"
+                                    style={{ backgroundColor: marker.color }}>
+                                    {marker.emoji}
+                                </span>
+                            </div>
+                            <div className="pro-preview-body">
+                                <strong>{profile.name || "Nom de ton food truck"}</strong>
+                                <span className="pro-preview-meta">
+                                    {[cuisineLabel(profile.cuisineType || null), profile.category].filter(Boolean).join(" · ")
+                                        || "Type de cuisine · spécialité"}
+                                </span>
+                                <span className="pro-preview-description">
+                                    {profile.description || "Ta description apparaîtra ici."}
+                                </span>
+                                {(profile.instagram || profile.facebook) && (
+                                    <span className="pro-preview-links">
+                                        {profile.instagram && <span>Instagram</span>}
+                                        {profile.facebook && <span>Facebook</span>}
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                    </fieldset>
-                    <div className="form-field">
-                        <label htmlFor="truck-contact">Contact ou lien utile</label>
-                        <input id="truck-contact" maxLength={512} placeholder="Téléphone, site, réseau social…"
-                            type="text" value={profile.contact}
-                            onChange={(event) => setProfile({ ...profile, contact: event.target.value })} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="truck-instagram">Instagram</label>
-                        <input id="truck-instagram" maxLength={300} placeholder="https://www.instagram.com/moncamion ou @moncamion"
-                            type="text" value={profile.instagram}
-                            onChange={(event) => setProfile({ ...profile, instagram: event.target.value })} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="truck-facebook">Facebook</label>
-                        <input id="truck-facebook" maxLength={300} placeholder="https://www.facebook.com/moncamion"
-                            type="text" value={profile.facebook}
-                            onChange={(event) => setProfile({ ...profile, facebook: event.target.value })} />
-                        <small>Facultatifs : les liens s'affichent sur la fiche et la popup du food truck.</small>
-                    </div>
-                    <div className="modal-actions">
-                        <button className="admin-approve-button" disabled={busy} type="submit">Enregistrer</button>
-                        <button className="contribution-action" onClick={() => setEditing(null)} type="button">
-                            Annuler
-                        </button>
-                    </div>
-                </form>
+                    </aside>
+                </div>
             ) : !readOnly && (
                 <button className="admin-approve-button" onClick={() => startProfile("new")} type="button">
                     Créer un food truck
@@ -576,132 +653,163 @@ function ProFoodTrucksSection({ readOnly = false }: {
                             </button>
                         )
                     ) : (
-                        <form className="contribution-form" onSubmit={(event) => void savePresence(event)}>
-                            <h4>{editingPresence === "new" ? "Nouvel emplacement" : "Modifier l'emplacement"}</h4>
-                            <fieldset className="form-field">
-                                <legend>Où</legend>
-                                <label>
-                                    <input checked={presenceForm.spotMode === "place"} name="spot-mode" type="radio"
-                                        onChange={() => setForm("spotMode", "place")} />
-                                    {" "}{editingPresence === "new" ? "Un lieu Neiri existant" : "Garder ou choisir un lieu existant"}
-                                </label>
-                                <label>
-                                    <input checked={presenceForm.spotMode === "new"} name="spot-mode" type="radio"
-                                        onChange={() => setForm("spotMode", "new")} />
-                                    {" "}Une autre adresse
-                                </label>
-                            </fieldset>
-
-                            {presenceForm.spotMode === "place" ? (
-                                <div className="form-field">
-                                    {presenceForm.placeLabel && <p>Emplacement choisi : {presenceForm.placeLabel}</p>}
-                                    <div className="pro-place-search">
-                                        <input aria-label="Nom du lieu" placeholder="Nom du lieu (marché, halle…)" type="text"
-                                            value={placeSearch.name}
-                                            onChange={(event) => setPlaceSearch({ ...placeSearch, name: event.target.value })} />
-                                        <input aria-label="Commune du lieu" placeholder="Commune" type="text"
-                                            value={placeSearch.city}
-                                            onChange={(event) => setPlaceSearch({ ...placeSearch, city: event.target.value })} />
-                                        <button className="contribution-action" onClick={(event) => void searchPlaces(event)}
-                                            type="button">
-                                            Rechercher
-                                        </button>
-                                    </div>
-                                    {placeResults && publishedPlaces.length === 0 && (
-                                        <p className="activities-status">Aucun lieu publié trouvé : saisis plutôt l'adresse.</p>
-                                    )}
-                                    {publishedPlaces.map(({ place }) => (
-                                        <label key={place.id}>
-                                            <input checked={presenceForm.placeId === place.id} name="spot-place" type="radio"
-                                                onChange={() => setPresenceForm((current) => ({
-                                                    ...current, placeId: place.id, placeLabel: place.name,
-                                                }))} />
-                                            {" "}{place.name}{place.city ? ` (${place.city})` : ""}
-                                        </label>
-                                    ))}
+                        <form className="pro-form" onSubmit={(event) => void savePresence(event)}>
+                            <header className="pro-form-header">
+                                <span aria-hidden="true" className="pro-form-header-icon">📍</span>
+                                <div>
+                                    <h4>{editingPresence === "new" ? "Nouvel emplacement" : "Modifier l'emplacement"}</h4>
+                                    <p>Où et quand trouver « {selected.name} ».</p>
                                 </div>
-                            ) : (
-                                <>
-                                    <div className="form-field">
-                                        <label htmlFor="spot-name">Nom de l'emplacement</label>
-                                        <input id="spot-name" placeholder="Parking de la zone d'activité" type="text"
-                                            value={presenceForm.spotName} onChange={(event) => setForm("spotName", event.target.value)} />
-                                    </div>
-                                    <div className="form-field">
-                                        <label htmlFor="spot-address">Adresse</label>
-                                        <input id="spot-address" type="text" value={presenceForm.address}
-                                            onChange={(event) => setForm("address", event.target.value)} />
-                                    </div>
-                                    <div className="form-field">
-                                        <label htmlFor="spot-postal-code">Code postal</label>
-                                        <input id="spot-postal-code" type="text" value={presenceForm.postalCode}
-                                            onChange={(event) => setForm("postalCode", event.target.value)} />
-                                    </div>
-                                    <div className="form-field">
-                                        <label htmlFor="spot-city">Commune</label>
-                                        <input id="spot-city" required type="text" value={presenceForm.city}
-                                            onChange={(event) => setForm("city", event.target.value)} />
-                                    </div>
-                                    <div className="form-field">
-                                        <label htmlFor="spot-latitude">Latitude (facultatif, déduite de l'adresse)</label>
-                                        <input id="spot-latitude" step="any" type="number" value={presenceForm.latitude}
-                                            onChange={(event) => setForm("latitude", event.target.value)} />
-                                    </div>
-                                    <div className="form-field">
-                                        <label htmlFor="spot-longitude">Longitude</label>
-                                        <input id="spot-longitude" step="any" type="number" value={presenceForm.longitude}
-                                            onChange={(event) => setForm("longitude", event.target.value)} />
-                                    </div>
-                                </>
-                            )}
+                            </header>
 
-                            <div className="form-field">
-                                <label htmlFor="spot-kind">Type d'emplacement</label>
-                                <select id="spot-kind" value={presenceForm.spotKind}
-                                    onChange={(event) => setForm("spotKind", event.target.value as SpotKind)}>
-                                    {(Object.keys(SPOT_KIND_LABELS) as SpotKind[]).map((kind) => (
-                                        <option key={kind} value={kind}>{kind === "OTHER" ? "Autre" : SPOT_KIND_LABELS[kind]}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <fieldset className="form-field">
-                                <legend>Jours (aucun coché : tous les jours)</legend>
-                                {DAYS.map((day) => (
-                                    <label key={day.code}>
-                                        <input checked={presenceForm.days.includes(day.code)} type="checkbox"
-                                            onChange={(event) => setForm("days", event.target.checked
-                                                ? [...presenceForm.days, day.code]
-                                                : presenceForm.days.filter((code) => code !== day.code))} />
-                                        {" "}{day.label}
+                            <section className="pro-form-section">
+                                <h5 className="pro-form-section-title">Où</h5>
+                                <div className="pro-choice-group" role="radiogroup" aria-label="Où">
+                                    <label className="pro-choice">
+                                        <input checked={presenceForm.spotMode === "place"} name="spot-mode" type="radio"
+                                            onChange={() => setForm("spotMode", "place")} />
+                                        {editingPresence === "new" ? "Un lieu Neiri existant" : "Garder ou choisir un lieu existant"}
                                     </label>
-                                ))}
-                            </fieldset>
-                            <div className="form-field">
-                                <label htmlFor="spot-start">Arrivée</label>
-                                <input id="spot-start" type="time" value={presenceForm.startTime}
-                                    onChange={(event) => setForm("startTime", event.target.value)} />
-                            </div>
-                            <div className="form-field">
-                                <label htmlFor="spot-end">Départ</label>
-                                <input id="spot-end" type="time" value={presenceForm.endTime}
-                                    onChange={(event) => setForm("endTime", event.target.value)} />
-                            </div>
-                            <div className="form-field">
-                                <label htmlFor="spot-from">À partir du (facultatif)</label>
-                                <input id="spot-from" type="date" value={presenceForm.validFrom}
-                                    onChange={(event) => setForm("validFrom", event.target.value)} />
-                            </div>
-                            <div className="form-field">
-                                <label htmlFor="spot-until">Jusqu'au (facultatif)</label>
-                                <input id="spot-until" type="date" value={presenceForm.validUntil}
-                                    onChange={(event) => setForm("validUntil", event.target.value)} />
-                            </div>
-                            <div className="modal-actions">
-                                <button className="admin-approve-button" disabled={busy} type="submit">
-                                    Enregistrer en brouillon
-                                </button>
-                                <button className="contribution-action" onClick={() => setEditingPresence(null)} type="button">
+                                    <label className="pro-choice">
+                                        <input checked={presenceForm.spotMode === "new"} name="spot-mode" type="radio"
+                                            onChange={() => setForm("spotMode", "new")} />
+                                        Une autre adresse
+                                    </label>
+                                </div>
+
+                                {presenceForm.spotMode === "place" ? (
+                                    <div className="form-field">
+                                        {presenceForm.placeLabel && (
+                                            <p className="pro-selected">Emplacement choisi : <strong>{presenceForm.placeLabel}</strong></p>
+                                        )}
+                                        <div className="pro-place-search">
+                                            <input aria-label="Nom du lieu" placeholder="Nom du lieu (marché, halle…)" type="text"
+                                                value={placeSearch.name}
+                                                onChange={(event) => setPlaceSearch({ ...placeSearch, name: event.target.value })} />
+                                            <input aria-label="Commune du lieu" placeholder="Commune" type="text"
+                                                value={placeSearch.city}
+                                                onChange={(event) => setPlaceSearch({ ...placeSearch, city: event.target.value })} />
+                                            <button className="pro-button pro-button-ghost" onClick={(event) => void searchPlaces(event)}
+                                                type="button">
+                                                Rechercher
+                                            </button>
+                                        </div>
+                                        {placeResults && publishedPlaces.length === 0 && (
+                                            <p className="pro-hint">Aucun lieu publié trouvé : saisis plutôt l'adresse.</p>
+                                        )}
+                                        {publishedPlaces.length > 0 && (
+                                            <div className="pro-option-list">
+                                                {publishedPlaces.map(({ place }) => (
+                                                    <label className="pro-choice" key={place.id}>
+                                                        <input checked={presenceForm.placeId === place.id} name="spot-place" type="radio"
+                                                            onChange={() => setPresenceForm((current) => ({
+                                                                ...current, placeId: place.id, placeLabel: place.name,
+                                                            }))} />
+                                                        {place.name}{place.city ? ` (${place.city})` : ""}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="pro-form-grid">
+                                        <div className="form-field pro-field-wide">
+                                            <label htmlFor="spot-name">Nom de l'emplacement</label>
+                                            <input id="spot-name" placeholder="Parking de la zone d'activité" type="text"
+                                                value={presenceForm.spotName} onChange={(event) => setForm("spotName", event.target.value)} />
+                                        </div>
+                                        <div className="form-field pro-field-wide">
+                                            <label htmlFor="spot-address">Adresse</label>
+                                            <input id="spot-address" placeholder="12 avenue de la Gare" type="text"
+                                                value={presenceForm.address}
+                                                onChange={(event) => setForm("address", event.target.value)} />
+                                        </div>
+                                        <div className="form-field">
+                                            <label htmlFor="spot-postal-code">Code postal</label>
+                                            <input id="spot-postal-code" inputMode="numeric" type="text" value={presenceForm.postalCode}
+                                                onChange={(event) => setForm("postalCode", event.target.value)} />
+                                        </div>
+                                        <div className="form-field">
+                                            <label htmlFor="spot-city">Commune</label>
+                                            <input id="spot-city" required type="text" value={presenceForm.city}
+                                                onChange={(event) => setForm("city", event.target.value)} />
+                                        </div>
+                                        <details className="pro-details pro-field-wide">
+                                            <summary>Position précise (facultatif, déduite de l'adresse sinon)</summary>
+                                            <div className="pro-form-grid">
+                                                <div className="form-field">
+                                                    <label htmlFor="spot-latitude">Latitude</label>
+                                                    <input id="spot-latitude" step="any" type="number" value={presenceForm.latitude}
+                                                        onChange={(event) => setForm("latitude", event.target.value)} />
+                                                </div>
+                                                <div className="form-field">
+                                                    <label htmlFor="spot-longitude">Longitude</label>
+                                                    <input id="spot-longitude" step="any" type="number" value={presenceForm.longitude}
+                                                        onChange={(event) => setForm("longitude", event.target.value)} />
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </div>
+                                )}
+                                <div className="form-field">
+                                    <label htmlFor="spot-kind">Type d'emplacement</label>
+                                    <select id="spot-kind" value={presenceForm.spotKind}
+                                        onChange={(event) => setForm("spotKind", event.target.value as SpotKind)}>
+                                        {(Object.keys(SPOT_KIND_LABELS) as SpotKind[]).map((kind) => (
+                                            <option key={kind} value={kind}>{kind === "OTHER" ? "Autre" : SPOT_KIND_LABELS[kind]}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </section>
+
+                            <section className="pro-form-section">
+                                <h5 className="pro-form-section-title">Quand</h5>
+                                <fieldset className="pro-fieldset">
+                                    <legend className="pro-field-label">
+                                        Jours <span className="pro-optional">· aucun coché : tous les jours</span>
+                                    </legend>
+                                    <div className="pro-day-chips">
+                                        {DAYS.map((day) => (
+                                            <label className="pro-day-chip" key={day.code}>
+                                                <input checked={presenceForm.days.includes(day.code)} type="checkbox"
+                                                    onChange={(event) => setForm("days", event.target.checked
+                                                        ? [...presenceForm.days, day.code]
+                                                        : presenceForm.days.filter((code) => code !== day.code))} />
+                                                <span>{day.label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </fieldset>
+                                <div className="pro-form-grid">
+                                    <div className="form-field">
+                                        <label htmlFor="spot-start">Arrivée</label>
+                                        <input id="spot-start" type="time" value={presenceForm.startTime}
+                                            onChange={(event) => setForm("startTime", event.target.value)} />
+                                    </div>
+                                    <div className="form-field">
+                                        <label htmlFor="spot-end">Départ</label>
+                                        <input id="spot-end" type="time" value={presenceForm.endTime}
+                                            onChange={(event) => setForm("endTime", event.target.value)} />
+                                    </div>
+                                    <div className="form-field">
+                                        <label htmlFor="spot-from">À partir du <span className="pro-optional">(facultatif)</span></label>
+                                        <input id="spot-from" type="date" value={presenceForm.validFrom}
+                                            onChange={(event) => setForm("validFrom", event.target.value)} />
+                                    </div>
+                                    <div className="form-field">
+                                        <label htmlFor="spot-until">Jusqu'au <span className="pro-optional">(facultatif)</span></label>
+                                        <input id="spot-until" type="date" value={presenceForm.validUntil}
+                                            onChange={(event) => setForm("validUntil", event.target.value)} />
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="pro-form-actions">
+                                <button className="pro-button pro-button-ghost" onClick={() => setEditingPresence(null)} type="button">
                                     Annuler
+                                </button>
+                                <button className="pro-button pro-button-primary" disabled={busy} type="submit">
+                                    Enregistrer en brouillon
                                 </button>
                             </div>
                         </form>

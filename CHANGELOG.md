@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### Site : formulaires de l'espace pro revus (food trucks, emplacements, lieux)
+- **Food truck** : formulaire en carte, découpé en sections (Identité, Apparence, Contact et réseaux), champs courts sur deux colonnes, photo avec cadre et bouton « Choisir une photo », panneau de pastille. Un **aperçu de la fiche** se met à jour à côté pendant la saisie.
+- **Emplacement** : choix « lieu Neiri existant / autre adresse » en cartes, jours en puces cliquables, horaires et période côte à côte, position précise repliée par défaut.
+- **Créer un lieu** : étapes visibles (Description, Vérification, Aperçu), sections Le lieu / Adresse / Coordonnées, récapitulatif soigné avant l'enregistrement. **Modifier / proposer une modification** : mêmes sections.
+- Boutons homogènes (action principale en rose Neiri, Annuler en secondaire), messages colorés selon leur nature ; une colonne sur mobile.
+
 ### DATAtourisme : toutes les périodes sont importées
 - **Plus de règle des « périodes de validité »** : une période de plus de 31 jours n'est plus écartée (marchés de Noël de cinq semaines, marchés hebdomadaires publiés toute l'année, ateliers de septembre à juin…). Seul un événement dont toutes les périodes sont terminées avant aujourd'hui est écarté. Un marché publié du 1er janvier au 31 décembre est affiché sur toute la période, la source ne disant pas quels jours.
 - **Période à cheval sur deux années** publiée sans changer d'année (« 2026-11-27<->2026-01-02 », marché de Noël d'Avignon) : la fin est reportée à l'année suivante. Avant, l'événement était écarté comme passé.
