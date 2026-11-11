@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### Site : fond de carte Plan IGN au lieu d'OpenStreetMap
+- **Pourquoi** : la carte du site chargeait ses tuiles sur les serveurs d'OpenStreetMap (`tile.openstreetmap.org`). Ils sont financés par des dons pour les contributeurs d'OpenStreetMap, et leur politique d'usage exclut un service public à fort trafic : risque de carte bloquée à la mise en public.
+- **Maintenant** : Plan IGN de la Géoplateforme (service public de l'IGN). Gratuit, sans clé, Licence Ouverte, zooms jusqu'à 19, couverture France. Mention « © IGN – Plan IGN » sur la carte.
+- **Thème Night** : nouveau filtre pour garder un fond violet nuit uni avec les couleurs du Plan IGN.
+- **Textes légaux** : mentions légales et politique de confidentialité mises à jour (fond de carte IGN sur le site, Google Maps ou Apple Plans dans l'application). L'application n'est pas concernée : ses builds utilisent déjà la carte native.
+
 ### Application : plus de plantage sur une activité sans catégorie
 - **Cause** : certaines activités importées (DATAtourisme, OpenAgenda…) n'ont pas de libellé de catégorie (`category` nul, seuls les codes de catégorie sont renseignés). L'aperçu de la carte en prenait les deux premières lettres et l'application se fermait au toucher du marqueur (ex. « Repas festif choucroute » à Aureille ; 96 activités sur 839 autour d'Arles et Marseille sur la beta). Le site n'était pas touché.
 - **Correction** : la pastille de catégorie est simplement masquée quand le libellé manque (aperçu de la carte, fiche).

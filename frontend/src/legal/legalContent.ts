@@ -94,9 +94,10 @@ const LEGAL_NOTICE: LegalSection[] = [
                     + "tenus pour responsables de ces traitements.",
                 "Événements OpenAgenda : conditions d'utilisation d'OpenAgenda et licence choisie par chaque agenda "
                     + "source ; le nom de l'agenda d'origine est mentionné sur la fiche.",
-                "Fonds de carte : © les contributeurs d'OpenStreetMap, données disponibles sous licence Open Database "
-                    + "License (ODbL), www.openstreetmap.org/copyright. Sur l'application Android, la carte peut être "
-                    + "fournie par Google Maps, sous les conditions de Google.",
+                "Fond de carte du site : Plan IGN, © IGN (Institut national de l'information géographique et "
+                    + "forestière), Géoplateforme, Licence Ouverte / Open Licence (Etalab) 2.0. Sur l'application, la "
+                    + "carte est fournie par Google Maps (Android) ou Apple Plans (iPhone), sous les conditions de "
+                    + "Google et d'Apple.",
             ],
             "Un producteur de données qui souhaite qu'une information ne soit plus reprise, ou qu'elle soit corrigée, "
                 + "peut écrire à " + E.contactEmail + ".",
@@ -440,10 +441,11 @@ const PRIVACY: LegalSection[] = [
                 "Google LLC / Google Ireland Ltd : connexion avec Google, si vous la choisissez, et affichage de la "
                     + "carte sur Android.",
             ],
-            "L'affichage de la carte sur le site, et dans certains cas sur l'application, charge les fonds de carte "
-                + "depuis les serveurs de la fondation OpenStreetMap (Royaume-Uni) : votre adresse IP et la zone "
-                + "affichée leur sont alors transmises par votre navigateur, conformément à leur politique de "
-                + "confidentialité. Vos données ne sont communiquées à aucun autre tiers, sauf obligation légale ou "
+            "L'affichage de la carte sur le site charge le fond de carte depuis la Géoplateforme de l'IGN "
+                + "(établissement public, France) : votre adresse IP et la zone affichée lui sont alors transmises "
+                + "par votre navigateur, conformément à sa politique de confidentialité. Sur l'application, la carte "
+                + "est affichée par Google Maps (Android) ou Apple Plans (iPhone). Vos données ne sont communiquées "
+                + "à aucun autre tiers, sauf obligation légale ou "
                 + "réquisition d'une autorité.",
         ],
     },

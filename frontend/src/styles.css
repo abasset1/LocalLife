@@ -6245,9 +6245,12 @@ body {
     background-color: #0b0518;
 }
 
-/* Fond de carte : tuiles inversées et teintées violet, marqueurs et popups gardent leurs couleurs. */
+/*
+ * Fond de carte (Plan IGN) : tuiles passées en gris, inversées puis teintées violet nuit d'une seule teinte (sinon le
+ * beige et les bleus du Plan IGN deviennent olive). Marqueurs et popups gardent leurs couleurs.
+ */
 :root[data-ll-theme="night"] .leaflet-tile-pane {
-    filter: invert(1) hue-rotate(200deg) brightness(0.85) saturate(0.7) contrast(0.95);
+    filter: grayscale(1) invert(1) sepia(1) hue-rotate(220deg) saturate(1.8) brightness(0.7);
 }
 
 :root[data-ll-theme="night"] .leaflet-marker-icon:not(.marker-cluster) {
