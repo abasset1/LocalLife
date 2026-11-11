@@ -48,7 +48,9 @@ import org.springframework.web.util.UriComponentsBuilder;
  *       ({@code PriceIndicator}) ;</li>
  *   <li>images ({@code hasRepresentation}) si le CSV n'en a pas ;</li>
  *   <li>liens : site et téléphone ajoutés à ceux du CSV, sans doublon ;</li>
- *   <li>description courte de l'API si le CSV n'en a pas.</li>
+ *   <li>description courte de l'API si le CSV n'en a pas ;</li>
+ *   <li>horaires d'un marché ou d'une vente resté continu après le CSV : un par jour annoncé dans les horaires
+ *       ou la description détaillée ({@link MarketDays#splitWithApiText}).</li>
  * </ul>
  */
 public class DataTourismeApiEnricher {
@@ -322,7 +324,9 @@ public class DataTourismeApiEnricher {
                 activity.ageMin(),
                 activity.ageMax(),
                 activity.location(),
-                activity.timings(),
+                // Jours d'un marché resté continu après le CSV : horaires et description détaillée de l'API.
+                MarketDays.splitWithApiText(
+                        activity.timings(), activity.tags(), details.openingHours(), details.longDescription()),
                 activity.recurrenceRule(),
                 media,
                 List.copyOf(links),

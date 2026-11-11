@@ -120,6 +120,27 @@ class DataTourismeApiEnricherTest {
         assertEquals("https://noves.fr/cinema-leden/", enriched.sourceUrl());
     }
 
+    /** Marché resté continu après le CSV : jours lus dans les horaires de l'API (fiche réelle de L'Eden). */
+    @Test
+    void enrich_ShouldSplitAContinuousMarket_IntoTheDaysOfTheApiOpeningHours() throws IOException {
+        DataTourismeApiEnricher enricher = newEnricher(KEY);
+        expectCatalogFor(EDEN);
+        CollectedActivity csv = csvEvent(EDEN, "Marché", null, null);
+        CollectedActivity market = new CollectedActivity(csv.title(), csv.description(), "marché", csv.sourceUrl(),
+                csv.externalId(), csv.source(), null, null, null, null, csv.location(),
+                List.of(new CollectedTiming(LocalDateTime.parse("2026-11-01T00:00"),
+                        LocalDateTime.parse("2026-11-30T23:59"))),
+                null, List.of(), List.of(), null, List.of("marché"), null);
+
+        CollectedActivity enriched = enricher.enrich(List.of(market)).get(0);
+
+        mockServer.verify();
+        // « le lundi, mardi, mercredi et les week-ends » : 22 jours en novembre 2026.
+        assertEquals(22, enriched.timings().size());
+        assertTrue(enriched.timings().stream().noneMatch(timing -> timing.begin().getDayOfWeek()
+                == java.time.DayOfWeek.THURSDAY || timing.begin().getDayOfWeek() == java.time.DayOfWeek.FRIDAY));
+    }
+
     @Test
     void enrich_ShouldTakePricesFromTheText_OrFromTheAmounts_AndLeaveUnknownEventsUntouched() throws IOException {
         DataTourismeApiEnricher enricher = newEnricher(KEY);

@@ -1415,6 +1415,8 @@ function App() {
                         freeOnlyDisabled={isTextSearch}
                         onFreeOnlyChange={setFreeOnly}
                         selectedCategoryCodes={selectedCategoryCodes}
+                        // Food trucks : ni catégorie du référentiel ni tarif, seul le type de cuisine filtre.
+                        showActivityFilters={activeLayer !== "foodTrucks"}
                         cuisineFilter={activeLayer === "foodTrucks" ? {
                             // Le type choisi reste proposé même s'il n'y a plus de food truck.
                             options: CUISINE_TYPES.filter((cuisine) => cuisine.code === selectedCuisine
