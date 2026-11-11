@@ -14,7 +14,7 @@ function renderModal(props: Partial<ComponentProps<typeof ContributionModal>> = 
                 recurrence={EMPTY_RECURRENCE} requiresRevalidation={false} selectedCategoryCodes={[]} startDate=""
                 submitError={null} submitStatus="idle" title="" url=""
                 onAddressChange={noop} onClose={noop} onDescriptionChange={noop} onEmailChange={noop}
-                onEndDateChange={noop} onPhoneChange={noop} onRecurrenceChange={noop}
+                onEndDateChange={noop} onPhoneChange={noop}
                 onSelectedCategoryCodesChange={noop} onStartDateChange={noop} onSubmit={noop} onTitleChange={noop}
                 onUrlChange={noop}
                 {...props}
@@ -31,10 +31,11 @@ describe("ContributionModal", () => {
         expect(screen.getByLabelText("Date de début")).toBeInTheDocument();
     });
 
-    it("garde les jours et horaires d'une contribution déjà récurrente en modification", () => {
-        renderModal({ mode: "edit", recurrence: { enabled: true, days: ["MONDAY"], startTime: "11:30", endTime: "" } });
-        expect(screen.getByText("Jours de passage (au moins un)")).toBeInTheDocument();
-        expect(screen.getByLabelText("Heure d'arrivée")).toHaveValue("11:30");
+    it("n'affiche pas non plus les jours et horaires en modification d'une contribution récurrente", () => {
+        renderModal({ mode: "edit", recurrence: { enabled: true, days: ["MO"], startTime: "11:30", endTime: "" } });
+        expect(screen.queryByText("Jours de passage (au moins un)")).not.toBeInTheDocument();
+        expect(screen.queryByLabelText("Heure d'arrivée")).not.toBeInTheDocument();
+        expect(screen.getByLabelText("Jusqu'au (facultatif)")).toBeInTheDocument();
     });
 
     it("n'affiche « Proposé par un de mes lieux » qu'avec des lieux publiés gérés", () => {

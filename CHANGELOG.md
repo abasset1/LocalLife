@@ -3,7 +3,7 @@
 ## 0.9.59 — non publiée
 
 ### Site : plus de case « Revient chaque semaine » dans le formulaire d'ajout d'activité
-- Une nouvelle proposition est ponctuelle (dates de début et de fin). Une contribution déjà hebdomadaire garde ses jours et horaires en modification.
+- Une nouvelle proposition est ponctuelle (dates de début et de fin). Les jours et horaires hebdomadaires ne sont plus affichés, même en modification : une contribution déjà hebdomadaire garde son passage tel quel, seules ses dates « À partir du » / « Jusqu'au » se modifient.
 
 ### Site : la ville est demandée avant d'afficher les activités (visiteur sans compte)
 - **Fenêtre centrée « Où veux-tu sortir ? »** : un visiteur sans compte ni session saisit sa ville (communes proposées dès 2 lettres) puis « Valider ». La fenêtre ne se ferme pas sans ville ; elle disparaît une fois la ville choisie. « Autour de moi » reste proposé, et « Se connecter » pour un compte.

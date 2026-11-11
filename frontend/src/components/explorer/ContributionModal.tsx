@@ -21,16 +21,6 @@ export interface HostPlaceOption {
 
 export const EMPTY_RECURRENCE: ContributionRecurrence = { enabled: false, days: [], startTime: "", endTime: "" };
 
-const RECURRENCE_DAYS: { code: string; label: string }[] = [
-    { code: "MO", label: "Lun" },
-    { code: "TU", label: "Mar" },
-    { code: "WE", label: "Mer" },
-    { code: "TH", label: "Jeu" },
-    { code: "FR", label: "Ven" },
-    { code: "SA", label: "Sam" },
-    { code: "SU", label: "Dim" },
-];
-
 interface ContributionModalProps {
     /** `edit` : modification d'une contribution existante (titre et bouton adaptés). */
     mode: "create" | "edit";
@@ -51,7 +41,6 @@ interface ContributionModalProps {
     endDate: string;
     onEndDateChange: (value: string) => void;
     recurrence: ContributionRecurrence;
-    onRecurrenceChange: (value: ContributionRecurrence) => void;
     url: string;
     onUrlChange: (value: string) => void;
     phone: string;
@@ -93,7 +82,6 @@ function ContributionModal({
     endDate,
     onEndDateChange,
     recurrence,
-    onRecurrenceChange,
     url,
     onUrlChange,
     phone,
@@ -115,15 +103,6 @@ function ContributionModal({
                 ? selectedCategoryCodes.filter((selected) => selected !== code)
                 : [...selectedCategoryCodes, code],
         );
-    }
-
-    function toggleRecurrenceDay(code: string) {
-        onRecurrenceChange({
-            ...recurrence,
-            days: recurrence.days.includes(code)
-                ? recurrence.days.filter((day) => day !== code)
-                : [...recurrence.days, code],
-        });
     }
 
     // Limite mensuelle (Premium) : une modification ne compte pas, seule une nouvelle proposition est bloquée.
@@ -220,47 +199,10 @@ function ContributionModal({
                         />
                     </div>
                     {/*
-                      Plus de case « Revient chaque semaine » : une nouvelle proposition est ponctuelle. Les jours et
-                      horaires restent affichés pour modifier une contribution déjà récurrente.
+                      Plus de jours ni d'horaires hebdomadaires dans le formulaire, ni en création ni en modification.
+                      Une contribution déjà récurrente garde son passage hebdomadaire tel quel : seules ses dates
+                      (« À partir du », « Jusqu'au ») sont modifiables.
                     */}
-                    {recurrence.enabled && (
-                        <>
-                            <fieldset className="explorer-form-field explorer-form-categories">
-                                <legend>Jours de passage (au moins un)</legend>
-                                <div className="explorer-form-categories-options">
-                                    {RECURRENCE_DAYS.map((day) => (
-                                        <label className="explorer-category-option" key={day.code}>
-                                            <input
-                                                checked={recurrence.days.includes(day.code)}
-                                                onChange={() => toggleRecurrenceDay(day.code)}
-                                                type="checkbox"
-                                            />
-                                            {day.label}
-                                        </label>
-                                    ))}
-                                </div>
-                            </fieldset>
-                            <div className="explorer-form-field">
-                                <label htmlFor="explorer-activity-recurrence-start-time">Heure d'arrivée</label>
-                                <input
-                                    id="explorer-activity-recurrence-start-time"
-                                    onChange={(event) => onRecurrenceChange({ ...recurrence, startTime: event.target.value })}
-                                    required
-                                    type="time"
-                                    value={recurrence.startTime}
-                                />
-                            </div>
-                            <div className="explorer-form-field">
-                                <label htmlFor="explorer-activity-recurrence-end-time">Heure de départ (facultatif)</label>
-                                <input
-                                    id="explorer-activity-recurrence-end-time"
-                                    onChange={(event) => onRecurrenceChange({ ...recurrence, endTime: event.target.value })}
-                                    type="time"
-                                    value={recurrence.endTime}
-                                />
-                            </div>
-                        </>
-                    )}
                     <div className="explorer-form-field">
                         <label htmlFor="explorer-activity-start-date">
                             {recurrence.enabled ? "À partir du (facultatif, aujourd'hui par défaut)" : "Date de début"}
