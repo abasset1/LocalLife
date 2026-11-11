@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { useSharedMapLink } from "./test/visitorMapView";
 import type { Activity, MapBounds } from "./components/explorer/types";
 
 /**
@@ -97,6 +98,8 @@ function floating(role: "alert" | "status") {
 }
 
 describe("App — filtre Gratuit", () => {
+    useSharedMapLink();
+
     it("ne garde que les activités gratuites sur la carte et dans la liste, sans relancer la recherche", async () => {
         mapResponses = [[ACTIVITY, CONCERT, VISITE] as Activity[]];
         const user = renderApp();

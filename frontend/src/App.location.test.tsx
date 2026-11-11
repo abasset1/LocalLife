@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { monthRange } from "./components/explorer/activityUtils";
 import type { Activity, MapBounds, UserPosition } from "./components/explorer/types";
 
 // Session simulée en mémoire (le JWT vit désormais dans un cookie HttpOnly, plus dans localStorage).
@@ -80,6 +81,7 @@ let preferences: unknown;
 beforeEach(() => {
     urls = [];
     preferences = null;
+    mockSession.current = null;
     vi.stubGlobal(
         "fetch",
         vi.fn((url: string) => {
@@ -89,6 +91,8 @@ beforeEach(() => {
                 body = [ACTIVITY];
             } else if (url.startsWith("/api/v1/users/me/preferences")) {
                 body = preferences;
+            } else if (url.startsWith("/api/v1/geocoding/city-suggestions?q=zzz")) {
+                body = [];
             } else if (url.startsWith("/api/v1/geocoding/city-suggestions")) {
                 body = [{ name: "Lyon", postalCodes: ["69001"], department: "69", latitude: 45.758, longitude: 4.835 }];
             }
@@ -118,30 +122,124 @@ function stubGeolocation() {
     };
 }
 
-async function renderApp() {
+function renderApp() {
     const user = userEvent.setup();
     render(
         <MemoryRouter>
             <App />
         </MemoryRouter>,
     );
+    return user;
+}
+
+/** Compte connecté, préférences enregistrées sans ville : la carte s'ouvre sur la vue d'ensemble. */
+async function renderSignedInWithoutCity() {
+    mockSession.current = { userId: 1, email: "a@b.c", role: "USER" };
+    preferences = {
+        defaultCity: null,
+        defaultLatitude: null,
+        defaultLongitude: null,
+        defaultRadiusKm: null,
+        defaultCategoryCodes: [],
+        configured: true,
+    };
+    const user = renderApp();
     await screen.findByText("marqueur Marché");
     return user;
 }
 
-function activityCalls(endpoint: "nearby" | "within-bounds") {
-    return urls.filter((url) => url.startsWith(`/api/v1/activities/${endpoint}`));
+function activityCalls(endpoint?: "nearby" | "within-bounds") {
+    return urls.filter((url) => url.startsWith(`/api/v1/activities/${endpoint ?? ""}`));
 }
 
 function prompt() {
     return screen.queryAllByRole("status").find((element) => element.classList.contains("explorer-location-prompt"));
 }
 
-describe("App — localisation explicite (spec P0-A)", () => {
-    it("première visite : aucune demande de position, aucune recherche autour d'une position supposée", async () => {
-        const geolocation = stubGeolocation();
-        await renderApp();
+function cityDialog() {
+    return screen.queryByRole("dialog", { name: "Où veux-tu sortir ?" });
+}
 
+describe("App — visiteur sans compte : choix de la ville imposé", () => {
+    it("première visite : fenêtre centrée, aucune activité chargée ni position demandée", async () => {
+        const geolocation = stubGeolocation();
+        renderApp();
+
+        const dialog = await screen.findByRole("dialog", { name: "Où veux-tu sortir ?" });
+        expect(within(dialog).getByRole("combobox", { name: "Ta ville" })).toHaveFocus();
+        expect(within(dialog).queryByRole("button", { name: "Fermer" })).toBeNull();
+        expect(within(dialog).getByRole("button", { name: "Valider" })).toBeDisabled();
+        expect(geolocation.getCurrentPosition).not.toHaveBeenCalled();
+        expect(activityCalls()).toHaveLength(0);
+        expect(screen.getByTestId("map-position")).toHaveTextContent("aucune");
+    });
+
+    it("ville saisie puis validée : la fenêtre disparaît, activités du mois dans un rayon de 20 km", async () => {
+        stubGeolocation();
+        const user = renderApp();
+
+        const input = await screen.findByRole("combobox", { name: "Ta ville" });
+        await user.type(input, "lyo");
+        await screen.findByRole("option", { name: /Lyon/ });
+        await user.click(screen.getByRole("button", { name: "Valider" }));
+
+        expect(cityDialog()).toBeNull();
+        expect(await screen.findByText("marqueur Marché")).toBeInTheDocument();
+        expect(screen.getByTestId("map-position")).toHaveTextContent("45.758,4.835");
+        const params = new URL(activityCalls("nearby")[0], "http://localhost").searchParams;
+        const month = monthRange(new Date());
+        expect(params.get("latitude")).toBe("45.758");
+        expect(params.get("radius")).toBe("20");
+        expect(params.get("date")).toBe(month.date);
+        expect(params.get("dateTo")).toBe(month.dateTo);
+        expect(activityCalls("within-bounds")).toHaveLength(0);
+        expect(screen.getByRole("button", { name: /20 km/ })).toBeInTheDocument();
+    });
+
+    it("ville inconnue : message, la fenêtre reste ouverte et rien n'est chargé", async () => {
+        const user = renderApp();
+
+        await user.type(await screen.findByRole("combobox", { name: "Ta ville" }), "zzz");
+        await waitFor(() => expect(urls.some((url) => url.includes("city-suggestions?q=zzz"))).toBe(true));
+        await user.click(screen.getByRole("button", { name: "Valider" }));
+
+        expect(await within(cityDialog()!).findByRole("alert")).toHaveTextContent("Aucune ville trouvée");
+        expect(activityCalls()).toHaveLength(0);
+    });
+
+    it("« Autour de moi » dans la fenêtre : la position remplace la ville", async () => {
+        const geolocation = stubGeolocation();
+        const user = renderApp();
+
+        const dialog = await screen.findByRole("dialog", { name: "Où veux-tu sortir ?" });
+        await user.click(within(dialog).getByRole("button", { name: "⌖ Autour de moi" }));
+        geolocation.succeed(45.1, 5.7);
+
+        expect(await screen.findByText("marqueur Marché")).toBeInTheDocument();
+        expect(cityDialog()).toBeNull();
+        expect(screen.getByTestId("map-position")).toHaveTextContent("45.1,5.7");
+    });
+
+    it("localisation refusée : la saisie de la ville reste imposée", async () => {
+        const geolocation = stubGeolocation();
+        const user = renderApp();
+
+        const dialog = await screen.findByRole("dialog", { name: "Où veux-tu sortir ?" });
+        await user.click(within(dialog).getByRole("button", { name: "⌖ Autour de moi" }));
+        geolocation.fail(1);
+
+        expect(await within(cityDialog()!).findByRole("alert")).toHaveTextContent("Localisation refusée");
+        expect(within(dialog).queryByRole("button", { name: "⌖ Autour de moi" })).toBeNull();
+        expect(activityCalls()).toHaveLength(0);
+    });
+});
+
+describe("App — localisation explicite (spec P0-A), compte sans ville enregistrée", () => {
+    it("aucune demande de position, aucune recherche autour d'une position supposée", async () => {
+        const geolocation = stubGeolocation();
+        await renderSignedInWithoutCity();
+
+        expect(cityDialog()).toBeNull();
         expect(geolocation.getCurrentPosition).not.toHaveBeenCalled();
         expect(activityCalls("nearby")).toHaveLength(0);
         expect(activityCalls("within-bounds").length).toBeGreaterThan(0);
@@ -152,7 +250,7 @@ describe("App — localisation explicite (spec P0-A)", () => {
 
     it("« Autour de moi » demande la position et recentre la recherche", async () => {
         const geolocation = stubGeolocation();
-        const user = await renderApp();
+        const user = await renderSignedInWithoutCity();
 
         await user.click(screen.getAllByRole("button", { name: "⌖ Autour de moi" })[0]);
         expect(geolocation.getCurrentPosition).toHaveBeenCalledTimes(1);
@@ -166,7 +264,7 @@ describe("App — localisation explicite (spec P0-A)", () => {
 
     it("permission refusée : message, choix d'une ville proposé, la carte reste utilisable", async () => {
         const geolocation = stubGeolocation();
-        const user = await renderApp();
+        const user = await renderSignedInWithoutCity();
 
         await user.click(screen.getAllByRole("button", { name: "⌖ Autour de moi" })[0]);
         geolocation.fail(1);
@@ -179,7 +277,7 @@ describe("App — localisation explicite (spec P0-A)", () => {
 
     it("position indisponible ou délai dépassé : nouvelle tentative ou ville proposées", async () => {
         const geolocation = stubGeolocation();
-        const user = await renderApp();
+        const user = await renderSignedInWithoutCity();
 
         await user.click(screen.getAllByRole("button", { name: "⌖ Autour de moi" })[0]);
         geolocation.fail(3);
@@ -191,7 +289,7 @@ describe("App — localisation explicite (spec P0-A)", () => {
 
     it("ville choisie dans les suggestions : la carte et la recherche l'utilisent", async () => {
         stubGeolocation();
-        const user = await renderApp();
+        const user = await renderSignedInWithoutCity();
 
         await user.type(screen.getByRole("combobox", { name: /Rechercher une activité/ }), "lyo");
         await user.click(await screen.findByRole("option", { name: /Lyon/ }));
@@ -211,7 +309,8 @@ describe("App — localisation explicite (spec P0-A)", () => {
             defaultCategoryCodes: [],
             configured: true,
         };
-        await renderApp();
+        renderApp();
+        await screen.findByText("marqueur Marché");
 
         expect(screen.getByTestId("map-position")).toHaveTextContent("43.95,4.81");
         expect(prompt()).toBeUndefined();

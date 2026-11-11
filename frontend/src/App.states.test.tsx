@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { useSharedMapLink } from "./test/visitorMapView";
 import type { Activity, MapBounds } from "./components/explorer/types";
 
 /**
@@ -93,6 +94,8 @@ function floating(role: "alert" | "status") {
 }
 
 describe("App — états de la carte (spec P0-D)", () => {
+    useSharedMapLink();
+
     it("erreur serveur : message distinct d'une zone vide, « Réessayer » relance sans recharger", async () => {
         mapResponses = [503, [ACTIVITY as Activity]];
         const user = renderApp();
@@ -133,7 +136,8 @@ describe("App — états de la carte (spec P0-D)", () => {
         await waitFor(() =>
             expect(floating("status")).toHaveTextContent("Aucune activité ne correspond à tes critères dans cette zone."));
         const help = floating("status")!;
-        expect(within(help).queryByRole("button", { name: "Toutes les dates" })).toBeNull();
+        // Période du mois en cours, active par défaut : la retirer est aussi proposé.
+        expect(within(help).getByRole("button", { name: "Toutes les dates" })).toBeInTheDocument();
         expect(new URL(mapUrls[mapUrls.length - 1], "http://localhost").searchParams.get("category")).toBe("CULTURE");
 
         await user.click(within(help).getByRole("button", { name: "Toutes les catégories" }));
@@ -141,13 +145,15 @@ describe("App — états de la carte (spec P0-D)", () => {
         expect(new URL(mapUrls[mapUrls.length - 1], "http://localhost").searchParams.has("category")).toBe(false);
     });
 
-    it("aucun résultat sans filtre : seule une autre ville est proposée", async () => {
+    it("aucun résultat avec les réglages par défaut : mois en cours et 20 km, retirables ou élargissables", async () => {
         mapResponses = [[]];
         const user = renderApp();
 
-        await waitFor(() => expect(floating("status")).toHaveTextContent("Aucune activité trouvée dans cette zone."));
+        await waitFor(() =>
+            expect(floating("status")).toHaveTextContent("Aucune activité ne correspond à tes critères dans cette zone."));
         const help = floating("status")!;
-        expect(within(help).getAllByRole("button").map((button) => button.textContent)).toEqual(["📍 Autre ville"]);
+        expect(within(help).getAllByRole("button").map((button) => button.textContent))
+            .toEqual(["Toutes les dates", "Élargir à 30 km", "📍 Autre ville"]);
 
         await user.click(within(help).getByRole("button", { name: "📍 Autre ville" }));
         expect(screen.getByRole("combobox", { name: /Rechercher une activité/ })).toHaveFocus();
@@ -158,7 +164,7 @@ describe("App — états de la carte (spec P0-D)", () => {
         const user = renderApp();
         await screen.findByText("marqueur Marché");
 
-        await user.click(screen.getByRole("button", { name: /Rayon/ }));
+        await user.click(screen.getByRole("button", { name: /20 km/ }));
         await user.click(screen.getByRole("button", { name: "5 km" }));
         const help = await waitFor(() => {
             const element = floating("status");
