@@ -84,45 +84,48 @@ function MapBoundsWatcher({ onBoundsChange }: { onBoundsChange: (bounds: MapBoun
         if (debounceTimer.current !== null) {
             window.clearTimeout(debounceTimer.current);
         }
-        debounceTimer.current = window.setTimeout(() => {
-            const bounds = map.getBounds();
-            const southWest = bounds.getSouthWest();
-            const northEast = bounds.getNorthEast();
+        debounceTimer.current = window.setTimeout(emitBounds, MAP_BOUNDS_DEBOUNCE_MS);
+    }
 
-            // LL-EF-017 : un conteneur de taille nulle (carte masquée en
-            // display: none, bascule mobile Carte/Liste) produit des bounds
-            // dégénérés (SW = NE, voire inversés) — le backend rejette alors
-            // la requête ("swLatitude doit être strictement inférieur à
-            // neLatitude"). On ignore silencieusement ces bounds invalides
-            // plutôt que de les envoyer.
-            if (
-                !Number.isFinite(southWest.lat)
-                || !Number.isFinite(southWest.lng)
-                || !Number.isFinite(northEast.lat)
-                || !Number.isFinite(northEast.lng)
-                || southWest.lat >= northEast.lat
-                || southWest.lng >= northEast.lng
-            ) {
-                return;
-            }
+    function emitBounds() {
+        const bounds = map.getBounds();
+        const southWest = bounds.getSouthWest();
+        const northEast = bounds.getNorthEast();
 
-            // Carte dézoomée au-delà d'un tour du monde : Leaflet renvoie des
-            // longitudes hors de [-180, 180] (le monde est répété), refusées par
-            // le backend (400). Ramenées aux bornes valides, comme sur mobile.
-            const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-            onBoundsChange({
-                swLatitude: clamp(southWest.lat, -90, 90),
-                swLongitude: clamp(southWest.lng, -180, 180),
-                neLatitude: clamp(northEast.lat, -90, 90),
-                neLongitude: clamp(northEast.lng, -180, 180),
-            });
-        }, MAP_BOUNDS_DEBOUNCE_MS);
+        // LL-EF-017 : un conteneur de taille nulle (carte masquée en
+        // display: none, bascule mobile Carte/Liste) produit des bounds
+        // dégénérés (SW = NE, voire inversés) — le backend rejette alors
+        // la requête ("swLatitude doit être strictement inférieur à
+        // neLatitude"). On ignore silencieusement ces bounds invalides
+        // plutôt que de les envoyer.
+        if (
+            !Number.isFinite(southWest.lat)
+            || !Number.isFinite(southWest.lng)
+            || !Number.isFinite(northEast.lat)
+            || !Number.isFinite(northEast.lng)
+            || southWest.lat >= northEast.lat
+            || southWest.lng >= northEast.lng
+        ) {
+            return;
+        }
+
+        // Carte dézoomée au-delà d'un tour du monde : Leaflet renvoie des
+        // longitudes hors de [-180, 180] (le monde est répété), refusées par
+        // le backend (400). Ramenées aux bornes valides, comme sur mobile.
+        const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+        onBoundsChange({
+            swLatitude: clamp(southWest.lat, -90, 90),
+            swLongitude: clamp(southWest.lng, -180, 180),
+            neLatitude: clamp(northEast.lat, -90, 90),
+            neLongitude: clamp(northEast.lng, -180, 180),
+        });
     }
 
     useEffect(() => {
         // Zone affichée transmise dès l'affichage, sans attendre un geste : sans lieu choisi, c'est elle
         // qui fait la recherche (spec P0-A, pas de recherche autour d'une position inventée).
-        map.whenReady(() => scheduleBoundsUpdate());
+        // Sans délai anti-rebond : rien à regrouper au premier affichage, la recherche part aussitôt.
+        map.whenReady(() => emitBounds());
         return () => {
             if (debounceTimer.current !== null) {
                 window.clearTimeout(debounceTimer.current);

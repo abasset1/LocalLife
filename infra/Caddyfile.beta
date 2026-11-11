@@ -21,6 +21,10 @@
 #   identifié pour LocalLife.
 
 {$LOCALLIFE_DOMAIN} {
+    # Compression des réponses (JSON de l'API, bundle) : la carte vue de loin renvoie des milliers
+    # d'activités, plusieurs Mo de JSON sans compression.
+    encode zstd gzip
+
     header {
         Strict-Transport-Security "max-age=31536000"
         X-Content-Type-Options "nosniff"
