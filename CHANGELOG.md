@@ -2,6 +2,13 @@
 
 ## 0.9.59 — non publiée
 
+### DATAtourisme : toutes les périodes sont importées
+- **Plus de règle des « périodes de validité »** : une période de plus de 31 jours n'est plus écartée (marchés de Noël de cinq semaines, marchés hebdomadaires publiés toute l'année, ateliers de septembre à juin…). Seul un événement dont toutes les périodes sont terminées avant aujourd'hui est écarté. Un marché publié du 1er janvier au 31 décembre est affiché sur toute la période, la source ne disant pas quels jours.
+- **Période à cheval sur deux années** publiée sans changer d'année (« 2026-11-27<->2026-01-02 », marché de Noël d'Avignon) : la fin est reportée à l'année suivante. Avant, l'événement était écarté comme passé.
+- Export PACA du 11/11/2026, Vaucluse : 194 événements importés au lieu de 94, dont le marché de Noël, « Avignon fête Noël », « La place Pie en folie » et « Les Côtes du Rhône fêtent Noël » à Avignon.
+
+### Carte plus rapide (vue d'ensemble sans compte)
+- L'image des activités est résolue en une seule requête pour toute la liste (`/within-bounds`, `/nearby`, favoris) au lieu d'une à deux par activité ; réponses compressées (Caddy) ; première recherche envoyée dès l'affichage de la carte.
 ### Site : fond de carte Plan IGN au lieu d'OpenStreetMap
 - **Pourquoi** : la carte du site chargeait ses tuiles sur les serveurs d'OpenStreetMap (`tile.openstreetmap.org`). Ils sont financés par des dons pour les contributeurs d'OpenStreetMap, et leur politique d'usage exclut un service public à fort trafic : risque de carte bloquée à la mise en public.
 - **Maintenant** : Plan IGN de la Géoplateforme (service public de l'IGN). Gratuit, sans clé, Licence Ouverte, zooms jusqu'à 19, couverture France. Mention « © IGN – Plan IGN » sur la carte.

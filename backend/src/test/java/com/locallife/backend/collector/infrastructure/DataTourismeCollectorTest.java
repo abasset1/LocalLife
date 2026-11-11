@@ -38,7 +38,7 @@ import org.springframework.web.client.RestClient;
  *   <li>Avignon : « Parcours de l'Art » (festival, « Divers lieux »), « Les Hivernales » (passé), un cycle
  *       de visites à quatre dates ;</li>
  *   <li>« Hidden heritage in Aix » (visite publiée d'avril à octobre) et le « Grand marché provençal du jeudi
- *       matin » (toute l'année, ligne en double) : périodes de validité ;</li>
+ *       matin » (toute l'année, ligne en double) : longues périodes, importées telles quelles ;</li>
  *   <li>deux spectacles à Aubagne et Marseille (billetterie parmi les contacts, description sur plusieurs
  *       lignes) ;</li>
  *   <li>une exposition de 58 jours à Apt et « Octobre Rose » à Pertuis (« Centre ville », sans lien).</li>
@@ -113,11 +113,11 @@ class DataTourismeCollectorTest {
     void collect_ShouldKeepOnlyUpcomingEventsWithRealDates() throws IOException {
         List<String> titles = titles(collect(""));
 
-        assertEquals(6, titles.size());
+        assertEquals(8, titles.size());
         assertTrue(titles.stream().noneMatch(title -> title.startsWith("Camping")));
         assertTrue(titles.stream().noneMatch(title -> title.startsWith("Les Hivernales")));
-        assertTrue(titles.stream().noneMatch(title -> title.startsWith("Hidden heritage")));
-        assertTrue(titles.stream().noneMatch(title -> title.startsWith("Grand marché")));
+        assertEquals(1, titles.stream().filter(title -> title.startsWith("Hidden heritage")).count());
+        assertEquals(1, titles.stream().filter(title -> title.startsWith("Grand marché")).count());
     }
 
     @Test
@@ -150,60 +150,61 @@ class DataTourismeCollectorTest {
         assertEquals(LocalDateTime.of(2026, 11, 28, 23, 59), timings.get(3).end());
     }
 
-    /** Anomalie 2 : une saison n'est pas présentée comme un intervalle continu ; une exposition l'est. */
+    /** Toutes les périodes sont importées, quelle que soit leur durée : marché à l'année, exposition, saison. */
     @Test
-    void collect_ShouldDropValidityWindows_ButKeepLongExhibitions() throws IOException {
+    void collect_ShouldKeepLongPeriods() throws IOException {
         List<CollectedActivity> result = collect("");
 
-        assertFalse(titles(result).stream().anyMatch(title -> title.startsWith("Grand marché")));
-        assertFalse(titles(result).stream().anyMatch(title -> title.startsWith("Hidden heritage")));
+        assertEquals(List.of(new CollectedTiming(
+                LocalDateTime.of(2026, 1, 1, 0, 0), LocalDateTime.of(2026, 12, 31, 23, 59))),
+                byTitle(result, "Grand marché").timings());
         CollectedActivity exhibition = byTitle(result, "Exposition \"Luc MAUREL");
         assertEquals(List.of(new CollectedTiming(
                 LocalDateTime.of(2026, 9, 4, 0, 0), LocalDateTime.of(2026, 10, 31, 23, 59))), exhibition.timings());
     }
 
-    /**
-     * Règle métier validée : au-delà de 31 jours, la période d'un type non continu est une période de
-     * validité et l'événement n'est pas importé ; de 8 à 31 jours, la période est gardée telle quelle.
-     */
     @Test
-    void collect_ShouldApplyThirtyOneDayRule_AtItsBoundaries() {
-        String eightDays = EVENT_ROW.replace("2026-11-01<->2026-11-01", "2026-11-01<->2026-11-08")
-                .replace("13/concert", "13/huit-jours");
-        String thirtyOneDays = EVENT_ROW.replace("2026-11-01<->2026-11-01", "2026-11-01<->2026-12-01")
-                .replace("13/concert", "13/trente-et-un-jours");
-        String thirtyTwoDays = EVENT_ROW.replace("2026-11-01<->2026-11-01", "2026-11-01<->2026-12-02")
-                .replace("13/concert", "13/trente-deux-jours");
+    void collect_ShouldKeepPeriodsOfAnyLength_ForAnyType() {
+        String market = EVENT_ROW.replace("core#Concert", "core#Market")
+                .replace("2026-11-01<->2026-11-01", "2026-11-27<->2027-01-02");
+        String mixed = EVENT_ROW.replace("2026-11-01<->2026-11-01", "2026-01-01<->2026-12-31|2026-11-01<->2026-11-01")
+                .replace("13/concert", "13/mixte");
 
-        List<CollectedActivity> result = collectBody(HEADER + eightDays + thirtyOneDays + thirtyTwoDays, null);
+        List<CollectedActivity> result = collectBody(HEADER + market + mixed, null);
 
-        assertEquals(31, DataTourismeCollector.MAX_OCCURRENCE_DAYS);
-        assertEquals(List.of("https://data.datatourisme.fr/13/huit-jours",
-                "https://data.datatourisme.fr/13/trente-et-un-jours"),
+        assertEquals(2, result.size());
+        assertEquals(List.of(new CollectedTiming(
+                LocalDateTime.of(2026, 11, 27, 0, 0), LocalDateTime.of(2027, 1, 2, 23, 59))),
+                result.get(0).timings());
+        assertEquals(2, result.get(1).timings().size());
+    }
+
+    /** Seul critère de date : un événement dont toutes les périodes sont terminées avant aujourd'hui est écarté. */
+    @Test
+    void collect_ShouldRejectOnlyEventsEndedBeforeToday() {
+        String endedYesterday = EVENT_ROW.replace("2026-11-01<->2026-11-01", "2026-01-01<->2026-10-12")
+                .replace("13/concert", "13/hier");
+        String endsToday = EVENT_ROW.replace("2026-11-01<->2026-11-01", "2026-01-01<->2026-10-13")
+                .replace("13/concert", "13/aujourdhui");
+
+        List<CollectedActivity> result = collectBody(HEADER + endedYesterday + endsToday, null);
+
+        assertEquals(List.of("https://data.datatourisme.fr/13/aujourdhui"),
                 result.stream().map(CollectedActivity::externalId).toList());
-        assertEquals(LocalDateTime.of(2026, 12, 1, 23, 59), result.get(1).timings().get(0).end());
     }
 
+    /** « 2026-11-27<->2026-01-02 » (export réel, marché de Noël d'Avignon) : la fin est l'année suivante. */
     @Test
-    void collect_ShouldKeepContinuousTypes_BeyondThirtyOneDays() {
-        String longExhibition = EVENT_ROW.replace("core#Concert", "core#Exhibition")
-                .replace("2026-11-01<->2026-11-01", "2026-11-01<->2027-03-31");
+    void collect_ShouldMoveEndToNextYear_WhenPublishedBeforeBegin() {
+        String christmasMarket = EVENT_ROW.replace("core#Concert", "core#Market")
+                .replace("2026-11-01<->2026-11-01", "2026-11-27<->2026-01-02");
 
-        List<CollectedActivity> result = collectBody(HEADER + longExhibition, null);
-
-        assertEquals(1, result.size());
-        assertEquals(LocalDateTime.of(2027, 3, 31, 23, 59), result.get(0).timings().get(0).end());
-    }
-
-    @Test
-    void collect_ShouldKeepShortPeriods_WhenMixedWithValidityWindow() {
-        String row = EVENT_ROW.replace("2026-11-01<->2026-11-01", "2026-01-01<->2026-12-31|2026-11-01<->2026-11-01");
-
-        List<CollectedActivity> result = collectBody(HEADER + row, null);
+        List<CollectedActivity> result = collectBody(HEADER + christmasMarket, null);
 
         assertEquals(1, result.size());
         assertEquals(List.of(new CollectedTiming(
-                LocalDateTime.of(2026, 11, 1, 0, 0), LocalDateTime.of(2026, 11, 1, 23, 59))), result.get(0).timings());
+                LocalDateTime.of(2026, 11, 27, 0, 0), LocalDateTime.of(2027, 1, 2, 23, 59))),
+                result.get(0).timings());
     }
 
     /** Anomalie 3 : une adresse générique devient le nom du lieu, sans adresse précise. */
@@ -265,7 +266,8 @@ class DataTourismeCollectorTest {
         assertEquals(4, vaucluse.size());
         assertTrue(vaucluse.stream().allMatch(activity -> activity.location().postalCode().startsWith("84")));
 
-        assertEquals(6, collect("84, 13").size());
+        // Avec « Hidden heritage in Aix » (13), longue période désormais importée.
+        assertEquals(7, collect("84, 13").size());
     }
 
     @Test
