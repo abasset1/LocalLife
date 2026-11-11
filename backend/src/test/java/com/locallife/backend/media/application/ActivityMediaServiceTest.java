@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import com.locallife.backend.media.domain.ActivityMedia;
+import com.locallife.backend.media.infrastructure.ActivityMainImageRepository;
 import com.locallife.backend.media.infrastructure.ActivityMediaRepository;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,11 +23,14 @@ class ActivityMediaServiceTest {
     @Mock
     private ActivityMediaRepository activityMediaRepository;
 
+    @Mock
+    private ActivityMainImageRepository mainImageRepository;
+
     private ActivityMediaService activityMediaService;
 
     @BeforeEach
     void setUp() {
-        activityMediaService = new ActivityMediaService(activityMediaRepository);
+        activityMediaService = new ActivityMediaService(activityMediaRepository, mainImageRepository);
     }
 
     @Test

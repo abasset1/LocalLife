@@ -243,8 +243,9 @@ public class ActivityController {
                     activities.stream().map(Activity::id).toList());
             Map<Long, LocalDateTime> nextStarts = resolveNextOccurrenceStarts(
                     activities.stream().map(Activity::id).toList(), referenceDate(date));
+            Map<Long, String> mainImageUrls = resolveMainImageUrls(activities.stream().map(Activity::id).toList());
             List<ActivitySummaryResponse> summaries = activities.stream()
-                    .map(activity -> ActivitySummaryResponse.from(activity, resolveMainImageUrl(activity.id()))
+                    .map(activity -> ActivitySummaryResponse.from(activity, mainImageUrls.get(activity.id()))
                             .withCoordinatePrecision(precisions.get(activity.id()))
                             .withNextOccurrenceStart(nextStarts.get(activity.id())))
                     .toList();
@@ -439,13 +440,14 @@ public class ActivityController {
                 activities.stream().map(Activity::id).toList());
         Map<Long, LocalDateTime> nextStarts = resolveNextOccurrenceStarts(
                 activities.stream().map(Activity::id).toList(), referenceDate);
+        Map<Long, String> mainImageUrls = resolveMainImageUrls(activities.stream().map(Activity::id).toList());
 
         return activities.stream()
                 .map(activity -> ActivityResponse.from(
                         activity, sourceNamesById.getOrDefault(activity.sourceId(), UNKNOWN_SOURCE_NAME),
                         usernamesByCreatedBy.get(activity.createdBy()),
                         likedActivityIdsSet.contains(activity.id()),
-                        resolveMainImageUrl(activity.id()),
+                        mainImageUrls.get(activity.id()),
                         categoryCodesByActivityId.getOrDefault(activity.id(), List.of()))
                         .withCoordinatePrecision(precisions.get(activity.id()))
                         .withNextOccurrenceStart(nextStarts.get(activity.id())))
@@ -572,13 +574,7 @@ public class ActivityController {
     /**
      * Url du premier média attaché à une activité (position 0, voir
      * {@code ActivityMediaService#findByActivityId}), ou {@code null} si
-     * aucun média n'est attaché — utilisé par {@link #getAllActivities}
-     * pour construire {@link ActivitySummaryResponse#mainImageUrl}.
-     *
-     * ⚠️ Une requête par activité (ni mise en cache ni résolution en
-     * lot) : même limitation assumée que {@link #withSourceNames}/la
-     * résolution des noms d'utilisateur ci-dessus (voir leur javadoc),
-     * suffisant à l'échelle d'une bêta.
+     * aucun média n'est attaché — fiche d'une seule activité ; les listes passent par {@link #resolveMainImageUrls}.
      */
     private String resolveMainImageUrl(Long activityId) {
         return activityMediaService.findByActivityId(activityId).stream()
@@ -587,6 +583,16 @@ public class ActivityController {
                 .flatMap(mediaService::findById)
                 .map(Media::url)
                 .orElse(null);
+    }
+
+    /**
+     * Image principale de chaque activité d'une liste, en une requête
+     * ({@link ActivityMediaService#findMainImageUrls}) :
+     * une vue large de la carte compte des milliers d'activités, une requête par activité la rendait très lente.
+     */
+    private Map<Long, String> resolveMainImageUrls(List<Long> activityIds) {
+        Map<Long, String> urls = activityMediaService.findMainImageUrls(activityIds);
+        return urls == null ? Map.of() : urls;
     }
 
     /**

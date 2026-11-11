@@ -7,9 +7,6 @@ import com.locallife.backend.activity.infrastructure.ActivityNextOccurrenceRepos
 import com.locallife.backend.auth.application.JwtAuthentication;
 import com.locallife.backend.like.application.LikeService;
 import com.locallife.backend.media.application.ActivityMediaService;
-import com.locallife.backend.media.application.MediaService;
-import com.locallife.backend.media.domain.ActivityMedia;
-import com.locallife.backend.media.domain.Media;
 import com.locallife.backend.place.domain.CoordinatePrecision;
 import com.locallife.backend.source.application.SourceService;
 import com.locallife.backend.source.domain.Source;
@@ -41,19 +38,17 @@ public class LikeController {
     private final LikeService likeService;
     private final SourceService sourceService;
     private final ActivityMediaService activityMediaService;
-    private final MediaService mediaService;
 
     private final ActivityCoordinatePrecisionRepository coordinatePrecisionRepository;
     private final ActivityNextOccurrenceRepository nextOccurrenceRepository;
 
     public LikeController(
             LikeService likeService, SourceService sourceService, ActivityMediaService activityMediaService,
-            MediaService mediaService, ActivityCoordinatePrecisionRepository coordinatePrecisionRepository,
+            ActivityCoordinatePrecisionRepository coordinatePrecisionRepository,
             ActivityNextOccurrenceRepository nextOccurrenceRepository) {
         this.likeService = likeService;
         this.sourceService = sourceService;
         this.activityMediaService = activityMediaService;
-        this.mediaService = mediaService;
         this.coordinatePrecisionRepository = coordinatePrecisionRepository;
         this.nextOccurrenceRepository = nextOccurrenceRepository;
     }
@@ -74,8 +69,8 @@ public class LikeController {
      * qu'une projection dédiée : les informations attendues par le
      * ticket (nom, date, ville, catégorie, image éventuelle) en sont
      * déjà toutes un sous-ensemble — {@code mainImageUrl} effectivement
-     * résolu depuis LL-11015 (voir {@link #resolveMainImageUrl}, même
-     * logique que {@code ActivityController#resolveMainImageUrl}).
+     * résolu depuis LL-11015, en une requête pour toute la liste
+     * ({@code ActivityMediaService#findMainImageUrls}).
      */
     @GetMapping
     public List<ActivityResponse> getLikedActivities(Authentication authentication) {
@@ -91,31 +86,15 @@ public class LikeController {
         Map<Long, LocalDateTime> nextStarts = nextOccurrenceRepository.findNextStartByActivityIds(
                 likedActivities.stream().map(Activity::id).toList(), null);
 
+        Map<Long, String> mainImageUrls = activityMediaService.findMainImageUrls(
+                likedActivities.stream().map(Activity::id).toList());
+
         return likedActivities.stream()
                 .map(activity -> ActivityResponse.from(
                         activity, sourceNamesById.getOrDefault(activity.sourceId(), UNKNOWN_SOURCE_NAME),
-                        null, true, resolveMainImageUrl(activity.id()))
+                        null, true, mainImageUrls == null ? null : mainImageUrls.get(activity.id()))
                         .withCoordinatePrecision(precisions == null ? null : precisions.get(activity.id()))
                         .withNextOccurrenceStart(nextStarts == null ? null : nextStarts.get(activity.id())))
                 .collect(Collectors.toList());
-    }
-
-    /**
-     * Url du premier média attaché à une activité (LL-11015), ou
-     * {@code null} si aucun média n'est attaché — copie volontaire de
-     * {@code ActivityController#resolveMainImageUrl} (même logique,
-     * même limitation assumée : une requête par activité, sans mise en
-     * cache ni résolution en lot, voir sa javadoc) plutôt qu'une
-     * factorisation entre les deux contrôleurs, pour rester cohérent
-     * avec l'absence de classe de base partagée entre eux dans ce
-     * projet.
-     */
-    private String resolveMainImageUrl(Long activityId) {
-        return activityMediaService.findByActivityId(activityId).stream()
-                .findFirst()
-                .map(ActivityMedia::mediaId)
-                .flatMap(mediaService::findById)
-                .map(Media::url)
-                .orElse(null);
     }
 }
