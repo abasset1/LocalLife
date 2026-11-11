@@ -2,7 +2,9 @@ package com.locallife.backend.collector.infrastructure;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.locallife.backend.collector.domain.CollectedTiming;
 import java.time.DayOfWeek;
+import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -45,5 +47,41 @@ class MarketDaysTest {
         assertEquals(Set.of(DayOfWeek.SATURDAY), MarketDays.days("Tous les samedis, sauf le dimanche"));
         assertEquals(Set.of(DayOfWeek.THURSDAY), MarketDays.days("Le jeudi matin. Fermé le lundi."));
         assertEquals(Set.of(), MarketDays.days("Carnaval de Mardi Gras"));
+    }
+
+    @Test
+    void days_ShouldReadRanges_AndWeekends() {
+        assertEquals(EnumSet.range(DayOfWeek.MONDAY, DayOfWeek.SATURDAY), MarketDays.days("Du lundi au samedi"));
+        assertEquals(EnumSet.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY, DayOfWeek.MONDAY),
+                MarketDays.days("du samedi au lundi"));
+        // Horaires réels de l'API (cinéma L'Eden, voir DataTourismeApiEnricherTest).
+        assertEquals(EnumSet.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.SATURDAY,
+                DayOfWeek.SUNDAY), MarketDays.days("Du 09/11 au 15/11/2026 le lundi, mardi, mercredi et les week-ends."));
+    }
+
+    private static final CollectedTiming NOVEMBER = new CollectedTiming(
+            LocalDateTime.of(2026, 11, 1, 0, 0), LocalDateTime.of(2026, 11, 30, 23, 59));
+
+    @Test
+    void splitWithApiText_ShouldPreferOpeningHours_ThenLongDescription() {
+        List<CollectedTiming> fromHours = MarketDays.splitWithApiText(
+                List.of(NOVEMBER), List.of("marché"), "Le jeudi de 8h à 13h.", "Le samedi matin.");
+        assertEquals(4, fromHours.size());
+        assertEquals(new CollectedTiming(LocalDateTime.of(2026, 11, 5, 0, 0), LocalDateTime.of(2026, 11, 5, 23, 59)),
+                fromHours.get(0));
+
+        List<CollectedTiming> fromDescription = MarketDays.splitWithApiText(
+                List.of(NOVEMBER), List.of("brocante"), null, "Tous les samedis matin sur le cours.");
+        assertEquals(4, fromDescription.size());
+    }
+
+    @Test
+    void splitWithApiText_ShouldLeaveOtherEvents_AndShortOrSplitTimings_Untouched() {
+        assertEquals(List.of(NOVEMBER), MarketDays.splitWithApiText(
+                List.of(NOVEMBER), List.of("exposition"), "Fermé le lundi.", null));
+        CollectedTiming weekend = new CollectedTiming(
+                LocalDateTime.of(2026, 11, 27, 0, 0), LocalDateTime.of(2026, 11, 29, 23, 59));
+        assertEquals(List.of(weekend), MarketDays.splitWithApiText(List.of(weekend), List.of("marché"), "Le samedi.", null));
+        assertEquals(List.of(NOVEMBER), MarketDays.splitWithApiText(List.of(NOVEMBER), List.of("marché"), null, null));
     }
 }

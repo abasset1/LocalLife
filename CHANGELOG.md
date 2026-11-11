@@ -5,6 +5,8 @@
 ### DATAtourisme : marchés affichés seulement leurs jours
 - Un événement publié sur plus de 7 jours dont le **titre** annonce les jours (« Marché du jeudi », « Samedi : marché hebdomadaire », « Marché dominical ») devient une occurrence par jour annoncé, au lieu d'être affiché tous les jours de la période.
 - Pour un **marché ou une vente** (marché, brocante, vide-greniers) dont le titre ne dit rien, la description est lue (« tous les lundis matin », « le mardi matin sur la place »). Pas pour les autres types : « fermé le lundi » d'une exposition ne doit pas devenir un jour d'ouverture. « sauf le … », « fermé le … » et « mardi gras » sont ignorés.
+- **Après l'API DATAtourisme** (si la clé `DATATOURISME_API_KEY` est configurée) : un marché ou une vente resté continu est relu dans les horaires de l'API (`textOpeningHoursSpecification`), puis dans sa description détaillée, absents du CSV. La description du CSV ne fait que 255 caractères et ne cite aucun jour pour les 39 marchés restés continus.
+- Plages et week-ends reconnus : « du lundi au samedi » (tous les jours compris), « les week-ends » (samedi et dimanche).
 - Sans jour annoncé, la période reste continue. Export PACA du 11/11/2026, Vaucluse : 40 des 111 événements à longue période découpés ; 38 marchés n'annoncent leur jour ni dans le titre ni dans le début de la description et restent affichés tous les jours.
 
 ### DATAtourisme : toutes les périodes sont importées
