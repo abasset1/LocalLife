@@ -7,6 +7,9 @@
 - **Période à cheval sur deux années** publiée sans changer d'année (« 2026-11-27<->2026-01-02 », marché de Noël d'Avignon) : la fin est reportée à l'année suivante. Avant, l'événement était écarté comme passé.
 - Export PACA du 11/11/2026, Vaucluse : 194 événements importés au lieu de 94, dont le marché de Noël, « Avignon fête Noël », « La place Pie en folie » et « Les Côtes du Rhône fêtent Noël » à Avignon.
 
+### Site : food trucks sans filtres Catégories ni Gratuit
+- Sur la carte Food trucks, les boutons « Catégories » et « Gratuit » sont masqués : ils ne s'appliquaient qu'aux activités. Seul le filtre « Cuisine » reste (avec Dates, Rayon et « Autour de moi »). L'application les masquait déjà.
+
 ### Carte plus rapide (vue d'ensemble sans compte)
 - L'image des activités est résolue en une seule requête pour toute la liste (`/within-bounds`, `/nearby`, favoris) au lieu d'une à deux par activité ; réponses compressées (Caddy) ; première recherche envoyée dès l'affichage de la carte.
 ### Site : fond de carte Plan IGN au lieu d'OpenStreetMap
