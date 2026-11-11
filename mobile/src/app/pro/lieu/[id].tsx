@@ -12,6 +12,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { placeTypeLabel } from '@/features/map/placeTypes';
 import { PLACE_CHANGE_STATUS_LABELS, PLACE_STATUS_LABELS, formatDay } from '@/features/pro/format';
+import { FieldRow, FormActions, FormHeader, FormSection } from '@/features/pro/FormParts';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
 
 /** « 10 rue X, 13001 Marseille », vide sans adresse ni commune. */
@@ -144,54 +145,70 @@ export default function ManagedPlaceScreen() {
               <>
                 {form ? (
                   <Card style={styles.form}>
-                    <ThemedText type="heading">Proposer une modification</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      Le nom et la catégorie ne changent pas. Neiri examine votre proposition avant de mettre la fiche à
-                      jour{hasPending ? ' ; elle remplace celle déjà en attente' : ''}.
-                    </ThemedText>
-                    <TextField label="Adresse" value={form.address} onChangeText={(v) => setForm({ ...form, address: v })} />
-                    <TextField
-                      label="Code postal"
-                      value={form.postalCode}
-                      onChangeText={(v) => setForm({ ...form, postalCode: v })}
-                      keyboardType="number-pad"
-                      maxLength={5}
+                    <FormHeader
+                      icon="📝"
+                      title="Proposer une modification"
+                      subtitle="Neiri examine votre proposition avant de mettre la fiche à jour."
                     />
-                    <TextField label="Commune" value={form.city} onChangeText={(v) => setForm({ ...form, city: v })} />
-                    <TextField
-                      label="Description"
-                      value={form.description}
-                      onChangeText={(v) => setForm({ ...form, description: v })}
-                      multiline
-                      maxLength={4000}
-                    />
-                    <TextField
-                      label="Site web"
-                      value={form.website}
-                      onChangeText={(v) => setForm({ ...form, website: v })}
-                      autoCapitalize="none"
-                      keyboardType="url"
-                    />
-                    <TextField
-                      label="Téléphone"
-                      value={form.phone}
-                      onChangeText={(v) => setForm({ ...form, phone: v })}
-                      keyboardType="phone-pad"
-                    />
-                    <TextField
-                      label="E-mail"
-                      value={form.email}
-                      onChangeText={(v) => setForm({ ...form, email: v })}
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                    />
-                    <Button
-                      label="Envoyer la proposition"
-                      loading={busy}
-                      disabled={form.city.trim() === ''}
-                      onPress={() => void propose()}
-                    />
-                    <Button label="Annuler" variant="ghost" onPress={() => setForm(null)} />
+                    <Notice tone="info">
+                      Le nom et la catégorie ne changent pas.
+                      {hasPending ? ' Cette proposition remplace celle déjà en attente.' : ''}
+                    </Notice>
+                    <FormSection title="Adresse" first>
+                      <TextField label="Adresse" value={form.address} onChangeText={(v) => setForm({ ...form, address: v })} />
+                      <FieldRow>
+                        <TextField
+                          label="Code postal"
+                          value={form.postalCode}
+                          onChangeText={(v) => setForm({ ...form, postalCode: v })}
+                          keyboardType="number-pad"
+                          maxLength={5}
+                        />
+                        <TextField label="Commune" value={form.city} onChangeText={(v) => setForm({ ...form, city: v })} />
+                      </FieldRow>
+                    </FormSection>
+                    <FormSection title="Présentation">
+                      <TextField
+                        label="Description"
+                        placeholder="Ce qu’on y trouve, l’ambiance, ce qui le rend unique…"
+                        value={form.description}
+                        onChangeText={(v) => setForm({ ...form, description: v })}
+                        multiline
+                        maxLength={4000}
+                      />
+                    </FormSection>
+                    <FormSection title="Coordonnées">
+                      <TextField
+                        label="Site web"
+                        placeholder="https://"
+                        value={form.website}
+                        onChangeText={(v) => setForm({ ...form, website: v })}
+                        autoCapitalize="none"
+                        keyboardType="url"
+                      />
+                      <TextField
+                        label="Téléphone"
+                        value={form.phone}
+                        onChangeText={(v) => setForm({ ...form, phone: v })}
+                        keyboardType="phone-pad"
+                      />
+                      <TextField
+                        label="E-mail"
+                        value={form.email}
+                        onChangeText={(v) => setForm({ ...form, email: v })}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                      />
+                    </FormSection>
+                    <FormActions>
+                      <Button label="Annuler" variant="secondary" onPress={() => setForm(null)} />
+                      <Button
+                        label="Envoyer"
+                        loading={busy}
+                        disabled={form.city.trim() === ''}
+                        onPress={() => void propose()}
+                      />
+                    </FormActions>
                   </Card>
                 ) : (
                   place && (
