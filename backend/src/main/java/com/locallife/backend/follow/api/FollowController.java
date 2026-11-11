@@ -17,8 +17,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Cloche « Suivre » : suivre une activité ou un lieu pour être prévenu de ses mises à jour (Premium et Pro, 403 pour un
- * compte gratuit), et liste des suivis de l'utilisateur connecté. L'identifiant de l'utilisateur vient du JWT.
+ * Cloche « Suivre » : suivre une activité, un lieu ou un food truck pour être prévenu de ses mises à jour (Premium et
+ * Pro, 403 pour un compte gratuit), et liste des suivis de l'utilisateur connecté. L'identifiant de l'utilisateur vient
+ * du JWT.
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -30,20 +31,29 @@ public class FollowController {
         this.followService = followService;
     }
 
-    /** Une activité ou un lieu suivi. {@code type} : {@code activity} ou {@code place}. */
+    /**
+     * Une activité, un lieu ou un food truck suivi. {@code type} : {@code activity}, {@code place} ou
+     * {@code foodtruck}.
+     */
     public record FollowedItemResponse(String type, Long id, String title, String city, String status,
             OffsetDateTime followedAt) {
 
         static FollowedItemResponse from(FollowedItem item) {
-            return new FollowedItemResponse(item.type() == FollowTargetType.ACTIVITY ? "activity" : "place",
-                    item.targetId(), item.title(), item.city(), item.status(), item.followedAt());
+            String type = switch (item.type()) {
+                case ACTIVITY -> "activity";
+                case PLACE -> "place";
+                case FOOD_TRUCK -> "foodtruck";
+            };
+            return new FollowedItemResponse(type, item.targetId(), item.title(), item.city(), item.status(),
+                    item.followedAt());
         }
     }
 
     public record FollowStatusResponse(boolean following) {
     }
 
-    @Operation(summary = "Activités et lieux suivis par l'utilisateur connecté, du plus récent au plus ancien")
+    @Operation(summary = "Activités, lieux et food trucks suivis par l'utilisateur connecté, du plus récent au plus "
+            + "ancien")
     @GetMapping("/users/me/follows")
     public List<FollowedItemResponse> findFollowed(Authentication authentication) {
         return followService.findFollowed(userId(authentication)).stream().map(FollowedItemResponse::from).toList();
@@ -75,6 +85,21 @@ public class FollowController {
     @DeleteMapping("/places/{id}/follow")
     public FollowStatusResponse unfollowPlace(@PathVariable Long id, Authentication authentication) {
         followService.unfollow(userId(authentication), FollowTargetType.PLACE, id);
+        return new FollowStatusResponse(false);
+    }
+
+    @Operation(summary = "Suivre un food truck",
+            description = "Idempotent. Prévient des changements de son profil et de son planning, et le jour où il est "
+                    + "quelque part. 404 si le food truck n'est pas publié ; 403 pour un compte gratuit.")
+    @PostMapping("/foodtrucks/{id}/follow")
+    public ResponseEntity<FollowStatusResponse> followFoodTruck(@PathVariable Long id, Authentication authentication) {
+        return follow(FollowTargetType.FOOD_TRUCK, id, authentication);
+    }
+
+    @Operation(summary = "Ne plus suivre un food truck", description = "Idempotent, quelle que soit l'offre.")
+    @DeleteMapping("/foodtrucks/{id}/follow")
+    public FollowStatusResponse unfollowFoodTruck(@PathVariable Long id, Authentication authentication) {
+        followService.unfollow(userId(authentication), FollowTargetType.FOOD_TRUCK, id);
         return new FollowStatusResponse(false);
     }
 

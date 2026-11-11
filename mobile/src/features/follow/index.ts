@@ -1,3 +1,3 @@
 export { FollowBell } from './FollowBell';
 export { FollowsProvider, useFollows } from './FollowsProvider';
-export { followStatusLabel } from './follows';
+export { FOLLOW_TYPE_LABELS, followStatusLabel } from './follows';

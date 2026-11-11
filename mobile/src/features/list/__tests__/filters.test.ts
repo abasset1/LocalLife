@@ -66,4 +66,9 @@ describe('matchesQuery', () => {
   it('une recherche vide garde tout', () => {
     expect(matchesQuery(activity, '   ')).toBe(true);
   });
+
+  it('accepte une activité importée sans libellé de catégorie (Aureille, 10/11/2026)', () => {
+    const imported = { title: 'Repas festif choucroute', category: null, city: 'Aureille', description: null };
+    expect(matchesQuery(imported, 'choucroute aureille')).toBe(true);
+  });
 });

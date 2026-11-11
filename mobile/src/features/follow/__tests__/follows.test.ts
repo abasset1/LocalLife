@@ -32,5 +32,7 @@ describe('suivis (cloche « Suivre »)', () => {
     expect(followStatusLabel(item('activity', 1))).toBeNull();
     expect(followStatusLabel(item('place', 1, 'ARCHIVED'))).toBe('retiré de la carte');
     expect(followStatusLabel(item('place', 1))).toBeNull();
+    expect(followStatusLabel(item('foodtruck', 1, 'SUSPENDED'))).toBe('retiré de la carte');
+    expect(followStatusLabel(item('foodtruck', 1))).toBeNull();
   });
 });

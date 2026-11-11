@@ -2,15 +2,15 @@ import { useEffect, useState } from "react";
 import { apiFetch, describeErrorResponse } from "../../api/apiClient";
 import { getPayload } from "../../auth/authStorage";
 
-export type FollowTargetType = "activity" | "place";
+export type FollowTargetType = "activity" | "place" | "foodtruck";
 
-/** Activité ou lieu suivi (`GET /api/v1/users/me/follows`). */
+/** Activité, lieu ou food truck suivi (`GET /api/v1/users/me/follows`). */
 export interface FollowedItem {
     type: FollowTargetType;
     id: number;
     title: string | null;
     city: string | null;
-    /** Statut de l'activité (`PUBLISHED`, `CANCELLED`…) ou du lieu (`PUBLISHED`, `ARCHIVED`…). */
+    /** Statut de l'activité (`PUBLISHED`, `CANCELLED`…), du lieu ou du food truck (`PUBLISHED`, `ARCHIVED`…). */
     status: string | null;
     followedAt: string;
 }
@@ -38,7 +38,8 @@ function notify() {
 }
 
 function path(type: FollowTargetType, id: number): string {
-    return `/api/v1/${type === "activity" ? "activities" : "places"}/${id}/follow`;
+    const collection = { activity: "activities", place: "places", foodtruck: "foodtrucks" }[type];
+    return `/api/v1/${collection}/${id}/follow`;
 }
 
 /** Charge les suivis du compte connecté (une seule requête à la fois). */
@@ -69,7 +70,7 @@ export function isFollowing(type: FollowTargetType, id: number): boolean {
     return state.items?.some((item) => item.type === type && item.id === id) ?? false;
 }
 
-/** Suit ou ne suit plus une activité ou un lieu ; met à jour les suivis partagés en cas de succès. */
+/** Suit ou ne suit plus une activité, un lieu ou un food truck ; met à jour les suivis partagés en cas de succès. */
 export async function setFollowing(
     type: FollowTargetType, id: number, follow: boolean, label: { title: string; city?: string | null },
 ): Promise<FollowResult> {
@@ -80,7 +81,7 @@ export async function setFollowing(
             return {
                 ok: false,
                 isPlanLimit: true,
-                message: body?.message ?? "Suivre une activité ou un lieu est réservé aux offres Premium et Pro.",
+                message: body?.message ?? "Le suivi est réservé aux offres Premium et Pro.",
             };
         }
         if (!response.ok) {

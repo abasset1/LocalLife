@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { RemoteImage } from '@/components/remote-image';
+import { FollowBell } from '@/features/follow';
 import { contactAction } from '@/features/foodtruck/contact';
 import { cuisineLabel, markerOf } from '@/features/foodtruck/cuisines';
 import { photoUri } from '@/features/foodtruck/photo';
@@ -80,6 +81,7 @@ export default function FoodTruckDetailScreen() {
                 <ThemedText type="subtitle" accessibilityRole="header">
                   {name}
                 </ThemedText>
+                <FollowBell type="foodtruck" id={state.foodTruck.id} title={name} />
               </View>
 
               <Card style={styles.fields}>

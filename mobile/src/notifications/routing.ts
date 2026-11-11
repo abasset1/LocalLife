@@ -13,9 +13,12 @@ export function routeForNotification(data: unknown): string | null {
     foodTruckId?: unknown;
   };
   if (type === 'follow-update') {
-    // Mise à jour d'une activité ou d'un lieu suivi : sa fiche s'il n'y en a qu'une, sinon la liste des suivis.
+    // Mise à jour d'une activité, d'un lieu ou d'un food truck suivi : la fiche de l'activité ou du food truck s'il
+    // n'y en a qu'un, sinon la liste des suivis.
     const followed = validId(activityId);
-    return followed ? `/activite/${followed}` : '/suivis';
+    if (followed) return `/activite/${followed}`;
+    const followedTruck = validId(foodTruckId);
+    return followedTruck ? `/foodtruck/${followedTruck}` : '/suivis';
   }
   if (type !== 'activity-alert') return null;
   const activity = validId(activityId);

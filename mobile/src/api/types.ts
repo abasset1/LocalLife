@@ -23,7 +23,8 @@ export type PriceType = 'FREE' | 'PAID' | 'UNKNOWN';
 export interface ActivitySummary {
   id: number;
   title: string;
-  category: string;
+  /** Libellé libre ; `null` pour certaines activités importées (seuls `categoryCodes` sont renseignés). */
+  category: string | null;
   date: string | null;
   city: string | null;
   address: string | null;
@@ -49,7 +50,8 @@ export interface Activity {
   id: number;
   title: string;
   description: string | null;
-  category: string;
+  /** Libellé libre ; `null` pour certaines activités importées (seuls `categoryCodes` sont renseignés). */
+  category: string | null;
   latitude: number;
   longitude: number;
   startDate: string | null;
@@ -134,7 +136,8 @@ export interface ActivityDetail {
   title: string;
   description: string | null;
   longDescription: string | null;
-  category: string;
+  /** Libellé libre ; `null` pour certaines activités importées (seuls `categoryCodes` sont renseignés). */
+  category: string | null;
   latitude: number;
   longitude: number;
   startDate: string | null;

@@ -135,7 +135,7 @@ export default function NouveautesScreen() {
           </View>
         ))}
         <ThemedText type="small" themeColor="textSecondary">
-          Retrouvez tout ce que vous suivez dans Compte → « Activités et lieux suivis ».
+          Retrouvez tout ce que vous suivez dans Compte → « Mes suivis ».
         </ThemedText>
 
         <Card style={styles.keywords}>
