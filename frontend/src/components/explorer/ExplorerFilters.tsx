@@ -34,6 +34,11 @@ interface ExplorerFiltersProps {
      * Filtre « type de cuisine » de la couche food trucks, affiché avec les autres filtres
      * quand cette couche est active ; absent sinon.
      */
+    /**
+     * Filtres propres aux activités (catégories, « Gratuit ») : masqués sur la couche food trucks, qui n'a ni
+     * catégorie du référentiel ni tarif. Affichés par défaut.
+     */
+    showActivityFilters?: boolean;
     cuisineFilter?: {
         /** Types proposés (ceux présents aujourd'hui, plus le type choisi). */
         options: { code: string; label: string; emoji: string }[];
@@ -82,6 +87,7 @@ function ExplorerFilters({
     onFreeOnlyChange,
     freeOnlyDisabled = false,
     cuisineFilter,
+    showActivityFilters = true,
 }: ExplorerFiltersProps) {
     const [openPanel, setOpenPanel] = useState<"categories" | "cuisine" | "dates" | "radius" | null>(null);
     const isCuisinePanelOpen = openPanel === "cuisine";
@@ -159,44 +165,46 @@ function ExplorerFilters({
                         )}
                     </div>
                 )}
-                <div className="explorer-categories">
-                    <button
-                        aria-expanded={isCategoriesPanelOpen}
-                        className={
-                            selectedCategoryCodes.length > 0 ? "explorer-chip explorer-chip-active" : "explorer-chip"
-                        }
-                        onClick={() => setOpenPanel(isCategoriesPanelOpen ? null : "categories")}
-                        type="button"
-                    >
-                        Catégories{selectedCategoryCodes.length > 0 ? ` (${selectedCategoryCodes.length})` : ""}
-                    </button>
-                    {isCategoriesPanelOpen && (
-                        <div className="explorer-categories-panel" role="group" aria-label="Filtrer par catégorie">
-                            {categories.length === 0 && (
-                                <p className="explorer-categories-empty">Aucune catégorie disponible.</p>
-                            )}
-                            {categories.map((category) => (
-                                <label className="explorer-category-option" key={category.code}>
-                                    <input
-                                        checked={selectedCategoryCodes.includes(category.code)}
-                                        onChange={() => toggleCategory(category.code)}
-                                        type="checkbox"
-                                    />
-                                    {category.label}
-                                </label>
-                            ))}
-                            {selectedCategoryCodes.length > 0 && (
-                                <button
-                                    className="explorer-dates-clear"
-                                    onClick={() => onSelectedCategoryCodesChange([])}
-                                    type="button"
-                                >
-                                    Toutes les catégories
-                                </button>
-                            )}
-                        </div>
-                    )}
-                </div>
+                {showActivityFilters && (
+                    <div className="explorer-categories">
+                        <button
+                            aria-expanded={isCategoriesPanelOpen}
+                            className={
+                                selectedCategoryCodes.length > 0 ? "explorer-chip explorer-chip-active" : "explorer-chip"
+                            }
+                            onClick={() => setOpenPanel(isCategoriesPanelOpen ? null : "categories")}
+                            type="button"
+                        >
+                            Catégories{selectedCategoryCodes.length > 0 ? ` (${selectedCategoryCodes.length})` : ""}
+                        </button>
+                        {isCategoriesPanelOpen && (
+                            <div className="explorer-categories-panel" role="group" aria-label="Filtrer par catégorie">
+                                {categories.length === 0 && (
+                                    <p className="explorer-categories-empty">Aucune catégorie disponible.</p>
+                                )}
+                                {categories.map((category) => (
+                                    <label className="explorer-category-option" key={category.code}>
+                                        <input
+                                            checked={selectedCategoryCodes.includes(category.code)}
+                                            onChange={() => toggleCategory(category.code)}
+                                            type="checkbox"
+                                        />
+                                        {category.label}
+                                    </label>
+                                ))}
+                                {selectedCategoryCodes.length > 0 && (
+                                    <button
+                                        className="explorer-dates-clear"
+                                        onClick={() => onSelectedCategoryCodesChange([])}
+                                        type="button"
+                                    >
+                                        Toutes les catégories
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
                 <div className="explorer-radius">
                     <button
                         aria-expanded={isRadiusPanelOpen}
@@ -298,7 +306,7 @@ function ExplorerFilters({
                     )}
                 </div>
 
-                {onFreeOnlyChange && (
+                {showActivityFilters && onFreeOnlyChange && (
                     <button
                         aria-pressed={freeOnly && !freeOnlyDisabled}
                         className={freeOnly && !freeOnlyDisabled ? "explorer-chip explorer-chip-active" : "explorer-chip"}

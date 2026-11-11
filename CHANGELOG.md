@@ -9,11 +9,20 @@
 - **Fenêtre centrée « Où veux-tu sortir ? »** : un visiteur sans compte ni session saisit sa ville (communes proposées dès 2 lettres) puis « Valider ». La fenêtre ne se ferme pas sans ville ; elle disparaît une fois la ville choisie. « Autour de moi » reste proposé, et « Se connecter » pour un compte.
 - **Aucune activité chargée avant** : la recherche part de la ville choisie. Un lien de carte partagé (`?lat=…&lng=…&zoom=…`) ou une position déjà autorisée suffit et évite la fenêtre.
 - **Valeurs par défaut** : rayon de 20 km (au lieu de la zone visible) et activités du mois en cours. Un rayon enregistré dans les préférences prime toujours ; les filtres restent modifiables.
+### DATAtourisme : marchés affichés seulement leurs jours
+- Un événement publié sur plus de 7 jours dont le **titre** annonce les jours (« Marché du jeudi », « Samedi : marché hebdomadaire », « Marché dominical ») devient une occurrence par jour annoncé, au lieu d'être affiché tous les jours de la période.
+- Pour un **marché ou une vente** (marché, brocante, vide-greniers) dont le titre ne dit rien, la description est lue (« tous les lundis matin », « le mardi matin sur la place »). Pas pour les autres types : « fermé le lundi » d'une exposition ne doit pas devenir un jour d'ouverture. « sauf le … », « fermé le … » et « mardi gras » sont ignorés.
+- **Après l'API DATAtourisme** (si la clé `DATATOURISME_API_KEY` est configurée) : un marché ou une vente resté continu est relu dans les horaires de l'API (`textOpeningHoursSpecification`), puis dans sa description détaillée, absents du CSV. La description du CSV ne fait que 255 caractères et ne cite aucun jour pour les 39 marchés restés continus.
+- Plages et week-ends reconnus : « du lundi au samedi » (tous les jours compris), « les week-ends » (samedi et dimanche).
+- Sans jour annoncé, la période reste continue. Export PACA du 11/11/2026, Vaucluse : 40 des 111 événements à longue période découpés ; 38 marchés n'annoncent leur jour ni dans le titre ni dans le début de la description et restent affichés tous les jours.
 
 ### DATAtourisme : toutes les périodes sont importées
 - **Plus de règle des « périodes de validité »** : une période de plus de 31 jours n'est plus écartée (marchés de Noël de cinq semaines, marchés hebdomadaires publiés toute l'année, ateliers de septembre à juin…). Seul un événement dont toutes les périodes sont terminées avant aujourd'hui est écarté. Un marché publié du 1er janvier au 31 décembre est affiché sur toute la période, la source ne disant pas quels jours.
 - **Période à cheval sur deux années** publiée sans changer d'année (« 2026-11-27<->2026-01-02 », marché de Noël d'Avignon) : la fin est reportée à l'année suivante. Avant, l'événement était écarté comme passé.
 - Export PACA du 11/11/2026, Vaucluse : 194 événements importés au lieu de 94, dont le marché de Noël, « Avignon fête Noël », « La place Pie en folie » et « Les Côtes du Rhône fêtent Noël » à Avignon.
+
+### Site : food trucks sans filtres Catégories ni Gratuit
+- Sur la carte Food trucks, les boutons « Catégories » et « Gratuit » sont masqués : ils ne s'appliquaient qu'aux activités. Seul le filtre « Cuisine » reste (avec Dates, Rayon et « Autour de moi »). L'application les masquait déjà.
 
 ### Carte plus rapide (vue d'ensemble sans compte)
 - L'image des activités est résolue en une seule requête pour toute la liste (`/within-bounds`, `/nearby`, favoris) au lieu d'une à deux par activité ; réponses compressées (Caddy) ; première recherche envoyée dès l'affichage de la carte.
