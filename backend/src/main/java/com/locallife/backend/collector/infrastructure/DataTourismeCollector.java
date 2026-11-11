@@ -15,7 +15,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -82,15 +81,10 @@ import org.springframework.web.client.RestClientException;
  *   <li>les périodes ne portent que des dates : chaque période devient un
  *       {@link CollectedTiming} de {@code 00:00} le premier jour à
  *       {@code 23:59} le dernier ;</li>
- *   <li><b>période de validité</b> : une période de plus de
- *       {@value #MAX_OCCURRENCE_DAYS} jours, pour un type qui n'est pas
- *       continu par nature ({@link #CONTINUOUS_TYPES} : exposition,
- *       festival, salon), décrit la saison pendant laquelle l'événement a
- *       lieu, pas une occurrence (ex. un marché du jeudi publié du 1er
- *       janvier au 31 décembre). Le CSV ne dit pas quels jours : elle est
- *       écartée plutôt que présentée comme continue, et aucune récurrence
- *       n'est déduite. Un événement qui n'a que des périodes de validité
- *       n'est pas importé ;</li>
+ *   <li><b>toutes les périodes</b> sont importées telles quelles, quelle que soit leur durée (marché de
+ *       Noël de cinq semaines, marché publié toute l'année…) ; seul un événement dont toutes les périodes
+ *       sont terminées avant aujourd'hui est écarté. Une période dont la fin précède le début est à cheval
+ *       sur deux années, publiée sans changer d'année : sa fin est reportée à l'année suivante ;</li>
  *   <li><b>adresse générique</b> (« Divers lieux », « Centre ville »,
  *       « Dans le village »…) : reprise comme {@code name} du lieu, sans
  *       {@code address}. Les coordonnées de la source sont conservées
@@ -130,12 +124,6 @@ public class DataTourismeCollector implements Collector {
 
     /** Part maximale de lignes dont le nombre de champs diffère de l'en-tête. */
     private static final double MAX_MALFORMED_RATIO = 0.01;
-
-    /** Au-delà, une période d'un type non continu est une période de validité (voir la javadoc). */
-    static final int MAX_OCCURRENCE_DAYS = 31;
-
-    /** Types dont une longue période est bien continue (ouvert tous les jours de la période). */
-    private static final Set<String> CONTINUOUS_TYPES = Set.of("Exhibition", "Festival", "FairOrShow");
 
     /** Billetterie, reconnue sur le libellé ou l'URL d'un contact. */
     private static final Pattern BOOKING = Pattern.compile(
@@ -386,13 +374,9 @@ public class DataTourismeCollector implements Collector {
         if (!isPlausiblePosition(postalCode, latitude, longitude)) {
             return reject(rejected, "coordonnées hors du territoire");
         }
-        List<Period> periods = periods(row.get("Periodes_regroupees"));
-        boolean continuous = types.stream().anyMatch(CONTINUOUS_TYPES::contains);
-        List<Period> occurrences = periods.stream()
-                .filter(period -> continuous || period.days() <= MAX_OCCURRENCE_DAYS)
-                .toList();
+        List<Period> occurrences = periods(row.get("Periodes_regroupees"));
         if (occurrences.isEmpty()) {
-            return reject(rejected, periods.isEmpty() ? "sans période lisible" : "période de validité seulement");
+            return reject(rejected, "sans période lisible");
         }
         if (occurrences.stream().allMatch(period -> period.end().isBefore(today))) {
             return reject(rejected, "passé");
@@ -501,6 +485,14 @@ public class DataTourismeCollector implements Collector {
             try {
                 LocalDate begin = LocalDate.parse(bounds[0].trim());
                 LocalDate end = bounds.length > 1 && !bounds[1].isBlank() ? LocalDate.parse(bounds[1].trim()) : begin;
+                // Période à cheval sur deux années publiée sans changer d'année (« 2026-11-27<->2026-01-02 »,
+                // marché de Noël d'Avignon) : la fin est l'année suivante. Un écart plus grand est illisible.
+                if (end.isBefore(begin)) {
+                    end = end.plusYears(1);
+                    if (end.isBefore(begin)) {
+                        continue;
+                    }
+                }
                 periods.add(new Period(begin, end));
             } catch (DateTimeParseException exception) {
                 // Période illisible : ignorée, les autres périodes de l'événement restent exploitables.
@@ -608,10 +600,6 @@ public class DataTourismeCollector implements Collector {
 
     /** Période de la source, bornes incluses. */
     private record Period(LocalDate begin, LocalDate end) {
-
-        long days() {
-            return ChronoUnit.DAYS.between(begin, end) + 1;
-        }
 
         CollectedTiming toTiming() {
             return new CollectedTiming(begin.atStartOfDay(), end.atTime(END_OF_DAY));

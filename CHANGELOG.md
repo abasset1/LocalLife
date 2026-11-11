@@ -2,6 +2,14 @@
 
 ## 0.9.59 — non publiée
 
+### DATAtourisme : toutes les périodes sont importées
+- **Plus de règle des « périodes de validité »** : une période de plus de 31 jours n'est plus écartée (marchés de Noël de cinq semaines, marchés hebdomadaires publiés toute l'année, ateliers de septembre à juin…). Seul un événement dont toutes les périodes sont terminées avant aujourd'hui est écarté. Un marché publié du 1er janvier au 31 décembre est affiché sur toute la période, la source ne disant pas quels jours.
+- **Période à cheval sur deux années** publiée sans changer d'année (« 2026-11-27<->2026-01-02 », marché de Noël d'Avignon) : la fin est reportée à l'année suivante. Avant, l'événement était écarté comme passé.
+- Export PACA du 11/11/2026, Vaucluse : 194 événements importés au lieu de 94, dont le marché de Noël, « Avignon fête Noël », « La place Pie en folie » et « Les Côtes du Rhône fêtent Noël » à Avignon.
+
+### Carte plus rapide (vue d'ensemble sans compte)
+- L'image des activités est résolue en une seule requête pour toute la liste (`/within-bounds`, `/nearby`, favoris) au lieu d'une à deux par activité ; réponses compressées (Caddy) ; première recherche envoyée dès l'affichage de la carte.
+
 ### Même nombre de résultats sur le site et l'application (mêmes filtres, même rayon)
 - **Avec un rayon choisi, on compte tout le rayon**, sur le site comme dans l'application, quel que soit le zoom ou la taille de l'écran. Avant, le site (et le bouton « Voir la liste » de la carte de l'application) ne comptait que la partie du rayon visible sur la carte, alors que la Liste de l'application comptait tout le cercle. Le site indique maintenant « 37 activités dans un rayon de 20 km ». Sans rayon, on compte toujours la zone visible de la carte.
 - **« Gratuit » vaut aussi pour la Liste de l'application** : le filtre est partagé entre la carte et la Liste (bouton « Gratuit » ajouté à la Liste), comme sur le site. Avant, la Liste l'ignorait.
