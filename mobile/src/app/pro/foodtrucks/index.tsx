@@ -18,6 +18,7 @@ import {
   savePhoto,
   type PhotoChange,
 } from '@/features/pro/FoodTruckProfileFields';
+import { FormActions, FormHeader } from '@/features/pro/FormParts';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
 import { useProAccessEnded } from '@/features/pro/useProAccess';
 
@@ -99,7 +100,11 @@ export default function MyFoodTrucksScreen() {
 
             {accessEnded ? null : creating ? (
               <Card style={styles.form}>
-                <ThemedText type="heading">Créer un food truck</ThemedText>
+                <FormHeader
+                  icon="🚚"
+                  title="Créer un food truck"
+                  subtitle="Votre fiche apparaîtra sur la carte et dans la liste des food trucks."
+                />
                 <FoodTruckProfileFields
                   profile={profile}
                   onChange={setProfile}
@@ -108,13 +113,15 @@ export default function MyFoodTrucksScreen() {
                   onPhotoChange={setPhoto}
                   onError={setError}
                 />
-                <Button
-                  label="Créer le brouillon"
-                  loading={busy}
-                  disabled={profile.name.trim() === '' || profile.category.trim() === '' || profile.cuisineType === ''}
-                  onPress={() => void create()}
-                />
-                <Button label="Annuler" variant="ghost" onPress={() => setCreating(false)} />
+                <FormActions>
+                  <Button label="Annuler" variant="secondary" onPress={() => setCreating(false)} />
+                  <Button
+                    label="Créer le brouillon"
+                    loading={busy}
+                    disabled={profile.name.trim() === '' || profile.category.trim() === '' || profile.cuisineType === ''}
+                    onPress={() => void create()}
+                  />
+                </FormActions>
               </Card>
             ) : (
               <Button label="Créer un food truck" onPress={() => setCreating(true)} />

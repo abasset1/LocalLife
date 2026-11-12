@@ -15,6 +15,24 @@ function fieldsOf(source: ManagedPlace | PlaceChange): ChangeFields {
     };
 }
 
+const FIELD_LABELS = Object.fromEntries(PLACE_CHANGE_FIELDS.map(({ key, label }) => [key, label])) as Record<PlaceChangeField, string>;
+
+/** Champs modifiables d'un lieu, regroupés en sections (adresse, présentation, coordonnées). */
+const FIELD_GROUPS: { title: string; fields: { key: PlaceChangeField; wide?: boolean; placeholder?: string }[] }[] = [
+    {
+        title: "Adresse",
+        fields: [{ key: "address", wide: true }, { key: "postalCode", placeholder: "84000" }, { key: "city" }],
+    },
+    {
+        title: "Présentation",
+        fields: [{ key: "description", wide: true, placeholder: "Ce qu'on y trouve, l'ambiance, ce qui le rend unique…" }],
+    },
+    {
+        title: "Coordonnées",
+        fields: [{ key: "website", wide: true, placeholder: "https://" }, { key: "phone" }, { key: "email" }],
+    },
+];
+
 function ChangeFieldInputs({ fields, idPrefix, onChange }: {
     fields: ChangeFields;
     idPrefix: string;
@@ -22,18 +40,26 @@ function ChangeFieldInputs({ fields, idPrefix, onChange }: {
 }) {
     return (
         <>
-            {PLACE_CHANGE_FIELDS.map(({ key, label }) => (
-                <div className="form-field" key={key}>
-                    <label htmlFor={`${idPrefix}-${key}`}>{label}</label>
-                    {key === "description" ? (
-                        <textarea id={`${idPrefix}-${key}`} maxLength={5000} value={fields[key]}
-                            onChange={(event) => onChange(key, event.target.value)} />
-                    ) : (
-                        <input id={`${idPrefix}-${key}`} required={key === "city"} value={fields[key]}
-                            type={key === "website" ? "url" : key === "email" ? "email" : key === "phone" ? "tel" : "text"}
-                            onChange={(event) => onChange(key, event.target.value)} />
-                    )}
-                </div>
+            {FIELD_GROUPS.map((group) => (
+                <section className="pro-form-section" key={group.title}>
+                    <h4 className="pro-form-section-title">{group.title}</h4>
+                    <div className="pro-form-grid">
+                        {group.fields.map(({ key, wide, placeholder }) => (
+                            <div className={wide ? "form-field pro-field-wide" : "form-field"} key={key}>
+                                <label htmlFor={`${idPrefix}-${key}`}>{FIELD_LABELS[key]}</label>
+                                {key === "description" ? (
+                                    <textarea id={`${idPrefix}-${key}`} maxLength={5000} placeholder={placeholder} rows={4}
+                                        value={fields[key]} onChange={(event) => onChange(key, event.target.value)} />
+                                ) : (
+                                    <input id={`${idPrefix}-${key}`} placeholder={placeholder} required={key === "city"}
+                                        inputMode={key === "postalCode" ? "numeric" : undefined} value={fields[key]}
+                                        type={key === "website" ? "url" : key === "email" ? "email" : key === "phone" ? "tel" : "text"}
+                                        onChange={(event) => onChange(key, event.target.value)} />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </section>
             ))}
         </>
     );
@@ -69,28 +95,41 @@ export function ProPlaceEditForm({ place, onDone, onCancel }: {
     }
 
     return (
-        <form className="contribution-form pro-place-panel" onSubmit={(event) => void save(event)}>
-            <h3>Modifier « {place.name} »</h3>
-            {message && <p className="activities-status activities-status-error" role="alert">{message}</p>}
-            <div className="form-field">
-                <label htmlFor={`edit-${place.id}-name`}>Nom</label>
-                <input id={`edit-${place.id}-name`} maxLength={255} onChange={(event) => setName(event.target.value)}
-                    required type="text" value={name} />
-            </div>
-            <div className="form-field">
-                <label htmlFor={`edit-${place.id}-type`}>Catégorie</label>
-                <select id={`edit-${place.id}-type`} onChange={(event) => setPlaceType(event.target.value)} required
-                    value={placeType}>
-                    {PLACE_TYPE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                </select>
-            </div>
+        <form className="pro-form pro-place-panel" onSubmit={(event) => void save(event)}>
+            <header className="pro-form-header">
+                <span aria-hidden="true" className="pro-form-header-icon">✏️</span>
+                <div>
+                    <h3>Modifier « {place.name} »</h3>
+                    <p>Ce lieu n'est pas encore publié : tes modifications s'appliquent directement.</p>
+                </div>
+            </header>
+            {message && <p className="pro-notice pro-notice-error" role="alert">{message}</p>}
+            <section className="pro-form-section">
+                <h4 className="pro-form-section-title">Le lieu</h4>
+                <div className="pro-form-grid">
+                    <div className="form-field">
+                        <label htmlFor={`edit-${place.id}-name`}>Nom</label>
+                        <input id={`edit-${place.id}-name`} maxLength={255} onChange={(event) => setName(event.target.value)}
+                            required type="text" value={name} />
+                    </div>
+                    <div className="form-field">
+                        <label htmlFor={`edit-${place.id}-type`}>Catégorie</label>
+                        <select id={`edit-${place.id}-type`} onChange={(event) => setPlaceType(event.target.value)} required
+                            value={placeType}>
+                            {PLACE_TYPE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            </section>
             <ChangeFieldInputs fields={fields} idPrefix={`edit-${place.id}`}
                 onChange={(key, value) => setFields((current) => ({ ...current, [key]: value }))} />
-            <div className="modal-actions">
-                <button className="admin-approve-button" disabled={busy} type="submit">Enregistrer</button>
-                <button className="contribution-action" onClick={onCancel} type="button">Annuler</button>
+            <div className="pro-form-actions">
+                <button className="pro-button pro-button-ghost" onClick={onCancel} type="button">Annuler</button>
+                <button className="pro-button pro-button-primary" disabled={busy} type="submit">
+                    {busy ? "Enregistrement…" : "Enregistrer"}
+                </button>
             </div>
         </form>
     );
@@ -140,26 +179,31 @@ export function ProPlaceChangesPanel({ place, onClose }: { place: ManagedPlace; 
     const hasPending = changes.some((change) => change.status === "PENDING");
 
     return (
-        <section aria-labelledby={`place-changes-${place.id}`} className="contribution-form pro-place-panel">
-            <h3 id={`place-changes-${place.id}`}>Proposer une modification de « {place.name} »</h3>
-            <p className="activities-status">
-                Ce lieu est publié : tes modifications sont vérifiées par un modérateur avant d'apparaître. Le nom et la
-                catégorie ne se modifient pas ici.
+        <section aria-labelledby={`place-changes-${place.id}`} className="pro-form pro-place-panel">
+            <header className="pro-form-header">
+                <span aria-hidden="true" className="pro-form-header-icon">📝</span>
+                <div>
+                    <h3 id={`place-changes-${place.id}`}>Proposer une modification de « {place.name} »</h3>
+                    <p>Ce lieu est publié : tes modifications sont vérifiées par un modérateur avant d'apparaître.</p>
+                </div>
+            </header>
+            <p className="pro-notice">
+                Le nom et la catégorie ne se modifient pas ici.
                 {hasPending ? " Une nouvelle proposition remplace celle en attente." : ""}
             </p>
-            {message && <p className="activities-status" role="status">{message}</p>}
-            <form onSubmit={(event) => void propose(event)}>
+            {message && <p className="pro-notice pro-notice-info" role="status">{message}</p>}
+            <form className="pro-form-body" onSubmit={(event) => void propose(event)}>
                 <ChangeFieldInputs fields={fields} idPrefix={`change-${place.id}`}
                     onChange={(key, value) => setFields((current) => ({ ...current, [key]: value }))} />
-                <div className="modal-actions">
-                    <button className="admin-approve-button" disabled={busy} type="submit">Envoyer la proposition</button>
-                    <button className="contribution-action" onClick={onClose} type="button">Fermer</button>
+                <div className="pro-form-actions">
+                    <button className="pro-button pro-button-ghost" onClick={onClose} type="button">Fermer</button>
+                    <button className="pro-button pro-button-primary" disabled={busy} type="submit">Envoyer la proposition</button>
                 </div>
             </form>
 
-            <h4>Mes propositions</h4>
+            <h4 className="pro-form-section-title">Mes propositions</h4>
             {changes.length === 0 ? (
-                <p className="activities-status">Aucune proposition pour ce lieu.</p>
+                <p className="pro-hint">Aucune proposition pour ce lieu.</p>
             ) : (
                 <ul className="favorites-list">
                     {changes.map((change) => (

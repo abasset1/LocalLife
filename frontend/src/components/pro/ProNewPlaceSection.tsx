@@ -11,6 +11,12 @@ const EMPTY = {
 
 type Step = "form" | "check" | "preview";
 
+const STEPS: { value: Step; label: string }[] = [
+    { value: "form", label: "Description" },
+    { value: "check", label: "Vérification" },
+    { value: "preview", label: "Aperçu" },
+];
+
 /**
  * Parcours B (ADR-0012) : créer un lieu absent de Neiri. Recherche préalable des lieux proches (même endroit ou
  * même nom dans la commune) avant tout enregistrement, aperçu, puis brouillon ; l'envoi à la modération se fait
@@ -80,147 +86,199 @@ function ProNewPlaceSection({ onClaim, onCreated }: {
         <section aria-labelledby="pro-new-place-title">
             <h2 id="pro-new-place-title">Créer un lieu</h2>
 
-            {step === "form" && (
-                <form className="contribution-form" onSubmit={(event) => void runCheck(event)}>
-                    <p className="activities-status">
-                        Commence par décrire le lieu : Neiri vérifie d'abord qu'il n'existe pas déjà.
-                    </p>
-                    <div className="form-field">
-                        <label htmlFor="place-name">Nom</label>
-                        <input id="place-name" maxLength={255} onChange={(event) => set("name", event.target.value)}
-                            required type="text" value={fields.name} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="place-type">Catégorie</label>
-                        <select id="place-type" onChange={(event) => set("placeType", event.target.value)} required
-                            value={fields.placeType}>
-                            <option value="">Choisir…</option>
-                            {PLACE_TYPE_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="place-address">Adresse</label>
-                        <input id="place-address" maxLength={512} onChange={(event) => set("address", event.target.value)}
-                            required type="text" value={fields.address} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="place-postal-code">Code postal</label>
-                        <input id="place-postal-code" inputMode="numeric" onChange={(event) => set("postalCode", event.target.value)}
-                            pattern="\d{5}" type="text" value={fields.postalCode} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="place-city">Commune</label>
-                        <input id="place-city" maxLength={255} onChange={(event) => set("city", event.target.value)}
-                            required type="text" value={fields.city} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="place-description">Description</label>
-                        <textarea id="place-description" maxLength={5000}
-                            onChange={(event) => set("description", event.target.value)} value={fields.description} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="place-website">Site web</label>
-                        <input id="place-website" onChange={(event) => set("website", event.target.value)}
-                            placeholder="https://" type="url" value={fields.website} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="place-phone">Téléphone</label>
-                        <input id="place-phone" onChange={(event) => set("phone", event.target.value)} type="tel"
-                            value={fields.phone} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="place-email">Email professionnel</label>
-                        <input id="place-email" onChange={(event) => set("email", event.target.value)} type="email"
-                            value={fields.email} />
-                    </div>
-                    <button className="admin-approve-button" disabled={busy} type="submit">Vérifier et continuer</button>
-                </form>
-            )}
+            <div className="pro-form">
+                <ol aria-label="Étapes" className="pro-steps">
+                    {STEPS.map((item, index) => {
+                        const current = STEPS.findIndex((candidate) => candidate.value === step);
+                        const state = index === current ? "current" : index < current ? "done" : "todo";
+                        return (
+                            <li aria-current={state === "current" ? "step" : undefined} className={`pro-step pro-step-${state}`}
+                                key={item.value}>
+                                <span aria-hidden="true" className="pro-step-dot">{state === "done" ? "✓" : index + 1}</span>
+                                {item.label}
+                            </li>
+                        );
+                    })}
+                </ol>
 
-            {step === "check" && check && (
-                <div className="contribution-form">
-                    {check.candidates.length === 0 ? (
-                        <p className="activities-status">Aucun lieu proche ou de même nom n'existe déjà.</p>
-                    ) : (
-                        <>
-                            <p className="activities-status">
-                                Ces lieux existent déjà. Si l'un d'eux est le tien, demande plutôt à le gérer.
-                            </p>
-                            <ul className="favorites-list">
-                                {check.candidates.map((candidate: SimilarPlace) => (
-                                    <li className="favorites-list-item contributions-list-item" key={candidate.place.id}>
-                                        <div className="favorites-list-item-info">
-                                            <span className="favorites-list-item-title">{candidate.place.name}</span>
-                                            <span className="favorites-list-item-meta">
-                                                {placeTypeLabel(candidate.place.placeType)} · {candidate.place.city ?? ""}
-                                                {candidate.distanceMeters !== null ? ` · à ${candidate.distanceMeters} m` : ""}
-                                            </span>
-                                            <label>
-                                                <input checked={reportedSimilarTo === candidate.place.id} type="checkbox"
-                                                    onChange={(event) => setReportedSimilarTo(
-                                                        event.target.checked ? candidate.place.id : null)} />
-                                                {" "}Différent du mien mais similaire : le signaler à Neiri
-                                            </label>
-                                        </div>
-                                        <button className="contribution-action" type="button" onClick={() => onClaim({
-                                            id: candidate.place.id, name: candidate.place.name, city: candidate.place.city,
-                                        })}>
-                                            C'est mon lieu
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </>
-                    )}
-                    {!hasPosition && (
-                        <p className="activities-status activities-status-error">
-                            L'adresse n'a pas pu être localisée : indique la position du lieu.
+                {step === "form" && (
+                    <form className="pro-form-body" onSubmit={(event) => void runCheck(event)}>
+                        <p className="pro-intro">
+                            Commence par décrire le lieu : Neiri vérifie d'abord qu'il n'existe pas déjà.
                         </p>
-                    )}
-                    <div className="form-field">
-                        <label htmlFor="place-latitude">Latitude</label>
-                        <input id="place-latitude" onChange={(event) => setLatitude(event.target.value)} step="any"
-                            type="number" value={latitude} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="place-longitude">Longitude</label>
-                        <input id="place-longitude" onChange={(event) => setLongitude(event.target.value)} step="any"
-                            type="number" value={longitude} />
-                    </div>
-                    <div className="modal-actions">
-                        <button className="contribution-action" onClick={() => setStep("form")} type="button">Modifier</button>
-                        <button className="admin-approve-button" disabled={!hasPosition} onClick={() => setStep("preview")}
-                            type="button">
-                            {check.candidates.length === 0 ? "Aperçu" : "Mon lieu n'est pas dans la liste : aperçu"}
-                        </button>
-                    </div>
-                </div>
-            )}
+                        <section className="pro-form-section">
+                            <h3 className="pro-form-section-title">Le lieu</h3>
+                            <div className="pro-form-grid">
+                                <div className="form-field">
+                                    <label htmlFor="place-name">Nom</label>
+                                    <input id="place-name" maxLength={255} onChange={(event) => set("name", event.target.value)}
+                                        placeholder="Musée, salle, librairie…" required type="text" value={fields.name} />
+                                </div>
+                                <div className="form-field">
+                                    <label htmlFor="place-type">Catégorie</label>
+                                    <select id="place-type" onChange={(event) => set("placeType", event.target.value)} required
+                                        value={fields.placeType}>
+                                        <option value="">Choisir…</option>
+                                        {PLACE_TYPE_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-field pro-field-wide">
+                                    <label htmlFor="place-description">
+                                        Description <span className="pro-optional">(facultatif)</span>
+                                    </label>
+                                    <textarea id="place-description" maxLength={5000} rows={4}
+                                        placeholder="Ce qu'on y trouve, l'ambiance, ce qui le rend unique…"
+                                        onChange={(event) => set("description", event.target.value)} value={fields.description} />
+                                    <small className="pro-hint pro-counter">{fields.description.length} / 5000</small>
+                                </div>
+                            </div>
+                        </section>
+                        <section className="pro-form-section">
+                            <h3 className="pro-form-section-title">Adresse</h3>
+                            <div className="pro-form-grid">
+                                <div className="form-field pro-field-wide">
+                                    <label htmlFor="place-address">Adresse</label>
+                                    <input id="place-address" maxLength={512} onChange={(event) => set("address", event.target.value)}
+                                        placeholder="65 rue Joseph Vernet" required type="text" value={fields.address} />
+                                </div>
+                                <div className="form-field">
+                                    <label htmlFor="place-postal-code">Code postal</label>
+                                    <input id="place-postal-code" inputMode="numeric" onChange={(event) => set("postalCode", event.target.value)}
+                                        pattern="\d{5}" placeholder="84000" type="text" value={fields.postalCode} />
+                                </div>
+                                <div className="form-field">
+                                    <label htmlFor="place-city">Commune</label>
+                                    <input id="place-city" maxLength={255} onChange={(event) => set("city", event.target.value)}
+                                        required type="text" value={fields.city} />
+                                </div>
+                            </div>
+                        </section>
+                        <section className="pro-form-section">
+                            <h3 className="pro-form-section-title">Coordonnées <span className="pro-optional">(facultatif)</span></h3>
+                            <div className="pro-form-grid">
+                                <div className="form-field pro-field-wide">
+                                    <label htmlFor="place-website">Site web</label>
+                                    <input id="place-website" onChange={(event) => set("website", event.target.value)}
+                                        placeholder="https://" type="url" value={fields.website} />
+                                </div>
+                                <div className="form-field">
+                                    <label htmlFor="place-phone">Téléphone</label>
+                                    <input id="place-phone" onChange={(event) => set("phone", event.target.value)}
+                                        placeholder="04 90 00 00 00" type="tel" value={fields.phone} />
+                                </div>
+                                <div className="form-field">
+                                    <label htmlFor="place-email">Email professionnel</label>
+                                    <input id="place-email" onChange={(event) => set("email", event.target.value)}
+                                        placeholder="contact@monlieu.fr" type="email" value={fields.email} />
+                                </div>
+                            </div>
+                        </section>
+                        <div className="pro-form-actions">
+                            <button className="pro-button pro-button-primary" disabled={busy} type="submit">
+                                {busy ? "Vérification…" : "Vérifier et continuer"}
+                            </button>
+                        </div>
+                    </form>
+                )}
 
-            {step === "preview" && (
-                <div className="admin-activity-card">
-                    <div className="admin-activity-header">
-                        <h3>{fields.name}</h3>
-                        <span>{placeTypeLabel(fields.placeType)}</span>
+                {step === "check" && check && (
+                    <div className="pro-form-body">
+                        {check.candidates.length === 0 ? (
+                            <p className="pro-notice pro-notice-success">Aucun lieu proche ou de même nom n'existe déjà.</p>
+                        ) : (
+                            <>
+                                <p className="pro-notice pro-notice-warning">
+                                    Ces lieux existent déjà. Si l'un d'eux est le tien, demande plutôt à le gérer.
+                                </p>
+                                <ul className="favorites-list">
+                                    {check.candidates.map((candidate: SimilarPlace) => (
+                                        <li className="favorites-list-item contributions-list-item" key={candidate.place.id}>
+                                            <div className="favorites-list-item-info">
+                                                <span className="favorites-list-item-title">{candidate.place.name}</span>
+                                                <span className="favorites-list-item-meta">
+                                                    {placeTypeLabel(candidate.place.placeType)} · {candidate.place.city ?? ""}
+                                                    {candidate.distanceMeters !== null ? ` · à ${candidate.distanceMeters} m` : ""}
+                                                </span>
+                                                <label className="pro-check">
+                                                    <input checked={reportedSimilarTo === candidate.place.id} type="checkbox"
+                                                        onChange={(event) => setReportedSimilarTo(
+                                                            event.target.checked ? candidate.place.id : null)} />
+                                                    Différent du mien mais similaire : le signaler à Neiri
+                                                </label>
+                                            </div>
+                                            <button className="pro-button pro-button-ghost" type="button" onClick={() => onClaim({
+                                                id: candidate.place.id, name: candidate.place.name, city: candidate.place.city,
+                                            })}>
+                                                C'est mon lieu
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </>
+                        )}
+                        <section className="pro-form-section">
+                            <h3 className="pro-form-section-title">Position sur la carte</h3>
+                            {!hasPosition && (
+                                <p className="pro-notice pro-notice-error">
+                                    L'adresse n'a pas pu être localisée : indique la position du lieu.
+                                </p>
+                            )}
+                            <div className="pro-form-grid">
+                                <div className="form-field">
+                                    <label htmlFor="place-latitude">Latitude</label>
+                                    <input id="place-latitude" onChange={(event) => setLatitude(event.target.value)} step="any"
+                                        type="number" value={latitude} />
+                                </div>
+                                <div className="form-field">
+                                    <label htmlFor="place-longitude">Longitude</label>
+                                    <input id="place-longitude" onChange={(event) => setLongitude(event.target.value)} step="any"
+                                        type="number" value={longitude} />
+                                </div>
+                            </div>
+                        </section>
+                        <div className="pro-form-actions">
+                            <button className="pro-button pro-button-ghost" onClick={() => setStep("form")} type="button">Modifier</button>
+                            <button className="pro-button pro-button-primary" disabled={!hasPosition} onClick={() => setStep("preview")}
+                                type="button">
+                                {check.candidates.length === 0 ? "Aperçu" : "Mon lieu n'est pas dans la liste : aperçu"}
+                            </button>
+                        </div>
                     </div>
-                    <p className="admin-activity-description">
-                        {fields.address}, {fields.postalCode} {fields.city}
-                    </p>
-                    {fields.description && <p className="admin-activity-description">{fields.description}</p>}
-                    <p className="admin-activity-description">
-                        {[fields.website, fields.phone, fields.email].filter(Boolean).join(" · ")}
-                    </p>
-                    <p className="admin-activity-description">Position : {latitude}, {longitude}</p>
-                    <div className="admin-activity-actions">
-                        <button className="contribution-action" onClick={() => setStep("check")} type="button">Retour</button>
-                        <button className="admin-approve-button" disabled={busy} onClick={() => void saveDraft()} type="button">
-                            Enregistrer le brouillon
-                        </button>
+                )}
+
+                {step === "preview" && (
+                    <div className="pro-form-body">
+                        <div className="pro-summary">
+                            <div className="pro-summary-header">
+                                <h3>{fields.name}</h3>
+                                <span className="pro-badge">{placeTypeLabel(fields.placeType)}</span>
+                            </div>
+                            {fields.description && <p className="pro-summary-description">{fields.description}</p>}
+                            <dl className="pro-summary-list">
+                                <div>
+                                    <dt>Adresse</dt>
+                                    <dd>{fields.address}, {fields.postalCode} {fields.city}</dd>
+                                </div>
+                                {fields.website && <div><dt>Site web</dt><dd>{fields.website}</dd></div>}
+                                {fields.phone && <div><dt>Téléphone</dt><dd>{fields.phone}</dd></div>}
+                                {fields.email && <div><dt>Email</dt><dd>{fields.email}</dd></div>}
+                                <div>
+                                    <dt>Position</dt>
+                                    <dd>{latitude}, {longitude}</dd>
+                                </div>
+                            </dl>
+                        </div>
+                        <div className="pro-form-actions">
+                            <button className="pro-button pro-button-ghost" onClick={() => setStep("check")} type="button">Retour</button>
+                            <button className="pro-button pro-button-primary" disabled={busy} onClick={() => void saveDraft()} type="button">
+                                Enregistrer le brouillon
+                            </button>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
 
             {message && <p className="activities-status" role="status">{message}</p>}
         </section>

@@ -2,6 +2,17 @@
 
 ## 0.9.59 — non publiée
 
+### Site : formulaires de l'espace pro revus (food trucks, emplacements, lieux)
+- **Food truck** : formulaire en carte, découpé en sections (Identité, Apparence, Contact et réseaux), champs courts sur deux colonnes, photo avec cadre et bouton « Choisir une photo », panneau de pastille. Un **aperçu de la fiche** se met à jour à côté pendant la saisie.
+- **Emplacement** : choix « lieu Neiri existant / autre adresse » en cartes, jours en puces cliquables, horaires et période côte à côte, position précise repliée par défaut.
+- **Créer un lieu** : étapes visibles (Description, Vérification, Aperçu), sections Le lieu / Adresse / Coordonnées, récapitulatif soigné avant l'enregistrement. **Modifier / proposer une modification** : mêmes sections.
+- Boutons homogènes (action principale en rose Neiri, Annuler en secondaire), messages colorés selon leur nature ; une colonne sur mobile.
+
+### Application : formulaires de l'espace pro revus (food trucks, emplacements, lieux)
+- Même mise en forme que sur le site : en-tête avec pictogramme, sections titrées (Identité, Apparence, Contact et réseaux ; Où, Quand ; Le lieu, Adresse, Coordonnées), champs courts côte à côte (code postal et commune, arrivée et départ, dates), « Annuler » et l'action principale côte à côte en bas.
+- **Food truck** : aperçu de la fiche mis à jour pendant la saisie, photo dans un cadre, panneau de pastille.
+- **Emplacement** : choix « lieu Neiri / autre adresse » et lieux trouvés en cartes à pastille radio.
+- **Créer un lieu** : étapes Description / Vérification. **Proposer une modification** : mêmes sections.
 ### Application : compte obligatoire
 - **Sans session** (premier lancement, déconnexion, jeton expiré), l'application s'ouvre sur l'écran de connexion / inscription : plus de carte, de liste ni de fiche, plus de barre d'onglets ni de menu. Seuls « Mot de passe oublié » et les textes légaux restent accessibles. Un lien de notification ramène aussi à la connexion.
 - **Après connexion** : arrivée sur la carte (et accueil de première connexion si les préférences ne sont pas configurées).

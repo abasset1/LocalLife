@@ -11,6 +11,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { PLACE_TYPE_LABELS, placeTypeLabel } from '@/features/map/placeTypes';
+import { FieldRow, FormActions, FormHeader, FormSection, Steps } from '@/features/pro/FormParts';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
 import { ChipGroup } from '@/features/settings';
 
@@ -93,51 +94,94 @@ export default function NewPlaceScreen() {
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
             <Card style={styles.form}>
-              <TextField label="Nom" value={fields.name} onChangeText={(v) => set('name', v)} maxLength={255} />
-              <ChipGroup
-                label="Catégorie"
-                options={TYPE_OPTIONS}
-                selected={fields.placeType ? [fields.placeType] : []}
-                onToggle={(value) => set('placeType', value)}
-                single
+              <FormHeader
+                icon="🏛️"
+                title="Décrivez le lieu"
+                subtitle="Neiri vérifie d’abord qu’il n’existe pas déjà."
               />
-              <TextField label="Adresse" value={fields.address} onChangeText={(v) => set('address', v)} />
-              <TextField
-                label="Code postal"
-                value={fields.postalCode}
-                onChangeText={(v) => set('postalCode', v)}
-                keyboardType="number-pad"
-                maxLength={5}
-              />
-              <TextField label="Commune" value={fields.city} onChangeText={(v) => set('city', v)} />
-              <TextField
-                label="Description"
-                value={fields.description}
-                onChangeText={(v) => set('description', v)}
-                multiline
-                maxLength={5000}
-              />
-              <TextField
-                label="Site web"
-                placeholder="https://"
-                value={fields.website}
-                onChangeText={(v) => set('website', v)}
-                autoCapitalize="none"
-                keyboardType="url"
-              />
-              <TextField label="Téléphone" value={fields.phone} onChangeText={(v) => set('phone', v)} keyboardType="phone-pad" />
-              <TextField
-                label="E-mail professionnel"
-                value={fields.email}
-                onChangeText={(v) => set('email', v)}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-              <Button label="Vérifier et continuer" loading={busy} disabled={!complete} onPress={() => void verify()} />
+              <Steps steps={['Description', 'Vérification']} current={check ? 1 : 0} />
+
+              <FormSection title="Le lieu" first>
+                <TextField
+                  label="Nom"
+                  placeholder="Musée, salle, librairie…"
+                  value={fields.name}
+                  onChangeText={(v) => set('name', v)}
+                  maxLength={255}
+                />
+                <ChipGroup
+                  label="Catégorie"
+                  options={TYPE_OPTIONS}
+                  selected={fields.placeType ? [fields.placeType] : []}
+                  onToggle={(value) => set('placeType', value)}
+                  single
+                />
+                <TextField
+                  label="Description (facultatif)"
+                  placeholder="Ce qu’on y trouve, l’ambiance, ce qui le rend unique…"
+                  value={fields.description}
+                  onChangeText={(v) => set('description', v)}
+                  multiline
+                  maxLength={5000}
+                />
+              </FormSection>
+
+              <FormSection title="Adresse">
+                <TextField
+                  label="Adresse"
+                  placeholder="65 rue Joseph Vernet"
+                  value={fields.address}
+                  onChangeText={(v) => set('address', v)}
+                />
+                <FieldRow>
+                  <TextField
+                    label="Code postal"
+                    placeholder="84000"
+                    value={fields.postalCode}
+                    onChangeText={(v) => set('postalCode', v)}
+                    keyboardType="number-pad"
+                    maxLength={5}
+                  />
+                  <TextField label="Commune" value={fields.city} onChangeText={(v) => set('city', v)} />
+                </FieldRow>
+              </FormSection>
+
+              <FormSection title="Coordonnées" hint="Facultatives, affichées sur la fiche du lieu.">
+                <TextField
+                  label="Site web"
+                  placeholder="https://"
+                  value={fields.website}
+                  onChangeText={(v) => set('website', v)}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+                <TextField
+                  label="Téléphone"
+                  placeholder="04 90 00 00 00"
+                  value={fields.phone}
+                  onChangeText={(v) => set('phone', v)}
+                  keyboardType="phone-pad"
+                />
+                <TextField
+                  label="E-mail professionnel"
+                  placeholder="contact@monlieu.fr"
+                  value={fields.email}
+                  onChangeText={(v) => set('email', v)}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </FormSection>
+
+              {!check && (
+                <FormActions>
+                  <Button label="Vérifier et continuer" loading={busy} disabled={!complete} onPress={() => void verify()} />
+                </FormActions>
+              )}
             </Card>
 
             {check && (
               <Card style={styles.form}>
+                <FormHeader icon="🔎" title="Vérification" subtitle={`${fields.name} · ${fields.city}`} />
                 {check.candidates.length === 0 ? (
                   <Notice tone="success">Aucun lieu proche ou de même nom n’existe déjà.</Notice>
                 ) : (
@@ -146,7 +190,7 @@ export default function NewPlaceScreen() {
                       Ces lieux existent déjà. Si l’un d’eux est le vôtre, demandez plutôt à le gérer.
                     </Notice>
                     {check.candidates.map(({ place, distanceMeters }) => (
-                      <Card key={place.id} style={styles.card}>
+                      <Card key={place.id} style={styles.card} elevation="none">
                         <ThemedText type="heading">{place.name}</ThemedText>
                         <ThemedText type="small" themeColor="textSecondary">
                           {placeTypeLabel(place.placeType)}
@@ -172,17 +216,23 @@ export default function NewPlaceScreen() {
                     ))}
                   </>
                 )}
-                {!hasPosition && (
-                  <Notice tone="warning">L’adresse n’a pas pu être localisée : indiquez la position du lieu.</Notice>
-                )}
-                <TextField label="Latitude" value={latitude} onChangeText={setLatitude} keyboardType="numbers-and-punctuation" />
-                <TextField label="Longitude" value={longitude} onChangeText={setLongitude} keyboardType="numbers-and-punctuation" />
-                <Button
-                  label={check.candidates.length === 0 ? 'Enregistrer le brouillon' : 'Mon lieu n’est pas dans la liste : enregistrer'}
-                  loading={busy}
-                  disabled={!hasPosition}
-                  onPress={() => void save()}
-                />
+                <FormSection title="Position sur la carte">
+                  {!hasPosition && (
+                    <Notice tone="warning">L’adresse n’a pas pu être localisée : indiquez la position du lieu.</Notice>
+                  )}
+                  <FieldRow>
+                    <TextField label="Latitude" value={latitude} onChangeText={setLatitude} keyboardType="numbers-and-punctuation" />
+                    <TextField label="Longitude" value={longitude} onChangeText={setLongitude} keyboardType="numbers-and-punctuation" />
+                  </FieldRow>
+                </FormSection>
+                <FormActions>
+                  <Button
+                    label={check.candidates.length === 0 ? 'Enregistrer le brouillon' : 'Mon lieu n’est pas dans la liste : enregistrer'}
+                    loading={busy}
+                    disabled={!hasPosition}
+                    onPress={() => void save()}
+                  />
+                </FormActions>
               </Card>
             )}
 

@@ -4050,6 +4050,802 @@ body {
     flex-basis: 100%;
 }
 
+/* ===================================================================
+ * Espace pro : formulaires d'ajout et de modification (food trucks, emplacements, lieux).
+ * Carte blanche, sections titrées, grille deux colonnes pour les champs courts, puces pour les jours,
+ * choix en cartes, aperçu de la fiche food truck à côté du formulaire. Identité Neiri (variables --ll-*).
+ * =================================================================== */
+
+.pro-form {
+    --pro-border: #dcd9ec;
+    --pro-focus: rgba(123, 44, 181, 0.16);
+    --pro-tint: #f6f0fc;
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+    max-width: 760px;
+    margin: 1rem 0;
+    padding: 1.6rem;
+    background-color: #ffffff;
+    border: 1px solid var(--ll-line);
+    border-radius: 18px;
+    box-shadow: 0 12px 32px rgba(28, 33, 80, 0.08);
+    color: var(--ll-ink);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.pro-form-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+}
+
+.pro-form-header {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding-bottom: 1.1rem;
+    border-bottom: 1px solid var(--ll-line);
+}
+
+.pro-form-header-icon {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: var(--ll-gradient);
+    box-shadow: 0 6px 16px rgba(214, 41, 95, 0.25);
+    font-size: 1.4rem;
+}
+
+.pro-form-header h3,
+.pro-form-header h4 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--ll-ink);
+}
+
+.pro-form-header p {
+    margin: 0.2rem 0 0;
+    font-size: 0.88rem;
+    color: var(--ll-muted);
+}
+
+.pro-form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    min-width: 0;
+}
+
+.pro-form-section + .pro-form-section {
+    padding-top: 1.3rem;
+    border-top: 1px dashed var(--ll-line);
+}
+
+.pro-form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ll-purple);
+}
+
+.pro-form-section-title::before {
+    content: "";
+    width: 18px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--ll-gradient);
+}
+
+.pro-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.95rem 1rem;
+}
+
+.pro-field-wide {
+    grid-column: 1 / -1;
+}
+
+.pro-form .form-field {
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.pro-form .form-field > label,
+.pro-field-label {
+    padding: 0;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--ll-ink);
+}
+
+.pro-optional {
+    font-size: 0.8rem;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--ll-muted);
+}
+
+.pro-hint {
+    font-size: 0.8rem;
+    color: var(--ll-muted);
+}
+
+.pro-counter {
+    align-self: flex-end;
+    font-variant-numeric: tabular-nums;
+}
+
+.pro-intro {
+    margin: 0;
+    font-size: 0.92rem;
+    color: var(--ll-muted);
+}
+
+.pro-form input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]),
+.pro-form select,
+.pro-form textarea {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--pro-border);
+    border-radius: 11px;
+    background-color: #ffffff;
+    color: var(--ll-ink);
+    font: inherit;
+    font-size: 0.95rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.pro-form textarea {
+    min-height: 7rem;
+    line-height: 1.45;
+    resize: vertical;
+}
+
+.pro-form input::placeholder,
+.pro-form textarea::placeholder {
+    color: #a4a7c0;
+}
+
+.pro-form input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):hover,
+.pro-form select:hover,
+.pro-form textarea:hover {
+    border-color: #c4bfdf;
+}
+
+.pro-form input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):focus,
+.pro-form select:focus,
+.pro-form textarea:focus {
+    border-color: var(--ll-purple);
+    box-shadow: 0 0 0 4px var(--pro-focus);
+    outline: none;
+}
+
+.pro-form input[type="checkbox"],
+.pro-form input[type="radio"] {
+    accent-color: var(--ll-purple);
+}
+
+/* Boutons. */
+.pro-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 2.6rem;
+    padding: 0.55rem 1.25rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.pro-button:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.pro-button:focus-visible {
+    outline: 3px solid var(--pro-focus);
+    outline-offset: 2px;
+}
+
+.pro-button-primary {
+    background-color: var(--ll-accent);
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(214, 41, 95, 0.28);
+}
+
+.pro-button-primary:hover:not(:disabled) {
+    background-color: var(--ll-accent-dark);
+}
+
+.pro-button-ghost {
+    border-color: var(--pro-border);
+    background-color: #ffffff;
+    color: var(--ll-ink);
+}
+
+.pro-button-ghost:hover:not(:disabled) {
+    border-color: var(--ll-purple);
+    background-color: var(--pro-tint);
+}
+
+.pro-button-text-danger {
+    padding-inline: 0.6rem;
+    background: none;
+    color: #b3261e;
+}
+
+.pro-button-text-danger:hover:not(:disabled) {
+    background-color: #fdecec;
+}
+
+.pro-button:disabled {
+    opacity: 0.55;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.pro-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--ll-line);
+}
+
+/* Messages dans le formulaire. */
+.pro-notice {
+    margin: 0;
+    padding: 0.7rem 0.9rem;
+    border-radius: 11px;
+    background-color: var(--ll-sand);
+    font-size: 0.88rem;
+    color: var(--ll-ink);
+}
+
+.pro-notice-info {
+    background-color: #eef4ff;
+    color: #1e3a8a;
+}
+
+.pro-notice-success {
+    background-color: #ecfdf3;
+    color: #166534;
+}
+
+.pro-notice-warning {
+    background-color: #fff7e6;
+    color: #92400e;
+}
+
+.pro-notice-error {
+    background-color: #fdecec;
+    color: #b3261e;
+}
+
+/* Choix présentés en cartes (lieu existant / autre adresse, lieu trouvé). */
+.pro-choice-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+.pro-option-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.pro-choice {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.8rem 0.95rem;
+    border: 1.5px solid var(--pro-border);
+    border-radius: 13px;
+    background-color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.pro-choice:hover {
+    border-color: #c4bfdf;
+}
+
+.pro-choice input {
+    flex-shrink: 0;
+    width: 1.05rem;
+    height: 1.05rem;
+    margin: 0;
+}
+
+.pro-choice:has(input:checked) {
+    border-color: var(--ll-purple);
+    background-color: var(--pro-tint);
+}
+
+.pro-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    margin-top: 0.3rem;
+    font-size: 0.83rem;
+    color: var(--ll-muted);
+    cursor: pointer;
+}
+
+.pro-check input {
+    margin: 0.15rem 0 0;
+}
+
+.pro-selected {
+    margin: 0;
+    padding: 0.65rem 0.9rem;
+    border-left: 3px solid var(--ll-purple);
+    border-radius: 0 10px 10px 0;
+    background-color: var(--pro-tint);
+    font-size: 0.88rem;
+}
+
+.pro-form .pro-place-search input {
+    flex: 1 1 10rem;
+    width: auto;
+}
+
+/* Jours de présence : puces cliquables. */
+.pro-fieldset {
+    margin: 0;
+    padding: 0;
+    border: none;
+    min-width: 0;
+}
+
+.pro-fieldset > legend {
+    margin-bottom: 0.5rem;
+}
+
+.pro-day-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.pro-day-chip {
+    position: relative;
+}
+
+.pro-day-chip input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.pro-day-chip span {
+    display: inline-flex;
+    justify-content: center;
+    min-width: 3.3rem;
+    padding: 0.5rem 0.75rem;
+    border: 1.5px solid var(--pro-border);
+    border-radius: 999px;
+    background-color: #ffffff;
+    font-size: 0.86rem;
+    font-weight: 600;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.pro-day-chip:hover span {
+    border-color: var(--ll-purple);
+}
+
+.pro-day-chip input:checked + span {
+    border-color: var(--ll-purple);
+    background-color: var(--ll-purple);
+    color: #ffffff;
+}
+
+.pro-day-chip input:focus-visible + span {
+    box-shadow: 0 0 0 4px var(--pro-focus);
+}
+
+/* Bloc repliable (position précise). */
+.pro-details {
+    padding: 0.75rem 0.95rem;
+    border: 1px dashed var(--pro-border);
+    border-radius: 12px;
+    background-color: var(--ll-paper);
+}
+
+.pro-details summary {
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--ll-muted);
+    cursor: pointer;
+}
+
+.pro-details[open] summary {
+    margin-bottom: 0.8rem;
+}
+
+/* Photo du food truck. */
+.pro-photo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+}
+
+.pro-photo-frame {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 180px;
+    height: 120px;
+    overflow: hidden;
+    border: 1.5px dashed #cfcbe6;
+    border-radius: 14px;
+    background-color: var(--ll-sand);
+    font-size: 2rem;
+}
+
+.pro-photo-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pro-photo-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+}
+
+.pro-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.pro-visually-hidden:focus-visible + .pro-button {
+    outline: 3px solid var(--pro-focus);
+    outline-offset: 2px;
+}
+
+/* Pastille : panneau de choix emoji / couleur. */
+.pro-marker-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin: 0;
+    padding: 1rem 1.1rem 1.1rem;
+    min-width: 0;
+    border: 1px solid var(--ll-line);
+    border-radius: 14px;
+    background-color: var(--ll-paper);
+}
+
+.pro-marker-panel > legend {
+    float: left;
+    width: 100%;
+    margin-bottom: 0.3rem;
+}
+
+.pro-marker-panel .food-truck-marker-current {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 0.25rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.pro-form .food-truck-marker-picker {
+    gap: 0.4rem;
+}
+
+.pro-form .food-truck-marker-picker button {
+    border-color: var(--pro-border);
+    transition: transform 0.1s ease, border-color 0.15s ease;
+}
+
+.pro-form .food-truck-marker-picker button:hover {
+    transform: scale(1.08);
+    border-color: var(--ll-purple);
+}
+
+.pro-form .food-truck-marker-picker input[type="color"] {
+    width: 2.2rem;
+    height: 2.2rem;
+    padding: 0;
+    border: 1px solid var(--pro-border);
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+}
+
+/* Food truck : formulaire et aperçu de la fiche côte à côte. */
+.pro-form-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 760px) 280px;
+    align-items: start;
+    gap: 1.5rem;
+}
+
+.pro-preview {
+    position: sticky;
+    top: 1rem;
+    margin-top: 1rem;
+}
+
+.pro-preview-label {
+    margin: 0 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ll-muted);
+}
+
+.pro-preview-card {
+    overflow: hidden;
+    border: 1px solid var(--ll-line);
+    border-radius: 18px;
+    background-color: #ffffff;
+    box-shadow: 0 12px 32px rgba(28, 33, 80, 0.1);
+}
+
+.pro-preview-cover {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 150px;
+    background-color: var(--ll-accent);
+    font-size: 3rem;
+}
+
+.pro-preview-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pro-preview-marker {
+    position: absolute;
+    bottom: -17px;
+    left: 1rem;
+}
+
+.pro-preview-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 1.4rem 1rem 1.1rem;
+    color: var(--ll-ink);
+}
+
+.pro-preview-body strong {
+    font-size: 1.02rem;
+    overflow-wrap: anywhere;
+}
+
+.pro-preview-meta {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--ll-purple);
+}
+
+.pro-preview-description {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: var(--ll-muted);
+    white-space: pre-line;
+}
+
+.pro-preview-links {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.3rem;
+}
+
+.pro-preview-links span {
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background-color: var(--ll-sand);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Créer un lieu : étapes. */
+.pro-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.4rem;
+    margin: 0;
+    padding: 0 0 1.1rem;
+    border-bottom: 1px solid var(--ll-line);
+    list-style: none;
+}
+
+.pro-step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--ll-muted);
+}
+
+.pro-step-dot {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1.5px solid var(--pro-border);
+    border-radius: 50%;
+    background-color: #ffffff;
+    font-size: 0.8rem;
+}
+
+.pro-step-current {
+    color: var(--ll-ink);
+}
+
+.pro-step-current .pro-step-dot {
+    border-color: transparent;
+    background: var(--ll-gradient);
+    color: #ffffff;
+}
+
+.pro-step-done .pro-step-dot {
+    border-color: var(--ll-purple);
+    background-color: var(--pro-tint);
+    color: var(--ll-purple);
+}
+
+/* Créer un lieu : récapitulatif avant enregistrement. */
+.pro-summary {
+    overflow: hidden;
+    border: 1px solid var(--ll-line);
+    border-radius: 14px;
+}
+
+.pro-summary-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 1rem 1.1rem;
+    background: linear-gradient(135deg, rgba(251, 169, 30, 0.12), rgba(236, 59, 110, 0.12), rgba(123, 44, 181, 0.12));
+}
+
+.pro-summary-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.pro-badge {
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background-color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--ll-purple);
+}
+
+.pro-summary-description {
+    margin: 0;
+    padding: 0.9rem 1.1rem 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+.pro-summary-list {
+    display: grid;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0.9rem 1.1rem 1.1rem;
+}
+
+.pro-summary-list div {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    gap: 0.75rem;
+}
+
+.pro-summary-list dt {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--ll-muted);
+}
+
+.pro-summary-list dd {
+    margin: 0;
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+}
+
+/* Formulaire ouvert sous un lieu de « Mes lieux » : pleine largeur, plus discret. */
+.pro-places-item .pro-form.pro-place-panel {
+    max-width: none;
+    margin: 0.5rem 0 0;
+    background-color: var(--ll-paper);
+    box-shadow: none;
+}
+
+@media (max-width: 1100px) {
+    .pro-form-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pro-preview {
+        position: static;
+        order: -1;
+        max-width: 360px;
+    }
+}
+
+@media (max-width: 640px) {
+    .pro-form {
+        padding: 1.1rem;
+        border-radius: 14px;
+    }
+
+    .pro-form-grid,
+    .pro-choice-group {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pro-form-actions {
+        flex-direction: column-reverse;
+    }
+
+    .pro-form-actions .pro-button {
+        width: 100%;
+    }
+
+    .pro-summary-list div {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.15rem;
+    }
+}
+
 /* Console d'administration : fiche actuelle et proposition côte à côte. */
 .admin-change-compare {
     width: 100%;

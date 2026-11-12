@@ -41,6 +41,7 @@ import {
   truckActions,
   truckStatusLabel,
 } from '@/features/pro/format';
+import { ChoiceCards, FieldRow, FormActions, FormHeader, FormSection, Hint } from '@/features/pro/FormParts';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
 import {
   EMPTY_PROFILE,
@@ -278,6 +279,7 @@ export default function MyFoodTruckScreen() {
                 )}
                 {editingProfile ? (
                   <>
+                    <FormHeader icon="✏️" title="Modifier le profil" subtitle="Nom, cuisine, photo, pastille et contacts." />
                     <FoodTruckProfileFields
                       profile={profile}
                       onChange={setProfile}
@@ -286,19 +288,21 @@ export default function MyFoodTruckScreen() {
                       onPhotoChange={setPhoto}
                       onError={setError}
                     />
-                    <Button
-                      label="Enregistrer"
-                      loading={busy}
-                      onPress={() =>
-                        void run(async () => {
-                          await updateFoodTruck(truck.id, profileInputOf(profile));
-                          await savePhoto(truck.id, photo);
-                        }, 'Profil enregistré.').then((ok) => {
-                          if (ok) setEditingProfile(false);
-                        })
-                      }
-                    />
-                    <Button label="Annuler" variant="ghost" onPress={() => setEditingProfile(false)} />
+                    <FormActions>
+                      <Button label="Annuler" variant="secondary" onPress={() => setEditingProfile(false)} />
+                      <Button
+                        label="Enregistrer"
+                        loading={busy}
+                        onPress={() =>
+                          void run(async () => {
+                            await updateFoodTruck(truck.id, profileInputOf(profile));
+                            await savePhoto(truck.id, photo);
+                          }, 'Profil enregistré.').then((ok) => {
+                            if (ok) setEditingProfile(false);
+                          })
+                        }
+                      />
+                    </FormActions>
                   </>
                 ) : (
                   <>
@@ -367,107 +371,154 @@ export default function MyFoodTruckScreen() {
 
             {editing ? (
               <Card style={styles.form}>
-                <ThemedText type="heading">{editing === 'new' ? 'Nouvel emplacement' : 'Modifier l’emplacement'}</ThemedText>
-                <ChipGroup
-                  label="Où"
-                  options={[
-                    { value: 'place', label: editing === 'new' ? 'Un lieu Neiri' : 'Garder ou choisir un lieu' },
-                    { value: 'new', label: 'Une autre adresse' },
-                  ]}
-                  selected={[form.mode]}
-                  onToggle={(value) => setForm({ ...form, mode: value as 'place' | 'new' })}
-                  single
+                <FormHeader
+                  icon="📍"
+                  title={editing === 'new' ? 'Nouvel emplacement' : 'Modifier l’emplacement'}
+                  subtitle={truck ? `Où et quand trouver « ${truck.name} ».` : undefined}
                 />
-                {form.mode === 'place' ? (
-                  <>
-                    {form.placeLabel ? <ThemedText>Emplacement choisi : {form.placeLabel}</ThemedText> : null}
-                    <TextField
-                      label="Nom du lieu"
-                      placeholder="Marché, halle…"
-                      value={placeQuery.name}
-                      onChangeText={(v) => setPlaceQuery({ ...placeQuery, name: v })}
-                    />
-                    <TextField label="Commune" value={placeQuery.city} onChangeText={(v) => setPlaceQuery({ ...placeQuery, city: v })} />
-                    <Button label="Rechercher un lieu" variant="secondary" onPress={() => void searchPlaces()} />
-                    {places?.length === 0 && (
-                      <ThemedText themeColor="textSecondary">Aucun lieu publié trouvé : saisissez plutôt l’adresse.</ThemedText>
-                    )}
-                    {places && places.length > 0 && (
-                      <ChipGroup
-                        label="Lieux trouvés"
-                        options={places.map(({ place }) => ({
-                          value: String(place.id),
-                          label: place.city ? `${place.name} (${place.city})` : place.name,
-                        }))}
-                        selected={form.placeId === null ? [] : [String(form.placeId)]}
-                        onToggle={(value) => {
-                          const chosen = places.find(({ place }) => String(place.id) === value);
-                          setForm({ ...form, placeId: Number(value), placeLabel: chosen?.place.name ?? '' });
-                        }}
-                        single
+                <FormSection title="Où" first>
+                  <ChoiceCards
+                    label="Où"
+                    options={[
+                      { value: 'place', label: editing === 'new' ? 'Un lieu Neiri' : 'Garder ou choisir un lieu' },
+                      { value: 'new', label: 'Une autre adresse' },
+                    ]}
+                    selected={form.mode}
+                    onSelect={(value) => setForm({ ...form, mode: value })}
+                  />
+                  {form.mode === 'place' ? (
+                    <>
+                      {form.placeLabel ? (
+                        <Notice tone="info">Emplacement choisi : {form.placeLabel}</Notice>
+                      ) : null}
+                      <FieldRow>
+                        <TextField
+                          label="Nom du lieu"
+                          placeholder="Marché, halle…"
+                          value={placeQuery.name}
+                          onChangeText={(v) => setPlaceQuery({ ...placeQuery, name: v })}
+                        />
+                        <TextField
+                          label="Commune"
+                          value={placeQuery.city}
+                          onChangeText={(v) => setPlaceQuery({ ...placeQuery, city: v })}
+                        />
+                      </FieldRow>
+                      <Button
+                        label="Rechercher un lieu"
+                        variant="secondary"
+                        icon={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+                        onPress={() => void searchPlaces()}
                       />
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <TextField label="Nom de l’emplacement" value={form.spotName} onChangeText={(v) => setForm({ ...form, spotName: v })} />
-                    <TextField label="Adresse" value={form.address} onChangeText={(v) => setForm({ ...form, address: v })} />
+                      {places?.length === 0 && (
+                        <Hint>Aucun lieu publié trouvé : saisissez plutôt l’adresse.</Hint>
+                      )}
+                      {places && places.length > 0 && (
+                        <ChoiceCards
+                          label="Lieux trouvés"
+                          columns={1}
+                          options={places.map(({ place }) => ({
+                            value: String(place.id),
+                            label: place.name,
+                            description: place.city ?? undefined,
+                          }))}
+                          selected={form.placeId === null ? null : String(form.placeId)}
+                          onSelect={(value) => {
+                            const chosen = places.find(({ place }) => String(place.id) === value);
+                            setForm({ ...form, placeId: Number(value), placeLabel: chosen?.place.name ?? '' });
+                          }}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <TextField
+                        label="Nom de l’emplacement"
+                        placeholder="Parking de la zone d’activité"
+                        value={form.spotName}
+                        onChangeText={(v) => setForm({ ...form, spotName: v })}
+                      />
+                      <TextField
+                        label="Adresse"
+                        placeholder="12 avenue de la Gare"
+                        value={form.address}
+                        onChangeText={(v) => setForm({ ...form, address: v })}
+                      />
+                      <FieldRow>
+                        <TextField
+                          label="Code postal"
+                          value={form.postalCode}
+                          onChangeText={(v) => setForm({ ...form, postalCode: v })}
+                          keyboardType="number-pad"
+                          maxLength={5}
+                        />
+                        <TextField label="Commune" value={form.city} onChangeText={(v) => setForm({ ...form, city: v })} />
+                      </FieldRow>
+                    </>
+                  )}
+                  <ChipGroup
+                    label="Type d’emplacement"
+                    options={KIND_OPTIONS}
+                    selected={[form.spotKind]}
+                    onToggle={(value) => setForm({ ...form, spotKind: value as SpotKind })}
+                    single
+                  />
+                </FormSection>
+
+                <FormSection title="Quand">
+                  <ChipGroup
+                    label="Jours"
+                    options={DAY_OPTIONS}
+                    selected={form.days}
+                    onToggle={(value) =>
+                      setForm({
+                        ...form,
+                        days: form.days.includes(value) ? form.days.filter((d) => d !== value) : [...form.days, value],
+                      })
+                    }
+                  />
+                  <Hint>Aucun jour coché : tous les jours.</Hint>
+                  <FieldRow>
                     <TextField
-                      label="Code postal"
-                      value={form.postalCode}
-                      onChangeText={(v) => setForm({ ...form, postalCode: v })}
-                      keyboardType="number-pad"
-                      maxLength={5}
+                      label="Arrivée"
+                      placeholder="08:00"
+                      value={form.startTime}
+                      onChangeText={(v) => setForm({ ...form, startTime: v })}
+                      keyboardType="numbers-and-punctuation"
                     />
-                    <TextField label="Commune" value={form.city} onChangeText={(v) => setForm({ ...form, city: v })} />
-                  </>
-                )}
-                <ChipGroup
-                  label="Type d’emplacement"
-                  options={KIND_OPTIONS}
-                  selected={[form.spotKind]}
-                  onToggle={(value) => setForm({ ...form, spotKind: value as SpotKind })}
-                  single
-                />
-                <ChipGroup
-                  label="Jours (aucun : tous les jours)"
-                  options={DAY_OPTIONS}
-                  selected={form.days}
-                  onToggle={(value) =>
-                    setForm({
-                      ...form,
-                      days: form.days.includes(value) ? form.days.filter((d) => d !== value) : [...form.days, value],
-                    })
-                  }
-                />
-                <TextField
-                  label="Arrivée (HH:MM)"
-                  placeholder="08:00"
-                  value={form.startTime}
-                  onChangeText={(v) => setForm({ ...form, startTime: v })}
-                  keyboardType="numbers-and-punctuation"
-                />
-                <TextField
-                  label="Départ (HH:MM)"
-                  placeholder="13:00"
-                  value={form.endTime}
-                  onChangeText={(v) => setForm({ ...form, endTime: v })}
-                  keyboardType="numbers-and-punctuation"
-                />
-                <TextField
-                  label="À partir du (facultatif, JJ/MM/AAAA)"
-                  value={form.validFrom}
-                  onChangeText={(v) => setForm({ ...form, validFrom: v })}
-                  keyboardType="numbers-and-punctuation"
-                />
-                <TextField
-                  label="Jusqu’au (facultatif, JJ/MM/AAAA)"
-                  value={form.validUntil}
-                  onChangeText={(v) => setForm({ ...form, validUntil: v })}
-                  keyboardType="numbers-and-punctuation"
-                />
-                <Button label="Enregistrer en brouillon" loading={busy} onPress={() => void savePresence()} />
-                <Button label="Annuler" variant="ghost" onPress={() => setEditing(null)} />
+                    <TextField
+                      label="Départ"
+                      placeholder="13:00"
+                      value={form.endTime}
+                      onChangeText={(v) => setForm({ ...form, endTime: v })}
+                      keyboardType="numbers-and-punctuation"
+                    />
+                  </FieldRow>
+                  <FieldRow>
+                    <TextField
+                      label="À partir du"
+                      placeholder="JJ/MM/AAAA"
+                      value={form.validFrom}
+                      onChangeText={(v) => setForm({ ...form, validFrom: v })}
+                      keyboardType="numbers-and-punctuation"
+                    />
+                    <TextField
+                      label="Jusqu’au"
+                      placeholder="JJ/MM/AAAA"
+                      value={form.validUntil}
+                      onChangeText={(v) => setForm({ ...form, validUntil: v })}
+                      keyboardType="numbers-and-punctuation"
+                    />
+                  </FieldRow>
+                  <Hint>Horaires au format HH:MM ; période facultative.</Hint>
+                </FormSection>
+
+                <Hint>L’emplacement est enregistré en brouillon : vous le publiez ensuite depuis sa carte.</Hint>
+
+                <FormActions>
+                  <Button label="Annuler" variant="secondary" onPress={() => setEditing(null)} />
+                  <Button label="Enregistrer" loading={busy} onPress={() => void savePresence()} />
+                </FormActions>
               </Card>
             ) : (
               truck &&
