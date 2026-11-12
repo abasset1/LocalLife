@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Application : compte obligatoire
+- **Sans session** (premier lancement, déconnexion, jeton expiré), l'application s'ouvre sur l'écran de connexion / inscription : plus de carte, de liste ni de fiche, plus de barre d'onglets ni de menu. Seuls « Mot de passe oublié » et les textes légaux restent accessibles. Un lien de notification ramène aussi à la connexion.
+- **Après connexion** : arrivée sur la carte (et accueil de première connexion si les préférences ne sont pas configurées).
+- Le site n'est pas concerné : il reste ouvert aux visiteurs, avec la saisie de la ville.
+
 ### Site : plus de case « Revient chaque semaine » dans le formulaire d'ajout d'activité
 - Une nouvelle proposition est ponctuelle (dates de début et de fin). Les jours et horaires hebdomadaires ne sont plus affichés, même en modification : une contribution déjà hebdomadaire garde son passage tel quel, seules ses dates « À partir du » / « Jusqu'au » se modifient.
 
