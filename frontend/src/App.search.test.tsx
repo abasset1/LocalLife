@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { useSharedMapLink } from "./test/visitorMapView";
 import type { GlobalSearchItem, GlobalSearchPage } from "./components/explorer/globalSearch";
 import type { Activity, MapBounds } from "./components/explorer/types";
 
@@ -155,6 +156,8 @@ function banner() {
 }
 
 describe("App — recherche globale (#92)", () => {
+    useSharedMapLink();
+
     it("envoie le texte à la recherche globale sans géocodage ni rayon", async () => {
         const user = await renderApp();
         await submitSearch(user, "concert lyon");
@@ -263,7 +266,8 @@ describe("App — recherche globale (#92)", () => {
         await submitSearch(user, "zzz");
         await waitFor(() => expect(searchCalls()).toHaveLength(1));
         await act(async () => searchCalls()[0].respond(page([])));
-        expect(banner()).toHaveTextContent("Aucun résultat pour « zzz ». Essaie un autre mot.");
+        // La période du mois en cours est active par défaut.
+        expect(banner()).toHaveTextContent("Aucun résultat pour « zzz ». Essaie un autre mot ou retire des filtres.");
 
         await submitSearch(user, "jazz");
         await waitFor(() => expect(searchCalls()).toHaveLength(2));

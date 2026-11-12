@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { useSharedMapLink } from "./test/visitorMapView";
 import type { Activity, MapBounds } from "./components/explorer/types";
 
 /**
@@ -71,6 +72,8 @@ beforeEach(() => {
 });
 
 describe("App — carte Night", () => {
+    useSharedMapLink();
+
     it("propose l'onglet Night à côté des autres cartes", async () => {
         render(<MemoryRouter><App /></MemoryRouter>);
 

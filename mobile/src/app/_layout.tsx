@@ -2,7 +2,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useSegments } from 'expo
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 
-import { AuthProvider } from '@/auth';
+import { AuthGate, AuthProvider } from '@/auth';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { ScreenError } from '@/components/screen-error';
 import { Colors } from '@/constants/theme';
@@ -112,6 +112,8 @@ export default function RootLayout() {
               options={{ headerShown: false, gestureEnabled: false, presentation: 'fullScreenModal' }}
             />
           </Stack>
+          {/* Compte obligatoire : sans session, seul l'écran de connexion / inscription est accessible. */}
+          <AuthGate />
           <OnboardingGate />
           </FollowsProvider>
         </FavoritesProvider>

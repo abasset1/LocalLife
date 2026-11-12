@@ -7136,3 +7136,136 @@ body {
     border-color: var(--ll-accent);
     color: var(--ll-accent);
 }
+
+/* --- Visiteur sans compte : choix de la ville imposé, fenêtre centrée (CityPromptModal). --- */
+
+.city-prompt-overlay {
+    /* Au-dessus de la carte Leaflet et de ses contrôles. */
+    z-index: 2000;
+}
+
+.city-prompt-dialog {
+    width: 100%;
+    max-width: 34rem;
+    padding: 2rem 2rem 1.75rem;
+    background-color: var(--ll-paper);
+    border-radius: 20px;
+    box-shadow: 0 20px 55px rgba(28, 33, 80, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.city-prompt-title {
+    margin: 0;
+    font-size: 1.6rem;
+    color: var(--ll-ink);
+}
+
+.city-prompt-text {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.45;
+    color: var(--ll-muted);
+}
+
+.city-prompt-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.city-prompt-label {
+    font-weight: 650;
+    font-size: 0.92rem;
+    color: var(--ll-ink);
+}
+
+.city-prompt-field {
+    position: relative;
+}
+
+.city-prompt-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.85rem 1rem;
+    font-size: 1.05rem;
+    border: 1px solid var(--ll-line);
+    border-radius: 12px;
+    background-color: #ffffff;
+    color: var(--ll-ink);
+}
+
+.city-prompt-input:focus {
+    outline: 2px solid var(--ll-green);
+    outline-offset: 1px;
+}
+
+.city-prompt-error {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--ll-accent);
+}
+
+.city-prompt-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.4rem;
+}
+
+.city-prompt-submit {
+    padding: 0.75rem 1.6rem;
+    font-size: 1rem;
+    font-weight: 650;
+    border: none;
+    border-radius: 999px;
+    background-color: var(--ll-green);
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.city-prompt-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+    .city-prompt-dialog {
+        padding: 1.5rem 1.25rem 1.25rem;
+    }
+
+    .city-prompt-title {
+        font-size: 1.35rem;
+    }
+
+    .city-prompt-input {
+        font-size: 16px;
+    }
+}
+
+.city-prompt-login {
+    margin: 0.3rem 0 0;
+    font-size: 0.9rem;
+    color: var(--ll-muted);
+}
+
+.city-prompt-login-link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--ll-green);
+    font: inherit;
+    font-weight: 650;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* Dans la fenêtre, les communes proposées s'insèrent sous le champ sans masquer « Valider ». */
+.city-prompt-field .explorer-search-suggestions {
+    position: static;
+    margin-top: 0.35rem;
+    max-height: 14rem;
+    box-shadow: none;
+}

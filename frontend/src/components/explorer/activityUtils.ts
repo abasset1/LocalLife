@@ -162,3 +162,10 @@ export function weekendRange(today: Date): { date: string; dateTo?: string } {
     sunday.setDate(saturday.getDate() + 1);
     return { date: toLocalDateString(saturday), dateTo: toLocalDateString(sunday) };
 }
+
+/** « Ce mois-ci » : du premier au dernier jour du mois en cours (période affichée par défaut). */
+export function monthRange(today: Date): { date: string; dateTo: string } {
+    const first = new Date(today.getFullYear(), today.getMonth(), 1);
+    const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    return { date: toLocalDateString(first), dateTo: toLocalDateString(last) };
+}

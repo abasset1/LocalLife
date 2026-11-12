@@ -6,9 +6,10 @@ import { clearSession, getPayload } from "./auth/authStorage";
 import ActivityDetailModal from "./components/explorer/ActivityDetailModal";
 import ActivityList from "./components/explorer/ActivityList";
 import ActivityPreview from "./components/explorer/ActivityPreview";
-import { activitiesInZone, toLocalDateString, weekendRange, zoneCountLabel } from "./components/explorer/activityUtils";
+import { activitiesInZone, monthRange, toLocalDateString, weekendRange, zoneCountLabel } from "./components/explorer/activityUtils";
 import { DEFAULT_SEARCH_RADIUS_KM, NO_DATE_FILTER } from "./components/explorer/constants";
 import EmptyResultsHelp from "./components/explorer/EmptyResultsHelp";
+import CityPromptModal from "./components/explorer/CityPromptModal";
 import ContributionModal, {
     EMPTY_RECURRENCE, type ContributionRecurrence, type HostPlaceOption,
 } from "./components/explorer/ContributionModal";
@@ -167,8 +168,9 @@ function App() {
     const [freeOnly, setFreeOnly] = useState(false);
     /** Clé stable du filtre catégorie (codes triés) : évite de relancer la recherche sur un simple nouveau tableau. */
     const selectedCategoriesKey = useMemo(() => [...selectedCategoryCodes].sort().join(","), [selectedCategoryCodes]);
-    const [selectedDate, setSelectedDate] = useState(NO_DATE_FILTER);
-    const [selectedDateTo, setSelectedDateTo] = useState(NO_DATE_FILTER);
+    /** Période par défaut : le mois en cours (« Ce mois-ci »). */
+    const [selectedDate, setSelectedDate] = useState(() => monthRange(new Date()).date);
+    const [selectedDateTo, setSelectedDateTo] = useState(() => monthRange(new Date()).dateTo);
     const [currentUser, setCurrentUser] = useState(() => getPayload());
     /** Accès à l'espace professionnel (`hasProAccess` de `GET /api/v1/users/me`) : seul critère des entrées pro. */
     const { hasProAccess, canFollow } = useAccountAccess(currentUser !== null);
@@ -225,9 +227,9 @@ function App() {
      * Rayon actif : celui des paramètres utilisateur au chargement, puis celui
      * choisi depuis la barre de filtres (« Rayon »), pour la session — les
      * préférences enregistrées ne changent pas. `null` = pas de rayon : la zone
-     * visible de la carte fait la recherche.
+     * visible de la carte fait la recherche. Par défaut : 20 km.
      */
-    const [activeRadiusKm, setActiveRadiusKm] = useState<number | null>(null);
+    const [activeRadiusKm, setActiveRadiusKm] = useState<number | null>(DEFAULT_SEARCH_RADIUS_KM);
     /**
      * Paramètres utilisateur (catégories, ville, rayon par défaut) appliqués avant
      * la première recherche, pour ne pas charger puis recharger la carte. Visiteur
@@ -239,6 +241,11 @@ function App() {
      * s'ouvre à cet endroit, que ni la ville enregistrée ni la position déjà autorisée ne remplacent.
      */
     const [initialMapView] = useState(() => readMapUrlView(window.location.search));
+    /**
+     * Visiteur sans compte ni session, sans lieu connu (ni ville, ni position, ni vue reçue dans
+     * l'adresse) : la ville est demandée dans une fenêtre centrée et aucune activité n'est chargée avant.
+     */
+    const requiresCity = currentUser === null && userPosition === null && initialMapView === null;
     /** Première connexion : préférences jamais enregistrées, l'accueil les fait choisir (OnboardingModal). */
     const [needsOnboarding, setNeedsOnboarding] = useState(false);
     /** L'accueil de première connexion s'est ouvert pendant cette visite : pas de popup de nouveauté en plus. */
@@ -421,6 +428,13 @@ function App() {
         if (!arePreferencesApplied || isTextSearch) {
             return;
         }
+        // Visiteur sans ville : rien n'est chargé tant qu'elle n'est pas choisie (CityPromptModal).
+        if (requiresCity) {
+            setActivities([]);
+            setIsLoadingActivities(false);
+            previousSearchDepsRef.current = null;
+            return;
+        }
         const abortController = new AbortController();
 
         // LL-EF-003 : un déplacement/zoom pur de la carte ne doit pas provoquer
@@ -525,7 +539,7 @@ function App() {
         void loadActivities();
 
         return () => abortController.abort();
-    }, [arePreferencesApplied, isTextSearch, nightOnly, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
+    }, [arePreferencesApplied, requiresCity, isTextSearch, nightOnly, selectedCategoriesKey, selectedDate, selectedDateTo, refreshKey, userPosition, searchRadiusKm, searchBounds]);
 
     /** « Réessayer » après une erreur de chargement : mêmes filtres, même zone, sans recharger la page. */
     function retryActivities() {
@@ -1310,10 +1324,9 @@ function App() {
                 break;
             }
             case "this-month": {
-                const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-                setSelectedDate(toLocalDateString(firstOfMonth));
-                setSelectedDateTo(toLocalDateString(lastOfMonth));
+                const month = monthRange(today);
+                setSelectedDate(month.date);
+                setSelectedDateTo(month.dateTo);
                 break;
             }
             case "next-month": {
@@ -1342,7 +1355,8 @@ function App() {
                 onOpenFeedback={() => (currentUser ? setIsFeedbackOpen(true) : navigate("/login"))}
             />
 
-            <div className="explorer-main" data-mobile-view={viewMode}>
+            {/* Fenêtre de choix de ville ouverte : le reste de l'écran n'est pas atteignable au clavier. */}
+            <div className="explorer-main" data-mobile-view={viewMode} inert={requiresCity}>
                 <div className="explorer-controls">
                     <div className="explorer-topbar">
                         <button
@@ -1462,7 +1476,7 @@ function App() {
                           erreur et absence de résultat sont exclusifs (spec P0-D). Sur téléphone, ces messages
                           et l'invitation à choisir un lieu s'empilent en bas de la carte (styles.css).
                         */}
-                        <div className="explorer-map-notices">
+                        {!requiresCity && <div className="explorer-map-notices">
                             {isActivityLayer && !isTextSearch && isLoadingActivities && (
                                 <p className="explorer-status explorer-status-floating" role="status">
                                     <span aria-hidden="true" className="explorer-search-spinner" />
@@ -1515,7 +1529,7 @@ function App() {
                                     <span aria-hidden="true">☰</span> Voir la liste ({zoneActivityCount})
                                 </button>
                             )}
-                        </div>
+                        </div>}
                         {previewActivity && (
                             <ActivityPreview
                                 activity={previewActivity}
@@ -1581,6 +1595,15 @@ function App() {
                 </>
             )}
 
+            {requiresCity && (
+                <CityPromptModal
+                    geolocationStatus={geolocationStatus}
+                    onLogin={() => navigate("/login")}
+                    onSelectCity={handleSelectCity}
+                    onUseMyLocation={requestGeolocation}
+                />
+            )}
+
             {needsOnboarding && currentUser && (
                 <OnboardingModal
                     categories={categories}
@@ -1620,7 +1643,6 @@ function App() {
                     onEmailChange={setEmail}
                     onEndDateChange={setEndDate}
                     onPhoneChange={setPhone}
-                    onRecurrenceChange={setRecurrence}
                     onStartDateChange={setStartDate}
                     onSubmit={(event) => void handleSubmit(event)}
                     onTitleChange={setTitle}
