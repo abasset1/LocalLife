@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Application : accueil de première connexion au style habituel, didacticiel proposé
+- **Plus de thème Night sur l'accueil** : même si la carte Night était choisie, l'accueil de première connexion s'affiche dans le style habituel (clair ou sombre, logo Neiri). Night revient ensuite si la carte Night est toujours choisie.
+- **Didacticiel proposé** : nouvelle étape 3 « Un petit tour ? » en fin d'accueil (« Suivre le didacticiel » ou « Plus tard, découvrir la carte »). Un compte déjà configuré (sur le site par exemple) qui se connecte pour la première fois sur l'appareil se le voit proposer une fois, juste après la connexion. Toujours accessible depuis le menu (« Guide de l'application »).
+
 ### Site : formulaires de l'espace pro revus (food trucks, emplacements, lieux)
 - **Food truck** : formulaire en carte, découpé en sections (Identité, Apparence, Contact et réseaux), champs courts sur deux colonnes, photo avec cadre et bouton « Choisir une photo », panneau de pastille. Un **aperçu de la fiche** se met à jour à côté pendant la saisie.
 - **Emplacement** : choix « lieu Neiri existant / autre adresse » en cartes, jours en puces cliquables, horaires et période côte à côte, position précise repliée par défaut.
