@@ -1,6 +1,6 @@
 import { Colors } from '@/constants/theme';
 
-import { isNightMode, setNightMode, subscribeNightMode } from '../use-night-mode';
+import { isNightMode, setNightMode, subscribeNightMode, suspendNightMode } from '../use-night-mode';
 import { themeNameFor } from '../use-theme';
 
 // `constants/theme` importe une feuille de style que Jest ne sait pas lire (remonté avant les imports par Jest).
@@ -9,6 +9,23 @@ jest.mock('@/global.css', () => ({}));
 afterEach(() => setNightMode(false));
 
 describe('thème « Night »', () => {
+  it('peut être suspendu le temps d’un écran, puis revient si la carte Night est toujours choisie', () => {
+    const listener = jest.fn();
+    const unsubscribe = subscribeNightMode(listener);
+    setNightMode(true);
+    const release = suspendNightMode();
+    expect(isNightMode()).toBe(false);
+    release();
+    release();
+    expect(isNightMode()).toBe(true);
+    expect(listener).toHaveBeenCalledTimes(3);
+    const releaseAgain = suspendNightMode();
+    setNightMode(false);
+    releaseAgain();
+    expect(isNightMode()).toBe(false);
+    unsubscribe();
+  });
+
   it('s’active et prévient les écrans une seule fois par changement', () => {
     const listener = jest.fn();
     const unsubscribe = subscribeNightMode(listener);

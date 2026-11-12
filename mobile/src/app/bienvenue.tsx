@@ -12,9 +12,10 @@ import { BrandMark } from '@/components/brand-mark';
 import { Notice } from '@/components/notice';
 import { Brand, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/auth';
+import { suspendNightMode } from '@/hooks/use-night-mode';
 import { useLaunchFeatures } from '@/features/launch';
 import { markOnboardingShown } from '@/features/news';
-import { alertError, preferencesError } from '@/features/onboarding';
+import { alertError, preferencesError, saveGuideOffered } from '@/features/onboarding';
 import {
   ChannelSwitch,
   ChipGroup,
@@ -39,13 +40,15 @@ function messageFor(error: unknown): string {
  *    l'écran ne se ferme pas (pas de geste retour, bouton retour Android
  *    bloqué), seule la déconnexion permet d'en sortir sans enregistrer ;
  * 2. alerte facultative, préremplie avec ces préférences (notification sur
- *    ce téléphone par défaut, e-mail en option), ou « Plus tard » ; le lien
- *    « Voir le guide de l'application » termine aussi l'accueil et ouvre `/guide`.
+ *    ce téléphone par défaut, e-mail en option), ou « Plus tard » ;
+ * 3. didacticiel proposé : « Suivre le didacticiel » ouvre `/guide`, sinon la carte.
+ *
+ * Toujours dans le thème habituel (clair ou sombre, logo Neiri), même si la carte Night était choisie.
  */
 export default function BienvenueScreen() {
   const router = useRouter();
   const { state, logout } = useAuth();
-  const [step, setStep] = useState<'preferences' | 'alert'>('preferences');
+  const [step, setStep] = useState<'preferences' | 'alert' | 'guide'>('preferences');
   const [categories, setCategories] = useState<Category[]>([]);
   const [saved, setSaved] = useState<UserPreferences | null>(null);
 
@@ -68,6 +71,9 @@ export default function BienvenueScreen() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [created, setCreated] = useState(false);
+
+  // Thème habituel le temps de l'accueil : ni violet Night ni bouc néon.
+  useEffect(() => suspendNightMode(), []);
 
   // Pas de popup de nouveauté pendant la session où l'accueil s'ouvre.
   useEffect(() => {
@@ -97,8 +103,14 @@ export default function BienvenueScreen() {
   }, []);
 
   const finish = useCallback(() => router.replace('/'), [router]);
-  // Termine l'accueil (les préférences sont déjà enregistrées) et ouvre le guide à sa place.
+  // Termine l'accueil (les préférences sont déjà enregistrées) et ouvre le didacticiel à sa place.
   const openGuide = useCallback(() => router.replace('/guide'), [router]);
+  const userId = state.status === 'authenticated' ? state.user.userId : null;
+  // Dernière étape : le didacticiel est proposé (une fois par compte et par appareil).
+  const offerGuide = useCallback(() => {
+    if (userId !== null) void saveGuideOffered(userId);
+    setStep('guide');
+  }, [userId]);
 
   async function savePreferences() {
     setSaveError(null);
@@ -171,13 +183,14 @@ export default function BienvenueScreen() {
           <BrandMark inverted />
           <View style={styles.progress} importantForAccessibility="no">
             <View style={[styles.progressStep, styles.progressDone]} />
-            <View style={[styles.progressStep, step === 'alert' && styles.progressDone]} />
+            <View style={[styles.progressStep, step !== 'preferences' && styles.progressDone]} />
+            <View style={[styles.progressStep, step === 'guide' && styles.progressDone]} />
           </View>
           <ThemedText type="eyebrow" style={styles.headerStep}>
-            Étape {step === 'preferences' ? 1 : 2} sur 2
+            Étape {step === 'preferences' ? 1 : step === 'alert' ? 2 : 3} sur 3
           </ThemedText>
           <ThemedText type="subtitle" accessibilityRole="header" style={styles.headerTitle}>
-            {step === 'preferences' ? 'Bienvenue sur Neiri 👋' : 'Créer une alerte ?'}
+            {step === 'preferences' ? 'Bienvenue sur Neiri 👋' : step === 'alert' ? 'Créer une alerte ?' : 'Un petit tour ?'}
           </ThemedText>
         </View>
 
@@ -288,25 +301,29 @@ export default function BienvenueScreen() {
                   </>
                 )}
                 {created ? (
-                  <Button label="Découvrir la carte" onPress={finish} />
+                  <Button label="Continuer" onPress={offerGuide} />
                 ) : (
                   <>
                     <Button label="Créer l’alerte" loading={creating} onPress={() => void createFirstAlert()} />
-                    <Button label="Plus tard" variant="secondary" disabled={creating} onPress={finish} />
+                    <Button label="Plus tard" variant="secondary" disabled={creating} onPress={offerGuide} />
                   </>
                 )}
-                <View style={styles.guide}>
-                  <ThemedText type="small" themeColor="textSecondary" style={styles.guideText}>
-                    Envie d’un tour complet de Neiri ?
-                  </ThemedText>
-                  <Button
-                    label="Voir le guide de l’application"
-                    variant="ghost"
-                    disabled={creating}
-                    icon={{ ios: 'questionmark.circle', android: 'help', web: 'help' }}
-                    onPress={openGuide}
-                  />
-                </View>
+              </>
+            )}
+
+            {step === 'guide' && (
+              <>
+                <ThemedText themeColor="textSecondary">
+                  Vos préférences sont enregistrées. Suivez le didacticiel pour découvrir en quelques étapes la
+                  carte, les filtres, les favoris et les alertes. Vous le retrouverez à tout moment dans le menu
+                  (« Guide de l’application »).
+                </ThemedText>
+                <Button
+                  label="Suivre le didacticiel"
+                  icon={{ ios: 'questionmark.circle', android: 'help', web: 'help' }}
+                  onPress={openGuide}
+                />
+                <Button label="Plus tard, découvrir la carte" variant="secondary" onPress={finish} />
               </>
             )}
           </ScrollView>
@@ -356,14 +373,6 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
     padding: Spacing.four,
     paddingBottom: Spacing.six,
-  },
-  guide: {
-    alignItems: 'center',
-    gap: Spacing.one,
-    marginTop: Spacing.two,
-  },
-  guideText: {
-    textAlign: 'center',
   },
   logout: {
     minHeight: 44,

@@ -17,6 +17,7 @@ import { CitySearch } from '@/features/explorer/CitySearch';
 import {
   applyPreferences,
   clearCategories,
+  getExplorerState,
   setPlace,
   setFreeOnly,
   setRadius,
@@ -103,6 +104,24 @@ const CITY_ZOOM = 12;
 /** Rayon de cadrage d'une ville par défaut sans rayon choisi (même valeur que le site web). */
 const DEFAULT_PREFERENCE_RADIUS_KM = 50;
 
+/**
+ * Cadrage d'un lieu de recherche : sur le rayon s'il y en a un (rayon par défaut pour la ville des paramètres),
+ * sinon au niveau du quartier (position) ou de la commune (ville choisie).
+ */
+function regionForPlace(place: ExplorerPlace, radiusKm: number | null, like: Region): Region {
+  const radius = radiusKm ?? (place.source === 'preferences' ? DEFAULT_PREFERENCE_RADIUS_KM : null);
+  return radius !== null
+    ? regionForRadius(place.latitude, place.longitude, radius)
+    : regionForZoom(place.latitude, place.longitude, place.source === 'position' ? USER_ZOOM : CITY_ZOOM, like);
+}
+
+/**
+ * Délai entre `onMapReady` et le premier cadrage : sur Android, la carte annonce être prête avant d'avoir sa
+ * taille, et un `animateToRegion` envoyé aussitôt est ignoré (la carte restait dézoomée sur la vue d'ensemble
+ * après l'accueil de première connexion).
+ */
+const FIRST_FRAME_DELAY_MS = 250;
+
 /** Valeur de la puce « Sans rayon » du sélecteur de rayon. */
 const NO_RADIUS = 'none';
 
@@ -133,7 +152,14 @@ export default function MapScreen() {
   const theme = useTheme();
   const mapRef = useRef<MapView>(null);
 
-  const [region, setRegion] = useState<Region>(INITIAL_REGION);
+  // Lieu de recherche déjà connu à l'ouverture (écran recréé après l'accueil, par exemple) : la carte s'ouvre
+  // directement dessus, sans dépendre d'une animation.
+  const [initialPlace] = useState(() => getExplorerState().place);
+  const [initialRegion] = useState<Region>(() => {
+    const { place: known, radiusKm } = getExplorerState();
+    return known && known.source !== 'map' ? regionForPlace(known, radiusKm, INITIAL_REGION) : INITIAL_REGION;
+  });
+  const [region, setRegion] = useState<Region>(initialRegion);
   const router = useRouter();
   /** « Voir sur la carte » depuis une fiche : centre et activité à sélectionner (paramètres de route). */
   const focus = useLocalSearchParams<{ focusId?: string; focusLat?: string; focusLon?: string }>();
@@ -203,7 +229,7 @@ export default function MapScreen() {
   // Nouveau lieu de recherche (ville choisie, « Ma position », ville des paramètres) : la carte s'y
   // cadre, sur le rayon s'il y en a un. Un lieu venant des paramètres n'écrase pas un cadrage déjà fait
   // sur une activité (« Voir sur la carte »).
-  const framedPlace = useRef<ExplorerPlace | null>(null);
+  const framedPlace = useRef<ExplorerPlace | null>(initialPlace);
   // Point bleu de l'appareil : seulement quand la recherche part de sa position.
   const showUser = place?.source === 'position';
   useEffect(() => {
@@ -213,17 +239,7 @@ export default function MapScreen() {
     if (place.source === 'map') return;
     if (place.source === 'preferences' && focusedOnActivity.current) return;
     setSelection(null);
-    const radius = activeRadiusKm ?? (place.source === 'preferences' ? DEFAULT_PREFERENCE_RADIUS_KM : null);
-    moveTo(
-      radius !== null
-        ? regionForRadius(place.latitude, place.longitude, radius)
-        : regionForZoom(
-            place.latitude,
-            place.longitude,
-            place.source === 'position' ? USER_ZOOM : CITY_ZOOM,
-            regionRef.current,
-          ),
-    );
+    moveTo(regionForPlace(place, activeRadiusKm, regionRef.current));
   }, [place, activeRadiusKm, moveTo]);
 
   // Rayon actif : seules les activités dans ce rayon autour du lieu de recherche sont affichées.
@@ -433,14 +449,16 @@ export default function MapScreen() {
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        initialRegion={INITIAL_REGION}
+        initialRegion={initialRegion}
         onRegionChangeComplete={setRegion}
         onMapReady={() => {
-          mapReady.current = true;
-          if (pendingRegion.current) {
-            mapRef.current?.animateToRegion(pendingRegion.current, 500);
+          // Cadrage demandé avant que la carte ne soit prête : envoyé un peu après, une fois sa taille connue.
+          setTimeout(() => {
+            mapReady.current = true;
+            const target = pendingRegion.current;
             pendingRegion.current = null;
-          }
+            if (target) mapRef.current?.animateToRegion(target, 500);
+          }, FIRST_FRAME_DELAY_MS);
         }}
         // Toucher un marqueur déclenche aussi `onPress` de la carte (`action: 'marker-press'`) : sans ce
         // filtre, la sélection était aussitôt effacée et l'aperçu (donc la fiche) restait inaccessible.
