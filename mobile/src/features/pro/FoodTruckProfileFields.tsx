@@ -20,7 +20,7 @@ import { photoUri } from '@/features/foodtruck/photo';
 import { ChipGroup } from '@/features/settings';
 import { useTheme } from '@/hooks/use-theme';
 
-import { FormSection, Hint } from './FormParts';
+import { FormSection, Hint } from '@/components/form-parts';
 
 /** Profil saisi : champs texte, type de cuisine et pastille (vides = non renseignés). */
 export type ProfileForm = Required<{ [K in keyof ProfileInput]: string }>;

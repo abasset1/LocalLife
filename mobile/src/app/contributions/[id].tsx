@@ -5,6 +5,9 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleShe
 import { ApiError, getContribution, updateActivity } from '@/api';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { FormFooterBar, FormHeader } from '@/components/form-parts';
+import { Notice } from '@/components/notice';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -18,7 +21,6 @@ import {
 } from '@/features/contribution';
 import type { ContributionForm } from '@/features/contribution';
 import { useHostablePlaces, useProAccess } from '@/features/pro/useProAccess';
-import { useTheme } from '@/hooks/use-theme';
 
 function messageFor(error: unknown): string {
   return error instanceof ApiError ? error.message : 'Une erreur inattendue est survenue. Réessayez.';
@@ -29,7 +31,6 @@ function messageFor(error: unknown): string {
  * la carte), sauf une activité refusée corrigée par son contributeur, qui repart en validation.
  */
 export default function EditContributionScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useAuth();
@@ -108,24 +109,24 @@ export default function EditContributionScreen() {
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           {resubmitted && (
-            <ThemedText style={[styles.notice, { backgroundColor: theme.backgroundElement }]}>
+            <Notice tone="warning">
               Cette activité a été refusée : après modification, elle sera de nouveau soumise à validation et
               visible sur la carte une fois validée par un modérateur.
-            </ThemedText>
+            </Notice>
           )}
           {status && showsModerationReason(status) && moderationReason ? (
-            <ThemedText style={[styles.notice, { backgroundColor: theme.backgroundElement }]}>
-              Motif : {moderationReason}
-            </ThemedText>
+            <Notice tone="danger">Motif : {moderationReason}</Notice>
           ) : null}
-          <ContributionFields form={form} categories={categories} hostPlaces={hostPlaces} onChange={setForm} />
-          {error && (
-            <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
-              Erreur : {error}
-            </ThemedText>
-          )}
-          <Button label="Enregistrer les modifications" loading={saving} onPress={() => void save()} />
+          <Card style={styles.form}>
+            <FormHeader icon="✏️" title="Modifier l’activité" subtitle="Vos changements sont enregistrés à l’envoi." />
+            <ContributionFields form={form} categories={categories} hostPlaces={hostPlaces} onChange={setForm} />
+          </Card>
+          {error && <Notice tone="danger">Erreur : {error}</Notice>}
         </ScrollView>
+        {/* Bouton d'envoi hors du défilement : toujours visible. */}
+        <FormFooterBar>
+          <Button label="Enregistrer les modifications" loading={saving} onPress={() => void save()} />
+        </FormFooterBar>
       </KeyboardAvoidingView>
     </ThemedView>
   );
@@ -145,10 +146,9 @@ const styles = StyleSheet.create({
   content: {
     gap: Spacing.four,
     padding: Spacing.four,
-    paddingBottom: Spacing.six,
   },
-  notice: {
-    padding: Spacing.three,
-    borderRadius: 8,
+  form: {
+    gap: Spacing.three,
+    padding: Spacing.four - Spacing.one,
   },
 });

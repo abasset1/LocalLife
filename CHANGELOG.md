@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Proposer une activité : formulaire revu, bouton d'envoi toujours visible
+- **Site** : la fenêtre « Proposer une activité » / « Modifier l'activité » reprend le style des formulaires food truck (en-tête, sections L'activité, Où et quand, Contact, catégories en puces, dates côte à côte, description sur plusieurs lignes). **Correctif** : en-tête et pied de la fenêtre sont fixes, seul le contenu défile ; « Proposer l'activité » (et « Annuler ») restent visibles quelle que soit la hauteur de l'écran. Sur téléphone, la fenêtre occupe tout l'écran visible. Thème Night pris en charge.
+- **Application** : mêmes sections (L'activité, Où, Quand, Contact), horaires et dates côte à côte. **Correctif** : le bouton « Proposer l'activité » (et « Enregistrer les modifications ») est dans une barre fixe en bas de l'écran, au-dessus de la barre d'onglets, au lieu d'être tout en bas du formulaire.
+
 ### Site : formulaires de l'espace pro revus (food trucks, emplacements, lieux)
 - **Food truck** : formulaire en carte, découpé en sections (Identité, Apparence, Contact et réseaux), champs courts sur deux colonnes, photo avec cadre et bouton « Choisir une photo », panneau de pastille. Un **aperçu de la fiche** se met à jour à côté pendant la saisie.
 - **Emplacement** : choix « lieu Neiri existant / autre adresse » en cartes, jours en puces cliquables, horaires et période côte à côte, position précise repliée par défaut.

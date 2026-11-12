@@ -41,7 +41,7 @@ import {
   truckActions,
   truckStatusLabel,
 } from '@/features/pro/format';
-import { ChoiceCards, FieldRow, FormActions, FormHeader, FormSection, Hint } from '@/features/pro/FormParts';
+import { ChoiceCards, FieldRow, FormActions, FormHeader, FormSection, Hint } from '@/components/form-parts';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
 import {
   EMPTY_PROFILE,

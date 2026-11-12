@@ -1,6 +1,6 @@
 import type { Category, ManagedPlace } from '@/api';
 import { TextField } from '@/components/text-field';
-import { ThemedText } from '@/components/themed-text';
+import { FieldRow, FormSection, Hint } from '@/components/form-parts';
 import { ChannelSwitch, ChipGroup, toggleCode } from '@/features/settings';
 
 import { NO_HOST_PLACE, WEEK_DAYS, hostPlaceOptions, type ContributionForm } from './form';
@@ -23,105 +23,124 @@ export function ContributionFields({ form, categories, onChange, hostPlaces = []
 
   return (
     <>
-      <TextField label="Titre" value={form.title} onChangeText={(title) => set({ title })} maxLength={255} />
-      <TextField
-        label="Description"
-        value={form.description}
-        onChangeText={(description) => set({ description })}
-        multiline
-      />
-      <ChipGroup
-        label="Catégories (au moins une)"
-        options={categories.map((c) => ({ value: c.code, label: c.label }))}
-        selected={form.categoryCodes}
-        onToggle={(code) => set({ categoryCodes: toggleCode(form.categoryCodes, code) })}
-      />
-      <TextField
-        label="Adresse"
-        value={form.address}
-        onChangeText={(address) => set({ address })}
-        placeholder="Ex : 10 rue de la République, Marseille"
-        autoComplete="street-address"
-      />
-
-      {hostPlaces.length > 0 || form.hostPlaceId !== null ? (
-        <ChipGroup
-          label="Proposé par un de mes lieux (facultatif)"
-          options={hostPlaceOptions(hostPlaces, form.hostPlaceId)}
-          selected={[form.hostPlaceId === null ? NO_HOST_PLACE : String(form.hostPlaceId)]}
-          onToggle={(value) => set({ hostPlaceId: value === NO_HOST_PLACE ? null : Number(value) })}
-          single
+      <FormSection title="L’activité" first>
+        <TextField
+          label="Titre"
+          placeholder="Marché nocturne, concert, vide-grenier…"
+          value={form.title}
+          onChangeText={(title) => set({ title })}
+          maxLength={255}
         />
-      ) : null}
+        <TextField
+          label="Description"
+          placeholder="Ce qui s’y passe, pour qui, ce qu’il faut savoir…"
+          value={form.description}
+          onChangeText={(description) => set({ description })}
+          multiline
+        />
+        <ChipGroup
+          label="Catégories (au moins une)"
+          options={categories.map((c) => ({ value: c.code, label: c.label }))}
+          selected={form.categoryCodes}
+          onToggle={(code) => set({ categoryCodes: toggleCode(form.categoryCodes, code) })}
+        />
+      </FormSection>
 
-      <ChannelSwitch
-        label="Revient chaque semaine (food truck, marché…)"
-        value={form.recurring}
-        // La date de fin d'une activité ponctuelle (souvent le même jour) bornerait la récurrence à
-        // une seule journée : elle est vidée en passant en récurrent.
-        onValueChange={(recurring) => set(recurring ? { recurring, endDate: '' } : { recurring })}
-      />
-      {form.recurring && (
-        <>
+      <FormSection title="Où">
+        <TextField
+          label="Adresse"
+          value={form.address}
+          onChangeText={(address) => set({ address })}
+          placeholder="Ex : 10 rue de la République, Marseille"
+          autoComplete="street-address"
+        />
+        {hostPlaces.length > 0 || form.hostPlaceId !== null ? (
           <ChipGroup
-            label="Jours de passage (au moins un)"
-            options={WEEK_DAYS}
-            selected={form.days}
-            onToggle={(day) => set({ days: toggleCode(form.days, day) })}
+            label="Proposé par un de mes lieux (facultatif)"
+            options={hostPlaceOptions(hostPlaces, form.hostPlaceId)}
+            selected={[form.hostPlaceId === null ? NO_HOST_PLACE : String(form.hostPlaceId)]}
+            onToggle={(value) => set({ hostPlaceId: value === NO_HOST_PLACE ? null : Number(value) })}
+            single
           />
-          <TextField
-            label="Heure d'arrivée"
-            value={form.startTime}
-            onChangeText={(startTime) => set({ startTime })}
-            placeholder="HH:MM, ex. 11:30"
-            keyboardType="numbers-and-punctuation"
-          />
-          <TextField
-            label="Heure de départ (facultatif)"
-            value={form.endTime}
-            onChangeText={(endTime) => set({ endTime })}
-            placeholder="HH:MM, ex. 14:00"
-            keyboardType="numbers-and-punctuation"
-          />
-        </>
-      )}
-      <TextField
-        label={form.recurring ? "À partir du (facultatif, aujourd'hui par défaut)" : 'Date de début (facultatif)'}
-        value={form.startDate}
-        onChangeText={(startDate) => set({ startDate })}
-        placeholder="AAAA-MM-JJ"
-        keyboardType="numbers-and-punctuation"
-      />
-      <TextField
-        label={form.recurring ? "Jusqu'au (facultatif)" : 'Date de fin (facultatif)'}
-        value={form.endDate}
-        onChangeText={(endDate) => set({ endDate })}
-        placeholder="AAAA-MM-JJ"
-        keyboardType="numbers-and-punctuation"
-      />
+        ) : null}
+      </FormSection>
 
-      <ThemedText type="heading">Contact (facultatif)</ThemedText>
-      <TextField
-        label="Site web"
-        value={form.url}
-        onChangeText={(url) => set({ url })}
-        placeholder="https://…"
-        autoCapitalize="none"
-        keyboardType="url"
-      />
-      <TextField
-        label="Téléphone"
-        value={form.phone}
-        onChangeText={(phone) => set({ phone })}
-        keyboardType="phone-pad"
-      />
-      <TextField
-        label="E-mail"
-        value={form.email}
-        onChangeText={(email) => set({ email })}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
+      <FormSection title="Quand">
+        <ChannelSwitch
+          label="Revient chaque semaine (food truck, marché…)"
+          value={form.recurring}
+          // La date de fin d'une activité ponctuelle (souvent le même jour) bornerait la récurrence à
+          // une seule journée : elle est vidée en passant en récurrent.
+          onValueChange={(recurring) => set(recurring ? { recurring, endDate: '' } : { recurring })}
+        />
+        {form.recurring && (
+          <>
+            <ChipGroup
+              label="Jours de passage (au moins un)"
+              options={WEEK_DAYS}
+              selected={form.days}
+              onToggle={(day) => set({ days: toggleCode(form.days, day) })}
+            />
+            <FieldRow>
+              <TextField
+                label="Heure d'arrivée"
+                value={form.startTime}
+                onChangeText={(startTime) => set({ startTime })}
+                placeholder="11:30"
+                keyboardType="numbers-and-punctuation"
+              />
+              <TextField
+                label="Heure de départ (facultatif)"
+                value={form.endTime}
+                onChangeText={(endTime) => set({ endTime })}
+                placeholder="14:00"
+                keyboardType="numbers-and-punctuation"
+              />
+            </FieldRow>
+          </>
+        )}
+        <FieldRow>
+          <TextField
+            label={form.recurring ? 'À partir du (facultatif)' : 'Date de début (facultatif)'}
+            value={form.startDate}
+            onChangeText={(startDate) => set({ startDate })}
+            placeholder="AAAA-MM-JJ"
+            keyboardType="numbers-and-punctuation"
+          />
+          <TextField
+            label={form.recurring ? "Jusqu'au (facultatif)" : 'Date de fin (facultatif)'}
+            value={form.endDate}
+            onChangeText={(endDate) => set({ endDate })}
+            placeholder="AAAA-MM-JJ"
+            keyboardType="numbers-and-punctuation"
+          />
+        </FieldRow>
+        {form.recurring ? <Hint>Sans date de début, la récurrence commence aujourd’hui.</Hint> : null}
+      </FormSection>
+
+      <FormSection title="Contact" hint="Facultatif : affiché sur la fiche de l’activité.">
+        <TextField
+          label="Site web"
+          value={form.url}
+          onChangeText={(url) => set({ url })}
+          placeholder="https://…"
+          autoCapitalize="none"
+          keyboardType="url"
+        />
+        <TextField
+          label="Téléphone"
+          value={form.phone}
+          onChangeText={(phone) => set({ phone })}
+          keyboardType="phone-pad"
+        />
+        <TextField
+          label="E-mail"
+          value={form.email}
+          onChangeText={(email) => set({ email })}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+      </FormSection>
     </>
   );
 }

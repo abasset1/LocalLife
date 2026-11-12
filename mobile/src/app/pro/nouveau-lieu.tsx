@@ -11,7 +11,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { PLACE_TYPE_LABELS, placeTypeLabel } from '@/features/map/placeTypes';
-import { FieldRow, FormActions, FormHeader, FormSection, Steps } from '@/features/pro/FormParts';
+import { FieldRow, FormActions, FormHeader, FormSection, Steps } from '@/components/form-parts';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
 import { ChipGroup } from '@/features/settings';
 
