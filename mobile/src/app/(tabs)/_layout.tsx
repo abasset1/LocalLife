@@ -3,6 +3,7 @@ import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useEffect } from 'react';
 import type { ColorValue } from 'react-native';
 
+import { useAuth } from '@/auth';
 import { hasOpenOffer, useLaunchFeatures } from '@/features/launch';
 import { initMapLayer, shownLayer, useMapLayer } from '@/features/map/layerStore';
 import { setNightMode } from '@/hooks/use-night-mode';
@@ -37,6 +38,8 @@ function tabIcon(name: keyof typeof ICONS) {
 export default function TabsLayout() {
   const theme = useTheme();
   const features = useLaunchFeatures();
+  // Sans session, seul l'onglet Compte (connexion / inscription) existe : pas de barre d'onglets.
+  const signedIn = useAuth().state.status === 'authenticated';
   const layer = shownLayer(useMapLayer(), features);
   useEffect(() => {
     void initMapLayer();
@@ -51,16 +54,18 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textSecondary,
-        tabBarStyle: { backgroundColor: theme.backgroundElement, borderTopColor: theme.border },
+        tabBarStyle: signedIn
+          ? { backgroundColor: theme.backgroundElement, borderTopColor: theme.border }
+          : { display: 'none' },
         tabBarLabelStyle: { fontWeight: '700' },
         // Chaque écran a un fond opaque : une vue ne laisse jamais voir la précédente.
         sceneStyle: { backgroundColor: theme.background },
       }}>
-      <Tabs.Screen name="index" options={{ title: 'Carte', tabBarIcon: tabIcon('map') }} />
-      <Tabs.Screen name="liste" options={{ title: 'Liste', tabBarIcon: tabIcon('list') }} />
+      <Tabs.Screen name="index" options={{ title: 'Carte', tabBarIcon: tabIcon('map'), href: signedIn ? undefined : null }} />
+      <Tabs.Screen name="liste" options={{ title: 'Liste', tabBarIcon: tabIcon('list'), href: signedIn ? undefined : null }} />
       <Tabs.Screen
         name="contribution"
-        options={{ title: 'Contribuer', tabBarIcon: tabIcon('add'), href: hasOpenOffer(features) ? undefined : null }}
+        options={{ title: 'Contribuer', tabBarIcon: tabIcon('add'), href: signedIn && hasOpenOffer(features) ? undefined : null }}
       />
       <Tabs.Screen name="compte" options={{ title: 'Compte', tabBarIcon: tabIcon('account') }} />
     </Tabs>

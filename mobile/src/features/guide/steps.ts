@@ -50,7 +50,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     text:
       'Neiri rassemble sur une seule carte les sorties près de chez vous : concerts, expositions, marchés, ' +
       'sport, activités en famille, lieux à visiter et food trucks.',
-    tips: ['Découvrir est gratuit, sans compte', 'Un compte débloque favoris, alertes et contributions'],
+    tips: ['Un compte gratuit suffit pour découvrir', 'Favoris, alertes et contributions dans votre compte'],
     scene: { kind: 'hero', emoji: '📍', orbit: ['🎭', '🎵', '🏃', '🍽️', '🎨', '🚚'] },
   },
   {

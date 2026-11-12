@@ -1643,7 +1643,6 @@ function App() {
                     onEmailChange={setEmail}
                     onEndDateChange={setEndDate}
                     onPhoneChange={setPhone}
-                    onRecurrenceChange={setRecurrence}
                     onStartDateChange={setStartDate}
                     onSubmit={(event) => void handleSubmit(event)}
                     onTitleChange={setTitle}

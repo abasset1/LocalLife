@@ -370,7 +370,7 @@ export default function CompteScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-            <MenuButton />
+            {/* Compte obligatoire : sans session, pas de menu vers les autres écrans (voir AuthGate). */}
             <View style={[styles.hero, { backgroundColor: theme.primary }]}>
               <BrandMark inverted />
               <ThemedText style={styles.heroTitle}>
@@ -378,6 +378,9 @@ export default function CompteScreen() {
               </ThemedText>
               <ThemedText type="small" style={styles.heroLead}>
                 Activités, événements et food trucks près de chez vous, au même endroit.
+              </ThemedText>
+              <ThemedText type="small" style={styles.heroLead}>
+                Un compte gratuit est nécessaire pour utiliser Neiri.
               </ThemedText>
             </View>
 

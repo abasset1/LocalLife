@@ -11,3 +11,5 @@ export {
   isTermsConsentRequired,
   retryGoogleWithConsent,
 } from './consent';
+export { AuthGate } from './AuthGate';
+export { isOpenWithoutAccount } from './signInRules';
