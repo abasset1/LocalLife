@@ -2,6 +2,9 @@
 
 ## 0.9.59 — non publiée
 
+### Proposer une activité : formulaire revu, bouton d'envoi toujours visible
+- **Site** : la fenêtre « Proposer une activité » / « Modifier l'activité » reprend le style des formulaires food truck (en-tête, sections L'activité, Où et quand, Contact, catégories en puces, dates côte à côte, description sur plusieurs lignes). **Correctif** : en-tête et pied de la fenêtre sont fixes, seul le contenu défile ; « Proposer l'activité » (et « Annuler ») restent visibles quelle que soit la hauteur de l'écran. Sur téléphone, la fenêtre occupe tout l'écran visible. Thème Night pris en charge.
+- **Application** : mêmes sections (L'activité, Où, Quand, Contact), horaires et dates côte à côte. **Correctif** : le bouton « Proposer l'activité » (et « Enregistrer les modifications ») est dans une barre fixe en bas de l'écran, au-dessus de la barre d'onglets, au lieu d'être tout en bas du formulaire.
 ### Application : accueil de première connexion au style habituel, didacticiel proposé
 - **Plus de thème Night sur l'accueil** : même si la carte Night était choisie, l'accueil de première connexion s'affiche dans le style habituel (clair ou sombre, logo Neiri). Night revient ensuite si la carte Night est toujours choisie.
 - **Didacticiel proposé** : nouvelle étape 3 « Un petit tour ? » en fin d'accueil (« Suivre le didacticiel » ou « Plus tard, découvrir la carte »). Un compte déjà configuré (sur le site par exemple) qui se connecte pour la première fois sur l'appareil se le voit proposer une fois, juste après la connexion. Toujours accessible depuis le menu (« Guide de l'application »).

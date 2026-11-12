@@ -18,7 +18,7 @@ import {
   savePhoto,
   type PhotoChange,
 } from '@/features/pro/FoodTruckProfileFields';
-import { FormActions, FormHeader } from '@/features/pro/FormParts';
+import { FormActions, FormHeader } from '@/components/form-parts';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
 import { useProAccessEnded } from '@/features/pro/useProAccess';
 

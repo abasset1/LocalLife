@@ -12,7 +12,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { placeTypeLabel } from '@/features/map/placeTypes';
 import { PLACE_CHANGE_STATUS_LABELS, PLACE_STATUS_LABELS, formatDay } from '@/features/pro/format';
-import { FieldRow, FormActions, FormHeader, FormSection } from '@/features/pro/FormParts';
+import { FieldRow, FormActions, FormHeader, FormSection } from '@/components/form-parts';
 import { ProGate, isProDenied, messageFor, proStyles as styles } from '@/features/pro/ProGate';
 
 /** « 10 rue X, 13001 Marseille », vide sans adresse ni commune. */

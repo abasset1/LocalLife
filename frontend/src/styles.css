@@ -4801,6 +4801,149 @@ body {
     overflow-wrap: anywhere;
 }
 
+/* « Proposer une activité » (modale de la carte) : en-tête et pied fixes, seul le contenu défile, le bouton d'envoi
+   reste toujours visible. */
+.explorer-modal-dialog-form {
+    display: flex;
+    flex-direction: column;
+    max-width: 640px;
+    overflow: hidden;
+    background-color: #ffffff;
+}
+
+.pro-form.pro-form-modal {
+    flex: 1 1 auto;
+    gap: 0;
+    min-height: 0;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.pro-form-modal-header {
+    flex-shrink: 0;
+    padding: 1.1rem 1.2rem 1rem 1.4rem;
+}
+
+.pro-form-modal-header > div {
+    flex: 1;
+    min-width: 0;
+}
+
+.pro-form-modal-header h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--ll-ink);
+}
+
+.pro-form-modal-close {
+    align-self: flex-start;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: none;
+    border-radius: 50%;
+    background-color: var(--ll-sand);
+    color: var(--ll-ink);
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.pro-form-modal-close:hover {
+    background-color: var(--ll-line);
+}
+
+.pro-form-modal-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 1.3rem;
+    min-height: 0;
+    padding: 1.2rem 1.4rem 1.4rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.pro-form-modal-footer {
+    display: flex;
+    flex-shrink: 0;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.9rem 1.4rem;
+    padding-bottom: max(0.9rem, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--ll-line);
+    background-color: #ffffff;
+    box-shadow: 0 -8px 20px rgba(28, 33, 80, 0.06);
+}
+
+.pro-form-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
+.pro-form-modal .pro-day-chip span {
+    min-width: 0;
+}
+
+@media (max-width: 640px) {
+    /* Téléphone : la modale occupe tout l'écran visible (barre d'adresse comprise, `dvh`). */
+    .explorer-modal-overlay:has(.explorer-modal-dialog-form) {
+        padding: 0;
+    }
+
+    .explorer-modal-dialog-form {
+        max-width: none;
+        height: 100vh;
+        height: 100dvh;
+        max-height: none;
+        border-radius: 0;
+    }
+
+    .pro-form-modal-header,
+    .pro-form-modal-body,
+    .pro-form-modal-footer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .pro-form-modal-actions .pro-button {
+        flex: 1;
+        white-space: normal;
+    }
+}
+
+/* Thème Night : surfaces violet nuit, champs sombres. */
+:root[data-ll-theme="night"] .pro-form,
+:root[data-ll-theme="night"] .explorer-modal-dialog-form,
+:root[data-ll-theme="night"] .pro-form-modal-footer,
+:root[data-ll-theme="night"] .pro-preview-card {
+    background-color: var(--ll-night-surface);
+}
+
+:root[data-ll-theme="night"] .pro-form {
+    --pro-border: var(--ll-line);
+    --pro-tint: var(--ll-green2);
+}
+
+:root[data-ll-theme="night"] .pro-form input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]),
+:root[data-ll-theme="night"] .pro-form select,
+:root[data-ll-theme="night"] .pro-form textarea,
+:root[data-ll-theme="night"] .pro-form .pro-button-ghost,
+:root[data-ll-theme="night"] .pro-form .pro-day-chip span,
+:root[data-ll-theme="night"] .pro-form .pro-choice {
+    background-color: var(--ll-paper);
+    color: var(--ll-ink);
+}
+
+:root[data-ll-theme="night"] .pro-form .pro-day-chip input:checked + span {
+    background-color: var(--ll-purple);
+}
+
 /* Formulaire ouvert sous un lieu de « Mes lieux » : pleine largeur, plus discret. */
 .pro-places-item .pro-form.pro-place-panel {
     max-width: none;

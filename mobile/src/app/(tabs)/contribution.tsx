@@ -8,6 +8,7 @@ import type { AccountLimits } from '@/api';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { FormFooterBar, FormHeader } from '@/components/form-parts';
 import { Notice } from '@/components/notice';
 import { ScreenHeader } from '@/components/screen-header';
 import { MenuButton } from '@/features/navigation/AppMenu';
@@ -215,6 +216,11 @@ export default function ContributionScreen() {
             {categoriesError && <Notice tone="danger">Erreur : {categoriesError}</Notice>}
 
             <Card style={styles.form}>
+              <FormHeader
+                icon="📅"
+                title="Votre activité"
+                subtitle="Un événement, un marché, un concert… partagez-le avec la communauté."
+              />
               <ContributionFields
                 form={form}
                 categories={categories}
@@ -232,8 +238,11 @@ export default function ContributionScreen() {
                 Activité proposée. Elle est soumise à validation et sera publiée d’ici 2 à 3 jours.
               </Notice>
             )}
-            <Button label="Proposer l'activité" loading={submitting} onPress={() => void submit()} />
           </ScrollView>
+          {/* Bouton d'envoi hors du défilement : toujours visible au-dessus de la barre d'onglets. */}
+          <FormFooterBar>
+            <Button label="Proposer l'activité" loading={submitting} onPress={() => void submit()} />
+          </FormFooterBar>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
@@ -252,7 +261,7 @@ const styles = StyleSheet.create({
   content: {
     gap: Spacing.three,
     padding: Spacing.four,
-    paddingBottom: Spacing.six,
+    paddingBottom: Spacing.four,
   },
   form: {
     gap: Spacing.four - Spacing.one,

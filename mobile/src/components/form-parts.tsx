@@ -6,7 +6,7 @@ import { Brand, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
- * Briques des formulaires de l'espace professionnel (food trucks, emplacements, lieux), comme sur le site : en-tête
+ * Briques des formulaires (espace professionnel, proposer une activité), comme sur le site : en-tête
  * avec pictogramme, sections titrées séparées, champs courts côte à côte, choix en cartes, étapes et boutons en bas.
  */
 
@@ -87,6 +87,25 @@ export function FormActions({ children }: { children: ReactNode }) {
           {child}
         </View>
       ))}
+    </View>
+  );
+}
+
+/**
+ * Barre fixe en bas d'un écran de formulaire, hors du défilement : le bouton d'envoi reste toujours visible, quelle
+ * que soit la longueur du formulaire. À placer après le `ScrollView`, dans le `KeyboardAvoidingView`.
+ */
+export function FormFooterBar({ children }: { children: ReactNode }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.footerBar, { backgroundColor: theme.backgroundElement, borderTopColor: theme.border }]}>
+      <View style={styles.actionsRow}>
+        {(Array.isArray(children) ? children : [children]).filter(Boolean).map((child, index) => (
+          <View key={index} style={styles.actionItem}>
+            {child}
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -232,6 +251,20 @@ const styles = StyleSheet.create({
   },
   actionItem: {
     flex: 1,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: Spacing.two + Spacing.one,
+  },
+  footerBar: {
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two + Spacing.one,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    shadowColor: Brand.navy,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 8,
   },
   choices: {
     gap: Spacing.two,
