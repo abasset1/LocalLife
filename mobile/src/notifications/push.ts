@@ -9,8 +9,9 @@ import { isExpoGoAndroid } from '@/config/expoGo';
  * Notifications push des alertes (service Expo Push).
  *
  * - La permission n'est demandée que lorsque l'utilisateur active la
- *   notification d'une alerte (`enablePushNotifications`), jamais au
- *   démarrage — même principe que la géolocalisation (LL-MOB-0006).
+ *   notification d'une alerte, suit une activité / un lieu / un food truck
+ *   (cloche « Suivre ») ou l'accepte à l'accueil (`enablePushNotifications`),
+ *   jamais au démarrage — même principe que la géolocalisation (LL-MOB-0006).
  * - Si elle a déjà été accordée, le jeton est simplement renvoyé au backend
  *   à chaque ouverture de session (`refreshPushRegistration`) : il peut
  *   changer, et le backend l'attache au compte connecté.
