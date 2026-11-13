@@ -348,7 +348,9 @@ notification sur le téléphone, via le service **Expo Push**.
   un émulateur) : utiliser un build de développement (`eas build --profile
   development`) sur un vrai téléphone.
 - La permission n'est demandée qu'au moment où l'utilisateur active la
-  notification d'une alerte. Le jeton est rattaché au compte à chaque
+  notification d'une alerte, suit une activité, un lieu ou un food truck
+  (cloche « Suivre » : les mises à jour partent en push si l'appareil est
+  enregistré, sinon par e-mail), ou l'accepte à l'accueil. Le jeton est rattaché au compte à chaque
   ouverture de session, et retiré à la déconnexion.
 - Toucher une notification ouvre la fiche de l'activité (une seule
   activité) ou la carte (plusieurs).

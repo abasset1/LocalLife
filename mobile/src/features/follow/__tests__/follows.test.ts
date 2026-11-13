@@ -1,6 +1,6 @@
 import type { FollowedItem } from '@/api';
 
-import { followKey, followStatusLabel, withFollow } from '../follows';
+import { FOLLOW_PUSH_DENIED_MESSAGE, followKey, followPushNotice, followStatusLabel, withFollow } from '../follows';
 
 const item = (type: FollowedItem['type'], id: number, status: string | null = 'PUBLISHED'): FollowedItem => ({
   type,
@@ -34,5 +34,20 @@ describe('suivis (cloche « Suivre »)', () => {
     expect(followStatusLabel(item('place', 1))).toBeNull();
     expect(followStatusLabel(item('foodtruck', 1, 'SUSPENDED'))).toBe('retiré de la carte');
     expect(followStatusLabel(item('foodtruck', 1))).toBeNull();
+  });
+
+  describe('notifications après un nouveau suivi', () => {
+    it('ne dit rien quand l’appareil est enregistré', () => {
+      expect(followPushNotice({ status: 'registered' }, false)).toBeNull();
+    });
+
+    it('signale un refus (e-mail à la place), une seule fois', () => {
+      expect(followPushNotice({ status: 'denied' }, false)).toBe(FOLLOW_PUSH_DENIED_MESSAGE);
+      expect(followPushNotice({ status: 'denied' }, true)).toBeNull();
+    });
+
+    it('reste silencieux quand les notifications sont indisponibles sur l’appareil', () => {
+      expect(followPushNotice({ status: 'unavailable', reason: 'émulateur' }, false)).toBeNull();
+    });
   });
 });

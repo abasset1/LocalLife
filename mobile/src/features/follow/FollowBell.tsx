@@ -8,7 +8,9 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useLaunchFeatures } from '@/features/launch';
+import { enablePushNotifications } from '@/notifications';
 
+import { followPushNotice } from './follows';
 import { useFollows } from './FollowsProvider';
 
 const WHAT: Record<FollowTargetType, string> = {
@@ -27,6 +29,18 @@ interface FollowBellProps {
   id: number;
   title: string;
   city?: string | null;
+}
+
+/** Refus des notifications déjà signalé pendant cette session (voir `followPushNotice`). */
+let pushDeniedNoticed = false;
+
+/** Après un nouveau suivi : demande la permission de notifier et enregistre l'appareil, sans bloquer le suivi. */
+async function enablePushAfterFollow(): Promise<void> {
+  const notice = followPushNotice(await enablePushNotifications(), pushDeniedNoticed);
+  if (notice) {
+    pushDeniedNoticed = true;
+    Alert.alert('Notifications désactivées', notice);
+  }
 }
 
 /** Masquée tant que Premium n'est pas ouvert (lancement progressif, 05/11/2026). */
@@ -62,6 +76,8 @@ function OpenFollowBell({ type, id, title, city = null }: FollowBellProps) {
       ]);
     } else if (problem) {
       Alert.alert('Suivi non enregistré', problem.message);
+    } else if (!following) {
+      void enablePushAfterFollow();
     }
   }
 
