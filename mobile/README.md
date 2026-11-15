@@ -224,6 +224,14 @@ backend, l'écran n'affiche que ses messages.
 - **Session** : `AuthProvider` (`src/auth/`) restaure le token au
   démarrage, l'injecte dans le client API (`configureApiClient`) et expose
   `useAuth()` (`state`, `login`, `register`, `logout`).
+- **Rester connecté** : après la connexion et à chaque ouverture de
+  l'application, le jeton de connexion (24 h) est échangé contre un jeton de
+  30 jours (`POST /auth/refresh`, renouvelé au plus une fois par jour).
+  L'utilisateur n'a donc pas à ressaisir ses identifiants tant qu'il ouvre
+  l'application au moins une fois par mois. Hors connexion, le jeton actuel
+  est gardé et le renouvellement réessayé à la prochaine ouverture. La date
+  de connexion d'origine est conservée (claim `auth_time`). Une session
+  administrateur n'est pas prolongée (8 h).
 - **Expiration / invalidation** : un token expiré (claim `exp`) est écarté
   au démarrage, à chaque appel authentifié et au retour de l'app au premier
   plan ; un 401 du backend sur un appel authentifié déconnecte

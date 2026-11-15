@@ -16,13 +16,14 @@ import {
   configureApiClient,
   login as apiLogin,
   loginWithGoogle as apiLoginWithGoogle,
+  refreshSession as apiRefreshSession,
   register as apiRegister,
 } from '@/api';
 import { disablePushRegistration, refreshPushRegistration } from '@/notifications';
 
 import { CONSENT_REQUIRED_MESSAGE, buildRegisterRequest } from './consent';
 import { signOutFromGoogle } from './googleSignIn';
-import { decodeJwtPayload, isTokenExpired } from './jwt';
+import { decodeJwtPayload, isTokenExpired, shouldRenewSession } from './jwt';
 import { clearToken, loadToken, saveToken } from './tokenStorage';
 
 export interface SessionUser {
@@ -132,15 +133,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [endSession, startSession]);
 
-  // Un token peut expirer pendant que l'app est en arrière-plan.
+  /**
+   * Session glissante : après la connexion et à chaque ouverture de l'application, le jeton est échangé contre
+   * un jeton de 30 jours (`POST /auth/refresh`). L'utilisateur reste connecté sans ressaisir ses identifiants
+   * tant qu'il ouvre l'application au moins une fois par mois. Hors connexion ou serveur injoignable, on garde
+   * le jeton actuel et on réessaiera à la prochaine ouverture ; un 401 ferme la session (`onUnauthorized`).
+   */
+  const renewingRef = useRef(false);
+  const renewSessionIfNeeded = useCallback(async () => {
+    const current = tokenRef.current;
+    if (!current || renewingRef.current) return;
+    const payload = decodeJwtPayload(current);
+    if (!payload || !shouldRenewSession(payload)) return;
+    renewingRef.current = true;
+    try {
+      const { token } = await apiRefreshSession();
+      // Déconnexion ou autre connexion pendant l'appel : on ne ressuscite pas l'ancienne session.
+      if (tokenRef.current !== current) return;
+      const next = decodeJwtPayload(token);
+      if (!next || isTokenExpired(next) || next.userId !== payload.userId) return;
+      await saveToken(token);
+      if (tokenRef.current === current) startSession(token);
+    } catch {
+      // Réseau, délai dépassé, 403… : le jeton actuel reste valable, rien à faire.
+    } finally {
+      renewingRef.current = false;
+    }
+  }, [startSession]);
+
+  // Un token peut expirer pendant que l'app est en arrière-plan ; sinon, la session est prolongée.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
       if (next !== 'active' || !tokenRef.current) return;
       const payload = decodeJwtPayload(tokenRef.current);
       if (!payload || isTokenExpired(payload)) void endSession();
+      else void renewSessionIfNeeded();
     });
     return () => subscription.remove();
-  }, [endSession]);
+  }, [endSession, renewSessionIfNeeded]);
 
   /** Ouvre la session avec le JWT Neiri reçu (connexion classique ou Google). */
   const openSession = useCallback(
@@ -176,6 +206,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isAuthenticated) void refreshPushRegistration();
   }, [isAuthenticated]);
+
+  // Session ouverte ou jeton remplacé (connexion, restauration, changement de mot de passe) : prolongation.
+  const sessionUser = state.status === 'authenticated' ? state.user : null;
+  useEffect(() => {
+    if (!sessionUser) return;
+    const timer = setTimeout(() => void renewSessionIfNeeded(), 0);
+    return () => clearTimeout(timer);
+  }, [sessionUser, renewSessionIfNeeded]);
 
   // Déconnexion volontaire : l'appareil ne doit plus recevoir les alertes du
   // compte. Retiré avant d'effacer le JWT, nécessaire à l'appel.

@@ -120,6 +120,30 @@ class JwtServiceTest {
         assertEquals("ADMIN", claims.get("role", String.class));
     }
 
+    @Test
+    void generateDeviceToken_LastsThirtyDays() {
+        Claims claims = extractClaims(jwtService.generateDeviceToken(1L, "user@example.com", Role.USER, new java.util.Date(1_700_000_000_000L)));
+        long lifetime = claims.getExpiration().getTime() - claims.getIssuedAt().getTime();
+        org.junit.jupiter.api.Assertions.assertTrue(
+                Math.abs(lifetime - JwtService.DEVICE_EXPIRATION_MILLIS) < 2000, "durée : " + lifetime);
+        assertEquals("USER", claims.get("role", String.class));
+        assertEquals(1_700_000_000L, claims.get("auth_time", Long.class));
+    }
+
+    @Test
+    void generateToken_HasNoAuthTime() {
+        org.junit.jupiter.api.Assertions.assertNull(
+                extractClaims(jwtService.generateToken(1L, "user@example.com", Role.USER)).get("auth_time"));
+    }
+
+    @Test
+    void generateDeviceToken_ForAdmin_KeepsEightHours() {
+        Claims claims = extractClaims(jwtService.generateDeviceToken(1L, "admin@example.com", Role.ADMIN, null));
+        long lifetime = claims.getExpiration().getTime() - claims.getIssuedAt().getTime();
+        org.junit.jupiter.api.Assertions.assertTrue(
+                Math.abs(lifetime - JwtService.ADMIN_EXPIRATION_MILLIS) < 2000, "durée : " + lifetime);
+    }
+
     private Claims extractClaims(String token) {
         SecretKey key = Keys.hmacShaKeyFor(testSecret.getBytes(StandardCharsets.UTF_8));
         return Jwts.parser()

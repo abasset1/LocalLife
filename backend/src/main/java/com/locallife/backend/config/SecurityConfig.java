@@ -196,6 +196,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
+                        // Renouvellement de la session de l'application mobile (jeton valide exigé).
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/activities").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/activities/*/cancel").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/activities/mine").authenticated()

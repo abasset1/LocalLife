@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Application : on reste connecté
+- **Correctif** : la session de l'application expirait au bout de 24 h, il fallait ressaisir e-mail et mot de passe. Après la connexion et à chaque ouverture, l'application obtient maintenant un jeton de 30 jours, renouvelé automatiquement (`POST /api/v1/auth/refresh`) : on reste connecté tant qu'on ouvre l'application au moins une fois par mois.
+- Sécurité inchangée : le jeton reste dans le coffre sécurisé du téléphone et se ferme toujours à la déconnexion, au changement de mot de passe, à la suspension ou à la suppression du compte. La session du site (24 h) et celle d'un administrateur (8 h) ne changent pas.
+
 ### Proposer une activité : formulaire revu, bouton d'envoi toujours visible
 - **Site** : la fenêtre « Proposer une activité » / « Modifier l'activité » reprend le style des formulaires food truck (en-tête, sections L'activité, Où et quand, Contact, catégories en puces, dates côte à côte, description sur plusieurs lignes). **Correctif** : en-tête et pied de la fenêtre sont fixes, seul le contenu défile ; « Proposer l'activité » (et « Annuler ») restent visibles quelle que soit la hauteur de l'écran. Sur téléphone, la fenêtre occupe tout l'écran visible. Thème Night pris en charge.
 - **Application** : mêmes sections (L'activité, Où, Quand, Contact), horaires et dates côte à côte. **Correctif** : le bouton « Proposer l'activité » (et « Enregistrer les modifications ») est dans une barre fixe en bas de l'écran, au-dessus de la barre d'onglets, au lieu d'être tout en bas du formulaire.
