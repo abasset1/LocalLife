@@ -12,11 +12,13 @@ import com.locallife.backend.auth.application.PasswordResetService;
 import com.locallife.backend.common.ErrorResponse;
 import com.locallife.backend.user.application.UsernamePolicy;
 import com.locallife.backend.user.domain.User;
+import com.locallife.backend.auth.application.JwtAuthentication;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -212,6 +214,43 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, authCookie.expired().toString())
                 .body(new MessageResponse("Déconnecté."));
+    }
+
+    /**
+     * Renouvelle la session de l'application mobile : retourne un nouveau jeton de 30 jours
+     * ({@code JwtService#generateDeviceToken}). L'application l'appelle après la connexion et à chaque ouverture,
+     * pour que l'utilisateur n'ait pas à ressaisir ses identifiants.
+     *
+     * <p>Protégé : le jeton présenté est validé par {@code JwtFilter} (signature, expiration, révocation, compte
+     * actif, mot de passe inchangé) avant d'arriver ici ; le rôle et l'adresse du nouveau jeton sont ceux relus en
+     * base. Réservé aux clients à en-tête {@code Authorization: Bearer} : la session du site (cookie) garde sa durée
+     * de 24 heures. L'ancien jeton n'est pas révoqué : des requêtes encore en vol l'utilisent, il expire seul.
+     * Une session administrateur n'est pas prolongée (403) : elle reste limitée à 8 heures (décision du 22/10/2026).
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<Object> refresh(Authentication authentication, HttpServletRequest httpRequest) {
+        String authHeader = httpRequest.getHeader(HttpHeaders.AUTHORIZATION);
+        if (!(authentication instanceof JwtAuthentication user)
+                || authHeader == null || !authHeader.startsWith("Bearer ")) {
+            HttpStatus status = HttpStatus.UNAUTHORIZED;
+            return ResponseEntity.status(status).body(new ErrorResponse(Instant.now(), status.value(),
+                    status.getReasonPhrase(), "Session de l'application requise.", httpRequest.getRequestURI()));
+        }
+        if (user.getRole() == com.locallife.backend.user.domain.Role.ADMIN) {
+            HttpStatus status = HttpStatus.FORBIDDEN;
+            return ResponseEntity.status(status).body(new ErrorResponse(Instant.now(), status.value(),
+                    status.getReasonPhrase(), "Une session administrateur n'est pas prolongée.",
+                    httpRequest.getRequestURI()));
+        }
+        // Date de la connexion d'origine : celle déjà portée par le jeton, sinon son émission (jeton de connexion).
+        java.util.Date authTime = jwtService.parseClaims(authHeader.substring(7))
+                .map(claims -> {
+                    Number seconds = claims.get("auth_time", Number.class);
+                    return seconds != null ? new java.util.Date(seconds.longValue() * 1000) : claims.getIssuedAt();
+                })
+                .orElse(null);
+        return ResponseEntity.ok(new LoginResponse(
+                jwtService.generateDeviceToken(user.getUserId(), user.getEmail(), user.getRole(), authTime)));
     }
 
     /** Jeton de la requête : cookie de session ({@link AuthCookie#NAME}) ou en-tête {@code Authorization: Bearer}. */

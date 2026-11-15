@@ -40,8 +40,47 @@ class AuthControllerTest {
     @Mock
     private AuthCookie authCookie;
 
+    @Mock
+    private com.locallife.backend.auth.application.JwtService jwtService;
+
     @InjectMocks
     private AuthController authController;
+
+    @Test
+    void refresh_WithBearerSession_ReturnsDeviceToken() {
+        when(httpServletRequest.getHeader("Authorization")).thenReturn("Bearer ancien");
+        when(jwtService.parseClaims("ancien")).thenReturn(java.util.Optional.empty());
+        when(jwtService.generateDeviceToken(7L, "bob@example.com", Role.USER, null)).thenReturn("nouveau");
+
+        ResponseEntity<Object> response = authController.refresh(
+                new com.locallife.backend.auth.application.JwtAuthentication(7L, "bob@example.com", Role.USER),
+                httpServletRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("nouveau", assertInstanceOf(LoginResponse.class, response.getBody()).token());
+    }
+
+    @Test
+    void refresh_ForAdmin_IsRefused() {
+        when(httpServletRequest.getHeader("Authorization")).thenReturn("Bearer ancien");
+
+        ResponseEntity<Object> response = authController.refresh(
+                new com.locallife.backend.auth.application.JwtAuthentication(1L, "admin@example.com", Role.ADMIN),
+                httpServletRequest);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    }
+
+    @Test
+    void refresh_WithCookieSessionOnly_IsRefused() {
+        when(httpServletRequest.getHeader("Authorization")).thenReturn(null);
+
+        ResponseEntity<Object> response = authController.refresh(
+                new com.locallife.backend.auth.application.JwtAuthentication(7L, "bob@example.com", Role.USER),
+                httpServletRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    }
 
     @Test
     void register_ShouldReturnCreated_WithUserWithoutPasswordHash() {

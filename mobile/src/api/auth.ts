@@ -84,3 +84,16 @@ export function loginWithGoogle(
     signal: options.signal,
   });
 }
+
+/**
+ * `POST /auth/refresh` — prolonge la session de l'application : nouveau JWT valable 30 jours. Protégé (JWT
+ * courant joint) : 401 si la session n'est plus valable (déconnexion, mot de passe changé, compte suspendu),
+ * 403 pour une session administrateur (jamais prolongée).
+ */
+export function refreshSession(options: CallOptions = {}): Promise<LoginResponse> {
+  return request<LoginResponse>(`${BASE}/refresh`, {
+    method: 'POST',
+    authenticated: true,
+    signal: options.signal,
+  });
+}

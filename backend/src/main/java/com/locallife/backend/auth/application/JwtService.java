@@ -30,6 +30,14 @@ public class JwtService {
     static final long ADMIN_EXPIRATION_MILLIS = 8 * 3600000L;
 
     /**
+     * Session de l'application mobile : 30 jours, renouvelée à chaque ouverture de l'application
+     * ({@code POST /api/v1/auth/refresh}). L'utilisateur reste connecté tant qu'il ouvre l'application au moins une
+     * fois par mois. Le jeton reste révocable à tout moment : déconnexion (jti), changement de mot de passe,
+     * suspension ou suppression du compte sont relus en base à chaque requête ({@code JwtFilter}).
+     */
+    static final long DEVICE_EXPIRATION_MILLIS = 30L * 24 * 3600000L;
+
+    /**
      * Génère un token JWT pour un utilisateur donné.
      *
      * @param userId l'ID de l'utilisateur
@@ -38,6 +46,25 @@ public class JwtService {
      * @return le token JWT généré
      */
     public String generateToken(Long userId, String email, Role role) {
+        return buildToken(userId, email, role, jwtExpirationMillis);
+    }
+
+    /**
+     * Jeton longue durée de l'application mobile ({@link #DEVICE_EXPIRATION_MILLIS}), stocké dans le coffre sécurisé
+     * du téléphone. Un administrateur garde sa session de 8 heures, même sur l'application.
+     *
+     * @param authTime date de la connexion d'origine, conservée d'un renouvellement à l'autre (claim
+     *                 {@code auth_time}, en secondes) : l'application s'en sert comme « date de connexion »
+     */
+    public String generateDeviceToken(Long userId, String email, Role role, Date authTime) {
+        return buildToken(userId, email, role, DEVICE_EXPIRATION_MILLIS, authTime);
+    }
+
+    private String buildToken(Long userId, String email, Role role, long lifetimeMillis) {
+        return buildToken(userId, email, role, lifetimeMillis, null);
+    }
+
+    private String buildToken(Long userId, String email, Role role, long lifetimeMillis, Date authTime) {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
 
         return Jwts.builder()
@@ -47,9 +74,10 @@ public class JwtService {
                 .claim("userId", userId)
                 .claim("email", email)
                 .claim("role", role.name())
+                .claim("auth_time", authTime == null ? null : authTime.getTime() / 1000)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis()
-                        + (role == Role.ADMIN ? ADMIN_EXPIRATION_MILLIS : jwtExpirationMillis)))
+                        + (role == Role.ADMIN ? ADMIN_EXPIRATION_MILLIS : lifetimeMillis)))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
