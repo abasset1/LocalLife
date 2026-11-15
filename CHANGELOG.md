@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### Proposer une activité : heures de début et de fin, image
+- **Heures** (site et application) : « Heure de début » et « Heure de fin », facultatives, à côté des dates d'une activité ponctuelle. Sans date de fin, l'activité se termine le jour du début, ou le lendemain si l'heure de fin est avant celle du début (soirée de 22 h à 2 h). Une heure sans date de début, ou une fin avant le début, est signalée avant l'envoi. En modification, dates et heures sont pré-remplies. Un passage hebdomadaire garde ses horaires habituels.
+- **Image** (site et application) : « Ajouter une image » dans la section L'activité, avec aperçu, « Changer l'image » et « Retirer l'image ». JPEG, PNG ou WebP, 3 Mo au plus. L'image est réduite avant l'envoi (site : 1280 px en JPEG ; application : recadrage 4:3 compressé). Elle devient l'image principale de l'activité (carte, liste, favoris) et passe en tête de la fiche.
+- **Validation** : l'image d'une activité en attente ou refusée n'est visible que par son auteur et l'équipe. Changer ou retirer l'image d'une activité publiée la renvoie en validation, comme une modification du formulaire.
+- **API** : `PUT|DELETE /api/v1/activities/{id}/photo` (corps `{"data": "<base64>"}`, créateur avec offre Premium/Pro ou administrateur), `GET /api/v1/activities/{id}/photo`, `photoUrl` dans la contribution (`GET /activities/mine`, `/{id}/contribution`). Table `activity_photo` (`V92__activity_photo.sql`).
+
 ### Application : on reste connecté
 - **Correctif** : la session de l'application expirait au bout de 24 h, il fallait ressaisir e-mail et mot de passe. Après la connexion et à chaque ouverture, l'application obtient maintenant un jeton de 30 jours, renouvelé automatiquement (`POST /api/v1/auth/refresh`) : on reste connecté tant qu'on ouvre l'application au moins une fois par mois.
 - Sécurité inchangée : le jeton reste dans le coffre sécurisé du téléphone et se ferme toujours à la déconnexion, au changement de mot de passe, à la suspension ou à la suppression du compte. La session du site (24 h) et celle d'un administrateur (8 h) ne changent pas.

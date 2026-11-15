@@ -16,8 +16,15 @@ import { useHostablePlaces } from '@/features/pro/useProAccess';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { ContributionFields, EMPTY_FORM, inform, toRequest, useActiveCategories } from '@/features/contribution';
-import type { ContributionForm } from '@/features/contribution';
+import {
+  ContributionFields,
+  EMPTY_FORM,
+  inform,
+  savePhotoChange,
+  toRequest,
+  useActiveCategories,
+} from '@/features/contribution';
+import type { ContributionForm, PhotoChange } from '@/features/contribution';
 import { contributionQuota } from '@/features/limits/limits';
 
 /**
@@ -30,6 +37,7 @@ export default function ContributionScreen() {
   const { state } = useAuth();
   const { categories, error: categoriesError } = useActiveCategories();
   const [form, setForm] = useState<ContributionForm>(EMPTY_FORM);
+  const [photo, setPhoto] = useState<PhotoChange>({ kind: 'keep' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -75,8 +83,16 @@ export default function ContributionScreen() {
     }
     setSubmitting(true);
     try {
-      await createActivity(result.request);
+      const created = await createActivity(result.request);
+      // L'image s'envoie une fois l'activité créée (elle n'a pas d'identifiant avant).
+      let photoError: string | null = null;
+      try {
+        await savePhotoChange(created.id, photo);
+      } catch (e) {
+        photoError = e instanceof ApiError ? e.message : 'Erreur inattendue.';
+      }
       setForm(EMPTY_FORM);
+      setPhoto({ kind: 'keep' });
       setSubmitted(true);
       // La nouvelle proposition compte dans le quota du mois (relu du serveur au prochain chargement).
       setAccess((current) =>
@@ -86,7 +102,9 @@ export default function ContributionScreen() {
       );
       inform(
         'Merci pour votre proposition',
-        'Elle est soumise à validation par un modérateur et sera publiée d’ici 2 à 3 jours. Suivez son statut dans « Mes contributions ».',
+        photoError
+          ? `Elle est soumise à validation, mais l’image n’a pas pu être envoyée (${photoError}). Ajoutez-la depuis « Mes contributions ».`
+          : 'Elle est soumise à validation par un modérateur et sera publiée d’ici 2 à 3 jours. Suivez son statut dans « Mes contributions ».',
       );
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Une erreur inattendue est survenue. Réessayez.');
@@ -228,6 +246,15 @@ export default function ContributionScreen() {
                 onChange={(next) => {
                   setForm(next);
                   setSubmitted(false);
+                }}
+                photo={{
+                  currentPhotoUrl: null,
+                  change: photo,
+                  onChange: (change) => {
+                    setPhoto(change);
+                    setSubmitted(false);
+                  },
+                  onError: setError,
                 }}
               />
             </Card>

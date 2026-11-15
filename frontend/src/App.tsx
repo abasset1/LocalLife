@@ -10,6 +10,8 @@ import { activitiesInZone, monthRange, toLocalDateString, weekendRange, zoneCoun
 import { DEFAULT_SEARCH_RADIUS_KM, NO_DATE_FILTER } from "./components/explorer/constants";
 import EmptyResultsHelp from "./components/explorer/EmptyResultsHelp";
 import CityPromptModal from "./components/explorer/CityPromptModal";
+import { combineDateTimes, splitDateTime } from "./components/explorer/contributionDates";
+import { resizeImage } from "./components/pro/resizeImage";
 import ContributionModal, {
     EMPTY_RECURRENCE, type ContributionRecurrence, type HostPlaceOption,
 } from "./components/explorer/ContributionModal";
@@ -154,6 +156,9 @@ function isValidPosition(latitude: number | null, longitude: number | null): boo
 /** Délai maximal d'une demande de position (« Autour de moi ») avant de proposer une autre méthode. */
 const GEOLOCATION_TIMEOUT_MS = 10000;
 
+/** Image du formulaire de contribution : inchangée, nouvelle (adresse `data:` JPEG) ou à retirer. */
+type PhotoChange = { kind: "keep" } | { kind: "new"; data: string } | { kind: "remove" };
+
 function App() {
     const navigate = useNavigate();
     const [activities, setActivities] = useState<Activity[]>([]);
@@ -193,6 +198,12 @@ function App() {
     const [email, setEmail] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    /** Heures `HH:mm` d'une activité ponctuelle (facultatives), jointes aux dates à l'envoi. */
+    const [startTime, setStartTime] = useState("");
+    const [endTime, setEndTime] = useState("");
+    /** Image déjà enregistrée de la contribution modifiée, et changement demandé dans le formulaire. */
+    const [currentPhotoUrl, setCurrentPhotoUrl] = useState<string | null>(null);
+    const [photoChange, setPhotoChange] = useState<PhotoChange>({ kind: "keep" });
     const [recurrence, setRecurrence] = useState<ContributionRecurrence>(EMPTY_RECURRENCE);
     /** Contribution en cours de modification (`null` : le formulaire propose une nouvelle activité). */
     const [editingActivityId, setEditingActivityId] = useState<number | null>(null);
@@ -934,6 +945,16 @@ function App() {
         }
     }
 
+    /** Image choisie : réduite et réencodée en JPEG dans le navigateur avant l'envoi. */
+    async function choosePhoto(file: File) {
+        try {
+            setPhotoChange({ kind: "new", data: await resizeImage(file) });
+        } catch (error) {
+            setSubmitError(error instanceof Error ? error.message : "Image illisible.");
+            setSubmitStatus("error");
+        }
+    }
+
     function resetContributionForm() {
         setEditingActivityId(null);
         setEditingActivityStatus(null);
@@ -943,6 +964,10 @@ function App() {
         setAddress("");
         setStartDate("");
         setEndDate("");
+        setStartTime("");
+        setEndTime("");
+        setCurrentPhotoUrl(null);
+        setPhotoChange({ kind: "keep" });
         setRecurrence(EMPTY_RECURRENCE);
         setUrl("");
         setPhone("");
@@ -972,6 +997,10 @@ function App() {
             setPhone(contribution.phone ?? "");
             setEmail(contribution.email ?? "");
             setHostPlaceId(contribution.hostPlaceId ?? null);
+            setCurrentPhotoUrl(contribution.photoUrl ?? null);
+            setPhotoChange({ kind: "keep" });
+            setStartTime("");
+            setEndTime("");
             if (contribution.recurrence) {
                 setRecurrence({
                     enabled: true,
@@ -983,8 +1012,14 @@ function App() {
                 setEndDate(contribution.recurrence.until ?? "");
             } else {
                 setRecurrence(EMPTY_RECURRENCE);
-                setStartDate(contribution.startDate?.slice(0, 10) ?? "");
-                setEndDate(contribution.endDate?.slice(0, 10) ?? "");
+                const start = splitDateTime(contribution.startDate);
+                const end = splitDateTime(contribution.endDate);
+                setStartDate(start.date);
+                setStartTime(start.time);
+                // Fin par défaut du backend (minuit du jour du début) : rien n'avait été saisi.
+                const defaultEnd = end.date === start.date && end.time === "" && start.time !== "";
+                setEndDate(defaultEnd ? "" : end.date);
+                setEndTime(end.time);
             }
             setDetailActivity(null);
             setIsContributionModalOpen(true);
@@ -1091,6 +1126,12 @@ function App() {
             setSubmitStatus("error");
             return;
         }
+        const dates = combineDateTimes(startDate, startTime, endDate, endTime);
+        if (!dates.ok) {
+            setSubmitError(dates.error);
+            setSubmitStatus("error");
+            return;
+        }
 
         try {
             const isEditing = editingActivityId !== null;
@@ -1105,8 +1146,8 @@ function App() {
                     categoryCode: contributionCategoryCodes[0],
                     address,
                     // Activité récurrente : les dates du formulaire bornent la récurrence.
-                    startDate: recurrence.enabled ? undefined : startDate || undefined,
-                    endDate: recurrence.enabled ? undefined : endDate || undefined,
+                    startDate: recurrence.enabled ? undefined : dates.startDate,
+                    endDate: recurrence.enabled ? undefined : dates.endDate,
                     recurrence: recurrence.enabled
                         ? {
                               daysOfWeek: recurrence.days,
@@ -1131,7 +1172,19 @@ function App() {
                 return;
             }
 
-            const saved = (await response.json().catch(() => null)) as { status?: string } | null;
+            const saved = (await response.json().catch(() => null)) as { id?: number; status?: string } | null;
+            // L'image s'envoie une fois l'activité enregistrée (une nouvelle activité n'a pas d'identifiant avant).
+            const savedId = saved?.id ?? editingActivityId;
+            let photoError: string | null = null;
+            if (savedId != null && photoChange.kind !== "keep") {
+                const photoResponse = await apiFetch(`/api/v1/activities/${savedId}/photo`, photoChange.kind === "new"
+                    ? { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: photoChange.data }) }
+                    : { method: "DELETE" });
+                if (!photoResponse.ok) {
+                    const body = (await photoResponse.json().catch(() => null)) as ApiErrorBody | null;
+                    photoError = body?.message ?? "Erreur inconnue.";
+                }
+            }
             setRefreshKey((current) => current + 1);
             setSubmitStatus("success");
             resetContributionForm();
@@ -1143,6 +1196,9 @@ function App() {
                 window.alert(
                     "Merci pour ta proposition ! Elle est soumise à validation par un modérateur et sera publiée d'ici 2 à 3 jours. Tu peux suivre son statut dans « Mes contributions ».",
                 );
+            }
+            if (photoError) {
+                window.alert(`L'activité est enregistrée, mais pas l'image : ${photoError} Tu peux la rajouter depuis « Mes contributions ».`);
             }
             // Une activité publiée reste sur la carte ; seule une activité refusée corrigée repart en validation.
             if (isEditing && editingActivityStatus === "REJECTED" && saved?.status === "PENDING") {
@@ -1642,6 +1698,14 @@ function App() {
                     onDescriptionChange={setDescription}
                     onEmailChange={setEmail}
                     onEndDateChange={setEndDate}
+                    startTime={startTime}
+                    onStartTimeChange={setStartTime}
+                    endTime={endTime}
+                    onEndTimeChange={setEndTime}
+                    photo={photoChange.kind === "new" ? photoChange.data
+                        : photoChange.kind === "remove" ? null : currentPhotoUrl}
+                    onPhotoSelect={(file) => void choosePhoto(file)}
+                    onPhotoRemove={() => setPhotoChange(currentPhotoUrl ? { kind: "remove" } : { kind: "keep" })}
                     onPhoneChange={setPhone}
                     onStartDateChange={setStartDate}
                     onSubmit={(event) => void handleSubmit(event)}

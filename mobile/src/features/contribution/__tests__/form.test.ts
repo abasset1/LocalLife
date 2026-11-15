@@ -4,6 +4,7 @@ import {
   EMPTY_FORM,
   NO_HOST_PLACE,
   formatWhen,
+  combineDateTimes,
   fromContribution,
   hostPlaceOptions,
   isEditable,
@@ -88,6 +89,32 @@ describe('toRequest', () => {
   });
 });
 
+describe('one-off times', () => {
+  it('joins dates and times', () => {
+    const result = toRequest({ ...VALID, startDate: '2030-06-21', startTime: '20h30', endDate: '2030-06-21', endTime: '23:00' });
+    expect(result.ok && result.request).toMatchObject({ startDate: '2030-06-21T20:30', endDate: '2030-06-21T23:00' });
+  });
+
+  it('ends the same day, or the next day when the end time is earlier', () => {
+    expect(combineDateTimes({ startDate: '2030-06-21', startTime: '14:00', endDate: '', endTime: '18:00' })).toEqual({
+      ok: true,
+      startDate: '2030-06-21T14:00',
+      endDate: '2030-06-21T18:00',
+    });
+    expect(combineDateTimes({ startDate: '2030-12-31', startTime: '22:00', endDate: '', endTime: '2h' })).toMatchObject({
+      endDate: '2031-01-01T02:00',
+    });
+  });
+
+  it('refuses a time without start date, an invalid time or an end before the start', () => {
+    expect(combineDateTimes({ startDate: '', startTime: '20:00', endDate: '', endTime: '' }).ok).toBe(false);
+    expect(combineDateTimes({ startDate: '2030-06-21', startTime: '25:00', endDate: '', endTime: '' }).ok).toBe(false);
+    expect(
+      combineDateTimes({ startDate: '2030-06-21', startTime: '20:00', endDate: '2030-06-21', endTime: '18:00' }).ok,
+    ).toBe(false);
+  });
+});
+
 describe('fromContribution', () => {
   it('prefills a recurring contribution from its recurrence', () => {
     expect(fromContribution(CONTRIBUTION)).toMatchObject({
@@ -105,8 +132,19 @@ describe('fromContribution', () => {
     expect(fromContribution({ ...CONTRIBUTION, recurrence: null })).toMatchObject({
       recurring: false,
       startDate: '2026-11-03',
+      startTime: '11:30',
       endDate: '2026-11-26',
+      endTime: '14:00',
     });
+  });
+
+  it('prefills a date without time, and hides the default end of a one-day activity', () => {
+    expect(
+      fromContribution({ ...CONTRIBUTION, recurrence: null, startDate: '2026-11-03T20:00:00', endDate: '2026-11-03T00:00:00' }),
+    ).toMatchObject({ startDate: '2026-11-03', startTime: '20:00', endDate: '', endTime: '' });
+    expect(
+      fromContribution({ ...CONTRIBUTION, recurrence: null, startDate: '2026-11-03T00:00:00', endDate: '2026-11-05T00:00:00' }),
+    ).toMatchObject({ startTime: '', endDate: '2026-11-05', endTime: '' });
   });
 
   it('round-trips into the same recurrence', () => {

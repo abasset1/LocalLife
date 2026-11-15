@@ -154,6 +154,9 @@ class ActivityControllerTest {
     @Mock
     private AdminActivityService adminActivityService;
 
+    @Mock
+    private com.locallife.backend.media.infrastructure.ActivityPhotoRepository activityPhotoRepository;
+
     @InjectMocks
     private ActivityController activityController;
 

@@ -131,6 +131,8 @@ public class SecurityConfig {
         "/api/v1/activities/within-bounds",
         "/api/v1/activities/at-place/*",
         "/api/v1/activities/*",
+        // Image d'une activité : celle d'une activité non publiée n'est servie qu'à son créateur et à l'équipe.
+        "/api/v1/activities/*/photo",
         "/api/v1/places/within-bounds",
         "/api/v1/places/*",
         "/api/v1/places/*/foodtrucks",
@@ -200,6 +202,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/activities").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/activities/*/cancel").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/activities/*/photo").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/activities/*/photo").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/activities/mine").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/activities/*/contribution").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/activities/*").authenticated()

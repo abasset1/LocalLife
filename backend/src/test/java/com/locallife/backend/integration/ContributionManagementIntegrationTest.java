@@ -56,6 +56,9 @@ class ContributionManagementIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
+    private com.locallife.backend.media.application.ActivityMediaService activityMediaService;
+
+    @Autowired
     private IntegrationTestCleaner cleaner;
 
     private String city;
@@ -104,6 +107,71 @@ class ContributionManagementIntegrationTest {
         assertThat(contribution.categoryCodes()).containsExactly("CULTURE");
         assertThat(contribution.phone()).isEqualTo("0612345678");
         assertThat(contribution.recurrence()).isNull();
+    }
+
+    @Test
+    void creatorCanAddImageAndTimes_ShownOnceThePageIsPublished() {
+        String creator = registerAndLogin();
+        CreateActivityRequest base = request("Concert", null);
+        CreateActivityRequest timed = new CreateActivityRequest(base.title(), base.description(), base.category(),
+                base.address(), "2030-06-21T20:30", "2030-06-21T23:00", base.url(), base.phone(), base.email(),
+                base.categoryCode(), base.categoryCodes(), null);
+        Activity created = create(creator, timed);
+        assertThat(created.startDate()).hasToString("2030-06-21T20:30");
+        assertThat(created.endDate()).hasToString("2030-06-21T23:00");
+
+        String jpeg = java.util.Base64.getEncoder().encodeToString(
+                new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 1, 2, 3, 4});
+        String photoUri = "/api/v1/activities/" + created.id() + "/photo";
+        restTestClient().put().uri(photoUri)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + creator)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(java.util.Map.of("data", "data:image/jpeg;base64," + jpeg))
+                .exchange()
+                .expectStatus().isNoContent();
+
+        ContributionResponse contribution = get(
+                "/api/v1/activities/" + created.id() + "/contribution", creator, ContributionResponse.class);
+        assertThat(contribution.photoUrl()).startsWith(photoUri + "?v=");
+        // En attente : l'image n'est servie qu'à son auteur.
+        restTestClient().get().uri(photoUri).exchange().expectStatus().isNotFound();
+        restTestClient().get().uri(photoUri).header(HttpHeaders.AUTHORIZATION, "Bearer " + creator)
+                .exchange().expectStatus().isOk().expectHeader().contentType("image/jpeg");
+
+        publish(created.id());
+        restTestClient().get().uri(photoUri).exchange().expectStatus().isOk();
+        restTestClient().get().uri("/api/v1/activities/" + created.id())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + creator).exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.media[0].url").isEqualTo(contribution.photoUrl());
+        // Visiteur : fiche, et image principale des listes (carte, liste, favoris).
+        restTestClient().get().uri("/api/v1/activities/" + created.id()).exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.media[0].url").isEqualTo(contribution.photoUrl());
+        assertThat(activityMediaService.findMainImageUrls(List.of(created.id())))
+                .containsEntry(created.id(), contribution.photoUrl());
+
+        // Image retirée par son auteur : l'activité repart en validation.
+        restTestClient().delete().uri(photoUri).header(HttpHeaders.AUTHORIZATION, "Bearer " + creator)
+                .exchange().expectStatus().isNoContent();
+        ContributionResponse after = get(
+                "/api/v1/activities/" + created.id() + "/contribution", creator, ContributionResponse.class);
+        assertThat(after.photoUrl()).isNull();
+        assertThat(after.status()).isEqualTo("PENDING");
+    }
+
+    @Test
+    void otherUserCannotChangeTheImage() {
+        String creator = registerAndLogin();
+        Activity created = create(creator, request("Pétanque", null));
+        String other = registerAndLogin();
+
+        restTestClient().put().uri("/api/v1/activities/" + created.id() + "/photo")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + other)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(java.util.Map.of("data", "AAAA"))
+                .exchange()
+                .expectStatus().isForbidden();
     }
 
     @Test

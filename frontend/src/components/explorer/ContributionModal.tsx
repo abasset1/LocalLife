@@ -40,6 +40,15 @@ interface ContributionModalProps {
     onStartDateChange: (value: string) => void;
     endDate: string;
     onEndDateChange: (value: string) => void;
+    /** Heures `HH:mm` d'une activité ponctuelle (facultatives). */
+    startTime?: string;
+    onStartTimeChange?: (value: string) => void;
+    endTime?: string;
+    onEndTimeChange?: (value: string) => void;
+    /** Image affichée : déjà enregistrée ou nouvellement choisie ; `null` sans image. */
+    photo?: string | null;
+    onPhotoSelect?: (file: File) => void;
+    onPhotoRemove?: () => void;
     recurrence: ContributionRecurrence;
     url: string;
     onUrlChange: (value: string) => void;
@@ -81,6 +90,13 @@ function ContributionModal({
     onStartDateChange,
     endDate,
     onEndDateChange,
+    startTime = "",
+    onStartTimeChange,
+    endTime = "",
+    onEndTimeChange,
+    photo = null,
+    onPhotoSelect,
+    onPhotoRemove,
     recurrence,
     url,
     onUrlChange,
@@ -183,6 +199,44 @@ function ContributionModal({
                                     value={description}
                                 />
                             </div>
+                            {onPhotoSelect && (
+                                <div className="form-field">
+                                    <span className="pro-field-label">
+                                        Image <span className="pro-optional">(facultatif)</span>
+                                    </span>
+                                    <div className="pro-photo">
+                                        <div className="pro-photo-frame">
+                                            {photo
+                                                ? <img alt="Image de l'activité" src={photo} />
+                                                : <span aria-hidden="true">📷</span>}
+                                        </div>
+                                        <div className="pro-photo-actions">
+                                            <input
+                                                accept="image/jpeg,image/png,image/webp"
+                                                className="pro-visually-hidden"
+                                                id="explorer-activity-photo"
+                                                onChange={(event) => {
+                                                    const file = event.target.files?.[0];
+                                                    if (file) {
+                                                        onPhotoSelect(file);
+                                                    }
+                                                    event.target.value = "";
+                                                }}
+                                                type="file"
+                                            />
+                                            <label className="pro-button pro-button-ghost" htmlFor="explorer-activity-photo">
+                                                {photo ? "Changer l'image" : "Ajouter une image"}
+                                            </label>
+                                            {photo && onPhotoRemove && (
+                                                <button className="pro-button pro-button-text-danger" onClick={onPhotoRemove} type="button">
+                                                    Retirer l'image
+                                                </button>
+                                            )}
+                                            <small className="pro-hint">JPEG, PNG ou WebP. Format paysage conseillé.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <fieldset className="pro-fieldset">
                                 <legend className="pro-field-label">
                                     Catégories <span className="pro-optional">· au moins une</span>
@@ -265,6 +319,33 @@ function ContributionModal({
                                         value={endDate}
                                     />
                                 </div>
+                                {/* Heures d'une activité ponctuelle ; un passage hebdomadaire garde ses horaires. */}
+                                {!recurrence.enabled && onStartTimeChange && onEndTimeChange && (
+                                    <>
+                                        <div className="form-field">
+                                            <label htmlFor="explorer-activity-start-time">
+                                                Heure de début <span className="pro-optional">(facultatif)</span>
+                                            </label>
+                                            <input
+                                                id="explorer-activity-start-time"
+                                                onChange={(event) => onStartTimeChange(event.target.value)}
+                                                type="time"
+                                                value={startTime}
+                                            />
+                                        </div>
+                                        <div className="form-field">
+                                            <label htmlFor="explorer-activity-end-time">
+                                                Heure de fin <span className="pro-optional">(facultatif)</span>
+                                            </label>
+                                            <input
+                                                id="explorer-activity-end-time"
+                                                onChange={(event) => onEndTimeChange(event.target.value)}
+                                                type="time"
+                                                value={endTime}
+                                            />
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </section>
 

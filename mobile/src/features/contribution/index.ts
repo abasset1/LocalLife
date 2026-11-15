@@ -1,4 +1,6 @@
 export { ContributionFields } from './ContributionFields';
+export { savePhotoChange } from './ActivityPhotoField';
+export type { PhotoChange } from './ActivityPhotoField';
 export { ContributorActions } from './ContributorActions';
 export {
   canCancelActivity,

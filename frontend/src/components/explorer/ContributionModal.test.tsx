@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { MemoryRouter } from "react-router-dom";
@@ -24,6 +24,40 @@ function renderModal(props: Partial<ComponentProps<typeof ContributionModal>> = 
 }
 
 describe("ContributionModal", () => {
+    it("propose les heures de début et de fin, et une image", async () => {
+        const onStartTimeChange = vi.fn();
+        const onPhotoSelect = vi.fn();
+        renderModal({
+            startTime: "", endTime: "", onStartTimeChange, onEndTimeChange: vi.fn(),
+            photo: null, onPhotoSelect, onPhotoRemove: vi.fn(),
+        });
+        expect(screen.getByLabelText(/Heure de fin/)).toBeInTheDocument();
+        fireEvent.change(screen.getByLabelText(/Heure de début/), { target: { value: "20:30" } });
+        expect(onStartTimeChange).toHaveBeenCalledWith("20:30");
+
+        const file = new File(["x"], "affiche.png", { type: "image/png" });
+        await userEvent.upload(screen.getByLabelText("Ajouter une image"), file);
+        expect(onPhotoSelect).toHaveBeenCalledWith(file);
+        expect(screen.queryByText("Retirer l'image")).not.toBeInTheDocument();
+    });
+
+    it("affiche l'image enregistrée, remplaçable ou à retirer", async () => {
+        const onPhotoRemove = vi.fn();
+        renderModal({ photo: "/api/v1/activities/4/photo?v=1", onPhotoSelect: vi.fn(), onPhotoRemove });
+        expect(screen.getByAltText("Image de l'activité")).toHaveAttribute("src", "/api/v1/activities/4/photo?v=1");
+        await userEvent.click(screen.getByText("Retirer l'image"));
+        expect(onPhotoRemove).toHaveBeenCalled();
+        expect(screen.getByText("Changer l'image")).toBeInTheDocument();
+    });
+
+    it("garde les horaires hebdomadaires d'une contribution récurrente hors du formulaire", () => {
+        renderModal({
+            recurrence: { enabled: true, days: ["MO"], startTime: "11:30", endTime: "" },
+            onStartTimeChange: vi.fn(), onEndTimeChange: vi.fn(),
+        });
+        expect(screen.queryByLabelText(/Heure de début/)).not.toBeInTheDocument();
+    });
+
     it("ne propose plus de rendre une nouvelle activité hebdomadaire", () => {
         renderModal();
         expect(screen.queryByLabelText(/Revient chaque semaine/)).not.toBeInTheDocument();

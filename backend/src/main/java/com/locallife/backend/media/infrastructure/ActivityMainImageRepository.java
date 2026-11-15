@@ -21,18 +21,31 @@ public class ActivityMainImageRepository {
         this.jdbc = jdbc;
     }
 
-    /** Url de l'image principale par activité ; une activité sans média n'apparaît pas dans le résultat. */
+    /**
+     * Url de l'image principale par activité ; une activité sans média n'apparaît pas dans le résultat. L'image
+     * ajoutée par le contributeur ({@code activity_photo}, V92) passe avant les médias importés : son adresse est
+     * un chemin de l'API, versionné par sa date de modification (même principe que la photo d'un food truck).
+     */
     public Map<Long, String> findMainImageUrls(Collection<Long> activityIds) {
         Map<Long, String> result = new HashMap<>();
         if (activityIds == null || activityIds.isEmpty()) {
             return result;
         }
         jdbc.query("""
-                SELECT DISTINCT ON (am.activity_id) am.activity_id, m.url
-                FROM activity_media am
-                JOIN media m ON m.id = am.media_id
-                WHERE am.activity_id IN (:ids)
-                ORDER BY am.activity_id, am.position, am.id
+                SELECT DISTINCT ON (activity_id) activity_id, url
+                FROM (
+                    SELECT ap.activity_id, 0 AS priority, 0 AS position, 0 AS link_id,
+                           '/api/v1/activities/' || ap.activity_id || '/photo?v='
+                               || FLOOR(EXTRACT(EPOCH FROM ap.updated_at) * 1000)::BIGINT AS url
+                    FROM activity_photo ap
+                    WHERE ap.activity_id IN (:ids)
+                    UNION ALL
+                    SELECT am.activity_id, 1, am.position, am.id, m.url
+                    FROM activity_media am
+                    JOIN media m ON m.id = am.media_id
+                    WHERE am.activity_id IN (:ids)
+                ) images
+                ORDER BY activity_id, priority, position, link_id
                 """,
                 new MapSqlParameterSource("ids", activityIds),
                 row -> {

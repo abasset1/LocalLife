@@ -16,7 +16,7 @@ export interface ContributionForm {
   endDate: string;
   recurring: boolean;
   days: string[];
-  /** `HH:mm`. */
+  /** `HH:mm` : heures de début et de fin (activité ponctuelle) ou d'arrivée et de départ (récurrence). */
   startTime: string;
   endTime: string;
   url: string;
@@ -94,6 +94,57 @@ function optional(value: string): string | undefined {
   return trimmed === '' ? undefined : trimmed;
 }
 
+function nextDay(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+}
+
+function joinDateTime(date: string, time: string): string {
+  return time ? `${date}T${time}` : date;
+}
+
+type DateTimes = { ok: true; startDate?: string; endDate?: string } | { ok: false; error: string };
+
+/**
+ * Dates et heures d'une activité ponctuelle, jointes en `yyyy-MM-ddTHH:mm` (heure locale du lieu) — mêmes règles
+ * que le site (`frontend/src/components/explorer/contributionDates.ts`). Sans date de fin, la fin est le jour du
+ * début ; une heure de fin antérieure à celle du début désigne alors le lendemain (soirée de 22 h à 2 h).
+ */
+export function combineDateTimes(form: Pick<ContributionForm, 'startDate' | 'endDate' | 'startTime' | 'endTime'>): DateTimes {
+  const start = form.startDate.trim();
+  const end = form.endDate.trim();
+  const startClock = form.startTime.trim() === '' ? '' : normalizeTime(form.startTime);
+  const endClock = form.endTime.trim() === '' ? '' : normalizeTime(form.endTime);
+  if (startClock && !TIME_PATTERN.test(startClock)) {
+    return { ok: false, error: "L'heure de début doit être au format HH:MM (ex. 20:30)." };
+  }
+  if (endClock && !TIME_PATTERN.test(endClock)) {
+    return { ok: false, error: "L'heure de fin doit être au format HH:MM (ex. 23:00)." };
+  }
+  if (!start && (startClock || (endClock && !end))) {
+    return { ok: false, error: "Indiquez la date de début pour préciser l'heure." };
+  }
+  if (!start) return { ok: true, endDate: end ? joinDateTime(end, endClock) : undefined };
+  let resolvedEnd: string | undefined;
+  if (end) resolvedEnd = joinDateTime(end, endClock);
+  else if (endClock) resolvedEnd = joinDateTime(startClock && endClock <= startClock ? nextDay(start) : start, endClock);
+  const resolvedStart = joinDateTime(start, startClock);
+  if (end) {
+    // Chaînes ISO de même format : une date seule vaut minuit pour le début, la fin de journée pour la fin.
+    const startKey = startClock ? resolvedStart : `${start}T00:00`;
+    const endKey = endClock ? (resolvedEnd as string) : `${end}T23:59`;
+    if (endKey < startKey) return { ok: false, error: "La fin de l'activité doit être après son début." };
+  }
+  return { ok: true, startDate: resolvedStart, endDate: resolvedEnd };
+}
+
+/** `2030-06-21T20:30:00` → date et heure ; minuit (date sans heure) → heure vide. */
+function splitDateTime(value: string | null | undefined): { date: string; time: string } {
+  if (!value) return { date: '', time: '' };
+  const time = value.length >= 16 ? value.slice(11, 16) : '';
+  return { date: value.slice(0, 10), time: time === '00:00' ? '' : time };
+}
+
 export type FormResult = { ok: true; request: CreateActivityRequest } | { ok: false; error: string };
 
 /** Valide le formulaire et construit le corps de requête, ou renvoie le premier problème à corriger. */
@@ -123,7 +174,9 @@ export function toRequest(form: ContributionForm): FormResult {
   };
 
   if (!form.recurring) {
-    return { ok: true, request: { ...base, startDate: optional(form.startDate), endDate: optional(form.endDate) } };
+    const dates = combineDateTimes(form);
+    if (!dates.ok) return dates;
+    return { ok: true, request: { ...base, startDate: dates.startDate, endDate: dates.endDate } };
   }
 
   if (form.days.length === 0) return { ok: false, error: 'Choisissez au moins un jour de passage.' };
@@ -176,10 +229,16 @@ export function fromContribution(contribution: Contribution): ContributionForm {
       endDate: recurrence.until ?? '',
     };
   }
+  const start = splitDateTime(contribution.startDate);
+  const end = splitDateTime(contribution.endDate);
+  // Fin par défaut du serveur (minuit le jour du début) : rien n'avait été saisi.
+  const defaultEnd = end.date === start.date && end.time === '' && start.time !== '';
   return {
     ...common,
-    startDate: contribution.startDate?.slice(0, 10) ?? '',
-    endDate: contribution.endDate?.slice(0, 10) ?? '',
+    startDate: start.date,
+    startTime: start.time,
+    endDate: defaultEnd ? '' : end.date,
+    endTime: end.time,
   };
 }
 
