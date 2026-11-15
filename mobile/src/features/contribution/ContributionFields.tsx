@@ -1,10 +1,10 @@
 import type { Category, ManagedPlace } from '@/api';
 import { TextField } from '@/components/text-field';
 import { FieldRow, FormSection, Hint } from '@/components/form-parts';
-import { ChannelSwitch, ChipGroup, toggleCode } from '@/features/settings';
+import { ChipGroup, toggleCode } from '@/features/settings';
 
 import { ActivityPhotoField, type PhotoChange } from './ActivityPhotoField';
-import { NO_HOST_PLACE, WEEK_DAYS, hostPlaceOptions, type ContributionForm } from './form';
+import { NO_HOST_PLACE, formatRecurrence, hostPlaceOptions, type ContributionForm } from './form';
 
 interface ContributionFieldsProps {
   form: ContributionForm;
@@ -23,9 +23,8 @@ interface ContributionFieldsProps {
 
 /**
  * Champs du formulaire de contribution, partagés par la proposition (onglet Contribution) et la
- * modification (« Mes contributions »). Une activité ponctuelle a des dates et des heures de début et de fin
- * facultatives ; une case « Revient chaque semaine » les remplace par des jours de passage et des horaires
- * (food truck, marché…). Image facultative.
+ * modification (« Mes contributions ») : dates et heures de début et de fin facultatives, image facultative.
+ * Pas de récurrence : une contribution déjà hebdomadaire garde son passage, seules ses dates se modifient.
  */
 export function ContributionFields({ form, categories, onChange, hostPlaces = [], photo }: ContributionFieldsProps) {
   const set = (patch: Partial<ContributionForm>) => onChange({ ...form, ...patch });
@@ -83,39 +82,14 @@ export function ContributionFields({ form, categories, onChange, hostPlaces = []
       </FormSection>
 
       <FormSection title="Quand">
-        <ChannelSwitch
-          label="Revient chaque semaine (food truck, marché…)"
-          value={form.recurring}
-          // La date de fin d'une activité ponctuelle (souvent le même jour) bornerait la récurrence à
-          // une seule journée : elle est vidée en passant en récurrent.
-          onValueChange={(recurring) => set(recurring ? { recurring, endDate: '' } : { recurring })}
-        />
-        {form.recurring && (
-          <>
-            <ChipGroup
-              label="Jours de passage (au moins un)"
-              options={WEEK_DAYS}
-              selected={form.days}
-              onToggle={(day) => set({ days: toggleCode(form.days, day) })}
-            />
-            <FieldRow>
-              <TextField
-                label="Heure d'arrivée"
-                value={form.startTime}
-                onChangeText={(startTime) => set({ startTime })}
-                placeholder="11:30"
-                keyboardType="numbers-and-punctuation"
-              />
-              <TextField
-                label="Heure de départ (facultatif)"
-                value={form.endTime}
-                onChangeText={(endTime) => set({ endTime })}
-                placeholder="14:00"
-                keyboardType="numbers-and-punctuation"
-              />
-            </FieldRow>
-          </>
-        )}
+        {/*
+          Plus de récurrence dans le formulaire (comme sur le site) : ni case « Revient chaque semaine », ni jours
+          ou horaires de passage. Une contribution déjà hebdomadaire garde son passage tel quel ; seules ses dates
+          (« À partir du », « Jusqu'au ») se modifient.
+        */}
+        {form.recurring && form.days.length > 0 ? (
+          <Hint>{formatRecurrence(form.days, form.startTime)} : passage hebdomadaire conservé.</Hint>
+        ) : null}
         <FieldRow>
           <TextField
             label={form.recurring ? 'À partir du (facultatif)' : 'Date de début (facultatif)'}
