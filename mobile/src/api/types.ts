@@ -443,6 +443,8 @@ export interface Contribution {
   hostPlaceId?: number | null;
   /** Motif de la modération (refus, annulation), `null` sinon ; absent d'un ancien serveur. */
   moderationReason?: string | null;
+  /** Image ajoutée par le contributeur (chemin de l'API), `null` sans image. */
+  photoUrl?: string | null;
 }
 
 /**

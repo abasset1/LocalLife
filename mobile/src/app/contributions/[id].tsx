@@ -15,11 +15,12 @@ import {
   ContributionFields,
   fromContribution,
   inform,
+  savePhotoChange,
   showsModerationReason,
   toRequest,
   useActiveCategories,
 } from '@/features/contribution';
-import type { ContributionForm } from '@/features/contribution';
+import type { ContributionForm, PhotoChange } from '@/features/contribution';
 import { useHostablePlaces, useProAccess } from '@/features/pro/useProAccess';
 
 function messageFor(error: unknown): string {
@@ -43,6 +44,8 @@ export default function EditContributionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [moderationReason, setModerationReason] = useState<string | null>(null);
+  const [currentPhotoUrl, setCurrentPhotoUrl] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<PhotoChange>({ kind: 'keep' });
 
   const isAdmin = state.status === 'authenticated' && state.user.role === 'ADMIN';
   // Seule une activité refusée, corrigée par son contributeur, repart en validation.
@@ -54,6 +57,7 @@ export default function EditContributionScreen() {
       .then((contribution) => {
         setStatus(contribution.status);
         setModerationReason(contribution.moderationReason ?? null);
+        setCurrentPhotoUrl(contribution.photoUrl ?? null);
         setForm(fromContribution(contribution));
       })
       .catch((e: unknown) => {
@@ -73,11 +77,19 @@ export default function EditContributionScreen() {
     setSaving(true);
     try {
       const saved = await updateActivity(Number(id), result.request);
+      let photoError: string | null = null;
+      try {
+        await savePhotoChange(Number(id), photo);
+      } catch (e) {
+        photoError = messageFor(e);
+      }
       inform(
         'Modification enregistrée',
-        resubmitted && saved.status === 'PENDING'
-          ? 'L’activité est de nouveau soumise à validation : elle sera visible sur la carte une fois validée par un modérateur.'
-          : 'L’activité a été mise à jour.',
+        photoError
+          ? `L’activité est enregistrée, mais pas l’image : ${photoError}`
+          : resubmitted && saved.status === 'PENDING'
+            ? 'L’activité est de nouveau soumise à validation : elle sera visible sur la carte une fois validée par un modérateur.'
+            : 'L’activité a été mise à jour.',
       );
       router.back();
     } catch (e) {
@@ -119,7 +131,13 @@ export default function EditContributionScreen() {
           ) : null}
           <Card style={styles.form}>
             <FormHeader icon="✏️" title="Modifier l’activité" subtitle="Vos changements sont enregistrés à l’envoi." />
-            <ContributionFields form={form} categories={categories} hostPlaces={hostPlaces} onChange={setForm} />
+            <ContributionFields
+              form={form}
+              categories={categories}
+              hostPlaces={hostPlaces}
+              onChange={setForm}
+              photo={{ currentPhotoUrl, change: photo, onChange: setPhoto, onError: setError }}
+            />
           </Card>
           {error && <Notice tone="danger">Erreur : {error}</Notice>}
         </ScrollView>

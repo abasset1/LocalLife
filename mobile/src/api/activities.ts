@@ -112,6 +112,24 @@ export function listMyContributions(options: CallOptions = {}): Promise<Contribu
   return request<Contribution[]>(`${BASE}/mine`, { authenticated: true, signal: options.signal });
 }
 
+/**
+ * `PUT /activities/{id}/photo` — ajoute ou remplace l'image d'une contribution (JPEG, PNG ou WebP en base64, 3 Mo
+ * au plus). Changée par son contributeur, une activité publiée repart en validation.
+ */
+export function uploadActivityPhoto(id: number, data: string, options: CallOptions = {}): Promise<void> {
+  return request<void>(`${BASE}/${id}/photo`, {
+    method: 'PUT',
+    body: { data },
+    authenticated: true,
+    signal: options.signal,
+  });
+}
+
+/** `DELETE /activities/{id}/photo` — retire l'image d'une contribution. */
+export function deleteActivityPhoto(id: number, options: CallOptions = {}): Promise<void> {
+  return request<void>(`${BASE}/${id}/photo`, { method: 'DELETE', authenticated: true, signal: options.signal });
+}
+
 /** `GET /activities/{id}/contribution` — contribution à modifier (créateur ou administrateur). */
 export function getContribution(id: number | string, options: CallOptions = {}): Promise<Contribution> {
   return request<Contribution>(`${BASE}/${encodeURIComponent(String(id))}/contribution`, {

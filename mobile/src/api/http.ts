@@ -37,6 +37,15 @@ export function configureApiClient(config: ApiClientConfig): void {
   clientConfig = config;
 }
 
+/**
+ * En-tête `Authorization` de la session, pour une image protégée chargée hors du client API (image d'une
+ * contribution en attente de validation, servie seulement à son auteur). Vide hors connexion.
+ */
+export async function authorizationHeaders(): Promise<Record<string, string>> {
+  const token = await clientConfig.getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export type QueryValue = string | number | boolean | readonly string[] | null | undefined;
 export type QueryParams = Record<string, QueryValue>;
 

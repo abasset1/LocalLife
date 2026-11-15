@@ -12,6 +12,7 @@ export {
   createActivity,
   cancelActivity,
   deleteActivity,
+  deleteActivityPhoto,
   getActivity,
   getContribution,
   listActivities,
@@ -20,6 +21,7 @@ export {
   searchNearby,
   searchWithinBounds,
   updateActivity,
+  uploadActivityPhoto,
 } from './activities';
 export type { CallOptions } from './activities';
 export { EXPORT_FILE_NAME, changePassword, deleteAccount, exportMyData, getCurrentAccount } from './account';

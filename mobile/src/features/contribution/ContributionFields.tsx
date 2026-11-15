@@ -3,6 +3,7 @@ import { TextField } from '@/components/text-field';
 import { FieldRow, FormSection, Hint } from '@/components/form-parts';
 import { ChannelSwitch, ChipGroup, toggleCode } from '@/features/settings';
 
+import { ActivityPhotoField, type PhotoChange } from './ActivityPhotoField';
 import { NO_HOST_PLACE, WEEK_DAYS, hostPlaceOptions, type ContributionForm } from './form';
 
 interface ContributionFieldsProps {
@@ -11,14 +12,22 @@ interface ContributionFieldsProps {
   onChange: (form: ContributionForm) => void;
   /** Lieux publiés gérés par l'auteur (accès pro) : choix facultatif « Proposé par un de mes lieux ». */
   hostPlaces?: readonly ManagedPlace[];
+  /** Image facultative : déjà enregistrée (`currentPhotoUrl`) et changement demandé. */
+  photo?: {
+    currentPhotoUrl: string | null | undefined;
+    change: PhotoChange;
+    onChange: (change: PhotoChange) => void;
+    onError: (message: string) => void;
+  };
 }
 
 /**
  * Champs du formulaire de contribution, partagés par la proposition (onglet Contribution) et la
- * modification (« Mes contributions »). Une case « Revient chaque semaine » remplace les dates par des
- * jours de passage et des horaires (food truck, marché…).
+ * modification (« Mes contributions »). Une activité ponctuelle a des dates et des heures de début et de fin
+ * facultatives ; une case « Revient chaque semaine » les remplace par des jours de passage et des horaires
+ * (food truck, marché…). Image facultative.
  */
-export function ContributionFields({ form, categories, onChange, hostPlaces = [] }: ContributionFieldsProps) {
+export function ContributionFields({ form, categories, onChange, hostPlaces = [], photo }: ContributionFieldsProps) {
   const set = (patch: Partial<ContributionForm>) => onChange({ ...form, ...patch });
 
   return (
@@ -44,6 +53,14 @@ export function ContributionFields({ form, categories, onChange, hostPlaces = []
           selected={form.categoryCodes}
           onToggle={(code) => set({ categoryCodes: toggleCode(form.categoryCodes, code) })}
         />
+        {photo ? (
+          <ActivityPhotoField
+            currentPhotoUrl={photo.currentPhotoUrl}
+            change={photo.change}
+            onChange={photo.onChange}
+            onError={photo.onError}
+          />
+        ) : null}
       </FormSection>
 
       <FormSection title="Où">
@@ -115,7 +132,29 @@ export function ContributionFields({ form, categories, onChange, hostPlaces = []
             keyboardType="numbers-and-punctuation"
           />
         </FieldRow>
-        {form.recurring ? <Hint>Sans date de début, la récurrence commence aujourd’hui.</Hint> : null}
+        {!form.recurring && (
+          <FieldRow>
+            <TextField
+              label="Heure de début (facultatif)"
+              value={form.startTime}
+              onChangeText={(startTime) => set({ startTime })}
+              placeholder="20:30"
+              keyboardType="numbers-and-punctuation"
+            />
+            <TextField
+              label="Heure de fin (facultatif)"
+              value={form.endTime}
+              onChangeText={(endTime) => set({ endTime })}
+              placeholder="23:00"
+              keyboardType="numbers-and-punctuation"
+            />
+          </FieldRow>
+        )}
+        {form.recurring ? (
+          <Hint>Sans date de début, la récurrence commence aujourd’hui.</Hint>
+        ) : (
+          <Hint>Sans date de fin, l’activité se termine le jour du début (le lendemain si l’heure de fin est avant celle du début).</Hint>
+        )}
       </FormSection>
 
       <FormSection title="Contact" hint="Facultatif : affiché sur la fiche de l’activité.">

@@ -229,6 +229,8 @@ export interface Contribution {
     hostPlaceId?: number | null;
     /** Motif d'un refus ou d'une annulation par un modérateur, sinon `null`. */
     moderationReason?: string | null;
+    /** Image ajoutée par le contributeur (chemin de l'API), sinon `null`. */
+    photoUrl?: string | null;
 }
 
 /**

@@ -114,6 +114,7 @@ public class ActivityController {
     private final OccurrenceService occurrenceService;
     private final LocationService locationService;
     private final MediaService mediaService;
+    private final com.locallife.backend.media.infrastructure.ActivityPhotoRepository activityPhotoRepository;
     private final ActivityMediaService activityMediaService;
     private final ActivityLinkService activityLinkService;
     private final AccessibilityService accessibilityService;
@@ -146,7 +147,8 @@ public class ActivityController {
             ActivityCoordinatePrecisionRepository coordinatePrecisionRepository,
             ActivityAtPlaceRepository activityAtPlaceRepository, ContributionAccessPolicy contributionAccessPolicy,
             ActivityHostPlaceService hostPlaceService, PlanLimits planLimits,
-            AdminActivityService adminActivityService, ActivityNextOccurrenceRepository nextOccurrenceRepository) {
+            AdminActivityService adminActivityService, ActivityNextOccurrenceRepository nextOccurrenceRepository,
+            com.locallife.backend.media.infrastructure.ActivityPhotoRepository activityPhotoRepository) {
         this.activityService = activityService;
         this.sourceService = sourceService;
         this.userService = userService;
@@ -171,6 +173,7 @@ public class ActivityController {
         this.planLimits = planLimits;
         this.adminActivityService = adminActivityService;
         this.nextOccurrenceRepository = nextOccurrenceRepository;
+        this.activityPhotoRepository = activityPhotoRepository;
     }
 
     @Operation(summary = "Activités à venir d'un lieu permanent",
@@ -577,12 +580,8 @@ public class ActivityController {
      * aucun média n'est attaché — fiche d'une seule activité ; les listes passent par {@link #resolveMainImageUrls}.
      */
     private String resolveMainImageUrl(Long activityId) {
-        return activityMediaService.findByActivityId(activityId).stream()
-                .findFirst()
-                .map(ActivityMedia::mediaId)
-                .flatMap(mediaService::findById)
-                .map(Media::url)
-                .orElse(null);
+        // Même règle que les listes : l'image ajoutée par le contributeur passe avant les médias importés.
+        return resolveMainImageUrls(List.of(activityId)).get(activityId);
     }
 
     /**
@@ -639,11 +638,15 @@ public class ActivityController {
             }
         }
 
-        List<Media> media = activityMediaService.findByActivityId(activity.id()).stream()
+        List<Media> media = new ArrayList<>();
+        // Image ajoutée par le contributeur : en tête, avant les médias importés (id 0 : pas un média partagé).
+        activityPhotoRepository.find(activity.id()).ifPresent(photo -> media.add(new Media(0L,
+                photo.url(activity.id()), photo.contentType(), null, null, null, activity.title())));
+        activityMediaService.findByActivityId(activity.id()).stream()
                 .map(ActivityMedia::mediaId)
                 .map(mediaService::findById)
                 .flatMap(Optional::stream)
-                .toList();
+                .forEach(media::add);
 
         List<ActivityLink> links = activityLinkService.findByActivityId(activity.id());
         Accessibility accessibility = accessibilityService.findByActivityId(activity.id()).orElse(null);
@@ -854,7 +857,8 @@ public class ActivityController {
                 linkValue(links, LINK_TYPE_WEBSITE), linkValue(links, ActivityLinkService.TYPE_PHONE),
                 linkValue(links, ActivityLinkService.TYPE_EMAIL), recurrence,
                 hostPlaceService.findChosen(activity.id()).orElse(null),
-                adminActivityService.moderationReason(activity.id()));
+                adminActivityService.moderationReason(activity.id()),
+                activityPhotoRepository.find(activity.id()).map(photo -> photo.url(activity.id())).orElse(null));
     }
 
     private static String linkValue(List<ActivityLink> links, String type) {
