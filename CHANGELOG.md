@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Application : plus de récurrence dans le formulaire d'activité
+- Comme sur le site, « Proposer une activité » ne propose plus la case « Revient chaque semaine » ni les jours et horaires de passage : une proposition est ponctuelle (dates et heures de début et de fin, facultatives).
+- Une contribution déjà hebdomadaire garde son passage tel quel en modification (rappelé au-dessus des dates) ; seules ses dates « À partir du » / « Jusqu'au » se modifient.
+
 ### Proposer une activité : heures de début et de fin, image
 - **Heures** (site et application) : « Heure de début » et « Heure de fin », facultatives, à côté des dates d'une activité ponctuelle. Sans date de fin, l'activité se termine le jour du début, ou le lendemain si l'heure de fin est avant celle du début (soirée de 22 h à 2 h). Une heure sans date de début, ou une fin avant le début, est signalée avant l'envoi. En modification, dates et heures sont pré-remplies. Un passage hebdomadaire garde ses horaires habituels.
 - **Image** (site et application) : « Ajouter une image » dans la section L'activité, avec aperçu, « Changer l'image » et « Retirer l'image ». JPEG, PNG ou WebP, 3 Mo au plus. L'image est réduite avant l'envoi (site : 1280 px en JPEG ; application : recadrage 4:3 compressé). Elle devient l'image principale de l'activité (carte, liste, favoris) et passe en tête de la fiche.

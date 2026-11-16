@@ -28,8 +28,8 @@ import type { ContributionForm, PhotoChange } from '@/features/contribution';
 import { contributionQuota } from '@/features/limits/limits';
 
 /**
- * Onglet « Contribution » : proposer une activité, ponctuelle ou qui revient chaque semaine (food
- * truck, marché…). Elle est créée en attente de validation par un modérateur. « Mes contributions »
+ * Onglet « Contribution » : proposer une activité ponctuelle (dates, heures et image facultatives). Elle est
+ * créée en attente de validation par un modérateur. « Mes contributions »
  * permet ensuite de la modifier ou de la supprimer.
  */
 export default function ContributionScreen() {
@@ -218,7 +218,7 @@ export default function ContributionScreen() {
             <ScreenHeader
               eyebrow="Contribuer"
               title="Proposer une activité"
-              lead="Partagez un événement ou un rendez-vous régulier avec la communauté."
+              lead="Partagez un événement avec la communauté."
             />
             <Button
               label="Mes contributions"
