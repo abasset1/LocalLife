@@ -25,12 +25,12 @@ const DEV_DEFAULT_API_URL = "http://localhost:8080";
 const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
 
 /**
- * Identifiant du projet EAS (Expo Application Services), requis pour
- * obtenir un jeton de notification push Expo. Fourni par l'environnement :
- * sans lui, l'application fonctionne mais les alertes par notification sont
- * indisponibles (message affiché à l'utilisateur).
+ * Identifiant du projet EAS (Expo Application Services, projet
+ * @alexb8/locallife-mobile), requis pour obtenir un jeton de notification push
+ * Expo et lu par `eas-cli` (credentials, build). Ce n'est pas un secret : il
+ * figure dans chaque build. EAS_PROJECT_ID permet d'en utiliser un autre.
  */
-const easProjectId = process.env.EAS_PROJECT_ID;
+const easProjectId = process.env.EAS_PROJECT_ID ?? "b5705144-cb7e-4aa1-835b-0cb95f4f3b77";
 
 /**
  * Configuration Firebase Android (`google-services.json`, téléchargé depuis la
@@ -137,6 +137,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? DEV_DEFAULT_API_URL,
     googleWebClientId,
     googleIosClientId,
-    ...(easProjectId ? { eas: { projectId: easProjectId } } : {}),
+    eas: { projectId: easProjectId },
   },
 });

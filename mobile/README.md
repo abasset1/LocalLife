@@ -341,15 +341,16 @@ l'aperçu d'un marqueur (`src/features/activity/`).
 Les alertes (menu → « Mes alertes ») peuvent être envoyées en
 notification sur le téléphone, via le service **Expo Push**.
 
-- `EAS_PROJECT_ID` (voir `.env.example`) est requis pour obtenir le jeton
-  de notification de l'appareil. Sans lui, l'application fonctionne mais
-  la notification d'une alerte ne peut pas être activée (message affiché).
+- L'identifiant du projet EAS (`@alexb8/locallife-mobile`), requis pour obtenir
+  le jeton de notification de l'appareil, est la valeur par défaut de
+  `app.config.ts` (`EAS_PROJECT_ID` pour en utiliser un autre).
 - **Android : Firebase (FCM) est obligatoire.** Sans `google-services.json`,
   un build installé n'obtient aucun jeton (message « … pas configurées pour
   Android … (Firebase) ») et le backend n'a aucun appareil à notifier.
   Mise en place, une fois :
-  1. `npx eas-cli init` (depuis `mobile/`) : crée le projet Expo et donne
-     l'identifiant à mettre dans `EAS_PROJECT_ID` (`mobile/.env`).
+  1. Projet Expo : déjà créé et lié (`@alexb8/locallife-mobile`, identifiant
+     dans `app.config.ts`). `eas init` signale qu'il ne peut pas écrire dans
+     `app.config.ts` : c'est attendu.
   2. Console Firebase : créer un projet, y ajouter une application Android
      de package `com.locallife.mobile`, télécharger `google-services.json`
      et le placer dans `mobile/` (ignoré par Git ; autre emplacement :
