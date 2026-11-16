@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 /**
@@ -29,6 +31,17 @@ const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
  * indisponibles (message affiché à l'utilisateur).
  */
 const easProjectId = process.env.EAS_PROJECT_ID;
+
+/**
+ * Configuration Firebase Android (`google-services.json`, téléchargé depuis la
+ * console Firebase pour le package `com.locallife.mobile`). Indispensable sur
+ * Android : sans elle, un build installé ne peut pas obtenir de jeton de
+ * notification (Expo Push passe par FCM). Chemin fourni par
+ * GOOGLE_SERVICES_JSON, sinon `./google-services.json` s'il est présent.
+ * Jamais commité (voir .gitignore).
+ */
+const googleServicesFile =
+  process.env.GOOGLE_SERVICES_JSON ?? (existsSync("./google-services.json") ? "./google-services.json" : undefined);
 
 /**
  * Connexion Google (identifiants OAuth publics, pas des secrets). Le client
@@ -68,6 +81,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     predictiveBackGestureEnabled: false,
     ...(googleMapsApiKey ? { config: { googleMaps: { apiKey: googleMapsApiKey } } } : {}),
+    ...(googleServicesFile ? { googleServicesFile } : {}),
   },
   web: {
     output: "static",

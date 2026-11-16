@@ -5,6 +5,8 @@ import { Platform } from 'react-native';
 import { registerPushToken, unregisterPushToken } from '@/api';
 import { isExpoGoAndroid } from '@/config/expoGo';
 
+import { pushRegistrationFailure } from './pushErrors';
+
 /**
  * Notifications push des alertes (service Expo Push).
  *
@@ -98,8 +100,8 @@ export async function enablePushNotifications(): Promise<PushRegistration> {
     if (!permission.granted) return { status: 'denied' };
     await sendTokenToBackend();
     return { status: 'registered' };
-  } catch {
-    return { status: 'unavailable', reason: "L'appareil n'a pas pu être enregistré. Réessayez plus tard." };
+  } catch (error) {
+    return { status: 'unavailable', reason: pushRegistrationFailure(error) };
   }
 }
 
