@@ -62,7 +62,7 @@ import { useMapData, type RadiusSearch } from './useMapData';
 import { type MapLayer, preferredMapLayer } from './placesPreference';
 import { usePlaces } from './usePlaces';
 import { useLaunchFeatures } from '@/features/launch';
-import { useSearchPreferences } from './useSearchPreferences';
+import { useSearchPreferencesState } from './useSearchPreferences';
 import { LOCATION_MESSAGES, useUserLocation } from './useUserLocation';
 
 /** Pictogrammes des contenus du bouton « Affichage » (Night garde son logo, voir `MapChip`). */
@@ -122,6 +122,12 @@ function regionForPlace(place: ExplorerPlace, radiusKm: number | null, like: Reg
  */
 const FIRST_FRAME_DELAY_MS = 250;
 
+/**
+ * Attente maximale du lieu de départ (paramètres de recherche) avant d'afficher la carte : au-delà, elle s'ouvre
+ * sur la vue d'ensemble et se cadrera par animation quand les paramètres arriveront.
+ */
+const START_WAIT_MS = 2500;
+
 /** Valeur de la puce « Sans rayon » du sélecteur de rayon. */
 const NO_RADIUS = 'none';
 
@@ -155,11 +161,22 @@ export default function MapScreen() {
   // Lieu de recherche déjà connu à l'ouverture (écran recréé après l'accueil, par exemple) : la carte s'ouvre
   // directement dessus, sans dépendre d'une animation.
   const [initialPlace] = useState(() => getExplorerState().place);
-  const [initialRegion] = useState<Region>(() => {
+  /**
+   * Région d'ouverture de la carte. Juste après la connexion, la ville des paramètres n'est pas encore connue : la
+   * carte n'est affichée qu'une fois le lieu de départ connu (ou les paramètres chargés, ou après
+   * {@link START_WAIT_MS}), pour s'ouvrir directement dessus (`initialRegion`). Un cadrage par animation juste
+   * après l'ouverture était parfois ignoré par Android, et la carte restait sur la vue d'ensemble.
+   */
+  const [initialRegion, setInitialRegion] = useState<Region | null>(() => {
     const { place: known, radiusKm } = getExplorerState();
-    return known && known.source !== 'map' ? regionForPlace(known, radiusKm, INITIAL_REGION) : INITIAL_REGION;
+    return known && known.source !== 'map' ? regionForPlace(known, radiusKm, INITIAL_REGION) : null;
   });
-  const [region, setRegion] = useState<Region>(initialRegion);
+  const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL_REGION);
+  const [startWaitOver, setStartWaitOver] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setStartWaitOver(true), START_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, []);
   const router = useRouter();
   /** « Voir sur la carte » depuis une fiche : centre et activité à sélectionner (paramètres de route). */
   const focus = useLocalSearchParams<{ focusId?: string; focusLat?: string; focusLon?: string }>();
@@ -174,11 +191,30 @@ export default function MapScreen() {
   // Critères partagés avec la liste (FRONT-REV-02) : lieu, catégories, rayon. Les paramètres de
   // recherche (utilisateur connecté) les initialisent à chaque changement de ces paramètres, pas à
   // chaque retour sur la carte : un choix fait par l'utilisateur n'est pas écrasé.
-  const preferences = useSearchPreferences();
+  const { preferences, settled: preferencesSettled } = useSearchPreferencesState();
   useEffect(() => {
     applyPreferences(preferences);
   }, [preferences]);
   const { place, categoryCodes, radiusKm: activeRadiusKm, freeOnly } = useExplorer();
+
+  // Lieu déjà cadré : la carte ne s'y recadre pas une seconde fois.
+  const framedPlace = useRef<ExplorerPlace | null>(initialPlace);
+  // Ouverture de la carte : sur le lieu de départ dès qu'il est connu. Lu dans le magasin (et non dans `place`) :
+  // les paramètres viennent d'y être appliqués par l'effet précédent, avant le prochain rendu. Différé d'un tour :
+  // pas de mise à jour d'état synchrone dans l'effet.
+  useEffect(() => {
+    if (initialRegion) return undefined;
+    const { place: known, radiusKm } = getExplorerState();
+    const knownPlace = known !== null && known.source !== 'map' ? known : null;
+    if (!knownPlace && !preferencesSettled && !startWaitOver) return undefined;
+    const timer = setTimeout(() => {
+      const start = knownPlace ? regionForPlace(knownPlace, radiusKm, INITIAL_REGION) : INITIAL_REGION;
+      framedPlace.current = known;
+      setInitialRegion(start);
+      setRegion(start);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [initialRegion, place, preferencesSettled, startWaitOver]);
 
   // Centre courant, lu sans relancer le cadrage à chaque déplacement de la carte.
   const regionRef = useRef(region);
@@ -229,7 +265,6 @@ export default function MapScreen() {
   // Nouveau lieu de recherche (ville choisie, « Ma position », ville des paramètres) : la carte s'y
   // cadre, sur le rayon s'il y en a un. Un lieu venant des paramètres n'écrase pas un cadrage déjà fait
   // sur une activité (« Voir sur la carte »).
-  const framedPlace = useRef<ExplorerPlace | null>(initialPlace);
   // Point bleu de l'appareil : seulement quand la recherche part de sa position.
   const showUser = place?.source === 'position';
   useEffect(() => {
@@ -446,6 +481,11 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
+      {initialRegion === null ? (
+        <View style={[StyleSheet.absoluteFill, styles.mapPlaceholder, { backgroundColor: theme.backgroundElement }]}>
+          <ActivityIndicator accessibilityLabel="Chargement de la carte" />
+        </View>
+      ) : (
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
@@ -559,6 +599,7 @@ export default function MapScreen() {
           />
         ))}
       </MapView>
+      )}
 
       {USE_OSM_TILES && (
         // Attribution exigée par OpenStreetMap.
@@ -855,6 +896,10 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
+  mapPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
   },
