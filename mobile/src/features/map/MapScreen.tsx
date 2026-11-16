@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
@@ -243,10 +243,33 @@ export default function MapScreen() {
   const pendingFocusId = useRef<number | null>(null);
   /** Carte cadrée sur une activité : le cadrage d'après les préférences, s'il arrive ensuite, est ignoré. */
   const focusedOnActivity = useRef(false);
+  /**
+   * Carte affichée à l'écran. Masquée sous un autre écran (accueil de première connexion, fiche…), elle ignore
+   * un cadrage animé sur Android : il attend alors le retour sur la carte (la ville enregistrée dans l'accueil
+   * était appliquée pendant que la carte était masquée, et elle restait sur la vue d'ensemble).
+   */
+  const screenFocused = useRef(false);
+  const flushPendingRegion = useCallback(() => {
+    if (!mapReady.current || !screenFocused.current) return;
+    const target = pendingRegion.current;
+    pendingRegion.current = null;
+    if (target) mapRef.current?.animateToRegion(target, 500);
+  }, []);
   const moveTo = useCallback((target: Region) => {
-    if (mapReady.current) mapRef.current?.animateToRegion(target, 500);
+    if (mapReady.current && screenFocused.current) mapRef.current?.animateToRegion(target, 500);
     else pendingRegion.current = target;
   }, []);
+  useFocusEffect(
+    useCallback(() => {
+      screenFocused.current = true;
+      // Laisse la transition de retour se terminer : la carte doit avoir retrouvé sa place.
+      const timer = setTimeout(flushPendingRegion, FIRST_FRAME_DELAY_MS);
+      return () => {
+        clearTimeout(timer);
+        screenFocused.current = false;
+      };
+    }, [flushPendingRegion]),
+  );
 
   useEffect(() => {
     const latitude = Number(focus.focusLat);
@@ -495,9 +518,7 @@ export default function MapScreen() {
           // Cadrage demandé avant que la carte ne soit prête : envoyé un peu après, une fois sa taille connue.
           setTimeout(() => {
             mapReady.current = true;
-            const target = pendingRegion.current;
-            pendingRegion.current = null;
-            if (target) mapRef.current?.animateToRegion(target, 500);
+            flushPendingRegion();
           }, FIRST_FRAME_DELAY_MS);
         }}
         // Toucher un marqueur déclenche aussi `onPress` de la carte (`action: 'marker-press'`) : sans ce
