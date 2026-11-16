@@ -27,7 +27,10 @@ export function parseLaunchFeatures(value: unknown): LaunchFeatures {
   };
 }
 
-/** Une offre au moins (Premium ou Pro) est ouverte : abonnement, contributions et leurs invitations. */
+/**
+ * Une offre au moins (Premium ou Pro) est ouverte : abonnement, contributions, suivi (cloche « Suivre », « Mes
+ * suivis ») et leurs invitations.
+ */
 export function hasOpenOffer(features: LaunchFeatures): boolean {
   return features.premium || features.pro;
 }

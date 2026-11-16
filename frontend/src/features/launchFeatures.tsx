@@ -38,6 +38,14 @@ export function parseLaunchFeatures(value: unknown): LaunchFeatures {
     };
 }
 
+/**
+ * Suivi (cloche « Suivre », « Mes suivis », annonce) : réservé aux offres Premium et Pro, donc affiché dès que l'une
+ * des deux est ouverte.
+ */
+export function isFollowOpen(features: LaunchFeatures): boolean {
+    return features.premium || features.pro;
+}
+
 async function fetchLaunchFeatures(signal: AbortSignal): Promise<LaunchFeatures> {
     // Cookie de session envoyé si présent : un membre de l'équipe voit les fonctions encore fermées. Une session
     // absente ou invalide est traitée comme un visiteur par le serveur (route publique), sans 401 ni redirection.

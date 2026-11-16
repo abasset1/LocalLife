@@ -42,7 +42,7 @@ import FollowNewsPopup from "./components/news/FollowNewsPopup";
 import FeedbackModal from "./components/feedback/FeedbackModal";
 import PremiumOfferPopup from "./components/news/PremiumOfferPopup";
 import { useAccountAccess } from "./components/pro/useProAccess";
-import { useLaunchFeatures, type LaunchFeatures } from "./features/launchFeatures";
+import { isFollowOpen, useLaunchFeatures, type LaunchFeatures } from "./features/launchFeatures";
 import { useNightTheme } from "./theme/nightTheme";
 import type {
     Activity,
@@ -1434,7 +1434,7 @@ function App() {
                             value={searchQuery}
                         />
                     </div>
-                    {features.premium && (
+                    {isFollowOpen(features) && (
                         <FollowNewsBanner canFollow={canFollow} userId={currentUser?.userId ?? null} />
                     )}
                     <SearchResultBanner
@@ -1632,7 +1632,7 @@ function App() {
                 </div>
             </div>
 
-            {features.premium && (
+            {isFollowOpen(features) && (
                 <>
                     <FollowNewsPopup
                         blocked={!arePreferencesApplied || needsOnboarding || wasOnboardingShown

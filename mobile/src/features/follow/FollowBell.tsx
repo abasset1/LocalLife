@@ -7,7 +7,7 @@ import { useAuth } from '@/auth';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { useLaunchFeatures } from '@/features/launch';
+import { hasOpenOffer, useLaunchFeatures } from '@/features/launch';
 import { enablePushNotifications } from '@/notifications';
 
 import { followPushNotice } from './follows';
@@ -43,10 +43,9 @@ async function enablePushAfterFollow(): Promise<void> {
   }
 }
 
-/** Masquée tant que Premium n'est pas ouvert (lancement progressif, 05/11/2026). */
+/** Masquée tant que ni Premium ni Pro n'est ouvert (lancement progressif, 05/11/2026). */
 export function FollowBell(props: FollowBellProps) {
-  const { premium } = useLaunchFeatures();
-  return premium ? <OpenFollowBell {...props} /> : null;
+  return hasOpenOffer(useLaunchFeatures()) ? <OpenFollowBell {...props} /> : null;
 }
 
 function OpenFollowBell({ type, id, title, city = null }: FollowBellProps) {
