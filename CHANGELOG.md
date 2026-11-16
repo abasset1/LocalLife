@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Application : carte cadrée sur votre zone après la connexion
+- **Correctif** : après la connexion, la carte restait souvent sur la vue d'ensemble au lieu de se cadrer sur la ville et le rayon des paramètres de recherche. Elle s'ouvrait avant que ces paramètres soient chargés, puis tentait un déplacement animé qu'Android ignorait parfois.
+- La carte attend maintenant le lieu de départ (au plus 2,5 s, avec un indicateur de chargement) et s'ouvre directement dessus. Sans paramètres, ou s'ils tardent, elle s'ouvre sur la vue d'ensemble et se cadre dès qu'ils arrivent.
+
 ### Application : plus de récurrence dans le formulaire d'activité
 - Comme sur le site, « Proposer une activité » ne propose plus la case « Revient chaque semaine » ni les jours et horaires de passage : une proposition est ponctuelle (dates et heures de début et de fin, facultatives).
 - Une contribution déjà hebdomadaire garde son passage tel quel en modification (rappelé au-dessus des dates) ; seules ses dates « À partir du » / « Jusqu'au » se modifient.
