@@ -358,7 +358,11 @@ notification sur le téléphone, via le service **Expo Push**.
   Mise en place, une fois :
   1. Projet Expo : déjà créé et lié (`@alexb8/locallife-mobile`, identifiant
      dans `app.config.ts`). `eas init` signale qu'il ne peut pas écrire dans
-     `app.config.ts` : c'est attendu.
+     `app.config.ts` : c'est attendu. `eas.json` (profils de build, requis
+     par `eas-cli credentials`) est dans le dépôt. Pour un build dans le
+     cloud EAS (`eas build`), `google-services.json` n'étant pas commité, le
+     fournir en variable d'environnement EAS de type fichier nommée
+     `GOOGLE_SERVICES_JSON`.
   2. Console Firebase : créer un projet, y ajouter une application Android
      de package `com.locallife.mobile`, télécharger `google-services.json`
      et le placer dans `mobile/` (ignoré par Git ; autre emplacement :
