@@ -325,6 +325,9 @@ function App() {
     const [previewActivity, setPreviewActivity] = useState<Activity | null>(null);
     /** Ligne de la liste survolée : l'activité est mise en évidence sur la carte. */
     const [hoveredActivity, setHoveredActivity] = useState<Activity | null>(null);
+    // Bascule Carte/Liste (mobile) : la ligne masquée ne reçoit ni mouseleave ni blur, la mise en
+    // évidence resterait affichée sur la carte (pastille rouge « fantôme »).
+    useEffect(() => setHoveredActivity(null), [viewMode]);
     const [detailActivity, setDetailActivity] = useState<Activity | null>(null);
     const [activityDetail, setActivityDetail] = useState<ActivityDetail | null>(null);
     const [isLoadingActivityDetail, setIsLoadingActivityDetail] = useState(false);
