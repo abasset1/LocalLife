@@ -30,6 +30,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
+# Firebase (notifications Android) : fourni par l'environnement
+google-services.json
+GoogleService-Info.plist
+
 # local env files
 .env*.local
 

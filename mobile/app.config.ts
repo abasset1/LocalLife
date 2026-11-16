@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 /**
@@ -23,12 +25,23 @@ const DEV_DEFAULT_API_URL = "http://localhost:8080";
 const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
 
 /**
- * Identifiant du projet EAS (Expo Application Services), requis pour
- * obtenir un jeton de notification push Expo. Fourni par l'environnement :
- * sans lui, l'application fonctionne mais les alertes par notification sont
- * indisponibles (message affiché à l'utilisateur).
+ * Identifiant du projet EAS (Expo Application Services, projet
+ * @alexb8/locallife-mobile), requis pour obtenir un jeton de notification push
+ * Expo et lu par `eas-cli` (credentials, build). Ce n'est pas un secret : il
+ * figure dans chaque build. EAS_PROJECT_ID permet d'en utiliser un autre.
  */
-const easProjectId = process.env.EAS_PROJECT_ID;
+const easProjectId = process.env.EAS_PROJECT_ID ?? "b5705144-cb7e-4aa1-835b-0cb95f4f3b77";
+
+/**
+ * Configuration Firebase Android (`google-services.json`, téléchargé depuis la
+ * console Firebase pour le package `com.locallife.mobile`). Indispensable sur
+ * Android : sans elle, un build installé ne peut pas obtenir de jeton de
+ * notification (Expo Push passe par FCM). Chemin fourni par
+ * GOOGLE_SERVICES_JSON, sinon `./google-services.json` s'il est présent.
+ * Jamais commité (voir .gitignore).
+ */
+const googleServicesFile =
+  process.env.GOOGLE_SERVICES_JSON ?? (existsSync("./google-services.json") ? "./google-services.json" : undefined);
 
 /**
  * Connexion Google (identifiants OAuth publics, pas des secrets). Le client
@@ -68,6 +81,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     predictiveBackGestureEnabled: false,
     ...(googleMapsApiKey ? { config: { googleMaps: { apiKey: googleMapsApiKey } } } : {}),
+    ...(googleServicesFile ? { googleServicesFile } : {}),
   },
   web: {
     output: "static",
@@ -123,6 +137,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? DEV_DEFAULT_API_URL,
     googleWebClientId,
     googleIosClientId,
-    ...(easProjectId ? { eas: { projectId: easProjectId } } : {}),
+    eas: { projectId: easProjectId },
   },
 });

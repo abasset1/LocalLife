@@ -349,9 +349,29 @@ l'aperçu d'un marqueur (`src/features/activity/`).
 Les alertes (menu → « Mes alertes ») peuvent être envoyées en
 notification sur le téléphone, via le service **Expo Push**.
 
-- `EAS_PROJECT_ID` (voir `.env.example`) est requis pour obtenir le jeton
-  de notification de l'appareil. Sans lui, l'application fonctionne mais
-  la notification d'une alerte ne peut pas être activée (message affiché).
+- L'identifiant du projet EAS (`@alexb8/locallife-mobile`), requis pour obtenir
+  le jeton de notification de l'appareil, est la valeur par défaut de
+  `app.config.ts` (`EAS_PROJECT_ID` pour en utiliser un autre).
+- **Android : Firebase (FCM) est obligatoire.** Sans `google-services.json`,
+  un build installé n'obtient aucun jeton (message « … pas configurées pour
+  Android … (Firebase) ») et le backend n'a aucun appareil à notifier.
+  Mise en place, une fois :
+  1. Projet Expo : déjà créé et lié (`@alexb8/locallife-mobile`, identifiant
+     dans `app.config.ts`). `eas init` signale qu'il ne peut pas écrire dans
+     `app.config.ts` : c'est attendu.
+  2. Console Firebase : créer un projet, y ajouter une application Android
+     de package `com.locallife.mobile`, télécharger `google-services.json`
+     et le placer dans `mobile/` (ignoré par Git ; autre emplacement :
+     `GOOGLE_SERVICES_JSON`).
+  3. Console Firebase → Paramètres du projet → Comptes de service : générer
+     une clé privée (JSON), puis la confier à Expo :
+     `npx eas-cli credentials` → Android → *Google Service Account* →
+     *Push Notifications (FCM V1)*. Sans elle, Expo accepte les envois mais
+     rien n'arrive.
+  4. Reconstruire l'application : `npx expo prebuild --clean` puis
+     `npx expo run:android` (ou `eas build`), et la réinstaller.
+  5. Vérifier : après connexion et activation d'une alerte en notification,
+     la table `user_push_token` contient une ligne pour le compte.
 - Les notifications ne fonctionnent **pas dans Expo Go sur Android** (ni sur
   un émulateur) : utiliser un build de développement (`eas build --profile
   development`) sur un vrai téléphone.
