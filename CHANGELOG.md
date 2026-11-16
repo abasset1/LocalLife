@@ -2,6 +2,10 @@
 
 ## 0.9.59 — non publiée
 
+### Application : carte cadrée sur la ville après l'accueil de première connexion (suite)
+- **Correctif** : à la première connexion, la carte restait sur la vue d'ensemble après l'accueil. Elle était déjà ouverte sous l'écran d'accueil ; la ville enregistrée y était appliquée pendant qu'elle était masquée, et Android ignorait alors le cadrage animé.
+- La ville et le rayon choisis dans l'accueil sont appliqués dès leur enregistrement. Un cadrage demandé pendant que la carte est masquée attend maintenant le retour sur la carte, puis s'applique une fois la transition terminée.
+
 ### Application : carte cadrée sur votre zone après la connexion
 - **Correctif** : après la connexion, la carte restait souvent sur la vue d'ensemble au lieu de se cadrer sur la ville et le rayon des paramètres de recherche. Elle s'ouvrait avant que ces paramètres soient chargés, puis tentait un déplacement animé qu'Android ignorait parfois.
 - La carte attend maintenant le lieu de départ (au plus 2,5 s, avec un indicateur de chargement) et s'ouvre directement dessus. Sans paramètres, ou s'ils tardent, elle s'ouvre sur la vue d'ensemble et se cadre dès qu'ils arrivent.

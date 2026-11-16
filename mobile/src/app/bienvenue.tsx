@@ -12,6 +12,7 @@ import { BrandMark } from '@/components/brand-mark';
 import { Notice } from '@/components/notice';
 import { Brand, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/auth';
+import { applyPreferences } from '@/features/explorer/explorerStore';
 import { suspendNightMode } from '@/hooks/use-night-mode';
 import { useLaunchFeatures } from '@/features/launch';
 import { markOnboardingShown } from '@/features/news';
@@ -130,6 +131,8 @@ export default function BienvenueScreen() {
         defaultMapLayer: mapLayer,
       });
       setSaved(preferences);
+      // La carte (ouverte sous l'accueil) connaît tout de suite la ville et le rayon : elle s'y cadre au retour.
+      applyPreferences(preferences);
       setAlertCodes(preferences.defaultCategoryCodes);
       setStep('alert');
     } catch (e) {
