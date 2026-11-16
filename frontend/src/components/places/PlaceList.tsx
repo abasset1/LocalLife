@@ -6,7 +6,7 @@ import PlaceActivities from "./PlaceActivities";
 import PlaceFoodTrucks from "./PlaceFoodTrucks";
 import { placeTypeLabel } from "./placeTypes";
 import FollowBell from "../follow/FollowBell";
-import { useLaunchFeatures } from "../../features/launchFeatures";
+import { isFollowOpen, useLaunchFeatures } from "../../features/launchFeatures";
 import type { Place } from "./types";
 
 const NO_CITY = "Commune non renseignée";
@@ -84,7 +84,7 @@ function PlaceList({ places, onSelectActivity, hasProAccess = false }: {
                                     </button>
                                     {open && (
                                         <div className="place-list-details">
-                                            {features.premium && (
+                                            {isFollowOpen(features) && (
                                                 <FollowBell city={place.city} id={place.id} title={place.name} type="place" />
                                             )}
                                             {place.address && <p>{place.address}</p>}

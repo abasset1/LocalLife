@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import ExplorerMenu from "./components/explorer/ExplorerMenu";
-import { ALL_CLOSED, LaunchFeaturesProvider, parseLaunchFeatures } from "./features/launchFeatures";
+import { ALL_CLOSED, isFollowOpen, LaunchFeaturesProvider, parseLaunchFeatures } from "./features/launchFeatures";
 
 /**
  * Lancement progressif (05/11/2026) : tant que le serveur les dit fermés, lieux, food trucks et offres Premium/Pro
@@ -64,5 +64,11 @@ describe("Lancement : fonctions fermées", () => {
             places: true, foodTrucks: false, premium: false, pro: false,
         });
         expect(parseLaunchFeatures(null)).toEqual(ALL_CLOSED);
+    });
+
+    it("ouvre le suivi (cloche « Suivre ») dès que Premium ou Pro est ouvert", () => {
+        expect(isFollowOpen(ALL_CLOSED)).toBe(false);
+        expect(isFollowOpen({ ...ALL_CLOSED, premium: true })).toBe(true);
+        expect(isFollowOpen({ ...ALL_CLOSED, pro: true })).toBe(true);
     });
 });

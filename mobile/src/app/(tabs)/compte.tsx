@@ -267,7 +267,7 @@ export default function CompteScreen() {
                 description="Les activités que vous aimez"
                 onPress={() => router.push('/favoris')}
               />
-              {features.premium && (
+              {hasOpenOffer(features) && (
                 <MenuRow
                   icon={{ ios: 'bell.badge', android: 'notifications_active', web: 'notifications_active' }}
                   label="Mes suivis"

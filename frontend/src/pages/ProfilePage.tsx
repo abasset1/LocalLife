@@ -14,7 +14,7 @@ import MyDataCard from "../components/profile/MyDataCard";
 import { Notice, ProfileCard } from "../components/profile/ProfileUi";
 import SearchPreferencesForm from "../components/profile/SearchPreferencesForm";
 import SubscriptionCard from "../components/subscription/SubscriptionCard";
-import { useLaunchFeatures } from "../features/launchFeatures";
+import { isFollowOpen, useLaunchFeatures } from "../features/launchFeatures";
 import { roleLabel } from "../auth/roles";
 import type { UserLimits } from "../components/explorer/types";
 
@@ -320,7 +320,7 @@ function ProfilePage() {
                                     canUseKeywords={profile.limits?.alertKeywords ?? null}
                                     maxAlerts={profile.limits?.maxAlerts ?? null}
                                 />
-                                {features.premium && (
+                                {isFollowOpen(features) && (
                                     <FollowedItemsCard canFollow={profile.limits?.canFollow ?? false} />
                                 )}
                                 <ProfileCard
