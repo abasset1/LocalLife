@@ -109,8 +109,18 @@ function ActivityList({
                     onBlur={() => onHoverActivity?.(null)}
                     onClick={() => onSelectActivity(activity)}
                     onFocus={() => onHoverActivity?.(activity)}
-                    onMouseEnter={() => onHoverActivity?.(activity)}
-                    onMouseLeave={() => onHoverActivity?.(null)}
+                    // Souris seulement : au toucher, le navigateur simule un survol qui ne se termine
+                    // jamais (pas de mouseleave), laissant l'activité en évidence sur la carte.
+                    onPointerEnter={(event) => {
+                        if (event.pointerType === "mouse") {
+                            onHoverActivity?.(activity);
+                        }
+                    }}
+                    onPointerLeave={(event) => {
+                        if (event.pointerType === "mouse") {
+                            onHoverActivity?.(null);
+                        }
+                    }}
                     type="button"
                 >
                     {activity.mainImageUrl && (
