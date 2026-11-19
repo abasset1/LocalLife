@@ -2,6 +2,11 @@
 
 ## 0.9.59 — non publiée
 
+### Source DATAtourisme Occitanie : toute la région, comme PACA
+- **Constat** : peu d'activités en Occitanie comparé à PACA. Aucune migration ne créait de source pour l'Occitanie (seulement « DATAtourisme PACA », V60), alors que le fichier régional `datatourisme-reg-occ.csv` est le plus fourni des deux : **7 381 événements à venir contre 2 645** pour PACA (19/11/2026). Hérault 2 289, Haute-Garonne 1 046, Hautes-Pyrénées 856, Aveyron 831, Lot 664, Pyrénées-Orientales 582, Lozère 498, Aude 235, Tarn 115, Gard 94, Gers 87, Tarn-et-Garonne 44, Ariège 40. Le collecteur lit le fichier réel sans erreur (7 357 événements retenus).
+- **Migration V93** : source « DATAtourisme Occitanie (data.gouv.fr) », fichier régional, sans filtre de département (13 départements). Enrichissement par l'API DATAtourisme sous le garde-fou existant (148 requêtes sur 400). Les événements déjà publiés par une autre source (fichier France, « Languedoc » créée depuis l'administration, OpenAgenda) ne sont pas publiés deux fois.
+- **À faire en production** : la source est créée **inactive**, comme toute nouvelle source DATAtourisme. Administration → Imports → « DATAtourisme Occitanie » → « Activer après vérification » (essai à blanc puis activation). Si la source « DATAtourisme Languedoc » pointe sur le même fichier avec un filtre de départements, elle peut ensuite être désactivée.
+
 ### Application : carte cadrée sur la ville après l'accueil de première connexion (suite)
 - **Correctif** : à la première connexion, la carte restait sur la vue d'ensemble après l'accueil. Elle était déjà ouverte sous l'écran d'accueil ; la ville enregistrée y était appliquée pendant qu'elle était masquée, et Android ignorait alors le cadrage animé.
 - La ville et le rayon choisis dans l'accueil sont appliqués dès leur enregistrement. Un cadrage demandé pendant que la carte est masquée attend maintenant le retour sur la carte, puis s'applique une fois la transition terminée.
