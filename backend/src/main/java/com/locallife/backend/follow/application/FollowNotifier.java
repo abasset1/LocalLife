@@ -1,6 +1,8 @@
 package com.locallife.backend.follow.application;
 
 import com.locallife.backend.auth.application.EmailService;
+import com.locallife.backend.common.i18n.FrenchDates;
+import com.locallife.backend.follow.domain.FieldChange;
 import com.locallife.backend.follow.domain.FollowRecipient;
 import com.locallife.backend.follow.domain.FollowTargetType;
 import com.locallife.backend.follow.domain.FollowUpdate;
@@ -8,11 +10,14 @@ import com.locallife.backend.follow.infrastructure.FollowRepository;
 import com.locallife.backend.push.application.ExpoPushService;
 import com.locallife.backend.push.infrastructure.PushTokenRepository;
 import com.locallife.backend.subscription.application.PlanLimits;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +60,45 @@ public class FollowNotifier {
         KIND_LABELS.put("CONTACT", "coordonnées mises à jour");
         KIND_LABELS.put("PLANNING", "planning mis à jour");
     }
+
+    /** Nature du changement (V79, V91) dont relève chaque champ détaillé (V94). */
+    private static final Map<String, String> FIELD_KINDS = Map.ofEntries(
+            Map.entry("start_date", "DATES"), Map.entry("end_date", "DATES"),
+            Map.entry("address", "LOCATION"), Map.entry("position", "LOCATION"),
+            Map.entry("title", "DETAILS"), Map.entry("name", "DETAILS"), Map.entry("description", "DETAILS"),
+            Map.entry("long_description", "DETAILS"), Map.entry("conditions", "DETAILS"),
+            Map.entry("age_min", "DETAILS"), Map.entry("age_max", "DETAILS"), Map.entry("url", "DETAILS"),
+            Map.entry("category", "DETAILS"), Map.entry("cuisine_type", "DETAILS"),
+            Map.entry("website", "CONTACT"), Map.entry("email", "CONTACT"), Map.entry("phone", "CONTACT"),
+            Map.entry("contact", "CONTACT"), Map.entry("instagram_url", "CONTACT"),
+            Map.entry("facebook_url", "CONTACT"));
+
+    private static final Map<String, String> FIELD_LABELS = Map.ofEntries(
+            Map.entry("start_date", "Date"), Map.entry("end_date", "Fin"), Map.entry("address", "Adresse"),
+            Map.entry("title", "Titre"), Map.entry("name", "Nom"),
+            Map.entry("description", "Description mise à jour"),
+            Map.entry("long_description", "Description mise à jour"),
+            Map.entry("conditions", "Tarifs et conditions"), Map.entry("age_min", "Âge minimum"),
+            Map.entry("age_max", "Âge maximum"), Map.entry("url", "Lien"), Map.entry("category", "Spécialité"),
+            Map.entry("cuisine_type", "Type de cuisine"), Map.entry("website", "Site web"),
+            Map.entry("email", "E-mail"), Map.entry("phone", "Téléphone"), Map.entry("contact", "Contact"),
+            Map.entry("instagram_url", "Instagram"), Map.entry("facebook_url", "Facebook"));
+
+    /** Textes longs : seul le fait qu'ils ont changé est dit. */
+    private static final Set<String> TEXT_FIELDS = Set.of("description", "long_description");
+
+    /** Champs dont seule la nouvelle valeur est utile (liens, contacts, tarifs). */
+    private static final Set<String> NEW_VALUE_ONLY_FIELDS =
+            Set.of("conditions", "url", "website", "email", "contact", "instagram_url", "facebook_url");
+
+    /** Libellés des types de cuisine (FoodTruckCuisine), comme sur le site et l'application. */
+    private static final Map<String, String> CUISINE_LABELS = Map.ofEntries(
+            Map.entry("BURGER", "Burgers"), Map.entry("PIZZA", "Pizzas"), Map.entry("ASIAN", "Asiatique"),
+            Map.entry("MEXICAN", "Mexicain"), Map.entry("CREPES", "Crêpes et galettes"),
+            Map.entry("SANDWICH", "Sandwichs"), Map.entry("FRENCH", "Cuisine française"),
+            Map.entry("ITALIAN", "Italien"), Map.entry("WORLD", "Cuisine du monde"),
+            Map.entry("VEGETARIAN", "Végétarien"), Map.entry("DESSERT", "Desserts et glaces"),
+            Map.entry("DRINKS", "Boissons et café"), Map.entry("OTHER", "Autre"));
 
     private final FollowRepository followRepository;
     private final PlanLimits planLimits;
@@ -163,31 +207,94 @@ public class FollowNotifier {
                 : "Du nouveau : " + update.title();
     }
 
-    /** « annulée », « dates modifiées, adresse modifiée », « 2 nouvelles activités »… */
-    static String describe(FollowUpdate update) {
-        List<String> parts = new ArrayList<>();
+    /**
+     * Ce qui a changé, une ligne par élément : le détail des champs quand il est connu (« Date : samedi 22 novembre à
+     * 20 h 30 → dimanche 23 novembre à 20 h 30 », « Adresse : … → … »), sinon la nature du changement (« annulée »,
+     * « planning mis à jour ») ; puis les nouvelles activités d'un lieu et les emplacements du jour d'un food truck.
+     */
+    static List<String> lines(FollowUpdate update) {
+        List<String> lines = new ArrayList<>();
         KIND_LABELS.forEach((kind, label) -> {
-            if (update.kinds().contains(kind)) {
-                parts.add(label);
+            if (!update.kinds().contains(kind)) {
+                return;
+            }
+            List<String> details = update.changes().stream()
+                    .filter(change -> kind.equals(FIELD_KINDS.get(change.field())))
+                    .map(FollowNotifier::formatChange)
+                    .distinct()
+                    .toList();
+            if (details.isEmpty()) {
+                lines.add(label);
+            } else {
+                lines.addAll(details);
             }
         });
         int count = update.newActivities().size();
         if (count == 1) {
-            parts.add("nouvelle activité : " + update.newActivities().get(0));
+            lines.add("nouvelle activité : " + update.newActivities().get(0));
         } else if (count > 1) {
-            parts.add(count + " nouvelles activités");
+            lines.add(count + " nouvelles activités");
         }
         if (!update.presentToday().isEmpty()) {
-            parts.add("aujourd'hui : " + String.join(" · ", update.presentToday()));
+            lines.add("aujourd'hui : " + String.join(" · ", update.presentToday()));
         }
-        return String.join(", ", parts);
+        return lines;
+    }
+
+    /** Tout ce qui a changé, sur une ligne : « Date : … → … · Description mise à jour ». */
+    static String describe(FollowUpdate update) {
+        return lines(update).stream().map(FollowNotifier::capitalize).collect(Collectors.joining(" · "));
+    }
+
+    /** Un champ modifié en clair : « Adresse : 1 rue A, Avignon → 3 quai B, Avignon », « Description mise à jour ». */
+    static String formatChange(FieldChange change) {
+        String field = change.field();
+        String label = FIELD_LABELS.getOrDefault(field, field);
+        if (TEXT_FIELDS.contains(field)) {
+            return label;
+        }
+        if ("position".equals(field)) {
+            return "Emplacement précisé sur la carte";
+        }
+        String oldValue = displayValue(field, change.oldValue());
+        String newValue = displayValue(field, change.newValue());
+        if (newValue == null) {
+            return label + " : retiré" + (oldValue == null ? "" : " (avant : " + oldValue + ")");
+        }
+        if (oldValue == null || NEW_VALUE_ONLY_FIELDS.contains(field)) {
+            return label + " : " + newValue;
+        }
+        return label + " : " + oldValue + " → " + newValue;
+    }
+
+    private static String displayValue(String field, String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return switch (field) {
+            case "start_date", "end_date" -> {
+                try {
+                    yield FrenchDates.dayAndTime(LocalDateTime.parse(trimmed));
+                } catch (DateTimeParseException exception) {
+                    yield trimmed;
+                }
+            }
+            case "age_min", "age_max" -> trimmed + " ans";
+            case "cuisine_type" -> CUISINE_LABELS.getOrDefault(trimmed, trimmed);
+            case "title", "name" -> "« " + trimmed + " »";
+            default -> trimmed.replaceAll("\\s+", " ");
+        };
+    }
+
+    private static String capitalize(String text) {
+        return text.isEmpty() ? text : Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
     /** Une ligne courte : le texte d'une notification est tronqué par le système. */
     static String pushBody(List<FollowUpdate> updates) {
         if (updates.size() == 1) {
-            String description = describe(updates.get(0));
-            return Character.toUpperCase(description.charAt(0)) + description.substring(1);
+            return describe(updates.get(0));
         }
         String names = updates.stream().limit(3).map(FollowUpdate::title).collect(Collectors.joining(" · "));
         return updates.size() > 3 ? names + " · …" : names;
@@ -211,23 +318,37 @@ public class FollowNotifier {
         return data;
     }
 
+    /**
+     * Texte de l'e-mail : un bloc par suivi — type et nom, puis une ligne par changement (avant → après quand il est
+     * connu), lien vers la fiche d'une activité encore visible — puis les liens vers Neiri et la gestion des suivis.
+     */
     String emailBody(List<FollowUpdate> updates) {
-        StringBuilder text = new StringBuilder("Bonjour,\n\nDu nouveau sur ce que tu suis :\n\n");
+        StringBuilder text = new StringBuilder("Bonjour,\n\n")
+                .append(updates.size() == 1 ? "Voici ce qui a changé dans ce que tu suis :"
+                        : "Du nouveau sur " + updates.size() + " de tes suivis :")
+                .append("\n");
         for (FollowUpdate update : updates) {
-            text.append("- ").append(switch (update.type()) {
-                case PLACE -> "Lieu « ";
-                case FOOD_TRUCK -> "Food truck « ";
-                case ACTIVITY -> "« ";
-            })
-                    .append(update.title()).append(" » : ").append(describe(update)).append('\n');
-            if (update.newActivities().size() > 1) {
-                update.newActivities().forEach(activity -> text.append("    · ").append(activity).append('\n'));
+            text.append('\n').append(switch (update.type()) {
+                case ACTIVITY -> "📅 Activité « ";
+                case PLACE -> "📍 Lieu « ";
+                case FOOD_TRUCK -> "🚚 Food truck « ";
+            }).append(update.title()).append(" »\n");
+            for (String line : lines(update)) {
+                text.append("  • ").append(capitalize(line)).append('\n');
+                if (line.endsWith(" nouvelles activités")) {
+                    update.newActivities().forEach(activity -> text.append("      · ").append(activity).append('\n'));
+                }
+            }
+            if (update.type() == FollowTargetType.ACTIVITY && !update.kinds().contains("DELETED")) {
+                text.append("  → Voir l'activité : ").append(frontendBaseUrl).append("/?activity=")
+                        .append(update.targetId()).append('\n');
             }
         }
         return text
-                .append("\nVoir sur Neiri : ").append(frontendBaseUrl).append("/\n")
+                .append("\n────────────────────\n")
+                .append("Voir sur Neiri : ").append(frontendBaseUrl).append("/\n")
                 .append("Gérer mes suivis : ").append(frontendBaseUrl).append("/profile\n\n")
-                .append("L'équipe Neiri")
+                .append("À bientôt,\nL'équipe Neiri")
                 .toString();
     }
 }

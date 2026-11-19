@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.locallife.backend.auth.application.EmailService;
 import com.locallife.backend.follow.application.FollowNotifier;
+import com.locallife.backend.follow.domain.FieldChange;
 import com.locallife.backend.follow.domain.FollowTargetType;
 import com.locallife.backend.follow.domain.FollowUpdate;
 import com.locallife.backend.follow.infrastructure.FollowRepository;
@@ -23,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.AfterEach;
@@ -160,6 +162,42 @@ class FollowIntegrationTest {
     }
 
     @Test
+    void triggers_ShouldRecordWhatChanged_FromTheFirstValueToTheLast() {
+        long userId = user();
+        long activity = publishedActivity();
+        long place = publishedPlace();
+        long foodTruck = publishedFoodTruck();
+        followRepository.insert(userId, FollowTargetType.ACTIVITY, activity);
+        followRepository.insert(userId, FollowTargetType.PLACE, place);
+        followRepository.insert(userId, FollowTargetType.FOOD_TRUCK, foodTruck);
+        jdbcTemplate.update("UPDATE activity SET start_date = '2026-12-05 20:30', address = '1 rue A', "
+                + "postal_code = '69001', city = 'Lyon', conditions = '10 €' WHERE id = ?", activity);
+        followRepository.findPendingUpdates(userId, 10).forEach(update -> followRepository.markNotified(
+                update.followId(), update.maxChangeId(), java.time.OffsetDateTime.now()));
+
+        // Deux changements de date : un seul « avant → après », de la première valeur à la dernière.
+        jdbcTemplate.update("UPDATE activity SET start_date = '2026-12-06 20:30' WHERE id = ?", activity);
+        jdbcTemplate.update("UPDATE activity SET start_date = '2026-12-07 21:00', address = '3 quai B', "
+                + "description = 'Nouveau texte', conditions = '12 €' WHERE id = ?", activity);
+        // Coordonnées seules : « emplacement précisé », sans adresse.
+        jdbcTemplate.update("UPDATE location SET latitude = 45.77, phone = '04 00 00 00 00' WHERE id = ?", place);
+        jdbcTemplate.update("UPDATE food_truck SET cuisine_type = 'PIZZA' WHERE id = ?", foodTruck);
+
+        Map<FollowTargetType, FollowUpdate> updates = followRepository.findPendingUpdates(userId, 10).stream()
+                .collect(java.util.stream.Collectors.toMap(FollowUpdate::type, update -> update));
+        assertThat(updates.get(FollowTargetType.ACTIVITY).changes()).containsExactly(
+                new FieldChange("start_date", "2026-12-05T20:30:00", "2026-12-07T21:00:00"),
+                new FieldChange("address", "1 rue A, 69001 Lyon", "3 quai B, 69001 Lyon"),
+                new FieldChange("description", null, null),
+                new FieldChange("conditions", "10 €", "12 €"));
+        assertThat(updates.get(FollowTargetType.PLACE).changes()).containsExactly(
+                new FieldChange("position", null, null),
+                new FieldChange("phone", null, "04 00 00 00 00"));
+        assertThat(updates.get(FollowTargetType.FOOD_TRUCK).changes()).extracting(FieldChange::field)
+                .containsExactly("cuisine_type");
+    }
+
+    @Test
     void aFollowedPlace_ShouldReportActivitiesPublishedThereSinceTheLastSend() {
         long userId = user();
         long place = publishedPlace();
@@ -188,7 +226,7 @@ class FollowIntegrationTest {
         jdbcTemplate.update("UPDATE activity SET status = 'CANCELLED' WHERE id = ?", activity);
         followNotifier.sendAll();
 
-        verify(emailService).sendActivityAlertEmail(eq(email(premium)), contains(title(activity)), contains("annulée"));
+        verify(emailService).sendActivityAlertEmail(eq(email(premium)), contains(title(activity)), contains("  • Annulée\n"));
         verify(emailService, never()).sendActivityAlertEmail(eq(email(free)), anyString(), anyString());
         verify(expoPushService, never()).send(any(), anyString(), anyString(), any());
         // Rien de nouveau : pas de second envoi, et rien d'arriéré pour le compte gratuit.

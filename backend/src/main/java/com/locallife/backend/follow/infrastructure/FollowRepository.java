@@ -1,5 +1,6 @@
 package com.locallife.backend.follow.infrastructure;
 
+import com.locallife.backend.follow.domain.FieldChange;
 import com.locallife.backend.follow.domain.FollowRecipient;
 import com.locallife.backend.follow.domain.FollowTargetType;
 import com.locallife.backend.follow.domain.FollowUpdate;
@@ -15,6 +16,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -69,6 +71,19 @@ public class FollowRepository {
             CROSS JOIN LATERAL unnest(c.kinds) AS k(kind)
             WHERE f.user_id = ?
             GROUP BY f.id, ft.id, ft.name
+            """;
+
+    /** Champs modifiés (V94) des changements pas encore notifiés, dans l'ordre où ils ont eu lieu. */
+    private static final String PENDING_FIELD_CHANGES = """
+            SELECT f.id AS follow_id, d.value ->> 'field' AS field, d.value ->> 'old' AS old_value,
+                   d.value ->> 'new' AS new_value
+            FROM follow f
+            JOIN follow_change c ON c.id > f.last_change_id
+                 AND (c.activity_id = f.activity_id OR c.location_id = f.location_id
+                      OR c.food_truck_id = f.food_truck_id)
+            CROSS JOIN LATERAL jsonb_array_elements(c.details) WITH ORDINALITY AS d(value, position)
+            WHERE f.user_id = ?
+            ORDER BY f.id, c.id, d.position
             """;
 
     /**
@@ -198,6 +213,20 @@ public class FollowRepository {
                     resultSet.getLong("target_id"), resultSet.getString("title"), kinds(resultSet.getArray("kinds")),
                     new ArrayList<>(), resultSet.getLong("max_change_id")));
         }, userId, userId, userId);
+        Map<Long, Map<String, FieldChange>> fieldChanges = new LinkedHashMap<>();
+        jdbcTemplate.query(PENDING_FIELD_CHANGES, (ResultSet resultSet) -> {
+            String field = resultSet.getString("field");
+            FieldChange change = new FieldChange(field, resultSet.getString("old_value"),
+                    resultSet.getString("new_value"));
+            // Plusieurs changements du même champ : de la première valeur à la dernière.
+            fieldChanges.computeIfAbsent(resultSet.getLong("follow_id"), id -> new LinkedHashMap<>())
+                    .merge(field, change, (first, last) -> new FieldChange(field, first.oldValue(), last.newValue()));
+        }, userId);
+        fieldChanges.forEach((followId, changes) -> updates.computeIfPresent(followId, (id, update) ->
+                new FollowUpdate(update.followId(), update.type(), update.targetId(), update.title(), update.kinds(),
+                        update.newActivities(), update.maxChangeId(), update.presentToday(), changes.values().stream()
+                                .filter(FollowRepository::isStillChanged)
+                                .toList())));
         jdbcTemplate.query(NEW_ACTIVITIES_AT_PLACES, (ResultSet resultSet) -> {
             long followId = resultSet.getLong("follow_id");
             long placeId = resultSet.getLong("place_id");
@@ -274,6 +303,12 @@ public class FollowRepository {
 
     private static String hhmm(String time) {
         return time.length() >= 5 ? time.substring(0, 5) : time;
+    }
+
+    /** Un champ revenu à sa valeur de départ n'a pas changé ; un texte long (sans valeurs) est toujours gardé. */
+    private static boolean isStillChanged(FieldChange change) {
+        return change.oldValue() == null && change.newValue() == null
+                || !Objects.equals(change.oldValue(), change.newValue());
     }
 
     private static List<String> kinds(Array array) throws SQLException {

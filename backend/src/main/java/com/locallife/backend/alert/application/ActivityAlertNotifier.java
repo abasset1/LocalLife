@@ -9,12 +9,11 @@ import com.locallife.backend.auth.application.EmailService;
 import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.domain.CategoryTranslation;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
+import com.locallife.backend.common.i18n.FrenchDates;
 import com.locallife.backend.push.application.ExpoPushService;
 import com.locallife.backend.push.infrastructure.PushTokenRepository;
 import com.locallife.backend.subscription.application.PlanLimits;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,7 +55,6 @@ public class ActivityAlertNotifier {
     static final int MAX_ACTIVITIES_LISTED = 20;
 
     private static final String LOCALE = "fr-FR";
-    private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRENCH);
     private static final String SEPARATOR = "────────────────────";
     /** Zoom de la carte ouverte par le lien d'une activité, et par le lien « Tout voir sur la carte ». */
     private static final int ACTIVITY_ZOOM = 15;
@@ -321,18 +319,9 @@ public class ActivityAlertNotifier {
         }
     }
 
-    /** « samedi 18 octobre à 15 h », « samedi 18 octobre à 20 h 30 », sans heure si elle est inconnue (minuit). */
+    /** « samedi 18 octobre à 15 h », sans heure si elle est inconnue (minuit). */
     static String when(LocalDateTime startDate) {
-        if (startDate == null) {
-            return null;
-        }
-        String day = DAY_FORMAT.format(startDate);
-        LocalTime time = startDate.toLocalTime();
-        if (time.equals(LocalTime.MIDNIGHT)) {
-            return day;
-        }
-        String minutes = time.getMinute() == 0 ? "" : String.format(" %02d", time.getMinute());
-        return day + " à " + time.getHour() + " h" + minutes;
+        return FrenchDates.dayAndTime(startDate);
     }
 
     /** Fiche de l'activité sur le site, carte centrée sur elle quand sa position est connue. */
