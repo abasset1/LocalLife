@@ -38,8 +38,8 @@ Site : variables `--ll-*` de `frontend/src/styles.css` (le préfixe historique e
 
 Pour ne casser ni l'API, ni les comptes, ni les installations existantes : packages Java `com.locallife`,
 rôle `LOCALLIFE` (affiché « Neiri »), champ `suspendedByLocalLife`, clés de stockage `locallife.*` (session,
-préférences), slug Expo `locallife-mobile` et schéma d'URL `locallife`. Les changer est une décision à part
-(déconnexion des utilisateurs, liens existants).
+préférences).
 
-Identifiant d'application : `com.neiri.app` depuis le 19/11/2026 (avant toute publication sur les stores ;
-auparavant `com.locallife.mobile`).
+Application, renommée le 19/11/2026 avant toute publication sur les stores : identifiant `com.neiri.app`
+(auparavant `com.locallife.mobile`), slug Expo `neiri` (auparavant `locallife-mobile`) et schéma d'URL `neiri://`
+(auparavant `locallife://`).

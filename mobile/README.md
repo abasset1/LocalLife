@@ -359,15 +359,15 @@ l'aperçu d'un marqueur (`src/features/activity/`).
 Les alertes (menu → « Mes alertes ») peuvent être envoyées en
 notification sur le téléphone, via le service **Expo Push**.
 
-- L'identifiant du projet EAS (`@alexb8/locallife-mobile`), requis pour obtenir
-  le jeton de notification de l'appareil, est la valeur par défaut de
-  `app.config.ts` (`EAS_PROJECT_ID` pour en utiliser un autre).
+- L'identifiant du projet EAS (`@alexb8/neiri`, slug `neiri`), requis pour
+  obtenir le jeton de notification de l'appareil, est lu dans `EAS_PROJECT_ID`
+  tant qu'il n'est pas écrit dans `app.config.ts`.
 - **Android : Firebase (FCM) est obligatoire.** Sans `google-services.json`,
   un build installé n'obtient aucun jeton (message « … pas configurées pour
   Android … (Firebase) ») et le backend n'a aucun appareil à notifier.
   Mise en place, une fois :
-  1. Projet Expo : déjà créé et lié (`@alexb8/locallife-mobile`, identifiant
-     dans `app.config.ts`). `eas init` signale qu'il ne peut pas écrire dans
+  1. Projet Expo `neiri` (créé sur expo.dev ou par `eas init`, son
+     identifiant dans `app.config.ts` ou `EAS_PROJECT_ID`). `eas init` signale qu'il ne peut pas écrire dans
      `app.config.ts` : c'est attendu. `eas.json` (profils de build, requis
      par `eas-cli credentials`) est dans le dépôt. Pour un build dans le
      cloud EAS (`eas build`), `google-services.json` n'étant pas commité, le

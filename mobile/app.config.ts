@@ -38,12 +38,15 @@ if (process.env.EAS_BUILD_PROFILE === "production" && !/^https:\/\//.test(apiUrl
 const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
 
 /**
- * Identifiant du projet EAS (Expo Application Services, projet
- * @alexb8/locallife-mobile), requis pour obtenir un jeton de notification push
- * Expo et lu par `eas-cli` (credentials, build). Ce n'est pas un secret : il
- * figure dans chaque build. EAS_PROJECT_ID permet d'en utiliser un autre.
+ * Identifiant du projet EAS (Expo Application Services, projet @alexb8/neiri),
+ * requis pour obtenir un jeton de notification push Expo et lu par `eas-cli`
+ * (credentials, build). Ce n'est pas un secret : il figure dans chaque build.
+ * EAS exige que le slug ci-dessous soit celui du projet : l'ancien projet
+ * (@alexb8/locallife-mobile) ne convient plus. Tant que l'identifiant du projet
+ * « neiri » n'est pas renseigné ici, le fournir par EAS_PROJECT_ID ; sans lui,
+ * l'application affiche « notifications non configurées ».
  */
-const easProjectId = process.env.EAS_PROJECT_ID ?? "b5705144-cb7e-4aa1-835b-0cb95f4f3b77";
+const easProjectId: string | undefined = process.env.EAS_PROJECT_ID;
 
 /**
  * Configuration Firebase Android (`google-services.json`, téléchargé depuis la
@@ -72,11 +75,11 @@ const googleIosUrlScheme = googleIosClientId
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "Neiri",
-  slug: "locallife-mobile",
+  slug: "neiri",
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
-  scheme: "locallife",
+  scheme: "neiri",
   userInterfaceStyle: "automatic",
   ios: {
     // Identifiant de l'application iOS (définitif une fois publiée sur l'App Store).
@@ -150,6 +153,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     apiUrl,
     googleWebClientId,
     googleIosClientId,
-    eas: { projectId: easProjectId },
+    ...(easProjectId ? { eas: { projectId: easProjectId } } : {}),
   },
 });
