@@ -9,13 +9,15 @@ import com.locallife.backend.auth.application.EmailService;
 import com.locallife.backend.category.domain.Category;
 import com.locallife.backend.category.domain.CategoryTranslation;
 import com.locallife.backend.category.infrastructure.CategoryRepository;
+import com.locallife.backend.common.i18n.FrenchDates;
 import com.locallife.backend.push.application.ExpoPushService;
 import com.locallife.backend.push.infrastructure.PushTokenRepository;
 import com.locallife.backend.subscription.application.PlanLimits;
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -53,7 +55,10 @@ public class ActivityAlertNotifier {
     static final int MAX_ACTIVITIES_LISTED = 20;
 
     private static final String LOCALE = "fr-FR";
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final String SEPARATOR = "────────────────────";
+    /** Zoom de la carte ouverte par le lien d'une activité, et par le lien « Tout voir sur la carte ». */
+    private static final int ACTIVITY_ZOOM = 15;
+    private static final int ALERT_ZOOM = 12;
 
     private final ActivityAlertRepository activityAlertRepository;
     private final CategoryRepository categoryRepository;
@@ -199,72 +204,142 @@ public class ActivityAlertNotifier {
         return data;
     }
 
+    /**
+     * Texte de l'email : résumé, rappel de l'alerte, activités par date (titre ; date, heure et commune ; lien vers
+     * la fiche), food trucks, puis liens vers la carte, la gestion des alertes et le désabonnement.
+     */
     String body(
             AlertRecipient recipient, List<AlertActivity> activities, List<AlertFoodTruck> foodTrucks,
             Map<String, String> labels) {
         ActivityAlert alert = recipient.alert();
-        List<String> criteria = new ArrayList<>(alert.categoryCodes().stream()
-                .map(code -> labels.getOrDefault(code, code))
-                .toList());
-        if (alert.includeFoodTrucks()) {
-            criteria.add("Food trucks");
-        }
-        if (criteria.isEmpty()) {
-            criteria.add("Toutes catégories");
-        }
         StringBuilder text = new StringBuilder()
                 .append("Bonjour,\n\n")
-                .append("Du nouveau pour ton alerte « ").append(String.join(", ", criteria)).append(" »");
-        if (!alert.keywords().isEmpty()) {
-            text.append(" avec les mots-clés ").append(alert.keywords().stream()
-                    .map(keyword -> "« " + keyword + " »").collect(Collectors.joining(", ")));
-        }
-        text.append(" à moins de ").append(alert.radiusKm()).append(" km de ").append(alert.city())
-                .append(" :\n\n");
-        boolean sections = !activities.isEmpty() && !foodTrucks.isEmpty();
+                .append(summary(alert.city(), activities, foodTrucks)).append("\n\n")
+                .append("Ton alerte : ").append(criteria(alert, labels)).append('\n');
+
         if (!activities.isEmpty()) {
-            if (sections) {
-                text.append("Activités :\n");
-            }
+            section(text, activities.size() == 1 ? "1 ACTIVITÉ" : activities.size() + " ACTIVITÉS");
             activities.stream().limit(MAX_ACTIVITIES_LISTED).forEach(activity -> {
-                text.append("- ").append(activity.title());
+                text.append(activity.title()).append('\n');
+                String when = when(activity.startDate());
+                List<String> details = new ArrayList<>();
+                if (when != null) {
+                    details.add(when);
+                }
                 if (activity.city() != null && !activity.city().isBlank()) {
-                    text.append(" — ").append(activity.city());
+                    details.add(activity.city().trim()
+                            + (activity.approximatePosition() ? " (emplacement approximatif)" : ""));
+                } else if (activity.approximatePosition()) {
+                    details.add("emplacement approximatif");
                 }
-                if (activity.startDate() != null) {
-                    text.append(", le ").append(DATE_FORMAT.format(activity.startDate()));
+                if (!details.isEmpty()) {
+                    text.append(String.join(" · ", details)).append('\n');
                 }
-                if (activity.approximatePosition()) {
-                    text.append(" (emplacement approximatif)");
-                }
-                text.append('\n');
+                text.append("→ Voir l'activité : ").append(activityLink(activity)).append("\n\n");
             });
             if (activities.size() > MAX_ACTIVITIES_LISTED) {
-                text.append("… et ").append(activities.size() - MAX_ACTIVITIES_LISTED).append(" autre(s).\n");
+                int others = activities.size() - MAX_ACTIVITIES_LISTED;
+                text.append("… et ").append(others).append(others == 1 ? " autre activité" : " autres activités")
+                        .append(" à découvrir sur la carte.\n");
             }
         }
+
         if (!foodTrucks.isEmpty()) {
-            if (sections) {
-                text.append("\nFood trucks :\n");
-            }
+            section(text, foodTrucks.size() == 1 ? "1 FOOD TRUCK" : foodTrucks.size() + " FOOD TRUCKS");
             foodTrucks.stream().limit(MAX_ACTIVITIES_LISTED).forEach(foodTruck -> {
-                text.append("- ").append(foodTruck.name());
+                text.append("🚚 ").append(foodTruck.name());
                 if (foodTruck.category() != null && !foodTruck.category().isBlank()) {
-                    text.append(" (").append(foodTruck.category()).append(')');
+                    text.append(" · ").append(foodTruck.category());
                 }
                 text.append('\n');
             });
             if (foodTrucks.size() > MAX_ACTIVITIES_LISTED) {
-                text.append("… et ").append(foodTrucks.size() - MAX_ACTIVITIES_LISTED).append(" autre(s).\n");
+                int others = foodTrucks.size() - MAX_ACTIVITIES_LISTED;
+                text.append("… et ").append(others).append(others == 1 ? " autre food truck" : " autres food trucks")
+                        .append(" à découvrir sur la carte.\n");
             }
         }
+
+        blankLine(text);
         return text
-                .append("\nVoir sur la carte : ").append(frontendBaseUrl).append("/\n")
+                .append(SEPARATOR).append('\n')
+                .append("Tout voir sur la carte : ").append(mapLink(alert)).append('\n')
                 .append("Gérer mes alertes : ").append(frontendBaseUrl).append("/profile\n")
                 .append("Ne plus recevoir cette alerte : ").append(frontendBaseUrl)
                 .append("/alerts/unsubscribe?token=").append(recipient.unsubscribeToken()).append("\n\n")
-                .append("L'équipe Neiri")
+                .append("À bientôt,\nL'équipe Neiri")
                 .toString();
+    }
+
+    /** « 3 nouvelles activités correspondent à ton alerte autour de Lyon. » */
+    private static String summary(String city, List<AlertActivity> activities, List<AlertFoodTruck> foodTrucks) {
+        List<String> parts = new ArrayList<>();
+        if (!activities.isEmpty()) {
+            parts.add(activities.size() == 1 ? "1 nouvelle activité" : activities.size() + " nouvelles activités");
+        }
+        if (!foodTrucks.isEmpty()) {
+            parts.add(foodTrucks.size() == 1 ? "1 nouveau food truck" : foodTrucks.size() + " nouveaux food trucks");
+        }
+        boolean single = activities.size() + foodTrucks.size() == 1;
+        return String.join(" et ", parts) + (single ? " correspond" : " correspondent")
+                + " à ton alerte autour de " + city + ".";
+    }
+
+    /** « Sport, Food trucks · mots-clés « jazz » · 10 km autour de Lyon ». */
+    private static String criteria(ActivityAlert alert, Map<String, String> labels) {
+        List<String> categories = new ArrayList<>(alert.categoryCodes().stream()
+                .map(code -> labels.getOrDefault(code, code))
+                .toList());
+        if (alert.includeFoodTrucks()) {
+            categories.add("Food trucks");
+        }
+        if (categories.isEmpty()) {
+            categories.add("Toutes catégories");
+        }
+        List<String> parts = new ArrayList<>();
+        parts.add(String.join(", ", categories));
+        if (!alert.keywords().isEmpty()) {
+            parts.add((alert.keywords().size() == 1 ? "mot-clé " : "mots-clés ") + alert.keywords().stream()
+                    .map(keyword -> "« " + keyword + " »").collect(Collectors.joining(", ")));
+        }
+        parts.add(alert.radiusKm() + " km autour de " + alert.city());
+        return String.join(" · ", parts);
+    }
+
+    private static void section(StringBuilder text, String heading) {
+        blankLine(text);
+        text.append(SEPARATOR).append('\n').append(heading).append('\n').append(SEPARATOR)
+                .append("\n\n");
+    }
+
+    /** Une seule ligne vide avant un séparateur, que le bloc précédent en finisse déjà une ou non. */
+    private static void blankLine(StringBuilder text) {
+        if (!text.toString().endsWith("\n\n")) {
+            text.append('\n');
+        }
+    }
+
+    /** « samedi 18 octobre à 15 h », sans heure si elle est inconnue (minuit). */
+    static String when(LocalDateTime startDate) {
+        return FrenchDates.dayAndTime(startDate);
+    }
+
+    /** Fiche de l'activité sur le site, carte centrée sur elle quand sa position est connue. */
+    String activityLink(AlertActivity activity) {
+        StringBuilder link = new StringBuilder(frontendBaseUrl).append("/?activity=").append(activity.id());
+        if (activity.latitude() != null && activity.longitude() != null) {
+            link.append(mapPosition(activity.latitude(), activity.longitude(), ACTIVITY_ZOOM));
+        }
+        return link.toString();
+    }
+
+    /** Carte centrée sur la ville de l'alerte. */
+    private String mapLink(ActivityAlert alert) {
+        return frontendBaseUrl + "/?" + mapPosition(alert.latitude(), alert.longitude(), ALERT_ZOOM).substring(1);
+    }
+
+    private static String mapPosition(double latitude, double longitude, int zoom) {
+        return String.format(Locale.ROOT, "&lat=%.5f&lng=%.5f&zoom=%d", latitude, longitude, zoom);
     }
 
     private Map<String, String> categoryLabels() {

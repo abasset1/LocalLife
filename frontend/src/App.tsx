@@ -21,6 +21,7 @@ import ExplorerMenu from "./components/explorer/ExplorerMenu";
 import ExplorerSearch from "./components/explorer/ExplorerSearch";
 import LocationPrompt from "./components/explorer/LocationPrompt";
 import { readMapUrlView } from "./components/explorer/mapUrlView";
+import { activityFromLinkResponse, clearActivityLink, readActivityLinkId } from "./components/explorer/activityLink";
 import type { GeolocationStatus } from "./components/explorer/LocationPrompt";
 import { hasCoordinates, SEARCH_PAGE_SIZE, toActivity } from "./components/explorer/globalSearch";
 import SearchResultBanner from "./components/explorer/SearchResultBanner";
@@ -252,6 +253,8 @@ function App() {
      * s'ouvre à cet endroit, que ni la ville enregistrée ni la position déjà autorisée ne remplacent.
      */
     const [initialMapView] = useState(() => readMapUrlView(window.location.search));
+    /** Fiche demandée par l'adresse (`?activity=<id>`, lien d'un e-mail d'alerte), ouverte à l'arrivée. */
+    const [linkedActivityId] = useState(() => readActivityLinkId(window.location.search));
     /**
      * Visiteur sans compte ni session, sans lieu connu (ni ville, ni position, ni vue reçue dans
      * l'adresse) : la ville est demandée dans une fenêtre centrée et aucune activité n'est chargée avant.
@@ -1111,6 +1114,46 @@ function App() {
         })();
 
         return () => abortController.abort();
+    }, [detailActivity]);
+
+    /**
+     * Lien direct vers une activité (`?activity=<id>`) : sa fiche s'ouvre à l'arrivée. Activité introuvable ou plus
+     * visible : rien ne s'ouvre, l'Explorer s'affiche normalement.
+     */
+    const hasOpenedLinkedActivity = useRef(false);
+    useEffect(() => {
+        if (linkedActivityId === null) {
+            return;
+        }
+        const abortController = new AbortController();
+        (async () => {
+            try {
+                const response = await fetch(`/api/v1/activities/${linkedActivityId}`, {
+                    signal: abortController.signal,
+                });
+                const activity = response.ok ? activityFromLinkResponse(await response.json()) : null;
+                if (activity) {
+                    hasOpenedLinkedActivity.current = true;
+                    setPreviewActivity(null);
+                    setDetailActivity(activity);
+                } else {
+                    clearActivityLink();
+                }
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === "AbortError")) {
+                    clearActivityLink();
+                }
+            }
+        })();
+        return () => abortController.abort();
+    }, [linkedActivityId]);
+
+    /** Fiche du lien refermée : le lien quitte l'adresse, un rechargement ne la rouvre pas. */
+    useEffect(() => {
+        if (detailActivity === null && hasOpenedLinkedActivity.current) {
+            hasOpenedLinkedActivity.current = false;
+            clearActivityLink();
+        }
     }, [detailActivity]);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {

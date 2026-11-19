@@ -99,6 +99,9 @@ class ActivityAlertRepositoryIntegrationTest {
         List<AlertActivity> found = activityAlertRepository.findNewMatchingActivities(alert.id(), 100);
 
         assertThat(found).extracting(AlertActivity::id).containsExactly(match).doesNotContain(before);
+        // Position de l'activité : le lien de l'email ouvre la carte à son emplacement.
+        assertThat(found.get(0).latitude()).isEqualTo(45.7719);
+        assertThat(found.get(0).longitude()).isEqualTo(4.8902);
     }
 
     @Test
