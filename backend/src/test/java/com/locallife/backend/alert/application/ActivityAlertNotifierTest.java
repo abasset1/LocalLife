@@ -89,8 +89,13 @@ class ActivityAlertNotifierTest {
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendActivityAlertEmail(
                 eq("alice@example.com"), eq("Neiri : 1 nouvelle activité près de Lyon"), body.capture());
-        assertTrue(body.getValue().contains("« Sport » à moins de 10 km de Lyon"));
-        assertTrue(body.getValue().contains("- Match de foot — Villeurbanne, le 18/10/2026"));
+        assertTrue(body.getValue().contains("1 nouvelle activité correspond à ton alerte autour de Lyon."));
+        assertTrue(body.getValue().contains("Ton alerte : Sport · 10 km autour de Lyon\n"));
+        assertTrue(body.getValue().contains("1 ACTIVITÉ\n"));
+        assertTrue(body.getValue().contains("Match de foot\ndimanche 18 octobre à 15 h · Villeurbanne\n"
+                + "→ Voir l'activité : https://locallife.test/?activity=7\n"));
+        assertTrue(body.getValue().contains(
+                "Tout voir sur la carte : https://locallife.test/?lat=45.76000&lng=4.83000&zoom=12\n"));
         assertTrue(body.getValue().contains("https://locallife.test/alerts/unsubscribe?token=tok-alice"));
         verify(activityAlertRepository).markSent(1L, List.of(7L));
     }
@@ -128,8 +133,8 @@ class ActivityAlertNotifierTest {
                 new AlertActivity(2L, "Concert au théâtre", "Apt", null)),
                 List.of(), java.util.Map.of("SPORT", "Sport"));
 
-        assertTrue(body.contains("- Fête au village — Gordes (emplacement approximatif)\n"));
-        assertTrue(body.contains("- Concert au théâtre — Apt\n"));
+        assertTrue(body.contains("Fête au village\nGordes (emplacement approximatif)\n"));
+        assertTrue(body.contains("Concert au théâtre\nApt\n"));
     }
 
     @Test
@@ -160,8 +165,8 @@ class ActivityAlertNotifierTest {
         String body = notifier.body(keywords, List.of(new AlertActivity(1L, "Soirée jazz", "Lyon", null)), List.of(),
                 java.util.Map.of());
 
-        assertTrue(body.contains("ton alerte « Toutes catégories » avec les mots-clés « jazz », « marché de Noël » à "
-                + "moins de 10 km de Lyon"));
+        assertTrue(body.contains("Ton alerte : Toutes catégories · mots-clés « jazz », « marché de Noël » · "
+                + "10 km autour de Lyon\n"));
     }
 
     @Test
@@ -172,9 +177,26 @@ class ActivityAlertNotifierTest {
 
         String body = notifier.body(alice, activities, List.of(), java.util.Map.of("SPORT", "Sport"));
 
-        assertTrue(body.contains("- Activité 20\n"));
-        assertTrue(!body.contains("- Activité 21\n"));
-        assertTrue(body.contains("… et 5 autre(s)."));
+        assertTrue(body.contains("25 ACTIVITÉS\n"));
+        assertTrue(body.contains("Activité 20\n→ Voir l'activité : https://locallife.test/?activity=20\n"));
+        assertTrue(!body.contains("Activité 21\n"));
+        assertTrue(body.contains("… et 5 autres activités à découvrir sur la carte."));
+    }
+
+    @Test
+    void body_ShouldLinkEachActivity_ToItsPageOnTheMap() {
+        String body = notifier.body(alice, List.of(new AlertActivity(5L, "Concert", "Avignon",
+                LocalDateTime.of(2026, 11, 22, 20, 30), false, 43.9493, 4.8055)), List.of(), Map.of("SPORT", "Sport"));
+
+        assertTrue(body.contains("Concert\ndimanche 22 novembre à 20 h 30 · Avignon\n"
+                + "→ Voir l'activité : https://locallife.test/?activity=5&lat=43.94930&lng=4.80550&zoom=15\n"));
+    }
+
+    @Test
+    void when_ShouldOmitTheTime_WhenItIsUnknown() {
+        assertEquals("lundi 23 novembre", ActivityAlertNotifier.when(LocalDateTime.of(2026, 11, 23, 0, 0)));
+        assertEquals("lundi 23 novembre à 9 h", ActivityAlertNotifier.when(LocalDateTime.of(2026, 11, 23, 9, 0)));
+        assertEquals(null, ActivityAlertNotifier.when(null));
     }
 
     private static AlertRecipient pushRecipient(boolean notifyEmail, String email) {
@@ -265,9 +287,12 @@ class ActivityAlertNotifierTest {
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendActivityAlertEmail(
                 eq("d@example.com"), eq("Neiri : 2 nouveautés près de Lyon"), body.capture());
-        assertTrue(body.getValue().contains("« Sport, Food trucks »"));
-        assertTrue(body.getValue().contains("Activités :\n- Match — Lyon"));
-        assertTrue(body.getValue().contains("Food trucks :\n- Le Camion Bleu (Burgers)"));
+        assertTrue(body.getValue().contains("Ton alerte : Sport, Food trucks · 10 km autour de Lyon\n"));
+        assertTrue(body.getValue().contains("1 nouvelle activité et 1 nouveau food truck correspondent"));
+        assertTrue(body.getValue().contains("1 ACTIVITÉ\n"));
+        assertTrue(body.getValue().contains("Match\nLyon\n→ Voir l'activité"));
+        assertTrue(body.getValue().contains("1 FOOD TRUCK\n"));
+        assertTrue(body.getValue().contains("🚚 Le Camion Bleu · Burgers\n"));
         verify(expoPushService).send(List.of("ExponentPushToken[a]"), "2 nouveautés près de Lyon",
                 "Match · 🚚 Le Camion Bleu", Map.of("type", "activity-alert"));
         verify(activityAlertRepository).markSent(4L, List.of(7L));

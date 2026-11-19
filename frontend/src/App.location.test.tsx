@@ -317,3 +317,51 @@ describe("App — localisation explicite (spec P0-A), compte sans ville enregist
         expect(geolocation.getCurrentPosition).not.toHaveBeenCalled();
     });
 });
+
+describe("App — lien direct vers une activité (e-mail d'alerte)", () => {
+    afterEach(() => window.history.replaceState(null, "", "/"));
+
+    it("ouvre la fiche de l'activité du lien, carte placée sur elle ; la fermer retire le lien de l'adresse", async () => {
+        window.history.replaceState(null, "", "/?activity=1&lat=43.9&lng=4.8&zoom=15");
+        const fetchMock = vi.mocked(fetch);
+        const defaultImplementation = fetchMock.getMockImplementation()!;
+        fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+            const url = String(input);
+            if (url === "/api/v1/activities/1") {
+                urls.push(url);
+                return Promise.resolve(new Response(JSON.stringify({
+                    id: 1, title: "Concert du lien", date: "2026-11-22T20:30:00", city: "Avignon", address: null,
+                    latitude: 43.9, longitude: 4.8, mainImageUrl: null, createdBy: null, category: "",
+                }), { status: 200 }));
+            }
+            return defaultImplementation(input as string, init);
+        });
+        const user = renderApp();
+
+        const dialog = await screen.findByRole("dialog", { name: "Concert du lien" });
+        expect(cityDialog()).toBeNull();
+        expect(urls).toContain("/api/v1/activities/1");
+
+        await user.click(within(dialog).getByRole("button", { name: "Fermer" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog", { name: "Concert du lien" })).toBeNull());
+        expect(new URLSearchParams(window.location.search).has("activity")).toBe(false);
+        expect(new URLSearchParams(window.location.search).get("lat")).not.toBeNull();
+    });
+
+    it("activité introuvable : aucune fiche, le lien quitte l'adresse", async () => {
+        window.history.replaceState(null, "", "/?activity=999&lat=43.9&lng=4.8&zoom=15");
+        const fetchMock = vi.mocked(fetch);
+        const defaultImplementation = fetchMock.getMockImplementation()!;
+        fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+            if (String(input) === "/api/v1/activities/999") {
+                return Promise.resolve(new Response(null, { status: 404 }));
+            }
+            return defaultImplementation(input as string, init);
+        });
+        renderApp();
+
+        await waitFor(() => expect(new URLSearchParams(window.location.search).has("activity")).toBe(false));
+        expect(screen.queryByRole("dialog", { name: /Concert/ })).toBeNull();
+    });
+});

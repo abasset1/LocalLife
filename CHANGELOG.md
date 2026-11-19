@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### E-mail d'alerte : un lien vers chaque activité, message restructuré
+- **Lien vers l'activité** : chaque activité de l'e-mail a son lien « → Voir l'activité », qui ouvre le site sur la carte centrée sur l'activité, sa fiche ouverte (`/?activity=<id>&lat=…&lng=…&zoom=15`). Avant, le seul lien menait à la carte générale.
+- **Nouveau plan** : résumé (« 3 nouvelles activités et 1 nouveau food truck correspondent à ton alerte autour de Montpellier. »), rappel de l'alerte sur une ligne (« Concerts, Festivals · mot-clé « jazz » · 15 km autour de Montpellier »), section « 3 ACTIVITÉS » par date — titre ; jour, heure et commune (« dimanche 22 novembre à 20 h 30 · Montpellier », sans heure quand elle est inconnue) ; lien —, section « FOOD TRUCKS », puis « Tout voir sur la carte » (centrée sur la ville de l'alerte), « Gérer mes alertes » et le désabonnement. Toujours 20 activités détaillées au plus, les suivantes comptées. Objet inchangé.
+- **Site** : `?activity=<id>` ouvre la fiche de l'activité à l'arrivée sur l'Explorer ; `lat`, `lng` et `zoom` placent la carte (un visiteur sans compte n'a pas à choisir de ville). La fiche refermée, le paramètre quitte l'adresse. Activité introuvable ou plus visible : rien ne s'ouvre.
+- Le lien ouvre le site, y compris sur téléphone ; l'application n'est pas concernée. Pas de migration.
+
 ### Source DATAtourisme Occitanie : toute la région, comme PACA
 - **Constat** : peu d'activités en Occitanie comparé à PACA. Aucune migration ne créait de source pour l'Occitanie (seulement « DATAtourisme PACA », V60), alors que le fichier régional `datatourisme-reg-occ.csv` est le plus fourni des deux : **7 381 événements à venir contre 2 645** pour PACA (19/11/2026). Hérault 2 289, Haute-Garonne 1 046, Hautes-Pyrénées 856, Aveyron 831, Lot 664, Pyrénées-Orientales 582, Lozère 498, Aude 235, Tarn 115, Gard 94, Gers 87, Tarn-et-Garonne 44, Ariège 40. Le collecteur lit le fichier réel sans erreur (7 357 événements retenus).
 - **Migration V93** : source « DATAtourisme Occitanie (data.gouv.fr) », fichier régional, sans filtre de département (13 départements). Enrichissement par l'API DATAtourisme sous le garde-fou existant (148 requêtes sur 400). Les événements déjà publiés par une autre source (fichier France, « Languedoc » créée depuis l'administration, OpenAgenda) ne sont pas publiés deux fois.
