@@ -86,6 +86,7 @@ services:
     container_name: locallife-caddy-beta
     environment:
       LOCALLIFE_DOMAIN: ${LOCALLIFE_DOMAIN}
+      LOCALLIFE_LEGACY_DOMAINS: ${LOCALLIFE_LEGACY_DOMAINS:-}
     ports:
       - "80:80"
       - "443:443"
