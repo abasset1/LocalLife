@@ -88,7 +88,8 @@ class ActivityAlertNotifierTest {
 
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendActivityAlertEmail(
-                eq("alice@example.com"), eq("Neiri : 1 nouvelle activité près de Lyon"), body.capture());
+                eq("alice@example.com"), eq("Neiri : 1 nouvelle activité près de Lyon"), body.capture(),
+                eq("https://locallife.test/api/v1/alerts/unsubscribe/one-click?token=tok-alice"));
         assertTrue(body.getValue().contains("1 nouvelle activité correspond à ton alerte autour de Lyon."));
         assertTrue(body.getValue().contains("Ton alerte : Sport · 10 km autour de Lyon\n"));
         assertTrue(body.getValue().contains("1 ACTIVITÉ\n"));
@@ -108,7 +109,7 @@ class ActivityAlertNotifierTest {
                 .thenReturn(List.of());
 
         assertEquals(0, notifier.sendAll());
-        verify(emailService, never()).sendActivityAlertEmail(anyString(), anyString(), anyString());
+        verify(emailService, never()).sendActivityAlertEmail(anyString(), anyString(), anyString(), anyString());
         verify(activityAlertRepository, never()).markSent(any(), any());
     }
 
@@ -119,7 +120,8 @@ class ActivityAlertNotifierTest {
         when(activityAlertRepository.findNewMatchingActivities(any(), eq(ActivityAlertNotifier.MAX_ACTIVITIES_PER_RUN)))
                 .thenReturn(List.of(new AlertActivity(7L, "Match", null, null)));
         doThrow(new RuntimeException("SMTP down"))
-                .when(emailService).sendActivityAlertEmail(eq("alice@example.com"), anyString(), anyString());
+                .when(emailService)
+                .sendActivityAlertEmail(eq("alice@example.com"), anyString(), anyString(), anyString());
 
         assertEquals(1, notifier.sendAll());
         verify(activityAlertRepository, never()).markSent(eq(1L), any());
@@ -150,7 +152,7 @@ class ActivityAlertNotifierTest {
 
         assertEquals(0, notifier.sendAll());
 
-        verify(emailService, never()).sendActivityAlertEmail(anyString(), anyString(), anyString());
+        verify(emailService, never()).sendActivityAlertEmail(anyString(), anyString(), anyString(), anyString());
         verify(expoPushService, never()).send(any(), anyString(), anyString(), any());
         verify(activityAlertRepository).markSent(3L, List.of(42L));
     }
@@ -219,7 +221,7 @@ class ActivityAlertNotifierTest {
 
         verify(expoPushService).send(List.of("ExponentPushToken[a]"), "1 nouvelle activité près de Lyon",
                 "Match de foot", Map.of("type", "activity-alert", "activityId", 7L));
-        verify(emailService, never()).sendActivityAlertEmail(anyString(), anyString(), anyString());
+        verify(emailService, never()).sendActivityAlertEmail(anyString(), anyString(), anyString(), anyString());
         verify(activityAlertRepository).markSent(3L, List.of(7L));
     }
 
@@ -246,7 +248,7 @@ class ActivityAlertNotifierTest {
         when(activityAlertRepository.findNewMatchingActivities(3L, ActivityAlertNotifier.MAX_ACTIVITIES_PER_RUN))
                 .thenReturn(List.of(new AlertActivity(7L, "Match", null, null)));
         doThrow(new RuntimeException("SMTP down"))
-                .when(emailService).sendActivityAlertEmail(anyString(), anyString(), anyString());
+                .when(emailService).sendActivityAlertEmail(anyString(), anyString(), anyString(), anyString());
         when(pushTokenRepository.findTokensByUserId(12L)).thenReturn(List.of("ExponentPushToken[a]"));
         when(expoPushService.send(any(), anyString(), anyString(), any())).thenReturn(List.of());
 
@@ -286,7 +288,7 @@ class ActivityAlertNotifierTest {
 
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendActivityAlertEmail(
-                eq("d@example.com"), eq("Neiri : 2 nouveautés près de Lyon"), body.capture());
+                eq("d@example.com"), eq("Neiri : 2 nouveautés près de Lyon"), body.capture(), anyString());
         assertTrue(body.getValue().contains("Ton alerte : Sport, Food trucks · 10 km autour de Lyon\n"));
         assertTrue(body.getValue().contains("1 nouvelle activité et 1 nouveau food truck correspondent"));
         assertTrue(body.getValue().contains("1 ACTIVITÉ\n"));

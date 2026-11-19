@@ -126,7 +126,8 @@ public class ActivityAlertNotifier {
         if (alert.notifyEmail() && recipient.email() != null) {
             try {
                 emailService.sendActivityAlertEmail(
-                        recipient.email(), "Neiri : " + title, body(recipient, activities, foodTrucks, labels));
+                        recipient.email(), "Neiri : " + title, body(recipient, activities, foodTrucks, labels),
+                        oneClickUnsubscribeUrl(recipient));
                 delivered = true;
             } catch (RuntimeException exception) {
                 LOGGER.warn("Échec de l'e-mail de l'alerte {} : {}", alert.id(), exception.getClass().getSimpleName());
@@ -208,6 +209,11 @@ public class ActivityAlertNotifier {
      * Texte de l'email : résumé, rappel de l'alerte, activités par date (titre ; date, heure et commune ; lien vers
      * la fiche), food trucks, puis liens vers la carte, la gestion des alertes et le désabonnement.
      */
+    /** URL de désinscription en un clic (en-tête {@code List-Unsubscribe}), servie par l'API sous le même domaine. */
+    private String oneClickUnsubscribeUrl(AlertRecipient recipient) {
+        return frontendBaseUrl + "/api/v1/alerts/unsubscribe/one-click?token=" + recipient.unsubscribeToken();
+    }
+
     String body(
             AlertRecipient recipient, List<AlertActivity> activities, List<AlertFoodTruck> foodTrucks,
             Map<String, String> labels) {

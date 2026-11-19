@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -109,6 +110,17 @@ public class ActivityAlertController {
         }
         return errorResponse(HttpStatus.NOT_FOUND,
                 "Ce lien de désinscription n'est plus valide : l'alerte a peut-être déjà été supprimée.", httpRequest);
+    }
+
+    /**
+     * Désinscription en un clic (RFC 8058) : appelée en POST par la messagerie (bouton « Se désabonner »), jeton dans
+     * l'URL de l'en-tête {@code List-Unsubscribe}, corps {@code List-Unsubscribe=One-Click} ignoré. Sans cookie, donc
+     * hors CSRF ; même effet que le lien de l'e-mail.
+     */
+    @PostMapping("/api/v1/alerts/unsubscribe/one-click")
+    public ResponseEntity<Object> unsubscribeOneClick(
+            @RequestParam(name = "token", required = false) String token, HttpServletRequest httpRequest) {
+        return unsubscribe(new UnsubscribeRequest(token), httpRequest);
     }
 
     private ResponseEntity<Object> errorResponse(HttpStatus status, String message, HttpServletRequest request) {

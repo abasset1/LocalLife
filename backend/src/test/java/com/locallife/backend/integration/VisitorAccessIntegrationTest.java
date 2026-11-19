@@ -79,6 +79,16 @@ class VisitorAccessIntegrationTest {
     }
 
     @Test
+    void mailbox_ShouldUnsubscribeInOneClick_WithAFormPost() {
+        // RFC 8058 : la messagerie envoie « List-Unsubscribe=One-Click » en formulaire, sans cookie ni jeton CSRF.
+        int status = RestTestClient.bindToServer().baseUrl("http://localhost:" + port).build()
+                .post().uri("/api/v1/alerts/unsubscribe/one-click?token=jeton-inconnu")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED).body("List-Unsubscribe=One-Click")
+                .exchange().returnResult(String.class).getStatus().value();
+        assertThat(status).isEqualTo(404);
+    }
+
+    @Test
     void visitor_ShouldBeAskedToConnect_ForPersonalActions() {
         assertThat(status(HttpMethod.POST, "/api/v1/activities/1/like", null, null)).isEqualTo(401);
         assertThat(status(HttpMethod.GET, "/api/v1/users/me/likes", null, null)).isEqualTo(401);

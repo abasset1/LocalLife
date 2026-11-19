@@ -98,6 +98,14 @@ class ActivityAlertControllerTest {
     }
 
     @Test
+    void unsubscribeOneClick_ShouldUseTokenFromUrl() {
+        when(activityAlertService.unsubscribe("good")).thenReturn(true);
+
+        assertEquals(HttpStatus.NO_CONTENT, controller.unsubscribeOneClick("good", httpRequest).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, controller.unsubscribeOneClick(null, httpRequest).getStatusCode());
+    }
+
+    @Test
     void updateChannels_ShouldReturnUpdatedAlert_OrMapErrors() {
         ActivityAlert pushOnly =
                 new ActivityAlert(3L, 7L, "Lyon", 45.76, 4.83, 10, List.of("SPORT"), false, false, true, LocalDateTime.now());

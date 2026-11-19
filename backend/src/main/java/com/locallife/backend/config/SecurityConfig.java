@@ -164,6 +164,7 @@ public class SecurityConfig {
         "/api/v1/auth/confirm-email-change",
         "/api/v1/auth/logout",
         "/api/v1/alerts/unsubscribe",
+        "/api/v1/alerts/unsubscribe/one-click",
     };
 
     @Value("${jwt.secret}")

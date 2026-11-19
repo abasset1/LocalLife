@@ -39,6 +39,17 @@ public interface EmailService {
      */
     void sendActivityAlertEmail(String to, String subject, String text);
 
+    /**
+     * Comme {@link #sendActivityAlertEmail(String, String, String)}, avec désinscription en un clic (RFC 8058) :
+     * en-têtes {@code List-Unsubscribe} et {@code List-Unsubscribe-Post}, qui font apparaître le bouton
+     * « Se désabonner » de Gmail, Outlook ou Apple Mail et sont exigés par Gmail et Yahoo pour les envois réguliers.
+     *
+     * @param oneClickUnsubscribeUrl URL appelée en POST par la messagerie — contient le jeton, à ne pas logger
+     */
+    default void sendActivityAlertEmail(String to, String subject, String text, String oneClickUnsubscribeUrl) {
+        sendActivityAlertEmail(to, subject, text);
+    }
+
 
     /**
      * Lien de confirmation d'un changement d'adresse, envoyé à la <b>nouvelle</b> adresse : elle ne remplace

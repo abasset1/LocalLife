@@ -54,6 +54,7 @@ services:
       SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
       SMTP_SSL: ${SMTP_SSL:-false}
       MAIL_FROM: ${MAIL_FROM:?Configure MAIL_FROM in .env.beta}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO:-}
       FRONTEND_BASE_URL: https://${LOCALLIFE_DOMAIN}
       # Connexion Google (LL-EF-011) : audience attendue des ID tokens.
       # Facultatif ; vide, POST /api/v1/auth/google refuse tout token.
