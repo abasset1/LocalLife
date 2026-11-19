@@ -26,7 +26,7 @@ export const LEGAL_EDITOR = {
     /** Adresse dédiée aux demandes relatives aux données personnelles (peut être la même que le contact). */
     privacyEmail: "[À compléter : adresse e-mail pour les données personnelles]",
     publicationDirector: "[À compléter : nom et prénom du directeur de la publication]",
-    siteUrl: "[À compléter : adresse du site]",
+    siteUrl: "https://neiri.fr",
     /** Prestataire d'envoi des e-mails (SMTP) et pays d'hébergement de ses serveurs. */
     emailProvider: "[À compléter : prestataire d'envoi des e-mails et pays]",
     /** Région Backblaze B2 retenue pour les sauvegardes (une région européenne est recommandée). */

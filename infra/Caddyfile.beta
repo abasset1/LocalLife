@@ -48,3 +48,14 @@
         reverse_proxy frontend:80
     }
 }
+
+# www.neiri.fr → neiri.fr (enregistrement DNS « www » requis, voir docs/02_Architecture/DOMAINE.md).
+www.{$LOCALLIFE_DOMAIN} {
+    redir https://{$LOCALLIFE_DOMAIN}{uri} permanent
+}
+
+# Ancien domaine de la bêta : liens des e-mails déjà envoyés et versions de l'application déjà installées.
+# 308 : méthode et corps conservés (appels POST de l'API).
+{$LOCALLIFE_OLD_DOMAIN:locallife-beta.duckdns.org} {
+    redir https://{$LOCALLIFE_DOMAIN}{uri} 308
+}

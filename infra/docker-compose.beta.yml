@@ -87,6 +87,7 @@ services:
     container_name: locallife-caddy-beta
     environment:
       LOCALLIFE_DOMAIN: ${LOCALLIFE_DOMAIN}
+      LOCALLIFE_OLD_DOMAIN: ${LOCALLIFE_OLD_DOMAIN:-locallife-beta.duckdns.org}
     ports:
       - "80:80"
       - "443:443"
