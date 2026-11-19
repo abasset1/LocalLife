@@ -20,7 +20,10 @@
 #   (protection contre le clickjacking) — aucun besoin d'intégration
 #   identifié pour LocalLife.
 
-{$LOCALLIFE_DOMAIN} {
+# Domaine principal + anciens domaines (LOCALLIFE_LEGACY_DOMAINS, séparés
+# par des espaces, vide par défaut) servis à l'identique : une application
+# déjà installée qui appelle l'ancienne adresse continue de fonctionner.
+{$LOCALLIFE_DOMAIN} {$LOCALLIFE_LEGACY_DOMAINS} {
     # Compression des réponses (JSON de l'API, bundle) : la carte vue de loin renvoie des milliers
     # d'activités, plusieurs Mo de JSON sans compression.
     encode zstd gzip
@@ -42,4 +45,11 @@
     handle {
         reverse_proxy frontend:80
     }
+}
+
+# www → domaine principal (enregistrement DNS « www » requis pour le
+# certificat ; sans lui, Caddy journalise l'échec et le domaine principal
+# reste servi normalement).
+www.{$LOCALLIFE_DOMAIN} {
+    redir https://{$LOCALLIFE_DOMAIN}{uri} permanent
 }
