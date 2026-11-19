@@ -41,12 +41,10 @@ const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
  * Identifiant du projet EAS (Expo Application Services, projet @alexb8/neiri),
  * requis pour obtenir un jeton de notification push Expo et lu par `eas-cli`
  * (credentials, build). Ce n'est pas un secret : il figure dans chaque build.
- * EAS exige que le slug ci-dessous soit celui du projet : l'ancien projet
- * (@alexb8/locallife-mobile) ne convient plus. Tant que l'identifiant du projet
- * « neiri » n'est pas renseigné ici, le fournir par EAS_PROJECT_ID ; sans lui,
- * l'application affiche « notifications non configurées ».
+ * EAS exige que le slug ci-dessous (« neiri ») soit celui du projet.
+ * EAS_PROJECT_ID permet d'en utiliser un autre.
  */
-const easProjectId: string | undefined = process.env.EAS_PROJECT_ID;
+const easProjectId = process.env.EAS_PROJECT_ID ?? "798119ab-705a-4458-bf49-0a61419df577";
 
 /**
  * Configuration Firebase Android (`google-services.json`, téléchargé depuis la
@@ -153,6 +151,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     apiUrl,
     googleWebClientId,
     googleIosClientId,
-    ...(easProjectId ? { eas: { projectId: easProjectId } } : {}),
+    eas: { projectId: easProjectId },
   },
 });
