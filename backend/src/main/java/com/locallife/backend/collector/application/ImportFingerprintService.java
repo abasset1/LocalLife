@@ -31,10 +31,31 @@ public class ImportFingerprintService {
      */
     private static final String VERSION = "v1";
 
-    /** Empreinte {@code f} d'une activité {@code a} non archivée ; le {@code WHERE} est complété par l'appelant. */
+    /**
+     * Empreinte {@code f} d'une activité {@code a} non archivée d'une source <b>active</b> : une source désactivée
+     * ne retient plus ses éléments (sinon ses activités, figées, masqueraient celles de la source qui la remplace).
+     * Le {@code WHERE} est complété par l'appelant.
+     */
     private static final String LIVE_ACTIVITY_OF_ANOTHER_SOURCE =
             "SELECT 1 FROM import_fingerprint f JOIN activity a ON a.source_id = f.source_id "
-                    + "AND a.import_key = f.import_key AND a.status <> 'ARCHIVED'";
+                    + "AND a.import_key = f.import_key AND a.status <> 'ARCHIVED' "
+                    + "JOIN source s ON s.id = f.source_id AND s.status = 'ACTIVE'";
+
+    /**
+     * Préfixe des URI DATAtourisme : une URI identifie une fiche dans toute la France, quel que soit le fichier
+     * (régional, France) qui la publie. Deux sources DATAtourisme qui la lisent ont donc le même élément, même si
+     * le titre ou la date de début diffèrent (marché découpé par jours de la semaine dans l'une, continu dans
+     * l'autre parce que l'API n'a pas répondu).
+     */
+    static final String DATATOURISME_URI_PREFIX = "https://data.datatourisme.fr/";
+
+    /**
+     * Même élément que l'activité {@code a} : même URI DATAtourisme, ou, pour un autre identifiant (slug
+     * OpenAgenda, qui peut être partagé), même titre (casse et espaces de bord ignorés) et même date de début.
+     * {@code %1$s} et {@code %2$s} : titre et date de l'autre activité (colonnes ou paramètres).
+     */
+    private static final String SAME_ELEMENT_AS = "(f.external_id LIKE '" + DATATOURISME_URI_PREFIX + "%%' "
+            + "OR (lower(btrim(a.title)) = lower(btrim(%1$s)) AND a.start_date = %2$s))";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -98,27 +119,31 @@ public class ImportFingerprintService {
     }
 
     /**
-     * Vrai si une <b>autre</b> source a déjà une activité non archivée pour le même élément : même
-     * identifiant externe, même titre (casse et espaces de bord ignorés) et même date de début. Titre et
-     * date sont comparés en plus de l'identifiant pour ne jamais rapprocher deux événements différents
-     * qui partageraient un slug.
+     * Vrai si une <b>autre</b> source, active, a déjà une activité non archivée pour le même élément : même URI
+     * DATAtourisme, ou même identifiant externe avec même titre et même date de début (voir {@link
+     * #SAME_ELEMENT_AS}).
      */
     public boolean existsLiveDuplicateInAnotherSource(
             Long sourceId, String externalId, String title, LocalDateTime startDate) {
         Boolean found = jdbcTemplate.queryForObject(
                 "SELECT EXISTS (" + LIVE_ACTIVITY_OF_ANOTHER_SOURCE
-                        + " WHERE f.external_id = ? AND f.source_id <> ? "
-                        + " AND lower(btrim(a.title)) = lower(btrim(?)) AND a.start_date = ?)",
+                        + " WHERE f.external_id = ? AND f.source_id <> ? AND "
+                        + String.format(SAME_ELEMENT_AS, "?", "?") + ")",
                 Boolean.class, externalId, sourceId, title, startDate);
         return Boolean.TRUE.equals(found);
     }
 
     /**
-     * Activités non archivées de {@code sourceId} qui doublonnent une activité <b>plus ancienne</b> (id
-     * plus petit) et non archivée d'une autre source, selon la même règle que {@link
-     * #existsLiveDuplicateInAnotherSource}. La plus ancienne des deux reste publiée ; celle-ci est à
-     * archiver. Une requête par source : sert à résorber les doublons créés avant la déduplication, ou
-     * par deux imports qui auraient créé le même élément chacun de leur côté.
+     * Activités non archivées à archiver parce qu'elles doublonnent une activité restée en place, selon la même
+     * règle que {@link #existsLiveDuplicateInAnotherSource} :
+     * <ul>
+     *   <li>de {@code sourceId}, celles qui doublonnent une activité <b>plus ancienne</b> (id plus petit) d'une
+     *       autre source active : la plus ancienne reste publiée ;</li>
+     *   <li>d'une source <b>désactivée</b>, celles qui doublonnent une activité de {@code sourceId} : la source
+     *       qui l'a remplacée prend le relais.</li>
+     * </ul>
+     * Sert à résorber les doublons créés avant la déduplication, ou par deux imports qui auraient créé le même
+     * élément chacun de leur côté.
      */
     public List<Long> findDuplicateActivityIds(Long sourceId) {
         return jdbcTemplate.queryForList(
@@ -128,9 +153,19 @@ public class ImportFingerprintService {
                         + "WHERE mine.source_id = ? AND mine.status <> 'ARCHIVED' AND mf.external_id IS NOT NULL "
                         + "AND EXISTS (" + LIVE_ACTIVITY_OF_ANOTHER_SOURCE
                         + " WHERE f.external_id = mf.external_id AND f.source_id <> mine.source_id "
-                        + " AND a.id < mine.id AND lower(btrim(a.title)) = lower(btrim(mine.title)) "
-                        + " AND a.start_date = mine.start_date) ORDER BY mine.id",
-                Long.class, sourceId);
+                        + " AND a.id < mine.id AND " + String.format(SAME_ELEMENT_AS, "mine.title", "mine.start_date")
+                        + ") "
+                        + "UNION "
+                        + "SELECT a.id FROM activity a "
+                        + "JOIN import_fingerprint f ON f.source_id = a.source_id AND f.import_key = a.import_key "
+                        + "JOIN source s ON s.id = a.source_id AND s.status <> 'ACTIVE' "
+                        + "WHERE a.source_id <> ? AND a.status <> 'ARCHIVED' AND f.external_id IS NOT NULL "
+                        + "AND EXISTS (SELECT 1 FROM activity mine JOIN import_fingerprint mf "
+                        + " ON mf.source_id = mine.source_id AND mf.import_key = mine.import_key "
+                        + " WHERE mine.source_id = ? AND mine.status <> 'ARCHIVED' AND mf.external_id = f.external_id"
+                        + " AND " + String.format(SAME_ELEMENT_AS, "mine.title", "mine.start_date") + ") "
+                        + "ORDER BY 1",
+                Long.class, sourceId, sourceId, sourceId);
     }
 
     /** Oublie l'empreinte d'un élément : il sera réimporté en entier au prochain passage. */

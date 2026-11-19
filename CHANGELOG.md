@@ -2,6 +2,14 @@
 
 ## 0.9.59 — non publiée
 
+### Doublons DATAtourisme entre sources : même fiche, une seule activité
+- **Constat** : des marchés apparaissaient deux fois, une fois par la source « DATAtourisme Occitanie », une fois par « DATAtourisme Languedoc », qui lisent le même fichier. L'une montrait le marché sur l'année, l'autre semaine par semaine. Le dédoublonnage exigeait la même URI, le même titre **et la même date de début**. Or le découpage d'un marché par jours de la semaine dépend de l'API DATAtourisme : si l'API ne répond pas pour une source, son marché reste continu et sa date de début diffère. Les deux copies étaient donc publiées.
+- **Règle** : deux sources qui lisent la même URI DATAtourisme ont la même fiche, quels que soient le titre et la date. Pour les autres identifiants (slugs OpenAgenda, qui peuvent être partagés), titre et date restent exigés.
+- **Sources désactivées** : elles ne retiennent plus leurs éléments. Une fois une source désactivée, la source active qui lit les mêmes fiches publie les siennes, et l'import archive les copies encore publiées par la source désactivée. Avant, une source désactivée gardait ses activités publiées et bloquait celles de la source qui la remplaçait.
+- **Doublons déjà publiés** : archivés au prochain import (rien n'est supprimé). Entre deux sources actives, la copie la plus ancienne reste.
+- **Vérification** : `infra/verification/doublons_uri_datatourisme.sql`, en lecture seule, compte les fiches publiées en double par paire de sources, avec des exemples.
+- **À faire en production** : la source Occitanie couvre toute la région. Désactiver « DATAtourisme Languedoc » (Administration → Imports) pour ne garder qu'une source par fichier ; ses copies sont archivées au prochain import d'Occitanie.
+
 ### Notifications de suivi : ce qui a changé, avant → après
 - **Constat** : une activité, un lieu ou un food truck suivi ne notifiait que la nature du changement (« dates modifiées », « informations mises à jour »), sans dire ce qui avait changé.
 - **Détail enregistré** (migration V94) : `follow_change.details` note chaque champ modifié avec son ancienne et sa nouvelle valeur. Mêmes triggers et mêmes cas qu'avant : dates de début et de fin ; adresse ; position seule ; titre ou nom ; descriptions (signalées sans recopier le texte) ; tarifs et conditions ; âges ; lien ; site, e-mail et téléphone d'un lieu ; spécialité, type de cuisine, contact et réseaux d'un food truck. Plusieurs changements du même champ avant l'envoi donnent un seul « avant → après » ; un champ revenu à sa valeur de départ n'est pas cité.
