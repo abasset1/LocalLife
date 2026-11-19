@@ -58,12 +58,12 @@ du site, celui que vérifie le backend (`GOOGLE_CLIENT_ID`) : aucun réglage
 backend en plus. Dans la console Google Cloud, même projet que le site :
 
 1. **Android** : créer un identifiant OAuth de type *Android*, nom de package
-   `com.locallife.mobile`, empreinte SHA-1 de la clé qui signe l'APK. Pour un
+   `com.neiri.app`, empreinte SHA-1 de la clé qui signe l'APK. Pour un
    build local (signé avec la clé de debug du projet Android généré) :
    `keytool -list -v -keystore android/app/debug.keystore -alias androiddebugkey -storepass android -keypass android`
    (depuis `mobile/`, après un premier `npx expo prebuild`).
 2. **iOS** (facultatif) : créer un identifiant OAuth de type *iOS*, ID de
-   bundle `com.locallife.mobile`.
+   bundle `com.neiri.app`.
 3. Dans `mobile/.env` :
    ```
    EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=<client web, même valeur que GOOGLE_CLIENT_ID du backend>
@@ -374,7 +374,7 @@ notification sur le téléphone, via le service **Expo Push**.
      fournir en variable d'environnement EAS de type fichier nommée
      `GOOGLE_SERVICES_JSON`.
   2. Console Firebase : créer un projet, y ajouter une application Android
-     de package `com.locallife.mobile`, télécharger `google-services.json`
+     de package `com.neiri.app`, télécharger `google-services.json`
      et le placer dans `mobile/` (ignoré par Git ; autre emplacement :
      `GOOGLE_SERVICES_JSON`).
   3. Console Firebase → Paramètres du projet → Comptes de service : générer

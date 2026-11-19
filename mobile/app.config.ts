@@ -47,7 +47,7 @@ const easProjectId = process.env.EAS_PROJECT_ID ?? "b5705144-cb7e-4aa1-835b-0cb9
 
 /**
  * Configuration Firebase Android (`google-services.json`, téléchargé depuis la
- * console Firebase pour le package `com.locallife.mobile`). Indispensable sur
+ * console Firebase pour le package `com.neiri.app`). Indispensable sur
  * Android : sans elle, un build installé ne peut pas obtenir de jeton de
  * notification (Expo Push passe par FCM). Chemin fourni par
  * GOOGLE_SERVICES_JSON, sinon `./google-services.json` s'il est présent.
@@ -80,12 +80,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: "automatic",
   ios: {
     // Identifiant de l'application iOS (définitif une fois publiée sur l'App Store).
-    bundleIdentifier: "com.locallife.mobile",
+    bundleIdentifier: "com.neiri.app",
     icon: "./assets/images/icon.png",
   },
   android: {
     // Identifiant de l'application Android (définitif une fois publiée sur le Play Store).
-    package: "com.locallife.mobile",
+    package: "com.neiri.app",
     adaptiveIcon: {
       backgroundColor: "#EC3B6E",
       foregroundImage: "./assets/images/android-icon-foreground.png",
