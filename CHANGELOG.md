@@ -2,6 +2,12 @@
 
 ## 0.9.59 — non publiée
 
+### Préparation à la publication : corrections de sécurité et de build
+- **Erreurs 500** : la réponse ne contient plus le message brut de l'exception (détails SQL, noms de tables ou de classes) mais « Une erreur interne est survenue. Réessayez plus tard. ». Le détail reste dans le journal du serveur. Les autres erreurs (400, 403, 404, 409, 429…) gardent leur message.
+- **En-têtes HTTP** (`infra/Caddyfile.beta`) : ajout de `Content-Security-Policy` (scripts du site et connexion Google uniquement, images HTTPS de toute origine pour les photos importées et les tuiles, aucune intégration en cadre) et de `Referrer-Policy`. Vérifié dans Chromium : carte et tuiles chargées, aucune violation. À appliquer sur le serveur : `docker compose --env-file .env.beta -f docker-compose.beta.yml restart caddy`.
+- **Application, build de production** : un build EAS `production` échoue désormais si `EXPO_PUBLIC_API_URL` n'est pas une URL https, au lieu de produire une application pointant vers `http://localhost:8080`. À définir une fois : `eas env:create --environment production --name EXPO_PUBLIC_API_URL --value https://<domaine> --visibility plaintext`.
+- **Dépendances de l'application** : `npm audit fix` (mises à jour correctives au sein du SDK Expo 57) : 19 vulnérabilités dont 1 critique → 6 (3 modérées, 3 hautes), restantes corrigées seulement par le SDK 58.
+
 ### Notifications de suivi : ce qui a changé, avant → après
 - **Constat** : une activité, un lieu ou un food truck suivi ne notifiait que la nature du changement (« dates modifiées », « informations mises à jour »), sans dire ce qui avait changé.
 - **Détail enregistré** (migration V94) : `follow_change.details` note chaque champ modifié avec son ancienne et sa nouvelle valeur. Mêmes triggers et mêmes cas qu'avant : dates de début et de fin ; adresse ; position seule ; titre ou nom ; descriptions (signalées sans recopier le texte) ; tarifs et conditions ; âges ; lien ; site, e-mail et téléphone d'un lieu ; spécialité, type de cuisine, contact et réseaux d'un food truck. Plusieurs changements du même champ avant l'envoi donnent un seul « avant → après » ; un champ revenu à sa valeur de départ n'est pas cité.

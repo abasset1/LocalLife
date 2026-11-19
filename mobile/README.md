@@ -89,6 +89,16 @@ pointe vers le téléphone lui-même, pas vers votre machine de développement.
 Utilisez l'adresse IP de votre machine sur le réseau local, ou l'URL de
 l'API bêta.
 
+Build de production (`eas build --profile production`) : le fichier `.env`
+local n'est pas utilisé par les serveurs EAS. Déclarer la variable une fois
+dans EAS, sinon le build échoue volontairement (garde-fou d'`app.config.ts`,
+URL https exigée) :
+
+```sh
+eas env:create --environment production --name EXPO_PUBLIC_API_URL \
+  --value https://<domaine-de-l-api> --visibility plaintext
+```
+
 Aucun secret (clé API, mot de passe, etc.) ne doit être ajouté dans ce
 projet mobile : l'authentification aux services tiers reste gérée côté
 backend.

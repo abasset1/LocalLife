@@ -24,6 +24,8 @@ public class GlobalExceptionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    static final String INTERNAL_ERROR_MESSAGE = "Une erreur interne est survenue. Réessayez plus tard.";
+
     /**
      * Route inexistante : Spring MVC, faute de contrôleur, cherche une
      * ressource statique et lève {@link NoResourceFoundException}. C'est une
@@ -93,7 +95,8 @@ public class GlobalExceptionHandler {
                 Instant.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-                exception.getMessage(),
+                // Message générique : celui de l'exception (SQL, classes internes, chemins) reste dans le journal.
+                INTERNAL_ERROR_MESSAGE,
                 path);
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);

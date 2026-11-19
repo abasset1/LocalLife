@@ -18,6 +18,19 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 const DEV_DEFAULT_API_URL = "http://localhost:8080";
 
 /**
+ * Garde-fou : un build EAS « production » sans EXPO_PUBLIC_API_URL (ou pointant
+ * vers une adresse locale) publierait une application inutilisable. EAS_BUILD_PROFILE
+ * est défini par EAS pendant le build ; la variable se configure avec
+ * `eas env:create --environment production --name EXPO_PUBLIC_API_URL ...`.
+ */
+const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? DEV_DEFAULT_API_URL;
+if (process.env.EAS_BUILD_PROFILE === "production" && !/^https:\/\//.test(apiUrl)) {
+  throw new Error(
+    `EXPO_PUBLIC_API_URL doit être une URL https pour un build de production (valeur actuelle : ${apiUrl}).`,
+  );
+}
+
+/**
  * Clé Google Maps (Android uniquement, LL-MOB-0005). Fournie par
  * l'environnement, jamais commitée. Inutile avec Expo Go ; requise pour
  * un build autonome (APK/AAB) afin que la carte s'affiche sur Android.
@@ -134,7 +147,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     reactCompiler: true,
   },
   extra: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? DEV_DEFAULT_API_URL,
+    apiUrl,
     googleWebClientId,
     googleIosClientId,
     eas: { projectId: easProjectId },

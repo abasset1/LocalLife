@@ -271,7 +271,7 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
 
 ---
 
-## Backend — `GET /api/v1/users/{id}` public, expose l'email
+## Backend — `GET /api/v1/users/{id}` public, expose l'email ✅ Résolu
 
 * **Détecté** : audit sécurité LL-9004 (28 août 2026), catégorie
   Autorisation.
@@ -293,11 +293,11 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
   produit pour savoir si cette route a un usage prévu côté frontend
   nécessitant qu'elle reste publique — décision produit/sécurité,
   pas un choix technique unilatéral.
-* **Statut** : ouvert.
+* **Statut** : résolu le 22/10/2026 — route retirée (voir `SecurityConfig`).
 
 ---
 
-## Backend — messages d'exception bruts renvoyés au client sur les 500
+## Backend — messages d'exception bruts renvoyés au client sur les 500 ✅ Résolu
 
 * **Détecté** : audit sécurité LL-9004 (28 août 2026), catégorie
   Données sensibles.
@@ -320,7 +320,8 @@ résolution (ou jusqu'à une décision explicite de l'ignorer, justifiée).
   sur toutes les réponses 500 de l'API — à confirmer avec Alex que le
   détail actuel n'est utile à aucun consommateur (frontend, débogage
   bêta) avant de le retirer.
-* **Statut** : ouvert.
+* **Statut** : résolu le 19/11/2026 — message générique côté client
+  (`GlobalExceptionHandler.INTERNAL_ERROR_MESSAGE`), détail dans le journal seulement.
 
 ---
 

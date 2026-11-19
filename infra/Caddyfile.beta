@@ -29,6 +29,11 @@
         Strict-Transport-Security "max-age=31536000"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Content-Security-Policy : scripts du site seulement, plus la connexion Google (gsi) ;
+        # images de toute origine HTTPS (photos des activités importées, tuiles IGN/OSM) ;
+        # styles en ligne requis par Leaflet. Aucune intégration du site dans un cadre.
+        Content-Security-Policy "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     }
 
     handle /api/* {
