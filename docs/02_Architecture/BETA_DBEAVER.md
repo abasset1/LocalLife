@@ -26,7 +26,7 @@ Onglet **SSH** (cocher « Use SSH Tunnel ») :
 
 | Champ | Valeur |
 |---|---|
-| Host/IP | IP publique du VPS (ou `locallife-beta.duckdns.org`) |
+| Host/IP | IP publique du VPS (ou `neiri.fr`) |
 | Port | `22` |
 | User Name | utilisateur SSH du VPS |
 | Authentication | Public Key |
