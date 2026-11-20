@@ -5,6 +5,8 @@
 ### Domaine neiri.fr
 - `LOCALLIFE_DOMAIN=neiri.fr` ; `www.neiri.fr` redirigé vers `neiri.fr` (Caddy).
 - **Anciens domaines toujours servis** : `LOCALLIFE_LEGACY_DOMAINS` (vide par défaut) liste les adresses servies à l'identique, pour que les applications déjà installées chez les testeurs, qui appellent `locallife-beta.duckdns.org`, continuent de fonctionner. À vider une fois que plus aucune version installée ne l'utilise.
+- **Application mobile** : `mobile/.env.example` pointe sur `https://neiri.fr`. L'adresse est figée au build : les versions déjà installées appellent toujours l'ancien domaine, d'où `LOCALLIFE_LEGACY_DOMAINS`.
+- **Documentation** (`BETA_DEPLOYMENT.md`) : zone DNS OVH (supprimer les `AAAA` par défaut, sinon page « Site en construction » en IPv6 ; garder les enregistrements de messagerie), passage de l'application sur le nouveau domaine, et diagnostic quand le site marche mais pas l'application (Caddy à recréer avec `LOCALLIFE_LEGACY_DOMAINS`).
 
 ### Doublons DATAtourisme entre sources : même fiche, une seule activité
 - **Constat** : des marchés apparaissaient deux fois, une fois par la source « DATAtourisme Occitanie », une fois par « DATAtourisme Languedoc », qui lisent le même fichier. L'une montrait le marché sur l'année, l'autre semaine par semaine. Le dédoublonnage exigeait la même URI, le même titre **et la même date de début**. Or le découpage d'un marché par jours de la semaine dépend de l'API DATAtourisme : si l'API ne répond pas pour une source, son marché reste continu et sa date de début diffère. Les deux copies étaient donc publiées.

@@ -105,7 +105,7 @@ ligne `ERROR`.
 ## 5. Contrôler
 
 ```bash
-curl -s https://locallife-beta.duckdns.org/actuator/health    # votre domaine bêta ; attendu : {"status":"UP"}
+curl -s https://neiri.fr/actuator/health    # votre domaine bêta ; attendu : {"status":"UP"}
 docker exec -i locallife-postgres-beta sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
   < verification/apres_deploiement_v61_v63.sql
 ```
@@ -186,7 +186,7 @@ gunzip -c backups/avant-v61-v63.sql.gz \
   | docker exec -i locallife-postgres-beta sh -c 'psql -q -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 git checkout <la ligne notée à l'étape 0, sans le message>   # par exemple : git checkout abac271
 docker compose --env-file .env.beta -f docker-compose.beta.yml up -d --build
-curl -s https://locallife-beta.duckdns.org/actuator/health
+curl -s https://neiri.fr/actuator/health
 ```
 
 Revenir ensuite sur `main` avec `git checkout main` une fois le problème

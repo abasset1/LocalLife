@@ -31,9 +31,11 @@ il ne l'exécute pas.
   renommage CX22 → CX23 chez Hetzner courant 2026) : vérifier le nom
   et les caractéristiques exactes dans la console Hetzner au moment
   de la création plutôt que de se fier uniquement à ce document.
-* **Domaine :** sous-domaine gratuit DuckDNS (ex.
-  `locallife-beta.duckdns.org`), migrable plus tard sans impact sur le
-  code (voir « URLs et absence de CORS » ci-dessous).
+* **Domaine :** `neiri.fr` (zone DNS chez OVH), `www.neiri.fr`
+  redirigé vers `neiri.fr`. La bêta a démarré sur le sous-domaine
+  gratuit DuckDNS `locallife-beta.duckdns.org`, toujours servi pour les
+  applications déjà installées (voir « Domaine neiri.fr et ancien
+  domaine DuckDNS » ci-dessous).
 * **Stratégie retenue : un seul VPS, orchestré par Docker Compose**,
   dans la continuité directe de `infra/docker-compose.yml` (dev
   local) — pas de services managés séparés, pas de multi-serveur :
@@ -120,7 +122,8 @@ template sans valeur réelle est fourni dans
 
 | Variable | Rôle | Sensible ? |
 | --- | --- | --- |
-| `LOCALLIFE_DOMAIN` | Domaine utilisé par Caddy pour le certificat HTTPS | Non |
+| `LOCALLIFE_DOMAIN` | Domaine utilisé par Caddy pour le certificat HTTPS et pour les liens des e-mails (`neiri.fr`) ; `www.<domaine>` y est redirigé | Non |
+| `LOCALLIFE_LEGACY_DOMAINS` | Anciens domaines servis à l'identique, séparés par des espaces (`locallife-beta.duckdns.org`) ; vide par défaut | Non |
 | `POSTGRES_DB` / `POSTGRES_USER` | Identifiants de la base bêta | Non (identifiants), voir mot de passe ci-dessous |
 | `POSTGRES_PASSWORD` | Mot de passe de la base bêta | **Oui** |
 | `JWT_SECRET` | Secret de signature des JWT (`SecurityConfig`) | **Oui** |
@@ -163,7 +166,7 @@ l'ID token, voir ADR-0002) ; il ne manque que l'identifiant client.
 
 1. Console Google Cloud → *API et services* → *Écran de consentement
    OAuth* : type « Externe », nom de l'application, e-mail d'assistance,
-   domaine autorisé `duckdns.org` (ou le domaine réel). Champs d'accès :
+   domaine autorisé `neiri.fr`. Champs d'accès :
    `openid`, `email`, `profile` (aucune validation Google requise).
    En mode « Test », seuls les utilisateurs test déclarés peuvent se
    connecter : publier l'application pour ouvrir la bêta.
@@ -293,13 +296,34 @@ sudo usermod -aG docker $USER
 docker compose version   # vérifie le plugin Compose (inclus depuis get.docker.com)
 ```
 
-### 4. Configurer le sous-domaine DuckDNS
+### 4. Configurer le DNS
 
-* Créer un compte sur https://www.duckdns.org, créer le sous-domaine
-  (ex. `locallife-beta`), le faire pointer vers l'IP publique de
-  l'instance.
-* Vérifier la propagation : `dig +short locallife-beta.duckdns.org`
-  doit renvoyer l'IP de l'instance.
+Zone DNS de `neiri.fr` chez OVH (*Noms de domaine* → `neiri.fr` →
+*Zone DNS*) :
+
+| Sous-domaine | Type | Cible |
+| --- | --- | --- |
+| *(vide, @)* | `A` | IP publique de l'instance (`37.27.250.151`) |
+| `www` | `A` | même IP (ou `CNAME` vers `neiri.fr.`) |
+
+* **Supprimer les enregistrements `AAAA` créés par OVH** sur `@` et
+  `www` (`2001:41d0:301::29`), ou les remplacer par l'IPv6 de
+  l'instance. Sinon, les appareils en IPv6 (box, 4G) arrivent sur la
+  page OVH « Site en construction » alors que l'IPv4 est correcte.
+  Supprimer de même tout autre `A` OVH sur `@` ou `www`.
+* Ne pas toucher aux enregistrements de messagerie (`MX`, `SPF`, `SRV`,
+  `CNAME` `mail`, `smtp`, `imap`, `pop3`, `autoconfig`, `autodiscover`,
+  `ovhmo-selector-…`) : ils servent aux e-mails `@neiri.fr` (OVH et
+  Brevo).
+* Vérifier la propagation (jusqu'à la fin du TTL des anciens
+  enregistrements, souvent 1 h) :
+  ```bash
+  dig +short A neiri.fr      # IP de l'instance
+  dig +short AAAA neiri.fr   # vide, ou IPv6 de l'instance
+  ```
+* Ancien domaine : le sous-domaine DuckDNS `locallife-beta` doit
+  continuer de pointer vers la même IP tant qu'il figure dans
+  `LOCALLIFE_LEGACY_DOMAINS` (`dig +short locallife-beta.duckdns.org`).
 
 ### 5. Cloner le dépôt
 
@@ -320,8 +344,9 @@ chmod 600 .env.beta
 openssl rand -base64 32   # à exécuter deux fois : POSTGRES_PASSWORD, JWT_SECRET
 ```
 
-`LOCALLIFE_DOMAIN` = `locallife-beta.duckdns.org` (ou le sous-domaine
-choisi). `OPENAGENDA_API_KEY` : **ne pas réutiliser l'ancienne clé**
+`LOCALLIFE_DOMAIN` = `neiri.fr`, `LOCALLIFE_LEGACY_DOMAINS` =
+`locallife-beta.duckdns.org` (tant que des applications installées
+l'appellent, voir ci-dessous). `OPENAGENDA_API_KEY` : **ne pas réutiliser l'ancienne clé**
 (compromise, exposée publiquement dans l'historique Git — voir
 LL-9004) — utiliser la nouvelle clé régénérée sur le portail
 OpenAgenda.
@@ -333,15 +358,45 @@ docker compose --env-file .env.beta -f docker-compose.beta.yml up -d --build
 docker compose --env-file .env.beta -f docker-compose.beta.yml ps
 ```
 
+### Domaine neiri.fr et ancien domaine DuckDNS
+
+L'application mobile fige l'adresse de l'API au build
+(`EXPO_PUBLIC_API_URL`, voir `mobile/.env.example`) : les versions déjà
+installées appellent `https://locallife-beta.duckdns.org`, les nouvelles
+`https://neiri.fr`. Pour que les deux fonctionnent :
+
+1. `.env.beta` : `LOCALLIFE_DOMAIN=neiri.fr` et
+   `LOCALLIFE_LEGACY_DOMAINS=locallife-beta.duckdns.org`.
+2. Recréer Caddy pour qu'il relise ses variables (un simple `restart`
+   ne suffit pas) :
+   ```bash
+   docker compose --env-file .env.beta -f docker-compose.beta.yml up -d --force-recreate caddy
+   ```
+3. Vérifier les deux adresses :
+   ```bash
+   curl -I https://neiri.fr/actuator/health
+   curl -I https://locallife-beta.duckdns.org/actuator/health
+   ```
+   Une erreur TLS « internal error » sur l'une d'elles signifie que
+   Caddy ne la sert pas (variable absente ou Caddy non recréé) ; un
+   échec de certificat apparaît dans
+   `docker logs locallife-caddy-beta --tail 50`.
+
+Symptôme typique d'un oubli de `LOCALLIFE_LEGACY_DOMAINS` : le site
+fonctionne sur `neiri.fr`, mais l'application installée n'affiche plus
+rien. Une fois qu'aucune version installée n'utilise plus l'ancienne
+adresse, vider la variable et recréer Caddy.
+
 ### 8. Vérifier les critères d'acceptation LL-9003
 
 ```bash
 # Health check, en HTTPS via Caddy :
-curl -i https://locallife-beta.duckdns.org/actuator/health
-# attendu : 200, {"status":"UP"}
+curl -i https://neiri.fr/actuator/health
+# attendu : 200, {"status":"UP"} (idem sur https://locallife-beta.duckdns.org
+# tant que LOCALLIFE_LEGACY_DOMAINS le contient)
 
 # Authentification (inscription) :
-curl -i -X POST https://locallife-beta.duckdns.org/api/v1/auth/register \
+curl -i -X POST https://neiri.fr/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"test","email":"test@example.com","password":"motdepassetest"}'
 # attendu : 201 Created
@@ -402,8 +457,7 @@ conditions réelles**, pas de nouveau déploiement.
 
 ### Vérification à effectuer par Alex (checklist LL-9005)
 
-Depuis un navigateur, sur `https://<LOCALLIFE_DOMAIN>` (le sous-domaine
-DuckDNS configuré en LL-9003), en ouvrant les outils de développement
+Depuis un navigateur, sur `https://<LOCALLIFE_DOMAIN>` (`neiri.fr`), en ouvrant les outils de développement
 (onglet Réseau) pour confirmer que chaque appel API part bien en
 relatif vers le même domaine, jamais vers `localhost` :
 
